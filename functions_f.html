@@ -308,6 +308,9 @@ $(function() {
 <li>find_seeds()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#ab9e0a0ad996ae2011c90e2a6d6dd4b4a">vg::MinimizerMapper</a>
 </li>
+<li>find_seeds_old()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#aa97d3763f24c10eada7c42b6691a35e0">vg::MinimizerMapper</a>
+</li>
 <li>find_snarls()
 : <a class="el" href="classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452">vg::CactusSnarlFinder</a>
 , <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html#a3b6820315dc0a0a15fcd61076f87fcf7">vg::HandleGraphSnarlFinder</a>
@@ -495,7 +498,7 @@ $(function() {
 </li>
 <li>for_each()
 : <a class="el" href="classvg_1_1Paths.html#ac86fa87134c58faea8d70822fe00990c">vg::Paths</a>
-, <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#a00984ebffd918ad9e78bda1686ca035c">vg::subcommand::Subcommand</a>
+, <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ab8948845550b743c7dc1be41d8458e8d">vg::subcommand::Subcommand</a>
 , <a class="el" href="classvg_1_1VGset.html#a998c782d65a9abe5610ce86925f91762">vg::VGset</a>
 </li>
 <li>for_each_agglomeration_interval()
@@ -521,7 +524,7 @@ $(function() {
 </li>
 <li>for_each_edge()
 : <a class="el" href="classhandlegraph_1_1HandleGraph.html#a61570ded026f825d62ea7608a1e92349">handlegraph::HandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#aed86f57c2e9766da9757e18ef543d35d">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a3d7fdd8c951cbf8b25e116435b5e1e0e">vg::VG</a>
 </li>
 <li>for_each_edge_parallel()
 : <a class="el" href="classvg_1_1VG.html#a46a20aa427767a27fd15d181ccca8c42">vg::VG</a>
@@ -771,10 +774,12 @@ $(function() {
 , <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Cluster.html#a74bf04854c0901aceaa3cd8295d28488">vg::SnarlSeedClusterer::Cluster</a>
 </li>
 <li>fragment_best_left
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a1c85a3f1a7cb3094be7c960cb6b9271f">vg::SnarlSeedClusterer::NodeClusters</a>
+: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1NodeClusters.html#aff14a062bb50c6f6d1b52317763fc6c1">vg::NewSnarlSeedClusterer::NodeClusters</a>
+, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a1c85a3f1a7cb3094be7c960cb6b9271f">vg::SnarlSeedClusterer::NodeClusters</a>
 </li>
 <li>fragment_best_right
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#ace22e652d7abfeb400ddca12ae656154">vg::SnarlSeedClusterer::NodeClusters</a>
+: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1NodeClusters.html#a13b2aac4ebfa7319b562591e54c43ef9">vg::NewSnarlSeedClusterer::NodeClusters</a>
+, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#ace22e652d7abfeb400ddca12ae656154">vg::SnarlSeedClusterer::NodeClusters</a>
 </li>
 <li>fragment_direction()
 : <a class="el" href="classvg_1_1FragmentLengthStatistics.html#af43d1fa0b2d07be1cd3f7d658fa932c5">vg::FragmentLengthStatistics</a>
@@ -783,7 +788,8 @@ $(function() {
 : <a class="el" href="classvg_1_1FragmentLengthStatistics.html#a04cfcfa9321c794d2b29c9e88e30cc22">vg::FragmentLengthStatistics</a>
 </li>
 <li>fragment_distance_limit
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ad7499be89705bf49a2b433a32ea615ac">vg::SnarlSeedClusterer::TreeState</a>
+: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1TreeState.html#a5dbf2d00ab0b4a95b187899700380f9d">vg::NewSnarlSeedClusterer::TreeState</a>
+, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ad7499be89705bf49a2b433a32ea615ac">vg::SnarlSeedClusterer::TreeState</a>
 </li>
 <li>fragment_distr_is_finalized()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a692470c7551c4966126aa7bf357e60a4">vg::MinimizerMapper</a>
@@ -856,10 +862,11 @@ $(function() {
 : <a class="el" href="classvg_1_1FragmentLengthStatistics.html#ad703c2e5fc7b03154ec6861a2be1e98b">vg::FragmentLengthStatistics</a>
 </li>
 <li>fragment_union_find
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#aed0cb3be1eaa4955496c14ce0d50c054">vg::SnarlSeedClusterer::TreeState</a>
+: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1TreeState.html#a9065789be231b4f6ef182d2c879b403c">vg::NewSnarlSeedClusterer::TreeState</a>
+, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#aed0cb3be1eaa4955496c14ce0d50c054">vg::SnarlSeedClusterer::TreeState</a>
 </li>
 <li>FragmentLengthDistribution()
-: <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a8551fd1f0ad1270145483715f35c7b6b">vg::FragmentLengthDistribution</a>
+: <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a8788ddb09653e64eb868cbc942df95c6">vg::FragmentLengthDistribution</a>
 </li>
 <li>frequency
 : <a class="el" href="classvg_1_1MCMCGenotyper.html#a4f8407692d3a6657442269ab9356952c">vg::MCMCGenotyper</a>

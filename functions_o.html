@@ -82,10 +82,10 @@ $(function() {
 , <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html#a6ff78e62ecc19fcf85d06ebdca488a1f">vg::SnarlSeedClusterer::Seed</a>
 </li>
 <li>OFFSET_MASK
-: <a class="el" href="structvg_1_1MIPayload.html#a0f8d6f2aedd4f81feed73aad8e79d1a1">vg::MIPayload</a>
+: <a class="el" href="structvg_1_1MinimumDistanceIndex_1_1MIPayload.html#a1811206f29735b860a9a4bc9f3256ccb">vg::MinimumDistanceIndex::MIPayload</a>
 </li>
 <li>OFFSET_WIDTH
-: <a class="el" href="structvg_1_1MIPayload.html#aa4f73b550a1a05bc6a690186dce95ccd">vg::MIPayload</a>
+: <a class="el" href="structvg_1_1MinimumDistanceIndex_1_1MIPayload.html#a31394df65739e04b5d4b4ff676269512">vg::MinimumDistanceIndex::MIPayload</a>
 </li>
 <li>offsets
 : <a class="el" href="classxg_1_1XGPath.html#a062c1a4ce4f13b67a90f8b57ec57e91e">xg::XGPath</a>
@@ -98,6 +98,15 @@ $(function() {
 </li>
 <li>offsets_select
 : <a class="el" href="classxg_1_1XGPath.html#a22511bf04c45ce0c8620069781e3cdee">xg::XGPath</a>
+</li>
+<li>old_annotate_with_minimizer_statistics()
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a47636a47cbfeb13bcc8f2877446c8be1">vg::MinimizerMapper</a>
+</li>
+<li>old_clusterer
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a4f1339ce5540998f9d4e0e474c852ccd">vg::MinimizerMapper</a>
+</li>
+<li>old_distance_index
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a01e8fd6781e183e570c7157a946850ca">vg::MinimizerMapper</a>
 </li>
 <li>OLD_EDGE_TYPE_END_END
 : <a class="el" href="classxg_1_1XG.html#a42c04fbecadef083a270c715b250e0cd">xg::XG</a>
@@ -143,6 +152,9 @@ $(function() {
 </li>
 <li>old_version_path_name_start
 : <a class="el" href="classxg_1_1XG.html#aa5ca99b933d49ff2b036650008b68cbd">xg::XG</a>
+</li>
+<li>OldSeed
+: <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">vg::MinimizerMapper</a>
 </li>
 <li>on_group()
 : <a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a5b5f11b2f9b08a870fc68a980c91f1e4">vg::io::MessageEmitter</a>
@@ -223,6 +235,7 @@ $(function() {
 , <a class="el" href="classvg_1_1uniform__int__distribution.html#a51f168ff739db2810fc443c8a17a7981">vg::uniform_int_distribution&lt; T &gt;</a>
 , <a class="el" href="classvg_1_1uniform__real__distribution.html#a2943db49f42d531d7358b64dbbd87d66">vg::uniform_real_distribution&lt; T &gt;</a>
 , <a class="el" href="structvg_1_1wang__hash_3_01handle__t_01_4.html#a2abb45aa397420108850ce590f7f3bf7">vg::wang_hash&lt; handle_t &gt;</a>
+, <a class="el" href="structvg_1_1wang__hash_3_01handlegraph_1_1net__handle__t_01_4.html#a14d9633d19737075532f81dc0a97cb0c">vg::wang_hash&lt; handlegraph::net_handle_t &gt;</a>
 , <a class="el" href="structvg_1_1wang__hash_3_01NodeSide_01_4.html#a7880d169d8ebf669908ae4262c49c7b8">vg::wang_hash&lt; NodeSide &gt;</a>
 , <a class="el" href="structvg_1_1wang__hash_3_01NodeTraversal_01_4.html#ae175f5bef4a05d469ebec4341ff47062">vg::wang_hash&lt; NodeTraversal &gt;</a>
 , <a class="el" href="structvg_1_1wang__hash_3_01path__handle__t_01_4.html#a5a9ad96629401a307c94b17a2d91fc53">vg::wang_hash&lt; path_handle_t &gt;</a>
@@ -282,23 +295,23 @@ $(function() {
 , <a class="el" href="structvg_1_1IndexedVG_1_1CacheEntry.html#a6b657674e880f1c5a8026617818f19ed">vg::IndexedVG::CacheEntry</a>
 , <a class="el" href="classvg_1_1IndexRegistry.html#a50fcb23d815a8eb3da616c9284157ada">vg::IndexRegistry</a>
 , <a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#aaae753008929cd78c3ece15f1e73826d">vg::io::BlockedGzipInputStream</a>
-, <a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#a26746003c36d4c51964fe291412c48a0">vg::io::BlockedGzipOutputStream</a>
+, <a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#ae54f16684d6a1f7ea66cf57ab0a481f9">vg::io::BlockedGzipOutputStream</a>
 , <a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a8cc7250b2785917930d88f92d66058cb">vg::io::MessageEmitter</a>
 , <a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html#ad81cc27d627747dc34683bb2e0500ff6">vg::io::ProtobufEmitter&lt; T &gt;</a>
 , <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#aa0426a0e605e8375e1716dfb28b6482e">vg::io::StreamMultiplexer</a>
 , <a class="el" href="classvg_1_1MaximalExactMatch.html#af5383e1741bfcd3f7a9d41018bc4b7e1">vg::MaximalExactMatch</a>
-, <a class="el" href="classvg_1_1MEMChainModelVertex.html#a607061ec174e1ea4ed0829c86e1d23de">vg::MEMChainModelVertex</a>
+, <a class="el" href="classvg_1_1MEMChainModelVertex.html#ac83963d8e6a0ae78e048910f7441c83a">vg::MEMChainModelVertex</a>
 , <a class="el" href="classvg_1_1multipath__alignment__t.html#aa0528d2e50e3d355b33a4e82f1c4fd3a">vg::multipath_alignment_t</a>
 , <a class="el" href="classvg_1_1path__mapping__t.html#a39e949d4373018841d602b09f38c02db">vg::path_mapping_t</a>
-, <a class="el" href="classvg_1_1path__t.html#a67afac5bcd50418d85e64dad6d37f5ec">vg::path_t</a>
+, <a class="el" href="classvg_1_1path__t.html#aae739a62958056a2fc7af23cbdda80c0">vg::path_t</a>
 , <a class="el" href="classvg_1_1Paths.html#a42b45e7dcb60d7f744566ea2f1e8a6ba">vg::Paths</a>
 , <a class="el" href="classvg_1_1PhasedGenome_1_1iterator.html#a2802e8904098e873bf6d261dc93bc9ec">vg::PhasedGenome::iterator</a>
 , <a class="el" href="classvg_1_1PhasedGenome.html#aa4f75b660fd6b1fe8528a10289621d01">vg::PhasedGenome</a>
 , <a class="el" href="classvg_1_1position__t.html#a649b67df0f23bbe0271b79fb65cca990">vg::position_t</a>
-, <a class="el" href="classvg_1_1QualAdjXdropAligner.html#a55c6307a0d16cb7ac32e25f1c4f19e6f">vg::QualAdjXdropAligner</a>
+, <a class="el" href="classvg_1_1QualAdjXdropAligner.html#ab68a1dff1baf74e2275c5db0c7ac4d39">vg::QualAdjXdropAligner</a>
 , <a class="el" href="structvg_1_1Range.html#a4880259b13fcdda9fa55abf2faf6a38c">vg::Range&lt; Number &gt;</a>
 , <a class="el" href="classvg_1_1SmallBitset.html#a2e0933ff70a59061ccb2a20e826364e9">vg::SmallBitset</a>
-, <a class="el" href="classvg_1_1SnarlManager.html#af6f0f956456ef8ec76616fc47bc74428">vg::SnarlManager</a>
+, <a class="el" href="classvg_1_1SnarlManager.html#a08acef6ec793e011aa7537f9ccb4dcfe">vg::SnarlManager</a>
 , <a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#ad230c1701326adfb7d3bbcb57628be43">vg::SnarlManager::SnarlRecord</a>
 , <a class="el" href="classvg_1_1StreamIndexBase.html#ab0ac239e55d7748226a6a2d08480e026">vg::StreamIndexBase</a>
 , <a class="el" href="classvg_1_1subpath__t.html#a23ccc424b12615a3121c733470f5329d">vg::subpath_t</a>
@@ -307,7 +320,7 @@ $(function() {
 , <a class="el" href="classvg_1_1Watchdog.html#a05ee3b04abde016d4dad666372a38bbb">vg::Watchdog</a>
 , <a class="el" href="classvg_1_1WindowedVcfBuffer.html#ab26fcdb650d9ca250827fa4db733fdd6">vg::WindowedVcfBuffer</a>
 , <a class="el" href="classvg_1_1XdropAligner.html#a5bb2cfcbd85802990c1386827ac98192">vg::XdropAligner</a>
-, <a class="el" href="classxg_1_1XG.html#aa06dbf48d0e060ddec20000e4242ed5a">xg::XG</a>
+, <a class="el" href="classxg_1_1XG.html#a5dc0f63bc2e56b29638a7a4fc89bbacb">xg::XG</a>
 , <a class="el" href="classxg_1_1XGPath.html#a08310ec2e3e6e968b3d412329a9fc4ad">xg::XGPath</a>
 </li>
 <li>operator==()
@@ -329,7 +342,7 @@ $(function() {
 , <a class="el" href="classvg_1_1ShuffledPairs_1_1iterator.html#a35842cde2d948d93e9919b267410a8da">vg::ShuffledPairs::iterator</a>
 </li>
 <li>operator[]()
-: <a class="el" href="structhaplo_1_1gbwt__thread__t.html#a9dd1cb0268973121f00304ae34c7688d">haplo::gbwt_thread_t</a>
+: <a class="el" href="structhaplo_1_1gbwt__thread__t.html#a0ebbbd89e60564e347b1bc441230786c">haplo::gbwt_thread_t</a>
 </li>
 <li>operator|=()
 : <a class="el" href="classvg_1_1SmallBitset.html#a541303f562fa1579b94ceda2eda95927">vg::SmallBitset</a>
@@ -415,7 +428,7 @@ $(function() {
 : <a class="el" href="structvg_1_1io_1_1hFILE__cppstream.html#a1b13eb012084d4b68b0f30a1cddebb41">vg::io::hFILE_cppstream</a>
 </li>
 <li>output_filepath()
-: <a class="el" href="classvg_1_1IndexingPlan.html#a405ede5620e8a7263fbb734f656c9971">vg::IndexingPlan</a>
+: <a class="el" href="classvg_1_1IndexingPlan.html#a5ef2f8275a2f997e94d178089107502a">vg::IndexingPlan</a>
 </li>
 <li>output_format_t
 : <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0b">vg::MultipathAlignmentEmitter</a>

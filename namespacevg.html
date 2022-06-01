@@ -389,6 +389,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NetGraph.html">NetGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NewSnarlSeedClusterer.html">NewSnarlSeedClusterer</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html">NGSSimulator</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NoAlignmentInBandException.html">NoAlignmentInBandException</a></td></tr>
@@ -668,6 +670,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash.html">wang_hash</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01handle__t_01_4.html">wang_hash&lt; handle_t &gt;</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01handlegraph_1_1net__handle__t_01_4.html">wang_hash&lt; handlegraph::net_handle_t &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01NodeSide_01_4.html">wang_hash&lt; NodeSide &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1924,6 +1928,24 @@ Functions</h2></td></tr>
 <tr class="separator:ad7ec65dd3bb34f37cff811f49c1b9599"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a75bc48248af00118bc7cdacc00e37db1"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a75bc48248af00118bc7cdacc00e37db1">to_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> edge)</td></tr>
 <tr class="separator:a75bc48248af00118bc7cdacc00e37db1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94b957fba9b771caf3b970e429df604d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a94b957fba9b771caf3b970e429df604d">fill_in_distance_index</a> (SnarlDistanceIndex *distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, size_t distance_limit)</td></tr>
+<tr class="separator:a94b957fba9b771caf3b970e429df604d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add43cf1ef02485c049fd77af34f796c9"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex::TemporaryDistanceIndex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#add43cf1ef02485c049fd77af34f796c9">make_temporary_distance_index</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *snarl_finder, size_t size_limit, size_t distance_limit)</td></tr>
+<tr class="separator:add43cf1ef02485c049fd77af34f796c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e81a7d0f05b823897ecefe1f694e957"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e81a7d0f05b823897ecefe1f694e957">populate_snarl_index</a> (SnarlDistanceIndex::TemporaryDistanceIndex &amp;temp_index, pair&lt; SnarlDistanceIndex::temp_record_t, size_t &gt; snarl_index, size_t size_limit, size_t distance_limit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a2e81a7d0f05b823897ecefe1f694e957"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff8a7aca57dd525bc2def1369abae3fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aff8a7aca57dd525bc2def1369abae3fe">subgraph_in_distance_range</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, size_t min_distance, size_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, bool look_forward)</td></tr>
+<tr class="separator:aff8a7aca57dd525bc2def1369abae3fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0312bffc43a4f4176aad1c37073b59df"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0312bffc43a4f4176aad1c37073b59df">subgraph_in_distance_range_walk_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, size_t min_distance, size_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;start_nodes, <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;seen_nodes, const pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &amp;traversal_start)</td></tr>
+<tr class="separator:a0312bffc43a4f4176aad1c37073b59df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a30f08b56f8c117103357ed4b8ebc08b8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a30f08b56f8c117103357ed4b8ebc08b8">subgraph_in_distance_range_walk_across_chain</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> current_node, size_t current_distance, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;search_start_nodes, <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;seen_nodes, const size_t &amp;min_distance, const size_t &amp;max_distance, bool checked_loop)</td></tr>
+<tr class="separator:a30f08b56f8c117103357ed4b8ebc08b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc960c295c1e3088dc8e71ab1af5c4d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc960c295c1e3088dc8e71ab1af5c4d6">subgraph_containing_path_snarls</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph)</td></tr>
+<tr class="separator:acc960c295c1e3088dc8e71ab1af5c4d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e91a5d33d2da100b1173bc336ea90ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e91a5d33d2da100b1173bc336ea90ff">add_descendants_to_subgraph</a> (const SnarlDistanceIndex &amp;distance_index, const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;parent, std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph)</td></tr>
+<tr class="separator:a9e91a5d33d2da100b1173bc336ea90ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5860c62569f780daf734650eb5188e5"><td class="memItemLeft" align="right" valign="top">tuple&lt; size_t, size_t, size_t, size_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad5860c62569f780daf734650eb5188e5">get_minimizer_distances</a> (const SnarlDistanceIndex &amp;distance_index, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
+<tr class="separator:ad5860c62569f780daf734650eb5188e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a43f061abac718e0386965aa537398e74"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43f061abac718e0386965aa537398e74">start_backward</a> (const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain)</td></tr>
 <tr class="separator:a43f061abac718e0386965aa537398e74"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acab8d2ef076a0e866c7849aace290124"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acab8d2ef076a0e866c7849aace290124">end_backward</a> (const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> &amp;chain)</td></tr>
@@ -3140,6 +3162,40 @@ Variables</h2></td></tr>
 <p>Add a new alt allele to a vcflib Variant, since apaprently there's no method for that already.</p>
 <p>If that allele already exists in the variant, does not add it again.</p>
 <p>Retuerns the allele number (0, 1, 2, etc.) corresponding to the given allele string in the given variant. </p>
+
+</div>
+</div>
+<a id="a9e91a5d33d2da100b1173bc336ea90ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e91a5d33d2da100b1173bc336ea90ff">&#9670;&nbsp;</a></span>add_descendants_to_subgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::add_descendants_to_subgraph </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>parent</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -8509,6 +8565,52 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a id="a94b957fba9b771caf3b970e429df604d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a94b957fba9b771caf3b970e429df604d">&#9670;&nbsp;</a></span>fill_in_distance_index()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::fill_in_distance_index </td>
+          <td>(</td>
+          <td class="paramtype">SnarlDistanceIndex *&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *&#160;</td>
+          <td class="paramname"><em>snarl_finder</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>distance_limit</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a5ddba9dd6dcb384cbbea06c535e00d6d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5ddba9dd6dcb384cbbea06c535e00d6d">&#9670;&nbsp;</a></span>filter_breakpoints_by_coverage()</h2>
 
@@ -10371,6 +10473,34 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </div><div class="memdoc">
 
 <p>Get the max virtual memory size ever, in kb, or 0 if unsupported. </p>
+
+</div>
+</div>
+<a id="ad5860c62569f780daf734650eb5188e5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad5860c62569f780daf734650eb5188e5">&#9670;&nbsp;</a></span>get_minimizer_distances()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; size_t, size_t, size_t, size_t, bool &gt; vg::get_minimizer_distances </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
+          <td class="paramname"><em>pos</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -13203,6 +13333,46 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>TBD Create a <a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele.">Support</a> for the given forward and reverse coverage and quality. </p>
+
+</div>
+</div>
+<a id="add43cf1ef02485c049fd77af34f796c9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#add43cf1ef02485c049fd77af34f796c9">&#9670;&nbsp;</a></span>make_temporary_distance_index()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">SnarlDistanceIndex::TemporaryDistanceIndex vg::make_temporary_distance_index </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html">HandleGraphSnarlFinder</a> *&#160;</td>
+          <td class="paramname"><em>snarl_finder</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>distance_limit</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -17942,6 +18112,55 @@ template&lt;typename TracebackIterator &gt; </div>
 
 </div>
 </div>
+<a id="a2e81a7d0f05b823897ecefe1f694e957"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e81a7d0f05b823897ecefe1f694e957">&#9670;&nbsp;</a></span>populate_snarl_index()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::populate_snarl_index </td>
+          <td>(</td>
+          <td class="paramtype">SnarlDistanceIndex::TemporaryDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>temp_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">pair&lt; SnarlDistanceIndex::temp_record_t, size_t &gt;&#160;</td>
+          <td class="paramname"><em>snarl_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>distance_limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Record the distance</p>
+<p>Add the next node to the priority queue</p>
+<p>Check the minimum length of the snarl passing through this node</p>
+
+</div>
+</div>
 <a id="ae1296fd4e352a120122d4be0a0007819"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae1296fd4e352a120122d4be0a0007819">&#9670;&nbsp;</a></span>pos_to_gbwt()</h2>
 
@@ -20887,6 +21106,239 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="acc960c295c1e3088dc8e71ab1af5c4d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acc960c295c1e3088dc8e71ab1af5c4d6">&#9670;&nbsp;</a></span>subgraph_containing_path_snarls()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::subgraph_containing_path_snarls </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aff8a7aca57dd525bc2def1369abae3fe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff8a7aca57dd525bc2def1369abae3fe">&#9670;&nbsp;</a></span>subgraph_in_distance_range()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::subgraph_in_distance_range </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>super_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>look_forward</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a30f08b56f8c117103357ed4b8ebc08b8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a30f08b56f8c117103357ed4b8ebc08b8">&#9670;&nbsp;</a></span>subgraph_in_distance_range_walk_across_chain()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::subgraph_in_distance_range_walk_across_chain </td>
+          <td>(</td>
+          <td class="paramtype">const SnarlDistanceIndex &amp;&#160;</td>
+          <td class="paramname"><em>distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>super_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a>&#160;</td>
+          <td class="paramname"><em>current_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>current_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>search_start_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>seen_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>min_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>max_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>checked_loop</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0312bffc43a4f4176aad1c37073b59df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0312bffc43a4f4176aad1c37073b59df">&#9670;&nbsp;</a></span>subgraph_in_distance_range_walk_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::subgraph_in_distance_range_walk_graph </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>super_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>start_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>seen_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversal_start</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Helper for subgraph_in_distance_range Given starting handles in the super graph and the distances to each handle (including the start position and </p>
 
 </div>
 </div>

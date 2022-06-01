@@ -110,8 +110,8 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a885ed196355bc35e4f9492f18c3e45a3"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a885ed196355bc35e4f9492f18c3e45a3">MinimizerMapper</a> (const gbwtgraph::GBWTGraph &amp;graph, const gbwtgraph::DefaultMinimizerIndex &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#a30be171658ca4f82aaa05e0c42c0d61b">minimizer_index</a>, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#aad418f42dd9ed77cd6b09743ebae634b">distance_index</a>, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>=nullptr)</td></tr>
-<tr class="separator:a885ed196355bc35e4f9492f18c3e45a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adcf0741ff475daa82bcb2ccdcc9c3438"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#adcf0741ff475daa82bcb2ccdcc9c3438">MinimizerMapper</a> (const gbwtgraph::GBWTGraph &amp;graph, const gbwtgraph::DefaultMinimizerIndex &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#a30be171658ca4f82aaa05e0c42c0d61b">minimizer_index</a>, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#a01e8fd6781e183e570c7157a946850ca">old_distance_index</a>, SnarlDistanceIndex *<a class="el" href="classvg_1_1MinimizerMapper.html#aac910751d5f0072fa0fbc799bedf1d37">distance_index</a>, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>=nullptr)</td></tr>
+<tr class="separator:adcf0741ff475daa82bcb2ccdcc9c3438"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c955e7607a1c07d2ca2b22a065e8b91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4c955e7607a1c07d2ca2b22a065e8b91">map</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &amp;alignment_emitter)</td></tr>
 <tr class="separator:a4c955e7607a1c07d2ca2b22a065e8b91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a182c026fcc4e3a8dea5de373d1a79bbb"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a182c026fcc4e3a8dea5de373d1a79bbb">map</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
@@ -232,12 +232,14 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-types"></a>
 Protected Types</h2></td></tr>
-<tr class="memitem:a72644e4df554de0f0a2d3b50a9a3094a"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html">SnarlSeedClusterer::Seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a></td></tr>
-<tr class="memdesc:a72644e4df554de0f0a2d3b50a9a3094a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The information we store for each seed.  <a href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">More...</a><br /></td></tr>
-<tr class="separator:a72644e4df554de0f0a2d3b50a9a3094a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a339fbfcd026d074287148843b42c646d"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Cluster.html">SnarlSeedClusterer::Cluster</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a339fbfcd026d074287148843b42c646d">Cluster</a></td></tr>
-<tr class="memdesc:a339fbfcd026d074287148843b42c646d"><td class="mdescLeft">&#160;</td><td class="mdescRight">The information we store for each cluster.  <a href="classvg_1_1MinimizerMapper.html#a339fbfcd026d074287148843b42c646d">More...</a><br /></td></tr>
-<tr class="separator:a339fbfcd026d074287148843b42c646d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae337b0de6d7990434accab0f07f67b62"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html">SnarlSeedClusterer::Seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">OldSeed</a></td></tr>
+<tr class="memdesc:ae337b0de6d7990434accab0f07f67b62"><td class="mdescLeft">&#160;</td><td class="mdescRight">The information we store for each seed.  <a href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">More...</a><br /></td></tr>
+<tr class="separator:ae337b0de6d7990434accab0f07f67b62"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c6b64b4eff8d44a478fc4a0b58c723f"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1Seed.html">NewSnarlSeedClusterer::Seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">Seed</a></td></tr>
+<tr class="separator:a1c6b64b4eff8d44a478fc4a0b58c723f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac0b25ade124f809e4866bed45218e496"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="classvg_1_1NewSnarlSeedClusterer.html#a36a491c264401f7789807957329b3be9">NewSnarlSeedClusterer::Cluster</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">Cluster</a></td></tr>
+<tr class="memdesc:ac0b25ade124f809e4866bed45218e496"><td class="mdescLeft">&#160;</td><td class="mdescRight">The information we store for each cluster.  <a href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">More...</a><br /></td></tr>
+<tr class="separator:ac0b25ade124f809e4866bed45218e496"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af12f40d8ae25f153fba1dc122fda29f0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> = structures::ImmutableList&lt; <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &gt;</td></tr>
 <tr class="separator:af12f40d8ae25f153fba1dc122fda29f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -247,10 +249,14 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:af629f2b0730c6f38794d4193740317cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3e5c53b0250173b6d0eb097cf884986"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af3e5c53b0250173b6d0eb097cf884986">find_minimizers</a> (const std::string &amp;sequence, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:af3e5c53b0250173b6d0eb097cf884986"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab9e0a0ad996ae2011c90e2a6d6dd4b4a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab9e0a0ad996ae2011c90e2a6d6dd4b4a">find_seeds</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="memitem:ab9e0a0ad996ae2011c90e2a6d6dd4b4a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">Seed</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab9e0a0ad996ae2011c90e2a6d6dd4b4a">find_seeds</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:ab9e0a0ad996ae2011c90e2a6d6dd4b4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa1559493a4faca3189a5dd18ea08f87"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aaa1559493a4faca3189a5dd18ea08f87">score_cluster</a> (<a class="el" href="classvg_1_1MinimizerMapper.html#a339fbfcd026d074287148843b42c646d">Cluster</a> &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt; &amp;seeds, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="memitem:aa97d3763f24c10eada7c42b6691a35e0"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">OldSeed</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa97d3763f24c10eada7c42b6691a35e0">find_seeds_old</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:aa97d3763f24c10eada7c42b6691a35e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa1559493a4faca3189a5dd18ea08f87"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aaa1559493a4faca3189a5dd18ea08f87">score_cluster</a> (<a class="el" href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">Cluster</a> &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">Seed</a> &gt; &amp;seeds, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:aaa1559493a4faca3189a5dd18ea08f87"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a773eb9868476c4d12b805c3f4c8a97de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a773eb9868476c4d12b805c3f4c8a97de">score_cluster_old</a> (<a class="el" href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">Cluster</a> &amp;cluster, size_t i, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">OldSeed</a> &gt; &amp;seeds, size_t seq_length, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a773eb9868476c4d12b805c3f4c8a97de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af9ff5e0a1b8c7925ccdb8a23d29872ef"><td class="memItemLeft" align="right" valign="top">std::vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af9ff5e0a1b8c7925ccdb8a23d29872ef">score_extensions</a> (const std::vector&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&gt; &amp;extensions, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:af9ff5e0a1b8c7925ccdb8a23d29872ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memItemLeft" align="right" valign="top">std::vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a421cdd65bac59fac39fd3b87cce0f3ae">score_extensions</a> (const std::vector&lt; std::pair&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;, size_t &gt;&gt; &amp;extensions, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
@@ -267,7 +273,9 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acbce4d169474ab23ad79a9aaf8af2c92"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#acbce4d169474ab23ad79a9aaf8af2c92">pair_all</a> (pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;mappings) const</td></tr>
 <tr class="separator:acbce4d169474ab23ad79a9aaf8af2c92"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a13a01aa980e431540b2eaeb40654a1de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a13a01aa980e431540b2eaeb40654a1de">annotate_with_minimizer_statistics</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;target, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="memitem:a47636a47cbfeb13bcc8f2877446c8be1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a47636a47cbfeb13bcc8f2877446c8be1">old_annotate_with_minimizer_statistics</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;target, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">OldSeed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a47636a47cbfeb13bcc8f2877446c8be1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13a01aa980e431540b2eaeb40654a1de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a13a01aa980e431540b2eaeb40654a1de">annotate_with_minimizer_statistics</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;target, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:a13a01aa980e431540b2eaeb40654a1de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a827c2936a317f2a2dbc1d744aff6c0e1">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;explored)</td></tr>
 <tr class="separator:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -343,17 +351,21 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:aa75ca7504db85f1ba5d340b8213036de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30be171658ca4f82aaa05e0c42c0d61b"><td class="memItemLeft" align="right" valign="top">const gbwtgraph::DefaultMinimizerIndex &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a30be171658ca4f82aaa05e0c42c0d61b">minimizer_index</a></td></tr>
 <tr class="separator:a30be171658ca4f82aaa05e0c42c0d61b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aad418f42dd9ed77cd6b09743ebae634b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aad418f42dd9ed77cd6b09743ebae634b">distance_index</a></td></tr>
-<tr class="separator:aad418f42dd9ed77cd6b09743ebae634b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aac910751d5f0072fa0fbc799bedf1d37"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aac910751d5f0072fa0fbc799bedf1d37">distance_index</a></td></tr>
+<tr class="separator:aac910751d5f0072fa0fbc799bedf1d37"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01e8fd6781e183e570c7157a946850ca"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a01e8fd6781e183e570c7157a946850ca">old_distance_index</a></td></tr>
+<tr class="separator:a01e8fd6781e183e570c7157a946850ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abb94c27ed347a36fb38f91cf23a582fb"><td class="memItemLeft" align="right" valign="top">const gbwtgraph::GBWTGraph &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#abb94c27ed347a36fb38f91cf23a582fb">gbwt_graph</a></td></tr>
 <tr class="memdesc:abb94c27ed347a36fb38f91cf23a582fb"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is our primary graph.  <a href="classvg_1_1MinimizerMapper.html#abb94c27ed347a36fb38f91cf23a582fb">More...</a><br /></td></tr>
 <tr class="separator:abb94c27ed347a36fb38f91cf23a582fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7384299b6fd570ee8454c6f74c7a6583"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7384299b6fd570ee8454c6f74c7a6583">extender</a></td></tr>
 <tr class="memdesc:a7384299b6fd570ee8454c6f74c7a6583"><td class="mdescLeft">&#160;</td><td class="mdescRight">We have a gapless extender to extend seed hits in haplotype space.  <a href="classvg_1_1MinimizerMapper.html#a7384299b6fd570ee8454c6f74c7a6583">More...</a><br /></td></tr>
 <tr class="separator:a7384299b6fd570ee8454c6f74c7a6583"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2420d8771bcc824f7e7d36dbe4531fcf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlSeedClusterer.html">SnarlSeedClusterer</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2420d8771bcc824f7e7d36dbe4531fcf">clusterer</a></td></tr>
-<tr class="memdesc:a2420d8771bcc824f7e7d36dbe4531fcf"><td class="mdescLeft">&#160;</td><td class="mdescRight">We have a clusterer.  <a href="classvg_1_1MinimizerMapper.html#a2420d8771bcc824f7e7d36dbe4531fcf">More...</a><br /></td></tr>
-<tr class="separator:a2420d8771bcc824f7e7d36dbe4531fcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f1339ce5540998f9d4e0e474c852ccd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlSeedClusterer.html">SnarlSeedClusterer</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4f1339ce5540998f9d4e0e474c852ccd">old_clusterer</a></td></tr>
+<tr class="memdesc:a4f1339ce5540998f9d4e0e474c852ccd"><td class="mdescLeft">&#160;</td><td class="mdescRight">We have a clusterer.  <a href="classvg_1_1MinimizerMapper.html#a4f1339ce5540998f9d4e0e474c852ccd">More...</a><br /></td></tr>
+<tr class="separator:a4f1339ce5540998f9d4e0e474c852ccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81a1ff3b1375f540ab98a0e4c36d151e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1NewSnarlSeedClusterer.html">NewSnarlSeedClusterer</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a81a1ff3b1375f540ab98a0e4c36d151e">clusterer</a></td></tr>
+<tr class="separator:a81a1ff3b1375f540ab98a0e4c36d151e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab019d5888d75bbe36d8eb444d148ac50"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab019d5888d75bbe36d8eb444d148ac50">fragment_length_distr</a></td></tr>
 <tr class="separator:ab019d5888d75bbe36d8eb444d148ac50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3915618267605133f2e9144c693e68e5"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5">warned_about_bad_distribution</a> = ATOMIC_FLAG_INIT</td></tr>
@@ -373,8 +385,8 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:afe30f7cbea293a0fe369c21e22bf7881 inherit pub_static_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Typedef Documentation</h2>
-<a id="a339fbfcd026d074287148843b42c646d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a339fbfcd026d074287148843b42c646d">&#9670;&nbsp;</a></span>Cluster</h2>
+<a id="ac0b25ade124f809e4866bed45218e496"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac0b25ade124f809e4866bed45218e496">&#9670;&nbsp;</a></span>Cluster</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -383,7 +395,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">typedef <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Cluster.html">SnarlSeedClusterer::Cluster</a> <a class="el" href="classvg_1_1MinimizerMapper.html#a339fbfcd026d074287148843b42c646d">vg::MinimizerMapper::Cluster</a></td>
+          <td class="memname">typedef <a class="el" href="classvg_1_1NewSnarlSeedClusterer.html#a36a491c264401f7789807957329b3be9">NewSnarlSeedClusterer::Cluster</a> <a class="el" href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">vg::MinimizerMapper::Cluster</a></td>
         </tr>
       </table>
   </td>
@@ -420,8 +432,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a72644e4df554de0f0a2d3b50a9a3094a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a72644e4df554de0f0a2d3b50a9a3094a">&#9670;&nbsp;</a></span>Seed</h2>
+<a id="ae337b0de6d7990434accab0f07f67b62"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae337b0de6d7990434accab0f07f67b62">&#9670;&nbsp;</a></span>OldSeed</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -430,7 +442,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">typedef <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html">SnarlSeedClusterer::Seed</a> <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">vg::MinimizerMapper::Seed</a></td>
+          <td class="memname">typedef <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html">SnarlSeedClusterer::Seed</a> <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">vg::MinimizerMapper::OldSeed</a></td>
         </tr>
       </table>
   </td>
@@ -441,6 +453,28 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The information we store for each seed. </p>
+
+</div>
+</div>
+<a id="a1c6b64b4eff8d44a478fc4a0b58c723f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c6b64b4eff8d44a478fc4a0b58c723f">&#9670;&nbsp;</a></span>Seed</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1Seed.html">NewSnarlSeedClusterer::Seed</a> <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">vg::MinimizerMapper::Seed</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -468,8 +502,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a885ed196355bc35e4f9492f18c3e45a3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a885ed196355bc35e4f9492f18c3e45a3">&#9670;&nbsp;</a></span>MinimizerMapper()</h2>
+<a id="adcf0741ff475daa82bcb2ccdcc9c3438"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adcf0741ff475daa82bcb2ccdcc9c3438">&#9670;&nbsp;</a></span>MinimizerMapper()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -489,7 +523,13 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramname"><em>old_distance_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">SnarlDistanceIndex *&#160;</td>
           <td class="paramname"><em>distance_index</em>, </td>
         </tr>
         <tr>
@@ -534,7 +574,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">Seed</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>seeds</em>, </td>
         </tr>
         <tr>
@@ -555,7 +595,6 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Add annotations to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with statistics about the minimizers. </p>
 
 </div>
 </div>
@@ -1266,7 +1305,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">MinimizerMapper::Seed</a> &gt; vg::MinimizerMapper::find_seeds </td>
+          <td class="memname">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">MinimizerMapper::Seed</a> &gt; vg::MinimizerMapper::find_seeds </td>
           <td>(</td>
           <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>minimizers</em>, </td>
@@ -1296,6 +1335,48 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Find seeds for all minimizers passing the filters. </p>
+
+</div>
+</div>
+<a id="aa97d3763f24c10eada7c42b6691a35e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa97d3763f24c10eada7c42b6691a35e0">&#9670;&nbsp;</a></span>find_seeds_old()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">MinimizerMapper::OldSeed</a> &gt; vg::MinimizerMapper::find_seeds_old </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -1986,6 +2067,55 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a47636a47cbfeb13bcc8f2877446c8be1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a47636a47cbfeb13bcc8f2877446c8be1">&#9670;&nbsp;</a></span>old_annotate_with_minimizer_statistics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::old_annotate_with_minimizer_statistics </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">OldSeed</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Add annotations to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with statistics about the minimizers. </p>
+
+</div>
+</div>
 <a id="acbce4d169474ab23ad79a9aaf8af2c92"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acbce4d169474ab23ad79a9aaf8af2c92">&#9670;&nbsp;</a></span>pair_all()</h2>
 
@@ -2320,7 +2450,7 @@ template&lt;typename Item , typename Score &gt; </div>
         <tr>
           <td class="memname">void vg::MinimizerMapper::score_cluster </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1MinimizerMapper.html#a339fbfcd026d074287148843b42c646d">Cluster</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">Cluster</a> &amp;&#160;</td>
           <td class="paramname"><em>cluster</em>, </td>
         </tr>
         <tr>
@@ -2338,7 +2468,7 @@ template&lt;typename Item , typename Score &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f">Seed</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>seeds</em>, </td>
         </tr>
         <tr>
@@ -2366,6 +2496,66 @@ template&lt;typename Item , typename Score &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Determine cluster score, read coverage, and a vector of flags for the minimizers present in the cluster. Score is the sum of the scores of distinct minimizers in the cluster, while read coverage is the fraction of the read covered by seeds in the cluster. </p>
+
+</div>
+</div>
+<a id="a773eb9868476c4d12b805c3f4c8a97de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a773eb9868476c4d12b805c3f4c8a97de">&#9670;&nbsp;</a></span>score_cluster_old()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::score_cluster_old </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimizerMapper.html#ac0b25ade124f809e4866bed45218e496">Cluster</a> &amp;&#160;</td>
+          <td class="paramname"><em>cluster</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ae337b0de6d7990434accab0f07f67b62">OldSeed</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>seq_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -2675,8 +2865,8 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a2420d8771bcc824f7e7d36dbe4531fcf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2420d8771bcc824f7e7d36dbe4531fcf">&#9670;&nbsp;</a></span>clusterer</h2>
+<a id="a81a1ff3b1375f540ab98a0e4c36d151e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81a1ff3b1375f540ab98a0e4c36d151e">&#9670;&nbsp;</a></span>clusterer</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2685,7 +2875,7 @@ template&lt;typename Item , typename Score &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1SnarlSeedClusterer.html">SnarlSeedClusterer</a> vg::MinimizerMapper::clusterer</td>
+          <td class="memname"><a class="el" href="classvg_1_1NewSnarlSeedClusterer.html">NewSnarlSeedClusterer</a> vg::MinimizerMapper::clusterer</td>
         </tr>
       </table>
   </td>
@@ -2695,12 +2885,10 @@ template&lt;typename Item , typename Score &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p>We have a clusterer. </p>
-
 </div>
 </div>
-<a id="aad418f42dd9ed77cd6b09743ebae634b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aad418f42dd9ed77cd6b09743ebae634b">&#9670;&nbsp;</a></span>distance_index</h2>
+<a id="aac910751d5f0072fa0fbc799bedf1d37"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aac910751d5f0072fa0fbc799bedf1d37">&#9670;&nbsp;</a></span>distance_index</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2709,7 +2897,7 @@ template&lt;typename Item , typename Score &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a>&amp; vg::MinimizerMapper::distance_index</td>
+          <td class="memname">SnarlDistanceIndex* vg::MinimizerMapper::distance_index</td>
         </tr>
       </table>
   </td>
@@ -3071,6 +3259,52 @@ template&lt;typename Item , typename Score &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Take minimizers between hit_cap and hard_hit_cap hits until this fraction of total score </p>
+
+</div>
+</div>
+<a id="a4f1339ce5540998f9d4e0e474c852ccd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f1339ce5540998f9d4e0e474c852ccd">&#9670;&nbsp;</a></span>old_clusterer</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1SnarlSeedClusterer.html">SnarlSeedClusterer</a> vg::MinimizerMapper::old_clusterer</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>We have a clusterer. </p>
+
+</div>
+</div>
+<a id="a01e8fd6781e183e570c7157a946850ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a01e8fd6781e183e570c7157a946850ca">&#9670;&nbsp;</a></span>old_distance_index</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a>* vg::MinimizerMapper::old_distance_index</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
