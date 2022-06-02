@@ -143,6 +143,8 @@ production-build-job:
     - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then VG_DOCKER_TAG="${CI_COMMIT_TAG}" ; else VG_DOCKER_TAG="ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"; fi
     # Build the container for all architectures.
     - docker buildx build --platform=linux/amd64,linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:${VG_DOCKER_TAG}" -f Dockerfile .
+    # Tag it latest if we pushed a real release tag
+    - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then docker buildx build --platform=linux/amd64,linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:latest" -f Dockerfile .; fi
     # Also run the ARM tests (emulated!)
     # But don't fail if they fail yet, because they don't yet actually work.
     - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target test -f Dockerfile . || true
