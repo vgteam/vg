@@ -308,9 +308,11 @@ cerr << "Add all seeds to nodes: " << endl;
 
             
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
-            net_handle_t parent = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE
+
+            //Get the parent from the cache if possible
+            net_handle_t parent = true//std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE
                                 ? distance_index.get_parent(node_net_handle)
-                                : distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
+                                : distance_index.get_net_handle(std::get<1>(seed.minimizer_cache), SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE);
 
             seed.node_handle = node_net_handle;
             bool is_trivial_chain = distance_index.get_record_offset(node_net_handle) ==
@@ -323,7 +325,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //If the parent is a proper chain, then add the seed to the chain
                 //Also update the minimizer_cache on the seed 
-                size_t depth = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE ? distance_index.get_depth(parent) : 1;
+                size_t depth = distance_index.get_depth(parent);
 
 
                 //Now we want to update the cached values of the seed

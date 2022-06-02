@@ -101,7 +101,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 // 
 //     
 //     11 bit   |            13         |     31       |         8         |      1
-//  node length |  connected component  |  prefix sum  |  chain_component  | is_reversed
+//  node length |     parent offset     |  prefix sum  |  chain_component  | is_reversed
 //
 
 struct MIPayload {
@@ -118,9 +118,9 @@ struct MIPayload {
     const static size_t PREFIX_SUM_WIDTH = 31;
     const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
     
-    const static size_t COMPONENT_OFFSET = 40;
-    const static size_t COMPONENT_WIDTH = 13;
-    const static code_type COMPONENT_MASK = (static_cast<code_type>(1) << COMPONENT_WIDTH) - 1;
+    const static size_t PARENT_OFFSET = 40;
+    const static size_t PARENT_WIDTH = 13;
+    const static code_type PARENT_MASK = (static_cast<code_type>(1) << PARENT_WIDTH) - 1;
     
     const static size_t NODE_LENGTH_OFFSET = 53;
     const static size_t NODE_LENGTH_WIDTH = 11;
@@ -130,13 +130,13 @@ struct MIPayload {
     static code_type encode(tuple<size_t, size_t, size_t, size_t, bool> info) {
 
         size_t node_length = std::get<0>(info);
-        size_t component = std::get<1>(info);
+        size_t parent_offset = std::get<1>(info);
         size_t prefix_sum = std::get<2>(info);
         size_t chain_component = std::get<3>(info);
         bool is_reversed = std::get<4>(info);
 
         if ( node_length > NODE_LENGTH_MASK
-             || component > COMPONENT_MASK
+             || parent_offset > PARENT_MASK
              || prefix_sum > PREFIX_SUM_MASK
              || chain_component > CHAIN_COMPONENT_MASK) {
             //If there aren't enough bits to represent one of the values
@@ -144,7 +144,7 @@ struct MIPayload {
         }
 
         return (static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET)
-             | (static_cast<code_type>(component) << COMPONENT_OFFSET)
+             | (static_cast<code_type>(parent_offset) << PARENT_OFFSET)
              | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET)
              | (static_cast<code_type>(chain_component) << CHAIN_COMPONENT_OFFSET)
              | is_reversed;
@@ -160,7 +160,7 @@ struct MIPayload {
         } else {
             return std::tuple<size_t, size_t, size_t, size_t, bool> (
                 code >> NODE_LENGTH_OFFSET & NODE_LENGTH_MASK,
-                code >> COMPONENT_OFFSET & COMPONENT_MASK,
+                code >> PARENT_OFFSET & PARENT_MASK,
                 code >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK,
                 code >> CHAIN_COMPONENT_OFFSET & CHAIN_COMPONENT_MASK,
                 code & 1);
