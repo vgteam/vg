@@ -1646,7 +1646,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
  *
  * This stores:
         -(size_t) length of the node,
-        -(size_t) the offset of the parent
+        -(size_t) connected component number of the parent of the node, if the parent is a child of the root
         -(size_t) prefix sum value of the node (or prefix sum to the start of the parent snarl)
         -(size_t) the chain component of the node
                   This is set if the node is in a nontrivial chain or in a simple snarl, in which case the component is
@@ -1660,14 +1660,10 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
 
-
-    //The offset of the parent chain
-    size_t parent_offset = !distance_index.is_root(parent_handle)
-                            ? distance_index.get_record_offset(parent_handle)
-                            : std::numeric_limits<size_t>::max();
-    if (parent_offset >= (1 << MIPayload::PARENT_WIDTH)) {
-        parent_offset = std::numeric_limits<size_t>::max();
-    }
+    //Is the node the direct child a top-level chain
+    bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
+                              distance_index.is_root(distance_index.get_parent(parent_handle)) &&
+                              !distance_index.is_root_snarl(distance_index.get_parent(parent_handle));
 
     //The prefix sum value of the node in its parent chain, inf if it is in a trivial chain or the child of the root 
     size_t prefix_sum = distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(parent_handle)
@@ -1703,7 +1699,9 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     }
 
     return make_tuple(distance_index.minimum_length(node_handle),
-                      parent_offset,
+                      in_top_level_chain 
+                       ?  distance_index.get_connected_component_number(node_handle)
+                       : std::numeric_limits<size_t>::max(),
                       prefix_sum,
                       component,
                       is_reversed_in_parent);
