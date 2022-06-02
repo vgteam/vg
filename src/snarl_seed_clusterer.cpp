@@ -288,14 +288,8 @@ cerr << "Add all seeds to nodes: " << endl;
     //A vector of indices into all_node_clusters of nodes that need to be clustered
     vector<pair<size_t, net_handle_t>> to_cluster; 
     seen_nodes.reserve(tree_state.seed_count_prefix_sum.back());
-
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
-        //sort seeds so that the ones that are close together in the graph will be closeish together
         vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
-        std::sort(seeds->begin(), seeds->end(), [&](auto& a, auto b) -> bool {
-            return get_id(a.pos) <= get_id(b.pos);
-        });
-
         for (size_t i = 0; i < seeds->size(); i++) {
             Seed& seed = seeds->at(i);
             pos_t pos = seed.pos;
