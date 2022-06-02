@@ -534,10 +534,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 if (align_from_chains) {
                     // Do the DP between the extensions in the cluster as specified by the chain we got for it.
                     auto& chain_order = cluster_extension_tracebacks[extension_num];
-                    
-                    // TODO: implement!
-                    throw std::runtime_error("Not implemented!");
-                    
+                    best_alignments[0] = find_chain_alignment(aln, extensions, chain_order);
+                    // TODO: Come up with a good secondary for the cluster somehow. Traceback over the remaining extensions?
                 } else {
                     // Do the DP and compute up to 2 alignments from the individual gapless extensions
                     best_alignments.emplace_back(aln);

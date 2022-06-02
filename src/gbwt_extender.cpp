@@ -806,7 +806,26 @@ void WFAAlignment::append(Edit edit, uint32_t length) {
     }
 }
 
+#define debug_join
+
 void WFAAlignment::join_on_shared_match(const WFAAlignment& second, int match_score) {
+#ifdef debug_join
+    std::cerr << "Joining alignment of sequence " << seq_offset << " - " << (seq_offset + length)
+        << " with alignment of " << second.seq_offset << " - " << (second.seq_offset + second.length) << std::endl;
+#endif
+    
+    if (second.empty()) {
+        // We are joining an empty alignment onto us. Do nothing.
+        return;
+    }
+    
+    if (empty()) {
+        // We are ourselves empty. Just be replaced.
+        *this = second;
+        return;
+    }
+    
+    // Otherwise there is actual splicing to do.
     assert(seq_offset + length == second.seq_offset + 1);
     assert(!path.empty() && !second.path.empty() && path.back() == second.path.front());
     assert(!edits.empty() && edits.back().first == match);

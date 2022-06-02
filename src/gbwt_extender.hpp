@@ -261,7 +261,7 @@ struct WFAAlignment {
     void append(Edit edit, uint32_t length);
     
     /// Concatenate another WFAAlignment onto this one, assuming a single
-    /// shared match base. Neither may be empty.
+    /// shared match base. Either may be empty.
     void join_on_shared_match(const WFAAlignment& second, int match_score);
     
     /// Convert the WFAAlignment into a Path.
