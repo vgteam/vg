@@ -4278,52 +4278,59 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     WFAExtender extender(gbwt_graph, aligner); 
     
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
-    auto here = chain.begin();
-    auto next = here;
-    ++here;
+    auto here_it = chain.begin();
+    auto next_it = here_it;
+    ++here_it;
+    
+    const GaplessExtension* here = &extended_seeds[*here_it];
     
     // Do the left tail, if any.
     // Leave room for the anchoring match.
     string left_tail = aln.sequence().substr(0, here->read_interval.first + 1);
-    WFAAlignment aligned = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph));
+    WFAAlignment aligned = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph)));
     
-    while(next != chain.end()) {
+    while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
         
+        const GaplessExtension* next = &extended_seeds[*next_it];
+        
         // Get the read string between them
-        while (next != chain.end() && here->read_interval.second >= next->read_interval.first) {
+        while (next_it != chain.end() && here->read_interval.second >= next->read_interval.first) {
             // Actually there's an overlap; just skip the overlapping extension.
-            // TODO: Actually jump back and take the extension, like we scored when chaining?
-            ++next;
+            ++next_it;
+            if (next_it == chain.end()) {
+                break;
+            }
+            next = &extended_seeds[*next_it];
         }
-        if (next == chain.end()) {
+        if (next_it == chain.end()) {
             break;
         }
         
         // Make an alignment for the bases used in this GaplessExtension, and
         // concatenate it in on the shared match.
-        aligned.join_on_shared_match(WFAAlignment(*here), aligner.match); 
+        aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match); 
         
         // Pull out the intervening string. Leave room for the anchoring matches.
         string linking_bases = aln.sequence().substr(here->read_interval.second - 1, next->read_interval.first - here->read_interval.second + 2);
         // And align it
-        WFAAlignment link_alignment = extender.connect(linking_bases, make_pos_t(here->tail_position(gbwt_graph)), make_pos_t(next->starting_position(gbwt_graph));
+        WFAAlignment link_alignment = extender.connect(linking_bases, make_pos_t(here->tail_position(gbwt_graph)), make_pos_t(next->starting_position(gbwt_graph)));
         
         // And concatenate it in
         aligned.join_on_shared_match(link_alignment, aligner.match);
         
         // Advance to the next link
+        here_it = next_it;
+        ++next_it;
         here = next;
-        ++next;
     }
     
-    // Do the final GaplessExtension itself
-    aligned.join_on_shared_match(WFAAlignment(*here), aligner.match);
-    
+    // Do the final GaplessExtension itself (may be the first)
+    aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match);
     
     // Do the right tail, if any. Leave room for the anchoring match.
     string right_tail = aln.sequence().substr(here->read_interval.second - 1);
-    WFAAlignment right_alignment = extender.suffix(right_tail, make_pos_t(here->tail_position(gbwt_graph));
+    WFAAlignment right_alignment = extender.suffix(right_tail, make_pos_t(here->tail_position(gbwt_graph)));
     aligned.join_on_shared_match(right_alignment, aligner.match);
     
     // Convert to a vg Alignment.

@@ -733,38 +733,37 @@ struct state_hash {
 
 //------------------------------------------------------------------------------
 
-WFAAlignment::WFAAlignment(const GaplessExtension& extension) :
-    path(extension.path),
-    edits(),
-    node_offset(extension.offset),
-    seq_offset(extension.read_interval.first),
-    length(extension.length()),
-    score(extension.score) {
+WFAAlignment WFAAlignment::from_extension(const GaplessExtension& extension) {
+
+    // Start by aggregate-initializing.
+    WFAAlignment to_return {extension.path, {}, (uint32_t)extension.offset, (uint32_t)extension.read_interval.first, (uint32_t)extension.length(), extension.score};
     
     // We need to make edits for all the mismatches.
     // This tracks the base after the last edit in edits, in the sequence space.
-    size_t edits_made_up_to = seq_offset;
+    size_t edits_made_up_to = to_return.seq_offset;
     for (auto& mismatch_at : extension.mismatch_positions) {
         // For each mismatch position
-        if (!edits.empty() && edits_made_up_to == mismatch_at && edits.back().first == mismatch) {
+        if (!to_return.edits.empty() && edits_made_up_to == mismatch_at && to_return.edits.back().first == mismatch) {
             // If we can glom it onto an existing mismatch, do that.
-            ++edits.back().second;
+            ++to_return.edits.back().second;
         } else {
             // Otherwise, we need some new edits
             if (edits_made_up_to < mismatch_at) {
                 // Add a match for the intervening non-mismatch sequence
-                edits.emplace_back(match, mismatch_at - edits_made_up_to);
+                to_return.edits.emplace_back(match, mismatch_at - edits_made_up_to);
             }
             // Add a new 1 base mismatch
-            edits.emplace_back(mismatch, 1);
+            to_return.edits.emplace_back(mismatch, 1);
         }
         // Advance the cursor to through this mismatch
         edits_made_up_to = mismatch_at;
     }
-    if (edits_made_up_to < seq_offset + length) {
+    if (edits_made_up_to < to_return.seq_offset + to_return.length) {
         // Add any trailing match
-        edits.emplace_back(match, (seq_offset + length) - edits_made_up_to);
+        to_return.edits.emplace_back(match, (to_return.seq_offset + to_return.length) - edits_made_up_to);
     }
+    
+    return to_return;
 }
 
 uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
@@ -836,16 +835,120 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
 
     Path result;
     
-    // Walk through the read
-    size_t read_cursor = this->seq_offset;
-    size_t read_end = this->seq_offset + this->length;
-    // And each node
+    // Walk through the sequence
+    size_t sequence_cursor = this->seq_offset;
+    size_t sequence_end = this->seq_offset + this->length;
+    if (sequence_cursor == sequence_end) {
+        throw std::runtime_error("WFAAlignment has empty sequence");
+    }
+    if (sequence_end > sequence.size()) {
+        throw std::runtime_error("WFAAlignment extends past end of sequence");
+    }
+    // And each node along the path
     auto path_cursor = this->path.begin();
     auto path_end = this->path.end();
+    if (path_cursor == path_end) {
+        throw std::runtime_error("WFAAlignment has empty path");
+    }
+    // And each base along the current node
     size_t node_cursor = this->node_offset;
-    size_t node_end = this->seq_offset + this->length
+    size_t first_node_length = graph.get_length(*path_cursor);
+    if (this->node_offset >= first_node_length) {
+        throw std::runtime_error("WFAAlignment has offset to or past end of first node");
+    }
+    size_t node_end = first_node_length - this->node_offset;
     
-    throw std::runtime_error("Not implemented!");
+    // Walk through the edits
+    auto edit_cursor = this->edits.begin();
+    auto edit_end = this->edits.end();
+    if (edit_cursor == edit_end) {
+        throw std::runtime_error("WFAAlignment has no edits");
+    }
+    // And track how much of the current edit has been resolved aleady.
+    size_t current_edit_used = 0;
+    
+    // As we walk along, we build a mapping. Set up the first mapping
+    Mapping* mapping_in_progress = result.add_mapping();
+    // And set its position, with the offset
+    mapping_in_progress->mutable_position()->set_node_id(graph.get_id(*path_cursor));
+    mapping_in_progress->mutable_position()->set_is_reverse(graph.get_is_reverse(*path_cursor));
+    mapping_in_progress->mutable_position()->set_offset(node_cursor);
+    
+    while (edit_cursor != edit_end) {
+        if (current_edit_used == edit_cursor->second) {
+            // There's no edit left, but there ought to be as a loop invariant,
+            // if no empty edits exist.
+            throw std::runtime_error("WFAAlignment has empty edit");
+        }
+            
+        // What kind of edit is it?
+        auto& edit_type = edit_cursor->first;
+        
+        // And how much is left?
+        size_t length_to_resolve = edit_cursor->second - current_edit_used;
+        
+        if (edit_type == match || edit_type == mismatch || edit_type == deletion) {
+            // Limit to length of graph node
+            length_to_resolve = std::min(length_to_resolve, node_end - node_cursor);
+        }
+        
+        // Create a vg Edit to translate to
+        vg::Edit* created = mapping_in_progress->add_edit();
+        
+        if (edit_type == match || edit_type == mismatch || edit_type == deletion) {
+            // These edits consume some graph
+            created->set_from_length(length_to_resolve);
+            node_cursor += length_to_resolve;
+        }
+        if (edit_type == mismatch || edit_type == insertion) {
+            // These edits carry sequence
+            if (sequence_cursor + length_to_resolve > sequence_end) {
+                throw std::runtime_error("WFAAlignment uses more sequence than provided");
+            }
+            created->set_sequence(sequence.substr(sequence_cursor, length_to_resolve));
+        }
+        if (edit_type == match || edit_type == mismatch || edit_type == insertion) {
+            // These edits consume some sequence
+            created->set_to_length(length_to_resolve);
+            sequence_cursor += length_to_resolve;
+        }
+        
+        // Now we've resolved at least part of this edit.
+        current_edit_used += length_to_resolve;
+        
+        if (current_edit_used == edit_cursor->second) {
+            // Finished the edit.
+            // Reset to the start of the next edit.
+            ++edit_cursor;
+            current_edit_used = 0;
+        }
+        if (node_cursor == node_end && path_cursor != path_end) {
+            // Finished the node.
+            // Reset to the start of the next node.
+            node_cursor = 0;
+            // And advance along the path if possible.
+            ++path_cursor;
+            if (path_cursor != path_end) {
+                // We've reached a new node, so work out where the end is
+                node_end = graph.get_length(*path_cursor);
+                
+                if (node_cursor == node_end) {
+                    throw std::runtime_error("WFAAlignment has empty node");
+                }
+                
+                // Also start a new Mapping
+                mapping_in_progress = result.add_mapping();
+                // And set its position
+                mapping_in_progress->mutable_position()->set_node_id(graph.get_id(*path_cursor));
+                mapping_in_progress->mutable_position()->set_is_reverse(graph.get_is_reverse(*path_cursor));
+                // The offset will always be 0 since we entered from somewhere.
+            } else {
+                // No node is here, so we should be at the end now.
+                node_end = 0;
+            }
+        }
+    }
+    
     return result;
 }
 

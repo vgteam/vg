@@ -217,14 +217,17 @@ public:
  *
  * Note: The aligner merges consecutive edit operations of the same type. Hence an
  * edit may span multiple nodes.
+ *
+ * This struct is an aggregate and can be aggregate-initialized with a
+ * brace-enclosed initializer list.
  */
 struct WFAAlignment {
     enum Edit { match, mismatch, insertion, deletion };
     
-    using WFAAlignment() = default;
-    
-    /// Generate a WFAAlignment from a GaplessExtension
-    WFAAlignment(const GaplessExtension& extension);
+    /// Generate a WFAAlignment from a GaplessExtension. This can't be a
+    /// constructor because then WFAAlignment wouldn't be able to be
+    /// aggregate-initialized. 
+    static WFAAlignment from_extension(const GaplessExtension& extension);
 
     /// Sequence of oriented nodes.
     std::vector<handle_t> path;
