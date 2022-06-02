@@ -310,13 +310,22 @@ cerr << "Add all seeds to nodes: " << endl;
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
 
             //Get the parent from the cache if possible
-            net_handle_t parent = true//std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE
-                                ? distance_index.get_parent(node_net_handle)
-                                : distance_index.get_net_handle(std::get<1>(seed.minimizer_cache), SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE);
+            net_handle_t parent = node_net_handle;
+            bool is_trivial_chain;
+            if (std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE) {
+                parent = distance_index.get_parent(node_net_handle);
+                is_trivial_chain  = distance_index.get_record_offset(node_net_handle) ==
+                                    distance_index.get_record_offset(parent);
+            } else if (std::get<1>(seed.minimizer_cache) == distance_index.get_record_offset(node_net_handle)) {
+                //If the record offset is the same, then it is a trivial chain
+                is_trivial_chain = true;
+                parent = distance_index.get_net_handle(std::get<1>(seed.minimizer_cache), SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE, distance_index.get_node_record_offset(node_net_handle));
+            } else {
+                is_trivial_chain = false;
+                parent = distance_index.get_net_handle(std::get<1>(seed.minimizer_cache), SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE);
+            }
 
             seed.node_handle = node_net_handle;
-            bool is_trivial_chain = distance_index.get_record_offset(node_net_handle) ==
-                                    distance_index.get_record_offset(parent);
             
             if (!distance_index.is_root(parent)) {
 #ifdef DEBUG_CLUSTER
