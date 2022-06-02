@@ -411,6 +411,13 @@ protected:
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
     
     /**
+     * Convert a WFAAlignment into a vg Alignment. This assumes that the
+     * WFAAlignment is a full-length alignment and that the sequence field of
+     * the vg Alignment has been set.
+     */
+    void wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const;
+    
+    /**
      * Set pair partner references for paired mapping results.
      */
     void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;

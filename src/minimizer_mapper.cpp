@@ -2892,6 +2892,14 @@ void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, 
     alignment.set_identity(identity);
 }
 
+void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const {
+    *(alignment.mutable_path()) = wfa_alignment.to_path(this->gbwt_graph, alignment.sequence());
+    alignment.set_score(wfa_alignment.score);
+    if (!alignment.sequence().empty()) {
+        alignment.set_identity(identity(alignment.path()));
+    }
+}
+
 //-----------------------------------------------------------------------------
 
 std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const std::string& sequence, Funnel& funnel) const {
@@ -4335,7 +4343,8 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     
     // Convert to a vg Alignment.
     Alignment result(aln);
-    *result.mutable_path() = aligned.to_path(gbwt_graph, aln.sequence());
+    wfa_alignment_to_alignment(aligned, result);
+    
     return result;
 }
 
