@@ -242,6 +242,9 @@ struct WFAAlignment {
     /// Returns true if the alignment is empty.
     bool empty() const { return (this->length == 0); }
 
+    /// Returns true if the alignment is an insertion without a location.
+    bool unlocalized_insertion() const;
+
     /// Computes the node offset after the alignment in the final node.
     uint32_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
 
@@ -251,6 +254,9 @@ struct WFAAlignment {
     /// Appends an edit operation, merging it with the latest edit if possible.
     /// Ignores empty edits.
     void append(Edit edit, uint32_t length);
+
+    /// Prints some debug information about the alignment.
+    std::ostream& print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const;
 };
 
 //------------------------------------------------------------------------------
@@ -276,7 +282,7 @@ struct WFAAlignment {
  * papers use `gap_open + n * gap_extend`. Hence we use `gap_open - gap_extend` as
  * the effective four-parameter gap open score inside this aligner.
  *
- * Note: Most internal arithmetic operations use 32-bit integers.
+ * NOTE: Most internal arithmetic operations use 32-bit integers.
  */
 class WFAExtender {
 public:
@@ -305,6 +311,9 @@ public:
      * starting at the given position. If there is no alignment for the
      * entire sequence with an acceptable score, returns the highest-scoring
      * partial alignment.
+     *
+     * NOTE: This creates a suffix of the alignment by aligning a prefix of
+     * the sequence.
      * FIXME: Should we use full-length bonuses?
      */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
@@ -314,6 +323,9 @@ public:
      * ending at the given position. If there is no alignment for the entire
      * sequence with an acceptable score, returns the highest-scoring partial
      * alignment.
+     *
+     * NOTE: This creates a prefix of the alignment by aligning a suffix of
+     * the sequence.
      * FIXME: Should we use full-length bonuses?
      */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;
@@ -321,6 +333,9 @@ public:
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;
     const Aligner*              aligner;
+
+    /// TODO: Remove when unnecessary.
+    bool debug = false;
 };
 
 //------------------------------------------------------------------------------

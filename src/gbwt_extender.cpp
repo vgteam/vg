@@ -733,6 +733,14 @@ struct state_hash {
 
 //------------------------------------------------------------------------------
 
+bool WFAAlignment::unlocalized_insertion() const {
+    return (
+        this->path.empty() &&
+        this->edits.size() == 1 &&
+        this->edits.front().first == insertion
+    );
+}
+
 uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
     uint32_t final_offset = this->node_offset;
     for (auto edit : this->edits) {
@@ -747,7 +755,7 @@ uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
 }
 
 void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
-    if (this->empty()) {
+    if (this->path.empty()) {
         return;
     }
 
@@ -771,6 +779,22 @@ void WFAAlignment::append(Edit edit, uint32_t length) {
     } else {
         this->edits.back().second += length;
     }
+}
+
+std::ostream& WFAAlignment::print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const {
+    out << "{ path = [";
+    for (handle_t handle : this->path) {
+        out << " (" << graph.get_id(handle) << ", " << graph.get_is_reverse(handle) << ")";
+    }
+    out << " ], edits = [";
+    for (auto edit : this->edits) {
+        out << " (" << edit.first << ", " << edit.second << ")";
+    }
+    out << " ], node offset = " << this->node_offset;
+    out << ", sequence range = [" << this->seq_offset << ", " << (this->seq_offset + this->length) << ")";
+    out << ", score = " << this->score << " }";
+
+    return out;
 }
 
 //------------------------------------------------------------------------------
@@ -1451,7 +1475,8 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     // Due to the way we expand the tree of GBWT search states and store wavefront
     // information in the leaves, we sometimes do not use any bases in the final node.
     // We deal with this now to avoid facing the issue later.
-    if (result.final_offset(*(this->graph)) == 0) {
+    uint32_t final_offset = result.final_offset(*(this->graph));
+    if ((result.path.size() == 1 && final_offset == result.node_offset) || (result.path.size() > 1 && final_offset == 0)) {
         result.path.pop_back();
     }
 

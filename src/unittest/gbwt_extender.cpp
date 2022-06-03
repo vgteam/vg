@@ -870,13 +870,28 @@ void check_score(const WFAAlignment& alignment, const Aligner& aligner, int32_t 
     REQUIRE(alignment.score == expected_score);
 }
 
+void check_unlocalized_insertion(const WFAAlignment& alignment, const std::string& sequence, const Aligner& aligner) {
+    REQUIRE(alignment.unlocalized_insertion());
+
+    REQUIRE(alignment.path.empty());
+
+    REQUIRE(alignment.edits.size() == 1);
+    REQUIRE(alignment.edits.front().first == WFAAlignment::insertion);
+    REQUIRE(alignment.edits.front().second == sequence.length());
+
+    REQUIRE(alignment.seq_offset == 0);
+    REQUIRE(alignment.length == sequence.length());
+
+    int32_t gap_score = -aligner.gap_open - (int32_t(alignment.length) - 1) * aligner.gap_extension;
+    REQUIRE(alignment.score == gap_score);
+}
+
 void check_alignment(const WFAAlignment& alignment, const std::string& sequence, const gbwtgraph::GBWTGraph& graph, const Aligner& aligner, const pos_t* from, const pos_t* to) {
 
-    // Correct length.
-    REQUIRE(alignment.seq_offset + alignment.length == sequence.length());
-    if (alignment.empty()) {
-        return;
-    }
+    // Sequence range is sane and corresponds to the specified endpoints.
+    REQUIRE(alignment.seq_offset + alignment.length <= sequence.length());
+    REQUIRE((from == nullptr) | (alignment.seq_offset == 0));
+    REQUIRE((to == nullptr) | (alignment.seq_offset + alignment.length == sequence.length()));
 
     // Total length of edits in the sequence.
     uint32_t edit_total = 0;
@@ -1043,6 +1058,8 @@ TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
     }
 }
 
+//------------------------------------------------------------------------------
+
 TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
@@ -1104,6 +1121,8 @@ TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
+
+//------------------------------------------------------------------------------
 
 TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
@@ -1184,8 +1203,6 @@ TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 
-    // FIXME at both ends
-
     SECTION("Deletion at the end") {
         // MMMMMM|MMMD
         std::string sequence("ATTACAGAT");
@@ -1221,15 +1238,276 @@ TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
         check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
+
+    SECTION("Deletion at both ends") {
+        // DMMMMMM|MMMMD
+        std::string sequence("ATTACAGATT");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 2, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Insertion at both ends") {
+        // IIMM|MMMMMM|MMMMM|MMII
+        std::string sequence("AAGCGATTACAGATTATACC");
+        pos_t from(1, false, 1); pos_t to(4, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 4, 0, 2, 4);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
 }
 
-// FIXME cannot align
+//------------------------------------------------------------------------------
 
-// FIXME run out of graph
+TEST_CASE("Special cases in a linear graph") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
 
-// FIXME mixed edits, mismatch vs ins + del
+    SECTION("Empty sequence") {
+        std::string sequence;
+        pos_t from(2, false, 1); pos_t to(2, false, 2);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(result.empty());
+    }
 
-// FIXME: linear prefix, linear suffix
+    SECTION("Cannot align within the score bound") {
+        // MMXXMXM
+        std::string sequence("GAGGAGA");
+        pos_t from(2, false, 0); pos_t to(2, false, 6);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Cannot reach target") {
+        std::string sequence("GATTA");
+        pos_t from(3, false, 0); pos_t to(2, false, 6);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Run out of graph") {
+        // MM|----
+        std::string sequence("ATCCCC");
+        pos_t from(4, false, 1); pos_t to(5, false, 3);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Mixed edits") {
+        // MMMMXM|MMDDM
+        std::string sequence("ATTAGAGAA");
+        pos_t from(2, false, 1); pos_t to(3, false, 4);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Mismatches beat ins + del") {
+        // MMXXMMM
+        std::string sequence("GACCACA");
+        pos_t from(2, false, 0); pos_t to(2, false, 6);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Ins + del beats mismatches") {
+        // MMM|MMMMIIIIIIDDD|DDDMM|MMM
+        std::string sequence("CGCGATTacagatTATAT");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 6, 0, 2, 12);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Prefixes in a linear graph", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Empty sequence") {
+        std::string sequence;
+        pos_t to(2, false, 2);
+        WFAAlignment result = extender.prefix(sequence, to);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Got an unlocalized insertion") {
+        // IIII
+        std::string sequence("GGGG");
+        pos_t to(2, false, 6);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_unlocalized_insertion(result, sequence, aligner);
+    }
+
+    SECTION("Cannot align within the score bound") {
+        // IIIII
+        std::string sequence("GGGGGG");
+        pos_t to(2, false, 6);
+        WFAAlignment result = extender.prefix(sequence, to);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Exact match, middle of a node") {
+        std::string sequence("ATTAC");
+        pos_t to(2, false, 5);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Exact match, start of a node") {
+        std::string sequence("GATTA");
+        pos_t to(2, false, 4);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Exact match, end of a node") {
+        std::string sequence("CGATTA");
+        pos_t to(2, false, 4);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Exact match, reverse") {
+        std::string sequence("TAAT");
+        pos_t to(2, true, 5);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("With edits") {
+        // MMM|MMMMDDM|MMMXM
+        std::string sequence("CGCGATTAGATAA");
+        pos_t to(3, false, 4);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Run out of graph, trim") {
+        // ----|MMM|MMMXM
+        std::string sequence("ATATCGCGATAA");
+        pos_t to(2, false, 4);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 5, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Run out of graph, no trim") {
+        // I|MMM|MMMXMMM
+        std::string sequence("TCGCGATAACA");
+        pos_t to(2, false, 6);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 2, 1, 1, 1);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Suffixes in a linear graph", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Empty sequence") {
+        std::string sequence;
+        pos_t from(2, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Got an unlocalized insertion") {
+        // IIII
+        std::string sequence("GGGG");
+        pos_t from(2, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_unlocalized_insertion(result, sequence, aligner);
+    }
+
+    SECTION("Cannot align within the score bound") {
+        // IIIII
+        std::string sequence("GGGGGG");
+        pos_t from(2, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Exact match, middle of a node") {
+        std::string sequence("ATTAC");
+        pos_t from(2, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Exact match, start of a node") {
+        std::string sequence("TTACAG");
+        pos_t from(2, false, 2);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Exact match, end of a node") {
+        std::string sequence("TTACA");
+        pos_t from(2, false, 2);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Exact match, reverse") {
+        std::string sequence("TAAT");
+        pos_t from(2, true, 2);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("With edits") {
+        // MMXMMM|MDDMM|MM
+        std::string sequence("ATGACAGTATA");
+        pos_t from(2, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Run out of graph, trim") {
+        // MXMM|MMM|---
+        std::string sequence("AATATATCAC");
+        pos_t from(3, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 4, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Run out of graph, no trim") {
+        // MMMMMM|MMMXM|MMM|II
+        std::string sequence("ATTACAGATCATATCC");
+        pos_t from(2, false, 1);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 3, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+}
 
 //------------------------------------------------------------------------------
 
