@@ -57,6 +57,114 @@ string MinimizerMapper::log_name() {
     return "T" + to_string(omp_get_thread_num()) + ":\t";
 }
 
+string MinimizerMapper::log_alignment(const Alignment& aln) {
+    if (aln.sequence().size() < LONG_LIMIT && aln.path().mapping_size() < LONG_LIMIT/32 ) {
+        // Log as a short alignment
+        return pb2json(aln);
+    } else {
+        // Log as a long alignment
+        
+        stringstream ss;
+        ss << log_alignment(aln.path(), true);
+        ss << " score " << aln.score();
+        return ss.str();
+    }
+}
+
+string MinimizerMapper::log_alignment(const Path& path, bool force_condensed) {
+    if (path.mapping_size() < LONG_LIMIT/32 && !force_condensed) {
+        // Log as a short alignment
+        return pb2json(path);
+    } else {
+        // Log as a long alignment
+        
+        // Turn it into one big CIGAR string
+        vector<pair<int, char>> cigar;
+        for (auto& mapping : path.mapping()) {
+            mapping_cigar(mapping, cigar);
+        }
+        
+        // And then put that
+        stringstream ss;
+        if (!cigar.empty()) {
+            ss << cigar_string(cigar);
+        } else {
+            ss << "<empty alignment>";
+        }
+        if (path.mapping_size() > 0) {
+            ss << "@" << path.mapping(0).position().node_id()
+                << (path.mapping(0).position().is_reverse() ? '-' : '+');
+        }
+        return ss.str();
+        
+        // TODO: Include visited nodes as collapsed ranges of consecutive IDs?
+    }
+}
+
+string MinimizerMapper::log_bits(const std::vector<bool>& bits) {
+    stringstream ss;
+    
+    // We're going to take groups of 8 bits into here, and then emit them as
+    // 8-dot Braille characters.
+    unsigned char scratch = 0;
+    for (size_t i = 0; i < bits.size(); i++) {
+        // We want earlier bits to be top and left aligned, and this is easier
+        // if we make later bits the high bits and push earlier bits to the low
+        // bits.
+        //
+        // So shift everything down and put in at the highest place.
+        scratch = (scratch >> 1) | ((unsigned char)bits[i] << 7);
+        if (i % 8 == 7 || i + 1 == bits.size()) {
+            // Time to ship it
+            
+            // Make sure to finish aligning the first bit down if this is a
+            // partial byte.
+            scratch = scratch >> (7 - i % 8);
+            
+            // We want our layout to be (numbering LSB to MSB):
+            //
+            // 0 4
+            // 1 5
+            // 2 6
+            // 3 7
+            //
+            // Unicode Braille is laid out:
+            //
+            // 0 3
+            // 1 4
+            // 2 5
+            // 6 7
+            //
+            // So we have to:
+            // - Keep 012 and 7 in place
+            // - Move 3 up by 3 to become 6
+            // - Move 456 down by 1 to become 345
+            scratch = (scratch & 0b10000111) |
+                     ((scratch & 0b00001000) << 3) |
+                     ((scratch & 0b01110000) >> 1);
+            
+            // Braille block codepoints would be 0x2800 + scratch
+            
+            // Encode as UTF-8. These are all above U+0800 and below U+FFFF so
+            // we need 3 bytes.
+            // First 4 bits are always 0xe.
+            // First 4 data bits (0x2) go in low nibble of first byte.
+            ss << (char) 0xe2;
+            // Next two bits are always 0b10.
+            // Next 4 data bits (0x8) and high 2 bits of scratch go in next byte.
+            ss << (char) ((0b10 << 6) | (0x80 >> 2) | (scratch >> 6));
+            // Next two bits are also always 0b10.
+            // Low 6 bits of scratch go in last byte.
+            ss << (char) ((0b10 << 6) | (scratch & 0b00111111));
+            
+            // Clear out since the last cycle may be partial and we don't want
+            // stray bits.
+            scratch = 0;
+        }
+    }
+    return ss.str();
+}
+
 void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence) {
     int digits_needed = (int) ceil(log10(sequence.size()));
     for (int digit = digits_needed - 1; digit >= 0; digit--) {
@@ -71,81 +179,175 @@ void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence) 
 }
 
 void MinimizerMapper::dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds) {
-    dump_debug_sequence(cerr, aln.sequence());
     
-    for (auto& ext : extended_seeds) {
-        // For each extension
+    if (aln.sequence().size() >= LONG_LIMIT) {
+        // Describe the extensions, because the read is huge
+        cerr << log_name() << "<" << extended_seeds.size() << " extensions>" << endl;
+    } else {
+        // Show a diagram
+        dump_debug_sequence(cerr, aln.sequence());
         
-        cerr << log_name();
-        
-        for (size_t i = 0; i < ext.read_interval.first; i++) {
-            // Space until it starts
-            cerr << ' ';
-        }
-        
-        for (size_t i = ext.read_interval.first; i < ext.read_interval.second; i++) {
-            if (std::find(ext.mismatch_positions.begin(), ext.mismatch_positions.end(), i) != ext.mismatch_positions.end()) {
-                // Has an error here
-                cerr << "*";
-            } else {
-                // A match
-                cerr << aln.sequence()[i];
+        for (auto& ext : extended_seeds) {
+            // For each extension
+            
+            cerr << log_name();
+            
+            for (size_t i = 0; i < ext.read_interval.first; i++) {
+                // Space until it starts
+                cerr << ' ';
             }
+            
+            for (size_t i = ext.read_interval.first; i < ext.read_interval.second; i++) {
+                if (std::find(ext.mismatch_positions.begin(), ext.mismatch_positions.end(), i) != ext.mismatch_positions.end()) {
+                    // Has an error here
+                    cerr << "*";
+                } else {
+                    // A match
+                    cerr << aln.sequence()[i];
+                }
+            }
+            cerr << " @";
+            for (const handle_t& h : ext.path) {
+                cerr << " " << graph.get_id(h);
+            }
+            cerr << endl;
         }
-        cerr << " @";
-        for (const handle_t& h : ext.path) {
-            cerr << " " << graph.get_id(h);
-        }
-        cerr << endl;
     }
 }
 
 void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include) {
 
-    dump_debug_sequence(cerr, sequence);
-    
-    vector<size_t> all;
-    if (to_include == nullptr) {
-        // Synthesize a list of all minimizers
-        to_include = &all;
-        for (size_t i = 0; i < minimizers.size(); i++) {
-            all.push_back(i);
+    if (sequence.size() >= LONG_LIMIT) {
+        // Describe the minimizers, because the read is huge
+        cerr << log_name() << "<";
+        if (to_include) {
+            // We're looking at only some minimizers
+            cerr << to_include->size();
+        } else {
+            // We're looking at all the minimizers
+            cerr << minimizers.size();
+        }
+        cerr << " minimizers>" << endl;
+    } else {
+        // Draw a diagram
+        dump_debug_sequence(cerr, sequence);
+        
+        vector<size_t> all;
+        if (to_include == nullptr) {
+            // Synthesize a list of all minimizers
+            to_include = &all;
+            for (size_t i = 0; i < minimizers.size(); i++) {
+                all.push_back(i);
+            }
+            
+            // Sort minimizer subset so we go through minimizers in increasing order of start position
+            std::sort(all.begin(), all.end(), [&](size_t a, size_t b) {
+                // Return true if a must come before b, and false otherwise
+                return minimizers[a].forward_offset() < minimizers[b].forward_offset();
+            });
         }
         
-        // Sort minimizer subset so we go through minimizers in increasing order of start position
-        std::sort(all.begin(), all.end(), [&](size_t a, size_t b) {
-            // Return true if a must come before b, and false otherwise
-            return minimizers[a].forward_offset() < minimizers[b].forward_offset();
-        });
-    }
-    
-    // Dump minimizers
-    for (auto& index : *to_include) {
-        // For each minimizer
-        
-        cerr << log_name();
-        
-        auto& m = minimizers[index];
-        for (size_t i = 0; i < m.agglomeration_start; i++) {
-            // Space until its agglomeration starts
-            cerr << ' ';
+        // Dump minimizers
+        for (auto& index : *to_include) {
+            // For each minimizer
+            
+            cerr << log_name();
+            
+            auto& m = minimizers[index];
+            for (size_t i = 0; i < m.agglomeration_start; i++) {
+                // Space until its agglomeration starts
+                cerr << ' ';
+            }
+            
+            for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
+                // Do the beginnign of the agglomeration
+                cerr << '-';
+            }
+            // Do the minimizer itself
+            cerr << m.value.key.decode(m.length);
+            for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
+                // Do the tail end of the agglomeration
+                cerr << '-';
+            }
+            
+            // Tag with metadata
+            cerr << " (#" << index << ", " << m.hits << " hits)" << endl;
         }
-        
-        for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
-            // Do the beginnign of the agglomeration
-            cerr << '-';
-        }
-        // Do the minimizer itself
-        cerr << m.value.key.decode(m.length);
-        for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
-            // Do the tail end of the agglomeration
-            cerr << '-';
-        }
-        
-        // Tag with metadata
-        cerr << " (#" << index << ", " << m.hits << " hits)" << endl;
     }
 }
+
+template<typename SeedType>
+void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds) {
+    if (minimizers.size() < 30) {
+        // There are a few minimizers to make seeds so describe them individually.
+        for (auto hit_index : cluster.seeds) {
+            cerr << log_name() << "Minimizer " << seeds[hit_index].source << " is present in cluster " << cluster_number << endl;
+        }
+    } else {
+        // Describe the seeds in aggregate
+        std::vector<bool> presence(minimizers.size());
+        for (auto hit_index : cluster.seeds) {
+            presence[seeds[hit_index].source] = true;
+        }
+        cerr << log_name() << "Minimizers in cluster " << cluster_number << "\t" << log_bits(presence) << endl;
+    }
+}
+
+template<typename SeedType>
+void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds) {
+    if (minimizers.size() < 30) {
+        // There are a few minimizers to make seeds so describe them individually.
+        for (auto seed_index : selected_seeds) {
+            const SeedType& seed = seeds[seed_index];
+            const Minimizer& minimizer = minimizers[seed.source];
+            cerr << log_name() << "Seed read:" << minimizer.value.offset << " = " << seed.pos
+                << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
+        }
+    } else {
+        // Describe the seeds in aggregate
+        size_t min_read_pos = std::numeric_limits<size_t>::max();
+        size_t max_read_pos = 0;
+        size_t min_hits = std::numeric_limits<size_t>::max();
+        size_t max_hits = 0;
+        for (auto seed_index : selected_seeds) {
+            // Compute statistics over all the seeds
+            const SeedType& seed = seeds[seed_index];
+            const Minimizer& minimizer = minimizers[seed.source];
+            min_read_pos = std::min(min_read_pos, (size_t)minimizer.value.offset);
+            max_read_pos = std::max(max_read_pos, (size_t)minimizer.value.offset);
+            min_hits = std::min(min_hits, minimizer.hits);
+            max_hits = std::max(max_hits, minimizer.hits);
+        }
+        cerr << log_name() << selected_seeds.size() << " seeds in read:" << min_read_pos << "-" << max_read_pos << " with " << min_hits << "-" << max_hits << " hits" << endl;
+    }
+}
+
+void MinimizerMapper::dump_debug_query(const Alignment& aln) {
+    cerr << log_name() << "Read " << aln.name() << ": " ;
+    if (aln.sequence().size() < LONG_LIMIT) {
+        cerr << aln.sequence();
+    } else {
+        cerr << "<" << aln.sequence().size() << " bp>";
+    }
+    cerr << endl;
+}
+
+void MinimizerMapper::dump_debug_query(const Alignment& aln1, const Alignment& aln2) {
+    cerr << log_name() << "Read pair " << aln1.name() << ": ";
+    if (aln1.sequence().size() < LONG_LIMIT) {
+        cerr << aln1.sequence();
+    } else {
+        cerr << "<" << aln1.sequence().size() << " bp>";
+    }
+    cerr << " and " << aln2.name() << ": ";
+    if (aln2.sequence().size() < LONG_LIMIT) {
+        cerr << aln2.sequence();
+    } else {
+        cerr << "<" << aln2.sequence().size() << " bp>";
+    }
+    cerr << endl;
+}
+
 
 //-----------------------------------------------------------------------------
 
@@ -158,10 +360,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
     if (show_work) {
         #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Read " << aln.name() << ": " << aln.sequence() << endl;
-
-        }
+        dump_debug_query(aln);
     }
     
     // Make a new funnel instrumenter to watch us map this read.
@@ -321,15 +520,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     const Seed& seed = seeds[seed_index];
                     seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
                     minimizer_extended_cluster_count.back()[seed.source]++;
-                    
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            const Minimizer& minimizer = minimizers[seed.source];
-                            cerr << log_name() << "Seed read:" << minimizer.value.offset << " = " << seed.pos
-                                << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
-                        }
-                    }
+                }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    dump_debug_seeds(minimizers, seeds, cluster.seeds);
                 }
             } else {
                 for (auto seed_index : cluster.seeds) {
@@ -337,15 +531,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     const OldSeed& seed = old_seeds[seed_index];
                     seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
                     minimizer_extended_cluster_count.back()[seed.source]++;
-                    
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            const Minimizer& minimizer = minimizers[seed.source];
-                            cerr << log_name() << "Seed read:" << minimizer.value.offset << " = " << seed.pos
-                                << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
-                        }
-                    }
+                }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
                 }
             }
             
@@ -572,7 +761,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Produced alignment from gapless extension group " << extension_num
-                            << " with score " << alignments.back().score() << ": " << pb2json(alignments.back()) << endl;
+                            << " with score " << alignments.back().score() << ": " << log_alignment(alignments.back()) << endl;
                     }
                 }
             };
@@ -699,7 +888,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Picked best alignment " << pb2json(mappings[0]) << endl;
+            cerr << log_name() << "Picked best alignment " << log_alignment(mappings[0]) << endl;
             cerr << log_name() << "For scores";
             for (auto& score : scores) cerr << " " << score << ":" << endl;
         }
@@ -822,8 +1011,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     }
 #endif
 
-    if (track_provenance && show_work) {
+    if (track_provenance && show_work && aln.sequence().size() < LONG_LIMIT) {
         // Dump the funnel info graph.
+        // TODO: Add a new flag for this.
         #pragma omp critical (cerr)
         {
             funnel.to_dot(cerr);
@@ -944,9 +1134,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     
     if (show_work) {
         #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Read pair " << aln1.name() << ": " << aln1.sequence() << " and " << aln2.name() << ": " << aln2.sequence() << endl;
-        }
+        dump_debug_query(aln1, aln2);
     }
 
     // Make sure we actually have a working fragment length distribution that the clusterer will accept.
@@ -1535,7 +1723,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         #pragma omp critical (cerr)
                         {
                             cerr << log_name() << "Produced fragment option " << fragment_num << " end " << read_num
-                                << " alignment with score " << alignment_list.back().score() << ": " << pb2json(alignment_list.back()) << endl;
+                                << " alignment with score " << alignment_list.back().score() << ": " << log_alignment(alignment_list.back()) << endl;
                         }
                     }
                 };
@@ -1659,7 +1847,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                             cerr << log_name() << "Found pair of alignments from fragment " << fragment_num << " with scores " 
                                  << alignment1.score() << " " << alignment2.score() << " at distance " << fragment_distance 
                                  << " gets pair score " << score << endl;
-                            cerr << log_name() << "Alignment 1: " << pb2json(alignment1) << endl << "Alignment 2: " << pb2json(alignment2) << endl;
+                            cerr << log_name() << "Alignment 1: " << log_alignment(alignment1) << endl << "Alignment 2: " << log_alignment(alignment2) << endl;
                         }
                     }
 
@@ -1696,7 +1884,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "\t" << pb2json(fragment_alignments.first[i]) << endl;
+                        cerr << log_name() << "\t" << log_alignment(fragment_alignments.first[i]) << endl;
                     }
                 }
             }
@@ -1715,7 +1903,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "\t" << pb2json(fragment_alignments.second[i]) << endl;
+                        cerr << log_name() << "\t" << log_alignment(fragment_alignments.second[i]) << endl;
                     }
                 }
             }
@@ -2674,7 +2862,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Attempt rescue from: " << pb2json(aligned_read) << endl;
+            cerr << log_name() << "Attempt rescue from: " << log_alignment(aligned_read) << endl;
         }
     }
 
@@ -2822,7 +3010,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Rescue result: " << pb2json(rescued_alignment) << endl;
+            cerr << log_name() << "Rescue result: " << log_alignment(rescued_alignment) << endl;
         }
     }
 }
@@ -3439,12 +3627,10 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
     // Determine the minimizers that are present in the cluster.
     for (auto hit_index : cluster.seeds) {
         cluster.present.insert(seeds[hit_index].source);
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Minimizer " << seeds[hit_index].source << " is present in cluster " << i << endl;
-            }
-        }
+    }
+    if (show_work) {
+        #pragma omp critical (cerr)
+        dump_debug_clustering(cluster, i, minimizers, seeds);
     }
 
     // Compute the score and cluster coverage.
@@ -3489,12 +3675,10 @@ void MinimizerMapper::score_cluster_old(Cluster& cluster, size_t i, const std::v
     // Determine the minimizers that are present in the cluster.
     for (auto hit_index : cluster.seeds) {
         cluster.present.insert(seeds[hit_index].source);
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Minimizer " << seeds[hit_index].source << " is present in cluster " << i << endl;
-            }
-        }
+    }
+    if (show_work) {
+        #pragma omp critical (cerr)
+        dump_debug_clustering(cluster, i, minimizers, seeds);
     }
 
     // Compute the score and cluster coverage.
@@ -4276,6 +4460,17 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         throw std::logic_error("Cannot find an alignment for an empty chain!");
     }
     
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Align chain of:";
+            for (auto extension_number : chain) {
+                cerr << " " << extension_number;
+            }
+            cerr << endl;
+        }
+    }
+    
     // We need an Aligner for scoring
     const Aligner& aligner = *this->get_regular_aligner();
     
@@ -4295,6 +4490,13 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     string left_tail = aln.sequence().substr(0, here->read_interval.first + 1);
     WFAAlignment aligned = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph)));
     
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Start with left tail of " << left_tail.size() << " with score of " << aligned.score << endl;
+        }
+    }
+    
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
         
@@ -4313,14 +4515,28 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
             break;
         }
         
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add extension of " << here->length() << " with score of " << here->score << endl;
+            }
+        }
+        
         // Make an alignment for the bases used in this GaplessExtension, and
         // concatenate it in on the shared match.
-        aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match); 
+        aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match);
         
         // Pull out the intervening string. Leave room for the anchoring matches.
         string linking_bases = aln.sequence().substr(here->read_interval.second - 1, next->read_interval.first - here->read_interval.second + 2);
         // And align it
         WFAAlignment link_alignment = extender.connect(linking_bases, make_pos_t(here->tail_position(gbwt_graph)), make_pos_t(next->starting_position(gbwt_graph)));
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add link of " << link_alignment.length << " with score of " << link_alignment.score << endl;
+            }
+        }
         
         // And concatenate it in
         aligned.join_on_shared_match(link_alignment, aligner.match);
@@ -4331,13 +4547,35 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         here = next;
     }
     
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Add last extension of " << here->length() << " with score of " << here->score << endl;
+        }
+    }
+    
     // Do the final GaplessExtension itself (may be the first)
     aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match);
     
     // Do the right tail, if any. Leave room for the anchoring match.
     string right_tail = aln.sequence().substr(here->read_interval.second - 1);
     WFAAlignment right_alignment = extender.suffix(right_tail, make_pos_t(here->tail_position(gbwt_graph)));
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+        }
+    }
+    
     aligned.join_on_shared_match(right_alignment, aligner.match);
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Final alignment is length " << aligned.length << " with score of " << aligned.score << endl;
+        }
+    }
     
     // Convert to a vg Alignment.
     Alignment result(aln);
@@ -4717,7 +4955,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "First best alignment: " << pb2json(best_path) << " score " << best_score << endl;
+                cerr << log_name() << "First best alignment: " << log_alignment(best_path) << " score " << best_score << endl;
             }
         }
     }
@@ -4739,7 +4977,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Align " << pb2json(current_alignment) << " pinned left" << endl;
+                    cerr << log_name() << "Align " << log_alignment(current_alignment) << " pinned left" << endl;
                 }
             }
 
@@ -4804,7 +5042,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "New best alignment is "
-                            << pb2json(best_path) << " score " << best_score << endl;
+                            << log_alignment(best_path) << " score " << best_score << endl;
                     }
                 }
             }

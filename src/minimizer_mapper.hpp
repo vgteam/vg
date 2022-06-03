@@ -788,6 +788,18 @@ protected:
         
     // Internal debugging functions
     
+    /// Get the thread identifier prefix for logging
+    static string log_name();
+    
+    /// Turn an Alignment into a conveniently-sized string for logging
+    static string log_alignment(const Alignment& aln);
+    
+    /// Turn an Path from an alignment into a conveniently-sized string for logging
+    static string log_alignment(const Path& path, bool force_condensed = false);
+    
+    /// Turn a list of bit flags into a compact representation.
+    static string log_bits(const std::vector<bool>& bits);
+    
     /// Dump all the given minimizers, with optional subset restriction
     static void dump_debug_minimizers(const vector<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
     
@@ -797,8 +809,22 @@ protected:
     /// Print a sequence with base numbering
     static void dump_debug_sequence(ostream& out, const string& sequence);
     
-    /// Get the thread identifier prefix for logging
-    static string log_name();
+    /// Print the seed content of a cluster.
+    template<typename SeedType>
+    static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
+    
+    /// Print information about a selected set of seeds.
+    template<typename SeedType>
+    static void dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds);
+    
+    /// Print information about a read to be aligned
+    static void dump_debug_query(const Alignment& aln);
+    
+    /// Print information about a read pair to be aligned
+    static void dump_debug_query(const Alignment& aln1, const Alignment& aln2);
+    
+    /// Length at which we cut over to long-alignment logging.
+    const static size_t LONG_LIMIT = 256;
 
     friend class TestMinimizerMapper;
 };
