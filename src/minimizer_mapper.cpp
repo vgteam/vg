@@ -4481,7 +4481,7 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
     auto here_it = chain.begin();
     auto next_it = here_it;
-    ++here_it;
+    ++next_it;
     
     const GaplessExtension* here = &extended_seeds[*here_it];
     
@@ -4505,6 +4505,14 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         // Get the read string between them
         while (next_it != chain.end() && here->read_interval.second >= next->read_interval.first) {
             // Actually there's an overlap; just skip the overlapping extension.
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
+                }
+            }
+            // TODO: If we just drop the whole extension we can get into a situation where we need to do a lot of DP to replace it, and we might not get anything that follows the GBWT.
+            // TODO: Trim it down to just 1 base of overlap and weld it on, if it's not completely contained/earlier.
             ++next_it;
             if (next_it == chain.end()) {
                 break;
@@ -4518,7 +4526,7 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Add extension of " << here->length() << " with score of " << here->score << endl;
+                cerr << log_name() << "Add extension " << *here_it << " of " << here->length() << " with score of " << here->score << endl;
             }
         }
         
@@ -4550,7 +4558,7 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Add last extension of " << here->length() << " with score of " << here->score << endl;
+            cerr << log_name() << "Add last extension " << *here_it << " of " << here->length() << " with score of " << here->score << endl;
         }
     }
     
