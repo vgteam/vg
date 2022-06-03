@@ -122,6 +122,28 @@ void correct_score(const GaplessExtension& extension, const Aligner& aligner) {
     REQUIRE(extension.score == expected_score);
 }
 
+void correct_score(const WFAAlignment& alignment, const Aligner& aligner) {
+    int32_t expected_score = 0;
+    for (auto& edit : alignment.edits) {
+        switch (edit.first) {
+        case WFAAlignment::match:
+            expected_score += edit.second * aligner.match;
+            break;
+        case WFAAlignment::mismatch:
+            expected_score -= edit.second * aligner.mismatch;
+            break;
+        case WFAAlignment::insertion:
+            // Fall-through
+        case WFAAlignment::deletion:
+            expected_score -= (aligner.gap_open + (edit.second - 1) * aligner.gap_extension);
+            break;
+        default:
+            REQUIRE(false);
+        }
+    }
+    REQUIRE(alignment.score == expected_score);
+}
+
 // Match: 1-9
 // Mismatch: ACGT
 // Insertion: + 1-9 str
@@ -839,6 +861,96 @@ TEST_CASE("Non-ACGT characters do not match", "[gapless_extender]") {
         size_t error_bound = 0;
         partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Gapless extensions can be converted to WFAAlignments and joined", "[wfa_alignment]") {
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+    // Build a GBWT-backed graph.
+    gbwtgraph::GBWTGraph gbwt_graph = build_gbwt_graph(gbwt_index);
+    
+    // And we need an Aligner.
+    Aligner aligner;
+    
+    // Make an extension
+    GaplessExtension a {
+        {
+            gbwt_graph.get_handle(1, false),
+            gbwt_graph.get_handle(4, false)
+        },
+        0, gbwt::BidirectionalState(),
+        { 0, 4 }, { },
+        0, false, false,
+        false, false, 0, 0
+    };
+    // And turn it into a WFAAlignment
+    WFAAlignment a_aln = WFAAlignment::from_extension(a);
+    correct_score(a_aln, aligner);
+    
+    // Make another abutting extension
+    GaplessExtension b {
+        {
+            gbwt_graph.get_handle(5, false),
+            gbwt_graph.get_handle(6, false),
+            gbwt_graph.get_handle(8, false),
+            gbwt_graph.get_handle(9, false)
+        },
+        0, gbwt::BidirectionalState(),
+        { 4, 8 }, { },
+        0, false, false,
+        false, false, 0, 0
+    };
+    // And turn it into a WFAAlignment
+    WFAAlignment b_aln = WFAAlignment::from_extension(b);
+    correct_score(b_aln, aligner);
+    
+    // Make a joining WFAAlignment to staple the two together.
+    WFAAlignment joining_aln {
+        {
+            gbwt_graph.get_handle(4, false),
+            gbwt_graph.get_handle(5, false)
+        },
+        {
+            {WFAAlignment::match, 2}
+        },
+        2,
+        3, // We start at base 3 in the read
+        2,
+        2 * aligner.match
+    };
+    correct_score(joining_aln, aligner);
+    
+    // Now start welding them together
+    WFAAlignment joined;
+    joined.join_on_shared_match(a_aln, aligner.match);
+    REQUIRE(joined.length == a_aln.length);
+    correct_score(joined, aligner);
+    
+    joined.join_on_shared_match(joining_aln, aligner.match);
+    REQUIRE(joined.length == a_aln.length + joining_aln.length - 1);
+    correct_score(joined, aligner);
+    
+    joined.join_on_shared_match(b_aln, aligner.match);
+    REQUIRE(joined.length == a_aln.length + joining_aln.length - 1 + b_aln.length - 1);
+    correct_score(joined, aligner);
+    
+    // And make sure we get the right final alignment
+    REQUIRE(joined.edits.size() == 1);
+    REQUIRE(joined.edits.at(0).first == WFAAlignment::match);
+    REQUIRE(joined.edits.at(0).second == 8);
+    REQUIRE(joined.path.size() == 6);
+    REQUIRE(joined.path.at(0) == gbwt_graph.get_handle(1, false));
+    REQUIRE(joined.path.at(1) == gbwt_graph.get_handle(4, false));
+    REQUIRE(joined.path.at(2) == gbwt_graph.get_handle(5, false));
+    REQUIRE(joined.path.at(3) == gbwt_graph.get_handle(6, false));
+    REQUIRE(joined.path.at(4) == gbwt_graph.get_handle(8, false));
+    REQUIRE(joined.path.at(5) == gbwt_graph.get_handle(9, false));
+    REQUIRE(joined.score == 8 * aligner.match);
+    
 }
 
 //------------------------------------------------------------------------------
