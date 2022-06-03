@@ -130,7 +130,7 @@ void help_mpmap(char** argv) {
     //<< "      --suppress-tail-anchors  don't produce extra anchors when aligning to alternate paths in snarls" << endl
     //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
     << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
-    << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
+    << "  -M, --max-multimaps INT   report (up to) this many mappings per read [10 rna / 1 dna]" << endl
     << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
@@ -253,7 +253,9 @@ int main_mpmap(int argc, char** argv) {
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
     int localization_max_paths = 5;
-    int max_num_mappings = 1;
+    int max_num_mappings = 0;
+    int default_dna_num_mappings = 1;
+    int default_rna_num_mappings = 10;
     int hit_max = 1024;
     int hit_max_arg = numeric_limits<int>::min();
     int hard_hit_max_muliplier = 3;
@@ -1019,8 +1021,16 @@ int main_mpmap(int argc, char** argv) {
             // can be one alignment
             suppress_multicomponent_splitting = true;
         }
+        if (max_num_mappings == 0) {
+            max_num_mappings = default_rna_num_mappings;
+        }
     }
-    else if (nt_type != "dna") {
+    else if (nt_type == "dna") {
+        if (max_num_mappings == 0) {
+            max_num_mappings = default_dna_num_mappings;
+        }
+    }
+    else {
         // DNA is the default
         cerr << "error:[vg mpmap] Cannot identify sequencing type preset (-n): " << nt_type << endl;
         exit(1);
