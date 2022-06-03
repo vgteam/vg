@@ -884,9 +884,10 @@ TEST_CASE("Gapless extensions can be converted to WFAAlignments and joined", "[w
         },
         0, gbwt::BidirectionalState(),
         { 0, 4 }, { },
-        0, false, false,
+        4 * aligner.match, false, false,
         false, false, 0, 0
     };
+    correct_score(a, aligner);
     // And turn it into a WFAAlignment
     WFAAlignment a_aln = WFAAlignment::from_extension(a);
     correct_score(a_aln, aligner);
@@ -901,10 +902,11 @@ TEST_CASE("Gapless extensions can be converted to WFAAlignments and joined", "[w
         },
         0, gbwt::BidirectionalState(),
         { 4, 8 }, { },
-        0, false, false,
+        4 * aligner.match, false, false,
         false, false, 0, 0
     };
     // And turn it into a WFAAlignment
+    correct_score(b, aligner);
     WFAAlignment b_aln = WFAAlignment::from_extension(b);
     correct_score(b_aln, aligner);
     
