@@ -3948,6 +3948,12 @@ size_t MinimizerMapper::get_graph_overlap(const GaplessExtension& left,
     
 }
 
+size_t MinimizerMapper::get_read_overlap(const GaplessExtension& left,
+                                         const GaplessExtension& right) {
+
+    return left.read_interval.second - right.read_interval.first;
+}
+
 size_t MinimizerMapper::get_graph_distance(const GaplessExtension& left,
                                            const GaplessExtension& right,
                                            const SnarlDistanceIndex* distance_index,
@@ -4140,7 +4146,7 @@ S MinimizerMapper::chain_extension_group_dp(vector<S>& best_chain_score,
                     // See whether and how much they overlap in the graph
                     size_t graph_overlap = get_graph_overlap(extended_seeds[ST::source(overlap_option)], extended_seeds[unentered], graph);
                     // And also get the overlap in the read.
-                    size_t read_overlap = extended_seeds[ST::source(overlap_option)].read_interval.second - extended_seeds[unentered].read_interval.first;
+                    size_t read_overlap = get_read_overlap(extended_seeds[ST::source(overlap_option)], extended_seeds[unentered]);
                     if (graph_overlap > read_overlap) {
                         // They overlap in the graph more than they do in the read.
                         // We don't want to charge for the overlap in the read, we just want to charge for the additional overlap in the graph.
@@ -4500,13 +4506,14 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         
         const GaplessExtension* next = &extended_seeds[*next_it];
         
-        // Get the read string between them
-        while (next_it != chain.end() && here->read_interval.second >= next->read_interval.first) {
-            // Actually there's an overlap; just skip the overlapping extension.
+        // How much does this extension overlap into the next one in the read?
+        size_t overlap = get_read_overlap(*here, *next);
+        while (next_it != chain.end() && overlap >= std::max(here->length(), next->length())) {
+            // There's enough overlap for one of these to contain the other. Keep here and skip next.
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
+                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because of containment or backtracking over an entire gapless extension" << endl;
                 }
             }
             // TODO: If we just drop the whole extension we can get into a situation where we need to do a lot of DP to replace it, and we might not get anything that follows the GBWT.
@@ -4516,10 +4523,13 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
                 break;
             }
             next = &extended_seeds[*next_it];
+            overlap = get_read_overlap(*here, *next);
         }
         if (next_it == chain.end()) {
             break;
         }
+        
+        // Now they may still overlap, but each has a distinct read base.
         
         if (show_work) {
             #pragma omp critical (cerr)
@@ -4528,9 +4538,22 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
             }
         }
         
+        if (overlap > 0) {
+            // We need to trim to avoid overlap in the read.
+            // If we trim from here it is more efficient because we are
+            // trimming from the end of its internal vectors.
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Trim " << overlap << " bases from end of extension" << endl;
+                }
+            }
+        }
+        
         // Make an alignment for the bases used in this GaplessExtension, and
-        // concatenate it in on the shared match.
-        aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match);
+        // concatenate it in on the shared match. Make sure to trim the overlap off the end.
+        aligned.join_on_shared_match(WFAAlignment::from_extension(*here, here->length() - overlap), aligner.match);
         
         // Pull out the intervening string. Leave room for the anchoring matches.
         string linking_bases = aln.sequence().substr(here->read_interval.second - 1, next->read_interval.first - here->read_interval.second + 2);

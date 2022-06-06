@@ -550,8 +550,8 @@ protected:
         
     /**
      * Return the amount by which the end of the left gapless extension is
-     *  past the position before the start of the right gapless extension.
-     *  Returns 0 if they do not actually overlap.
+     *  past the position before the start of the right gapless extension, in
+     *  the graph. Returns 0 if they do not actually overlap.
      * 
      *  Doesn't actually match the whole graph paths against each other; if
      *  there's a handle where the left one ends and then the right one starts,
@@ -563,6 +563,17 @@ protected:
     static size_t get_graph_overlap(const GaplessExtension& left,
                                     const GaplessExtension& right,
                                     const HandleGraph* graph);
+                                    
+     /**
+     * Return the amount by which the end of the left gapless extension is
+     *  past the position before the start of the right gapless extension, in
+     *  the read. Returns 0 if they do not actually overlap.
+     * 
+     *  Can return a number larger than the length of one extension if it is
+     *  contained in the other.
+     */
+    static size_t get_read_overlap(const GaplessExtension& left,
+                                   const GaplessExtension& right);
 
     /**
      *  Get the minimum graph distance between the end of the left gapless

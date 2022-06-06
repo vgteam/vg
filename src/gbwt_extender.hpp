@@ -78,6 +78,9 @@ struct GaplessExtension
 
     /// Number of shared (read position, graph position) pairs in the extensions.
     size_t overlap(const HandleGraph& graph, const GaplessExtension& another) const;
+    
+    /// Take a prefix of the extension as a new GaplessExtension object.
+    GaplessExtension prefix(size_t prefix_length) const;
 
     /// Convert the extension into a Path.
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
