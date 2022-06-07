@@ -518,12 +518,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     size_t kept_cluster_count = 0;
     
     //Process clusters sorted by both score and read coverage
-    process_until_threshold_c(clusters.size(), [&](size_t i) -> double {
+    process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
             return clusters[i].coverage;
         }, [&](size_t a, size_t b) -> bool {
             return ((clusters[a].coverage > clusters[b].coverage) ||
                     (clusters[a].coverage == clusters[b].coverage && clusters[a].score > clusters[b].score));
-        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num) {
+        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
             Cluster& cluster = clusters[cluster_num];
@@ -571,9 +571,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Define a space to chain in.
                     // TODO: re-use!
                     algorithms::ChainingSpace<Seed, Minimizer> space(
-                        get_regular_aligner()->gap_open,
-                        get_regular_aligner()->gap_extension,
                         minimizers,
+                        *get_regular_aligner(),
                         distance_index,
                         &gbwt_graph);
                     // Compute the best chain
@@ -582,12 +581,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Define a space to chain in.
                     // TODO: re-use!
                     algorithms::ChainingSpace<OldSeed, Minimizer> space(
-                        get_regular_aligner()->gap_open,
-                        get_regular_aligner()->gap_extension,
                         minimizers,
+                        *get_regular_aligner(),
                         &gbwt_graph);
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain(seeds, space));
+                    cluster_chains.emplace_back(algorithms::find_best_chain(old_seeds, space));
                 }
             } else {
                 // We want to align from extensions, so we actually need extensions
@@ -618,7 +616,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             return true;
             
-        }, [&](size_t cluster_num) {
+        }, [&](size_t cluster_num) -> void {
             // There are too many sufficiently good clusters
             Cluster& cluster = clusters[cluster_num];
             if (track_provenance) {
@@ -636,7 +634,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
             }
             
-        }, [&](size_t cluster_num) {
+        }, [&](size_t cluster_num) -> void {
             // This cluster is not sufficiently good.
             if (track_provenance) {
                 funnel.fail("cluster-coverage", cluster_num, clusters[cluster_num].coverage);
@@ -700,8 +698,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     }
     
     // Go through the processed clusters in estimated-score order.
-    process_until_threshold_b(cluster_alignment_score_estimates,
-        extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num) {
+    process_until_threshold_b<int>(cluster_alignment_score_estimates,
+        extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num) -> bool {
             // This processed cluster is good enough.
             // Called in descending score order.
             
@@ -741,9 +739,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         // Define a space to chain in.
                         // TODO: re-use!
                         algorithms::ChainingSpace<Seed, Minimizer> space(
-                            get_regular_aligner()->gap_open,
-                            get_regular_aligner()->gap_extension,
                             minimizers,
+                            *get_regular_aligner(),
                             distance_index,
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
@@ -752,9 +749,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         // Define a space to chain in.
                         // TODO: re-use!
                         algorithms::ChainingSpace<OldSeed, Minimizer> space(
-                            get_regular_aligner()->gap_open,
-                            get_regular_aligner()->gap_extension,
                             minimizers,
+                            *get_regular_aligner(),
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
                         best_alignments[0] = find_chain_alignment(aln, old_seeds, space, chain);
@@ -874,7 +870,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             }
             
             return true;
-        }, [&](size_t processed_num) {
+        }, [&](size_t processed_num) -> void {
             // There are too many sufficiently good processed clusters
             if (track_provenance) {
                 funnel.pass("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
@@ -893,7 +889,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     }
                 }
             }
-        }, [&](size_t processed_num) {
+        }, [&](size_t processed_num) -> void {
             // This extension is not good enough.
             if (track_provenance) {
                 funnel.fail("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
@@ -1520,7 +1516,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         size_t kept_cluster_count = 0;
         
         //Process clusters sorted by both score and read coverage
-        process_until_threshold_c(clusters.size(), [&](size_t i) -> double {
+        process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
                 return clusters[i].coverage;
             }, [&](size_t a, size_t b) -> bool {
                 //Sort clusters first by whether it was paired, then by the best coverage and score of any pair in the fragment cluster, 
@@ -1545,7 +1541,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     return clusters[a].score > clusters[b].score;
                 }
             },
-            0, min_extensions, max_extensions, rng, [&](size_t cluster_num) {
+            0, min_extensions, max_extensions, rng, [&](size_t cluster_num) -> bool {
                 // Handle sufficiently good clusters 
                 Cluster& cluster = clusters[cluster_num];
                 if (!found_paired_cluster || fragment_cluster_has_pair[cluster.fragment] || 
@@ -1623,13 +1619,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     return false;
                 }
                 
-            }, [&](size_t cluster_num) {
+            }, [&](size_t cluster_num) -> void {
                 // There are too many sufficiently good clusters
                 if (track_provenance) {
                     funnels[read_num].pass("cluster-coverage", cluster_num, clusters[cluster_num].coverage);
                     funnels[read_num].fail("max-extensions", cluster_num);
                 }
-            }, [&](size_t cluster_num) {
+            }, [&](size_t cluster_num) -> void {
                 // This cluster is not sufficiently good.
                 // TODO: I don't think it should ever get here unless we limit the scores of the fragment clusters we look at
             });
@@ -3574,8 +3570,7 @@ std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::c
     
     // Define the scoring space
     algorithms::ChainingSpace<GaplessExtension> space(
-        get_regular_aligner()->gap_open,
-        get_regular_aligner()->gap_extension,
+        *get_regular_aligner(),
         distance_index,
         &gbwt_graph);
 
@@ -3612,8 +3607,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::vector
 
     // Define the scoring space, but don't bother with thinking in graph space.
     algorithms::ChainingSpace<GaplessExtension> space(
-        get_regular_aligner()->gap_open,
-        get_regular_aligner()->gap_extension);
+        *get_regular_aligner());
 
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> result(extensions.size(), 0);
@@ -3644,8 +3638,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
     
     // Define the scoring space, but don't bother with thinking in graph space.
     algorithms::ChainingSpace<GaplessExtension> space(
-        get_regular_aligner()->gap_open,
-        get_regular_aligner()->gap_extension);
+        *get_regular_aligner());
     
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> result(extensions.size(), 0);
@@ -3668,159 +3661,6 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
 }
 
 //-----------------------------------------------------------------------------
-
-template<typename Item, typename Source = void>
-Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vector<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const {
-    
-    if (chain.empty()) {
-        throw std::logic_error("Cannot find an alignment for an empty chain!");
-    }
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Align chain of:";
-            for (auto item_number : chain) {
-                cerr << " " << item_number;
-            }
-            cerr << endl;
-        }
-    }
-    
-    // We need an Aligner for scoring.
-    // TODO: Make it agree with the space???
-    const Aligner& aligner = *this->get_regular_aligner();
-    
-    // We need a WFAExtender to do this.
-    // Note that the extender expects anchoring matches!!!
-    WFAExtender extender(gbwt_graph, aligner); 
-    
-    // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
-    auto here_it = chain.begin();
-    auto next_it = here_it;
-    ++next_it;
-    
-    const Item* here = &to_chain[*here_it];
-    
-    // Do the left tail, if any.
-    // Leave room for the anchoring match.
-    string left_tail = aln.sequence().substr(0, here->read_interval.first + 1);
-    WFAAlignment aligned = extender.prefix(left_tail, space.graph_start(*here));
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Start with left tail of " << left_tail.size() << " with score of " << aligned.score << endl;
-        }
-    }
-    
-    while(next_it != chain.end()) {
-        // Do each region between successive gapless extensions
-        
-        const Item* next = &to_chain[*next_it];
-        
-        while (next_it != chain.end() && space.get_read_overlap(*here, *next) > 0) {
-            // There's overlap between these items. Keep here and skip next.
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
-                }
-            }
-            
-            ++next_it;
-            if (next_it == chain.end()) {
-                break;
-            }
-            next = &to_chain[*next_it];
-        }
-        if (next_it == chain.end()) {
-            break;
-        }
-        
-        // Now they may still overlap, but each has a distinct read base.
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add item " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
-            }
-        }
-        
-        if (overlap > 0) {
-            // We need to trim to avoid overlap in the read.
-            // If we trim from here it is more efficient because we are
-            // trimming from the end of its internal vectors.
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Trim " << overlap << " bases from end of extension" << endl;
-                }
-            }
-        }
-        
-        // Make an alignment for the bases used in this GaplessExtension, and
-        // concatenate it in on the shared match.
-        aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
-        
-        // Pull out the intervening string. Leave room for the anchoring matches.
-        string linking_bases = aln.sequence().substr(space.read_end(*here) - 1, space.read_start(*next) - space.read_end(*here) + 2);
-        // And align it
-        WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
-            }
-        }
-        
-        // And concatenate it in
-        aligned.join_on_shared_match(link_alignment, aligner.match);
-        
-        // Advance to the next link
-        here_it = next_it;
-        ++next_it;
-        here = next;
-    }
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Add last extension " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
-        }
-    }
-    
-    // Do the final GaplessExtension itself (may be the first)
-    aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
-    
-    // Do the right tail, if any. Leave room for the anchoring match.
-    string right_tail = aln.sequence().substr(space.read_end(*here) - 1);
-    WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
-        }
-    }
-    
-    aligned.join_on_shared_match(right_alignment, aligner.match);
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Final alignment is length " << aligned.length << " with score of " << aligned.score << endl;
-        }
-    }
-    
-    // Convert to a vg Alignment.
-    Alignment result(aln);
-    wfa_alignment_to_alignment(aligned, result);
-    
-    return result;
-}
 
 // (value, cost)
 typedef std::pair<uint32_t, int32_t> pareto_point;
@@ -3946,7 +3786,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     // Handle each extension in the set
     bool partial_extension_aligned = false;
     int32_t threshold = -1;
-    process_until_threshold_a(extended_seeds.size(),
+    process_until_threshold_a<double>(extended_seeds.size(),
         [&](size_t extended_seed_num) -> double {
             return static_cast<double>(extended_seeds[extended_seed_num].score);
         }, extension_score_threshold, min_extensions, max_local_extensions, rng, [&](size_t extended_seed_num) -> bool {
@@ -4096,10 +3936,10 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             }
 
             return true;
-        }, [&](size_t extended_seed_num) {
+        }, [&](size_t extended_seed_num) -> void {
             // This extended seed is good enough by its own score, but we have too many.
             // Do nothing
-        }, [&](size_t extended_seed_num) {
+        }, [&](size_t extended_seed_num) -> void {
             // This extended seed isn't good enough by its own score.
             // Do nothing
         });

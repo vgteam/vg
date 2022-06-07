@@ -700,7 +700,7 @@ protected:
      * comparator to sort the items (must still be sorted by score).
      */
     template<typename Score = double>
-    void process_until_threshold_c(size_t& items, const function<Score(size_t)>& get_score,
+    void process_until_threshold_c(size_t items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& get_seed,
@@ -751,7 +751,7 @@ protected:
     friend class TestMinimizerMapper;
 };
 
-template<typename Item, typename Score>
+template<typename Score>
 void MinimizerMapper::process_until_threshold_a(size_t items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
     LazyRNG& rng,
@@ -772,8 +772,6 @@ void MinimizerMapper::process_until_threshold_b(const vector<Score>& scores,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
     
-    assert(scores.size() == items.size());
-    
     process_until_threshold_c<Score>(scores.size(), [&](size_t i) -> Score {
         return scores[i];
     }, [&](size_t a, size_t b) -> bool {
@@ -781,7 +779,7 @@ void MinimizerMapper::process_until_threshold_b(const vector<Score>& scores,
     },threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
 }
 
-template<typename Item, typename Score>
+template<typename Score>
 void MinimizerMapper::process_until_threshold_c(size_t items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
@@ -843,6 +841,163 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
         }
     }
 }
+
+template<typename Item, typename Source>
+Alignment MinimizerMapper::find_chain_alignment(
+    const Alignment& aln,
+    const vector<Item>& to_chain,
+    const algorithms::ChainingSpace<Item, Source>& space,
+    const std::vector<size_t>& chain) const {
+    
+    if (chain.empty()) {
+        throw std::logic_error("Cannot find an alignment for an empty chain!");
+    }
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Align chain of:";
+            for (auto item_number : chain) {
+                cerr << " " << item_number;
+            }
+            cerr << endl;
+        }
+    }
+    
+    // We need an Aligner for scoring.
+    const Aligner& aligner = space.scoring;
+    
+    // We need a WFAExtender to do this.
+    // Note that the extender expects anchoring matches!!!
+    WFAExtender extender(gbwt_graph, aligner); 
+    
+    // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
+    auto here_it = chain.begin();
+    auto next_it = here_it;
+    ++next_it;
+    
+    const Item* here = &to_chain[*here_it];
+    
+    // Do the left tail, if any.
+    // Leave room for the anchoring match.
+    string left_tail = aln.sequence().substr(0, space.read_start(*here) + 1);
+    WFAAlignment aligned = extender.prefix(left_tail, space.graph_start(*here));
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Start with left tail of " << left_tail.size() << " with score of " << aligned.score << endl;
+        }
+    }
+    
+    while(next_it != chain.end()) {
+        // Do each region between successive gapless extensions
+        
+        const Item* next = &to_chain[*next_it];
+        
+        while (next_it != chain.end() && space.get_read_overlap(*here, *next) > 0) {
+            // There's overlap between these items. Keep here and skip next.
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
+                }
+            }
+            
+            ++next_it;
+            if (next_it == chain.end()) {
+                break;
+            }
+            next = &to_chain[*next_it];
+        }
+        if (next_it == chain.end()) {
+            break;
+        }
+        
+        // Now they may still overlap, but each has a distinct read base.
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add item " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
+            }
+        }
+        
+        if (overlap > 0) {
+            // We need to trim to avoid overlap in the read.
+            // If we trim from here it is more efficient because we are
+            // trimming from the end of its internal vectors.
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Trim " << overlap << " bases from end of extension" << endl;
+                }
+            }
+        }
+        
+        // Make an alignment for the bases used in this GaplessExtension, and
+        // concatenate it in on the shared match.
+        aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
+        
+        // Pull out the intervening string. Leave room for the anchoring matches.
+        string linking_bases = aln.sequence().substr(space.read_end(*here) - 1, space.read_start(*next) - space.read_end(*here) + 2);
+        // And align it
+        WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
+            }
+        }
+        
+        // And concatenate it in
+        aligned.join_on_shared_match(link_alignment, aligner.match);
+        
+        // Advance to the next link
+        here_it = next_it;
+        ++next_it;
+        here = next;
+    }
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Add last extension " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
+        }
+    }
+    
+    // Do the final GaplessExtension itself (may be the first)
+    aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
+    
+    // Do the right tail, if any. Leave room for the anchoring match.
+    string right_tail = aln.sequence().substr(space.read_end(*here) - 1);
+    WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+        }
+    }
+    
+    aligned.join_on_shared_match(right_alignment, aligner.match);
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Final alignment is length " << aligned.length << " with score of " << aligned.score << endl;
+        }
+    }
+    
+    // Convert to a vg Alignment.
+    Alignment result(aln);
+    wfa_alignment_to_alignment(aligned, result);
+    
+    return result;
+}
+
 }
 
 

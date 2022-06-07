@@ -39,26 +39,25 @@ using namespace std;
 /// abstracts out accessing their chaining-relevant fields and measuring
 /// distance between them.
 /// We support things that come from other source things (i.e. minimizers).
+/// See BaseChainingSpace for the actual interface.
 template<typename Item, typename Source = void>
 struct ChainingSpace {
     // Nothing here; this exists to be specialized.
 };
 
+/// Base class of specialized ChainingSpace classes. Defines the ChainingSpace interface.
 template<typename Item>
 struct BaseChainingSpace {
     
-    int gap_open_penalty;
-    int gap_extend_penalty;
+    const Aligner& scoring;
     
     const SnarlDistanceIndex* distance_index;
     const HandleGraph* graph;
     
-    BaseChainingSpace(int gap_open_penalty,
-                      int gap_extend_penalty,
+    BaseChainingSpace(const Aligner& scoring,
                       const SnarlDistanceIndex* distance_index = nullptr,
                       const HandleGraph* graph = nullptr) :
-        gap_open_penalty(gap_open_penalty),
-        gap_extend_penalty(gap_extend_penalty),
+        scoring(scoring),
         distance_index(distance_index),
         graph(graph) {
         
@@ -66,7 +65,10 @@ struct BaseChainingSpace {
     }
     
     /// Get the score collected by visiting the item. Should be an alignment score.
-    virtual int score(const Item& item) const = 0;
+    virtual int score(const Item& item) const {
+        // Default implementation assumes a perfect match
+        return scoring.match * read_length(item);
+    }
     
     /// Get where the item starts in the read
     virtual size_t read_start(const Item& item) const = 0;
@@ -86,7 +88,7 @@ struct BaseChainingSpace {
     virtual pos_t graph_end(const Item& item) const = 0;
     
     /// Get the length of the item in the graph. Graph must be set.
-    virtual size_t read_length(const Item& item) const {
+    virtual size_t graph_length(const Item& item) const {
         return read_length(item);
     }
     
@@ -103,7 +105,7 @@ struct BaseChainingSpace {
     virtual WFAAlignment to_wfa_alignment(const Item& item) const {
         // Default implementation assumes no mismatches.
         return {
-            {graph_path_begin(item), graph_path_end(item)},
+            vector<handle_t>(graph_path_begin(item), graph_path_end(item)),
             {{WFAAlignment::match, (uint32_t)read_length(item)}},
             (uint32_t)graph_path_offset(item),
             (uint32_t)read_start(item),
@@ -116,6 +118,12 @@ struct BaseChainingSpace {
      * We use these iterators for traversing graph paths.
      */
     struct PathIterator {
+        using value_type = handle_t;
+        using difference_type = ptrdiff_t;
+        using reference = const value_type&;
+        using pointer = const value_type*;
+        using iterator_category = std::input_iterator_tag;
+    
         size_t index;
         int direction;
         const Item* item;
@@ -133,6 +141,12 @@ struct BaseChainingSpace {
             return &at;
         }
         
+        PathIterator operator++(int) {
+            PathIterator clone = *this;
+            ++*this;
+            return clone;
+        }
+        
         PathIterator& operator++() {
             if (index == 0 && direction == -1) {
                 index = numeric_limits<size_t>::max();
@@ -142,6 +156,7 @@ struct BaseChainingSpace {
                     at = space->graph_path_at(*item, index);
                 }
             }
+            return *this;
         }
         
         const bool operator==(const PathIterator& other) const {
@@ -164,7 +179,7 @@ struct BaseChainingSpace {
         return {graph_path_size(item), 1, &item, this, {}};
     }
     /// Get a reverse iterator to the back of the path of handles taken by the item. Graph must be set.
-    virtual PathIterator graph_path_rbegin(const Item& item) const = const {
+    virtual PathIterator graph_path_rbegin(const Item& item) const {
         return {graph_path_size(item) - 1, -1, &item, this, graph_path_at(item, graph_path_size(item) - 1)};
     }
     
@@ -210,7 +225,7 @@ struct BaseChainingSpace {
         // Scan back along the left path until we find the handle the right path starts on 
         auto last_right_start_in_left = graph_path_rbegin(left);
         while (last_right_start_in_left != graph_path_rend(left) && *last_right_start_in_left != right_starts_on) {
-            last_right_start_in_left++;
+            ++last_right_start_in_left;
         }
         
         if (last_right_start_in_left != graph_path_rend(left)) {
@@ -272,7 +287,7 @@ struct BaseChainingSpace {
             size_t right_bases_before_shared_handle = 0;
             while (first_left_start_in_right != graph_path_end(right) && *first_left_start_in_right != left_starts_on) {
                 right_bases_before_shared_handle += graph->get_length(*first_left_start_in_right);
-                first_left_start_in_right++;
+                ++first_left_start_in_right;
             }
             // Since we know the right path's start handle does not appear on the
             // left path, we know we went through at least one handle and we can
@@ -335,8 +350,8 @@ struct BaseChainingSpace {
         pos_t right_start = graph_start(right);
         // Get the oriented minimum distance from the index
         size_t distance = distance_index->minimum_distance(
-            left_past_end.node_id(), left_past_end.is_reverse(), left_past_end.offset(),
-            right_start.node_id(), right_start.is_reverse(), right_start.offset(),
+            id(left_past_end), is_rev(left_past_end), offset(left_past_end),
+            id(right_start), is_rev(right_start), offset(right_start),
             false, graph);
         // And return it
         return distance;
@@ -360,7 +375,7 @@ struct ChainingSpace<GaplessExtension, void>: public BaseChainingSpace<GaplessEx
     using Item = GaplessExtension;
     
     // Keep the constructor
-    using BaseChainingSpace<GaplessExtension>::BaseChainingSpace;
+    using BaseChainingSpace<Item>::BaseChainingSpace;
     
     int score(const Item& item) const {
         return item.score;
@@ -415,29 +430,23 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingS
     const vector<Source>& sources;
     
     ChainingSpace(const vector<Source>& sources,
-                  int gap_open_penalty,
-                  int gap_extend_penalty,
+                  const Aligner& scoring,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        BaseChainingSpace<NewSnarlSeedClusterer::Seed>(gap_open_penalty, gap_extend_penalty, distance_index, graph), sources(sources) {
+        BaseChainingSpace<Item>(scoring, distance_index, graph), sources(sources) {
         
         // Nothing to do!
     }
     
-    
-    static int score(const Item& item) {
-        return item.score;
-    }
-    
-    static size_t read_start(const Item& item) {
+    size_t read_start(const Item& item) const {
         return sources[item.source].forward_offset();
     }
     
-    static size_t read_end(const Item& item) {
+    size_t read_end(const Item& item) const {
         return sources[item.source].forward_offset() + sources[item.source].length;
     }
     
-    static size_t read_length(const Item& item) {
+    size_t read_length(const Item& item) const {
         return sources[item.source].length;
     }
     
@@ -463,14 +472,14 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingS
         return offset(graph_start(item));
     }
     
-    static bool has_perfect_chain(const vector<Item>& items) {
+    bool has_perfect_chain(const vector<Item>& items) const {
         return false;
     }
 };
 
 /// This is how you chain up old seeds
 template<typename Source>
-struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpace<NewSnarlSeedClusterer::Seed> {
+struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpace<SnarlSeedClusterer::Seed> {
     using Item = SnarlSeedClusterer::Seed;
     
     // These seeds can't really be interpreted without their sources, which
@@ -478,28 +487,22 @@ struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpac
     const vector<Source>& sources;
     
     ChainingSpace(const vector<Source>& sources,
-                  int gap_open_penalty,
-                  int gap_extend_penalty,
+                  const Aligner& scoring,
                   const HandleGraph* graph) :
-        BaseChainingSpace<NewSnarlSeedClusterer::Seed>(gap_open_penalty, gap_extend_penalty, nullptr, graph), sources(sources) {
+        BaseChainingSpace<Item>(scoring, nullptr, graph), sources(sources) {
         
         // Nothing to do!
     }
     
-    
-    static int score(const Item& item) {
-        return item.score;
-    }
-    
-    static size_t read_start(const Item& item) {
+    size_t read_start(const Item& item) const {
         return sources[item.source].forward_offset();
     }
     
-    static size_t read_end(const Item& item) {
+    size_t read_end(const Item& item) const {
         return sources[item.source].forward_offset() + sources[item.source].length;
     }
     
-    static size_t read_length(const Item& item) {
+    size_t read_length(const Item& item) const {
         return sources[item.source].length;
     }
     
@@ -525,7 +528,7 @@ struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpac
         return offset(graph_start(item));
     }
     
-    static bool has_perfect_chain(const vector<Item>& items) {
+    bool has_perfect_chain(const vector<Item>& items) const {
         return false;
     }
 };
@@ -658,7 +661,7 @@ size_t score_traits<int>::NOWHERE = numeric_limits<size_t>::max();
 score_traits<int>::Score score_traits<int>::UNSET = 0;
 
 /// Print operator
-static ostream& operator<<(ostream& out, const traced_score_t& value) {
+ostream& operator<<(ostream& out, const traced_score_t& value) {
     if (score_traits<traced_score_t>::source(value) == score_traits<traced_score_t>::NOWHERE) {
         return out << score_traits<traced_score_t>::score(value) << " from nowhere";
     }
@@ -672,18 +675,18 @@ static ostream& operator<<(ostream& out, const traced_score_t& value) {
  *  Assumes some items exist.
  */
 template<typename Score, typename Item, typename Source = void>
-static Score chain_items_dp(vector<Score>& best_chain_score,
-                            const vector<Item>& to_chain,
-                            const ChainingSpace<Item, Source>& space);
+Score chain_items_dp(vector<Score>& best_chain_score,
+                     const vector<Item>& to_chain,
+                     const ChainingSpace<Item, Source>& space);
 
 /**
  *  Trace back through in the given DP table from the best chain score.
  */
 template<typename Score, typename Item, typename Source = void>
-static vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
-                                      const vector<Item>& to_chain,
-                                      const Score& best_past_ending_score_ever,
-                                      const ChainingSpace<Item, Source>& space);
+vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
+                                     const vector<Item>& to_chain,
+                                     const Score& best_past_ending_score_ever,
+                                     const ChainingSpace<Item, Source>& space);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -724,8 +727,9 @@ pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
  */
 template<typename Item, typename Source = void>
 int score_best_chain(const vector<Item>& to_chain,
-                     const ChainingSpace<Item, Source>& space) {
+                     const ChainingSpace<Item, Source>& space);
 
+// --------------------------------------------------------------------------------
 
 template<typename Score, typename Item, typename Source>
 Score chain_items_dp(vector<Score>& best_chain_score,
@@ -841,7 +845,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         }
         
         // Update the overlap score offset by removing some gap extends from it.
-        overlap_score_offset += sweep_distance * gap_extend_penalty;
+        overlap_score_offset += sweep_distance * space.scoring.gap_extension;
         
         // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
         Score best_overlap_score = ST::UNSET;
@@ -866,12 +870,12 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         
         if (best_gap_score != ST::UNSET) {
             // Best way to end 1 before our last sweep line position with a gap, plus distance times gap extend penalty
-            ST::score(best_gap_score) -= sweep_distance * gap_extend_penalty;
+            ST::score(best_gap_score) -= sweep_distance * space.scoring.gap_extension;
         }
         
         // Best way to end 1 before here with an actual item, plus the gap open part of the gap open penalty.
         // (Will never be taken over an actual adjacency)
-        best_gap_score = std::max(ST::UNSET, std::max(best_gap_score, ST::add_points(best_past_ending_score_here, -(gap_open_penalty - gap_extend_penalty))));
+        best_gap_score = std::max(ST::UNSET, std::max(best_gap_score, ST::add_points(best_past_ending_score_here, -(space.scoring.gap_open - space.scoring.gap_extension))));
 #ifdef debug_chaining
         cerr << "Best score here but in a gap: " << best_gap_score << endl;
 #endif
@@ -910,18 +914,18 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                         // We have (read overlap - 1) extend penalties, and we want (graph overlap - read overlap - 1) of them.
                         // (graph overlap - read overlap - 1) - (read overlap - 1) = graph overlap - 2 * read overlap
                         // Which is how many penalties to charge
-                        overlap_option = ST::add_points(overlap_option, -gap_extend_penalty * graph_overlap + gap_extend_penalty * 2 * read_overlap);
+                        overlap_option = ST::add_points(overlap_option, -space.scoring.gap_extension * graph_overlap + space.scoring.gap_extension * 2 * read_overlap);
                         // TODO: We need to not double-count the matches right?
                         // When we go to synthesize an actual alignment we can cut out the double-matched area and match it only one place.
                     } else if (graph_overlap == read_overlap) {
                         // They overlap in the graph exactly as much as they do in the read.
                         // Back out the whole read gap
-                        overlap_option = ST::add_points(overlap_option, gap_open_penalty + gap_extend_penalty * (read_overlap - 1));
+                        overlap_option = ST::add_points(overlap_option, space.scoring.gap_open + space.scoring.gap_extension * (read_overlap - 1));
                         // TODO: We need to not double-count the matches right?
                     } else if (graph_overlap > 0) {
                         // They overlap in the graph but less than they do in the read.
                         // Back out some of the read gap
-                        overlap_option = ST::add_points(overlap_option, gap_extend_penalty * (read_overlap - graph_overlap));
+                        overlap_option = ST::add_points(overlap_option, space.scoring.gap_extension * (read_overlap - graph_overlap));
                     } else {
                         // They don't overlap in the graph at all; they might abut or be separated or be unreachable.
                         
@@ -935,7 +939,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                             overlap_option = ST::UNSET;
                         } else {
                             // We need to charge for this extra graph distance being deleted, in addition to what we charge for the existing overlap gap.
-                            overlap_option = ST::add_points(overlap_option, -gap_extend_penalty * graph_distance);
+                            overlap_option = ST::add_points(overlap_option, -space.scoring.gap_extension * graph_distance);
                         }
                     }
                 }
@@ -960,13 +964,13 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                             // We have (read distance - 1) extend penalties, and we want (graph distance - read distance - 1) of them.
                             // (graph distance - read distance - 1) - (read distance - 1) = graph distance - 2 * read distance
                             // Which is how many penalties to charge
-                            gap_option = ST::add_points(gap_option, -gap_extend_penalty * graph_distance + gap_extend_penalty * 2 * read_distance);
+                            gap_option = ST::add_points(gap_option, -space.scoring.gap_extension * graph_distance + space.scoring.gap_extension * 2 * read_distance);
                         } else {
                             // Read distance is longer.
                             // Back out extend penalties from the part of
                             // the gap that the graph also has, leaving
                             // only the remaining surplus read gap.
-                            gap_option = ST::add_points(gap_option, gap_extend_penalty * graph_distance);
+                            gap_option = ST::add_points(gap_option, space.scoring.gap_extension * graph_distance);
                         }
                     }
                 }
@@ -983,7 +987,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                     } else if (graph_distance > 0) { 
                         // There's a gap in the graph but not in the read.
                         // Charge for the gap
-                        here_option = ST::add_points(here_option, -gap_open_penalty - gap_extend_penalty * (graph_distance - 1));
+                        here_option = ST::add_points(here_option, -space.scoring.gap_open - space.scoring.gap_extension * (graph_distance - 1));
                     } else {
                         // These abut in the read and the graph, so do nothing
                     }
@@ -1011,7 +1015,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             // We assume all items are 1 or more bases.
             Score raw_overlap_score = ST::add_points(
                 ST::score_from(best_chain_score, unentered),
-                -gap_open_penalty - gap_extend_penalty * (item_length - 1));
+                -space.scoring.gap_open - space.scoring.gap_extension * (item_length - 1));
             Score encoded_overlap_score = ST::add_points(raw_overlap_score, -overlap_score_offset);
             
             // Stick it in the overlap heap
@@ -1095,13 +1099,13 @@ pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
         
         // We actually need to do DP
         vector<traced_score_t> best_chain_score;
-        traced_score_t best_past_ending_score_ever = chain_dp(best_chain_score,
-                                                              to_chain,
-                                                              space);
+        traced_score_t best_past_ending_score_ever = chain_items_dp(best_chain_score,
+                                                                    to_chain,
+                                                                    space);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             score_traits<traced_score_t>::score(best_past_ending_score_ever),
-            chain_traceback(best_chain_score, to_chain, best_past_ending_score_ever));
+            chain_items_traceback(best_chain_score, to_chain, best_past_ending_score_ever, space));
     }
 }
 
