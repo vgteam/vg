@@ -518,7 +518,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     size_t kept_cluster_count = 0;
     
     //Process clusters sorted by both score and read coverage
-    process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
+    process_until_threshold_c(clusters.size(), [&](size_t i) -> double {
             return clusters[i].coverage;
         }, [&](size_t a, size_t b) -> bool {
             return ((clusters[a].coverage > clusters[b].coverage) ||
@@ -573,6 +573,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     algorithms::ChainingSpace<Seed, Minimizer> space(
                         get_regular_aligner()->gap_open,
                         get_regular_aligner()->gap_extension,
+                        minimizers,
                         distance_index,
                         &gbwt_graph);
                     // Compute the best chain
@@ -583,6 +584,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     algorithms::ChainingSpace<OldSeed, Minimizer> space(
                         get_regular_aligner()->gap_open,
                         get_regular_aligner()->gap_extension,
+                        minimizers,
                         &gbwt_graph);
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain(seeds, space));
@@ -650,17 +652,16 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         });
         
     // We now estimate the best possible alignment score for each cluster.
-    std::vector<int> cluster_extension_scores;
-    // We optionally also get tracebacks for aligining each cluster into a base-level alignment
-    std::vector<std::vector<size_t>> cluster_extension_tracebacks;
+    std::vector<int> cluster_alignment_score_estimates;
     if (align_from_chains) {
-        // Chain all the extension groups and get scores and chains
-        auto result = this->chain_extensions(cluster_extensions, aln, funnel);
-        cluster_extension_scores = std::move(result.first);
-        cluster_extension_tracebacks = std::move(result.second);
+        // Copy cluster chain scores over
+        cluster_alignment_score_estimates.resize(cluster_chains.size());
+        for (size_t i = 0; i < cluster_chains.size(); i++) {
+            cluster_alignment_score_estimates[i] = cluster_chains[i].first;
+        }
     } else {
-        // Just score the extension groups, with a slithgly simpler algorithm; don't chain them
-        cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
+        // Just score the extension groups, with a slightly simpler algorithm; don't chain them
+        cluster_alignment_score_estimates = this->score_extensions(cluster_extensions, aln, funnel);
     }
     
     if (track_provenance) {
@@ -674,12 +675,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
-    alignments.reserve(cluster_extensions.size());
+    alignments.reserve(cluster_alignment_score_estimates.size());
     // This maps from alignment index back to cluster extension index, for
     // tracing back to minimizers for MAPQ. Can hold
     // numeric_limits<size_t>::max() for an unaligned alignment.
     vector<size_t> alignments_to_source;
-    alignments_to_source.reserve(cluster_extensions.size());
+    alignments_to_source.reserve(cluster_alignment_score_estimates.size());
 
     // Create a new alignment object to get rid of old annotations.
     {
@@ -698,118 +699,155 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         aln.set_read_group(read_group);
     }
     
-    // Go through the gapless extension groups in score order.
-    process_until_threshold_b(cluster_extensions, cluster_extension_scores,
-        extension_set_score_threshold, 2, max_alignments, rng, [&](size_t extension_num) {
-            // This extension set is good enough.
+    // Go through the processed clusters in estimated-score order.
+    process_until_threshold_b(cluster_alignment_score_estimates,
+        extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num) {
+            // This processed cluster is good enough.
             // Called in descending score order.
             
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "gapless extension group " << extension_num << " is good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
-                    if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << log_name() << "processed cluster " << processed_num << " is good enough (score=" << cluster_alignment_score_estimates[processed_num] << ")" << endl;
+                    if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
-                        dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
+                        dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[processed_num]);
                     }
                 }
             }
             if (track_provenance) {
-                funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                funnel.pass("max-alignments", extension_num);
-                funnel.processing_input(extension_num);
+                funnel.pass("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
+                funnel.pass("max-alignments", processed_num);
+                funnel.processing_input(processed_num);
             }
 
-            
-            auto& extensions = cluster_extensions[extension_num];
-            
             // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
             vector<Alignment> best_alignments(1, aln);
 
-            if (GaplessExtender::full_length_extensions(extensions)) {
-                // We got full-length extensions, so directly convert to an Alignment.
+            if (align_from_chains) {
+                // Align from the chained-up seeds
+                if (do_dp) {
+                    // We need to do base-level alignment.
                 
-                if (track_provenance) {
-                    funnel.substage("direct");
-                }
-                
-                //Fill in the best alignments from the extension. We know the top one is always full length and exists.
-                this->extension_to_alignment(extensions.front(), best_alignments.front());
-                
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Produced alignment directly from full length gapless extension " << extension_num << endl;
+                    if (track_provenance) {
+                        funnel.substage("align");
                     }
+                    
+                    // We currently just have the one best score and chain per cluster
+                    auto& score_and_chain = cluster_chains[processed_num]; 
+                    vector<size_t>& chain = score_and_chain.second;
+                    
+                    if (distance_index != nullptr) {
+                        // Define a space to chain in.
+                        // TODO: re-use!
+                        algorithms::ChainingSpace<Seed, Minimizer> space(
+                            get_regular_aligner()->gap_open,
+                            get_regular_aligner()->gap_extension,
+                            minimizers,
+                            distance_index,
+                            &gbwt_graph);
+                        // Do the DP between the items in the cluster as specified by the chain we got for it. 
+                        best_alignments[0] = find_chain_alignment(aln, seeds, space, chain);
+                    } else {
+                        // Define a space to chain in.
+                        // TODO: re-use!
+                        algorithms::ChainingSpace<OldSeed, Minimizer> space(
+                            get_regular_aligner()->gap_open,
+                            get_regular_aligner()->gap_extension,
+                            minimizers,
+                            &gbwt_graph);
+                        // Do the DP between the items in the cluster as specified by the chain we got for it. 
+                        best_alignments[0] = find_chain_alignment(aln, old_seeds, space, chain);
+                    }
+                    
+                    // TODO: Come up with a good secondary for the cluster somehow.
+                    // Traceback over the remaining extensions?
+                } else {
+                    // We would do base-level alignment but it is disabled.
+                    // Leave best_alignment unaligned
                 }
+            } else {
+                // Align from the gapless extensions
+            
+                auto& extensions = cluster_extensions[processed_num];
                 
-                for (auto next_ext_it = extensions.begin() + 1; next_ext_it != extensions.end() && next_ext_it->full(); ++next_ext_it) {
-                    // For all subsequent full length extensions, make them into alignments too.
-                    // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
-                    best_alignments.emplace_back(aln);
-                    this->extension_to_alignment(*next_ext_it, best_alignments.back());
+                if (GaplessExtender::full_length_extensions(extensions)) {
+                    // We got full-length extensions, so directly convert to an Alignment.
+                    
+                    if (track_provenance) {
+                        funnel.substage("direct");
+                    }
+                    
+                    //Fill in the best alignments from the extension. We know the top one is always full length and exists.
+                    this->extension_to_alignment(extensions.front(), best_alignments.front());
                     
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
-                            cerr << log_name() << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - extensions.begin()) << endl;
+                            cerr << log_name() << "Produced alignment directly from full length gapless extension " << processed_num << endl;
                         }
                     }
                     
-                }
+                    for (auto next_ext_it = extensions.begin() + 1; next_ext_it != extensions.end() && next_ext_it->full(); ++next_ext_it) {
+                        // For all subsequent full length extensions, make them into alignments too.
+                        // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
+                        best_alignments.emplace_back(aln);
+                        this->extension_to_alignment(*next_ext_it, best_alignments.back());
+                        
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - extensions.begin()) << endl;
+                            }
+                        }
+                        
+                    }
+                    
+                    if (track_provenance) {
+                        // Stop the current substage
+                        funnel.substage_stop();
+                    }
+                } else if (do_dp) {
+                    // We need to do base-level alignment.
+                    
+                    if (track_provenance) {
+                        funnel.substage("align");
+                    }
                 
-                if (track_provenance) {
-                    // Stop the current substage
-                    funnel.substage_stop();
-                }
-            } else if (do_dp) {
-                // We need to do base-level alignment.
-                
-                if (track_provenance) {
-                    funnel.substage("align");
-                }
-                
-                if (align_from_chains) {
-                    // Do the DP between the extensions in the cluster as specified by the chain we got for it.
-                    auto& chain_order = cluster_extension_tracebacks[extension_num];
-                    best_alignments[0] = find_chain_alignment(aln, extensions, chain_order);
-                    // TODO: Come up with a good secondary for the cluster somehow. Traceback over the remaining extensions?
-                } else {
                     // Do the DP and compute up to 2 alignments from the individual gapless extensions
                     best_alignments.emplace_back(aln);
                     find_optimal_tail_alignments(aln, extensions, rng, best_alignments[0], best_alignments[1]);
-                }
-
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    {
-                        cerr << log_name() << "Did dynamic programming for gapless extension group " << extension_num << endl;
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Did dynamic programming for gapless extension group " << processed_num << endl;
+                        }
                     }
+                    
+                    if (track_provenance) {
+                        // We're done base-level alignment. Next alignment may not go through this substage.
+                        funnel.substage_stop();
+                    }
+                } else {
+                    // We would do base-level alignment but it is disabled.
+                    // Leave best_alignment unaligned
                 }
-                
-                if (track_provenance) {
-                    // We're done base-level alignment. Next alignment may not go through this substage.
-                    funnel.substage_stop();
-                }
-            } else {
-                // We would do base-level alignment but it is disabled.
-                // Leave best_alignment unaligned
             }
            
             // Have a function to process the best alignments we obtained
             auto observe_alignment = [&](Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
-                alignments_to_source.push_back(extension_num);
+                alignments_to_source.push_back(processed_num);
 
                 if (track_provenance) {
     
-                    funnel.project(extension_num);
+                    funnel.project(processed_num);
                     funnel.score(alignments.size() - 1, alignments.back().score());
                 }
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
-                        cerr << log_name() << "Produced alignment from gapless extension group " << extension_num
+                        cerr << log_name() << "Produced alignment from processed cluster " << processed_num
                             << " with score " << alignments.back().score() << ": " << log_alignment(alignments.back()) << endl;
                     }
                 }
@@ -826,9 +864,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.processed_input();
             }
 
-            for (size_t i = 0 ; i < minimizer_kept_cluster_count[extension_num].size() ; i++) {
-                minimizer_kept_count[i] += minimizer_kept_cluster_count[extension_num][i];
-                if (minimizer_kept_cluster_count[extension_num][i] > 0) {
+            for (size_t i = 0 ; i < minimizer_kept_cluster_count[processed_num].size() ; i++) {
+                minimizer_kept_count[i] += minimizer_kept_cluster_count[processed_num][i];
+                if (minimizer_kept_cluster_count[processed_num][i] > 0) {
                     // This minimizer is in a cluster that gave rise
                     // to at least one alignment, so it is explored.
                     minimizer_explored.insert(i);
@@ -836,36 +874,40 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             }
             
             return true;
-        }, [&](size_t extension_num) {
-            // There are too many sufficiently good extensions
+        }, [&](size_t processed_num) {
+            // There are too many sufficiently good processed clusters
             if (track_provenance) {
-                funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                funnel.fail("max-alignments", extension_num);
+                funnel.pass("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
+                funnel.fail("max-alignments", processed_num);
             }
             
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "gapless extension group " << extension_num << " failed because there were too many good extensions (score=" << cluster_extension_scores[extension_num] << ")" << endl;
-                    if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << log_name() << "processed cluster " << processed_num << " failed because there were too many good processed clusters (score=" << cluster_alignment_score_estimates[processed_num] << ")" << endl;
+                    if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
-                        dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
+                        if (!align_from_chains) {
+                            dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[processed_num]);
+                        }
                     }
                 }
             }
-        }, [&](size_t extension_num) {
+        }, [&](size_t processed_num) {
             // This extension is not good enough.
             if (track_provenance) {
-                funnel.fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                funnel.fail("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
             }
             
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "gapless extension group " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
-                    if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << log_name() << "processed cluster " << processed_num << " failed because its score was not good enough (score=" << cluster_alignment_score_estimates[processed_num] << ")" << endl;
+                    if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
-                        dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
+                        if (!align_from_chains) {
+                            dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[processed_num]);
+                        }
                     }
                 }
             }
@@ -895,7 +937,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
-    process_until_threshold_a(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
+    process_until_threshold_a(alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
         // This alignment makes it
@@ -1478,7 +1520,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         size_t kept_cluster_count = 0;
         
         //Process clusters sorted by both score and read coverage
-        process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
+        process_until_threshold_c(clusters.size(), [&](size_t i) -> double {
                 return clusters[i].coverage;
             }, [&](size_t a, size_t b) -> bool {
                 //Sort clusters first by whether it was paired, then by the best coverage and score of any pair in the fragment cluster, 
@@ -1593,7 +1635,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             });
 
         // We now estimate the best possible alignment score for each cluster.
-        std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnels[read_num]);
+        std::vector<int> cluster_alignment_score_estimates = this->score_extensions(cluster_extensions, aln, funnels[read_num]);
         
         if (track_provenance) {
             funnels[read_num].stage("align");
@@ -1614,19 +1656,19 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         //Since we will lose the order in which we pass alignments to the funnel, use this to keep track
         size_t curr_funnel_index = 0;
 
-        // Go through the gapless extension groups in score order.
-        process_until_threshold_b(cluster_extensions, cluster_extension_scores,
-            extension_set_score_threshold, 2, max_alignments, rng, [&](size_t extension_num) {
-                // This extension set is good enough.
+        // Go through the processed clusters in estimated-score order.
+        process_until_threshold_b(cluster_alignment_score_estimates,
+            extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num) {
+                // This processed cluster is good enough.
                 // Called in descending score order.
                 
                 if (track_provenance) {
-                    funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                    funnels[read_num].pass("max-alignments", extension_num);
-                    funnels[read_num].processing_input(extension_num);
+                    funnels[read_num].pass("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
+                    funnels[read_num].pass("max-alignments", processed_num);
+                    funnels[read_num].processing_input(processed_num);
                 }
                 
-                auto& extensions = cluster_extensions[extension_num].first;
+                auto& extensions = cluster_extensions[processed_num].first;
                 
                 // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
                 vector<Alignment> best_alignments(1, aln);
@@ -1645,7 +1687,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
-                            cerr << log_name() << "Produced alignment directly from full length gapless extension " << extension_num << endl;
+                            cerr << log_name() << "Produced alignment directly from full length gapless extension " << processed_num << endl;
                         }
                     }
                     
@@ -1690,7 +1732,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
                 
                 
-                size_t fragment_num = cluster_extensions[extension_num].second;
+                size_t fragment_num = cluster_extensions[processed_num].second;
                     
                 // Have a function to process the best alignments we obtained
                 auto observe_alignment = [&](Alignment& aln) {
@@ -1707,7 +1749,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     curr_funnel_index++;
 
                     if (track_provenance) {
-                        funnels[read_num].project(extension_num);
+                        funnels[read_num].project(processed_num);
                         funnels[read_num].score(funnels[read_num].latest(), alignment_list.back().score());
                     }
                     
@@ -1730,27 +1772,27 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     funnels[read_num].processed_input();
                 }
                 
-                for (size_t i = 0 ; i < minimizer_kept_cluster_count_by_read[read_num][extension_num].size() ; i++) {
-                    if (minimizer_kept_cluster_count_by_read[read_num][extension_num][i] > 0) {
+                for (size_t i = 0 ; i < minimizer_kept_cluster_count_by_read[read_num][processed_num].size() ; i++) {
+                    if (minimizer_kept_cluster_count_by_read[read_num][processed_num][i] > 0) {
                         // This minimizer is in a cluster that gave rise
                         // to at least one alignment, so it is explored.
                         minimizer_explored_by_read[read_num].insert(i);
-                        minimizer_aligned_count_by_read[read_num][i] += minimizer_kept_cluster_count_by_read[read_num][extension_num][i];
+                        minimizer_aligned_count_by_read[read_num][i] += minimizer_kept_cluster_count_by_read[read_num][processed_num][i];
                     }
                 }
 
                 
                 return true;
-            }, [&](size_t extension_num) {
-                // There are too many sufficiently good extensions
+            }, [&](size_t processed_num) {
+                // There are too many sufficiently good processed clusters
                 if (track_provenance) {
-                    funnels[read_num].pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
-                    funnels[read_num].fail("max-alignments", extension_num);
+                    funnels[read_num].pass("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
+                    funnels[read_num].fail("max-alignments", processed_num);
                 }
-            }, [&](size_t extension_num) {
-                // This extension is not good enough.
+            }, [&](size_t processed_num) {
+                // This processed cluster is not good enough.
                 if (track_provenance) {
-                    funnels[read_num].fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
+                    funnels[read_num].fail("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
                 }
             });
         
@@ -2037,7 +2079,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         if (max_rescue_attempts != 0) {
             //Attempt rescue on unpaired alignments if either we didn't find any pairs or if the unpaired alignments are very good
 
-            process_until_threshold_a(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
+            process_until_threshold_a(unpaired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double{
                 tuple<size_t, size_t, bool>& index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
@@ -2170,7 +2212,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 #endif
 
-    process_until_threshold_a(paired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
+    process_until_threshold_a(paired_alignments.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
     }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
         // This alignment makes it
@@ -3627,7 +3669,8 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
 
 //-----------------------------------------------------------------------------
 
-Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, const std::vector<size_t>& chain) const {
+template<typename Item, typename Source = void>
+Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vector<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const {
     
     if (chain.empty()) {
         throw std::logic_error("Cannot find an alignment for an empty chain!");
@@ -3637,14 +3680,15 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Align chain of:";
-            for (auto extension_number : chain) {
-                cerr << " " << extension_number;
+            for (auto item_number : chain) {
+                cerr << " " << item_number;
             }
             cerr << endl;
         }
     }
     
-    // We need an Aligner for scoring
+    // We need an Aligner for scoring.
+    // TODO: Make it agree with the space???
     const Aligner& aligner = *this->get_regular_aligner();
     
     // We need a WFAExtender to do this.
@@ -3656,12 +3700,12 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     auto next_it = here_it;
     ++next_it;
     
-    const GaplessExtension* here = &extended_seeds[*here_it];
+    const Item* here = &to_chain[*here_it];
     
     // Do the left tail, if any.
     // Leave room for the anchoring match.
     string left_tail = aln.sequence().substr(0, here->read_interval.first + 1);
-    WFAAlignment aligned = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph)));
+    WFAAlignment aligned = extender.prefix(left_tail, space.graph_start(*here));
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -3673,26 +3717,22 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
         
-        const GaplessExtension* next = &extended_seeds[*next_it];
+        const Item* next = &to_chain[*next_it];
         
-        // How much does this extension overlap into the next one in the read?
-        size_t overlap = get_read_overlap(*here, *next);
-        while (next_it != chain.end() && overlap >= std::max(here->length(), next->length())) {
-            // There's enough overlap for one of these to contain the other. Keep here and skip next.
+        while (next_it != chain.end() && space.get_read_overlap(*here, *next) > 0) {
+            // There's overlap between these items. Keep here and skip next.
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because of containment or backtracking over an entire gapless extension" << endl;
+                    cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
                 }
             }
-            // TODO: If we just drop the whole extension we can get into a situation where we need to do a lot of DP to replace it, and we might not get anything that follows the GBWT.
-            // TODO: Trim it down to just 1 base of overlap and weld it on, if it's not completely contained/earlier.
+            
             ++next_it;
             if (next_it == chain.end()) {
                 break;
             }
-            next = &extended_seeds[*next_it];
-            overlap = get_read_overlap(*here, *next);
+            next = &to_chain[*next_it];
         }
         if (next_it == chain.end()) {
             break;
@@ -3703,7 +3743,7 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Add extension " << *here_it << " of " << here->length() << " with score of " << here->score << endl;
+                cerr << log_name() << "Add item " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
             }
         }
         
@@ -3721,18 +3761,18 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         }
         
         // Make an alignment for the bases used in this GaplessExtension, and
-        // concatenate it in on the shared match. TODO: Make sure to trim the overlap off the end.
-        aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match);
+        // concatenate it in on the shared match.
+        aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
         
         // Pull out the intervening string. Leave room for the anchoring matches.
-        string linking_bases = aln.sequence().substr(here->read_interval.second - 1, next->read_interval.first - here->read_interval.second + 2);
+        string linking_bases = aln.sequence().substr(space.read_end(*here) - 1, space.read_start(*next) - space.read_end(*here) + 2);
         // And align it
-        WFAAlignment link_alignment = extender.connect(linking_bases, make_pos_t(here->tail_position(gbwt_graph)), make_pos_t(next->starting_position(gbwt_graph)));
+        WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
         
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Add link of " << link_alignment.length << " with score of " << link_alignment.score << endl;
+                cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
             }
         }
         
@@ -3748,16 +3788,16 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Add last extension " << *here_it << " of " << here->length() << " with score of " << here->score << endl;
+            cerr << log_name() << "Add last extension " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
         }
     }
     
     // Do the final GaplessExtension itself (may be the first)
-    aligned.join_on_shared_match(WFAAlignment::from_extension(*here), aligner.match);
+    aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
     
     // Do the right tail, if any. Leave room for the anchoring match.
-    string right_tail = aln.sequence().substr(here->read_interval.second - 1);
-    WFAAlignment right_alignment = extender.suffix(right_tail, make_pos_t(here->tail_position(gbwt_graph)));
+    string right_tail = aln.sequence().substr(space.read_end(*here) - 1);
+    WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -3906,7 +3946,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     // Handle each extension in the set
     bool partial_extension_aligned = false;
     int32_t threshold = -1;
-    process_until_threshold_a<GaplessExtension, double>(extended_seeds,
+    process_until_threshold_a(extended_seeds.size(),
         [&](size_t extended_seed_num) -> double {
             return static_cast<double>(extended_seeds[extended_seed_num].score);
         }, extension_score_threshold, min_extensions, max_local_extensions, rng, [&](size_t extended_seed_num) -> bool {

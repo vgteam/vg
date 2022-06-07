@@ -65,7 +65,7 @@ struct BaseChainingSpace {
         // Nothing to do!
     }
     
-    /// Get the score collected by visiting the item
+    /// Get the score collected by visiting the item. Should be an alignment score.
     virtual int score(const Item& item) const = 0;
     
     /// Get where the item starts in the read
@@ -98,6 +98,19 @@ struct BaseChainingSpace {
     
     /// Get the offset on the first handle at which the item starts. Graph must be set.
     virtual size_t graph_path_offset(const Item& item) const = 0;
+    
+    /// Turn an item into a WFAAlignment. Graph must be set.
+    virtual WFAAlignment to_wfa_alignment(const Item& item) const {
+        // Default implementation assumes no mismatches.
+        return {
+            {graph_path_begin(item), graph_path_end(item)},
+            {{WFAAlignment::match, (uint32_t)read_length(item)}},
+            (uint32_t)graph_path_offset(item),
+            (uint32_t)read_start(item),
+            (uint32_t)read_length(item),
+            score(item)
+        };
+    }
     
     /**
      * We use these iterators for traversing graph paths.
@@ -379,6 +392,11 @@ struct ChainingSpace<GaplessExtension, void>: public BaseChainingSpace<GaplessEx
     
     size_t graph_path_offset(const Item& item) const {
         return item.offset;
+    }
+    
+    virtual WFAAlignment to_wfa_alignment(const Item& item) const {
+        // Handle mismatches in the GaplessExtension
+        return WFAAlignment::from_extension(item);
     }
     
     bool has_perfect_chain(const vector<Item>& items) const {

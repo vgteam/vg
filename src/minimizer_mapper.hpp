@@ -365,7 +365,8 @@ protected:
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
      */
-    Alignment find_chain_alignment(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, const std::vector<size_t>& chain) const;
+    template<typename Item, typename Source = void>
+    Alignment find_chain_alignment(const Alignment& aln, const vector<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -658,7 +659,7 @@ protected:
     double score_alignment_pair(Alignment& aln1, Alignment& aln2, int64_t fragment_distance);
     
     /**
-     * Given a vector of items, a function to get the score of each, a
+     * Given a count of items, a function to get the score of each, a
      * score-difference-from-the-best cutoff, a min and max processed item
      * count, and a function to get a sort-shuffling seed for breaking ties,
      * process items in descending score order by calling process_item with the
@@ -675,8 +676,8 @@ protected:
      * Call discard_item_by_score with the item's number for all remaining
      * items that would fail the score threshold.
      */
-    template<typename Item, typename Score = double>
-    void process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
+    template<typename Score = double>
+    void process_until_threshold_a(size_t items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& rng,
         const function<bool(size_t)>& process_item,
@@ -686,8 +687,8 @@ protected:
     /**
      * Same as the other process_until_threshold functions, except using a vector to supply scores.
      */
-    template<typename Item, typename Score = double>
-    void process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
+    template<typename Score = double>
+    void process_until_threshold_b(const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& rng,
         const function<bool(size_t)>& process_item,
@@ -698,8 +699,8 @@ protected:
      * Same as the other process_until_threshold functions, except user supplies 
      * comparator to sort the items (must still be sorted by score).
      */
-    template<typename Item, typename Score = double>
-    void process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
+    template<typename Score = double>
+    void process_until_threshold_c(size_t& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& get_seed,
@@ -751,20 +752,20 @@ protected:
 };
 
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
+void MinimizerMapper::process_until_threshold_a(size_t items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
     LazyRNG& rng,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
 
-    process_until_threshold_c<Item, Score>(items, get_score, [&](size_t a, size_t b) -> bool {
+    process_until_threshold_c<Score>(items, get_score, [&](size_t a, size_t b) -> bool {
         return (get_score(a) > get_score(b));
     },threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
 }
 
-template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
+template<typename Score>
+void MinimizerMapper::process_until_threshold_b(const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
     LazyRNG& rng,
     const function<bool(size_t)>& process_item,
@@ -773,7 +774,7 @@ void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const
     
     assert(scores.size() == items.size());
     
-    process_until_threshold_c<Item, Score>(items, [&](size_t i) -> Score {
+    process_until_threshold_c<Score>(scores.size(), [&](size_t i) -> Score {
         return scores[i];
     }, [&](size_t a, size_t b) -> bool {
         return (scores[a] > scores[b]);
@@ -781,7 +782,7 @@ void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const
 }
 
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
+void MinimizerMapper::process_until_threshold_c(size_t items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         LazyRNG& rng,
@@ -791,8 +792,8 @@ void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const
 
     // Sort item indexes by item score
     vector<size_t> indexes_in_order;
-    indexes_in_order.reserve(items.size());
-    for (size_t i = 0; i < items.size(); i++) {
+    indexes_in_order.reserve(items);
+    for (size_t i = 0; i < items; i++) {
         indexes_in_order.push_back(i);
     }
     
@@ -801,7 +802,7 @@ void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const
     sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, rng);
 
     // Retain items only if their score is at least as good as this
-    double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
+    double cutoff = items == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
     
     // Count up non-skipped items for min_count and max_count
     size_t unskipped = 0;
