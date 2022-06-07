@@ -568,19 +568,24 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             if (align_from_chains) {
                 // We want to align from chains, not extensions
                 if (distance_index != nullptr) {
-                    cluster_chains.emplace_back(find_best_chain(
-                        aln,
-                        seeds,
+                    // Define a space to chain in.
+                    // TODO: re-use!
+                    algorithms::ChainingSpace<Seed, Minimizer> space(
                         get_regular_aligner()->gap_open,
                         get_regular_aligner()->gap_extension,
                         distance_index,
-                        &gbwt_graph));
+                        &gbwt_graph);
+                    // Compute the best chain
+                    cluster_chains.emplace_back(algorithms::find_best_chain(seeds, space));
                 } else {
-                    cluster_chains.emplace_back(find_best_chain(
-                        aln,
-                        old_seeds,
+                    // Define a space to chain in.
+                    // TODO: re-use!
+                    algorithms::ChainingSpace<OldSeed, Minimizer> space(
                         get_regular_aligner()->gap_open,
-                        get_regular_aligner()->gap_extension));
+                        get_regular_aligner()->gap_extension,
+                        &gbwt_graph);
+                    // Compute the best chain
+                    cluster_chains.emplace_back(algorithms::find_best_chain(seeds, space));
                 }
             } else {
                 // We want to align from extensions, so we actually need extensions
@@ -3513,723 +3518,6 @@ vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
 
 //-----------------------------------------------------------------------------
 
-//#define debug_chaining
-
-/// For chaining different kinds of things up, we have traits for the seed match items.
-template<typename Item>
-struct chaining_traits {
-    // We don't actually define the interface here, because templates don't do any sort of inheritance.
-};
-
-/// This is how you chain up a bunch of GaplessExtension items
-template<>
-struct chaining_traits<GaplessExtension> {
-    using Item = GaplessExtension;
-    
-    /// Get the score collected by visiting the item
-    static int score(const Item& item) {
-        return item.score;
-    }
-    
-    /// Get where the item starts in the read
-    static size_t read_start(const Item& item) {
-        return item.read_interval.first;
-    }
-    
-    /// Get where the item past-ends in the read
-    static size_t read_end(const Item& item) {
-        return item.read_interval.second;
-    }
-    
-    /// Get the length of the item in the read
-    static size_t read_length(const Item& item) {
-        return read_end(item) - read_start(item);
-    }
-    
-    /// Return true if the first item is a perfect chain that can't be beat,
-    /// and false otherwise.
-    static bool has_perfect_chain(const vector<Item>& items) {
-        return GaplessExtender::full_length_extensions(items);
-    }
-};
-
-// For doing scores with backtracing, we use this type, which is a
-// score and a number for the place we came from to get it.
-// It can be maxed with std::max() as long as the destinations are all filled in right.
-using traced_score_t = pair<int, size_t>;
-
-/// Accessors for attributes of a type when used as a (possibly provenance-traced) DP table score.
-template<typename Score>
-struct score_traits {
-    // We don't actually define the interface here, because templates don't do any sort of inheritance.
-};
-
-/// This is how to use a traced_score_t as a DP score, and all the operations
-/// you can do with it.
-template<>
-struct score_traits<traced_score_t> {
-    using Score = traced_score_t;
-    
-    /// What is the sentinel for an empty provenance?
-    static size_t NOWHERE;
-    
-    /// What's the default value for an empty table cell?
-    static Score UNSET;
-    
-    /// Pack a score together with its provenance
-    static Score annotate(int points, size_t from) {
-        return {points, from};
-    }
-
-    /// Accessor to get the score
-    static int& score(Score& s) {
-        return s.first;
-    }
-    
-    /// Accessor to get the score, when const
-    static const int& score(const Score& s) {
-        return s.first;
-    }
-    
-    /// Accessor to get the source
-    static size_t& source(Score& s) {
-        return s.second;
-    }
-    
-    /// Accessor to get the source, when const
-    static const size_t& source(const Score& s) {
-        return s.second;
-    }
-    
-    /// Max in a score from a DP table. If it wins, record provenance.
-    static void max_in(Score& dest, const vector<Score>& options, size_t option_number) {
-        auto& option = options[option_number];
-        if (score(option) > score(dest) || source(dest) == NOWHERE) {
-            // This is the new winner.
-            score(dest) = score(option);
-            source(dest) = option_number;
-        }
-    }
-    
-    /// Get a score from a table and record provenance in it.
-    static Score score_from(const vector<Score>& options, size_t option_number) {
-        traced_score_t got = options[option_number];
-        source(got) = option_number;
-        return got;
-    }
-    
-    /// Add (or remove) points along a route to somewhere. Return a modified copy.
-    static Score add_points(const Score& s, int adjustment) {
-        return annotate(score(s) + adjustment, source(s));
-    }
-};
-// Give constants a compilation unit
-size_t score_traits<traced_score_t>::NOWHERE = numeric_limits<size_t>::max();
-score_traits<traced_score_t>::Score score_traits<traced_score_t>::UNSET = {0, score_traits<traced_score_t>::NOWHERE};
-
-
-/// This is how to use an int as a DP score, and all the operations you can do
-/// with it.
-template<>
-struct score_traits<int> {
-    using Score = int;
-    
-    /// What is the sentinel for an empty provenance?
-    static size_t NOWHERE;
-    
-    /// What's the default value for an empty table cell?
-    static Score UNSET;
-
-    /// Pack a score together with its provenance
-    static Score annotate(int points, size_t from) {
-        return points;
-    }
-
-    /// Accessor to get the score.
-    static Score& score(int& s) {
-        return s;
-    }
-    
-    /// Accessor to get the score, when const.
-    static const Score& score(const int& s) {
-        return s;
-    }
-    
-    /// Accessor to get the source, when const (always NOWHERE)
-    static size_t source(const int& s) {
-        return NOWHERE;
-    }
-    // Note that source can't be set.
-    
-    /// Max in a score from a DP table. If it wins, record provenance.
-    static void max_in(Score& dest, const vector<Score>& options, size_t option_number) {
-        dest = std::max(dest, options[option_number]);
-    }
-    
-    /// Get a score from a table.
-    static Score score_from(const vector<Score>& options, size_t option_number) {
-        return options[option_number];
-    }
-    
-    /// Add (or remove) points along a route to somewhere. Return a modified copy.
-    static Score add_points(const Score& s, int adjustment) {
-        return s + adjustment;
-    }
-};
-// Give constants a compilation unit
-size_t score_traits<int>::NOWHERE = numeric_limits<size_t>::max();
-score_traits<int>::Score score_traits<int>::UNSET = 0;
-
-/// Print operator
-static ostream& operator<<(ostream& out, const traced_score_t& value) {
-    if (score_traits<traced_score_t>::source(value) == score_traits<traced_score_t>::NOWHERE) {
-        return out << score_traits<traced_score_t>::score(value) << " from nowhere";
-    }
-    return out << score_traits<traced_score_t>::score(value) << " from " << score_traits<traced_score_t>::source(value);
-}
-
-size_t MinimizerMapper::get_graph_overlap(const GaplessExtension& left,
-                                          const GaplessExtension& right,
-                                          const HandleGraph* graph) {
-                                          
-    
-    // We can't just use GaplessExtension::overlap() because we need to worry
-    // about containment, or the left thing actually starting after the right
-    // thing.
-    
-    // We also don't really care if they take different overall paths in the graph. We find overlap if a start node is shared.
-    
-    // This is the handle the right extension starts on
-    handle_t right_starts_on = right.path.front();
-    
-    // Scan back along the left path until we find the handle the right path starts on 
-    auto last_right_start_in_left = left.path.rbegin();
-    while (last_right_start_in_left != left.path.rend() && *last_right_start_in_left != right_starts_on) {
-        last_right_start_in_left++;
-    }
-    
-    if (last_right_start_in_left != left.path.rend()) {
-        // The right extension starts at some handle where the left extension also is.
-        
-        // Work out how many bases of the left extension are before that handle.
-        // We start with all the bases on the path.
-        size_t left_bases_before_shared_handle = 0;
-        auto it = last_right_start_in_left;
-        ++it;
-        if (it != left.path.rend()) {
-            // There are some left bases before the shared handle.
-            while (it != left.path.rend()) {
-                left_bases_before_shared_handle += graph->get_length(*it);
-                ++it;
-            }
-            // Since we have some bases, we back out the offset.
-            left_bases_before_shared_handle -= left.offset;
-            
-            // Work out how many bases of the left extension are on or after that handle
-            size_t left_bases_remaining = left.length() - left_bases_before_shared_handle;
-            
-            // Work out how many bases into the handle the right extension starts
-            size_t right_offset = right.offset;
-            
-            // Compute how many bases of the left extension the right extension
-            // starts at or before and return that.
-            if (left_bases_remaining <= right_offset) {
-                // They don't actually overlap
-                return 0;
-            } else {
-                // They overlap by however many bases the left extension goes into
-                // this handle past where the right extension starts.
-                return left_bases_remaining - right_offset;
-            }
-                
-        } else {
-            // The left extension actually starts on the shared handle where the right extension also starts. It might be completely before or completely after the right one actually.
-            size_t left_past_end = left.offset + left.length();
-            if (left_past_end <= right.offset) {
-                // Actually there's no overlap, left will end before right starts.
-                return 0;
-            } else {
-                // There's some overlap
-                return left_past_end - right.offset;
-            }
-        }
-    } else {
-        // The handle the right extension starts on doesn't actually exist in the left path.
-        // So the right extension either doesn't actually overlap, or else contains the left one.
-        // Or else the right extension starts somewhere else and reads into the left extension's path.
-        
-        // This is the handle the left extension starts on
-        handle_t left_starts_on = left.path.front();
-        
-        // So, find the earliest place the left extension's path could start in the right one
-        auto first_left_start_in_right = right.path.begin();
-        // And how many bases come before it along the left extension
-        size_t right_bases_before_shared_handle = 0;
-        while (first_left_start_in_right != right.path.end() && *first_left_start_in_right != left_starts_on) {
-            right_bases_before_shared_handle += graph->get_length(*first_left_start_in_right);
-            first_left_start_in_right++;
-        }
-        // Since we know the right path's start handle does not appear on the
-        // left path, we know we went through at least one handle and we can
-        // safely back out the offset.
-        right_bases_before_shared_handle -= right.offset;
-        
-        if (first_left_start_in_right != right.path.end()) {
-            // The left path actually does have its starting handle somewhere in the right path.
-            
-            // We know how many right path bases are before that handle.
-            // Then we add to that overlap the distance along the handle to the
-            // start of the left extension, and also the length of the left
-            // extension.
-            return right_bases_before_shared_handle + left.offset + left.length();
-        } else {
-            // Neither path has the start handle of the other.
-            // We could maybe come up with some notion of overlap between points along the paths, but we can't do it for the extensions as a whole.
-            // TODO: is this going to make the overall algorithm work well when these e.g. start/end on SNP nodes?
-            return 0;
-        }
-    }
-    
-}
-
-size_t MinimizerMapper::get_read_overlap(const GaplessExtension& left,
-                                         const GaplessExtension& right) {
-
-    return left.read_interval.second - right.read_interval.first;
-}
-
-size_t MinimizerMapper::get_graph_distance(const GaplessExtension& left,
-                                           const GaplessExtension& right,
-                                           const SnarlDistanceIndex* distance_index,
-                                           const HandleGraph* graph) {
-    // Find where the left extension past-ends
-    Position left_past_end = left.tail_position(*graph);
-    // Find where the right one starts
-    Position right_start = right.starting_position(*graph);
-    // Get the oriented minimum distance from the index
-    size_t distance = distance_index->minimum_distance(
-        left_past_end.node_id(), left_past_end.is_reverse(), left_past_end.offset(),
-        right_start.node_id(), right_start.is_reverse(), right_start.offset(),
-        false, graph);
-    // And return it
-    return distance;
-}
-
-template<typename Score, typename Item>
-Score MinimizerMapper::chain_dp(vector<Score>& best_chain_score,
-                                const Alignment& aln,
-                                const vector<Item>& to_chain,
-                                int gap_open_penalty,
-                                int gap_extend_penalty,
-                                const SnarlDistanceIndex* distance_index,
-                                const HandleGraph* graph) {
-                    
-    // Grab the traits into a short name so we can use the accessors concisely.
-    using ScoreTraits = score_traits<Score>;
-    // And similarly for the traits we use to handle the items we are chaining.
-    using ItemTraits = chaining_traits<Item>;
-    
-
-#ifdef debug_chaining
-    cerr << "Chaining group of " << to_chain.size() << " items" << endl;
-#endif
-    
-    
-    // This is a collection of one or more non-full-length extended seeds.
-    
-    // We use a sweep line algorithm to find relevant points along the read: item starts or ends.
-    // This records the last base to be covered by the current sweep line.
-    int64_t sweep_line = 0;
-    // This records the first base not covered by the last sweep line.
-    int64_t next_unswept = 0;
-    
-    // And we track the next unentered item
-    size_t unentered = 0;
-    
-    // Extensions we are in are in this min-heap of past-end position and item number.
-    using ending_at_t = pair<size_t, size_t>;
-    priority_queue<ending_at_t, vector<ending_at_t>, std::greater<ending_at_t>> end_heap;
-    
-    // We track the best score for a chain reaching the position before this one and ending in a gap.
-    // We never let it go below 0.
-    // Will be 0 when there's no gap that can be open
-    Score best_gap_score = ScoreTraits::UNSET;
-    
-    // We track the score for the best chain ending with each item
-    best_chain_score.clear();
-    best_chain_score.resize(to_chain.size(), ScoreTraits::UNSET);
-    
-    // And we're after the best score overall that we can reach when an item ends
-    Score best_past_ending_score_ever = ScoreTraits::UNSET;
-    
-    // Overlaps are more complicated.
-    // We need a heap of all the items for which we have seen the
-    // start and that we can thus overlap.
-    // We filter things at the top of the heap if their past-end positions
-    // have occurred.
-    // So we store pairs of score we get backtracking to the current
-    // position, and past-end position for the thing we are backtracking
-    // from.
-    // We can just use the standard max-heap comparator.
-    priority_queue<pair<Score, size_t>> overlap_heap;
-    
-    // We encode the score relative to a counter that we increase by the
-    // gap extend every base we go through, so we don't need to update and
-    // re-sort the heap.
-    int overlap_score_offset = 0;
-    
-    while(next_unswept <= aln.sequence().size()) {
-        // We are processed through the position before next_unswept.
-        
-        // Find a place for sweep_line to go
-        
-        // Find the next seed start
-        int64_t next_seed_start = numeric_limits<int64_t>::max();
-        if (unentered < to_chain.size()) {
-            next_seed_start = ItemTraits::read_start(to_chain[unentered]);
-        }
-        
-        // Find the next seed end
-        int64_t next_seed_end = numeric_limits<int64_t>::max();
-        if (!end_heap.empty()) {
-            next_seed_end = end_heap.top().first;
-        }
-        
-        // Whichever is closer between those points and the end, do that.
-        sweep_line = min(min(next_seed_end, next_seed_start), (int64_t) aln.sequence().size());
-        
-        // So now we're only interested in things that happen at sweep_line.
-#ifdef debug_chaining
-        cerr << "Sweep to " << sweep_line << endl;
-#endif
-        
-        // Compute the distance from the previous sweep line position
-        // Make sure to account for next_unswept's semantics as the next unswept base.
-        int sweep_distance = sweep_line - next_unswept + 1;
-        
-        // We need to track the score of the best thing that past-ended here
-        Score best_past_ending_score_here = ScoreTraits::UNSET;
-        
-        while(!end_heap.empty() && end_heap.top().first == sweep_line) {
-            // Find anything that past-ends here
-            size_t past_ending = end_heap.top().second;
-            
-            // Mix it into the score
-            ScoreTraits::max_in(best_past_ending_score_here, best_chain_score, past_ending);
-            
-            // Remove it from the end-tracking heap
-            end_heap.pop();
-        }
-#ifdef debug_chaining
-        cerr << "Best score of an item past-ending here: " << best_past_ending_score_here << endl;
-#endif
-        
-
-        // Pick between that and the best score overall
-        best_past_ending_score_ever = std::max(best_past_ending_score_ever, best_past_ending_score_here);
-        
-        if (sweep_line == aln.sequence().size()) {
-            // We don't need to think about gaps or backtracking anymore since everything has ended
-            break;
-        }
-        
-        // Update the overlap score offset by removing some gap extends from it.
-        overlap_score_offset += sweep_distance * gap_extend_penalty;
-        
-        // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
-        Score best_overlap_score = ScoreTraits::UNSET;
-        while (!overlap_heap.empty()) {
-            // While there is stuff on the heap
-            if (overlap_heap.top().second <= sweep_line) {
-                // We are already past this thing, so drop it
-                overlap_heap.pop();
-            } else {
-                // This is at the top of the heap and we aren't past it
-                // Decode and use its score offset if we only backtrack to here.
-                best_overlap_score = ScoreTraits::add_points(overlap_heap.top().first, overlap_score_offset);
-                // Stop looking in the heap
-                break;
-            }
-        }
-#ifdef debug_chaining
-        cerr << "Best score of overlapping back to here: " << best_overlap_score << endl;
-#endif
-        
-        // The best way to end 1 before here in a gap is either:
-        
-        if (best_gap_score != ScoreTraits::UNSET) {
-            // Best way to end 1 before our last sweep line position with a gap, plus distance times gap extend penalty
-            ScoreTraits::score(best_gap_score) -= sweep_distance * gap_extend_penalty;
-        }
-        
-        // Best way to end 1 before here with an actual item, plus the gap open part of the gap open penalty.
-        // (Will never be taken over an actual adjacency)
-        best_gap_score = std::max(ScoreTraits::UNSET, std::max(best_gap_score, ScoreTraits::add_points(best_past_ending_score_here, -(gap_open_penalty - gap_extend_penalty))));
-#ifdef debug_chaining
-        cerr << "Best score here but in a gap: " << best_gap_score << endl;
-#endif
-        
-        while (unentered < to_chain.size() && ItemTraits::read_start(to_chain[unentered]) == sweep_line) {
-            // For each thing that starts here
-            
-            // We want to compute how much we should charge to come from
-            // each place we could come from, and then come from the best
-            // one.
-            Score overlap_option = best_overlap_score;
-            Score gap_option = best_gap_score;
-            Score here_option = best_past_ending_score_here;
-            
-            if (distance_index && graph) {
-                // We have a distance index, so we might charge different
-                // amounts for different transitions depending on the graph
-                // distance between the items.
-                
-                // So we adjust the options we have bgased on where we are
-                // coming from and where we are going to.
-                
-                // We could take:
-                // An overlap from source(overlap_option):
-                if (ScoreTraits::source(overlap_option) != ScoreTraits::NOWHERE) {
-                    // See whether and how much they overlap in the graph
-                    size_t graph_overlap = get_graph_overlap(to_chain[ScoreTraits::source(overlap_option)], to_chain[unentered], graph);
-                    // And also get the overlap in the read.
-                    size_t read_overlap = get_read_overlap(to_chain[ScoreTraits::source(overlap_option)], to_chain[unentered]);
-                    if (graph_overlap > read_overlap) {
-                        // They overlap in the graph more than they do in the read.
-                        // We don't want to charge for the overlap in the read, we just want to charge for the additional overlap in the graph.
-                        // We have (read overlap - 1) extend penalties, and we want (graph overlap - read overlap - 1) of them.
-                        // (graph overlap - read overlap - 1) - (read overlap - 1) = graph overlap - 2 * read overlap
-                        // Which is how many penalties to charge
-                        overlap_option = ScoreTraits::add_points(overlap_option, -gap_extend_penalty * graph_overlap + gap_extend_penalty * 2 * read_overlap);
-                        // TODO: We need to not double-count the matches right?
-                        // When we go to synthesize an actual alignment we can cut out the double-matched area and match it only one place.
-                    } else if (graph_overlap == read_overlap) {
-                        // They overlap in the graph exactly as much as they do in the read.
-                        // Back out the whole read gap
-                        overlap_option = ScoreTraits::add_points(overlap_option, gap_open_penalty + gap_extend_penalty * (read_overlap - 1));
-                        // TODO: We need to not double-count the matches right?
-                    } else if (graph_overlap > 0) {
-                        // They overlap in the graph but less than they do in the read.
-                        // Back out some of the read gap
-                        overlap_option = ScoreTraits::add_points(overlap_option, gap_extend_penalty * (read_overlap - graph_overlap));
-                    } else {
-                        // They don't overlap in the graph at all; they might abut or be separated or be unreachable.
-                        
-                        // Compute the graph distance if they don't overlap in the graph
-                        size_t graph_distance = get_graph_distance(to_chain[ScoreTraits::source(overlap_option)],
-                                                                   to_chain[unentered],
-                                                                   distance_index,
-                                                                   graph);
-                        
-                        if (graph_distance == numeric_limits<size_t>::max()) {
-                            // We can't actually get between the relevant graph areas to do the overlap.
-                            // TODO: check if we can get between the points on either side of the overlapped area instead?
-                            // Right now just say we can't make this connection.
-                            overlap_option = ScoreTraits::UNSET;
-                        } else {
-                            // We need to charge for this extra graph distance being deleted, in addition to what we charge for the existing overlap gap.
-                            overlap_option = ScoreTraits::add_points(overlap_option, -gap_extend_penalty * graph_distance);
-                        }
-                    }
-                }
-                
-                // A gap in the read from ScoreTraits::source(gap_option):
-                if (ScoreTraits::source(gap_option) != ScoreTraits::NOWHERE) {
-                    // Compute the graph distance
-                    size_t graph_distance = get_graph_distance(to_chain[ScoreTraits::source(gap_option)],
-                                                               to_chain[unentered],
-                                                               distance_index,
-                                                               graph);
-                    if (graph_distance == numeric_limits<size_t>::max()) {
-                        // This is actually unreachable in the graph.
-                        // So say we can't actually do this.
-                        gap_option = ScoreTraits::UNSET;
-                    } else {
-                        // Compare to the read distance
-                        size_t read_distance = ItemTraits::read_start(to_chain[unentered]) - ItemTraits::read_end(to_chain[ScoreTraits::source(gap_option)]);
-                        if (graph_distance == read_distance) {
-                            // This is actually even length.
-                            // Charge nothing for the gap by backing out the penalty.
-                        } else if (graph_distance > read_distance) {
-                            // Graph distance is longer.
-                            // We have (read distance - 1) extend penalties, and we want (graph distance - read distance - 1) of them.
-                            // (graph distance - read distance - 1) - (read distance - 1) = graph distance - 2 * read distance
-                            // Which is how many penalties to charge
-                            gap_option = ScoreTraits::add_points(gap_option, -gap_extend_penalty * graph_distance + gap_extend_penalty * 2 * read_distance);
-                        } else {
-                            // Read distance is longer.
-                            // Back out extend penalties from the part of
-                            // the gap that the graph also has, leaving
-                            // only the remaining surplus read gap.
-                            gap_option = ScoreTraits::add_points(gap_option, gap_extend_penalty * graph_distance);
-                        }
-                    }
-                }
-                
-                // An adjacency in the read from ScoreTraits::source(here_option):
-                if (ScoreTraits::source(here_option) != ScoreTraits::NOWHERE) {
-                    // Compute the graph distance
-                    size_t graph_distance = get_graph_distance(to_chain[ScoreTraits::source(here_option)],
-                                                               to_chain[unentered],
-                                                               distance_index,
-                                                               graph);
-                    if (graph_distance == numeric_limits<size_t>::max()) {
-                        // This is actually unreachable in the graph.
-                        // So say we can't actually do this.
-                        here_option = ScoreTraits::UNSET;
-                    } else if (graph_distance > 0) { 
-                        // There's a gap in the graph but not in the read.
-                        // Charge for the gap
-                        here_option = ScoreTraits::add_points(here_option, -gap_open_penalty - gap_extend_penalty * (graph_distance - 1));
-                    } else {
-                        // These abut in the read and the graph, so do nothing
-                    }
-                }
-                
-            }
-            
-            // Compute its chain score, allowing us to just start here also.
-            best_chain_score[unentered] = ScoreTraits::add_points(
-                std::max(std::max(ScoreTraits::UNSET,
-                                  overlap_option),
-                         std::max(gap_option,
-                                  here_option)),
-                ItemTraits::score(to_chain[unentered]));
-#ifdef debug_chaining
-            cerr << "Best score of chain ending in item " << unentered << ": " << best_chain_score[unentered] << endl;
-#endif
-            
-            // Compute its backtrack-to-here score and add it to the backtracking heap
-            // We want how far we would have had to have backtracked to be
-            // able to preceed the base we are at now, where this thing
-            // starts. That's a gap open for the last base, and then an
-            // extend for each base before it.
-            size_t item_length = ItemTraits::read_length(to_chain[unentered]);
-            // We assume all items are 1 or more bases.
-            Score raw_overlap_score = ScoreTraits::add_points(
-                ScoreTraits::score_from(best_chain_score, unentered),
-                -gap_open_penalty - gap_extend_penalty * (item_length - 1));
-            Score encoded_overlap_score = ScoreTraits::add_points(raw_overlap_score, -overlap_score_offset);
-            
-            // Stick it in the overlap heap
-            overlap_heap.emplace(encoded_overlap_score, ItemTraits::read_end(to_chain[unentered]));
-#ifdef debug_chaining
-            cerr << "Overlap encoded as " << encoded_overlap_score << " available until " << ItemTraits::read_end(to_chain[unentered]) << endl;
-#endif
-            
-            // Add it to the end finding heap
-            end_heap.emplace(ItemTraits::read_end(to_chain[unentered]), unentered);
-            
-            // Advance and check the next thing to start
-            unentered++;
-        }
-        
-        // Move next_unswept to sweep_line.
-        // We need to add 1 since next_unswept is the next *un*included base
-        next_unswept = sweep_line + 1;
-    }
-    
-    return best_past_ending_score_ever; 
-}
-
-template<typename Score, typename Item>
-vector<size_t> MinimizerMapper::chain_traceback(const vector<Score>& best_chain_score,
-                                                const vector<Item>& to_chain,
-                                                const Score& best_past_ending_score_ever) {
-    
-    // Now we need to trace back.
-    vector<size_t> traceback;
-    size_t here = score_traits<Score>::source(best_past_ending_score_ever);
-    if (here != score_traits<Score>::NOWHERE) {
-#ifdef debug_chaining
-        cerr << "Chain ends at #" << here << " at " << chaining_traits<Item>::read_start(to_chain[here])
-            << "-" << chaining_traits<Item>::read_end(to_chain[here])
-            << " with score " << best_past_ending_score_ever << endl;
-#endif
-        while(here != score_traits<Score>::NOWHERE) {
-            traceback.push_back(here);
-#ifdef debug_chaining
-            cerr << "Which gets score " << best_chain_score[here] << endl;
-#endif
-            here = score_traits<Score>::source(best_chain_score[here]);
-#ifdef debug_chaining
-            if (here != score_traits<Score>::NOWHERE) {
-                cerr << "And comes after #" << here
-                << " at " << chaining_traits<Item>::read_start(to_chain[here])
-                << "-" << chaining_traits<Item>::read_end(to_chain[here]) << endl;
-            } else {
-                cerr << "And is first" << endl;
-            }
-#endif
-        }
-        // Flip it around front-ways
-        std::reverse(traceback.begin(), traceback.end());
-    }
-    
-#ifdef debug_chaining
-    cerr << "Best score of chain overall: " << best_past_ending_score_ever << endl;
-#endif
-
-    return traceback;
-}
-
-int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
-                                           int gap_open_penalty, int gap_extend_penalty) {
-    
-    if (extended_seeds.empty()) {
-        // TODO: We should never see an empty group of extensions
-        return 0;
-    } else if (GaplessExtender::full_length_extensions(extended_seeds)) {
-        // These are full-length matches. We already have the score.
-        return extended_seeds.front().score;
-    } else if (aln.sequence().size() == 0) {
-        // No score here
-        return extended_seeds.front().score;
-    } else {
-        // Do the DP but without the traceback
-        vector<int> best_chain_score;
-        return chain_dp(best_chain_score,
-                        aln,
-                        extended_seeds,
-                        gap_open_penalty,
-                        gap_extend_penalty);
-    }
-}
-
-template<typename Item>
-pair<int, vector<size_t>> MinimizerMapper::find_best_chain(const Alignment& aln,
-                                                           const vector<Item>& to_chain,
-                                                           int gap_open_penalty,
-                                                           int gap_extend_penalty,
-                                                           const SnarlDistanceIndex* distance_index,
-                                                           const HandleGraph* graph) {
-                                                                 
-    if (to_chain.empty()) {
-        // TODO: We should never see an empty group of extensions
-        return std::make_pair(0, vector<size_t>());
-    } else if (chaining_traits<Item>::has_perfect_chain(to_chain)) {
-        // These are full-length matches. We already have the score.
-        return std::make_pair(chaining_traits<Item>::score(to_chain.front()), vector<size_t>{0});
-    } else if (aln.sequence().size() == 0) {
-        // No score here
-        return std::make_pair(chaining_traits<Item>::score(to_chain.front()), vector<size_t>());
-    } else {
-        // We actually need to do DP
-        vector<traced_score_t> best_chain_score;
-        traced_score_t best_past_ending_score_ever = chain_dp(best_chain_score,
-                                                              aln,
-                                                              to_chain,
-                                                              gap_open_penalty,
-                                                              gap_extend_penalty,
-                                                              distance_index,
-                                                              graph);
-        // Then do the traceback and pair it up with the score.
-        return std::make_pair(
-            score_traits<traced_score_t>::score(best_past_ending_score_ever),
-            chain_traceback(best_chain_score, to_chain, best_past_ending_score_ever));
-    }
-}
-
 std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::chain_extensions(
     const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const {
 
@@ -4241,6 +3529,13 @@ std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::c
     if (this->track_provenance) {
         funnel.substage("chain");
     }
+    
+    // Define the scoring space
+    algorithms::ChainingSpace<GaplessExtension> space(
+        get_regular_aligner()->gap_open,
+        get_regular_aligner()->gap_extension,
+        distance_index,
+        &gbwt_graph);
 
     // We now estimate the best possible alignment score for each cluster.
     for (size_t i = 0; i < extensions.size(); i++) {
@@ -4250,7 +3545,7 @@ std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::c
         }
         
         // Do the chaining and move the answers
-        auto chained = find_best_chain(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension, distance_index, &gbwt_graph);
+        auto chained = algorithms::find_best_chain(extensions[i], space);
         result.first.emplace_back(std::move(chained.first));
         result.second.emplace_back(std::move(chained.second));
         
@@ -4273,6 +3568,11 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::vector
         funnel.substage("score");
     }
 
+    // Define the scoring space, but don't bother with thinking in graph space.
+    algorithms::ChainingSpace<GaplessExtension> space(
+        get_regular_aligner()->gap_open,
+        get_regular_aligner()->gap_extension);
+
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> result(extensions.size(), 0);
     for (size_t i = 0; i < extensions.size(); i++) {
@@ -4281,7 +3581,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::vector
             funnel.producing_output(i);
         }
         
-        result[i] = score_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
+        result[i] = algorithms::score_best_chain(extensions[i], space);
         
         // Record the score with the funnel.
         if (this->track_provenance) {
@@ -4299,7 +3599,12 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
     if (this->track_provenance) {
         funnel.substage("score");
     }
-
+    
+    // Define the scoring space, but don't bother with thinking in graph space.
+    algorithms::ChainingSpace<GaplessExtension> space(
+        get_regular_aligner()->gap_open,
+        get_regular_aligner()->gap_extension);
+    
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> result(extensions.size(), 0);
     for (size_t i = 0; i < extensions.size(); i++) {
@@ -4308,7 +3613,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
             funnel.producing_output(i);
         }
         
-        result[i] = score_extension_group(aln, extensions[i].first, get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
+        result[i] = algorithms::score_best_chain(extensions[i].first, space);
         
         // Record the score with the funnel.
         if (this->track_provenance) {

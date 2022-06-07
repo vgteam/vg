@@ -7,6 +7,7 @@
  */
 
 #include "algorithms/nearest_offsets_in_paths.hpp"
+#include "algorithms/chain_items.hpp"
 #include "aligner.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "snarl_seed_clusterer.hpp"
@@ -338,7 +339,7 @@ protected:
         Funnel& funnel) const;
    
     /**
-     * Chain the set of extensions for each cluster using find_best_chain().
+     * Chain the set of extensions for each cluster.
      * Return the scores and tracebacks in the same order as the extension groups.
      * Returns scores and tracebacks separately for better compatibility with score_extensions()
      */
@@ -560,116 +561,6 @@ protected:
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t index);
         
-        
-    /**
-     * Return the amount by which the end of the left gapless extension is
-     *  past the position before the start of the right gapless extension, in
-     *  the graph. Returns 0 if they do not actually overlap.
-     * 
-     *  Doesn't actually match the whole graph paths against each other; if
-     *  there's a handle where the left one ends and then the right one starts,
-     *  there's no overlap.
-     * 
-     *  Can return a number larger than the length of one extension if it is
-     *  contained in the other.
-     */
-    static size_t get_graph_overlap(const GaplessExtension& left,
-                                    const GaplessExtension& right,
-                                    const HandleGraph* graph);
-                                    
-     /**
-     * Return the amount by which the end of the left gapless extension is
-     *  past the position before the start of the right gapless extension, in
-     *  the read. Returns 0 if they do not actually overlap.
-     * 
-     *  Can return a number larger than the length of one extension if it is
-     *  contained in the other.
-     */
-    static size_t get_read_overlap(const GaplessExtension& left,
-                                   const GaplessExtension& right);
-
-    /**
-     *  Get the minimum graph distance between the end of the left gapless
-     *  extension and the position before the start of the right gapless
-     *  extension. Returns std::numeric_limits<size_t>::max() if there is no
-     *  route to take.
-     */
-    static size_t get_graph_distance(const GaplessExtension& left,
-                                     const GaplessExtension& right,
-                                     const SnarlDistanceIndex* distance_index,
-                                     const HandleGraph* graph);
-
-    /**
-     *  Fill in the given DP table for the best chain score ending with each
-     *  item. Returns the best observed score overall from that table,
-     *  with provenance to its location in the table, if tracked in the type.
-     *  Assumes some items exist.
-     */
-    template<typename Score, typename Item>
-    static Score chain_dp(vector<Score>& best_chain_score,
-                          const Alignment& aln,
-                          const vector<Item>& to_chain,
-                          int gap_open_penalty,
-                          int gap_extend_penalty,
-                          const SnarlDistanceIndex* distance_index = nullptr,
-                          const HandleGraph* graph = nullptr);
-
-    /**
-     *  Trace back through in the given DP table from the best chain score.
-     */
-    template<typename Score, typename Item>
-    static vector<size_t> chain_traceback(const vector<Score>& best_chain_score,
-                                          const vector<Item>& to_chain,
-                                          const Score& best_past_ending_score_ever);
-
-    /**
-     * Score the given group of gapless extensions. Determines the best score
-     * that can be obtained by chaining extensions together, using the given
-     * gap open and gap extend penalties to charge for either overlaps or gaps
-     * in coverage of the read.
-     *
-     * Overlaps are charged only gap open/extend penalties; multiple matches to
-     * the same read base are scored as matches.
-     *
-     * Overlaps may result in one gapless extension containing another.
-     *
-     * Input extended seeds must be sorted by start position.
-     *
-     * TODO: Stop passing the alignment?
-     */
-    static int score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
-        int gap_open_penalty, int gap_extend_penalty);
-        
-    /**
-     * Chain up the given group of items. Determines the best score and
-     * traceback that can be obtained by chaining items together, using the
-     * given gap open and gap extend penalties to charge for either overlaps or
-     * gaps in coverage of the read.
-     *
-     * Overlaps are charged only gap open/extend penalties; multiple matches to
-     * the same read base are scored as matches.
-     *
-     * Overlaps may result in one item containing another.
-     *
-     * Input items must be sorted by start position in the read.
-     *
-     * Optionally takes a distance index and a graph, and uses distances in the
-     * graph alogn with distances in the read to score transitions between
-     * items.
-     *
-     * Returns the score and the list of indexes of items visited to achieve
-     * that score, in order.
-     *
-     * TODO: Stop passing the alignment?
-     */
-    template<typename Item>
-    static pair<int, vector<size_t>> find_best_chain(const Alignment& aln,
-                                                     const vector<Item>& to_chain,
-                                                     int gap_open_penalty,
-                                                     int gap_extend_penalty,
-                                                     const SnarlDistanceIndex* distance_index = nullptr,
-                                                     const HandleGraph* graph = nullptr);
-    
     /**
      * Get all the trees defining tails off the specified side of the specified
      * gapless extension. Should only be called if a tail on that side exists,
