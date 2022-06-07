@@ -311,9 +311,8 @@ protected:
     /**
      * Find seeds for all minimizers passing the filters.
      */
-    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
-    //The same thing but with the old distance index
-    std::vector<OldSeed> find_seeds_old(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    template<typename SeedType>
+    std::vector<SeedType> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
@@ -328,7 +327,8 @@ protected:
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
      */
     template<typename SeedType>
-    vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
+    vector<GaplessExtension> extend_cluster(
+        const Cluster& cluster,
         size_t cluster_num,
         const vector<Minimizer>& minimizers,
         const std::vector<SeedType>& seeds,
