@@ -253,6 +253,9 @@ struct WFAAlignment {
     /// Returns true if the alignment is empty.
     bool empty() const { return (this->length == 0); }
 
+    /// Returns true if the alignment is an insertion without a location.
+    bool unlocalized_insertion() const;
+
     /// Computes the node offset after the alignment in the final node.
     uint32_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
 
@@ -269,6 +272,9 @@ struct WFAAlignment {
     
     /// Convert the WFAAlignment into a Path.
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
+
+    /// Prints some debug information about the alignment.
+    std::ostream& print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const;
 };
 
 //------------------------------------------------------------------------------
@@ -290,7 +296,11 @@ struct WFAAlignment {
  *   Eizenga, Paten: Improving the time and space complexity of the WFA algorithm
  *   and generalizing its scoring. bioRxiv, 2022.
  *
- * Note: Most internal arithmetic operations use 32-bit integers.
+ * VG scores a gap of length `n` as `gap_open + (n - 1) * gap_extend`, while WFA
+ * papers use `gap_open + n * gap_extend`. Hence we use `gap_open - gap_extend` as
+ * the effective four-parameter gap open score inside this aligner.
+ *
+ * NOTE: Most internal arithmetic operations use 32-bit integers.
  */
 class WFAExtender {
 public:
@@ -304,7 +314,6 @@ public:
 
     /**
      * Align the sequence to a haplotype between the two graph positions.
-     * The positions are assumed to match the first and the last characters.
      *
      * The sequence that will be aligned is passed by value. All non-ACGT
      * characters are masked with character X, which should not match any
@@ -320,6 +329,10 @@ public:
      * starting at the given position. If there is no alignment for the
      * entire sequence with an acceptable score, returns the highest-scoring
      * partial alignment.
+     *
+     * NOTE: This creates a suffix of the alignment by aligning a prefix of
+     * the sequence.
+     * FIXME: Should we use full-length bonuses?
      */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
 
@@ -328,12 +341,19 @@ public:
      * ending at the given position. If there is no alignment for the entire
      * sequence with an acceptable score, returns the highest-scoring partial
      * alignment.
+     *
+     * NOTE: This creates a prefix of the alignment by aligning a suffix of
+     * the sequence.
+     * FIXME: Should we use full-length bonuses?
      */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;
     const Aligner*              aligner;
+
+    /// TODO: Remove when unnecessary.
+    bool debug = false;
 };
 
 //------------------------------------------------------------------------------
