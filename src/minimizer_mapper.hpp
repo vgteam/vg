@@ -601,18 +601,26 @@ protected:
 
     /**
      *  Fill in the given DP table for the best chain score ending with each
-     *  gapless extension. Returns the best observed score overall from that table,
+     *  item. Returns the best observed score overall from that table,
      *  with provenance to its location in the table, if tracked in the type.
-     *  Assumes some gapless extensions exist.
+     *  Assumes some items exist.
      */
-    template<typename S>
-    static S chain_extension_group_dp(vector<S>& best_chain_score,
-                                      const Alignment& aln,
-                                      const vector<GaplessExtension>& extended_seeds,
-                                      int gap_open_penalty,
-                                      int gap_extend_penalty,
-                                      const SnarlDistanceIndex* distance_index = nullptr,
-                                      const HandleGraph* graph = nullptr);
+    template<typename Score, typename Item>
+    static Score chain_dp(vector<Score>& best_chain_score,
+                          const Alignment& aln,
+                          const vector<Item>& to_chain,
+                          int gap_open_penalty,
+                          int gap_extend_penalty,
+                          const SnarlDistanceIndex* distance_index = nullptr,
+                          const HandleGraph* graph = nullptr);
+
+    /**
+     *  Trace back through in the given DP table from the best chain score.
+     */
+    template<typename Score, typename Item>
+    static vector<size_t> chain_traceback(const vector<Score>& best_chain_score,
+                                          const vector<Item>& to_chain,
+                                          const Score& best_past_ending_score_ever);
 
     /**
      * Score the given group of gapless extensions. Determines the best score
