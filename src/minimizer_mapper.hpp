@@ -325,6 +325,19 @@ protected:
     void score_cluster_old(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
+     * Extends the seeds in a cluster into a collection of GaplessExtension objects.
+     */
+    template<typename SeedType>
+    vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
+        size_t cluster_num,
+        const vector<Minimizer>& minimizers,
+        const std::vector<SeedType>& seeds,
+        const string& sequence,
+        vector<vector<size_t>>& minimizer_kept_cluster_count,
+        size_t& kept_cluster_count,
+        Funnel& funnel) const;
+   
+    /**
      * Chain the set of extensions for each cluster using chain_extension_group().
      * Return the scores and tracebacks in the same order as the extension groups.
      * Returns scores and tracebacks separately for better compatibility with score_extensions()

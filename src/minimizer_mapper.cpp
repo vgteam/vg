@@ -453,7 +453,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
     // These are the GaplessExtensions for all the clusters.
     vector<vector<GaplessExtension>> cluster_extensions;
-    cluster_extensions.reserve(clusters.size());
+    if (!align_from_chains) {
+        cluster_extensions.reserve(clusters.size());
+    }
     // To compute the windows for explored minimizers, we need to get
     // all the minimizers that are explored.
     SmallBitset minimizer_explored(minimizers.size());
@@ -498,7 +500,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             if (track_provenance) {
                 funnel.pass("cluster-score", cluster_num, cluster.score);
-                funnel.processing_input(cluster_num);
             }
             
 
@@ -511,60 +512,30 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
             }
              
-            minimizer_kept_cluster_count.emplace_back(minimizers.size(), 0);
-            // Pack the seeds for GaplessExtender.
-            GaplessExtender::cluster_type seed_matchings;
             if (distance_index != nullptr) {
-                for (auto seed_index : cluster.seeds) {
-                    // Insert the (graph position, read offset) pair.
-                    const Seed& seed = seeds[seed_index];
-                    seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                    minimizer_kept_cluster_count.back()[seed.source]++;
-                }
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    dump_debug_seeds(minimizers, seeds, cluster.seeds);
-                }
+                // Extend seed hits in the cluster into one or more gapless extensions
+                cluster_extensions.emplace_back(std::move(extend_cluster(
+                    cluster,
+                    cluster_num,
+                    minimizers,
+                    seeds,
+                    aln.sequence(),
+                    minimizer_kept_cluster_count,
+                    kept_cluster_count,
+                    funnel)));
             } else {
-                for (auto seed_index : cluster.seeds) {
-                    // Insert the (graph position, read offset) pair.
-                    const OldSeed& seed = old_seeds[seed_index];
-                    seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                    minimizer_kept_cluster_count.back()[seed.source]++;
-                }
-                if (show_work) {
-                    #pragma omp critical (cerr)
-                    dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
-                }
+                // Extend old seed hits in the cluster into one or more gapless extensions
+                cluster_extensions.emplace_back(std::move(extend_cluster(
+                    cluster,
+                    cluster_num,
+                    minimizers,
+                    old_seeds,
+                    aln.sequence(),
+                    minimizer_kept_cluster_count,
+                    kept_cluster_count,
+                    funnel)));
             }
             
-            // Extend seed hits in the cluster into one or more gapless extensions
-            cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
-
-            kept_cluster_count ++;
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Extensions:" << endl;
-                    for (auto& e : cluster_extensions.back()) {
-                        cerr << log_name() << "\tRead " << e.read_interval.first << "-" << e.read_interval.second << " with " << e.mismatch_positions.size() << " mismatches:";
-                        for (auto& pos : e.mismatch_positions) {
-                            cerr << " " << pos;
-                        }
-                        cerr << endl;
-                    }
-                }
-            }
-            
-            if (track_provenance) {
-                // Record with the funnel that the previous group became a group of this size.
-                // Don't bother recording the seed to extension matching...
-                funnel.project_group(cluster_num, cluster_extensions.back().size());
-                
-                // Say we finished with this cluster, for now.
-                funnel.processed_input();
-            }
             return true;
             
         }, [&](size_t cluster_num) {
@@ -1500,8 +1471,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         funnels[read_num].pass("max-extensions", cluster_num);
                         funnels[read_num].pass("cluster-score", cluster_num, cluster.score);
                         funnels[read_num].pass("paired-clusters", cluster_num);
-
-                        funnels[read_num].processing_input(cluster_num);
                     }
 
                     if (show_work) {
@@ -1511,72 +1480,30 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         }
                     }
                     
-                    //Count how many of each minimizer is in each cluster that we kept
-                    minimizer_kept_cluster_count_by_read[read_num].emplace_back(minimizers.size(), 0);
-                    // Pack the seeds for GaplessExtender.
-                    GaplessExtender::cluster_type seed_matchings;
                     if (distance_index != nullptr) {
-                        for (auto seed_index : cluster.seeds) {
-                            // Insert the (graph position, read offset) pair.
-                            const Seed& seed = seeds[seed_index];
-                            seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                            minimizer_kept_cluster_count_by_read[read_num].back()[seed.source]++;
-                            
-                            if (show_work) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << log_name() << "Seed read:" << minimizers[seed.source].value.offset << " = " << seed.pos
-                                        << " from minimizer " << seed.source << ", #" << seed_index << endl;
-                                }
-                            }
-                        }
+                        // Extend seed hits in the cluster into one or more gapless extensions
+                        cluster_extensions.emplace_back(std::move(extend_cluster(
+                            cluster,
+                            cluster_num,
+                            minimizers,
+                            seeds,
+                            aln.sequence(),
+                            minimizer_kept_cluster_count_by_read[read_num],
+                            kept_cluster_count,
+                            funnels[read_num])), cluster.fragment);
                     } else {
-                        for (auto seed_index : cluster.seeds) {
-                            // Insert the (graph position, read offset) pair.
-                            const OldSeed& seed = old_seeds[seed_index];
-                            seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                            minimizer_kept_cluster_count_by_read[read_num].back()[seed.source]++;
-                            
-                            if (show_work) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << log_name() << "Seed read:" << minimizers[seed.source].value.offset << " = " << seed.pos
-                                        << " from minimizer " << seed.source << ", #" << seed_index << endl;
-                                }
-                            }
-                        }
+                        // Extend old seed hits in the cluster into one or more gapless extensions
+                        cluster_extensions.emplace_back(std::move(extend_cluster(
+                            cluster,
+                            cluster_num,
+                            minimizers,
+                            seeds,
+                            aln.sequence(),
+                            minimizer_kept_cluster_count_by_read[read_num],
+                            kept_cluster_count,
+                            funnels[read_num])), cluster.fragment); 
                     }
                     
-                    // Extend seed hits in the cluster into one or more gapless extensions
-                    cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
-                                                    cluster.fragment);
-                    
-                    kept_cluster_count++;
-                    
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Extensions:" << endl;
-                            for (auto& e : cluster_extensions.back().first) {
-                                cerr << log_name() << "\tRead " << e.read_interval.first
-                                    << "-" << e.read_interval.second << " with "
-                                    << e.mismatch_positions.size() << " mismatches:";
-                                for (auto& pos : e.mismatch_positions) {
-                                    cerr << " " << pos;
-                                }
-                                cerr << endl;
-                            }
-                        }
-                    }
-                    
-                    if (track_provenance) {
-                        // Record with the funnel that the previous group became a group of this size.
-                        // Don't bother recording the seed to extension matching...
-                        funnels[read_num].project_group(cluster_num, cluster_extensions.back().first.size());
-                        
-                        // Say we finished with this cluster, for now.
-                        funnels[read_num].processed_input();
-                    }
                     return true;
                 } else {
                     //We were looking for clusters in a paired fragment cluster but this one doesn't have any on the other end
@@ -3705,6 +3632,70 @@ void MinimizerMapper::score_cluster_old(Cluster& cluster, size_t i, const std::v
         // Say we made it.
         funnel.produced_output();
     }
+}
+
+//-----------------------------------------------------------------------------
+
+template<typename SeedType>
+vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
+    size_t cluster_num,
+    const vector<Minimizer>& minimizers,
+    const std::vector<SeedType>& seeds,
+    const string& sequence,
+    vector<vector<size_t>>& minimizer_kept_cluster_count,
+    size_t& kept_cluster_count,
+    Funnel& funnel) const {
+
+    if (track_provenance) {
+        // Say we're working on this cluster
+        funnel.processing_input(cluster_num);
+    }
+
+    // Count how many of each minimizer is in each cluster that we kept
+    minimizer_kept_cluster_count.emplace_back(minimizers.size(), 0);
+    for (auto seed_index : cluster.seeds) {
+        // Insert the (graph position, read offset) pair.
+        auto& seed = seeds[seed_index];
+        seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
+        minimizer_kept_cluster_count.back()[seed.source]++;
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                dump_debug_seeds(minimizers, seeds, cluster.seeds);
+            }
+        }
+    }
+    
+    vector<GaplessExtension> cluster_extension = extender.extend(seed_matchings, sequence);
+
+    kept_cluster_count++;
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Extensions:" << endl;
+            for (auto& e : cluster_extensions.back()) {
+                cerr << log_name() << "\tRead " << e.read_interval.first
+                    << "-" << e.read_interval.second << " with "
+                    << e.mismatch_positions.size() << " mismatches:";
+                for (auto& pos : e.mismatch_positions) {
+                    cerr << " " << pos;
+                }
+                cerr << endl;
+            }
+        }
+    }
+            
+    if (track_provenance) {
+        // Record with the funnel that the previous group became a group of this size.
+        // Don't bother recording the seed to extension matching...
+        funnel.project_group(cluster_num, cluster_extensions.back().size());
+        // Say we finished with this cluster, for now.
+        funnel.processed_input();
+    }
+    
+    return cluster_extension;
 }
 
 //-----------------------------------------------------------------------------
