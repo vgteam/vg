@@ -320,8 +320,8 @@ protected:
      * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
      */
-    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
-    void score_cluster_old(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, size_t seq_length, Funnel& funnel) const;
+    template<typename SeedType>
+    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

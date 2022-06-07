@@ -467,7 +467,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         if (distance_index != nullptr) {
             this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().length(), funnel);
         } else {
-            this->score_cluster_old(cluster, i, minimizers, old_seeds, aln.sequence().length(), funnel);
+            this->score_cluster(cluster, i, minimizers, old_seeds, aln.sequence().length(), funnel);
         }
         if (cluster.score > best_cluster_score) {
             second_best_cluster_score = best_cluster_score;
@@ -1296,36 +1296,23 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         Alignment& aln = read_num == 0 ? aln1 : aln2;
         std::vector<Cluster>& clusters = all_clusters[read_num];
         std::vector<Minimizer>& minimizers = minimizers_by_read[read_num];
-        if (distance_index != nullptr) {
-            std::vector<Seed>& seeds = seeds_by_read[read_num];
-            vector<double>& best_cluster_score = read_num == 0 ? cluster_score_by_fragment.first 
-                                                               : cluster_score_by_fragment.second;
-            vector<double>& best_cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment.first 
-                                                                  : cluster_coverage_by_fragment.second;
+        
+        vector<double>& best_cluster_score = read_num == 0 ? cluster_score_by_fragment.first 
+                                                           : cluster_score_by_fragment.second;
+        vector<double>& best_cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment.first 
+                                                              : cluster_coverage_by_fragment.second;
 
-            for (size_t i = 0; i < clusters.size(); i++) {
-                // Determine cluster score and read coverage.
-                Cluster& cluster = clusters[i];
-                this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().length(), funnels[read_num]);
-                size_t fragment = cluster.fragment;
-                best_cluster_score[fragment] = std::max(best_cluster_score[fragment], cluster.score);
-                best_cluster_coverage[fragment] = std::max(best_cluster_coverage[fragment], cluster.coverage);
+        for (size_t i = 0; i < clusters.size(); i++) {
+            // Determine cluster score and read coverage.
+            Cluster& cluster = clusters[i];
+            if (distance_index != nullptr) {
+                this->score_cluster(cluster, i, minimizers, seeds_by_read[read_num], aln.sequence().length(), funnels[read_num]);
+            } else {
+                this->score_cluster(cluster, i, minimizers, old_seeds_by_read[read_num], aln.sequence().length(), funnels[read_num]);
             }
-        } else {
-            std::vector<OldSeed>& seeds = old_seeds_by_read[read_num];
-            vector<double>& best_cluster_score = read_num == 0 ? cluster_score_by_fragment.first 
-                                                               : cluster_score_by_fragment.second;
-            vector<double>& best_cluster_coverage = read_num == 0 ? cluster_coverage_by_fragment.first 
-                                                                  : cluster_coverage_by_fragment.second;
-
-            for (size_t i = 0; i < clusters.size(); i++) {
-                // Determine cluster score and read coverage.
-                Cluster& cluster = clusters[i];
-                this->score_cluster_old(cluster, i, minimizers, seeds, aln.sequence().length(), funnels[read_num]);
-                size_t fragment = cluster.fragment;
-                best_cluster_score[fragment] = std::max(best_cluster_score[fragment], cluster.score);
-                best_cluster_coverage[fragment] = std::max(best_cluster_coverage[fragment], cluster.coverage);
-            }
+            size_t fragment = cluster.fragment;
+            best_cluster_score[fragment] = std::max(best_cluster_score[fragment], cluster.score);
+            best_cluster_coverage[fragment] = std::max(best_cluster_coverage[fragment], cluster.coverage);
         }
     }
 
@@ -3383,55 +3370,8 @@ void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, cons
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const {
-
-    if (this->track_provenance) {
-        // Say we're making it
-        funnel.producing_output(i);
-    }
-
-    // Initialize the values.
-    cluster.score = 0.0;
-    cluster.coverage = 0.0;
-    cluster.present = SmallBitset(minimizers.size());
-
-    // Determine the minimizers that are present in the cluster.
-    for (auto hit_index : cluster.seeds) {
-        cluster.present.insert(seeds[hit_index].source);
-    }
-    if (show_work) {
-        #pragma omp critical (cerr)
-        dump_debug_clustering(cluster, i, minimizers, seeds);
-    }
-
-    // Compute the score and cluster coverage.
-    sdsl::bit_vector covered(seq_length, 0);
-    for (size_t j = 0; j < minimizers.size(); j++) {
-        if (cluster.present.contains(j)) {
-            const Minimizer& minimizer = minimizers[j];
-            cluster.score += minimizer.score;
-
-            // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = minimizer.forward_offset();
-            size_t k = minimizer.length;
-
-            // Set the k bits starting at start_offset.
-            covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
-        }
-    }
-    // Count up the covered positions and turn it into a fraction.
-    cluster.coverage = sdsl::util::cnt_one_bits(covered) / static_cast<double>(seq_length);
-
-    if (this->track_provenance) {
-        // Record the cluster in the funnel as a group of the size of the number of items.
-        funnel.merge_group(cluster.seeds.begin(), cluster.seeds.end());
-        funnel.score(funnel.latest(), cluster.score);
-
-        // Say we made it.
-        funnel.produced_output();
-    }
-}
-void MinimizerMapper::score_cluster_old(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, size_t seq_length, Funnel& funnel) const {
+template<typename SeedType>
+void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, size_t seq_length, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Say we're making it
