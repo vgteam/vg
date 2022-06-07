@@ -338,7 +338,7 @@ protected:
         Funnel& funnel) const;
    
     /**
-     * Chain the set of extensions for each cluster using chain_extension_group().
+     * Chain the set of extensions for each cluster using find_best_chain().
      * Return the scores and tracebacks in the same order as the extension groups.
      * Returns scores and tracebacks separately for better compatibility with score_extensions()
      */
@@ -641,36 +641,34 @@ protected:
         int gap_open_penalty, int gap_extend_penalty);
         
     /**
-     * Chain up the given group of gapless extensions. Determines the best
-     * score and traceback that can be obtained by chaining extensions
-     * together, using the given gap open and gap extend penalties to charge
-     * for either overlaps or gaps in coverage of the read.
+     * Chain up the given group of items. Determines the best score and
+     * traceback that can be obtained by chaining items together, using the
+     * given gap open and gap extend penalties to charge for either overlaps or
+     * gaps in coverage of the read.
      *
      * Overlaps are charged only gap open/extend penalties; multiple matches to
      * the same read base are scored as matches.
      *
-     * Overlaps may result in one gapless extension containing another.
+     * Overlaps may result in one item containing another.
      *
-     * Input gapless extensions must be sorted by start position in the read.
+     * Input items must be sorted by start position in the read.
      *
      * Optionally takes a distance index and a graph, and uses distances in the
      * graph alogn with distances in the read to score transitions between
-     * gapless extensions.
+     * items.
      *
-     * Returns the score and the list of indexes of gapless extensions visited
-     * to achieve that score, in order.
-     *
-     * TODO: Right now this does not do any graph reachability or distance
-     * queries and only thinks about gaps in the read.
+     * Returns the score and the list of indexes of items visited to achieve
+     * that score, in order.
      *
      * TODO: Stop passing the alignment?
      */
-    static pair<int, vector<size_t>> chain_extension_group(const Alignment& aln,
-                                                           const vector<GaplessExtension>& extended_seeds,
-                                                           int gap_open_penalty,
-                                                           int gap_extend_penalty,
-                                                           const SnarlDistanceIndex* distance_index = nullptr,
-                                                           const HandleGraph* graph = nullptr);
+    template<typename Item>
+    static pair<int, vector<size_t>> find_best_chain(const Alignment& aln,
+                                                     const vector<Item>& to_chain,
+                                                     int gap_open_penalty,
+                                                     int gap_extend_penalty,
+                                                     const SnarlDistanceIndex* distance_index = nullptr,
+                                                     const HandleGraph* graph = nullptr);
     
     /**
      * Get all the trees defining tails off the specified side of the specified

@@ -3520,6 +3520,12 @@ struct chaining_traits<GaplessExtension> {
     static size_t read_length(const Item& item) {
         return read_end(item) - read_start(item);
     }
+    
+    /// Return true if the first item is a perfect chain that can't be beat,
+    /// and false otherwise.
+    static bool has_perfect_chain(const vector<Item>& items) {
+        return GaplessExtender::full_length_extensions(items);
+    }
 };
 
 // For doing scores with backtracing, we use this type, which is a
@@ -4165,28 +4171,29 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
     }
 }
 
-pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment& aln,
-                                                                 const vector<GaplessExtension>& extended_seeds,
-                                                                 int gap_open_penalty,
-                                                                 int gap_extend_penalty,
-                                                                 const SnarlDistanceIndex* distance_index,
-                                                                 const HandleGraph* graph) {
+template<typename Item>
+pair<int, vector<size_t>> MinimizerMapper::find_best_chain(const Alignment& aln,
+                                                           const vector<Item>& to_chain,
+                                                           int gap_open_penalty,
+                                                           int gap_extend_penalty,
+                                                           const SnarlDistanceIndex* distance_index,
+                                                           const HandleGraph* graph) {
                                                                  
-    if (extended_seeds.empty()) {
+    if (to_chain.empty()) {
         // TODO: We should never see an empty group of extensions
         return std::make_pair(0, vector<size_t>());
-    } else if (GaplessExtender::full_length_extensions(extended_seeds)) {
+    } else if (chaining_traits<Item>::has_perfect_chain(to_chain)) {
         // These are full-length matches. We already have the score.
-        return std::make_pair(extended_seeds.front().score, vector<size_t>{0});
+        return std::make_pair(chaining_traits<Item>::score(to_chain.front()), vector<size_t>{0});
     } else if (aln.sequence().size() == 0) {
         // No score here
-        return std::make_pair(extended_seeds.front().score, vector<size_t>());
+        return std::make_pair(chaining_traits<Item>::score(to_chain.front()), vector<size_t>());
     } else {
         // We actually need to do DP
         vector<traced_score_t> best_chain_score;
         traced_score_t best_past_ending_score_ever = chain_dp(best_chain_score,
                                                               aln,
-                                                              extended_seeds,
+                                                              to_chain,
                                                               gap_open_penalty,
                                                               gap_extend_penalty,
                                                               distance_index,
@@ -4194,7 +4201,7 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             score_traits<traced_score_t>::score(best_past_ending_score_ever),
-            chain_traceback(best_chain_score, extended_seeds, best_past_ending_score_ever));
+            chain_traceback(best_chain_score, to_chain, best_past_ending_score_ever));
     }
 }
 
@@ -4218,7 +4225,7 @@ std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::c
         }
         
         // Do the chaining and move the answers
-        auto chained = chain_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension, distance_index, &gbwt_graph);
+        auto chained = find_best_chain(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension, distance_index, &gbwt_graph);
         result.first.emplace_back(std::move(chained.first));
         result.second.emplace_back(std::move(chained.second));
         
