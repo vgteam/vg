@@ -499,9 +499,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         funnel.stage("extend");
     }
     
+    // These are the chains for all the clusters, as score and sequence of visited seeds.
+    vector<pair<int, vector<size_t>>> cluster_chains;
     // These are the GaplessExtensions for all the clusters.
     vector<vector<GaplessExtension>> cluster_extensions;
-    if (!align_from_chains) {
+    // We use one or the other.
+    if (align_from_chains) {
+        cluster_chains.reserve(clusters.size());
+    } else {
         cluster_extensions.reserve(clusters.size());
     }
     // To compute the windows for explored minimizers, we need to get
@@ -559,29 +564,49 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     cerr << log_name() << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
                 }
             }
-             
-            if (distance_index != nullptr) {
-                // Extend seed hits in the cluster into one or more gapless extensions
-                cluster_extensions.emplace_back(std::move(this->extend_cluster(
-                    cluster,
-                    cluster_num,
-                    minimizers,
-                    seeds,
-                    aln.sequence(),
-                    minimizer_kept_cluster_count,
-                    kept_cluster_count,
-                    funnel)));
+            
+            if (align_from_chains) {
+                // We want to align from chains, not extensions
+                if (distance_index != nullptr) {
+                    cluster_chains.emplace_back(find_best_chain(
+                        aln,
+                        seeds,
+                        get_regular_aligner()->gap_open,
+                        get_regular_aligner()->gap_extension,
+                        distance_index,
+                        &gbwt_graph));
+                } else {
+                    cluster_chains.emplace_back(find_best_chain(
+                        aln,
+                        old_seeds,
+                        get_regular_aligner()->gap_open,
+                        get_regular_aligner()->gap_extension));
+                }
             } else {
-                // Extend old seed hits in the cluster into one or more gapless extensions
-                cluster_extensions.emplace_back(std::move(this->extend_cluster(
-                    cluster,
-                    cluster_num,
-                    minimizers,
-                    old_seeds,
-                    aln.sequence(),
-                    minimizer_kept_cluster_count,
-                    kept_cluster_count,
-                    funnel)));
+                // We want to align from extensions, so we actually need extensions
+                if (distance_index != nullptr) {
+                    // Extend seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(this->extend_cluster(
+                        cluster,
+                        cluster_num,
+                        minimizers,
+                        seeds,
+                        aln.sequence(),
+                        minimizer_kept_cluster_count,
+                        kept_cluster_count,
+                        funnel));
+                } else {
+                    // Extend old seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(this->extend_cluster(
+                        cluster,
+                        cluster_num,
+                        minimizers,
+                        old_seeds,
+                        aln.sequence(),
+                        minimizer_kept_cluster_count,
+                        kept_cluster_count,
+                        funnel));
+                }
             }
             
             return true;
