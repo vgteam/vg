@@ -457,8 +457,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // To compute the windows for explored minimizers, we need to get
     // all the minimizers that are explored.
     SmallBitset minimizer_explored(minimizers.size());
-    //How many hits of each minimizer ended up in each extended cluster?
-    vector<vector<size_t>> minimizer_extended_cluster_count; 
+    //How many hits of each minimizer ended up in each cluster we kept?
+    vector<vector<size_t>> minimizer_kept_cluster_count; 
 
     size_t kept_cluster_count = 0;
     
@@ -511,7 +511,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
             }
              
-            minimizer_extended_cluster_count.emplace_back(minimizers.size(), 0);
+            minimizer_kept_cluster_count.emplace_back(minimizers.size(), 0);
             // Pack the seeds for GaplessExtender.
             GaplessExtender::cluster_type seed_matchings;
             if (distance_index != nullptr) {
@@ -519,7 +519,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Insert the (graph position, read offset) pair.
                     const Seed& seed = seeds[seed_index];
                     seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                    minimizer_extended_cluster_count.back()[seed.source]++;
+                    minimizer_kept_cluster_count.back()[seed.source]++;
                 }
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -530,7 +530,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Insert the (graph position, read offset) pair.
                     const OldSeed& seed = old_seeds[seed_index];
                     seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                    minimizer_extended_cluster_count.back()[seed.source]++;
+                    minimizer_kept_cluster_count.back()[seed.source]++;
                 }
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -618,8 +618,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         funnel.stage("align");
     }
 
-    //How many of each minimizer ends up in an extension set that actually gets turned into an alignment?
-    vector<size_t> minimizer_extensions_count(minimizers.size(), 0);
+    //How many of each minimizer ends up in a cluster that actually gets turned into an alignment?
+    vector<size_t> minimizer_kept_count(minimizers.size(), 0);
     
     // Now start the alignment step. Everything has to become an alignment.
 
@@ -777,10 +777,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.processed_input();
             }
 
-            for (size_t i = 0 ; i < minimizer_extended_cluster_count[extension_num].size() ; i++) {
-                minimizer_extensions_count[i] += minimizer_extended_cluster_count[extension_num][i];
-                if (minimizer_extended_cluster_count[extension_num][i] > 0) {
-                    // This minimizer is in an extended cluster that gave rise
+            for (size_t i = 0 ; i < minimizer_kept_cluster_count[extension_num].size() ; i++) {
+                minimizer_kept_count[i] += minimizer_kept_cluster_count[extension_num][i];
+                if (minimizer_kept_cluster_count[extension_num][i] > 0) {
+                    // This minimizer is in a cluster that gave rise
                     // to at least one alignment, so it is explored.
                     minimizer_explored.insert(i);
                 }
@@ -994,8 +994,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
              << minimizer.agglomeration_start << "\t"
              << minimizer.agglomeration_length << "\t"
              << minimizer.hits << "\t"
-             << minimizer_extensions_count[i];
-         if (minimizer_extensions_count[i]>0) {
+             << minimizer_kept_count[i];
+         if (minimizer_kept_count[i]>0) {
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
@@ -1364,8 +1364,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     // all the minimizers that are explored.
     vector<SmallBitset> minimizer_explored_by_read(2);
     vector<vector<size_t>> minimizer_aligned_count_by_read(2);
-    //How many hits of each minimizer ended up in each extended cluster?
-    vector<vector<vector<size_t>>> minimizer_extended_cluster_count_by_read(2); 
+    //How many hits of each minimizer ended up in each cluster that was kept?
+    vector<vector<vector<size_t>>> minimizer_kept_cluster_count_by_read(2); 
     
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
@@ -1511,8 +1511,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         }
                     }
                     
-                    //Count how many of each minimizer is in each cluster extension
-                    minimizer_extended_cluster_count_by_read[read_num].emplace_back(minimizers.size(), 0);
+                    //Count how many of each minimizer is in each cluster that we kept
+                    minimizer_kept_cluster_count_by_read[read_num].emplace_back(minimizers.size(), 0);
                     // Pack the seeds for GaplessExtender.
                     GaplessExtender::cluster_type seed_matchings;
                     if (distance_index != nullptr) {
@@ -1520,7 +1520,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                             // Insert the (graph position, read offset) pair.
                             const Seed& seed = seeds[seed_index];
                             seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                            minimizer_extended_cluster_count_by_read[read_num].back()[seed.source]++;
+                            minimizer_kept_cluster_count_by_read[read_num].back()[seed.source]++;
                             
                             if (show_work) {
                                 #pragma omp critical (cerr)
@@ -1535,7 +1535,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                             // Insert the (graph position, read offset) pair.
                             const OldSeed& seed = old_seeds[seed_index];
                             seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
-                            minimizer_extended_cluster_count_by_read[read_num].back()[seed.source]++;
+                            minimizer_kept_cluster_count_by_read[read_num].back()[seed.source]++;
                             
                             if (show_work) {
                                 #pragma omp critical (cerr)
@@ -1738,12 +1738,12 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     funnels[read_num].processed_input();
                 }
                 
-                for (size_t i = 0 ; i < minimizer_extended_cluster_count_by_read[read_num][extension_num].size() ; i++) {
-                    if (minimizer_extended_cluster_count_by_read[read_num][extension_num][i] > 0) {
-                        // This minimizer is in an extended cluster that gave rise
+                for (size_t i = 0 ; i < minimizer_kept_cluster_count_by_read[read_num][extension_num].size() ; i++) {
+                    if (minimizer_kept_cluster_count_by_read[read_num][extension_num][i] > 0) {
+                        // This minimizer is in a cluster that gave rise
                         // to at least one alignment, so it is explored.
                         minimizer_explored_by_read[read_num].insert(i);
-                        minimizer_aligned_count_by_read[read_num][i] += minimizer_extended_cluster_count_by_read[read_num][extension_num][i];
+                        minimizer_aligned_count_by_read[read_num][i] += minimizer_kept_cluster_count_by_read[read_num][extension_num][i];
                     }
                 }
 
