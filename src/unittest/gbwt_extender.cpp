@@ -1319,7 +1319,7 @@ TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Special cases in a linear graph") {
+TEST_CASE("Special cases in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
     gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
@@ -1357,9 +1357,9 @@ TEST_CASE("Special cases in a linear graph") {
     }
 
     SECTION("Mixed edits") {
-        // MMMMXM|MMDDM
-        std::string sequence("ATTAGAGAA");
-        pos_t from(2, false, 1); pos_t to(3, false, 4);
+        // MMMMXM|MMDDM|MM
+        std::string sequence("ATTAGAGAATA");
+        pos_t from(2, false, 1); pos_t to(4, false, 1);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
         check_alignment(result, sequence, graph, aligner, &from, &to);
@@ -1371,15 +1371,6 @@ TEST_CASE("Special cases in a linear graph") {
         pos_t from(2, false, 0); pos_t to(2, false, 6);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
-        check_alignment(result, sequence, graph, aligner, &from, &to);
-    }
-
-    SECTION("Ins + del beats mismatches") {
-        // MMM|MMMMIIIIIIDDD|DDDMM|MMM
-        std::string sequence("CGCGATTacagatTATAT");
-        pos_t from(2, false, 0); pos_t to(3, false, 4);
-        WFAAlignment result = extender.connect(sequence, from, to);
-        check_score(result, aligner, sequence.length() - 6, 0, 2, 12);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
