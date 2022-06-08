@@ -8,6 +8,7 @@
 #include <string>
 
 #include <vg/io/stream.hpp>
+#include <gbwtgraph/path_cover.h>
 
 #include "gbwt_helper.hpp"
 
@@ -292,93 +293,69 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
                                                                 const std::unordered_set<path_handle_t>* paths,
                                                                 bool skip_unvisited_paths) const {
 
-    // GBWT metadata.
-    std::vector<std::string> sample_names, contig_names;
-    std::set<gbwt::range_type> haplotypes;
-
     // GBWT index.
     std::unique_ptr<gbwt::DynamicGBWT> index(new gbwt::DynamicGBWT());
     index->addMetadata();
     if (vcf_parse_files.empty() && !graph) {
         return index;
     }
-
-    // Construction for each contig.
-    for (const std::string& filename : vcf_parse_files) {
-        gbwt::VariantPaths variants;
-        if (!sdsl::load_from_file(variants, filename)) {
-            std::cerr << "error: [HaplotypeIndexer::build_gbwt] cannot load VCF parse from " << filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        if (!variants.hasContigName() || !variants.hasSampleNames()) {
-            std::cerr << "error: [HaplotypeIndexer::build_gbwt] VCF parse file " << filename << " does not contain sample/contig names" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        if (sample_names.empty()) {
-            sample_names = variants.getSampleNames();
-        } else if (sample_names != variants.getSampleNames()) {
-            std::cerr << "error: [HaplotypeIndexer::build_gbwt] invalid sample names in VCF parse file " << filename << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        contig_names.emplace_back(variants.getContigName());
-        if (this->show_progress) {
-            #pragma omp critical
-            {
-                std::cerr << job_name << ": Generating haplotypes for path " << variants.getContigName() << " from file " << filename << std::endl;
+    
+    {
+        // New stuff we're adding to the GBWT metadata
+        std::set<gbwt::range_type> haplotypes;
+        std::vector<std::string> sample_names, contig_names;
+        
+        // Haplotype construction for each contig from VCF.
+        for (const std::string& filename : vcf_parse_files) {
+            gbwt::VariantPaths variants;
+            if (!sdsl::load_from_file(variants, filename)) {
+                std::cerr << "error: [HaplotypeIndexer::build_gbwt] cannot load VCF parse from " << filename << std::endl;
+                std::exit(EXIT_FAILURE);
             }
+            if (!variants.hasContigName() || !variants.hasSampleNames()) {
+                std::cerr << "error: [HaplotypeIndexer::build_gbwt] VCF parse file " << filename << " does not contain sample/contig names" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (sample_names.empty()) {
+                sample_names = variants.getSampleNames();
+            } else if (sample_names != variants.getSampleNames()) {
+                std::cerr << "error: [HaplotypeIndexer::build_gbwt] invalid sample names in VCF parse file " << filename << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            contig_names.emplace_back(variants.getContigName());
+            if (this->show_progress) {
+                #pragma omp critical
+                {
+                    std::cerr << job_name << ": Generating haplotypes for path " << variants.getContigName() << " from file " << filename << std::endl;
+                }
+            }
+            gbwt::GBWTBuilder builder(variants.nodeWidth(true), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
+            builder.swapIndex(*index);
+            gbwt::generateHaplotypes(variants, std::set<std::string>(),
+            [&](gbwt::size_type sample_id) -> bool {
+                return (this->excluded_samples.find(sample_names[sample_id]) == this->excluded_samples.end());
+            }, [&](const gbwt::Haplotype& haplotype) {
+                builder.insert(haplotype.path, true); // Insert in both orientations.
+                builder.index.metadata.addPath(haplotype.sample, contig_names.size() - 1, haplotype.phase, haplotype.count);
+                haplotypes.insert(gbwt::range_type(haplotype.sample, haplotype.phase));
+            }, [&](gbwt::size_type, gbwt::size_type) -> bool {
+                // For each overlap, discard it if our global flag is set.
+                return this->discard_overlaps;
+            });
+            builder.finish();
+            builder.swapIndex(*index);
         }
-        gbwt::GBWTBuilder builder(variants.nodeWidth(true), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
-        builder.swapIndex(*index);
-        gbwt::generateHaplotypes(variants, std::set<std::string>(),
-        [&](gbwt::size_type sample_id) -> bool {
-            return (this->excluded_samples.find(sample_names[sample_id]) == this->excluded_samples.end());
-        }, [&](const gbwt::Haplotype& haplotype) {
-            builder.insert(haplotype.path, true); // Insert in both orientations.
-            builder.index.metadata.addPath(haplotype.sample, contig_names.size() - 1, haplotype.phase, haplotype.count);
-            haplotypes.insert(gbwt::range_type(haplotype.sample, haplotype.phase));
-        }, [&](gbwt::size_type, gbwt::size_type) -> bool {
-            // For each overlap, discard it if our global flag is set.
-            return this->discard_overlaps;
-        });
-        builder.finish();
-        builder.swapIndex(*index);
+        
+        // Now count the haplotypes we added
+        index->metadata.setHaplotypes(index->metadata.haplotypes() + haplotypes.size());
+        // And remember the samples and contigs we created
+        index->metadata.setSamples(sample_names);
+        index->metadata.setContigs(contig_names);
     }
     
-    // Now count the haplotypes we added
-    size_t haplotype_count = haplotypes.size();
-    
     if (graph) {
-        // Also include graph named paths
+        // Also include graph named paths from the graph
         
-        // If any need to go in contigs we already made, we will need to find them.
-        unordered_map<string, size_t> contig_name_to_rank;
-        
-        if (this->paths_as_samples) {
-            // Paths in the graph all become many samples on one special contig.
-            // TODO: hope nobody is using this for a real contig.
-            // TODO: This will also break fast merge if used in parallel jobs!
-            contig_names.push_back("0");
-            // Each counts as a haplotype when we visit it.
-        }
-        else {
-            // Paths in the graph all become path-named contigs visited by the
-            // magic reference sample defined by libgbwtgraph.
-            sample_names.push_back(gbwtgraph::REFERENCE_PATH_SAMPLE_NAME);
-            // They all count as one haplotype now.
-            haplotype_count++;
-            
-            // And we're going to need to deduplicate contigs with those
-            // already added by the VCF data.
-            for (size_t i = 0; i < contig_names.size(); i++) {
-                // So index all the contig numbers by name.
-                contig_name_to_rank[contig_names[i]] = i;
-            }
-        }
-
-        // GBWT construction, into existing cumulative index.
-        gbwt::GBWTBuilder builder(gbwt_node_width(*graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
-        builder.swapIndex(*index);
-
         // Actual work.
         if (show_progress) {
             #pragma omp critical
@@ -387,82 +364,42 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
             }
         }
         
-        // TODO: Get rid of paths_as_samples and use
-        // gbwtgraph::store_named_paths to store the paths, and the metadata's
-        // dictionaries to keep track of which numbers mean which strings.
+        // GBWT construction, into existing cumulative index.
+        gbwt::GBWTBuilder builder(gbwt_node_width(*graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
+        builder.swapIndex(*index);
         
-        // For each path we want to add to the GBWT
-        auto add_graph_path_to_gbwt = [&](path_handle_t path_handle) {
-            std::string path_name = graph->get_path_name(path_handle);
-            if (graph->is_empty(path_handle) || Paths::is_alt(path_name)) {
-                return;
-            }
-            gbwt::vector_type buffer;
-            // TODO: This counting can be a whole path scan itself. Can we know and avoid it?
-            buffer.reserve(graph->get_step_count(path_handle));
-            for (handle_t handle : graph->scan_path(path_handle)) {
-                buffer.push_back(gbwt::Node::encode(graph->get_id(handle), graph->get_is_reverse(handle)));
-            }
-            builder.insert(buffer, true); // Insert in both orientations.
-            if (this->paths_as_samples) {
-                // Each path is the next sample, on the current latest contig (the special one)
-                builder.index.metadata.addPath(sample_names.size(), contig_names.size() - 1, 0, 0);
-                sample_names.push_back(path_name);
-                // Each counts as a haplotype
-                haplotype_count++;
-            } else {
-                // Each path is the special sample (latest), on a contig we need to look up.
-                auto contig_iter = contig_name_to_rank.find(path_name);
-                if (contig_iter == contig_name_to_rank.end()) {
-                    // This is a new contig, so add it and record its number
-                    contig_iter = contig_name_to_rank.insert(contig_iter, make_pair(path_name, contig_names.size()));
-                    contig_names.push_back(path_name);
-                }
-                
-                // Record that the path is in the special sample, on the contig we found or made.
-                builder.index.metadata.addPath(sample_names.size() - 1, contig_iter->second, 0, 0);
-            }
-        };
-        
+        std::unordered_set<std::string> visited_contig_names;
         if (skip_unvisited_paths) {
-            // Enumerate the paths visited and add them if they aren't excluded
-            // by the paths set
-            size_t visited_contig_count = contig_names.size();
-            if (this->paths_as_samples) {
-                // Exclude the special path-holding contig
-                visited_contig_count--;
+            // Make a set of the contigs visited so we can filter down to them.
+            for (size_t i = 0; i < builder.index.metadata.contig_names.size(); i++) {
+                visited_contig_names.insert(builder.index.metadata.contig(i));
             }
-            for (size_t i = 0; i < visited_contig_count; i++) {
-                // Get the name of each contig visited by the VCF parse
-                auto& contig_name = contig_names[i];
-                if (graph->has_path(contig_name)) {
-                    // If it's a path name, find its handle
-                    path_handle_t path = graph->get_path_handle(contig_name);
-                    if (!paths || paths->count(path)) {
-                        // If it's not excluded from the paths set, add it to the GBWT
-                        add_graph_path_to_gbwt(path);
-                    }
-                }
-            }
-        } else if (paths) {
-            // Add all paths specified
-            for (auto& p : *paths) {
-                add_graph_path_to_gbwt(p);
-            }
-        } else {
-            // Add all paths in the graph
-            graph->for_each_path_handle(add_graph_path_to_gbwt);
         }
         
+        // Set up a filter to drop alt paths and other paths we don't want.
+        std::function<bool(const path_handle_t&)> path_filter = [&](const path_handle_t& path_handle) {
+            std::string path_name = graph->get_path_name(path_handle);
+            if (Paths::is_alt(path_name)) {
+                return false;
+            }
+            if (skip_unvisited_paths && !visited_contig_names.count(graph->get_locus_name(path_handle))) {
+                // This path is on an unvisited contig
+                return false;
+            }
+            if (paths && !paths->count(path_handle)) {
+                return false;
+            }
+            return true;
+        };
+        // And add every path that passes the filter (including haplotype paths) from the source graph.
+        gbwtgraph::store_paths(builder, *graph, {PathSense::GENERIC, PathSense::REFERENCE, PathSense::HAPLOTYPE}, &path_filter);
+
         // Finish the construction for this set of threads and put the index back.
         builder.finish();
         builder.swapIndex(*index);
     }
 
     // Finish the construction overall.
-    index->metadata.setSamples(sample_names);
-    index->metadata.setContigs(contig_names);
-    index->metadata.setHaplotypes(haplotype_count);
     if (this->show_progress) {
         std::cerr << job_name << ": ";
         gbwt::operator<<(std::cerr, index->metadata);

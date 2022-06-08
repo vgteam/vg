@@ -164,7 +164,7 @@ int main_gamcompare(int argc, char** argv) {
     // True path positions. For each alignment name, store a mapping from reference path names
     // to sets of (sequence offset, is_reverse). There is usually either one position per
     // alignment or one position per node.
-    string_hash_map<string, map<string, vector<pair<size_t, bool> > > > true_path_positions;
+    vg::string_hash_map<string, map<string, vector<pair<size_t, bool> > > > true_path_positions;
     function<void(Alignment&)> record_path_positions = [&true_path_positions](Alignment& aln) {
         auto val = alignment_refpos_to_path_offsets(aln);
 #pragma omp critical (truth_table)
@@ -173,7 +173,7 @@ int main_gamcompare(int argc, char** argv) {
 
     // True graph positions. For each alignment name, we find the maximal read intervals that correspond
     // to a gapless alignment between the read and a single node.
-    string_hash_map<string, std::vector<MappingRun>> true_graph_positions;
+    vg::string_hash_map<string, std::vector<MappingRun>> true_graph_positions;
     function<void(Alignment&)> record_graph_positions = [&true_graph_positions](Alignment& aln) {
         if (aln.path().mapping_size() > 0) {
 #pragma omp critical (truth_table)
@@ -251,13 +251,13 @@ int main_gamcompare(int argc, char** argv) {
     };
    
     // We want to count correct reads
-    vector<size_t> correct_counts(get_thread_count(), 0);
+    vector<size_t> correct_counts(vg::get_thread_count(), 0);
 
     //Get stats for calculating the score
-    vector<size_t> read_count_by_thread (get_thread_count(), 0);
-    vector<vector<size_t>> mapq_count_by_thread (get_thread_count());
-    vector<vector<size_t>> correct_count_by_mapq_by_thread(get_thread_count());
-    for (size_t i = 0 ; i < get_thread_count() ; i++) {
+    vector<size_t> read_count_by_thread (vg::get_thread_count(), 0);
+    vector<vector<size_t>> mapq_count_by_thread (vg::get_thread_count());
+    vector<vector<size_t>> correct_count_by_mapq_by_thread(vg::get_thread_count());
+    for (size_t i = 0 ; i < vg::get_thread_count() ; i++) {
         mapq_count_by_thread[i].resize(61, 0);
         correct_count_by_mapq_by_thread[i].resize(61,0);
     }
@@ -385,7 +385,7 @@ int main_gamcompare(int argc, char** argv) {
         size_t total_reads = 0;
         vector<size_t> mapq_count (61, 0);
         vector<size_t> correct_count_by_mapq (61, 0);
-        for (size_t i = 0 ; i < get_thread_count() ; i++) {
+        for (size_t i = 0 ; i < vg::get_thread_count() ; i++) {
             total_reads += read_count_by_thread.at(i);
             for (size_t mq = 0 ; mq < mapq_count_by_thread.at(i).size() ; mq++) {
                 if (mq >= mapq_count.size()) {

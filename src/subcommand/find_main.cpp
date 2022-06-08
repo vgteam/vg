@@ -464,14 +464,14 @@ int main_find(int argc, char** argv) {
             }
             if (context_size > 0) {
                 if (use_length) {
-                    algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                    vg::algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
                 } else {
-                    algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
+                    vg::algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
                 }
             } else {
-                algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+                vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             }
-            algorithms::add_subpaths_to_subgraph(*xindex, graph);
+            vg::algorithms::add_subpaths_to_subgraph(*xindex, graph);
 
             VG* vg_graph = dynamic_cast<VG*>(&graph);
             if (vg_graph) {
@@ -526,7 +526,7 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            cout << algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
+            cout << vg::algorithms::min_approx_path_distance(dynamic_cast<PathPositionHandleGraph*>(&*xindex), make_pos_t(node_ids[0], false, 0), make_pos_t(node_ids[1], false, 0), 1000) << endl;
             return 0;
         }
         if (list_path_names) {
@@ -550,14 +550,14 @@ int main_find(int argc, char** argv) {
             auto prep_graph = [&](void) {
                 if (context_size > 0) {
                     if (use_length) {
-                        algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                        vg::algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
                     } else {
-                        algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
+                        vg::algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
                     }
                 } else {
-                    algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+                    vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
                 }
-                algorithms::add_subpaths_to_subgraph(*xindex, graph);
+                vg::algorithms::add_subpaths_to_subgraph(*xindex, graph);
                 VG* vg_graph = dynamic_cast<VG*>(&graph);
                 if (vg_graph) {
                     vg_graph->remove_orphan_edges();
@@ -579,7 +579,7 @@ int main_find(int argc, char** argv) {
                 if (target.start < 0 && target.end < 0) {
                     target.start = 0;
                 }
-                algorithms::extract_path_range(*xindex, path_handle, target.start, target.end, graph);
+                vg::algorithms::extract_path_range(*xindex, path_handle, target.start, target.end, graph);
                 if (path_dag) {
                     // find the start and end node of this
                     // and fill things in
@@ -590,7 +590,7 @@ int main_find(int argc, char** argv) {
                             id_start = std::min(id_start, id);
                             id_end = std::max(id_end, id);
                         });
-                    algorithms::extract_id_range(*xindex, id_start, id_end, graph);
+                    vg::algorithms::extract_id_range(*xindex, id_start, id_end, graph);
                 }
                 if (!save_to_prefix.empty()) {
                     prep_graph();
@@ -613,19 +613,19 @@ int main_find(int argc, char** argv) {
                     if (!gbwt_name.empty()) {
                         use_gbwt = true;
                     }
-                    algorithms::for_each_walk(
+                    vg::algorithms::for_each_walk(
                         graph, subgraph_k, 0,
-                        [&](const algorithms::walk_t& walk) {
+                        [&](const vg::algorithms::walk_t& walk) {
                             // get the reference-relative position
                             string start_str, end_str;
-                            for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
+                            for (auto& p : vg::algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
                                 const uint64_t& start_p = p.second.front().first;
                                 const bool& start_rev = p.second.front().second;
                                 if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
                                     start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
                                 }
                             }
-                            for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
+                            for (auto& p : vg::algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
                                 const uint64_t& end_p = p.second.front().first;
                                 const bool& end_rev = p.second.front().second;
                                 if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
@@ -689,7 +689,7 @@ int main_find(int argc, char** argv) {
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
             if (!use_length) {
-                algorithms::extract_id_range(*xindex, id_start, id_end, graph);
+                vg::algorithms::extract_id_range(*xindex, id_start, id_end, graph);
             } else {
                 // treat id_end as length instead.
                 size_t length = 0;
@@ -701,18 +701,18 @@ int main_find(int argc, char** argv) {
                     length += xindex->get_length(xindex->get_handle(cur_id));
                     found_id_end = cur_id;
                 }
-                algorithms::extract_id_range(*xindex, id_start, found_id_end, graph);
+                vg::algorithms::extract_id_range(*xindex, id_start, found_id_end, graph);
             }
             if (context_size > 0) {
                 if (use_length) {
-                    algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
+                    vg::algorithms::expand_subgraph_by_length(*xindex, graph, context_size);
                 } else {
-                    algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
+                    vg::algorithms::expand_subgraph_by_steps(*xindex, graph, context_size);
                 }
             } else {
-                algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+                vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             }
-            algorithms::add_subpaths_to_subgraph(*xindex, graph);
+            vg::algorithms::add_subpaths_to_subgraph(*xindex, graph);
 
             VG* vg_graph = dynamic_cast<VG*>(&graph);
             if (vg_graph) {
@@ -771,8 +771,8 @@ int main_find(int argc, char** argv) {
                 handle_t node_handle = xindex->get_handle(node);
                 graph.create_handle(xindex->get_sequence(node_handle), xindex->get_id(node_handle));
             }
-            algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
-            algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+            vg::algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
+            vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
             vg::io::save_handle_graph(&graph, cout);
         }
     }

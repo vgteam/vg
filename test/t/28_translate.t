@@ -9,7 +9,7 @@ plan tests 2
 
 vg construct -m 1000 -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.xg -g tiny.gcsa -k 16 tiny.vg
-vg sim -n 5 -e 0.01 -i 0.005 -x tiny.xg -l 30 -a | vg view -a - | sort | vg view -JGa - > tiny.sim
+vg sim -n 5 -e 0.01 -i 0.005 -x tiny.xg -l 30 -a -s 1 | vg view -a - | sort | vg view -JGa - > tiny.sim
 vg map -G tiny.sim -x tiny.xg -g tiny.gcsa -t 1 > tiny.gam
 vg augment -Z tiny.trans -i tiny.vg tiny.gam >tiny.mod.vg
 vg paths -v tiny.mod.vg -X | vg view -a - | grep -v x | sort | vg view -JGa - >tiny.paths.gam

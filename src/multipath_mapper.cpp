@@ -584,7 +584,9 @@ namespace vg {
             
             // are these reads unambiguously mapped and well-aligned?
             // TODO: i don't like having constants floating around in here
-            if (multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 45)
+            if (num_connected_components(multipath_aln_1) == 1
+                && num_connected_components(multipath_aln_2) == 1
+                && multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 45)
                 && multipath_aln_2.mapping_quality() >= min(max_mapping_quality, 45)
                 && optimal_alignment_score(multipath_aln_1) >= .8 * max_score_1
                 && optimal_alignment_score(multipath_aln_2) >= .8 * max_score_2) {

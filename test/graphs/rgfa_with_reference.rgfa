@@ -1,0 +1,22 @@
+H	VN:Z:1.1
+S	1	G	SN:Z:GRCh38#0#chr1	SO:i:0	SR:i:0
+S	2	A	SN:Z:coolgene	SO:i:1	SR:i:1
+S	4	GGG	SN:Z:GRCh38#0#chr1	SO:i:1	SR:i:0
+S	5	T	SN:Z:GRCh38#0#chr1	SO:i:4	SR:i:0
+S	6	A	SN:Z:GRCh38#0#chr1	SO:i:5	SR:i:0
+S	7	C	SN:Z:GRCh38#0#chr1	SO:i:6	SR:i:0
+S	8	A	SN:Z:coolgene	SO:i:7	SR:i:1
+S	9	A	SN:Z:GRCh38#0#chr1	SO:i:7	SR:i:0
+L	1	+	2	+	*
+L	1	+	4	+	*
+L	2	+	4	+	*
+L	4	+	5	+	*
+L	5	+	6	+	*
+L	6	+	7	+	*
+L	6	+	8	+	*
+L	7	+	9	+	*
+L	8	+	9	+	*
+P	GRCh37#0#chr1	1+,2+,4+,5+,6+,8+,9+	*,*,*,*,*,*
+W	sample1	1	chr1	0	8	>1>4>5>6>7>9
+W	CHM13	0	chr1	0	9	>1>2>4>5>6>8>9
+W	sample1	2	chr1	0	8	>1>4>5>6>7>9

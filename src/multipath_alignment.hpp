@@ -338,8 +338,11 @@ namespace vg {
     /// Removes all subpaths and edges whose optimal full length alignment is less than the given difference
     /// from the highest-scoring full length alignment
     void remove_low_scoring_sections(multipath_alignment_t& multipath_aln, int32_t max_score_diff);
+
+    /// Returns the number of connected components in the multipath alignment.
+    size_t num_connected_components(const multipath_alignment_t& multipath_aln);
     
-    /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
+    /// Returns a vector whose elements are vectors with the indexes of the subpath_t's in
     /// each connected component. An unmapped multipath_alignment_t with no subpaths produces an empty vector.
     vector<vector<int64_t>> connected_components(const multipath_alignment_t& multipath_aln);
     

@@ -1,5 +1,7 @@
 #include "walk.hpp"
 
+#include <gbwtgraph/utils.h>
+
 namespace vg {
 
 namespace algorithms {
@@ -149,11 +151,28 @@ std::vector<std::string> walk_haplotype_names(const HandleGraph& graph,
         }
     }
     assert(haplotypes.hasMetadata() && haplotypes.metadata.hasSampleNames());
+    // Pre-parse the reference samples.
+    // TODO: Can we pass this down?
+    auto reference_samples = gbwtgraph::parse_reference_samples_tag(haplotypes);
     for (auto& thread : haplotypes.locate(search_state)) {
+        // For each match
         auto id = gbwt::Path::id(thread);
+        
+        // Figure out what kind of path it is
+        PathSense sense = gbwtgraph::get_path_sense(haplotypes, id, reference_samples);
+        
+        // Figure out its haplotype number
+        auto haplotype = gbwtgraph::get_path_haplotype(haplotypes, id, sense);
+        if (haplotype == PathMetadata::NO_HAPLOTYPE) {
+            // If no haplotype is applicable, use 0.
+            haplotype = 0;
+        }
+        
+        // Compose a name for it
         std::stringstream ss;
-        ss << thread_sample(haplotypes, id) << "#" << thread_phase(haplotypes, id);
+        ss << gbwtgraph::get_path_sample_name(haplotypes, id, sense) << "#" << haplotype;
         names.push_back(ss.str());
+        // TODO: should we do something special for generic sense or NO_SAMPLE_NAME?
     }
     return names;
 }

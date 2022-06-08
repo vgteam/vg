@@ -735,7 +735,7 @@ int main_map(int argc, char** argv) {
       }
     }
 
-    thread_count = get_thread_count();
+    thread_count = vg::get_thread_count();
 
     // TODO: We need a Mapper for every thread because the Mapper's fragment
     // length distribution isn't yet thread safe.  
@@ -958,7 +958,7 @@ int main_map(int argc, char** argv) {
 #pragma omp parallel for
         for (size_t i = 0; i < ref.index->sequenceNames.size(); ++i) {
             auto& name = ref.index->sequenceNames[i];
-            string seq = nonATGCNtoN(toUppercase(ref.getSequence(name)));
+            string seq = vg::nonATGCNtoN(vg::toUppercase(ref.getSequence(name)));
             align_seq(name, seq);
         }
     }

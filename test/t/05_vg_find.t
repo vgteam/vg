@@ -128,7 +128,7 @@ vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg prune -u -m x.mapping -g x.gbwt -e 1 x.vg > x.unfolded.vg
 
 rm -f expected.gfa
-printf "H\tVN:Z:1.0\n" >> expected.gfa
+printf "H\tVN:Z:1.1\n" >> expected.gfa
 printf "S\t72\tTGGAGTTCTATTATATTCC\n" >> expected.gfa
 printf "S\t76\tTGGAGTTCTATTATATTCC\n" >> expected.gfa
 printf "S\t97\tTCT\n" >> expected.gfa

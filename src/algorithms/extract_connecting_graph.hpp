@@ -35,8 +35,6 @@ namespace algorithms {
     ///  max_len                    guarantee finding walks along which pos_1 and pos_2 are this distance apart
     ///  pos_1                      start position, subgraph walks begin from here in same orientation
     ///  pos_2                      end position, subgraph walks end here in the same orientation
-    ///  detect_terminal_cycles     also find walks that include cycles involving pos_1 and/or pos_2
-    ///  only_walks                 only extract nodes and edges if they fall on some walk between pos_1 and pos_2
     ///  strict_max_len             only extract nodes and edges if they fall on some walk between pos_1 and pos_2
     ///                             that is under the maximum length (implies only_walks = true)
     unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,

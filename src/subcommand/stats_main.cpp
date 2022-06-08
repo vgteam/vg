@@ -742,7 +742,7 @@ int main_stats(int argc, char** argv) {
         }
 
         // Allocate per-thread storage for stats
-        size_t thread_count = get_thread_count();
+        size_t thread_count = vg::get_thread_count();
         vector<ReadStats> read_stats;
         read_stats.resize(thread_count); 
 

@@ -3,6 +3,8 @@
 
 #include <bdsg/odgi.hpp>
 
+#include <gbwtgraph/utils.h>
+
 namespace vg {
 namespace algorithms {
 
@@ -33,20 +35,781 @@ std::string GFAIDMapInfo::get_back_graph_node_name(const nid_t& back_node_id) co
     return *id_to_name->at(back_node_id);
 }
 
-// parse a GFA name into a numeric id
-// if all ids are numeric, they will be converted directly with stol
-// if all ids are non-numeric, they will get incrementing ids beginning with 1, in order they are visited
-// if they are a mix of numeric and non-numeric, the numberic ones will be converted with stol until
-// the first non-numeric one is found, then it will revert to using max-id.  this could lead to cases
-//
-// since non-numeric ids are dependent on the order the nodes are scanned, there is the unfortunate side
-// effect that they will be different if read from memory (lex order) or file (file order)
-static nid_t parse_gfa_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
+static void write_gfa_translation(const GFAIDMapInfo& id_map_info, const string& translation_filename) {
+    // don't write anything unless we have both an output file and at least one non-trivial mapping
+    if (!translation_filename.empty() && !id_map_info.numeric_mode) {
+        ofstream trans_file(translation_filename);
+        if (!trans_file) {
+            throw runtime_error("error:[gfa_to_handle_graph] Unable to open output translation file: " + translation_filename);
+        }
+        for (const auto& mapping : *id_map_info.name_to_id) {
+            trans_file << "T\t" << mapping.first << "\t" << mapping.second << "\n";
+        }
+    }
+}
+
+/// Add listeners which let a GFA parser fill in a handle graph with nodes and edges.
+static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
+    parser.node_listeners.push_back([&parser, graph](nid_t id, const GFAParser::chars_t& sequence, const GFAParser::tag_list_t& tags) {
+        graph->create_handle(GFAParser::extract(sequence), id);
+    });
+    parser.edge_listeners.push_back([&parser, graph](nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const GFAParser::chars_t& overlap, const GFAParser::tag_list_t& tags) {
+        static const string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
+            "Try \"bluntifying\" your graph with a tool like <https://github.com/vgteam/GetBlunted>, or "
+            "transitively merge overlaps with a pipeline of <https://github.com/ekg/gimbricate> and "
+            "<https://github.com/ekg/seqwish>.");
+        if (GFAParser::length(overlap) > 0) {
+            string overlap_text = GFAParser::extract(overlap);
+            if (overlap_text != "0M" && overlap_text != "*") {
+                // This isn't an allowed overlap value.
+                throw GFAFormatError(not_blunt + " Found edge with a non-null alignment '" + overlap_text + "'.");
+            }
+        }
+        
+        graph->create_edge(graph->get_handle(from, from_is_reverse),
+                           graph->get_handle(to, to_is_reverse));
+        
+    });
+}
+
+/// Add listeners which let a GFA parser fill in a path handle graph with paths.
+static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph* graph) {
+
+    // For rGFA we need to have some state. Use a smart pointer to smuggle it
+    // into the closure.
+    // For each path name, we remember handle and expected next starting
+    // position. If we aren't at the expected next starting position, there's a
+    // gap and we need to make a new path.
+    // TODO: This duplicates some work with the parser, which also caches rGFA path expected offsets.
+    // TODO: Come up with a better listener interface that announces breaks and lets you keep the path handy?
+    using rgfa_cache_t = unordered_map<string, pair<path_handle_t, int64_t>>;
+    std::shared_ptr<rgfa_cache_t> rgfa_cache = std::make_shared<rgfa_cache_t>();
+    
+    // We also need some shared state for making reference sample (RS) tags on the header apply to P and W lines later
+    std::shared_ptr<unordered_set<string>> reference_samples = std::make_shared<unordered_set<string>>();
+    
+    parser.header_listeners.push_back([&parser, reference_samples](const GFAParser::tag_list_t& tags) {
+        for (const std::string& tag : tags) {
+            if (tag.size() >= 5 &&
+                std::equal(gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG.begin(), gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG.end(), tag.begin()) &&
+                tag[2] == ':' &&
+                tag[3] == 'Z' &&
+                tag[4] == ':') {
+             
+                // This is a reference samples tag like GBWTGraph's GFA parser knows how to parse.
+                // Parse the tag's value
+                *reference_samples = gbwtgraph::parse_reference_samples_tag(tag.substr(5));
+            }
+        }
+    });
+
+    parser.path_listeners.push_back([&parser, graph, reference_samples](const string& name,
+                                                                        const GFAParser::chars_t& visits,
+                                                                        const GFAParser::chars_t& overlaps,
+                                                                        const GFAParser::tag_list_t& tags) {
+        // For P lines, we add the path.
+        
+        // Parse out the path name's metadata
+        PathSense sense;
+        string sample;
+        string locus;
+        size_t haplotype;
+        size_t phase_block;
+        subrange_t subrange;
+        PathMetadata::parse_path_name(name,
+                                      sense,
+                                      sample,
+                                      locus,
+                                      haplotype,
+                                      phase_block,
+                                      subrange);
+                                      
+        if (sense == PathSense::HAPLOTYPE && reference_samples->count(sample)) {
+            // This P line is about a sample that looks like a haplotype but
+            // actually wants to be a reference.
+            sense = PathSense::REFERENCE;
+        } else if (sense == PathSense::REFERENCE && haplotype != PathMetadata::NO_HAPLOTYPE && !reference_samples->count(sample)) {
+            // Mimic the GBWTGraph behavior of parsing full PanSN names
+            // (sample, haplotype number, contig) as haplotypes by default,
+            // even though we use PanSN names in vg to indicate reference
+            // sense.
+            // TODO: This is super ugly, can we just change the way the
+            // metadata name format works, or use a dedicated PanSN parser here
+            // instead?
+            // TODO: Can we use GBWTGraph's regex priority system?
+            sense = PathSense::HAPLOTYPE;
+            if (phase_block == PathMetadata::NO_PHASE_BLOCK) {
+                // Assign a phase block if none is specified, since haplotypes need one.
+                phase_block = 0;
+            }
+        }
+        
+        // Compose what we think the path ought to be named.
+        // TODO: When we get a has_path that takes fully specified metadata, use that instead.
+        string implied_path_name = PathMetadata::create_path_name(sense,
+                                                                  sample,
+                                                                  locus,
+                                                                  haplotype,
+                                                                  phase_block,
+                                                                  subrange);
+        if (graph->has_path(implied_path_name)) {
+            // This is a duplicate.
+            throw GFAFormatError("Duplicate path " + implied_path_name + " would be created in graph");
+        }
+        
+        // Create the path.
+        auto path_handle = graph->create_path(sense,
+                                              sample,
+                                              locus,
+                                              haplotype,
+                                              phase_block,
+                                              subrange);
+        
+        // Overlaps are pre-checked in scan_p
+        // TODO: Do it in a better place.
+        
+        GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
+                                             const GFAParser::chars_t& step_name,
+                                             bool step_is_reverse) {
+            if (step_rank >= 0) {
+                // Not an empty path sentinel.
+                // Find the node ID to visit.
+                nid_t n = GFAParser::find_existing_sequence_id(GFAParser::extract(step_name), parser.id_map());
+                // And add the step.
+                graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+            }
+            // Don't stop.
+            return true;
+        });
+    });
+    
+    parser.walk_listeners.push_back([&parser, graph, reference_samples](const string& sample_name,
+                                                                        int64_t haplotype,
+                                                                        const string& contig_name,
+                                                                        const subrange_t& subrange,
+                                                                        const GFAParser::chars_t& visits,
+                                                                        const GFAParser::tag_list_t& tags) {
+        // For W lines, we add the path with a bit more metadata.
+        
+        // By default this is interpreted as a haplotype
+        PathSense sense;
+        
+        // We need to determine a phase block
+        size_t phase_block;
+        // And a haplotype.
+        size_t assigned_haplotype = (size_t) haplotype;
+        
+        string assigned_sample_name;
+        if (sample_name == "*") {
+            // The sample name is elided from the walk.
+            // This walk must be a generic path.
+            sense = PathSense::GENERIC;
+            // We don't send a sample name.
+            assigned_sample_name = PathMetadata::NO_SAMPLE_NAME;
+            if (assigned_haplotype != 0) {
+                // We can't have multiple haplotypes for a generic path
+                throw GFAFormatError("Generic path on omitted (*) sample has nonzero haplotype");
+            }
+            assigned_haplotype = PathMetadata::NO_HAPLOTYPE;
+            phase_block = PathMetadata::NO_PHASE_BLOCK;
+        } else {
+            // This is probably a sample name we can use
+            
+            if (reference_samples->count(sample_name)) {
+                // This sample is supposed to be reference.
+                sense = PathSense::REFERENCE;
+                phase_block = PathMetadata::NO_PHASE_BLOCK;
+            } else {
+                // We're a haplotype
+                sense = PathSense::HAPLOTYPE;
+                // GFA doesn't really encode phase blocks. Always use the 0th one.
+                phase_block = 0;
+            }
+            
+            // Keep the sample name
+            assigned_sample_name = sample_name;
+        }
+        
+        // Drop the subrange completely if it starts at 0.
+        // TODO: Detect if there are going to be multiple walks describing
+        // different subranges, and keep the subrange on the first one even if
+        // it starts at 0, because then we know it's really a partial walk.
+        subrange_t assigned_subrange = (subrange.first == 0) ? PathMetadata::NO_SUBRANGE : subrange;
+        
+        // Compose what we think the path ought to be named.
+        // TODO: When we get a has_path that takes fully specified metadata, use that instead.
+        string implied_path_name = PathMetadata::create_path_name(sense,
+                                                                  assigned_sample_name,
+                                                                  contig_name,
+                                                                  assigned_haplotype,
+                                                                  phase_block,
+                                                                  assigned_subrange);
+        if (graph->has_path(implied_path_name)) {
+            // This is a duplicate.
+            throw GFAFormatError("Duplicate path " + implied_path_name + " would be created in graph");
+        }
+        
+        // Create the path.
+        auto path_handle = graph->create_path(sense,
+                                              assigned_sample_name,
+                                              contig_name,
+                                              assigned_haplotype,
+                                              phase_block,
+                                              assigned_subrange);
+        
+        GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
+                                             const GFAParser::chars_t& step_name,
+                                             bool step_is_reverse) {
+            if (step_rank >= 0) {
+                // Not an empty path sentinel.
+                // Find the node ID to visit.
+                nid_t n = GFAParser::find_existing_sequence_id(GFAParser::extract(step_name), parser.id_map());
+                // And add the step.
+                graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+            }
+            // Don't stop.
+            return true;
+        });
+    });
+    
+    
+    
+    parser.rgfa_listeners.push_back([&parser, graph, rgfa_cache](nid_t id,
+                                                                 int64_t offset,
+                                                                 size_t length,
+                                                                 const string& path_name,
+                                                                 int64_t path_rank) {
+        auto found = rgfa_cache->find(path_name);
+        if (found != rgfa_cache->end() && found->second.second != offset) {
+            // This path already exists, but there's a gap. We need to drop it
+            // from the cache and make a new one with the right subpath info.
+            rgfa_cache->erase(found);
+            found = rgfa_cache->end();
+        }
+        if (found == rgfa_cache->end()) {
+            // Need to make a new path, possibly with subrange start info.
+            
+            std::pair<int64_t, int64_t> subrange;
+            if (offset == 0) {
+                // Don't send a subrange
+                subrange = PathMetadata::NO_SUBRANGE;
+            } else {
+                // Start later than 0
+                subrange = std::pair<int64_t, int64_t>(offset, PathMetadata::NO_END_POSITION);
+            }
+            
+            // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
+            path_handle_t path = graph->create_path(PathSense::GENERIC,
+                                                    PathMetadata::NO_SAMPLE_NAME,
+                                                    path_name, 
+                                                    PathMetadata::NO_HAPLOTYPE,
+                                                    PathMetadata::NO_PHASE_BLOCK,
+                                                    subrange);
+            // Then cache it
+            found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));
+        }
+        
+        // Add the step to the path
+        auto& path = found->second.first;
+        // rGFA paths always visit sequences forward.
+        handle_t step = graph->get_handle(id, false);
+        graph->append_step(path, step); 
+        
+        // Increment the expected next offset
+        auto& next_offset = found->second.second;
+        next_offset += length;
+    });
+}
+
+void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                         GFAIDMapInfo* translation) {
+                         
+    get_input_file(filename, [&](istream& in) {
+       gfa_to_handle_graph(in, graph, translation);
+    });
+}
+
+void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                         const string& translation_filename) {
+
+    
+    GFAIDMapInfo id_map_info;
+    gfa_to_handle_graph(filename, graph, &id_map_info);
+    write_gfa_translation(id_map_info, translation_filename);
+}
+
+void gfa_to_handle_graph(istream& in, MutableHandleGraph* graph,
+                         GFAIDMapInfo* translation) {
+                         
+    GFAParser parser;
+    if (translation) {
+        // Use the given external translation so the caller can keep it around.
+        parser.external_id_map = translation;
+    }
+    add_graph_listeners(parser, graph);
+    
+    parser.parse(in);
+}
+
+
+void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                              GFAIDMapInfo* translation, int64_t max_rgfa_rank) {
+    
+    get_input_file(filename, [&](istream& in) {
+        gfa_to_path_handle_graph(in, graph, translation, max_rgfa_rank);
+    });
+}
+
+void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                              int64_t max_rgfa_rank, const string& translation_filename) {
+
+    GFAIDMapInfo id_map_info;
+    gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank);
+    write_gfa_translation(id_map_info, translation_filename);
+
+}
+
+void gfa_to_path_handle_graph(istream& in,
+                              MutablePathMutableHandleGraph* graph,
+                              GFAIDMapInfo* translation,
+                              int64_t max_rgfa_rank) {
+    
+    // TODO: Deduplicate this setup code with gfa_to_handle_graph more.
+    GFAParser parser;
+    if (translation) {
+        // Use the given external translation so the caller can keep it around.
+        parser.external_id_map = translation;
+    }
+    add_graph_listeners(parser, graph);
+    
+    // Set up for path input
+    parser.max_rgfa_rank = max_rgfa_rank;
+    add_path_listeners(parser, graph);
+    
+    parser.parse(in);
+}
+
+/// Read a range, stopping before any end character in the given null-terminated string,
+/// or at the end of the input.
+/// Throws if the range would be empty.
+static GFAParser::chars_t take_range_until_optional(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars, const char* parsing_state = nullptr) {
+    auto start = cursor;
+    while (cursor != end) {
+        for (const char* stop_char = end_chars; *stop_char; ++stop_char) {
+            if (*cursor == *stop_char) {
+                // We found a stop character
+                if (cursor == start) {
+                     throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
+                }
+                return GFAParser::chars_t(start, cursor);
+            }
+        }
+        ++cursor;
+    }
+    return GFAParser::chars_t(start, cursor);
+}
+
+/// Read a range, stopping before any end character in the given null-terminated string.
+/// Throws if the range would be empty or none of the characters are encountered.
+static GFAParser::chars_t take_range_until(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars, const char* parsing_state = nullptr) {
+    GFAParser::chars_t range = take_range_until_optional(cursor, end, end_chars, parsing_state);
+    if (cursor == end) {
+        // We didn't find any of the terminators to stop before
+        throw GFAFormatError("Expected terminator in " + std::string(end_chars), cursor, parsing_state);
+    }
+    return range;
+}
+
+/// Read a range, stopping at tab or end of line.
+static GFAParser::chars_t take_optional_range(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
+    auto start = cursor;
+    while (cursor != end && *cursor != '\t') {
+        ++cursor;
+    }
+    return GFAParser::chars_t(start, cursor);
+}
+
+/// Read a range, stopping at tab or end of line.
+/// Throw if it is empty.
+static GFAParser::chars_t take_range(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
+    GFAParser::chars_t value = take_optional_range(cursor, end);
+    if (GFAParser::empty(value)) {
+        throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
+    }
+    return value;
+}
+
+/// Read a string, stopping at tab or end of line.
+static string take_optional_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
+    string value;
+    while (cursor != end && *cursor != '\t') {
+        value.push_back(*cursor);
+        ++cursor;
+    }
+    return value;
+}
+
+/// Read a string, stopping at tab or end of line.
+/// Throw if it is empty.
+static string take_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
+    string value = take_optional_string(cursor, end);
+    if (value.empty()) {
+        throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
+    }
+    return value;
+}
+
+/// Read a non-negative integer, stopping at tab or end of line.
+/// Throw if it is empty. If it is '*', return the given default value.
+static int64_t take_number(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, int64_t default_value, const char* parsing_state = nullptr) {
+    int64_t value = 0;
+    if (cursor == end || !((*cursor >= '0' && *cursor <= '9') || *cursor == '*')) {
+        // Number is empty and not properly elided
+        throw GFAFormatError("Expected natural number", cursor, parsing_state);
+    }
+    if (*cursor == '*') {
+        // Take the * and use the default value
+        ++cursor;
+        value = default_value;
+    } else {
+        while (cursor != end && *cursor >= '0' && *cursor <= '9') {
+            // Read the base 10 number digit by digit
+            value *= 10;
+            value += (*cursor - '0');
+            ++cursor;
+        }
+    }
+    if (cursor != end && *cursor != '\t' && *cursor != '\n') {
+        throw GFAFormatError("Unexpected data at end of number", cursor, parsing_state);
+    }
+    return value;
+}
+
+/// Advance past a tab character. If it's not there, return false. If something
+/// else is there, return GFAFormatError.
+static bool take_optional_tab(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
+    if (cursor == end) {
+        return false;
+    }
+    if (*cursor != '\t') {
+        throw GFAFormatError("Expected tab", cursor, parsing_state); 
+    }
+    ++cursor;
+    return true;
+}
+
+/// Take the given character. Throw an error if it isn't there.
+static void take_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char value, const char* parsing_state = nullptr) {
+    if (cursor == end || *cursor != value) {
+        throw GFAFormatError("Expected " + value, cursor, parsing_state); 
+    }
+    ++cursor;
+}
+
+/// Take one character of two options. Return true if it is the first one,
+/// false if it is the second, and throw an error if it is absent or something
+/// else.
+static bool take_flag_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char true_value, char false_value, const char* parsing_state = nullptr) {
+    if (cursor != end) {
+        if (*cursor == true_value) {
+            ++cursor;
+            return true;
+        }
+        if (*cursor == false_value) {
+            ++cursor;
+            return false;
+        }
+    }
+    // Composing the error is tricky because of the bare characters.
+    stringstream ss;
+    ss << "Expected " << true_value << " or " << false_value;
+    throw GFAFormatError(ss.str(), cursor, parsing_state);
+}
+
+/// Advance past a tab character that must exist.
+static void take_tab(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
+    if (!take_optional_tab(cursor, end)) {
+        throw GFAFormatError("Expected tab", cursor, parsing_state);
+    }
+}
+
+GFAParser::tag_list_t GFAParser::parse_tags(const chars_t& tag_range) {
+    tag_list_t tags;
+    auto cursor = tag_range.first;
+    auto& end = tag_range.second;
+    
+    while (cursor != end) {
+        // Scan out a tag of non-tab characters
+        string tag = take_string(cursor, end, "parsing tags");
+        if (!tag.empty()) {
+            // We found a tag. Save it.
+            tags.emplace_back(std::move(tag));
+        }
+        take_optional_tab(cursor, end, "parsing tags");
+    }
+    
+    return tags;
+}
+
+tuple<GFAParser::tag_list_t> GFAParser::parse_h(const string& h_line) {
+    auto cursor = h_line.begin();
+    auto end = h_line.end();
+    
+    // Make sure we start with H
+    take_character(cursor, end, 'H', "parsing H line start");
+    take_tab(cursor, end, "parsing H line");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    return make_tuple(std::move(tags));
+}
+
+tuple<string, GFAParser::chars_t, GFAParser::tag_list_t> GFAParser::parse_s(const string& s_line) {
+    auto cursor = s_line.begin();
+    auto end = s_line.end();
+    
+    // Make sure we start with S
+    take_character(cursor, end, 'S', "parsing S line start");
+    take_tab(cursor, end, "parsing S line");
+    
+    // Parse out the name
+    string name = take_string(cursor, end, "parsing sequence name");
+    take_tab(cursor, end, "parsing end of sequence name");
+    
+    // Parse out the sequence
+    chars_t sequence = take_range(cursor, end, "parsing sequence");
+    take_optional_tab(cursor, end, "parsing end of sequence");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    return make_tuple(std::move(name), std::move(sequence), std::move(tags));
+}
+
+tuple<string, bool, string, bool, GFAParser::chars_t, GFAParser::tag_list_t> GFAParser::parse_l(const string& l_line) {
+    auto cursor = l_line.begin();
+    auto end = l_line.end();
+    
+    // Make sure we start with L
+    take_character(cursor, end, 'L', "parsing L line start");
+    take_tab(cursor, end, "parsing L line");
+    
+    // Parse out the first node name
+    string n1 = take_string(cursor, end, "parsing first node name");
+    take_tab(cursor, end, "parsing end of first node name");
+    
+    // Parse the first orientation
+    bool n1_reverse = take_flag_character(cursor, end, '-', '+', "parsing first node orientation");
+    take_tab(cursor, end, "parsing end of first node orientation");
+    
+    // Parse out the second node name
+    string n2 = take_string(cursor, end, "parsing second node name");
+    take_tab(cursor, end, "parsing end of sencod node name");
+    
+    // Parse the second orientation
+    bool n2_reverse = take_flag_character(cursor, end, '-', '+', "parsing second node orientation");
+    take_tab(cursor, end, "parsing end of second node orientation");
+    
+    // Parse out the overlaps
+    chars_t overlaps = take_range(cursor, end, "parsing overlaps");
+    take_optional_tab(cursor, end, "parsing end of overlaps");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    return make_tuple(std::move(n1), n1_reverse, std::move(n2), n2_reverse, std::move(overlaps), std::move(tags));
+}
+
+tuple<string, GFAParser::chars_t, GFAParser::chars_t, GFAParser::tag_list_t> GFAParser::parse_p(const string& p_line) {
+    auto cursor = p_line.begin();
+    auto end = p_line.end();
+    
+    // Make sure we start with P
+    take_character(cursor, end, 'P', "parsing P line start");
+    take_tab(cursor, end, "parsing P line");
+    
+    // Grab the path name
+    string path_name = take_string(cursor, end, "parsing path name");
+    take_tab(cursor, end, "parsing end of path name");
+    
+    // Parse out the visits
+    chars_t visits = take_range(cursor, end, "parsing path visits");
+    take_tab(cursor, end, "parsing end of path visits");
+    
+    // Parse out the overlaps
+    chars_t overlaps = take_range(cursor, end, "parsing overlaps");
+    take_optional_tab(cursor, end, "parsing end of overlaps");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    return make_tuple(std::move(path_name), std::move(visits), std::move(overlaps), std::move(tags));
+}
+
+tuple<string, size_t, string, pair<int64_t, int64_t>, GFAParser::chars_t, GFAParser::tag_list_t> GFAParser::parse_w(const string& w_line) {
+    auto cursor = w_line.begin();
+    auto end = w_line.end();
+    
+    // Make sure we start with W
+    take_character(cursor, end, 'W', "parsing W line start");
+    take_tab(cursor, end, "parsing W line");
+    
+    // Grab the sample name
+    string sample_name = take_string(cursor, end, "parsing sample name");
+    take_tab(cursor, end, "parsing end of sample name");
+    
+    // Grab the haplotype number
+    int64_t haplotype_number = take_number(cursor, end, -1, "parsing haplotype number");
+    if (haplotype_number == -1) {
+        // This field is required
+        throw GFAFormatError("Missing haplotype number in W line", cursor);
+    }
+    take_tab(cursor, end, "parsing end of haplotype number");
+    
+    // Grab the sequence/contig/locus name
+    string sequence_name = take_string(cursor, end, "parsing sequence name");
+    take_tab(cursor, end, "parsing end of sequence name");
+    
+    // Grab the start and end positions
+    int64_t range_start = take_number(cursor, end, -1, "parsing subrange start");
+    take_tab(cursor, end, "parsing end of subrange start");
+    int64_t range_end = take_number(cursor, end, -1, "parsing subrange end");
+    take_tab(cursor, end, "parsing end of subrange end");
+    
+    // Parse out the visits
+    chars_t visits = take_range(cursor, end, "parsing walk visits");
+    take_optional_tab(cursor, end, "parsing end of walk visits");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    // Process the path subrange a bit. Compose it into the sort of subrange
+    // PathMetadata uses.
+    pair<int64_t, int64_t> range = PathMetadata::NO_SUBRANGE;
+    if (range_start != -1) {
+        range.first = range_start;
+        if (range_end != -1) {
+            range.second = range_end;
+        }
+    }
+    
+    return make_tuple(std::move(sample_name), std::move(haplotype_number), std::move(sequence_name), std::move(range), std::move(visits), std::move(tags));
+}
+
+void GFAParser::scan_p_visits(const chars_t& visit_range,
+                              function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
+    
+    return GFAParser::scan_visits(visit_range, 'P', visit_step);
+}
+
+void GFAParser::scan_w_visits(const chars_t& visit_range,
+                              function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
+    
+    return GFAParser::scan_visits(visit_range, 'W', visit_step);
+}
+
+void GFAParser::scan_visits(const chars_t& visit_range, char line_type,
+                            function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
+    
+    auto cursor = visit_range.first;
+    auto& end = visit_range.second;
+    int64_t rank = 0;
+    
+    while (cursor != end) {
+        // Until we run out of visit list range
+        
+        bool is_reverse;
+        chars_t name_range;
+        
+        // Parse name and orientation as appropriate for line type
+        if (line_type == 'P') {
+            // Parse like a path line
+            name_range = take_range_until(cursor, end, "+-", "parsing name of visited node");
+            is_reverse = take_flag_character(cursor, end, '-', '+', "parsing orientation of visited node");
+        } else if (line_type == 'W') {
+            // Parse like a walk line
+            is_reverse = take_flag_character(cursor, end, '<', '>', "parsing orientation of visited node");
+            name_range = take_range_until_optional(cursor, end, "><\t\n", "parsing name of visited node");
+        } else {
+            throw std::runtime_error("Unimplemented line type for scanning visits");
+        }
+        
+        
+        if (!visit_step(rank, name_range, is_reverse)) {
+            // We should stop looping
+            return;
+        }
+        
+        if (line_type == 'P') {
+            // P lines might have comma separators
+            if (cursor != visit_range.second) {
+                // Go past the comma separator
+                take_character(cursor, end, ',', "parsing visit separator");
+            }
+        }
+        // And advance the rank for the next visit
+        ++rank;
+    }
+    
+    if (rank == 0) {
+        // Nothing was visited. Show an empty path.
+        visit_step(-1, chars_t(visit_range.second, visit_range.second), false);
+    }
+}
+
+bool GFAParser::decode_rgfa_tags(const tag_list_t& tags,
+                                 string* out_name,
+                                 int64_t* out_offset,
+                                 int64_t* out_rank) {
+    bool has_sn = false;
+    bool has_so = false;
+    bool has_sr = false;
+    for (auto& tag : tags) {
+        // Try and parse each tag.
+        // TODO: maybe check for SN:Z:, SO:i:, SR:i: as prefixes?
+        size_t sep1 = tag.find(':');
+        if (sep1 != string::npos) {
+            string tag_name = tag.substr(0, sep1);
+            if (tag_name == "SN" || tag_name == "SO" || tag_name == "SR") {
+                size_t sep2 = tag.find(':', sep1 + 1);
+                if (sep2 != string::npos) {
+                    string tag_type = tag.substr(sep1 + 1, sep2 - sep1 - 1);
+                    if (tag_name == "SN" && tag_type == "Z") {
+                        // We found a string name
+                        has_sn = true;
+                        if (out_name) {
+                            *out_name = tag.substr(sep2 + 1);
+                        }
+                    } else if (tag_name == "SO" && tag_type == "i") {
+                        // We found an integer offset along the path
+                        has_so = true;
+                        if (out_offset) {
+                            *out_offset = stoll(tag.substr(sep2 + 1));
+                        }
+                    } else if (tag_name == "SR" && tag_type == "i") {
+                        // We found an integer rank for the path
+                        has_sr = true;
+                        if (out_rank) {
+                            *out_rank = stoll(tag.substr(sep2 + 1));
+                        }
+                    }
+                }
+            }
+        }
+        if (has_sn && has_so && has_sr) {
+            break;
+        }
+    }
+    return has_sn && has_so && has_sr;
+}
+
+nid_t GFAParser::assign_new_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
     
     auto found = id_map_info.name_to_id->find(str);
     if (found != id_map_info.name_to_id->end()) {
-        // already in map, just return
-        return found->second;
+        // already in map, so bail out
+        return 0;
     }
     
     nid_t node_id = -1;
@@ -69,640 +832,532 @@ static nid_t parse_gfa_sequence_id(const string& str, GFAIDMapInfo& id_map_info)
     }
     
     id_map_info.max_id = std::max(node_id, id_map_info.max_id);
-    id_map_info.name_to_id->emplace(str, node_id);
+    id_map_info.name_to_id->emplace_hint(found, str, node_id);
 
     return node_id;
 }
 
-static void write_gfa_translation(const GFAIDMapInfo& id_map_info, const string& translation_filename) {
-    // don't write anything unless we have both an output file and at least one non-trivial mapping
-    if (!translation_filename.empty() && !id_map_info.numeric_mode) {
-        ofstream trans_file(translation_filename);
-        if (!trans_file) {
-            throw runtime_error("error:[gfa_to_handle_graph] Unable to open output translation file: " + translation_filename);
-        }
-        for (const auto& mapping : *id_map_info.name_to_id) {
-            trans_file << "T\t" << mapping.first << "\t" << mapping.second << "\n";
-        }
+nid_t GFAParser::find_existing_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
+    auto found = id_map_info.name_to_id->find(str);
+    if (found != id_map_info.name_to_id->end()) {
+        // already in map, just return
+        return found->second;
     }
+    // Otherwise just fail
+    return 0;
 }
 
-static void validate_gfa_edge(const gfak::edge_elem& e) {
-    static const string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
-        "Try \"bluntifying\" your graph with a tool like <https://github.com/vgteam/GetBlunted>, or "
-        "transitively merge overlaps with a pipeline of <https://github.com/ekg/gimbricate> and "
-        "<https://github.com/ekg/seqwish>.");
-    if (e.source_begin != e.source_end || e.sink_begin != 0 || e.sink_end != 0) {
-        throw GFAFormatError(not_blunt + " Found edge with an overlay: " + e.source_name + "[" + to_string(e.source_begin) + ":" + to_string(e.source_end) + "] -> " + e.sink_name + "[" + to_string(e.sink_begin) + ":" + to_string(e.sink_end) + "]");
-    }
-    if (!(e.alignment == "0M" || e.alignment == "*" || e.alignment.empty())) {
-        throw GFAFormatError(not_blunt + " Found edge with a non-null alignment '" + e.alignment + "'.");
-    }
-    if (e.source_name.empty()) {
-        throw GFAFormatError("error:[gfa_to_handle_graph] Found edge record with missing source name");
-    }
-    if (e.sink_name.empty()) {
-        throw GFAFormatError("error:[gfa_to_handle_graph] Found edge record with missing sink name");
-    }
-}
-
-static string process_raw_gfa_path_name(const string& path_name_raw)  {
-    string processed = path_name_raw;
-    processed.erase(remove_if(processed.begin(), processed.end(),
-                              [](char c) { return isspace(c); }),
-                    processed.end());
-    return processed;
-}
-
-/// return whether a gfa node has all 3 rGFA tags
-/// optionally parse them
-static bool gfa_sequence_parse_rgfa_tags(const gfak::sequence_elem& s,
-                                         string* out_name = nullptr,
-                                         int64_t* out_offset = nullptr,
-                                         int64_t* out_rank = nullptr) {
-    bool has_sn = false;
-    bool has_so = false;
-    bool has_sr = false; 
-    for (size_t i = 0 ; i < s.opt_fields.size() && (!has_sn || !has_so || !has_sr); ++i) {
-        if (s.opt_fields[i].key == "SN" && s.opt_fields[i].type == "Z") {
-            has_sn = true;
-            if (out_name) {
-                *out_name = s.opt_fields[i].val;
-            }
-        } else if (s.opt_fields[i].key == "SO" && s.opt_fields[i].type == "i") {
-            has_so = true;
-            if (out_offset) {
-                *out_offset = stol(s.opt_fields[i].val);
-            }
-        } else if (s.opt_fields[i].key == "SR" && s.opt_fields[i].type == "i") {
-            has_sr = true;
-            if (out_rank) {
-                *out_rank = stol(s.opt_fields[i].val);
-            }
-        }
-    }
-    return has_sn && has_so && has_sr;
-}
-
-static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph,
-                                          gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
+void GFAParser::parse(istream& in) {
     if (!in) {
-        throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
-    }
-    gg.parse_gfa_file(in);
-
-    // create nodes
-    bool has_rgfa_tags = false;
-    for (const auto& seq_record : gg.get_name_to_seq()) {
-        graph->create_handle(seq_record.second.sequence, parse_gfa_sequence_id(seq_record.first, id_map_info));
-        has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(seq_record.second);
+        throw std::ios_base::failure("error:[GFAParser] Couldn't open input stream");
     }
     
-    // create edges
-    for (const auto& links_record : gg.get_seq_to_edges()) {
-        for (const auto& edge : links_record.second) {
-            validate_gfa_edge(edge);
-            nid_t a_id = parse_gfa_sequence_id(edge.source_name, id_map_info);
-            if (!graph->has_node(a_id)) {
-                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + edge.source_name + "\"");
-            }
-            nid_t b_id = parse_gfa_sequence_id(edge.sink_name, id_map_info);
-            if (!graph->has_node(b_id)) {
-                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + edge.sink_name + "\"");
-            }
-            
-            // note: we're counting on implementations de-duplicating edges
-            handle_t a = graph->get_handle(a_id, !edge.source_orientation_forward);
-            handle_t b = graph->get_handle(b_id, !edge.sink_orientation_forward);
-            graph->create_edge(a, b);
+    // Check if stream is seekable
+    in.clear();
+    // This tracks the position of the current line
+    std::streampos in_pos = in.tellg();
+    // And this is what we use when we want to say to read to the end of the file.
+    // We will fill it in with a real EOF position if the stream is seekable.
+    std::streampos eof_pos = -1;
+    bool stream_is_seekable = false;
+    if (in_pos >= 0 && in.good()) {
+        // Input stream is seekable.
+        stream_is_seekable = true;
+        // Find EOF
+        in.seekg(0, std::ios_base::end);
+        eof_pos = in.tellg();
+        in.seekg(in_pos);
+        if (!in.good()) {
+            throw std::runtime_error("Could not get end of GFA file");
         }
     }
-    return has_rgfa_tags;
-}
-
-static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGraph* graph,
-                                        gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
+    // Reset error flags
+    in.clear();
     
-    // adapted from
-    // https://github.com/vgteam/odgi/blob/master/src/gfa_to_handle.cpp
+#ifdef debug
+    std::cerr << "Stream seekable? " << stream_is_seekable << std::endl;
+#endif
     
-    if (dynamic_cast<bdsg::ODGI*>(graph)) {
-        // This kind of graph needs a hint about IDs to be efficient. 
-        
-        // find the minimum ID
-        nid_t min_id = numeric_limits<nid_t>::max();
-        gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {
-                min_id = std::min(min_id, parse_gfa_sequence_id(s.name, id_map_info));
-            });
-        
-        if (min_id != numeric_limits<nid_t>::max()) {
-            // we found the min, set it as the increment
-            graph->set_id_increment(min_id);
-        }
-    }
-    
-    // add in all nodes
-    bool has_rgfa_tags = false;
-    gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {        
-            graph->create_handle(s.sequence, parse_gfa_sequence_id(s.name, id_map_info));
-            has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(s);
-    });
-    
-    // add in all edges
-    gg.for_each_edge_line_in_file(filename.c_str(), [&](gfak::edge_elem e) {
-        validate_gfa_edge(e);
-        nid_t a_id = parse_gfa_sequence_id(e.source_name, id_map_info);
-        if (!graph->has_node(a_id)) {
-            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + e.source_name + "\"");
-        }
-        nid_t b_id = parse_gfa_sequence_id(e.sink_name, id_map_info);
-        if (!graph->has_node(b_id)) {
-            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + e.sink_name + "\"");
-        }
-        
-        handle_t a = graph->get_handle(a_id, !e.source_orientation_forward);
-        handle_t b = graph->get_handle(b_id, !e.sink_orientation_forward);
-        graph->create_edge(a, b);
-    });
-    return has_rgfa_tags;
-}
-
-/// Parse nodes and edges and load them into the given GFAKluge.
-/// If the input is a seekable file, filename will be filled in and unseekable will be nullptr.
-/// If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from.
-/// Returns true if any "SN" rGFA tags are found in the graph nodes
-static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unseekable, MutableHandleGraph* graph,
-                                           gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
-    
-    if (graph->get_node_count() > 0) {
-        throw invalid_argument("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
-    }
-    bool has_rgfa_tags = false;
-    if (!unseekable) {
-        // Do the from-disk path
-        has_rgfa_tags = gfa_to_handle_graph_on_disk(filename, graph, gg, id_map_info);
-    } else {
-        // Do the path for streams
-        
-        if (dynamic_cast<bdsg::ODGI*>(graph)) {
-            // This kind of graph needs a hint about IDs to be efficient. 
-            // But, the ID increment hint can't be done.
-            cerr << "warning:[gfa_to_handle_graph] Skipping node ID increment hint because input stream for GFA does not support seeking. "
-                 << "If performance suffers, consider using an alternate graph implementation or reading GFA from hard disk." << endl;
-        }
-        
-        has_rgfa_tags = gfa_to_handle_graph_in_memory(*unseekable, graph, gg, id_map_info);
-    }
-    return has_rgfa_tags;
-}
-
-/// After the given GFAKluge has been populated with nodes and edges, load path information.
-/// If the input is a seekable file, filename will be filled in and unseekable will be nullptr.
-/// If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from.
-static void gfa_to_handle_graph_add_paths(const string& filename, istream* unseekable, MutablePathHandleGraph* graph,
-                                          gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
-                                   
-                                   
-    if (!unseekable) {
-        // Input is from a seekable file on disk.
-        
-        // add in all paths
-        gg.for_each_path_element_in_file(filename.c_str(), [&](const string& path_name_raw,
-                                                               const string& node_id,
-                                                               bool is_rev,
-                                                               const string& cigar,
-                                                               bool is_empty,
-                                                               bool is_circular) {
-            // remove white space in path name
-            // TODO: why?
-            string path_name = process_raw_gfa_path_name(path_name_raw);
-            
-            // get either the existing path handle or make a new one
-            path_handle_t path;
-            if (!graph->has_path(path_name)) {
-                path = graph->create_path_handle(path_name, is_circular);
-            } else {
-                path = graph->get_path_handle(path_name);
-            }
-            
-            // add the step
-            nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
-            if (!graph->has_node(target_node_id)) {
-                // We need to make sure the GFA isn't lying about the nodes
-                // that exist or we will fail with weird errors in get_handle
-                // or even later.
-                throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_name_raw + " visits nonexistent GFA node \"" + node_id + "\"");
-            }
-            handle_t step = graph->get_handle(target_node_id, is_rev);
-            graph->append_step(path, step);
-        });
-    } else {
-        
-        // gg will have parsed the GFA file in the non-path part of the algorithm
-        // No reading to do.
-        
-        // create paths
-        for (const auto& path_record : gg.get_name_to_path()) {
-            
-            // process this to match the disk backed implementation
-            // TODO: why?
-            string path_name = process_raw_gfa_path_name(path_record.first);
-            path_handle_t path = graph->create_path_handle(path_name);
-            
-            for (size_t i = 0; i < path_record.second.segment_names.size(); ++i) {
-                const string& node_id = path_record.second.segment_names.at(i);
-                nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
-                if (!graph->has_node(target_node_id)) {
-                    // The GFA wants to go somewhere that doesn't exist
-                    throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_record.first + " visits nonexistent GFA node \"" + node_id + "\"");
-                }
-                handle_t step = graph->get_handle(target_node_id, !path_record.second.orientations.at(i));
-                graph->append_step(path, step);
-            }
-        }
-    }
-    
-    
-}
-
-/// add paths from the optional rgfa tags on sequence nodes (SN: name SO: offset SR: rank)
-/// max_rank selects which ranks to consider. Usually, only rank-0 paths are full paths while rank > 0 are subpaths
-static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* unseekable, vector<gfak::sequence_elem>* rgfa_seq_elems,
-                                               MutablePathHandleGraph* graph,
-                                               gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info,
-                                               int64_t max_rank) {
-
-    // build up paths in memory using a plain old stl structure
-    // maps path-name to <rank, vector<node_id, offset>>
-    unordered_map<string, pair<int64_t, vector<pair<nid_t, int64_t>>>> path_map;
-
-    string rgfa_name;
-    int64_t rgfa_offset;
-    int64_t rgfa_rank;
-
-    function<void(const gfak::sequence_elem&)> update_rgfa_path = [&](const gfak::sequence_elem& s) {
-        if (gfa_sequence_parse_rgfa_tags(s, &rgfa_name, &rgfa_offset, &rgfa_rank) && rgfa_rank <= max_rank) {
-            pair<int64_t, vector<pair<nid_t, int64_t>>>& val = path_map[rgfa_name];
-            if (!val.second.empty()) {
-                if (val.first != rgfa_rank) {
-                    cerr << "warning:[gfa_to_handle_graph] Ignoring rGFA tags for sequence " << s.name
-                         << " because they identify it as being on path " << rgfa_name << " with rank " << rgfa_rank
-                         << " but a path with that name has already been found with a different rank (" << val.first << ")" << endl;
-                    return;
-                }
-            } else {
-                val.first = rgfa_rank;
-            }
-            nid_t seq_id = parse_gfa_sequence_id(s.name, id_map_info);
-            // We can assume the nodes exist because we're looking at sequence lines already here.
-            val.second.push_back(make_pair(seq_id, rgfa_offset));
-        }
-    };
-
-    if (rgfa_seq_elems != nullptr) {
-        // Input is a list
-        for (const auto& rgfa_seq_elem : *rgfa_seq_elems) {
-            update_rgfa_path(rgfa_seq_elem);
-        }
-    } else if (!unseekable) {
-        // Input is from a seekable file on disk.
-        gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {
-                update_rgfa_path(s);
-            });
-    } else {
-        // gg will have parsed the GFA file in the non-path part of the algorithm
-        // No reading to do.
-        for (const auto& seq_record : gg.get_name_to_seq()) {
-            update_rgfa_path(seq_record.second);
-        }
-    }
-
-    for (auto& path_offsets : path_map) {
-        const string& name = path_offsets.first;
-        int64_t rank = path_offsets.second.first;
-        vector<pair<nid_t, int64_t>>& node_offsets = path_offsets.second.second;
-        if (graph->has_path(name)) {
-            cerr << "warning:[gfa_to_handle_graph] Ignoring rGFA tags for path " << name << " as a path with that name "
-                 << "has already been imported from a P-line" << endl;
-            continue;
-        }
-        // sort by offset
-        sort(node_offsets.begin(), node_offsets.end(),
-             [](const pair<nid_t, int64_t>& o1, const pair<nid_t, int64_t>& o2) { return o1.second < o2.second;});
-
-        // make a path for each run of contiguous offsets
-        int64_t prev_sequence_size;
-        path_handle_t path_handle;
-        for (int64_t i = 0; i < node_offsets.size(); ++i) {
-            bool contiguous = i > 0 && node_offsets[i].second == node_offsets[i-1].second + prev_sequence_size;
-            if (!contiguous) {
-                // should probably detect and throw errors if overlap (as opposed to gap)
-                string path_chunk_name = node_offsets[i].second == 0 ? name : Paths::make_subpath_name(name, node_offsets[i].second);
-                path_handle = graph->create_path_handle(path_chunk_name);
-            }
-            handle_t step = graph->get_handle(node_offsets[i].first, false);
-            graph->append_step(path_handle, step);
-            prev_sequence_size = graph->get_length(step);
-        }
-    }    
-}
-
-static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandleGraph* graph,
-                                                              GFAIDMapInfo& id_map_info,
-                                                              int64_t max_rank) {
-    if (!in) {
-        throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
-    }
-
     bool has_rgfa_tags = false;
     string line_buffer; // can be quite big
-
-    // store up rgfa nodes (without sequence), as there's no current way to avoid a second pass
-    // to support them
-    vector<gfak::sequence_elem> rgfa_seq_elems;
-
-    function<void()> fall_back_to_disk = [&]() {
-        string fb_name = temp_file::create();
-        cerr << "warning:[gfa] Unable to stream GFA as it's not in canonical order.  Buffering to " << fb_name << endl;
-        ofstream fb_file(fb_name);
-        if (!fb_file) {
-            throw runtime_error("error:[gfa] Could not open fallback gfa temp file: " + fb_name);
+    
+    // We should be able to parse in 2 passes. One to make all the nodes, and
+    // one to make all the things that reference nodes we hadn't seen yet.
+    // We track pass number 1-based.
+    size_t pass_number;
+    // And within a pass we remember the line number. Also 1-based.
+    size_t line_number;
+    
+    // We don't want to process any paths until we've seen the header, or we
+    // know there isn't one, because it affects interpretation of path lines.
+    bool awaiting_header;
+    
+    // We buffer lines we can't actually handle right now.
+    
+    // If we can seek back to them, we keep this collection of ranges of
+    // unprocessed lines. If the second field is the max value, it extends to EOF.
+    // Third field is starting line number.
+    vector<tuple<std::streampos, std::streampos, size_t>> unprocessed_ranges;
+    // And we keep this flag for knowing when we need to close a range.
+    bool last_line_handled = true;
+    
+    // If we can't seek to them, we put them into this temporary file.
+    string buffer_name;
+    ofstream buffer_out_stream;
+    
+    // We call this to save a line either in the buffer or the collection of
+    // unprocessed ranges, until all lines have been seen once.
+    auto save_line_until_next_pass = [&]() {
+        if (stream_is_seekable) {
+            // We should be able to get back here.
+            if (unprocessed_ranges.empty() || get<1>(unprocessed_ranges.back()) != eof_pos) {
+                // There's not currently a run of unprocessed lines that we are a part of. We need to start a new run.
+                unprocessed_ranges.emplace_back(in_pos, eof_pos, line_number);
+#ifdef debug
+                std::cerr << "Started new unprocessed range at " << in_pos << std::endl;
+#endif
+                // Run will be closed when a line is handled.
+            }
+        } else {
+            if (buffer_name.empty()) {
+                // Make sure the buffer is available
+                buffer_name = temp_file::create();
+                buffer_out_stream.open(buffer_name);
+                if (!buffer_out_stream) {
+                    throw runtime_error("error:[GFAParser] Could not open fallback gfa temp file: " + buffer_name);
+                }
+            }
+            
+            // Store the line into it so we can move on to the next line
+            buffer_out_stream << line_buffer << "\n";
         }
-        // put that last line back
-        fb_file << line_buffer << "\n";
-        // copy the rest of the file
-        std::copy(istreambuf_iterator<char>(in),
-                  istreambuf_iterator<char>(),
-                  ostreambuf_iterator<char>(fb_file));
-        fb_file.close();
-        // read the file from disk
-        gfak::GFAKluge gg;
-        bool ret = gfa_to_handle_graph_on_disk(fb_name, graph, gg, id_map_info);
-        gfa_to_handle_graph_add_paths(fb_name, nullptr, graph, gg, id_map_info);
-        has_rgfa_tags = has_rgfa_tags || ret;
     };
     
-    while (getline(in, line_buffer)) {
+    // We call this to save a line either in the buffer or the collection of unprocessed ranges,
+    // until some time after the given node is observed.
+    auto save_line_until_node = [&](const string& missing_node_name) {
+        if (pass_number > 1) {
+            // We should only hit this on the first pass. If we hit it later we are missing a node.
+            throw GFAFormatError("GFA file references missing node " + missing_node_name);
+        }
+        if (!stream_is_seekable && buffer_name.empty()) {
+            // Warn that we are missing this node because it is the first missing node. The tests want us to.
+            std::cerr << "warning:[GFAParser] Streaming GFA file references node " << missing_node_name << " before it is defined. "
+                      << "GFA lines will be buffered in a temporary file." << std::endl;
+        }
+        // TODO: We could be more efficient if we could notice as soon as the node arrives and handle the line.
+        // Sadly we can't yet, so just save it for the next pass.
+        save_line_until_next_pass();
+    };
+    
+    // We want to warn about unrecognized line types, but each only once.
+    set<char> warned_line_types;
+    
+    // And we need to buffer all the rGFA visits until we have seen all the nodes.
+    // This is a visit at a path offset to a node. We also need the length so
+    // we can know when it abuts later visits.
+    using rgfa_visit_t = tuple<int64_t, nid_t, size_t>;
+    // This is a heap of those, in order
+    using visit_queue_t = std::priority_queue<rgfa_visit_t, vector<rgfa_visit_t>, std::greater<rgfa_visit_t>>;
+    // This holds rGFA paths we have heard of, mapping from name to rank, start
+    // position of next visit that is safe to announce, and list of buffered
+    // visits in a min-heap
+    unordered_map<string, tuple<int64_t, size_t, visit_queue_t>> rgfa_path_cache;
+    
+    // We call this to handle the current line if it is ready to be handled, or
+    // buffer it if it can't. Return false if we are not ready for the line right
+    // now and we saved it, and true otherwise.
+    auto handle_line_if_ready = [&]() {
         if (!line_buffer.empty()) {
-            // We mimic gfakluge behaviour by silently ignoring lines we don't parse
-            if (line_buffer[0] == 'S') {
-                tuple<string, string, vector<string>> s_parse = parse_gfa_s_line(line_buffer);
-                graph->create_handle(get<1>(s_parse), parse_gfa_sequence_id(get<0>(s_parse), id_map_info));
-                if (get<2>(s_parse).size() >= 3) {
-                    // We'll check for the 3 rGFA optional tags.  For now that means
-                    // re-using some code based on gfakluge structures, unfortunately
-                    // note: we only copy the name and tags, not the sequence
-                    gfak::sequence_elem seq_elem;
-                    seq_elem.name = get<0>(s_parse);
-                    seq_elem.length = get<1>(s_parse).length();
-                    for (const string& opt_tag : get<2>(s_parse)) {
-                        vector<string> toks = split_delims(opt_tag, ":");
-                        if (toks.size() == 3) {
-                            gfak::opt_elem opt;
-                            opt.key = toks[0];
-                            opt.type = toks[1];
-                            opt.val = toks[2];
-                            seq_elem.opt_fields.push_back(opt);
+            switch(line_buffer[0]) {
+            case 'H':
+                // Header lines need tags examoned
+                {
+                    tuple<tag_list_t> h_parse = GFAParser::parse_h(line_buffer);
+                    auto& tags = get<0>(h_parse);
+                    for (auto& listener : this->header_listeners) {
+                        // Tell all the listener functions
+                        listener(tags);
+                    }
+                    awaiting_header = false;
+                }
+                break;
+            case 'S':
+                // Sequence lines can always be handled right now
+                {
+                    tuple<string, GFAParser::chars_t, tag_list_t> s_parse = GFAParser::parse_s(line_buffer);
+                    auto& node_name = get<0>(s_parse);
+                    auto& sequence_range = get<1>(s_parse);
+                    auto& tags = get<2>(s_parse);
+                    nid_t assigned_id = GFAParser::assign_new_sequence_id(node_name, this->id_map());
+                    if (assigned_id == 0) {
+                        // This name has been used already!
+                        throw GFAFormatError("Duplicate sequence name: " + node_name);
+                    }
+                    for (auto& listener : this->node_listeners) {
+                        // Tell all the listener functions
+                        listener(assigned_id, sequence_range, tags);
+                    }
+                    if (this->max_rgfa_rank >= 0 && tags.size() >= 3) {
+                        // We'll check for the 3 rGFA optional tags.
+                        string rgfa_path_name;
+                        int64_t rgfa_offset_on_path;
+                        int64_t rgfa_path_rank;
+                        if (decode_rgfa_tags(tags, &rgfa_path_name, &rgfa_offset_on_path, &rgfa_path_rank) &&
+                            rgfa_path_rank <= this->max_rgfa_rank) {
+                            
+                            // We need to remember this rGFA path visit
+                            auto found = rgfa_path_cache.find(rgfa_path_name);
+                            if (found == rgfa_path_cache.end()) {
+                                // This is a completely new path, so record its rank
+                                found = rgfa_path_cache.emplace_hint(found, rgfa_path_name, std::make_tuple(rgfa_path_rank, 0, visit_queue_t()));
+                            } else {
+                                // This path existed already. Make sure we aren't showing a conflicting rank
+                                if (rgfa_path_rank != get<0>(found->second)) {
+                                    throw GFAFormatError("rGFA path " + rgfa_path_name + " has conflicting ranks " + std::to_string(rgfa_path_rank) + " and " + std::to_string(get<0>(found->second)));
+                                }
+                            }
+                            auto& visit_queue = get<2>(found->second);
+                            auto& next_offset = get<1>(found->second);
+                            auto node_length = GFAParser::length(sequence_range);
+                            if (next_offset == rgfa_offset_on_path) {
+                                // It's safe to dispatch this visit right now since it's the next one expected along the path.
+                                for (auto& listener : this->rgfa_listeners) {
+                                    // Tell all the listener functions about this visit
+                                    listener(assigned_id, rgfa_offset_on_path, node_length, rgfa_path_name, rgfa_path_rank);
+                                }
+                                // Advance the offset by the sequence length;
+                                next_offset += node_length;
+                                while (!visit_queue.empty() && next_offset == get<0>(visit_queue.top())) {
+                                    // The lowest-offset queued visit can be handled now because it abuts what we just did.
+                                    // Grab the visit.
+                                    auto& visit = visit_queue.top();
+                                    for (auto& listener : this->rgfa_listeners) {
+                                        // Tell all the listener functions about this visit
+                                        listener(get<1>(visit), get<0>(visit), get<2>(visit), rgfa_path_name, rgfa_path_rank);
+                                    }
+                                    // Advance the offset by the sequence length;
+                                    next_offset += get<2>(visit);
+                                    // And pop the visit off
+                                    visit_queue.pop();
+                                }
+                            } else {
+                                // Add this visit to the heap so we can handle it when we find the missing visits.
+                                visit_queue.emplace(rgfa_offset_on_path, assigned_id, node_length);
+                            }
                         }
                     }
-                    int64_t rgfa_rank;
-                    if (gfa_sequence_parse_rgfa_tags(seq_elem, nullptr, &rgfa_rank, nullptr) &&
-                        rgfa_rank <= max_rank) {
-                        rgfa_seq_elems.push_back(seq_elem);
-                    }
-                }                    
-            } else if (line_buffer[0] == 'L') {
-                tuple<string, bool, string, bool, vector<string>> l_parse = parse_gfa_l_line(line_buffer);
-                nid_t n1 = parse_gfa_sequence_id(get<0>(l_parse), id_map_info);
-                nid_t n2 = parse_gfa_sequence_id(get<2>(l_parse), id_map_info);
-                if (!graph->has_node(n1) || !graph->has_node(n2)) {
-                    fall_back_to_disk();
-                    break;
+                    return true;
                 }
-                graph->create_edge(graph->get_handle(n1, get<1>(l_parse)),
-                                   graph->get_handle(n2, get<3>(l_parse)));
-            } else if (line_buffer[0] == 'P') {
-                bool missing = false;
-                // pass 1: make sure we have all the nodes in the graph
-                parse_gfa_p_line(line_buffer, [&](const string& path_name,
-                                                  int64_t step_rank,
-                                                  const string& step_id,
-                                                  bool step_is_reverse) {
-                                     if (step_rank >= 0) {
-                                         nid_t n = parse_gfa_sequence_id(step_id, id_map_info);
-                                         if (!graph->has_node(n)) {
-                                             missing = true;
-                                             return false;
-                                         }
-                                     }
-                                     return true;
-                                 });
-                if (missing) {
-                    fall_back_to_disk();
-                    break;
-                }
-                path_handle_t path_handle;
-                // pass 2: make the path
-                parse_gfa_p_line(line_buffer, [&](const string& path_name,
-                                                  int64_t step_rank,
-                                                  const string& step_id,
-                                                  bool step_is_reverse) {
-                                     if (step_rank <= 0) {
-                                         path_handle = graph->create_path_handle(path_name);
-                                     }
-                                     if (step_rank >= 0) {
-                                         nid_t n = parse_gfa_sequence_id(step_id, id_map_info);
-                                         graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
-                                     }
-                                     return true;
-                                 });
-                
-            }
-        }
-    }
-    return rgfa_seq_elems;
-}
-
-void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                         GFAIDMapInfo* translation) {
-                         
-    // What stream should we read from (instead of opening the file), if any?
-    istream* unseekable = nullptr;
-    if (filename == "-") {
-        // Read from standard input
-        unseekable = &cin;
-    } 
-    
-    gfak::GFAKluge gg;
-    
-    // We may not have an external translation to write to so we may nee dto make our own.
-    unique_ptr<GFAIDMapInfo> translation_holder;
-    if (!translation) {
-        translation_holder.reset(new GFAIDMapInfo());
-        translation = translation_holder.get();
-    }
-    
-    gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, *translation);
-}
-
-void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                         const string& translation_filename) {
-
-    
-    GFAIDMapInfo id_map_info;
-    gfa_to_handle_graph(filename, graph, &id_map_info);
-    write_gfa_translation(id_map_info, translation_filename);
-}
-
-
-void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              GFAIDMapInfo* translation, int64_t max_rgfa_rank) {
-    
-    
-    // What stream should we read from (instead of opening the file), if any?
-    istream* unseekable = nullptr;
-    if (filename == "-") {
-        // Read from standard input
-        unseekable = &cin;
-    }
-    
-    gfak::GFAKluge gg;
-    
-    // We may not have an external translation to write to so we may nee dto make our own.
-    unique_ptr<GFAIDMapInfo> translation_holder;
-    if (!translation) {
-        translation_holder.reset(new GFAIDMapInfo());
-        translation = translation_holder.get();
-    }
-    
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, *translation);
-    
-    // TODO: Deduplicate everything other than this line somehow.
-    gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, *translation);
-
-    if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, nullptr, graph, gg, *translation, max_rgfa_rank);
-    }
-}
-
-void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              int64_t max_rgfa_rank, const string& translation_filename) {
-
-    GFAIDMapInfo id_map_info;
-    gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank);
-    write_gfa_translation(id_map_info, translation_filename);
-
-}
-
-void gfa_to_path_handle_graph_in_memory(istream& in,
-                                        MutablePathMutableHandleGraph* graph,
-                                        int64_t max_rgfa_rank) {
-    gfak::GFAKluge gg;
-    GFAIDMapInfo id_map_info;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, gg, id_map_info);
-    gfa_to_handle_graph_add_paths("", &in, graph, gg, id_map_info);
-    if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths("", &in, nullptr, graph, gg, id_map_info, max_rgfa_rank);
-    }
-    
-}
-
-void gfa_to_path_handle_graph_stream(istream& in,
-                                     MutablePathMutableHandleGraph* graph,
-                                     GFAIDMapInfo* translation,
-                                     int64_t max_rgfa_rank) {
-    gfak::GFAKluge gg;
-    
-    // We may not have an external translation to write to so we may nee dto make our own.
-    unique_ptr<GFAIDMapInfo> translation_holder;
-    if (!translation) {
-        translation_holder.reset(new GFAIDMapInfo());
-        translation = translation_holder.get();
-    }
-    
-    vector<gfak::sequence_elem> rgfa_seq_elems = gfa_to_path_handle_graph_stream(in, graph, *translation, max_rgfa_rank);
-    if (!rgfa_seq_elems.empty()) {
-        gfak::GFAKluge gg; // not used
-        gfa_to_handle_graph_add_rgfa_paths("", nullptr, &rgfa_seq_elems, graph, gg, *translation, max_rgfa_rank);
-    }        
-}
-
-tuple<string, string, vector<string>> parse_gfa_s_line(const string& s_line) {
-    assert(s_line[0] == 'S');
-    vector<string> toks = split_delims(s_line, "\t");
-    if (toks.size() < 3 || toks[0] != "S") {
-        throw runtime_error("error:[gfa parse] malformed S line: " + s_line);
-    }
-    vector<string> opt_tags;
-    opt_tags.insert(opt_tags.end(),
-                    std::make_move_iterator(toks.begin() + 3),
-                    std::make_move_iterator(toks.end()));
-    return make_tuple(std::move(toks[1]), std::move(toks[2]), opt_tags);
-}
-
-tuple<string, bool, string, bool, vector<string>> parse_gfa_l_line(const string& l_line) {
-    assert(l_line[0] == 'L');
-    vector<string> toks = split_delims(l_line, "\t");
-    if (toks.size() < 6 || toks[0] != "L" || (toks[2] != "+" && toks[2] != "-") ||
-        (toks[4] != "+" && toks[4] != "-")) {
-        throw runtime_error("error:[gfa parse] malformed L line: " + l_line);
-    }
-    vector<string> opt_tags;
-    opt_tags.insert(opt_tags.end(),
-                    std::make_move_iterator(toks.begin() + 6),
-                    std::make_move_iterator(toks.end()));
-    return make_tuple(std::move(toks[1]), toks[2] == "-", std::move(toks[3]), toks[4] == "-", opt_tags);    
-}
-
-void parse_gfa_p_line(const string& p_line,
-                      function<bool(const string&, int64_t, const string&, bool)> visit_step) {
-    assert(p_line[0] == 'P');
-
-    size_t i = 0;
-    
-    string path_name;
-
-    // Just copy over gfakluge's character by character reading code from for_each_path_element_in_file()
-    // todo: check for errors
-
-    // scan forward to find name
-    i += 2;
-    while (p_line[i] != '\t') {
-        path_name.push_back(p_line[i++]);
-    }
-    ++i; // get to path id/orientation description
-    size_t j = i;
-    while (p_line[j++] != '\t');
-    // now j points to the overlaps
-    char b = p_line[i], c = p_line[j];
-    int64_t rank = 0;
-    while (b != '\t' && j != p_line.length()) {
-        string id;
-        if (b == ',') b = p_line[++i];
-        while (b != ',' && b != '\t' && b != '+' && b != '-') {
-            id.push_back(b);
-            b = p_line[++i];
-        }
-        bool is_rev = b=='-';
-        b = p_line[++i];
-        string overlap;
-        if (c == ',') c = p_line[++j];
-        while (c != ',' && c != '\t' && c != '\n' && c != ' ' && j < p_line.length()) {
-            overlap.push_back(c);
-            // don't scan overlap list if it's just a *
-            if (c == '*' && j == p_line.length() - 1) {
                 break;
+            case 'L':
+                // Edges can be handled if their nodes exist already
+                {
+                    tuple<string, bool, string, bool, chars_t, tag_list_t> l_parse = GFAParser::parse_l(line_buffer);
+                    
+                    // We only get these IDs if they have been seen already as nodes
+                    nid_t n1 = GFAParser::find_existing_sequence_id(get<0>(l_parse), this->id_map());
+                    if (!n1) {
+                        save_line_until_node(get<0>(l_parse));
+                        return false;
+                    }
+                    nid_t n2 = GFAParser::find_existing_sequence_id(get<2>(l_parse), this->id_map());
+                    if (!n2) {
+                        save_line_until_node(get<2>(l_parse));
+                        return false;
+                    }
+                    
+                    for (auto& listener : this->edge_listeners) {
+                        // Tell all the listener functions
+                        listener(n1, get<1>(l_parse), n2, get<3>(l_parse), get<4>(l_parse), get<5>(l_parse));
+                    }
+                }
+                break;
+            case 'P':
+                // Paths can be handled if all their nodes have been seen, and we know enough about the header. 
+                {
+                    if (awaiting_header) {
+                        save_line_until_next_pass();
+                        return false;
+                    }
+                    
+                    bool missing = false;
+                    string missing_name;
+                    
+                    // TODO: we don't check for duplicate path lines here.
+                    // Listeners might.
+                    
+                    // Parse out the path pieces: name, visits, overlaps, tags
+                    tuple<string, chars_t, chars_t, tag_list_t> p_parse = GFAParser::parse_p(line_buffer);
+                    auto& path_name = get<0>(p_parse);
+                    auto& visits = get<1>(p_parse);
+                    auto& overlaps = get<2>(p_parse);
+                    auto& tags = get<3>(p_parse);
+                    
+                    for(auto it = overlaps.first; it != overlaps.second; ++it) {
+                        if (*it != '*' && *it != ',' && *it != 'M' && (*it < '0' || *it > '9')) {
+                            // This overlap isn't just * or a list of * or a list of matches with numbers.
+                            // We can't handle it
+                            throw GFAFormatError("Path " + path_name + " has nontrivial overlaps and can't be handled", it);
+                        }
+                    }
+                    
+                    // Make sure we have all the nodes in the graph
+                    GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
+                                                         const GFAParser::chars_t& step_id,
+                                                         bool step_is_reverse) {
+                         if (step_rank == -1) {
+                            // Nothing to do for empty paths
+                            return true;
+                        }
+                         
+                         if (step_rank >= 0) {
+                            string step_string = GFAParser::extract(step_id);
+                            nid_t n = GFAParser::find_existing_sequence_id(step_string, this->id_map());
+                            if (!n) {
+                                missing = true;
+                                missing_name = std::move(step_string);
+                                return false;
+                            }
+                         }
+                         return true;
+                    });
+                    if (missing) {
+                        save_line_until_node(missing_name);
+                        return false;
+                    }
+                    
+                    for (auto& listener : this->path_listeners) {
+                        // Tell all the listener functions
+                        listener(path_name, visits, overlaps, tags);
+                    }
+                }
+                break;
+            case 'W':
+                // Walks can be handled if all their nodes have been seen, and we know enough about the hneader.
+                {
+                    if (awaiting_header) {
+                        save_line_until_next_pass();
+                        return false;
+                    }
+                
+                    bool missing = false;
+                    string missing_name;
+                    
+                    // Fins the pieces of the walk line
+                    tuple<string, size_t, string, pair<int64_t, int64_t>, chars_t, tag_list_t> w_parse = GFAParser::parse_w(line_buffer);
+                    auto& sample_name = get<0>(w_parse);
+                    auto& haplotype = get<1>(w_parse);
+                    auto& contig_name = get<2>(w_parse);
+                    auto& subrange = get<3>(w_parse);
+                    auto& visits = get<4>(w_parse);
+                    auto& tags = get<5>(w_parse);
+                    
+                    GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
+                                                         const GFAParser::chars_t& step_id,
+                                                         bool step_is_reverse) {
+                        if (step_rank == -1) {
+                            // Nothing to do for empty paths
+                            return true;
+                        }
+                        
+                        // For every node the walk visits, make sure we have seen it.
+                        string step_string = GFAParser::extract(step_id);
+                        nid_t n = GFAParser::find_existing_sequence_id(step_string, this->id_map());
+                        if (!n) {
+                            missing = true;
+                            missing_name = std::move(step_string);
+                            return false;
+                        }
+                        return true;
+                    });
+                    
+                    if (missing) {
+                        save_line_until_node(missing_name);
+                        return false;
+                    }
+                    
+                    for (auto& listener : this->walk_listeners) {
+                        // Tell all the listener functions
+                        listener(sample_name, haplotype, contig_name, subrange, visits, tags);
+                    }
+                }
+                break;
+            default:
+                if (!warned_line_types.count(line_buffer[0])) {
+                    // Warn once about this weird line type.
+                    warned_line_types.insert(line_buffer[0]);
+                    cerr << "warning:[GFAParser] Ignoring unrecognized " << line_buffer[0] << " line type" << endl;
+                }
             }
-            c = p_line[++j];
         }
-        bool ret = visit_step(path_name, rank++, id, is_rev);
-        if (!ret) {
-            break;
+        return true;
+    };
+    
+    // We have a function to do a pass over a file of lines. It stops at the
+    // given max offset, if set.
+    auto process_lines_in_stream = [&](istream& in_stream, std::streampos max_offset) {
+        if (stream_is_seekable) {
+            // Keep our position in the input stream up to date.
+            in_pos = in_stream.tellg();
         }
+        while ((!stream_is_seekable || in_pos < max_offset) && getline(in_stream, line_buffer)) {
+            // For each line in the input file, before the max offset
+            if (!line_buffer.empty()) {
+                // Handle all lines in the stream that we can handle now.
+                if (handle_line_if_ready()) {
+                    // If we handled the line, we need to mark the end of any unhandled range that might be running.
+                    if (pass_number== 1 && stream_is_seekable && !unprocessed_ranges.empty() &&
+                        get<1>(unprocessed_ranges.back()) == eof_pos) {
+                        // the unprocessed range ends where this line started.
+                        get<1>(unprocessed_ranges.back()) = in_pos;
+#ifdef debug
+                        std::cerr << "Ended unprocessed range at " << in_pos << std::endl;
+#endif
+                    }
+                }
+            }
+            if (stream_is_seekable) {
+                // Keep our position in the original input stream up to date.
+                in_pos = in_stream.tellg();
+            }
+            line_number++;
+        }
+#ifdef debug
+        std::cerr << "Stop processing run at " << in_pos << "/" << max_offset << std::endl;
+#endif
+    };
+    
+    try {
+        
+        pass_number = 1;
+        line_number = 1;
+        awaiting_header = true;
+        process_lines_in_stream(in, eof_pos);
+        
+        if (stream_is_seekable) {
+            if (!unprocessed_ranges.empty()) {
+                // Handle unprocessed ranges of the file by seeking back to them.
+                
+                // Make sure to clear out EOF.
+                in.clear();
+                
+                pass_number = 2;
+                // There can't be any new headers.
+                awaiting_header = false;
+                for (auto& range : unprocessed_ranges) {
+                    in.seekg(get<0>(range));
+                    if (!in.good()) {
+                        throw std::runtime_error("Unable to seek in GFA stream that should be seekable");
+                    }
+                    line_number = get<2>(range);
+                    process_lines_in_stream(in, get<1>(range));
+                }
+            }
+        } else {
+            if (!buffer_name.empty()) {
+                // We also have lines in the buffer to handle.
+                buffer_out_stream.close();
+                ifstream buffer_in_stream(buffer_name);
+                pass_number = 2;
+                // We forget the original line numbers and restart.
+                line_number = 1;
+                // There can't be any new headers.
+                awaiting_header = false;
+                process_lines_in_stream(buffer_in_stream, eof_pos);
+                
+                // Clean up buffer before returning
+                // TODO: Who takes care of this on GFA format error?
+                buffer_in_stream.close();
+                unlink(buffer_name.c_str());
+            }
+        }
+        
+        
+        // Run through any rGFA paths that don't start at 0 or have gaps. 
+        for (auto& kv : rgfa_path_cache) {
+            auto& rgfa_path_name = kv.first;
+            auto& rgfa_path_rank = get<0>(kv.second);
+            auto& visit_queue = get<2>(kv.second);
+            
+            while (!visit_queue.empty()) {
+                // Grab the visit.
+                auto& visit = visit_queue.top();
+                for (auto& listener : this->rgfa_listeners) {
+                    // Tell all the listener functions about this visit
+                    listener(get<1>(visit), get<0>(visit), get<2>(visit), rgfa_path_name, rgfa_path_rank);
+                }
+                // And pop the visit off
+                visit_queue.pop();
+            }
+        }
+    } catch (GFAFormatError& e) {
+        // Inform the error of where exactly it is.
+        // We have line buffer in scope and positions are relative to the line buffer.
+        
+        e.pass_number = pass_number;
+        if (!stream_is_seekable && pass_number > 1) {
+            // We're working on this temp file. Report it so line numbers make sense.
+            e.file_name = buffer_name;
+        }
+        e.line_number = line_number;
+        if (e.has_position) {
+            // We can find the column we were at within the line.
+            e.column_number = 1 + (e.position - line_buffer.begin());
+        }
+        
+        // Re-throw the new and improved error
+        throw e;
     }
-    if (rank == 0) {
-        visit_step(path_name, -1, "", false);
+}
+
+GFAIDMapInfo& GFAParser::id_map() {
+    if (external_id_map) {
+        return *external_id_map;
     }
+    if (!internal_id_map) {
+        internal_id_map = make_unique<GFAIDMapInfo>();
+    }
+    return *internal_id_map;
+};
+
+
+GFAFormatError::GFAFormatError(const string& message) : std::runtime_error(message) {
+    // Nothing to do!
+}
+
+GFAFormatError::GFAFormatError(const string& message, const GFAParser::cursor_t& position, const char* parsing_state) : std::runtime_error(message + (parsing_state ? (" while " + std::string(parsing_state)) : "")), has_position(true), position(position) {
+    // Nothing to do!
+}
+
+const char* GFAFormatError::what() const noexcept {
+    if (message_buffer.empty()) {
+        // We need to generate the message
+        stringstream ss;
+        ss << "GFA format error: ";
+        
+        if (pass_number != 0) {
+            // We do the pass first because we might need to report a buffer
+            // line number instead of an original line number.
+            ss << "On pass " << pass_number << ": ";
+        }
+        if (!file_name.empty()) {
+            ss << "In file " << file_name << ": ";
+        }
+        if (line_number != 0) {
+            ss << "On line " << line_number << ": ";
+        }
+        if (column_number != 0) {
+            ss << "At column " << column_number << ": ";
+        }
+        
+        // Add on the message from the base class
+        ss << std::runtime_error::what();
+        
+        // Save the composed message
+        message_buffer = ss.str();
+    }
+    return message_buffer.c_str();
 }
 
 

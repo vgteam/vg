@@ -136,18 +136,7 @@ is $(vg gbwt -C xy.contigs.gbwt) 2 "paths as contigs: 2 contigs"
 is $(vg gbwt -H xy.contigs.gbwt) 1 "paths as contigs: 1 haplotype"
 is $(vg gbwt -S xy.contigs.gbwt) 1 "paths as contigs: 1 sample"
 
-# Multiple chromosomes: paths as samples
-vg gbwt -E --paths-as-samples -o xy.samples.gbwt -x xy.xg
-is $? 0 "paths as samples with vg gbwt"
-vg index -G xy2.samples.gbwt -T --paths-as-samples xy.xg
-is $? 0 "paths as samples with vg index"
-cmp xy.samples.gbwt xy2.samples.gbwt
-is $(vg gbwt -c xy.samples.gbwt) 2 "paths as samples: 2 threads"
-is $(vg gbwt -C xy.samples.gbwt) 1 "paths as samples: 1 contig"
-is $(vg gbwt -H xy.samples.gbwt) 2 "paths as samples: 2 haplotypes"
-is $(vg gbwt -S xy.samples.gbwt) 2 "paths as samples: 2 samples"
-
-rm -f xy.contigs.gbwt xy2.contigs.gbwt xy.samples.gbwt xy2.samples.gbwt
+rm -f xy.contigs.gbwt xy2.contigs.gbwt 
 
 
 # Build an r-index
@@ -390,3 +379,15 @@ rm -f gfa2.gbwt gfa2.gg gfa2.trans gfa2.gbz
 rm -f ref_paths.gbwt ref_paths.gg ref_paths.trans
 rm -f chopping.gbwt chopping.gg chopping.trans from_gbz.trans
 
+# Build a GBZ from a graph with a reference
+vg gbwt -g gfa.gbz --gbz-format -G graphs/gfa_with_reference.gfa
+is $? 0 "GBZ construction from GFA with reference"
+vg gbwt -Z gfa.gbz --tags >tags.tsv
+is $? 0 "GBZ GBWT tag extraction works"
+is "$(grep reference_samples tags.tsv | cut -f2 | tr ' ' '\\n' | sort | tr '\\n' ' ')" "GRCh37 GRCh38" "GBWT tags contain the correct reference samples"
+vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38 CHM13"
+is $? 0 "GBZ GBWT tag modification works"
+is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | grep HAPLOTYPE | wc -l)" "1" "Changing reference_samples tag can make a reference a haplotype"
+is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
+
+rm -f gfa.gbz gfa2.gbz tags.tsv

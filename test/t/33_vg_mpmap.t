@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 20
 
 
 # Exercise the GBWT
@@ -21,8 +21,8 @@ is "$(vg mpmap --suppress-mismapping -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt
 
 # For paired end, don't do any fragment length estimation
 
-is "$(vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -F GAM | vg view -aj - | head -n1 | jq '.mapping_quality')" "3" "MAPQ is 50% when paired without haplotype info"
-vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -F GAM > gbwt.gam
+is "$(vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -F GAM -t 1 | vg view -aj - | head -n1 | jq '.mapping_quality')" "3" "MAPQ is 50% when paired without haplotype info"
+vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -F GAM -t 1 > gbwt.gam
 is "$(vg view -aj gbwt.gam | head -n1 | jq '.mapping_quality')" "4" "haplotype match can disambiguate paired"
 is "$(vg view -aj gbwt.gam | head -n1 | jq '.annotation.haplotype_score_used')" "true" "use of haplotype-aware mapping is recorded"
 
@@ -35,10 +35,10 @@ rm -f gbwt.gam
 # We need to use snarl cutting to actually consider the alignment as not just a single subpath
 vg snarls xy2.vg > xy2.snarls
 
-is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "50" "Haplotype-oblivious mapping places read on the wrong contig"
-is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "Haplotype-oblivious mapping places read with MAPQ of 50%"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM -t 1 | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "50" "Haplotype-oblivious mapping places read on the wrong contig"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM -t 1| vg view -aj - | jq '.mapping_quality')" "3" "Haplotype-oblivious mapping places read with MAPQ of 50%"
 is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -t 1 -F GAM | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "1" "Haplotype-aware mapping places read on the right contig"
-is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "6" "Haplotype-aware mapping places read with MAPQ > 50%"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -t 1 -F GAM | vg view -aj - | jq '.mapping_quality')" "6" "Haplotype-aware mapping places read with MAPQ > 50%"
 
 rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
@@ -46,9 +46,9 @@ rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
-vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 10 -D 50 -F GAM | vg view -aj -  > temp_paired_alignment.json
-vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 100000 -D 5 -F GAM | vg view -aj -  > temp_distant_alignment.json
-vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -F GAM | vg view -aj - > temp_independent_alignment.json
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 10 -D 50 -F GAM -t 1 | vg view -aj -  > temp_paired_alignment.json
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 100000 -D 5 -F GAM -t 1 | vg view -aj -  > temp_distant_alignment.json
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -F GAM -t 1 | vg view -aj - > temp_independent_alignment.json
 paired_score=$(jq -r ".score" < temp_paired_alignment.json | awk '{ sum+=$1} END {print sum}')
 independent_score=$(jq -r ".score" < temp_independent_alignment.json | awk '{ sum+=$1} END {print sum}')
 is $(printf "%s\t%s\n" $paired_score $independent_score | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent have lower score than unrestricted alignments"
@@ -127,6 +127,8 @@ HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
 
 is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 | vg view -Kj - | grep connection | wc -l)" "1" "paired mapping can identify a splice junction on read 2"
 
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 -F SAM --report-group-mapq | grep GM:i: | wc -l)" "2" "HTS output contains group mapq annotation"
+
 rm s.vg s.xg s.gcsa s.gcsa.lcp s.dist s.snarls s.fq
 
 # Now make sure we randomly choose between equivalent mappings
@@ -138,7 +140,7 @@ vg snarls -T xy.vg > xy.snarls
 vg index xy.vg -x xy.xg -g xy.gcsa
 vg index xy.vg -j xy.dist -s xy.snarls
 
-vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -i --frag-mean 50 --frag-stddev 10 >xy.sam
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -i --frag-mean 50 --frag-stddev 10 -M 1 >xy.sam
 X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
 if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
     IN_RANGE="1"
@@ -147,7 +149,7 @@ else
 fi
 is "${IN_RANGE}" "1" "paired reads are evenly split between equivalent mappings"
 
-vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM >xy.sam
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -M 1 >xy.sam
 X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
 if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
     IN_RANGE="1"

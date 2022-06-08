@@ -17,7 +17,7 @@
 
 #include "subcommand.hpp"
 
-#include "../seed_clusterer.hpp"
+#include "../snarl_seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include <vg/io/vpkg.hpp>
@@ -349,12 +349,14 @@ void help_giraffe(char** argv) {
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
     << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.3]" << endl
+    << "  -U, --max-min INT             use at most INT minimizers [500]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
+    << "  --exclude-overlapping-min     exclude overlapping minimizers" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
@@ -386,6 +388,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
     #define OPT_NAMED_COORDINATES 1012
+    #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
     
 
     // initialize parameters with their default options
@@ -398,7 +401,10 @@ int main_giraffe(int argc, char** argv) {
     Range<size_t> distance_limit = 200;
     Range<size_t> hit_cap = 10, hard_hit_cap = 500;
     Range<double> minimizer_score_fraction = 0.9;
+    Range<size_t> max_unique_min = 500;
     bool show_progress = false;
+    // Should we exclude overlapping minimizers
+    bool exclude_overlapping_min = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
     // What GAM should we realign?
@@ -468,6 +474,7 @@ int main_giraffe(int argc, char** argv) {
         .chain(hard_hit_cap)
         .chain(minimizer_score_fraction)
         .chain(rescue_attempts)
+        .chain(max_unique_min)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -502,6 +509,7 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_dozeu, "dozeu" },
         { MinimizerMapper::rescue_gssw, "gssw" },
     };
+    //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -538,6 +546,8 @@ int main_giraffe(int argc, char** argv) {
             {"cluster-score", required_argument, 0, 's'},
             {"pad-cluster-score", required_argument, 0, 'S'},
             {"cluster-coverage", required_argument, 0, 'u'},
+            {"max-min", required_argument, 0, 'U'},
+            {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
             {"extension-score", required_argument, 0, 'v'},
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
@@ -558,7 +568,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
+        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:Ot:r:A:L:",
                          long_options, &option_index);
 
 
@@ -853,6 +863,18 @@ int main_giraffe(int argc, char** argv) {
                     cluster_coverage = score;
                 }
                 break;
+
+            case 'U':
+                {
+                    auto maxmin = parse<Range<size_t>>(optarg);
+                    if (maxmin <= 0) {
+                        cerr << "error: [vg giraffe] Maximum unique minimizer (" << maxmin << ") must be a positive integer" << endl;
+                        exit(1);
+                    }
+                    max_unique_min = maxmin;
+                }
+                break;
+
             case 'v':
                 {
                     auto score = parse<Range<int>>(optarg);
@@ -902,6 +924,10 @@ int main_giraffe(int argc, char** argv) {
                     }
                     rescue_algorithm = iter->second;
                 }
+                break;
+
+            case OPT_EXCLUDE_OVERLAPPING_MIN:
+                exclude_overlapping_min = true;
                 break;
 
             case OPT_FRAGMENT_MEAN:
@@ -1124,7 +1150,17 @@ int main_giraffe(int argc, char** argv) {
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
+    std::unique_ptr<MinimumDistanceIndex> old_distance_index = nullptr;
+    SnarlDistanceIndex distance_index;
+    SnarlDistanceIndex* distance_index_ptr = nullptr;
+    string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
+    ifstream infile_dist (distance_index_file_name);
+    if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
+        old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
+    } else {
+        distance_index.deserialize(distance_index_file_name);
+        distance_index_ptr = &distance_index;
+    }
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
@@ -1151,7 +1187,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, *distance_index, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*old_distance_index), distance_index_ptr, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
@@ -1201,6 +1237,7 @@ int main_giraffe(int argc, char** argv) {
             s << "-a" << max_alignments;
             s << "-s" << cluster_score;
             s << "-u" << cluster_coverage;
+            s << "-U" << max_unique_min;
             s << "-w" << extension_set;
             s << "-v" << extension_score;
             
@@ -1239,6 +1276,16 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--score-fraction " << minimizer_score_fraction << endl;
         }
         minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
+
+        if (show_progress) {
+            cerr << "--max-min " << max_unique_min << endl;
+        }
+        minimizer_mapper.max_unique_min = max_unique_min;
+
+        if (show_progress) {
+            cerr << "--exclude-overlapping-min " << endl;
+        }
+        minimizer_mapper.exclude_overlapping_min = exclude_overlapping_min;
 
         if (show_progress) {
             cerr << "--max-extensions " << max_extensions << endl;

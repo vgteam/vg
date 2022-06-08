@@ -263,7 +263,7 @@ int main_annotate(int argc, char** argv) {
             
             // Make per-thread buffers for writing them
             vector<vector<Alignment>> buffers;
-            buffers.resize(get_thread_count());
+            buffers.resize(vg::get_thread_count());
             
             // We will need to track mappings from graph node regions to BED features.
             // We don't want each of those mappings to have a copy of the feature name, because that could be big.
@@ -322,10 +322,10 @@ int main_annotate(int argc, char** argv) {
                         aln.clear_refpos();
                         if (add_multiple_positions) {
                             // One position per node
-                            algorithms::annotate_with_node_path_positions(*mapper.xindex, aln, search_limit);
+                            vg::algorithms::annotate_with_node_path_positions(*mapper.xindex, aln, search_limit);
                         } else {
                             // One position per alignment
-                            algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln, search_limit);
+                            vg::algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln, search_limit);
                         }
                     }
                     
