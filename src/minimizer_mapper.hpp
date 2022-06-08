@@ -440,8 +440,8 @@ protected:
     /**
      * Add annotations to an Alignment with statistics about the minimizers.
      */
-    void old_annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, const Funnel& funnel) const;
-    void annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const;
+    template<typename SeedType>
+    void annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 

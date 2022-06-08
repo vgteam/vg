@@ -1082,7 +1082,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             if (distance_index != nullptr) {
                 annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, funnel);
             } else {
-                old_annotate_with_minimizer_statistics(mappings[0], minimizers, old_seeds, funnel);
+                annotate_with_minimizer_statistics(mappings[0], minimizers, old_seeds, funnel);
             }
         }
         // Annotate with parameters used for the filters.
@@ -2536,8 +2536,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], seeds_by_read[0], funnels[0]);
                 annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], seeds_by_read[1], funnels[1]);
             } else {
-                old_annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], old_seeds_by_read[0], funnels[0]);
-                old_annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], old_seeds_by_read[1], funnels[1]);
+                annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], old_seeds_by_read[0], funnels[0]);
+                annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], old_seeds_by_read[1], funnels[1]);
             }
         }
         // Annotate with parameters used for the filters.
@@ -3403,38 +3403,8 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
     return seeds;
 }
 
-void MinimizerMapper::old_annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, const Funnel& funnel) const {
-    // Annotate with fraction covered by correct (and necessarily located) seed hits.
-    
-    // First make the set of minimizers that got correct seeds
-    std::unordered_set<size_t> seeded;
-    for (size_t i = 0; i < seeds.size(); i++) {
-        // We need to get correctness out of the funnel, since we don't tag the seed or minimizer.
-        // Correctness is assessed per seed, not per minimizer.
-        // We know seed finding was always stage 1.
-        if (funnel.was_correct(1, "seed", i)) {
-            seeded.insert(seeds[i].source);
-        }
-    }
-    
-    // Then we make a table of all the ranges covered by correct minimizers
-    std::vector<std::pair<size_t, size_t>> bounds;
-    bounds.reserve(seeded.size());
-    for(auto& minimizer_number : seeded) {
-        // For each minimizer with correct seeds
-        auto& minimizer = minimizers[minimizer_number];
-        // Cover the minimizer k-mer itself.
-        size_t start = minimizer.forward_offset();
-        bounds.emplace_back(start, start + minimizer.length);
-    }
-    // Then we count the positions covered
-    size_t covered_count = algorithms::count_covered(bounds);
-    // And turn it into a fraction
-    double covered_fraction = (double) covered_count / target.sequence().size();
-    // And add the annotation
-    set_annotation(target, "correct-minimizer-coverage", covered_fraction);
-}
-void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const {
+template<typename SeedType>
+void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const Funnel& funnel) const {
     // Annotate with fraction covered by correct (and necessarily located) seed hits.
     
     // First make the set of minimizers that got correct seeds
