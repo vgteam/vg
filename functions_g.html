@@ -124,6 +124,9 @@ $(function() {
 <li>GAMP
 : <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0ba00b7d3df4dc1aead7feb32d379bb1a35">vg::MultipathAlignmentEmitter</a>
 </li>
+<li>gap_extend
+: <a class="el" href="classvg_1_1WFATree.html#ac57439bff16d44bdbaf508c7a11f7f48">vg::WFATree</a>
+</li>
 <li>gap_extension
 : <a class="el" href="classvg_1_1DeletionAligner.html#a5fdfc2ac3a633a6e3cd61c2e3beeae97">vg::DeletionAligner</a>
 , <a class="el" href="classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb">vg::GSSWAligner</a>
@@ -136,6 +139,10 @@ $(function() {
 : <a class="el" href="classvg_1_1DeletionAligner.html#a7791fe71828711b3208db54db784cf1d">vg::DeletionAligner</a>
 , <a class="el" href="classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22">vg::GSSWAligner</a>
 , <a class="el" href="classvg_1_1SSWAligner.html#a15398a23880418599e81370d485fec0f">vg::SSWAligner</a>
+, <a class="el" href="classvg_1_1WFATree.html#aa405d70241ab2d8e6f39bd9a6b6cd7e2">vg::WFATree</a>
+</li>
+<li>gap_penalty()
+: <a class="el" href="classvg_1_1WFATree.html#a2f9bbb1fcce68edf6e439d0b3005af78">vg::WFATree</a>
 </li>
 <li>GaplessExtender()
 : <a class="el" href="classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271">vg::GaplessExtender</a>
@@ -448,6 +455,9 @@ $(function() {
 , <a class="el" href="classvg_1_1OptionInterface.html#aa53deb39285f0045257083eb38d703cd">vg::OptionInterface</a>
 , <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#aca3e8621a4002b48b733211c3adc52b5">vg::subcommand::Subcommand</a>
 </li>
+<li>get_diagonals()
+: <a class="el" href="classvg_1_1WFATree.html#a2bd4732a5815c365d3790b76b9230973">vg::WFATree</a>
+</li>
 <li>get_disjoint_sets()
 : <a class="el" href="classvg_1_1ContractingGraph.html#acd929119b9b11170f1eb4893a7032fe6">vg::ContractingGraph</a>
 </li>
@@ -660,6 +670,9 @@ $(function() {
 <li>get_iterator()
 : <a class="el" href="structvg_1_1Range.html#ac9cd52441da7ba1816ec79cc787716c1">vg::Range&lt; Number &gt;</a>
 </li>
+<li>get_leaves()
+: <a class="el" href="classvg_1_1WFATree.html#ab468d16b6a18e2283d07bbf587ddcaf6">vg::WFATree</a>
+</li>
 <li>get_length()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#af858e2c9467b674d836879d39f049a05">handlegraph::algorithms::SubHandleGraph</a>
 , <a class="el" href="classhandlegraph_1_1HandleGraph.html#a569ff35fb85c725b0b6b6933ed303e49">handlegraph::HandleGraph</a>
@@ -799,10 +812,10 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a99717b5d61b6db599c177b8bafcb6dd8">vg::Mapper</a>
 </li>
 <li>get_node_mapping()
-: <a class="el" href="classvg_1_1Paths.html#a7fa795ccee1427d6cac6e44fafe41e1e">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598">vg::Paths</a>
 </li>
 <li>get_node_mapping_by_path_name()
-: <a class="el" href="classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a72c6a29a41521996fd3454170b1a76f6">vg::Paths</a>
 </li>
 <li>get_node_mapping_copies_by_rank()
 : <a class="el" href="classvg_1_1Paths.html#a36a26abe18d10e17e273fa658be9d5c6">vg::Paths</a>
@@ -834,7 +847,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Configurable.html#a553f14c4f4a19bb51d40ffb211945b3a">vg::Configurable</a>
 </li>
 <li>get_overhang()
-: <a class="el" href="classvg_1_1ReadFilter.html#a50797c8911ec77ac3a392370a1c91cbe">vg::ReadFilter&lt; Read &gt;</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a71bb794016b2f59d6495a98b9716e0b5">vg::ReadFilter&lt; Read &gt;</a>
 </li>
 <li>get_parent()
 : <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#afb665da6af9e2ccfc10e6e667254b91d">handlegraph::SnarlDecomposition</a>
@@ -1007,7 +1020,7 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#ada7fda320c3b28c0fb642d7e4a789045">handlegraph::PathMetadata</a>
 </li>
 <li>get_score()
-: <a class="el" href="classvg_1_1ReadFilter.html#af800d67aa469136b6318c02e282c5a30">vg::ReadFilter&lt; Read &gt;</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a2144e5b768ebd71768d37265c07deda2">vg::ReadFilter&lt; Read &gt;</a>
 </li>
 <li>get_scores()
 : <a class="el" href="structhaplo_1_1haplo__DP__column.html#a784a7e41856ad01f9bdd88ca59dfb146">haplo::haplo_DP_column</a>
@@ -1129,7 +1142,7 @@ $(function() {
 , <a class="el" href="classvg_1_1PhaseUnfolder.html#a97128de268b43c9ccf9dd117829adedf">vg::PhaseUnfolder</a>
 </li>
 <li>get_support()
-: <a class="el" href="structvg_1_1AugmentedGraph.html#ad239a8516427304ef304e944f7d20c00">vg::AugmentedGraph</a>
+: <a class="el" href="structvg_1_1AugmentedGraph.html#a87c6ed55516068757be3b1ad54a6cfd0">vg::AugmentedGraph</a>
 , <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>
 </li>
 <li>get_support_finder()
@@ -1229,7 +1242,7 @@ $(function() {
 : <a class="el" href="structGBWTConfig.html#a07b86c3ec44037b22504eb86d9ebd78d">GBWTConfig</a>
 </li>
 <li>GFAFormatError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#add2d72c679e2b69e1c9f9c481228e0fb">vg::algorithms::GFAFormatError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#afdf6dea244cc33a30ae5d9446199bea2">vg::algorithms::GFAFormatError</a>
 </li>
 <li>GFAHandleGraph()
 : <a class="el" href="classvg_1_1GFAHandleGraph.html#aeffc2278ffcad22cd6950f3fa831f60d">vg::GFAHandleGraph</a>
@@ -1316,6 +1329,8 @@ $(function() {
 , <a class="el" href="classvg_1_1VCFTraversalFinder.html#ac8e35bbc2e0c34475f13f8d6989fa5b6">vg::VCFTraversalFinder</a>
 , <a class="el" href="classvg_1_1VG.html#a4772c77ed932bfed4d21e247918381a4">vg::VG</a>
 , <a class="el" href="structvg_1_1VG_1_1Plan.html#a06f927768c287c88f81d9761d61da231">vg::VG::Plan</a>
+, <a class="el" href="classvg_1_1WFAExtender.html#a7362ec7bfdf80dc2fc343e483bdf0e5d">vg::WFAExtender</a>
+, <a class="el" href="classvg_1_1WFATree.html#a4d4a1c25ba968a73c9722bc105f4a553">vg::WFATree</a>
 </li>
 <li>graph_cigar()
 : <a class="el" href="classvg_1_1GSSWAligner.html#aa00d5de382ccbd9e9c0c46bbfa38aab1">vg::GSSWAligner</a>
@@ -1339,7 +1354,7 @@ $(function() {
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50af316f5a8669d38d1c1801caf9d5671d7">GraphHandler</a>
 </li>
 <li>graph_pos_at_path_position()
-: <a class="el" href="classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7">xg::XG</a>
+: <a class="el" href="classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296">xg::XG</a>
 </li>
 <li>graph_source
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea">GraphHandler</a>
@@ -1418,7 +1433,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae">vg::GSSWAligner</a>
 </li>
 <li>GSSWAligner()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a8dc84b7b4cf4632d7a21c328c4b94b4b">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">vg::GSSWAligner</a>
 </li>
 </ul>
 </div><!-- contents -->

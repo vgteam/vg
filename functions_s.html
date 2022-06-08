@@ -92,6 +92,9 @@ $(function() {
 <li>same_context()
 : <a class="el" href="classvg_1_1VG.html#a96f99984ada5a3a13332ddb2ab0a1c97">vg::VG</a>
 </li>
+<li>same_node()
+: <a class="el" href="structvg_1_1WFANode.html#a817c0992513df066ab61c176d84f4ee8">vg::WFANode</a>
+</li>
 <li>sample_counter
 : <a class="el" href="classvg_1_1NGSSimulator.html#ab162ca660d69f66c18c41516a1a69d24">vg::NGSSimulator</a>
 </li>
@@ -185,7 +188,7 @@ $(function() {
 <li>scan()
 : <a class="el" href="classvg_1_1DozeuInterface.html#a73d9afd8c6b52ff715ae0606bbae4b63">vg::DozeuInterface</a>
 , <a class="el" href="structvg_1_1IDScanner.html#a36577d4a2c2ac0d7a12383ae6e9e999d">vg::IDScanner&lt; Message &gt;</a>
-, <a class="el" href="structvg_1_1PositionIDScanner.html#ae08c1500551856c1884a86e6740ddf85">vg::PositionIDScanner&lt; Message &gt;</a>
+, <a class="el" href="structvg_1_1PositionIDScanner.html#a4fce8b2ac2b293e93152c8407e06a02b">vg::PositionIDScanner&lt; Message &gt;</a>
 , <a class="el" href="classvg_1_1QualAdjXdropAligner.html#a2e8adea58e74731765b5c7d0eb54386f">vg::QualAdjXdropAligner</a>
 , <a class="el" href="structvg_1_1WrappingPositionScanner.html#ac9e28c724f1361a03b6a07e0f9e29ada">vg::WrappingPositionScanner&lt; Message &gt;</a>
 , <a class="el" href="classvg_1_1XdropAligner.html#a3bf50d433186476abc2f732525bf1377">vg::XdropAligner</a>
@@ -253,12 +256,17 @@ $(function() {
 , <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Cluster.html#a83c4fde3561eb0242e6789586f7d9189">vg::SnarlSeedClusterer::Cluster</a>
 , <a class="el" href="structvg_1_1Subpath.html#acffb5adff6c20c194740186323f1f484">vg::Subpath</a>
 , <a class="el" href="classvg_1_1subpath__t.html#a9e59579440b9a90f5b0c606dc3cf400a">vg::subpath_t</a>
+, <a class="el" href="structvg_1_1WFAAlignment.html#a066d6b546e0308e8df7fc74f42d5de67">vg::WFAAlignment</a>
+, <a class="el" href="structvg_1_1WFAPoint.html#a6358c051265bfcc41d857f6df091eebb">vg::WFAPoint</a>
 </li>
 <li>score_alignment()
 : <a class="el" href="classvg_1_1Mapper.html#aa541cae3a3598e10a7baf7d5ed78f644">vg::Mapper</a>
 </li>
 <li>score_alignment_pair()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a99ce46a1525f7be9fa393163ca1eac40">vg::MinimizerMapper</a>
+</li>
+<li>score_bound
+: <a class="el" href="classvg_1_1WFATree.html#a5f0203fec7b8c63c7f9d0cd74f271836">vg::WFATree</a>
 </li>
 <li>score_cluster()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#aaa1559493a4faca3189a5dd18ea08f87">vg::MinimizerMapper</a>
@@ -288,8 +296,8 @@ $(function() {
 </li>
 <li>score_full_length_bonus()
 : <a class="el" href="classvg_1_1Aligner.html#a41f3b28040335e4adef64d2d8158c78e">vg::Aligner</a>
-, <a class="el" href="classvg_1_1GSSWAligner.html#ad6bac86acf59cc8edd4969bd671fcf5d">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#a1dae3734684e38399793267a550fd1bb">vg::QualAdjAligner</a>
+, <a class="el" href="classvg_1_1GSSWAligner.html#a952bb420992b5e5e4c81388b015caf97">vg::GSSWAligner</a>
+, <a class="el" href="classvg_1_1QualAdjAligner.html#a2b8898f04397d773b73b3c32ae9b74b8">vg::QualAdjAligner</a>
 </li>
 <li>score_gap()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a616923bd568fa23d20c0e3a019d650ea">vg::GSSWAligner</a>
@@ -400,6 +408,11 @@ $(function() {
 : <a class="el" href="classvg_1_1Viz.html#a2f5862e76ca098060b503d03de76c024">vg::Viz</a>
 , <a class="el" href="classxg_1_1XG.html#a7eadd7681a21479f7f31c240047cdffe">xg::XG</a>
 </li>
+<li>seq_offset
+: <a class="el" href="structvg_1_1MatchPos.html#a85fc0d2a7af86db887d649d3c968755e">vg::MatchPos</a>
+, <a class="el" href="structvg_1_1WFAAlignment.html#a1fc0e09c8462c5aa10d4f0acbc2a8f2d">vg::WFAAlignment</a>
+, <a class="el" href="structvg_1_1WFAPoint.html#a14ceda5614586a0e3ef44b729ad179c0">vg::WFAPoint</a>
+</li>
 <li>SeqComplexity()
 : <a class="el" href="structvg_1_1SeqComplexity.html#a18ab1a3d85623f42d1e8848fcf94846d">vg::SeqComplexity&lt; MaxOrder &gt;</a>
 </li>
@@ -415,6 +428,7 @@ $(function() {
 , <a class="el" href="structvg_1_1Node.html#a9a0e8995bc48aa5e24977d1bd20e91a3">vg::Node</a>
 , <a class="el" href="structvg_1_1PathIndex.html#a0b807b5252299d9b0f1c9168079a591f">vg::PathIndex</a>
 , <a class="el" href="classvg_1_1Sampler.html#a355de4870a71a88834406f3e7f297272">vg::Sampler</a>
+, <a class="el" href="classvg_1_1WFATree.html#abbd67ff2f910ad5a4c0c1f49b10394a5">vg::WFATree</a>
 </li>
 <li>sequence_id
 : <a class="el" href="structvg_1_1GFFRecord.html#a91b952a4d9d5c4f44e6def80e33073c8">vg::GFFRecord</a>
@@ -785,6 +799,7 @@ $(function() {
 , <a class="el" href="classvg_1_1SnarlState.html#a02f1d46e384b6617ad43f2390fe0ef98">vg::SnarlState</a>
 , <a class="el" href="classvg_1_1SparseUnionFind.html#a85bfb663efac82a593533bd58890c615">vg::SparseUnionFind</a>
 , <a class="el" href="classvg_1_1VG.html#a9e3720ce267c8167ce679a015063dab6">vg::VG</a>
+, <a class="el" href="classvg_1_1WFATree.html#a333bb155a208e47bb86e08ed249679cd">vg::WFATree</a>
 </li>
 <li>Skip()
 : <a class="el" href="classvg_1_1io_1_1BlockedGzipInputStream.html#af3849b5292df406dec93738920615987">vg::io::BlockedGzipInputStream</a>
@@ -799,7 +814,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SmallBitset.html#a8e787b217e48311220e91f7fd191fe14">vg::SmallBitset</a>
 </li>
 <li>SmallBitset()
-: <a class="el" href="classvg_1_1SmallBitset.html#ae09de51997e95c9c7c85650748e6d9ab">vg::SmallBitset</a>
+: <a class="el" href="classvg_1_1SmallBitset.html#afcefdbe6a3f708ded8d874537ba0616f">vg::SmallBitset</a>
 </li>
 <li>SmallSnarlSimplifier()
 : <a class="el" href="classvg_1_1SmallSnarlSimplifier.html#ae19c2fcf37820ed9112671fbc7e64033">vg::SmallSnarlSimplifier</a>
@@ -902,13 +917,13 @@ $(function() {
 </li>
 <li>SnarlIndex
 : <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a840981c535f0ee72ad44a29f40364c24">vg::MinimumDistanceIndex</a>
-, <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#aacc124286d1779d7ed0068d7de54aa1a">vg::MinimumDistanceIndex::SnarlIndex</a>
+, <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#abcc657eeec61bd2fdaf0aeb01e50b741">vg::MinimumDistanceIndex::SnarlIndex</a>
 </li>
 <li>snarlmanager
 : <a class="el" href="classvg_1_1PathBasedTraversalFinder.html#a905239f50078de78279dd9f0ff82faf3">vg::PathBasedTraversalFinder</a>
 </li>
 <li>SnarlManager()
-: <a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">vg::SnarlManager</a>
+: <a class="el" href="classvg_1_1SnarlManager.html#a61b2b80def0128deea2d2da4886b955e">vg::SnarlManager</a>
 </li>
 <li>SnarlMinDistance()
 : <a class="el" href="classvg_1_1SnarlMinDistance.html#adc8c303e683b90d923c522790355abad">vg::SnarlMinDistance</a>
@@ -925,7 +940,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a580011ffaaa65265389daaad29189535">vg::MinimumDistanceIndex::ChainIndex</a>
 , <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a580011ffaaa65265389daaad29189535">vg::MinimumDistanceIndex::SnarlIndex</a>
 , <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a580011ffaaa65265389daaad29189535">vg::MinimumDistanceIndex</a>
-, <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a0d509b0a72cf8bc1345eef47b8b930b4">vg::SnarlSeedClusterer</a>
+, <a class="el" href="classvg_1_1SnarlSeedClusterer.html#abc81a8df842dbb4a6af1363748665b75">vg::SnarlSeedClusterer</a>
 </li>
 <li>SnarlState()
 : <a class="el" href="classvg_1_1SnarlState.html#a14db6ed9f20936f71de90d0d12f92468">vg::SnarlState</a>
@@ -1014,10 +1029,10 @@ $(function() {
 : <a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html#a8e546a34b4f2155fe6fb916123a0135d">vg::SplicedHTSAlignmentEmitter</a>
 </li>
 <li>SpliceRegion()
-: <a class="el" href="classvg_1_1SpliceRegion.html#a3ca49fd7bedbe0b97117f87f7a5edba4">vg::SpliceRegion</a>
+: <a class="el" href="classvg_1_1SpliceRegion.html#a5935bbc5e17cceae08ee9ef0b91b9abe">vg::SpliceRegion</a>
 </li>
 <li>SpliceStats()
-: <a class="el" href="classvg_1_1SpliceStats.html#ac508ff2143cf8296531945e7674702bc">vg::SpliceStats</a>
+: <a class="el" href="classvg_1_1SpliceStats.html#a1808c3a4e73d0be56de7caca04142b01">vg::SpliceStats</a>
 </li>
 <li>SpliceStrand
 : <a class="el" href="classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd">vg::MultipathMapper</a>
@@ -1027,7 +1042,7 @@ $(function() {
 , <a class="el" href="structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9aaf22613489ec859693457e82fd026e3b">vg::Counts</a>
 </li>
 <li>split_multicomponent_alignments()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a9257a7f9cc75ddd76a8daef803f2d031">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#af91f97b8331648b4df7587a461ca36b2">vg::MultipathMapper</a>
 </li>
 <li>split_read_filter()
 : <a class="el" href="classvg_1_1Filter.html#a0bc2a72604a0cb134c1f5bad7889a1bf">vg::Filter</a>
@@ -1146,6 +1161,7 @@ $(function() {
 , <a class="el" href="structvg_1_1GaplessExtension.html#a1b799cab247ae9b2551e902a9f7f2b25">vg::GaplessExtension</a>
 , <a class="el" href="classvg_1_1GenomeState.html#ab0f68d58776dcd18a1ef85409a29e452">vg::GenomeState</a>
 , <a class="el" href="classvg_1_1Watchdog.html#a0cecf66da11a5f71e837a9d1b6f6c291">vg::Watchdog</a>
+, <a class="el" href="structvg_1_1WFANode.html#ac59b2dd030133cc65cc0bf47af486ef0">vg::WFANode</a>
 </li>
 <li>state_type
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#a95529e399d5ef61f6a426e1b5cfe9237">vg::PhaseUnfolder</a>
@@ -1220,7 +1236,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1streamistream.html#a0b87c404670f610d20f49f1e2c166648">vg::io::streamistream</a>
 </li>
 <li>StreamMultiplexer()
-: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#ae72f4179a6cb14beb1b6460603d88233">vg::io::StreamMultiplexer</a>
+: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#af8352f0fcbb63f162734d48d2ec573ce">vg::io::StreamMultiplexer</a>
 </li>
 <li>StreamSorter()
 : <a class="el" href="classvg_1_1StreamSorter.html#a0abd72f6a1ec534bb2071b3389231d97">vg::StreamSorter&lt; Message &gt;</a>
@@ -1259,7 +1275,7 @@ $(function() {
 : <a class="el" href="classvg_1_1ReadFilter.html#a529c0b978b3855bab3dc1074fd18a711">vg::ReadFilter&lt; Read &gt;</a>
 </li>
 <li>Subcommand()
-: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad5faf589dd98c3ff0c0d1071fcf90090">vg::subcommand::Subcommand</a>
+: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad2cb9a00761644300914d9ed8439cbe1">vg::subcommand::Subcommand</a>
 </li>
 <li>subgraph
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#aae76f24549ed2f49dc12176f46dfea8d">vg::GraphSynchronizer::Lock</a>
@@ -1289,7 +1305,7 @@ $(function() {
 : <a class="el" href="classvg_1_1multipath__alignment__t.html#a3b6820ac77fa5438c55300ba1eb7a97d">vg::multipath_alignment_t</a>
 </li>
 <li>subpath_t()
-: <a class="el" href="classvg_1_1subpath__t.html#a17ac16fd98564bfa3ab34e9b9b20517e">vg::subpath_t</a>
+: <a class="el" href="classvg_1_1subpath__t.html#a096b12ec158dd2cf139dbe38f55ca2f3">vg::subpath_t</a>
 </li>
 <li>subpath_to_length
 : <a class="el" href="classvg_1_1HTSWriter.html#a24dca4e57dcfb498da8f18946194f600">vg::HTSWriter</a>
@@ -1309,8 +1325,12 @@ $(function() {
 <li>substage_stop()
 : <a class="el" href="classvg_1_1Funnel.html#ab5934891f37d57dc9309e5b0e9f80d9e">vg::Funnel</a>
 </li>
+<li>successor_offset()
+: <a class="el" href="classvg_1_1WFATree.html#a33c5e80cc73d5367a95343deb20d8dac">vg::WFATree</a>
+</li>
 <li>suffix
 : <a class="el" href="classvg_1_1IndexFile.html#acc1a7b94cb2a464d4941e7092aa83612">vg::IndexFile</a>
+, <a class="el" href="classvg_1_1WFAExtender.html#a73ca61152596774e30d6c6f40aeea984">vg::WFAExtender</a>
 </li>
 <li>suffixes
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#a8e235a2b6022ec40a6e66c63c8dd1df0">vg::PhaseUnfolder</a>
@@ -1363,7 +1383,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Viz.html#ad93aa239a30c3b7a017348e22f184b85">vg::Viz</a>
 </li>
 <li>surject()
-: <a class="el" href="classvg_1_1Surjector.html#a265cf90a6fb12021a70b87ec647c0867">vg::Surjector</a>
+: <a class="el" href="classvg_1_1Surjector.html#a4e4e4c28b1313850e647f4d258a0ea82">vg::Surjector</a>
 </li>
 <li>surject_alignments_in_place()
 : <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5ba8aab649ae5f31c64be2c5461c743c">vg::SurjectingAlignmentEmitter</a>
@@ -1405,10 +1425,10 @@ $(function() {
 : <a class="el" href="classvg_1_1PhasedGenome.html#a181b4e71f8debc78ceccf476ce36abcd">vg::PhasedGenome</a>
 </li>
 <li>swap_node_id()
-: <a class="el" href="classvg_1_1VG.html#afee31880eaf65a1a6d1a250663271b54">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a63f2ffa39d84f80e5ab8068a25a03ee9">vg::VG</a>
 </li>
 <li>swap_node_ids()
-: <a class="el" href="classvg_1_1Paths.html#aba01c4d1b1d415622634db97f62b1188">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a3190f22ab39a9039ec9288e1c065ca9c">vg::Paths</a>
 </li>
 <li>swap_nodes()
 : <a class="el" href="classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3">vg::VG</a>

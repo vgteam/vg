@@ -72,14 +72,13 @@ $(function() {
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
-<a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="classvg_1_1GaplessExtender-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::GaplessExtender Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;gapless_extender.hpp&gt;</code></p>
+<p><code>#include &lt;gbwt_extender.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
@@ -98,10 +97,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aaebc8d221df2787a68023fce2d99290a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a299703b0831263ee49626f4309ad6889"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a299703b0831263ee49626f4309ad6889">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph *cache=nullptr, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, double overlap_threshold=<a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a>) const</td></tr>
 <tr class="separator:a299703b0831263ee49626f4309ad6889"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad7c50fb56db47cdcd112ef0d4b40a6e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ad7c50fb56db47cdcd112ef0d4b40a6e2">unfold_haplotypes</a> (const std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths, bdsg::HashGraph &amp;unfolded, const gbwtgraph::CachedGBWTGraph *cache=nullptr) const</td></tr>
-<tr class="separator:ad7c50fb56db47cdcd112ef0d4b40a6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae97368246f0be8630c0247324576cbfd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ae97368246f0be8630c0247324576cbfd">transform_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths) const</td></tr>
-<tr class="separator:ae97368246f0be8630c0247324576cbfd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -129,8 +124,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a8780650e736d01abf2dd910a3dd235c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac041ad7cec145f55b68442ac58aeaeed"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed">aligner</a></td></tr>
 <tr class="separator:ac041ad7cec145f55b68442ac58aeaeed"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad94f1c3994aa856c06d795d9e0658ecb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ad94f1c3994aa856c06d795d9e0658ecb">mask</a></td></tr>
-<tr class="separator:ad94f1c3994aa856c06d795d9e0658ecb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9824f8144fd4f3515c7333fbeb6e2afd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1ReadMasker.html">ReadMasker</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a9824f8144fd4f3515c7333fbeb6e2afd">mask</a></td></tr>
+<tr class="separator:a9824f8144fd4f3515c7333fbeb6e2afd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -139,13 +134,6 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:aaa77a2fc74630664d12527818826e28b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d436577897604304729afc521928ee8"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a> = 0.8</td></tr>
 <tr class="separator:a3d436577897604304729afc521928ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
-<tr class="memitem:ab7d6b2b3636e1decd561871b36950dd2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ab7d6b2b3636e1decd561871b36950dd2">init_mask</a> ()</td></tr>
-<tr class="separator:ab7d6b2b3636e1decd561871b36950dd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a17fe5ccc4a4a09de4672776564a05501"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a17fe5ccc4a4a09de4672776564a05501">mask_sequence</a> (std::string &amp;sequence) const</td></tr>
-<tr class="separator:a17fe5ccc4a4a09de4672776564a05501"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is an unordered set of distinct seeds. Seeds in the same node with the same (read_offset - node_offset) difference are considered equivalent. <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> also needs an <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object for scoring the extension candidates. </p>
@@ -203,9 +191,6 @@ Private Member Functions</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">vg::GaplessExtender::GaplessExtender </td>
@@ -225,11 +210,6 @@ Private Member Functions</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">explicit</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 <p>Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given GBWTGraph and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects. </p>
@@ -433,57 +413,6 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ab7d6b2b3636e1decd561871b36950dd2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab7d6b2b3636e1decd561871b36950dd2">&#9670;&nbsp;</a></span>init_mask()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::GaplessExtender::init_mask </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a17fe5ccc4a4a09de4672776564a05501"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a17fe5ccc4a4a09de4672776564a05501">&#9670;&nbsp;</a></span>mask_sequence()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::GaplessExtender::mask_sequence </td>
-          <td>(</td>
-          <td class="paramtype">std::string &amp;&#160;</td>
-          <td class="paramname"><em>sequence</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a5b141ee05b0f704d29e9f34de8c67a32"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5b141ee05b0f704d29e9f34de8c67a32">&#9670;&nbsp;</a></span>to_seed()</h2>
 
@@ -522,76 +451,6 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ae97368246f0be8630c0247324576cbfd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae97368246f0be8630c0247324576cbfd">&#9670;&nbsp;</a></span>transform_alignment()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::GaplessExtender::transform_alignment </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>haplotype_paths</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Transform an alignment to a single node in the <a class="el" href="classvg_1_1GaplessExtender.html#ad7c50fb56db47cdcd112ef0d4b40a6e2">unfold_haplotypes()</a> graph to an alignment to the corresponding path in the original graph. </p>
-
-</div>
-</div>
-<a id="ad7c50fb56db47cdcd112ef0d4b40a6e2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad7c50fb56db47cdcd112ef0d4b40a6e2">&#9670;&nbsp;</a></span>unfold_haplotypes()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::GaplessExtender::unfold_haplotypes </td>
-          <td>(</td>
-          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>subgraph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>haplotype_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bdsg::HashGraph &amp;&#160;</td>
-          <td class="paramname"><em>unfolded</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwtgraph::CachedGBWTGraph *&#160;</td>
-          <td class="paramname"><em>cache</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Find the distinct local haplotypes in the given subgraph and return the corresponding paths. For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence corresponding to the path and node 2i + 2 with the reverse complement of the sequence. Use the provided CachedGBWTGraph or allocate a new one. </p>
-
-</div>
-</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="ac041ad7cec145f55b68442ac58aeaeed"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac041ad7cec145f55b68442ac58aeaeed">&#9670;&nbsp;</a></span>aligner</h2>
@@ -621,14 +480,14 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ad94f1c3994aa856c06d795d9e0658ecb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad94f1c3994aa856c06d795d9e0658ecb">&#9670;&nbsp;</a></span>mask</h2>
+<a id="a9824f8144fd4f3515c7333fbeb6e2afd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9824f8144fd4f3515c7333fbeb6e2afd">&#9670;&nbsp;</a></span>mask</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;char&gt; vg::GaplessExtender::mask</td>
+          <td class="memname"><a class="el" href="classvg_1_1ReadMasker.html">ReadMasker</a> vg::GaplessExtender::mask</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -683,8 +542,8 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following files:<ul>
-<li>src/<a class="el" href="gapless__extender_8hpp.html">gapless_extender.hpp</a></li>
-<li>src/<a class="el" href="gapless__extender_8cpp.html">gapless_extender.cpp</a></li>
+<li>src/<a class="el" href="gbwt__extender_8hpp.html">gbwt_extender.hpp</a></li>
+<li>src/<a class="el" href="gbwt__extender_8cpp.html">gbwt_extender.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
