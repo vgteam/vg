@@ -10,26 +10,6 @@
 namespace vg {
 namespace unittest {
 
-/// Generate an Alignment that all the given extensions could be against the sequence of
-static Alignment fake_alignment(const vector<GaplessExtension>& extensions) {
-    
-    // Work out how many bases we need
-    size_t max_length = 0;
-    for (auto& extension : extensions) {
-        max_length = std::max(max_length, extension.read_interval.second);
-    }
-    // Generate them
-    stringstream s;
-    for (size_t i = 0; i < max_length; i++) {
-        s << "A";
-    }
-    
-    // Wrap in an Alignment
-    Alignment aln;
-    aln.set_sequence(s.str());
-    return aln;
-}
-
 /// Turn inline test data of start and end positions and scores into GaplessExtensions
 static vector<GaplessExtension> fake_extensions(const vector<tuple<size_t, size_t, int>>& test_data) {
     vector<GaplessExtension> to_score;
@@ -130,7 +110,6 @@ TEST_CASE("score_best_chain scores no gapless extensions as 0", "[chain_items][s
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == 0);
 }
 
@@ -138,7 +117,6 @@ TEST_CASE("score_best_chain scores a 1-base gapless extension as 1", "[chain_ite
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == 1);
 }
 
@@ -147,7 +125,6 @@ TEST_CASE("score_best_chain scores two adjacent 1-base gapless extensions as 2",
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
                                      {2, 3, 1}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == 2);
 }
 
@@ -155,7 +132,6 @@ TEST_CASE("score_best_chain scores one 9-base extension as 9", "[chain_items][sc
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == 9);
 }
 
@@ -164,7 +140,6 @@ TEST_CASE("score_best_chain scores two abutting 9-base extensions correctly", "[
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {10, 19, 9}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9));
 }
 
@@ -173,7 +148,6 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 1-base g
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6));
 }
 
@@ -182,7 +156,6 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base g
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6 - 1));
 }
 
@@ -191,7 +164,6 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap c
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6));
 }
 
@@ -200,7 +172,6 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap c
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
-    auto aln = fake_alignment(to_score);
     REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6 - 1));
 }
 
@@ -212,7 +183,6 @@ TEST_CASE("score_best_chain scores correctly when other overlapping extensions e
         plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
     auto to_score = fake_extensions(plan);
-    auto aln = fake_alignment(to_score);
     // We should get a 1-base extension and two 30-base extensions
     REQUIRE(algorithms::score_best_chain(to_score, space) == (1 + 30 + 30));
 }
@@ -225,7 +195,6 @@ TEST_CASE("score_best_chain scores a backtrack correctly when other overlapping 
         plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
     auto to_score = fake_extensions(plan);
-    auto aln = fake_alignment(to_score);
     // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
     REQUIRE(algorithms::score_best_chain(to_score, space) == (1 + 30 + 45 - 6 - 2));
 }
@@ -241,7 +210,6 @@ TEST_CASE("score_best_chain scores a backtrack correctly when even more overlapp
         plan.emplace_back(i, i + 15, 15);
     }
     auto to_score = fake_extensions(plan);
-    auto aln = fake_alignment(to_score);
     // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
     REQUIRE(algorithms::score_best_chain(to_score, space) == (1 + 30 + 45 - 6 - 2));
 }
@@ -251,7 +219,6 @@ TEST_CASE("find_best_chain chains no gapless extensions as 0", "[chain_items][fi
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == 0);
     REQUIRE(result.second.size() == 0);
@@ -261,7 +228,6 @@ TEST_CASE("find_best_chain chains a 1-base gapless extension as 1", "[chain_item
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == 1);
     REQUIRE(result.second.at(0) == 0);
@@ -272,7 +238,6 @@ TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as 2", 
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
                                      {2, 3, 1}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == 2);
     REQUIRE(result.second.at(0) == 0);
@@ -283,7 +248,6 @@ TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][fin
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == 9);
     REQUIRE(result.second.at(0) == 0);
@@ -294,7 +258,6 @@ TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[c
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {10, 19, 9}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second.at(0) == 0);
@@ -306,7 +269,6 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base ga
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
@@ -318,7 +280,6 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base ga
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6 - 1));
     REQUIRE(result.second.at(0) == 0);
@@ -330,7 +291,6 @@ TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap co
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
@@ -342,7 +302,6 @@ TEST_CASE("find_best_chain chains two 9-base extensions with a 2-base overlap co
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
-    auto aln = fake_alignment(to_score);
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6 - 1));
     REQUIRE(result.second.at(0) == 0);
@@ -357,7 +316,6 @@ TEST_CASE("find_best_chain chains correctly when other overlapping extensions ex
         plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
     auto to_score = fake_extensions(plan);
-    auto aln = fake_alignment(to_score);
     // We should get a 1-base extension and two 30-base extensions
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (1 + 30 + 30));
@@ -374,7 +332,6 @@ TEST_CASE("find_best_chain chains a backtrack correctly when other overlapping e
         plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
     auto to_score = fake_extensions(plan);
-    auto aln = fake_alignment(to_score);
     // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (1 + 30 + 45 - 6 - 2));
@@ -394,7 +351,6 @@ TEST_CASE("find_best_chain chains a backtrack correctly when even more overlappi
         plan.emplace_back(i, i + 15, 15);
     }
     auto to_score = fake_extensions(plan);
-    auto aln = fake_alignment(to_score);
     // We should get a 1-base extension, a 30-base extension, a backtrack of 3,
     // and a 45-base extension, or the equivalently-scored 1-base extension,
     // 30-base extension, backtrack of 18, 15 base extension, 45 base
@@ -429,10 +385,9 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
                                      {10, 19, {h1}, 10, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
@@ -451,10 +406,9 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
                                      {10, 19, {h1}, 11, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
@@ -473,10 +427,9 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
                                      {11, 20, {h1}, 10, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
@@ -508,10 +461,9 @@ TEST_CASE("find_best_chain chains two extensions that abut over multiple nodes c
     //  *** **** **
     //             ** **** ***
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
                                      {10, 19, {h3, h4, h5}, 2, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
@@ -543,10 +495,9 @@ TEST_CASE("find_best_chain chains two extensions that abut in graph with a gap i
     //  *** **** **
     //             ** **** ***
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
                                      {11, 20, {h3, h4, h5}, 2, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
@@ -578,10 +529,9 @@ TEST_CASE("find_best_chain chains two extensions that abut in read with a gap in
     //  *** **** **
     //              * **** ****
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
                                      {10, 19, {h3, h4, h5}, 3, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
@@ -613,14 +563,17 @@ TEST_CASE("find_best_chain chains two extensions that have gaps of different siz
     //  *** **** **
     //              * **** ****
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
                                      {12, 21, {h3, h4, h5}, 3, 9}});
-    auto aln = fake_alignment(to_score);
+    
+    // Gap in graph is 1 and gap in read is 2
+    REQUIRE(space.get_graph_distance(to_score[0], to_score[1]) == 1);
+    REQUIRE(space.get_read_distance(to_score[0], to_score[1]) == 2);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
-    // Gap in grapoh is 1 and gap in read is 2 so we pay 1 gap open
+    // So we pay 1 gap open, the difference in gap length.
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
@@ -649,10 +602,9 @@ TEST_CASE("find_best_chain chains two extensions that overlap the same amount in
     //  *** **** **
     //         * **** ****
     
-    // Set up extensions and alignment
+    // Set up extensions
     auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
                                      {7, 16, {h2, h3, h4}, 3, 9}});
-    auto aln = fake_alignment(to_score);
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);

@@ -910,22 +910,30 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                     size_t read_overlap = space.get_read_overlap(to_chain[ST::source(overlap_option)], to_chain[unentered]);
                     if (graph_overlap > read_overlap) {
                         // They overlap in the graph more than they do in the read.
-                        // We don't want to charge for the overlap in the read, we just want to charge for the additional overlap in the graph.
-                        // We have (read overlap - 1) extend penalties, and we want (graph overlap - read overlap - 1) of them.
-                        // (graph overlap - read overlap - 1) - (read overlap - 1) = graph overlap - 2 * read overlap
-                        // Which is how many penalties to charge
-                        overlap_option = ST::add_points(overlap_option, -space.scoring.gap_extension * graph_overlap + space.scoring.gap_extension * 2 * read_overlap);
+                        // We know read overlap is positive or we wouldn't be considering taking an overlap in the read.
+                        assert(read_overlap > 0);
+                        // Back out the extra gap extensions
+                        overlap_option = ST::add_points(overlap_option, space.scoring.gap_extension * (graph_overlap - read_overlap));
                         // TODO: We need to not double-count the matches right?
                         // When we go to synthesize an actual alignment we can cut out the double-matched area and match it only one place.
+#ifdef debug_chaining
+                        cerr << "Graph overlap exceeds read overlap (" << graph_overlap << " > " << read_overlap << "), charge only difference: " << overlap_option << endl;
+#endif
                     } else if (graph_overlap == read_overlap) {
                         // They overlap in the graph exactly as much as they do in the read.
                         // Back out the whole read gap
                         overlap_option = ST::add_points(overlap_option, space.scoring.gap_open + space.scoring.gap_extension * (read_overlap - 1));
                         // TODO: We need to not double-count the matches right?
+#ifdef debug_chaining
+                        cerr << "Graph overlap equals read overlap (" << graph_overlap << " = " << read_overlap << "), do not charge for gap: " << overlap_option << endl;
+#endif
                     } else if (graph_overlap > 0) {
                         // They overlap in the graph but less than they do in the read.
                         // Back out some of the read gap
                         overlap_option = ST::add_points(overlap_option, space.scoring.gap_extension * (read_overlap - graph_overlap));
+#ifdef debug_chaining
+                        cerr << "Graph overlap is smaller than read overlap (" << graph_overlap << " < " << read_overlap << "), charge only difference: " << overlap_option << endl;
+#endif
                     } else {
                         // They don't overlap in the graph at all; they might abut or be separated or be unreachable.
                         
@@ -937,9 +945,15 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                             // TODO: check if we can get between the points on either side of the overlapped area instead?
                             // Right now just say we can't make this connection.
                             overlap_option = ST::unset();
+#ifdef debug_chaining
+                            cerr << "Overlap option is actually unreachable in the graph: " << overlap_option << endl;
+#endif
                         } else {
                             // We need to charge for this extra graph distance being deleted, in addition to what we charge for the existing overlap gap.
                             overlap_option = ST::add_points(overlap_option, -space.scoring.gap_extension * graph_distance);
+#ifdef debug_chaining
+                            cerr << "Graph overlap is actually a distance of " << graph_distance << " vs. read overlap of " << read_overlap << ", charge for additional distance: " << overlap_option << endl;
+#endif
                         }
                     }
                 }
@@ -954,23 +968,39 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                         // So say we can't actually do this.
                         gap_option = ST::unset();
                     } else {
-                        // Compare to the read distance
-                        size_t read_distance = space.get_read_distance(to_chain[unentered], to_chain[ST::source(gap_option)]);
+                        // Compare to the read distance in the same order
+                        size_t read_distance = space.get_read_distance(to_chain[ST::source(gap_option)], to_chain[unentered]);
                         if (graph_distance == read_distance) {
                             // This is actually even length.
                             // Charge nothing for the gap by backing out the penalty.
-                        } else if (graph_distance > read_distance) {
-                            // Graph distance is longer.
-                            // We have (read distance - 1) extend penalties, and we want (graph distance - read distance - 1) of them.
-                            // (graph distance - read distance - 1) - (read distance - 1) = graph distance - 2 * read distance
-                            // Which is how many penalties to charge
-                            gap_option = ST::add_points(gap_option, -space.scoring.gap_extension * graph_distance + space.scoring.gap_extension * 2 * read_distance);
+                            gap_option = ST::add_points(gap_option, space.scoring.gap_open + space.scoring.gap_extension * (graph_distance - 1));
+#ifdef debug_chaining
+                            cerr << "Graph gap is equal to read gap (" << graph_distance << " = " << read_distance << "), do not charge for gap: " << gap_option << endl;
+#endif
+                        } else if (graph_distance > read_distance && read_distance > 0) {
+                            // Graph distance is longer, but read distance is positive.
+                            // Back out what we charged for the extra extensions.
+                            gap_option = ST::add_points(gap_option, space.scoring.gap_extension * (graph_distance - read_distance));
+#ifdef debug_chaining
+                            cerr << "Graph gap exceeds read gap (" << graph_distance << " > " << read_distance << "), charge only difference: " << gap_option << endl;
+#endif
+                        } else if (read_distance == 0) {
+                            // This isn't really a gap-in-read option, we're
+                            // just looking at the gap started from the thing
+                            // we come right after.
+                            gap_option = ST::unset();
+#ifdef debug_chaining
+                            cerr << "Read gap just started and would be length 0, so prohibit it: " << gap_option << endl;
+#endif
                         } else {
                             // Read distance is longer.
                             // Back out extend penalties from the part of
                             // the gap that the graph also has, leaving
                             // only the remaining surplus read gap.
                             gap_option = ST::add_points(gap_option, space.scoring.gap_extension * graph_distance);
+#ifdef debug_chaining
+                            cerr << "Graph gap is smaller than read gap (" << graph_distance << " < " << read_distance << "), charge only difference: " << gap_option << endl;
+#endif
                         }
                     }
                 }
@@ -983,13 +1013,23 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                     if (graph_distance == numeric_limits<size_t>::max()) {
                         // This is actually unreachable in the graph.
                         // So say we can't actually do this.
+                        // TODO: might be better to do this as an overlap in the graph if we can?
                         here_option = ST::unset();
+#ifdef debug_chaining
+                        cerr << "Adjacency in read is unreachable in graph: " << here_option << endl;
+#endif
                     } else if (graph_distance > 0) { 
                         // There's a gap in the graph but not in the read.
                         // Charge for the gap
                         here_option = ST::add_points(here_option, -space.scoring.gap_open - space.scoring.gap_extension * (graph_distance - 1));
+#ifdef debug_chaining
+                        cerr << "Adjacency in read is a gap of " << graph_distance << " in graph, charge for gap: " << here_option << endl;
+#endif
                     } else {
-                        // These abut in the read and the graph, so do nothing
+                        // These abut in the read and the graph, so do nothing.
+#ifdef debug_chaining
+                        cerr << "Adjacency in read is adjacency in graph: " << here_option << endl;
+#endif
                     }
                 }
                 
