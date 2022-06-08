@@ -958,7 +958,7 @@ namespace {
 
 gbwt::GBWT wfa_linear_gbwt() {
     std::vector<gbwt::vector_type> paths;
-    paths.push_back(gbwt::vector_type());
+    paths.emplace_back();
     paths.back().push_back(gbwt::Node::encode(1, false));
     paths.back().push_back(gbwt::Node::encode(2, false));
     paths.back().push_back(gbwt::Node::encode(3, false));
@@ -972,6 +972,65 @@ gbwtgraph::GBWTGraph wfa_linear_graph(const gbwt::GBWT& index) {
     source.add_node(2, "GATTACA");
     source.add_node(3, "GATTA");
     source.add_node(4, "TAT");
+    return gbwtgraph::GBWTGraph(index, source);
+}
+
+gbwt::GBWT wfa_general_gbwt() {
+    std::vector<gbwt::vector_type> paths;
+
+    // Path that makes the first choice.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(3, false));
+    paths.back().push_back(gbwt::Node::encode(5, false));
+    paths.back().push_back(gbwt::Node::encode(6, false));
+    paths.back().push_back(gbwt::Node::encode(8, false));
+    paths.back().push_back(gbwt::Node::encode(9, false));
+    paths.back().push_back(gbwt::Node::encode(11, false));
+
+    // Path that makes the second choice.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(4, false));
+    paths.back().push_back(gbwt::Node::encode(5, false));
+    paths.back().push_back(gbwt::Node::encode(7, false));
+    paths.back().push_back(gbwt::Node::encode(8, false));
+    paths.back().push_back(gbwt::Node::encode(10, false));
+    paths.back().push_back(gbwt::Node::encode(11, false));
+
+    return get_gbwt(paths);
+}
+
+gbwtgraph::GBWTGraph wfa_general_graph(const gbwt::GBWT& index) {
+    gbwtgraph::SequenceSource source;
+
+    // Start.
+    source.add_node(1, "CGC");
+    source.add_node(2, "GATTACA");
+
+    // Simple bubble.
+    source.add_node(3, "G");
+    source.add_node(4, "C");
+
+    // Middle.
+    source.add_node(5, "ATTA");
+
+    // Nondeterministic bubble.
+    source.add_node(6, "TG");
+    source.add_node(7, "TC");
+
+    // Middle.
+    source.add_node(8, "GAA");
+
+    // Bubble that depends on the nondeterministic choice.
+    source.add_node(9, "CAT");
+    source.add_node(10, "GTA");
+
+    // End.
+    source.add_node(11, "TAT");
+
     return gbwtgraph::GBWTGraph(index, source);
 }
 
@@ -1371,7 +1430,7 @@ TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Special cases in a linear graph") {
+TEST_CASE("Special cases in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
     gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
@@ -1409,9 +1468,9 @@ TEST_CASE("Special cases in a linear graph") {
     }
 
     SECTION("Mixed edits") {
-        // MMMMXM|MMDDM
-        std::string sequence("ATTAGAGAA");
-        pos_t from(2, false, 1); pos_t to(3, false, 4);
+        // MMMMXM|MMDDM|MM
+        std::string sequence("ATTAGAGAATA");
+        pos_t from(2, false, 1); pos_t to(4, false, 1);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
         check_alignment(result, sequence, graph, aligner, &from, &to);
@@ -1423,15 +1482,6 @@ TEST_CASE("Special cases in a linear graph") {
         pos_t from(2, false, 0); pos_t to(2, false, 6);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
-        check_alignment(result, sequence, graph, aligner, &from, &to);
-    }
-
-    SECTION("Ins + del beats mismatches") {
-        // MMM|MMMMIIIIIIDDD|DDDMM|MMM
-        std::string sequence("CGCGATTacagatTATAT");
-        pos_t from(2, false, 0); pos_t to(3, false, 4);
-        WFAAlignment result = extender.connect(sequence, from, to);
-        check_score(result, aligner, sequence.length() - 6, 0, 2, 12);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
@@ -1506,6 +1556,15 @@ TEST_CASE("Prefixes in a linear graph", "[wfa_extender]") {
         pos_t to(3, false, 4);
         WFAAlignment result = extender.prefix(sequence, to);
         check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Trim the prefix") {
+        // ------|MMMMM
+        std::string sequence("TTTTTTGATTA");
+        pos_t to(3, false, 4);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 6, 0, 0, 0);
         check_alignment(result, sequence, graph, aligner, nullptr, &to);
     }
 
@@ -1601,6 +1660,15 @@ TEST_CASE("Suffixes in a linear graph", "[wfa_extender]") {
         check_alignment(result, sequence, graph, aligner, &from, nullptr);
     }
 
+    SECTION("Trim the suffix") {
+        // MMMMM|------
+        std::string sequence("GATTAAAAAAA");
+        pos_t from(3, false, 0);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 6, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
     SECTION("Run out of graph, trim") {
         // MXMM|MMM|---
         std::string sequence("AATATATCAC");
@@ -1622,7 +1690,196 @@ TEST_CASE("Suffixes in a linear graph", "[wfa_extender]") {
 
 //------------------------------------------------------------------------------
 
-// FIXME nontrivial graph
+TEST_CASE("Connect in a general graph", "[wfa_extender]") {
+    // 1   2         5       8       11
+    // CGC|GATTACA|G|ATTA|TG|GAA|CAT|TAT
+    // CGC|GATTACA|C|ATTA|TC|GAA|GTA|TAT
+    gbwt::GBWT index = wfa_general_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_general_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Exact match") {
+        std::string sequence("ACAGATTATGG");
+        pos_t from(2, false, 4); pos_t to(8, false, 0);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Mismatch") {
+        // One of these:         X     X
+        std::string sequence("ACACATTATGG");
+        pos_t from(2, false, 4); pos_t to(8, false, 0);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Mix of edits") {
+        // MMMM|D|MM|XM|MMM
+        std::string sequence("TACAATTACCGAA");
+        pos_t from(2, false, 3); pos_t to(8, false, 2);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 1, 1);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Nondeterministic choice") {
+        // MMM|MM|MXM|MMM|MM, bottom choice
+        std::string sequence("TTATCGTAGTATA");
+        pos_t from(5, false, 1); pos_t to(11, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("No haplotype connection") {
+        // Matches 6 -> 8 -> 10
+        std::string sequence("TGGAAGTA");
+        pos_t from(6, false, 0); pos_t to(10, false, 2);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Not within score bound") {
+        // M|XMMMMMM|X|MXXM
+        std::string sequence("CCATTACATAGGA");
+        pos_t from(1, false, 2); pos_t to(5, false, 3);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(result.empty());
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Prefix in a general graph", "[wfa_extender]") {
+    // 1   2         5       8       11
+    // CGC|GATTACA|G|ATTA|TG|GAA|CAT|TAT
+    // CGC|GATTACA|C|ATTA|TC|GAA|GTA|TAT
+    gbwt::GBWT index = wfa_general_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_general_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Exact match") {
+        std::string sequence("TACACAT");
+        pos_t to(5, false, 1);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Mismatch") {
+        // MMXM|M|MMM
+        std::string sequence("TAGAGATT");
+        pos_t to(5, false, 2);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Mix of edits") {
+        // M|MMMMMXM|M|MDDM|MM|MMM
+        std::string sequence("CGATTAGACAATCGAA");
+        pos_t to(8, false, 2);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Nondeterministic choice") {
+        // MMM|MXM|MM|MMM, bottom options on the reverse strand
+        std::string sequence("TACTACGATAA");
+        pos_t to(5, true, 2);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Trim the prefix") {
+        // ------|M|MMMM
+        std::string sequence("GGGGGGGATTA");
+        pos_t to(5, false, 3);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 6, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+
+    SECTION("Run out of graph, trim") {
+        // ------|MMM|MMMM
+        std::string sequence("AAAAAACGCGATT");
+        pos_t to(2, false, 3);
+        WFAAlignment result = extender.prefix(sequence, to);
+        check_score(result, aligner, sequence.length() - 6, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Suffix in a general graph", "[wfa_extender]") {
+    // 1   2         5       8       11
+    // CGC|GATTACA|G|ATTA|TG|GAA|CAT|TAT
+    // CGC|GATTACA|C|ATTA|TC|GAA|GTA|TAT
+    gbwt::GBWT index = wfa_general_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_general_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Exact match") {
+        std::string sequence("ATTATGGAA");
+        pos_t from(5, false, 0);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Mismatch") {
+        // MMM|M|MMMM|MX|M
+        std::string sequence("ACACATTATGG");
+        pos_t from(2, false, 4);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Mix of edits") {
+        // MMMXM|M|MMMD|DM|MM
+        std::string sequence("TTAGACATTCGA");
+        pos_t from(2, false, 2);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 1, 1, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Nondeterministic choice") {
+        // MM|MM|MMX|MMM|M, top options
+        std::string sequence("TATGGATCATT");
+        pos_t from(5, false, 2);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Trim the suffix") {
+        // MMM|MM|------
+        std::string sequence("GAAGTCCCCCC");
+        pos_t from(8, false, 0);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 6, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+
+    SECTION("Run out of graph, trim") {
+        // M|MMM|MMM|-------
+        std::string sequence("AGTATATAAAAAAA");
+        pos_t from(8, false, 2);
+        WFAAlignment result = extender.suffix(sequence, from);
+        check_score(result, aligner, sequence.length() - 7, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+}
 
 //------------------------------------------------------------------------------
 

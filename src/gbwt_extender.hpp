@@ -332,7 +332,7 @@ public:
      *
      * NOTE: This creates a suffix of the alignment by aligning a prefix of
      * the sequence.
-     * FIXME: Should we use full-length bonuses?
+     * TODO: Should we use full-length bonuses?
      */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
 
@@ -344,7 +344,7 @@ public:
      *
      * NOTE: This creates a prefix of the alignment by aligning a suffix of
      * the sequence.
-     * FIXME: Should we use full-length bonuses?
+     * TODO: Should we use full-length bonuses?
      */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 
