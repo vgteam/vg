@@ -1,8 +1,8 @@
-#ifndef VG_GAPLESS_EXTENDER_HPP_INCLUDED
-#define VG_GAPLESS_EXTENDER_HPP_INCLUDED
+#ifndef VG_GBWT_EXTENDER_HPP_INCLUDED
+#define VG_GBWT_EXTENDER_HPP_INCLUDED
 
 /** \file 
- * Haplotype-consistent gapless seed extension.
+ * Haplotype-consistent seed extension in GBWTGraph.
  */
 
 #include <functional>
@@ -10,7 +10,6 @@
 
 #include "aligner.hpp"
 
-#include <bdsg/hash_graph.hpp>
 #include <gbwtgraph/cached_gbwtgraph.h>
 
 namespace vg {
@@ -103,6 +102,25 @@ struct GaplessExtension
 //------------------------------------------------------------------------------
 
 /**
+ * An utility class that masks all characters except the specified ones with X,
+ * which is assumed to not exist in the alignment target.
+ */
+class ReadMasker {
+public:
+    /// Creates a new ReadMasker that masks all characters except the specified
+    /// ones.
+    explicit ReadMasker(const std::string& valid_chars);
+
+    /// Applies the mask to the given sequence.
+    void operator()(std::string& sequence) const;
+
+private:
+    std::vector<char> mask;
+};
+
+//------------------------------------------------------------------------------
+
+/**
  * A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed
  * is a pair of matching read/graph positions and each extension is a gapless alignment
  * of an interval of the read to a haplotype.
@@ -126,7 +144,7 @@ public:
     GaplessExtender();
 
     /// Create a GaplessExtender using the given GBWTGraph and Aligner objects.
-    explicit GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
+    GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
     /// Convert (graph position, read offset) to a seed.
     static seed_type to_seed(pos_t pos, size_t read_offset) {
@@ -184,32 +202,144 @@ public:
      */
     static bool full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches = MAX_MISMATCHES);
 
-    /**
-     * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
-     * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
-     * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
-     * Use the provided CachedGBWTGraph or allocate a new one.
-     */
-    void unfold_haplotypes(const std::unordered_set<nid_t>& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
+    const gbwtgraph::GBWTGraph* graph;
+    const Aligner*              aligner;
+    ReadMasker                  mask;
+};
+
+//------------------------------------------------------------------------------
+
+/**
+ * An alignment found by WFAAligner, consisting of a sequence of nodes, a sequence
+ * of edits, and a starting offset in the initial node. The alignment score is
+ * computed using the match / mismatch / gap open / gap extend parameters in the
+ * Aligner object given to the WFAAligner. Full-length bonuses are not used.
+ *
+ * Note: The aligner merges consecutive edit operations of the same type. Hence an
+ * edit may span multiple nodes.
+ */
+struct WFAAlignment {
+    enum Edit { match, mismatch, insertion, deletion };
+
+    /// Sequence of oriented nodes.
+    std::vector<handle_t> path;
+
+    /// Sequence of edit operations and their lengths.
+    std::vector<std::pair<Edit, uint32_t>> edits;
+
+    /// Starting offset in the initial node.
+    uint32_t node_offset = 0;
+
+    /// Starting offset in the sequence.
+    uint32_t seq_offset = 0;
+
+    /// Length of the alignment in the sequence.
+    uint32_t length = 0;
+
+    /// Alignment score.
+    int32_t score = 0;
+
+    /// Returns true if the alignment is empty.
+    bool empty() const { return (this->length == 0); }
+
+    /// Returns true if the alignment is an insertion without a location.
+    bool unlocalized_insertion() const;
+
+    /// Computes the node offset after the alignment in the final node.
+    uint32_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
+
+    /// Transforms the alignment to the other strand.
+    void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);
+
+    /// Appends an edit operation, merging it with the latest edit if possible.
+    /// Ignores empty edits.
+    void append(Edit edit, uint32_t length);
+
+    /// Prints some debug information about the alignment.
+    std::ostream& print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const;
+};
+
+//------------------------------------------------------------------------------
+
+/**
+ * A class that supports haplotype-consistent seed extension in a GBWTGraph using the
+ * WFA algorithm:
+ *
+ *   Marco-Sola, Moure, Moreto, Espinosa: Fast gap-affine pairwise alignment using the
+ *   wavefront algorithm. Bioinformatics, 2021.
+ *
+ * The algorithm either tries to connect two seeds or extends a seed to the start/end
+ * of the read.
+ *
+ * WFAExtender also needs an Aligner object for scoring the extension candidates.
+ * While VG wants to maximize a four-parameter alignment score, WFA minimizes a
+ * three-parameter score. We use the conversion between the parameters from:
+ *
+ *   Eizenga, Paten: Improving the time and space complexity of the WFA algorithm
+ *   and generalizing its scoring. bioRxiv, 2022.
+ *
+ * VG scores a gap of length `n` as `gap_open + (n - 1) * gap_extend`, while WFA
+ * papers use `gap_open + n * gap_extend`. Hence we use `gap_open - gap_extend` as
+ * the effective four-parameter gap open score inside this aligner.
+ *
+ * NOTE: Most internal arithmetic operations use 32-bit integers.
+ */
+class WFAExtender {
+public:
+    /// Create an empty WFAExtender.
+    WFAExtender();
+
+    /// Create a WFAExtender using the given GBWTGraph and Aligner objects.
+    /// TODO: Provide an error model for specifying bounds for acceptable
+    /// alignment scores.
+    WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
     /**
-     * Transform an alignment to a single node in the unfold_haplotypes() graph to an
-     * alignment to the corresponding path in the original graph.
+     * Align the sequence to a haplotype between the two graph positions.
+     *
+     * The sequence that will be aligned is passed by value. All non-ACGT
+     * characters are masked with character X, which should not match any
+     * character in the graph.
+     *
+     * Returns an empty alignment if there is no alignment with an acceptable
+     * score.
      */
-    void transform_alignment(Alignment& aln, const std::vector<std::vector<handle_t>>& haplotype_paths) const;
+    WFAAlignment connect(std::string sequence, pos_t from, pos_t to) const;
+
+    /**
+     * A special case of connect() for aligning the sequence to a haplotype
+     * starting at the given position. If there is no alignment for the
+     * entire sequence with an acceptable score, returns the highest-scoring
+     * partial alignment.
+     *
+     * NOTE: This creates a suffix of the alignment by aligning a prefix of
+     * the sequence.
+     * TODO: Should we use full-length bonuses?
+     */
+    WFAAlignment suffix(const std::string& sequence, pos_t from) const;
+
+    /**
+     * A special case of connect() for aligning the sequence to a haplotype
+     * ending at the given position. If there is no alignment for the entire
+     * sequence with an acceptable score, returns the highest-scoring partial
+     * alignment.
+     *
+     * NOTE: This creates a prefix of the alignment by aligning a suffix of
+     * the sequence.
+     * TODO: Should we use full-length bonuses?
+     */
+    WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 
     const gbwtgraph::GBWTGraph* graph;
-    const Aligner*   aligner;
+    ReadMasker                  mask;
+    const Aligner*              aligner;
 
-    std::vector<char> mask;
-
-private:
-    void init_mask();
-    void mask_sequence(std::string& sequence) const;
+    /// TODO: Remove when unnecessary.
+    bool debug = false;
 };
 
 //------------------------------------------------------------------------------
 
 } // namespace vg
 
-#endif // VG_GAPLESS_EXTENDER_HPP_INCLUDED
+#endif // VG_GBWT_EXTENDER_HPP_INCLUDED
