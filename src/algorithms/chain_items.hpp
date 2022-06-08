@@ -551,10 +551,16 @@ struct score_traits<traced_score_t> {
     using Score = traced_score_t;
     
     /// What is the sentinel for an empty provenance?
-    static size_t NOWHERE;
+    /// Use a function instead of a constant because that's easier when we're just a header.
+    inline static size_t nowhere() {
+        return numeric_limits<size_t>::max();
+    }
     
     /// What's the default value for an empty table cell?
-    static Score UNSET;
+    /// Use a function instead of a constant because that's easier when we're just a header.
+    inline static Score unset() {
+        return {0, nowhere()};
+    }
     
     /// Pack a score together with its provenance
     static Score annotate(int points, size_t from) {
@@ -584,7 +590,7 @@ struct score_traits<traced_score_t> {
     /// Max in a score from a DP table. If it wins, record provenance.
     static void max_in(Score& dest, const vector<Score>& options, size_t option_number) {
         auto& option = options[option_number];
-        if (score(option) > score(dest) || source(dest) == NOWHERE) {
+        if (score(option) > score(dest) || source(dest) == nowhere()) {
             // This is the new winner.
             score(dest) = score(option);
             source(dest) = option_number;
@@ -603,10 +609,6 @@ struct score_traits<traced_score_t> {
         return annotate(score(s) + adjustment, source(s));
     }
 };
-// Give constants a compilation unit
-size_t score_traits<traced_score_t>::NOWHERE = numeric_limits<size_t>::max();
-score_traits<traced_score_t>::Score score_traits<traced_score_t>::UNSET = {0, score_traits<traced_score_t>::NOWHERE};
-
 
 /// This is how to use an int as a DP score, and all the operations you can do
 /// with it.
@@ -615,10 +617,16 @@ struct score_traits<int> {
     using Score = int;
     
     /// What is the sentinel for an empty provenance?
-    static size_t NOWHERE;
+    /// Use a function instead of a constant because that's easier when we're just a header.
+    inline static size_t nowhere() {
+        return numeric_limits<size_t>::max();
+    }
     
     /// What's the default value for an empty table cell?
-    static Score UNSET;
+    /// Use a function instead of a constant because that's easier when we're just a header.
+    inline static Score unset() {
+        return 0;
+    }
 
     /// Pack a score together with its provenance
     static Score annotate(int points, size_t from) {
@@ -635,9 +643,9 @@ struct score_traits<int> {
         return s;
     }
     
-    /// Accessor to get the source, when const (always NOWHERE)
+    /// Accessor to get the source, when const (always nowhere)
     static size_t source(const int& s) {
-        return NOWHERE;
+        return nowhere();
     }
     // Note that source can't be set.
     
@@ -656,17 +664,9 @@ struct score_traits<int> {
         return s + adjustment;
     }
 };
-// Give constants a compilation unit
-size_t score_traits<int>::NOWHERE = numeric_limits<size_t>::max();
-score_traits<int>::Score score_traits<int>::UNSET = 0;
 
 /// Print operator
-ostream& operator<<(ostream& out, const traced_score_t& value) {
-    if (score_traits<traced_score_t>::source(value) == score_traits<traced_score_t>::NOWHERE) {
-        return out << score_traits<traced_score_t>::score(value) << " from nowhere";
-    }
-    return out << score_traits<traced_score_t>::score(value) << " from " << score_traits<traced_score_t>::source(value);
-}
+ostream& operator<<(ostream& out, const traced_score_t& value);
 
 /**
  *  Fill in the given DP table for the best chain score ending with each
@@ -764,14 +764,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     // We track the best score for a chain reaching the position before this one and ending in a gap.
     // We never let it go below 0.
     // Will be 0 when there's no gap that can be open
-    Score best_gap_score = ST::UNSET;
+    Score best_gap_score = ST::unset();
     
     // We track the score for the best chain ending with each item
     best_chain_score.clear();
-    best_chain_score.resize(to_chain.size(), ST::UNSET);
+    best_chain_score.resize(to_chain.size(), ST::unset());
     
     // And we're after the best score overall that we can reach when an item ends
-    Score best_past_ending_score_ever = ST::UNSET;
+    Score best_past_ending_score_ever = ST::unset();
     
     // Overlaps are more complicated.
     // We need a heap of all the items for which we have seen the
@@ -819,7 +819,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         int sweep_distance = sweep_line - next_unswept + 1;
         
         // We need to track the score of the best thing that past-ended here
-        Score best_past_ending_score_here = ST::UNSET;
+        Score best_past_ending_score_here = ST::unset();
         
         while(!end_heap.empty() && end_heap.top().first == sweep_line) {
             // Find anything that past-ends here
@@ -848,7 +848,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         overlap_score_offset += sweep_distance * space.scoring.gap_extension;
         
         // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
-        Score best_overlap_score = ST::UNSET;
+        Score best_overlap_score = ST::unset();
         while (!overlap_heap.empty()) {
             // While there is stuff on the heap
             if (overlap_heap.top().second <= sweep_line) {
@@ -868,14 +868,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         
         // The best way to end 1 before here in a gap is either:
         
-        if (best_gap_score != ST::UNSET) {
+        if (best_gap_score != ST::unset()) {
             // Best way to end 1 before our last sweep line position with a gap, plus distance times gap extend penalty
             ST::score(best_gap_score) -= sweep_distance * space.scoring.gap_extension;
         }
         
         // Best way to end 1 before here with an actual item, plus the gap open part of the gap open penalty.
         // (Will never be taken over an actual adjacency)
-        best_gap_score = std::max(ST::UNSET, std::max(best_gap_score, ST::add_points(best_past_ending_score_here, -(space.scoring.gap_open - space.scoring.gap_extension))));
+        best_gap_score = std::max(ST::unset(), std::max(best_gap_score, ST::add_points(best_past_ending_score_here, -(space.scoring.gap_open - space.scoring.gap_extension))));
 #ifdef debug_chaining
         cerr << "Best score here but in a gap: " << best_gap_score << endl;
 #endif
@@ -903,7 +903,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                 
                 // We could take:
                 // An overlap from source(overlap_option):
-                if (ST::source(overlap_option) != ST::NOWHERE) {
+                if (ST::source(overlap_option) != ST::nowhere()) {
                     // See whether and how much they overlap in the graph
                     size_t graph_overlap = space.get_graph_overlap(to_chain[ST::source(overlap_option)], to_chain[unentered]);
                     // And also get the overlap in the read.
@@ -936,7 +936,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                             // We can't actually get between the relevant graph areas to do the overlap.
                             // TODO: check if we can get between the points on either side of the overlapped area instead?
                             // Right now just say we can't make this connection.
-                            overlap_option = ST::UNSET;
+                            overlap_option = ST::unset();
                         } else {
                             // We need to charge for this extra graph distance being deleted, in addition to what we charge for the existing overlap gap.
                             overlap_option = ST::add_points(overlap_option, -space.scoring.gap_extension * graph_distance);
@@ -945,14 +945,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                 }
                 
                 // A gap in the read from ST::source(gap_option):
-                if (ST::source(gap_option) != ST::NOWHERE) {
+                if (ST::source(gap_option) != ST::nowhere()) {
                     // Compute the graph distance
                     size_t graph_distance = space.get_graph_distance(to_chain[ST::source(gap_option)],
                                                                      to_chain[unentered]);
                     if (graph_distance == numeric_limits<size_t>::max()) {
                         // This is actually unreachable in the graph.
                         // So say we can't actually do this.
-                        gap_option = ST::UNSET;
+                        gap_option = ST::unset();
                     } else {
                         // Compare to the read distance
                         size_t read_distance = space.get_read_distance(to_chain[unentered], to_chain[ST::source(gap_option)]);
@@ -976,14 +976,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                 }
                 
                 // An adjacency in the read from ST::source(here_option):
-                if (ST::source(here_option) != ST::NOWHERE) {
+                if (ST::source(here_option) != ST::nowhere()) {
                     // Compute the graph distance
                     size_t graph_distance = space.get_graph_distance(to_chain[ST::source(here_option)],
                                                                      to_chain[unentered]);
                     if (graph_distance == numeric_limits<size_t>::max()) {
                         // This is actually unreachable in the graph.
                         // So say we can't actually do this.
-                        here_option = ST::UNSET;
+                        here_option = ST::unset();
                     } else if (graph_distance > 0) { 
                         // There's a gap in the graph but not in the read.
                         // Charge for the gap
@@ -997,7 +997,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             
             // Compute its chain score, allowing us to just start here also.
             best_chain_score[unentered] = ST::add_points(
-                std::max(std::max(ST::UNSET,
+                std::max(std::max(ST::unset(),
                                   overlap_option),
                          std::max(gap_option,
                                   here_option)),
@@ -1053,20 +1053,20 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
     // Now we need to trace back.
     vector<size_t> traceback;
     size_t here = score_traits<Score>::source(best_past_ending_score_ever);
-    if (here != score_traits<Score>::NOWHERE) {
+    if (here != score_traits<Score>::nowhere()) {
 #ifdef debug_chaining
         cerr << "Chain ends at #" << here << " at " << space.read_start(to_chain[here])
             << "-" << space.read_end(to_chain[here])
             << " with score " << best_past_ending_score_ever << endl;
 #endif
-        while(here != score_traits<Score>::NOWHERE) {
+        while(here != score_traits<Score>::nowhere()) {
             traceback.push_back(here);
 #ifdef debug_chaining
             cerr << "Which gets score " << best_chain_score[here] << endl;
 #endif
             here = score_traits<Score>::source(best_chain_score[here]);
 #ifdef debug_chaining
-            if (here != score_traits<Score>::NOWHERE) {
+            if (here != score_traits<Score>::nowhere()) {
                 cerr << "And comes after #" << here
                 << " at " << space.read_start(to_chain[here])
                 << "-" << space.read_end(to_chain[here]) << endl;

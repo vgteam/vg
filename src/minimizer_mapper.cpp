@@ -54,6 +54,14 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
 //-----------------------------------------------------------------------------
 
 /// Accessors for attributes of a type when used as a seed.
+/// We use these to make templated code generic over the old and new seeds, so
+/// we don't need to write the same algorithm twice to satisfy the type system,
+/// or because things have slightly different names or types depending on which
+/// seeds we're using.
+///
+/// You are meant to pass this template the seed type you are using, and then
+/// fetch out the type or function you need, and you will get the right version
+/// for the seed type you have.
 template<typename SeedType>
 struct seed_traits {
     // We don't actually define the interface here, because templates don't do any sort of inheritance.
@@ -61,38 +69,60 @@ struct seed_traits {
 
 /**
  * Traits for the new seed type.
+ *
+ * Defines what MinimizerMapper algorithms have to know about
+ * NewSnarlSeedClusterer seeds to work with them.
  */
 template<>
 struct seed_traits<NewSnarlSeedClusterer::Seed> {
+    /// Get SeedType to use later, because it makes more sense to use that in
+    /// the function signatures than the type we're specialized on.
     using SeedType = NewSnarlSeedClusterer::Seed;
+    
+    /// What minimizer index payload type should we use for decoding minimizer index payloads?
     using MIPayload = vg::MIPayload;
+    /// What chain info should we keep around during clustering?
     using chain_info_t = tuple<size_t, size_t, size_t, size_t, bool>;
     
+    /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static chain_info_t no_chain_info() {
         return {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false};
     } 
     
-    inline static SeedType chain_info_to_seed(const pos_t& hit, size_t i, const chain_info_t& chain_info) {
-        return { hit, i, chain_info };
+    /// How do we convert chain info to an actual seed of the type we are using?
+    /// Also needs to know the hit position, and the minimizer number.
+    inline static SeedType chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
+        return { hit, minimizer, chain_info };
     }
 };
 
 /**
  * Traits for the old seed type.
+ *
+ * Defines what MinimizerMapper algorithms have to know about
+ * SnarlSeedClusterer seeds to work with them.
  */
 template<>
 struct seed_traits<SnarlSeedClusterer::Seed> {
+    /// Get SeedType to use later, because it makes more sense to use that in
+    /// the function signatures than the type we're specialized on.
     using SeedType = SnarlSeedClusterer::Seed;
+    
+    /// What minimizer index payload type should we use for decoding minimizer index payloads?
     using MIPayload = MinimumDistanceIndex::MIPayload;
+    /// What chain info should we keep around during clustering?
     using chain_info_t = tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>;
     
+    /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static chain_info_t no_chain_info() {
         return {false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE,
                 MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false};
     }
     
-    inline static SeedType chain_info_to_seed(const pos_t& hit, size_t i, const chain_info_t& chain_info) {
-        return { hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
+    /// How do we convert chain info to an actual seed of the type we are using?
+    /// Also needs to know the hit position, and the minimizer number.
+    inline static SeedType chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
+        return { hit, minimizer, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
                  std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info),
                  std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) };
     }
