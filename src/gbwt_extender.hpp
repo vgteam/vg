@@ -275,7 +275,21 @@ struct WFAAlignment {
 
     /// Prints some debug information about the alignment.
     std::ostream& print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const;
+    /// Prints some debug information about the alignment.
+    std::ostream& print(std::ostream& out) const;
 };
+
+/// Allow printing an Edit
+std::ostream& operator<<(std::ostream& out, const WFAAlignment::Edit& edit);
+
+}
+
+namespace std {
+    /// Convert a WFAAlignment Edit operation to a string
+    std::string to_string(const vg::WFAAlignment::Edit& edit);
+}
+
+namespace vg {
 
 //------------------------------------------------------------------------------
 

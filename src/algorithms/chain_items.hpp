@@ -33,7 +33,7 @@ namespace algorithms {
 
 using namespace std;
 
-//#define debug_chaining
+#define debug_chaining
 
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring

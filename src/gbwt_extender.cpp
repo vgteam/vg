@@ -820,6 +820,12 @@ void WFAAlignment::join_on_shared_match(const WFAAlignment& second, int match_sc
 #ifdef debug_join
     std::cerr << "Joining alignment of sequence " << seq_offset << " - " << (seq_offset + length)
         << " with alignment of " << second.seq_offset << " - " << (second.seq_offset + second.length) << std::endl;
+    std::cerr << "Left alignment: ";
+    print(std::cerr);
+    std::cerr << std::endl;
+    std::cerr << "Right alignment: ";
+    second.print(std::cerr);
+    std::cerr << std::endl;
 #endif
     
     if (second.empty()) {
@@ -834,10 +840,39 @@ void WFAAlignment::join_on_shared_match(const WFAAlignment& second, int match_sc
     }
     
     // Otherwise there is actual splicing to do.
-    assert(seq_offset + length == second.seq_offset + 1);
-    assert(!path.empty() && !second.path.empty() && path.back() == second.path.front());
-    assert(!edits.empty() && edits.back().first == match);
-    assert(!second.edits.empty() && second.edits.front().first == match);
+    
+    // Do error checking
+    if (seq_offset + length != second.seq_offset + 1) {
+        throw std::runtime_error("Cannot join alignments because past-end position " +
+                                 std::to_string(seq_offset + length) +
+                                 " is not just past start position " +
+                                 std::to_string(second.seq_offset));
+    }
+    if (path.empty()) {
+        throw std::runtime_error("Cannot join alignments because first alignment has no path");
+    }
+    if (second.path.empty()) {
+        throw std::runtime_error("Cannot join alignments because second alignment has no path");
+    }
+    if (path.back() != second.path.front()) {
+        throw std::runtime_error("Cannot join alignments because second alignment starts on a different handle from where first alignment ends");
+    }
+    if (edits.empty()) {
+        throw std::runtime_error("Cannot join alignments because first alignment has no edits");
+    }
+    if (edits.back().first != match) {
+        throw std::runtime_error("Cannot join alignments because first alignment ends with " +
+                                 std::to_string(edits.back().second) + " bp " +
+                                 std::to_string(edits.back().first) + " and not a match");
+    }
+    if (second.edits.empty()) {
+        throw std::runtime_error("Cannot join alignments because second alignment has no edits");
+    }
+    if (second.edits.front().first != match) {
+        throw std::runtime_error("Cannot join alignments because second alignment starts with " +
+                                 std::to_string(second.edits.front().second) + " bp " +
+                                 std::to_string(second.edits.front().first) + " and not a match");
+    }
     
     // We know the first handle is shared and doesn't need to be copied. Copy all the others.
     std::copy(second.path.begin() + 1, second.path.end(), std::back_inserter(path));
@@ -984,9 +1019,9 @@ std::ostream& WFAAlignment::print(const gbwtgraph::GBWTGraph& graph, std::ostrea
     for (handle_t handle : this->path) {
         out << " (" << graph.get_id(handle) << ", " << graph.get_is_reverse(handle) << ")";
     }
-    out << " ], edits = [";
+    out << " ], edits = [ ";
     for (auto edit : this->edits) {
-        out << " (" << edit.first << ", " << edit.second << ")";
+        out << edit.second << edit.first;
     }
     out << " ], node offset = " << this->node_offset;
     out << ", sequence range = [" << this->seq_offset << ", " << (this->seq_offset + this->length) << ")";
@@ -994,6 +1029,53 @@ std::ostream& WFAAlignment::print(const gbwtgraph::GBWTGraph& graph, std::ostrea
 
     return out;
 }
+
+std::ostream& WFAAlignment::print(std::ostream& out) const {
+    out << "{ path = [";
+    for (handle_t handle : this->path) {
+        out << " (" << as_integer(handle) << ")";
+    }
+    out << " ], edits = [ ";
+    for (auto edit : this->edits) {
+        out << edit.second << edit.first;
+    }
+    out << " ], node offset = " << this->node_offset;
+    out << ", sequence range = [" << this->seq_offset << ", " << (this->seq_offset + this->length) << ")";
+    out << ", score = " << this->score << " }";
+
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const WFAAlignment::Edit& edit) {
+    return out << std::to_string(edit);
+}
+
+}
+
+namespace std {
+
+std::string to_string(const vg::WFAAlignment::Edit& edit) {
+    switch (edit) {
+    case vg::WFAAlignment::match:
+        return "M";
+        break;
+    case vg::WFAAlignment::mismatch:
+        return "X";
+        break;
+    case vg::WFAAlignment::insertion:
+        return "I";
+        break;
+    case vg::WFAAlignment::deletion:
+        return "D";
+        break;
+    default:
+        throw std::runtime_error("Unknown edit operation");
+    }
+}
+
+}
+
+namespace vg {
 
 //------------------------------------------------------------------------------
 

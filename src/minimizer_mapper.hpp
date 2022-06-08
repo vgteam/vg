@@ -881,7 +881,9 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Do the left tail, if any.
     // Leave room for the anchoring match.
     string left_tail = aln.sequence().substr(0, space.read_start(*here) + 1);
-    WFAAlignment aligned = extender.prefix(left_tail, space.graph_start(*here));
+    // We align the left tail with suffix(), which aligns an anchored suffix of
+    // the sequence and leaves the prefix dangling
+    WFAAlignment aligned = extender.suffix(left_tail, space.graph_start(*here));
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -973,7 +975,9 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Do the right tail, if any. Leave room for the anchoring match.
     string right_tail = aln.sequence().substr(space.read_end(*here) - 1);
-    WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
+    // We align the right tail with prefix(), which aligns an anchored prefix
+    // of the sequence and leaves the suffix dangling
+    WFAAlignment right_alignment = extender.prefix(right_tail, space.graph_end(*here));
     
     if (show_work) {
         #pragma omp critical (cerr)

@@ -525,8 +525,13 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     }
 
     if (track_provenance) {
-        // Now we go from clusters to gapless extensions
-        funnel.stage("extend");
+        if (align_from_chains) {
+            // Now we go from clusters to chains
+            funnel.stage("extend");
+        } else {
+            // Now we go from clusters to gapless extensions
+            funnel.stage("extend");
+        }
     }
     
     // These are the chains for all the clusters, as score and sequence of visited seeds.
@@ -597,6 +602,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             if (align_from_chains) {
                 // We want to align from chains, not extensions
+                
+                if (track_provenance) {
+                    // Say we're working on this cluster
+                    funnel.processing_input(cluster_num);
+                }
+                
                 if (distance_index != nullptr) {
                     // Define a space to chain in.
                     // TODO: re-use!
@@ -617,6 +628,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain(old_seeds, space));
                 }
+                
+                if (track_provenance) {
+                    // Record with the funnel that the previous group became a single item.
+                    // TODO: Change to a group when we can do multiple chains.
+                    funnel.project(cluster_num);
+                    // Say we finished with this cluster, for now.
+                    funnel.processed_input();
+                }
+                
             } else {
                 // We want to align from extensions, so we actually need extensions
                 if (distance_index != nullptr) {
