@@ -23,6 +23,11 @@ void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index
 
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit);
 
+
+//Given a snarl, find the shortest path through the snarl and label each node along the path 
+//Sets path_ancestor, path_offset, path_orientation, and path_component for each node
+void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, pair<SnarlDistanceIndex::temp_record_t, size_t> root_ancestor, size_t chain_component, size_t offset);
+
 //Define wang_hash for net_handle_t's so that we can use a hash_map
 template<> struct wang_hash<handlegraph::net_handle_t> {
 public:
