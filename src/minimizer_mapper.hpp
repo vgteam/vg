@@ -365,8 +365,8 @@ protected:
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
      */
-    template<typename Item, typename Source = void>
-    Alignment find_chain_alignment(const Alignment& aln, const vector<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
+    template<typename Item, typename Source = void, typename Collection = algorithms::VectorView<Item>>
+    Alignment find_chain_alignment(const Alignment& aln, const Collection& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -842,10 +842,10 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
     }
 }
 
-template<typename Item, typename Source>
+template<typename Item, typename Source, typename Collection>
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
-    const vector<Item>& to_chain,
+    const Collection& to_chain,
     const algorithms::ChainingSpace<Item, Source>& space,
     const std::vector<size_t>& chain) const {
     
@@ -867,7 +867,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     // We need an Aligner for scoring.
     const Aligner& aligner = space.scoring;
     
-    // We need a WFAExtender to do this.
+    // We need a WFAExtender to do tail and intervening alignments.
     // Note that the extender expects anchoring matches!!!
     WFAExtender extender(gbwt_graph, aligner); 
     
@@ -878,12 +878,30 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     const Item* here = &to_chain[*here_it];
     
+    if (show_work && space.graph) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "First item " << *here_it << " aligns " << space.read_start(*here) << "-" << space.read_end(*here)
+                << " (" << space.get_read_sequence(*here, aln.sequence()) << ") with "
+                << space.graph_start(*here) << "-" << space.graph_end(*here)
+                << " (" << space.get_graph_sequence(*here) << ")" << endl;
+        }
+    }
+    
     // Do the left tail, if any.
     // Leave room for the anchoring match.
     string left_tail = aln.sequence().substr(0, space.read_start(*here) + 1);
-    // We align the left tail with suffix(), which aligns an anchored suffix of
-    // the sequence and leaves the prefix dangling
-    WFAAlignment aligned = extender.suffix(left_tail, space.graph_start(*here));
+    // We align the left tail with prefix(), which creates a prefix of the alignment.
+    WFAAlignment aligned = extender.prefix(left_tail, space.graph_start(*here));
+    // Since the tail starts at offset 0, the alignment is already in full read space.
+    
+    if (aligned.length != left_tail.size()) {
+        // We didn't get the alignment we expected.
+        stringstream ss;
+        ss << "Aligning left tail " << left_tail << " at " << space.graph_start(*here) << " produced alignment ";
+        aligned.print(ss);
+        throw std::runtime_error(ss.str());
+    }
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -946,6 +964,8 @@ Alignment MinimizerMapper::find_chain_alignment(
         string linking_bases = aln.sequence().substr(space.read_end(*here) - 1, space.read_start(*next) - space.read_end(*here) + 2);
         // And align it
         WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
+        // Put the alignment back into full read space
+        link_alignment.seq_offset += (space.read_end(*here) - 1);
         
         if (show_work) {
             #pragma omp critical (cerr)
@@ -975,9 +995,18 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Do the right tail, if any. Leave room for the anchoring match.
     string right_tail = aln.sequence().substr(space.read_end(*here) - 1);
-    // We align the right tail with prefix(), which aligns an anchored prefix
-    // of the sequence and leaves the suffix dangling
-    WFAAlignment right_alignment = extender.prefix(right_tail, space.graph_end(*here));
+    // We align the right tail with suffix(), which creates a suffix of the alignment.
+    WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
+    // Put the alignment back into full read space
+    right_alignment.seq_offset += (space.read_end(*here) - 1);
+    
+    if (right_alignment.length != right_tail.size()) {
+        // We didn't get the alignment we expected.
+        stringstream ss;
+        ss << "Aligning right tail " << right_tail << " at " << space.graph_start(*here) << " produced alignment ";
+        right_alignment.print(ss);
+        throw std::runtime_error(ss.str());
+    }
     
     if (show_work) {
         #pragma omp critical (cerr)

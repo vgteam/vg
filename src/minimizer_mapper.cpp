@@ -552,6 +552,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     size_t kept_cluster_count = 0;
     
+    // What cluster seeds, in start position order, went into each processed cluster result?
+    vector<vector<size_t>> processed_cluster_sorted_seeds;
+    
     //Process clusters sorted by both score and read coverage
     process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
             return clusters[i].coverage;
@@ -608,6 +611,16 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.processing_input(cluster_num);
                 }
                 
+                // Sort all the seeds used in the cluster by start position, so we can chain them.
+                std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
+                std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
+                    if (distance_index != nullptr) {
+                        return minimizers[seeds[a].source].forward_offset() < minimizers[seeds[b].source].forward_offset();
+                    } else {
+                        return minimizers[old_seeds[a].source].forward_offset() < minimizers[old_seeds[b].source].forward_offset();
+                    }
+                });
+                
                 if (distance_index != nullptr) {
                     // Define a space to chain in.
                     // TODO: re-use!
@@ -617,7 +630,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         distance_index,
                         &gbwt_graph);
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain(seeds, space));
+                    cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
                 } else {
                     // Define a space to chain in.
                     // TODO: re-use!
@@ -626,8 +639,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         *get_regular_aligner(),
                         &gbwt_graph);
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain(old_seeds, space));
+                    cluster_chains.emplace_back(algorithms::find_best_chain<OldSeed>({old_seeds, cluster_seeds_sorted}, space));
                 }
+                
+                // Remember which sorted seeds go with which chains, so we can interpret the chains.
+                processed_cluster_sorted_seeds.emplace_back(std::move(cluster_seeds_sorted));
                 
                 if (track_provenance) {
                     // Record with the funnel that the previous group became a single item.
@@ -782,6 +798,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     }
                     
                     // We currently just have the one best score and chain per cluster
+                    auto& cluster_seeds_sorted = processed_cluster_sorted_seeds[processed_num];
                     auto& score_and_chain = cluster_chains[processed_num]; 
                     vector<size_t>& chain = score_and_chain.second;
                     
@@ -794,7 +811,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                             distance_index,
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                        best_alignments[0] = find_chain_alignment(aln, seeds, space, chain);
+                        best_alignments[0] = find_chain_alignment(aln, {seeds, cluster_seeds_sorted}, space, chain);
                     } else {
                         // Define a space to chain in.
                         // TODO: re-use!
@@ -803,7 +820,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                             *get_regular_aligner(),
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                        best_alignments[0] = find_chain_alignment(aln, old_seeds, space, chain);
+                        best_alignments[0] = find_chain_alignment(aln, {old_seeds, cluster_seeds_sorted}, space, chain);
                     }
                     
                     // TODO: Come up with a good secondary for the cluster somehow.
@@ -3602,7 +3619,7 @@ std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::c
         }
         
         // Do the chaining and move the answers
-        auto chained = algorithms::find_best_chain(extensions[i], space);
+        auto chained = algorithms::find_best_chain<GaplessExtension>(extensions[i], space);
         result.first.emplace_back(std::move(chained.first));
         result.second.emplace_back(std::move(chained.second));
         

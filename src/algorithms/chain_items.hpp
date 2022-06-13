@@ -35,6 +35,82 @@ using namespace std;
 
 #define debug_chaining
 
+/**
+ * We want to be able to chain a reordered subset of things without moving the originals, so we use this view over things stored in a vector.
+ *
+ * Both the backing collection and the indexes must outlive the view.
+ */
+template<typename Item>
+struct VectorView {
+    const vector<Item>& items;
+    const vector<size_t>* indexes;
+    
+    /**
+     * Make a VectorView of a whole vector. Provides an implicit conversion.
+     */
+    VectorView(const vector<Item>& items) : items(items), indexes(nullptr) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Make a VectorView of a reordered subset of a vector.
+     */
+    VectorView(const vector<Item>& items, const vector<size_t>& indexes) : items(items), indexes(&indexes) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Get an item by index.
+     */
+    const Item& operator[](size_t index) const {
+        if (indexes) {
+            return items[(*indexes)[index]];
+        } else {
+            return items[index];
+        }
+    }
+    
+    /**
+     * Get the total number of items.
+     */
+    size_t size() const {
+        if (indexes) {
+            return indexes->size();
+        } else {
+            return items.size();
+        }
+    }
+    
+    /**
+     * Determine if there are no items.
+     */
+    bool empty() const {
+        if (indexes) {
+            return indexes->empty();
+        } else {
+            return items.empty();
+        }
+    }
+    
+    /**
+     * Call the given callback with a dense and properly ordered vector of the items.
+     */
+    void with_vector(const std::function<void(const vector<Item>&)>& callback) const {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back(items[i]);
+            }
+            callback(reordered);
+        } else {
+            // We already have this
+            callback(items);
+        }
+    }
+};
+
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring
 /// distance between them.
@@ -188,9 +264,29 @@ struct BaseChainingSpace {
         return {numeric_limits<size_t>::max(), -1, &item, this, {}};
     }
     
+    /**
+     * Get the sequence in the read that the given item uses.
+     */
+    virtual string get_read_sequence(const Item& item, const std::string& full_read_sequence) const {
+        return full_read_sequence.substr(read_start(item), read_length(item));
+    }
+    
+    /**
+     * Get the sequence in the graph that the given item uses.
+     * Graph must be set.
+     */
+    virtual string get_graph_sequence(const Item& item) const {
+        stringstream ss;
+        for (size_t i = 0; i < graph_path_size(item); i++) {
+            handle_t here = graph_path_at(item, i);
+            ss << graph->get_sequence(here).substr((i == 0) ? graph_path_offset(item) : 0);
+        }
+        return ss.str();
+    }
+    
     /// Return true if the first item is a perfect chain that can't be beat,
     /// and false otherwise.
-    virtual bool has_perfect_chain(const vector<Item>& items) const = 0;
+    virtual bool has_perfect_chain(const VectorView<Item>& items) const = 0;
     
     /**
      * Return the amount by which the end of the left item is past the position
@@ -390,15 +486,24 @@ struct BaseChainingSpace {
             size_t graph_distance = get_graph_distance(left, right);
             if (graph_distance == 0) {
                 // They also abut in the graph. No alignment to do.
+#ifdef debug_chaining
+                cerr << "Abutting items score 0" << endl;
+#endif
                 return 0;
             } else if (graph_distance == numeric_limits<size_t>::max()) {
                 // They are unreachable in the graph (maybe an overlap?)
+#ifdef debug_chaining
+                cerr << "Items unreachable in graph" << endl;
+#endif
                 return numeric_limits<int>::min();
             } else {
                 // There is a gap; pure deletion to 0 bp. Charge for that.
-                jump_points = -(scoring.gap_open + (graph_distance - 1) * scoring.gap_extension);
+#ifdef debug_chaining
+                cerr << "Items separated by " << graph_distance << " bp deletion" << endl;
+#endif
+                return -(scoring.gap_open + (graph_distance - 1) * scoring.gap_extension);
             }
-        } else if (read_end(left) > read_start(right)) {
+        } else if (read_end(left) < read_start(right)) {
             // There's a gap in the read
             size_t read_distance = get_read_distance(left, right);
             
@@ -407,12 +512,20 @@ struct BaseChainingSpace {
             
             if (graph_distance == numeric_limits<size_t>::max()) {
                 // These aren't actually reachable in the graph.
+#ifdef debug_chaining
+                cerr << "Items unreachable in graph" << endl;
+#endif
                 return numeric_limits<int>::min();
             } else {
                 // Otherwise, see if there's any length change
                 size_t length_change = (read_distance > graph_distance) ? (read_distance - graph_distance) : (graph_distance - read_distance);
                 // And see how many pases could be matches
                 size_t possible_matches = std::min(read_distance, graph_distance);
+                
+#ifdef debug_chaining
+                cerr << "Items separated by " << possible_matches << " bp possible matches and at least a " << length_change << " bp indel" << endl;
+#endif
+                
                 // The number of possible matches gives us a base score
                 int jump_points = scoring.match * possible_matches;
                 if (length_change > 0) {
@@ -423,6 +536,11 @@ struct BaseChainingSpace {
             }
         } else {
             // If there's an overlap in the read. say we can't do it.
+            
+#ifdef debug_chaining
+            cerr << "Items overlap in read" << endl;
+#endif
+            
             return numeric_limits<int>::min();
         }
     }
@@ -474,8 +592,15 @@ struct ChainingSpace<GaplessExtension, void>: public BaseChainingSpace<GaplessEx
         return WFAAlignment::from_extension(item);
     }
     
-    bool has_perfect_chain(const vector<Item>& items) const {
-        return GaplessExtender::full_length_extensions(items);
+    bool has_perfect_chain(const VectorView<Item>& items) const {
+        bool result;
+        items.with_vector([&](const vector<Item>& dense_items) {
+            // Once we're sure we have a dense vector we can call the
+            // GaplessExtender function that answers this question, which
+            // doesn't work with views.
+            result = GaplessExtender::full_length_extensions(dense_items);
+        });
+        return result;
     }
     
 };
@@ -498,16 +623,35 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingS
         // Nothing to do!
     }
     
+    // The seeds really only know their start positions; a single seed from a
+    // minimizer occurrence in the graph might actually have multiple
+    // corresponding end positions if the graph forks but retains the same
+    // sequence. We need to consistently show a certain endpoint in the read
+    // and the graph, so we just take the rest of the node that the seed starts
+    // on.
+    
     size_t read_start(const Item& item) const {
         return sources[item.source].forward_offset();
     }
     
     size_t read_end(const Item& item) const {
-        return sources[item.source].forward_offset() + sources[item.source].length;
+        return sources[item.source].forward_offset() + read_length(item);
     }
     
     size_t read_length(const Item& item) const {
-        return sources[item.source].length;
+        if (graph) {
+            return graph_length(item);
+        } else {
+            // No graph so just treat the whole thing as the item.
+            return sources[item.source].length;
+        }
+    }
+    
+    size_t graph_length(const Item& item) const {
+        handle_t start_handle = graph_path_at(item, 0);
+        // Length in graph is min of either remaining node or minimizer length
+        return std::min((size_t) sources[item.source].length,
+                        graph->get_length(start_handle) - graph_path_offset(item));
     }
     
     pos_t graph_start(const Item& item) const {
@@ -532,7 +676,7 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingS
         return offset(graph_start(item));
     }
     
-    bool has_perfect_chain(const vector<Item>& items) const {
+    bool has_perfect_chain(const VectorView<Item>& items) const {
         return false;
     }
 };
@@ -554,16 +698,35 @@ struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpac
         // Nothing to do!
     }
     
+    // The seeds really only know their start positions; a single seed from a
+    // minimizer occurrence in the graph might actually have multiple
+    // corresponding end positions if the graph forks but retains the same
+    // sequence. We need to consistently show a certain endpoint in the read
+    // and the graph, so we just take the rest of the node that the seed starts
+    // on.
+    
     size_t read_start(const Item& item) const {
         return sources[item.source].forward_offset();
     }
     
     size_t read_end(const Item& item) const {
-        return sources[item.source].forward_offset() + sources[item.source].length;
+        return sources[item.source].forward_offset() + read_length(item);
     }
     
     size_t read_length(const Item& item) const {
-        return sources[item.source].length;
+        if (graph) {
+            return graph_length(item);
+        } else {
+            // No graph so just treat the whole thing as the item.
+            return sources[item.source].length;
+        }
+    }
+    
+    size_t graph_length(const Item& item) const {
+        handle_t start_handle = graph_path_at(item, 0);
+        // Length in graph is min of either remaining node or minimizer length
+        return std::min((size_t) sources[item.source].length,
+                        graph->get_length(start_handle) - graph_path_offset(item));
     }
     
     pos_t graph_start(const Item& item) const {
@@ -588,7 +751,7 @@ struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpac
         return offset(graph_start(item));
     }
     
-    bool has_perfect_chain(const vector<Item>& items) const {
+    bool has_perfect_chain(const VectorView<Item>& items) const {
         return false;
     }
 };
@@ -734,9 +897,9 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * with provenance to its location in the table, if tracked in the type.
  * Assumes some items exist.
  */
-template<typename Score, typename Item, typename Source = void>
+template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
 Score chain_items_dp(vector<Score>& best_chain_score,
-                     const vector<Item>& to_chain,
+                     const VectorView<Item>& to_chain,
                      const ChainingSpace<Item, Source>& space);
                      
 /**
@@ -748,18 +911,18 @@ Score chain_items_dp(vector<Score>& best_chain_score,
  * Uses a finite lookback in items when checking where we can come from to
  * reach an item.
  */
-template<typename Score, typename Item, typename Source = void>
+template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
 Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
-                                     const vector<Item>& to_chain,
+                                     const Collection& to_chain,
                                      const ChainingSpace<Item, Source>& space,
                                      size_t lookback = 5);
 
 /**
  * Trace back through in the given DP table from the best chain score.
  */
-template<typename Score, typename Item, typename Source = void>
+template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
 vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
-                                     const vector<Item>& to_chain,
+                                     const Collection& to_chain,
                                      const Score& best_past_ending_score_ever,
                                      const ChainingSpace<Item, Source>& space);
 
@@ -783,10 +946,10 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
  */
-template<typename Item, typename Source = void>
-pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
+template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
+pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
                                           const algorithms::ChainingSpace<Item, Source>& space);
-                                                 
+
 /**
  * Score the given group of items. Determines the best score that can be
  * obtained by chaining items together, using the given space to define gap
@@ -800,15 +963,15 @@ pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
  *
  * Input items must be sorted by start position.
  */
-template<typename Item, typename Source = void>
-int score_best_chain(const vector<Item>& to_chain,
+template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
+int score_best_chain(const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space);
 
 // --------------------------------------------------------------------------------
 
-template<typename Score, typename Item, typename Source>
+template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,
-                     const vector<Item>& to_chain,
+                     const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space) {
                     
     // Grab the traits into a short name so we can use the accessors concisely.
@@ -1159,9 +1322,9 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     return best_past_ending_score_ever; 
 }
 
-template<typename Score, typename Item, typename Source>
+template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
-                                     const vector<Item>& to_chain,
+                                     const Collection& to_chain,
                                      const ChainingSpace<Item, Source>& space,
                                      size_t lookback) {
                     
@@ -1172,6 +1335,9 @@ Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
     cerr << "Chaining group of " << to_chain.size() << " items with lookback of " << lookback << endl;
 #endif
     
+    // Make our DP table big enough
+    best_chain_score.resize(to_chain.size(), ST::unset());
+    
     // What's the winner so far?
     Score best_score = ST::unset();
    
@@ -1179,33 +1345,55 @@ Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
         // For each item
         auto& here = to_chain[i];
         
-        for (size_t back = 1; back < std::min(lookback, i); back++) {
+        for (size_t back = 1; back < std::min(lookback, i) + 1; back++) {
             // For each possible source
             auto& source = to_chain[i - back];
+            
+#ifdef debug_chaining
+            cerr << "Consider " << space.read_start(source) << "-" << space.read_end(source) << " to " << space.read_start(here) << "-" << space.read_end(here) << endl;
+#endif
             
             // How much does it pay (+) or cost (-) to make the jump from there
             // to here?
             int jump_points = space.transition_score_upper_bound(source, here);
             
             if (jump_points != numeric_limits<int>::min()) {
-            
+                
+                // Get the score we are coming from
+                typename ST::Score source_score = ST::score_from(best_chain_score, i - back);
+                
+                // And the score with the transition
+                typename ST::Score from_source_score = ST::add_points(source_score, jump_points);
+                
                 // Remember that we could make this jump
-                ST::max_in(best_chain_score[i],
-                           ST::add_points(best_chain_score[i - back], jump_points),
-                           i - back);
+                best_chain_score[i] = std::max(best_chain_score[i],
+                                               from_source_score);
+                                               
+#ifdef debug_chaining
+                cerr << "We can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << endl;
+#endif
             }
         }
         
+#ifdef debug_chaining
+        cerr << "Best way to reach " << i << " is " << best_chain_score[i] << endl;
+#endif
+        
         // See if this is the best overall
-        ST::max_in(best_score, best_chain_score[i], i);
+        ST::max_in(best_score, best_chain_score, i);
+        
+#ifdef debug_chaining
+        cerr << "Best chain end so far: " << best_score << endl;
+#endif
+        
     }
     
     return best_score;
 }
 
-template<typename Score, typename Item, typename Source>
+template<typename Score, typename Item, typename Source, typename Collection>
 vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
-                               const vector<Item>& to_chain,
+                               const Collection& to_chain,
                                const Score& best_past_ending_score_ever,
                                const ChainingSpace<Item, Source>& space) {
     
@@ -1245,15 +1433,15 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
     return traceback;
 }
 
-template<typename Item, typename Source>
-pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
+template<typename Item, typename Source, typename Collection>
+pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
                                           const ChainingSpace<Item, Source>& space) {
                                                                  
     if (to_chain.empty()) {
         return std::make_pair(0, vector<size_t>());
     } else if (space.has_perfect_chain(to_chain)) {
         // These are full-length matches. We already have the score.
-        return std::make_pair(space.score(to_chain.front()), vector<size_t>{0});
+        return std::make_pair(space.score(to_chain[0]), vector<size_t>{0});
     } else {
         
         // We actually need to do DP
@@ -1268,15 +1456,15 @@ pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
     }
 }
 
-template<typename Item, typename Source>
-int score_best_chain(const vector<Item>& to_chain,
+template<typename Item, typename Source, typename Collection>
+int score_best_chain(const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space) {
     
     if (to_chain.empty()) {
         return 0;
     } else if (space.has_perfect_chain(to_chain)) {
         // These are full-length matches. We already have the score.
-        return space.score(to_chain.front());
+        return space.score(to_chain[0]);
     } else {
         // Do the DP but without the traceback.
         vector<int> best_chain_score;
