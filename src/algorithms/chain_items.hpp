@@ -357,6 +357,10 @@ struct BaseChainingSpace {
         return distance;
     }
     
+    /**
+     * Get the distance in the read between two items, or 0 if they abut or
+     * overlap.
+     */
     virtual size_t get_read_distance(const Item& left,
                                      const Item& right) const {
         size_t l = read_end(left);
@@ -365,6 +369,62 @@ struct BaseChainingSpace {
             return 0;
         }
         return r - l;
+    }
+    
+    /**
+     * Get the highest score in points that the alignment of the region between
+     * two Items could possibly get. Should assume that any bases that might
+     * match actually match.
+     *
+     * If the items overlap in the read or the graph, returns
+     * std::numeric_limits<int>::min() because one side of the alignment would
+     * have negative length.
+     */
+    virtual int transition_score_upper_bound(const Item& left,
+                                             const Item& right) const {
+                                             
+        if (read_end(left) == read_start(right)) {
+            // They abut in the read.
+            
+            // How far apart are they in the graph?
+            size_t graph_distance = get_graph_distance(left, right);
+            if (graph_distance == 0) {
+                // They also abut in the graph. No alignment to do.
+                return 0;
+            } else if (graph_distance == numeric_limits<size_t>::max()) {
+                // They are unreachable in the graph (maybe an overlap?)
+                return numeric_limits<int>::min();
+            } else {
+                // There is a gap; pure deletion to 0 bp. Charge for that.
+                jump_points = -(scoring.gap_open + (graph_distance - 1) * scoring.gap_extension);
+            }
+        } else if (read_end(left) > read_start(right)) {
+            // There's a gap in the read
+            size_t read_distance = get_read_distance(left, right);
+            
+            // See how far they have to go in the graph
+            size_t graph_distance = get_graph_distance(left, right);
+            
+            if (graph_distance == numeric_limits<size_t>::max()) {
+                // These aren't actually reachable in the graph.
+                return numeric_limits<int>::min();
+            } else {
+                // Otherwise, see if there's any length change
+                size_t length_change = (read_distance > graph_distance) ? (read_distance - graph_distance) : (graph_distance - read_distance);
+                // And see how many pases could be matches
+                size_t possible_matches = std::min(read_distance, graph_distance);
+                // The number of possible matches gives us a base score
+                int jump_points = scoring.match * possible_matches;
+                if (length_change > 0) {
+                    // We have to charge for a gap though
+                    jump_points -= (scoring.gap_open + (length_change - 1) * scoring.gap_extension);
+                }
+                return jump_points;
+            }
+        } else {
+            // If there's an overlap in the read. say we can't do it.
+            return numeric_limits<int>::min();
+        }
     }
 };
 
@@ -669,18 +729,33 @@ struct score_traits<int> {
 ostream& operator<<(ostream& out, const traced_score_t& value);
 
 /**
- *  Fill in the given DP table for the best chain score ending with each
- *  item. Returns the best observed score overall from that table,
- *  with provenance to its location in the table, if tracked in the type.
- *  Assumes some items exist.
+ * Fill in the given DP table for the best chain score ending with each
+ * item. Returns the best observed score overall from that table,
+ * with provenance to its location in the table, if tracked in the type.
+ * Assumes some items exist.
  */
 template<typename Score, typename Item, typename Source = void>
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const vector<Item>& to_chain,
                      const ChainingSpace<Item, Source>& space);
+                     
+/**
+ * Fill in the given DP table for the best chain score ending with each
+ * item. Returns the best observed score overall from that table,
+ * with provenance to its location in the table, if tracked in the type.
+ * Assumes some items exist.
+ *
+ * Uses a finite lookback in items when checking where we can come from to
+ * reach an item.
+ */
+template<typename Score, typename Item, typename Source = void>
+Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
+                                     const vector<Item>& to_chain,
+                                     const ChainingSpace<Item, Source>& space,
+                                     size_t lookback = 5);
 
 /**
- *  Trace back through in the given DP table from the best chain score.
+ * Trace back through in the given DP table from the best chain score.
  */
 template<typename Score, typename Item, typename Source = void>
 vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
@@ -1085,6 +1160,50 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 }
 
 template<typename Score, typename Item, typename Source>
+Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
+                                     const vector<Item>& to_chain,
+                                     const ChainingSpace<Item, Source>& space,
+                                     size_t lookback) {
+                    
+    // Grab the traits into a short name so we can use the accessors concisely.
+    using ST = score_traits<Score>;
+
+#ifdef debug_chaining
+    cerr << "Chaining group of " << to_chain.size() << " items with lookback of " << lookback << endl;
+#endif
+    
+    // What's the winner so far?
+    Score best_score = ST::unset();
+   
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        // For each item
+        auto& here = to_chain[i];
+        
+        for (size_t back = 1; back < std::min(lookback, i); back++) {
+            // For each possible source
+            auto& source = to_chain[i - back];
+            
+            // How much does it pay (+) or cost (-) to make the jump from there
+            // to here?
+            int jump_points = space.transition_score_upper_bound(source, here);
+            
+            if (jump_points != numeric_limits<int>::min()) {
+            
+                // Remember that we could make this jump
+                ST::max_in(best_chain_score[i],
+                           ST::add_points(best_chain_score[i - back], jump_points),
+                           i - back);
+            }
+        }
+        
+        // See if this is the best overall
+        ST::max_in(best_score, best_chain_score[i], i);
+    }
+    
+    return best_score;
+}
+
+template<typename Score, typename Item, typename Source>
 vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
                                const vector<Item>& to_chain,
                                const Score& best_past_ending_score_ever,
@@ -1139,9 +1258,9 @@ pair<int, vector<size_t>> find_best_chain(const vector<Item>& to_chain,
         
         // We actually need to do DP
         vector<traced_score_t> best_chain_score;
-        traced_score_t best_past_ending_score_ever = chain_items_dp(best_chain_score,
-                                                                    to_chain,
-                                                                    space);
+        traced_score_t best_past_ending_score_ever = chain_items_finite_lookback_dp(best_chain_score,
+                                                                                    to_chain,
+                                                                                    space);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             score_traits<traced_score_t>::score(best_past_ending_score_ever),
@@ -1161,9 +1280,9 @@ int score_best_chain(const vector<Item>& to_chain,
     } else {
         // Do the DP but without the traceback.
         vector<int> best_chain_score;
-        return algorithms::chain_items_dp(best_chain_score,
-                                          to_chain,
-                                          space);
+        return algorithms::chain_items_finite_lookback_dp(best_chain_score,
+                                                          to_chain,
+                                                          space);
     }
 }
 
