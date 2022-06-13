@@ -878,7 +878,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     const Item* here = &to_chain[*here_it];
     
-    if (show_work && space.graph) {
+    if (show_work) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "First item " << *here_it << " aligns " << space.read_start(*here) << "-" << space.read_end(*here)
@@ -888,25 +888,35 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
     }
     
-    // Do the left tail, if any.
-    // Leave room for the anchoring match.
-    string left_tail = aln.sequence().substr(0, space.read_start(*here) + 1);
-    // We align the left tail with prefix(), which creates a prefix of the alignment.
-    WFAAlignment aligned = extender.prefix(left_tail, space.graph_start(*here));
-    // Since the tail starts at offset 0, the alignment is already in full read space.
+    WFAAlignment aligned;
     
-    if (aligned.length != left_tail.size()) {
-        // We didn't get the alignment we expected.
-        stringstream ss;
-        ss << "Aligning left tail " << left_tail << " at " << space.graph_start(*here) << " produced alignment ";
-        aligned.print(ss);
-        throw std::runtime_error(ss.str());
+    // Do the left tail, if any.
+    // We can't walk the anchor position left in the graph to get the last graph position to involve in the tail.
+    // So we align 1 more base and cut it off.
+    // TODO: Change interface?
+    string left_tail = aln.sequence().substr(0, space.read_start(*here) + 1);
+    
+    if (!left_tail.empty()) {
+        // We align the left tail with prefix(), which creates a prefix of the alignment.
+        aligned = extender.prefix(left_tail, space.graph_start(*here));
+        
+        if (aligned.length != left_tail.size()) {
+            // We didn't get the alignment we expected.
+            stringstream ss;
+            ss << "Aligning anchored left tail " << left_tail << " at " << space.graph_start(*here) << " produced wrong-length alignment ";
+            aligned.print(ss);
+            throw std::runtime_error(ss.str());
+        }
+        
+        // Pop off the extra base we can't help but supply.
+        aligned.pop_base(gbwt_graph, aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension);
+        // Since the tail starts at offset 0, the alignment is already in full read space.
     }
     
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Start with left tail of " << left_tail.size() << " with score of " << aligned.score << endl;
+            cerr << log_name() << "Start with left tail of " << aligned.length << " with score of " << aligned.score << endl;
         }
     }
     
@@ -934,8 +944,6 @@ Alignment MinimizerMapper::find_chain_alignment(
             break;
         }
         
-        // Now they may still overlap, but each has a distinct read base.
-        
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -943,39 +951,52 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
         
-        if (overlap > 0) {
-            // We need to trim to avoid overlap in the read.
-            // If we trim from here it is more efficient because we are
-            // trimming from the end of its internal vectors.
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Trim " << overlap << " bases from end of extension" << endl;
-                }
-            }
-        }
-        
         // Make an alignment for the bases used in this GaplessExtension, and
-        // concatenate it in on the shared match.
-        aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
-        
-        // Pull out the intervening string. Leave room for the anchoring matches.
-        string linking_bases = aln.sequence().substr(space.read_end(*here) - 1, space.read_start(*next) - space.read_end(*here) + 2);
-        // And align it
-        WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
-        // Put the alignment back into full read space
-        link_alignment.seq_offset += (space.read_end(*here) - 1);
+        // concatenate it in.
+        aligned.join(space.to_wfa_alignment(*here));
         
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
+                cerr << log_name() << "Next item " << *here_it << " aligns " << space.read_start(*next) << "-" << space.read_end(*next)
+                    << " (" << space.get_read_sequence(*next, aln.sequence()) << ") with "
+                    << space.graph_start(*next) << "-" << space.graph_end(*next)
+                    << " (" << space.get_graph_sequence(*next) << ")" << endl;
             }
         }
         
-        // And concatenate it in
-        aligned.join_on_shared_match(link_alignment, aligner.match);
+        // Pull out the intervening string, if any.
+        // Make sure to supply an extra base on the end, because we can't get a start-exclusive position out of *here.
+        // TODO: change th interface?
+        string linking_bases = aln.sequence().substr(space.read_end(*here), space.read_start(*next) - space.read_end(*here) + 1);
+        
+        if (!linking_bases.empty()) {
+            // And align it
+            WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
+            
+            if (link_alignment.length != linking_bases.size()) {
+                // We didn't get the alignment we expected.
+                stringstream ss;
+                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) at " << space.graph_end(*here) << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
+                link_alignment.print(ss);
+                throw std::runtime_error(ss.str());
+            }
+            
+            // Pop off the extra base we can't help but supply.
+            link_alignment.pop_base(gbwt_graph, aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension);
+            // Put the alignment back into full read space
+            link_alignment.seq_offset += space.read_end(*here);
+            
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
+                }
+            }
+            
+            // And concatenate it in
+            aligned.join(link_alignment);
+        }
         
         // Advance to the next link
         here_it = next_it;
@@ -991,19 +1012,19 @@ Alignment MinimizerMapper::find_chain_alignment(
     }
     
     // Do the final GaplessExtension itself (may be the first)
-    aligned.join_on_shared_match(space.to_wfa_alignment(*here), aligner.match);
+    aligned.join(space.to_wfa_alignment(*here));
     
-    // Do the right tail, if any. Leave room for the anchoring match.
-    string right_tail = aln.sequence().substr(space.read_end(*here) - 1);
+    // Do the right tail, if any.
+    string right_tail = aln.sequence().substr(space.read_end(*here));
     // We align the right tail with suffix(), which creates a suffix of the alignment.
     WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
     // Put the alignment back into full read space
-    right_alignment.seq_offset += (space.read_end(*here) - 1);
+    right_alignment.seq_offset += space.read_end(*here);
     
     if (right_alignment.length != right_tail.size()) {
         // We didn't get the alignment we expected.
         stringstream ss;
-        ss << "Aligning right tail " << right_tail << " at " << space.graph_start(*here) << " produced alignment ";
+        ss << "Aligning right tail " << right_tail << " at " << space.graph_start(*here) << " produced wrong-length alignment ";
         right_alignment.print(ss);
         throw std::runtime_error(ss.str());
     }
@@ -1015,7 +1036,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
     }
     
-    aligned.join_on_shared_match(right_alignment, aligner.match);
+    aligned.join(right_alignment);
     
     if (show_work) {
         #pragma omp critical (cerr)

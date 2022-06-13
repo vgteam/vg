@@ -893,6 +893,179 @@ void WFAAlignment::join_on_shared_match(const WFAAlignment& second, int match_sc
     // And that's all the fields we have!
 }
 
+void WFAAlignment::join(const WFAAlignment& second) {
+#ifdef debug_join
+    std::cerr << "Joining alignment of sequence " << seq_offset << " - " << (seq_offset + length)
+        << " with alignment of " << second.seq_offset << " - " << (second.seq_offset + second.length) << std::endl;
+    std::cerr << "Left alignment: ";
+    print(std::cerr);
+    std::cerr << std::endl;
+    std::cerr << "Right alignment: ";
+    second.print(std::cerr);
+    std::cerr << std::endl;
+#endif
+    
+    if (second.empty()) {
+        // We are joining an empty alignment onto us. Do nothing.
+        return;
+    }
+    
+    if (empty()) {
+        // We are ourselves empty. Just be replaced.
+        *this = second;
+        return;
+    }
+    
+    // Otherwise there is actual splicing to do.
+    
+    // Do error checking
+    if (seq_offset + length != second.seq_offset) {
+        throw std::runtime_error("Cannot join alignments because past-end position " +
+                                 std::to_string(seq_offset + length) +
+                                 " is not at start position " +
+                                 std::to_string(second.seq_offset));
+    }
+    if (path.empty()) {
+        throw std::runtime_error("Cannot join alignments because first alignment has no path");
+    }
+    if (second.path.empty()) {
+        throw std::runtime_error("Cannot join alignments because second alignment has no path");
+    }
+    if (edits.empty()) {
+        throw std::runtime_error("Cannot join alignments because first alignment has no edits");
+    }
+    if (second.edits.empty()) {
+        throw std::runtime_error("Cannot join alignments because second alignment has no edits");
+    }
+    
+    if (second.node_offset == 0) {
+        // Include the first handle from the second alignment because it can't be shared
+        path.push_back(second.path.front());
+    } else {
+        // It must be shared
+        if (second.path.front() != path.back()) {
+            throw std::runtime_error("Cannot join alignments because second alignment starts in the middle of a handle that first alignment doesn't end on");
+        }
+    }
+    
+    // Copy all the other path handles.
+    std::copy(second.path.begin() + 1, second.path.end(), std::back_inserter(path));
+    
+    for (auto& edit : second.edits) {
+        // Copy over all the edits
+        append(edit.first, edit.second);
+    }
+    
+    // Offsets don't need to change.
+    
+    // Add the length
+    length += second.length;
+    
+    // Add the score
+    score += second.score;
+    
+    // And that's all the fields we have!
+}
+
+void WFAAlignment::pop_base(const HandleGraph& graph, int match_score, int mismatch_penalty, int gap_open_penalty, int gap_extend_penalty) {
+    if (edits.empty()) {
+        throw std::runtime_error("Can't pop base from an empty alignment");
+    }
+    
+    {
+        auto& last_edit = edits.back();
+        if (last_edit.first == match || last_edit.first == mismatch) {
+            // Equal-length edits just shrink
+            last_edit.second--;
+            // Correct the score.
+            if (last_edit.first == match) {
+                score -= match_score;
+            } else {
+                score += mismatch_penalty;
+            }
+        } else {
+            // The alignment ends in an indel and needs to be adjusted in a more
+            // complex way.
+            if (edits.size() == 1) {
+                throw std::runtime_error("Can't pop base from a single-edit all-indel alignment");
+            }
+            
+            // Get the edit before
+            auto& prev_edit = edits[edits.size() - 2];
+            
+            if (prev_edit.first == last_edit.first) {
+                throw std::runtime_error("Can't pop base from alignment with adjacent edits fo the same kind");
+            } else if (prev_edit.first == insertion || prev_edit.first == deletion) {
+                // The last two edits are opposite kinds of indels.
+                // Just make each shorter by one.
+                last_edit.second--;
+                prev_edit.second--;
+                
+                if (last_edit.second == 0) {
+                    // Eliminated a gap
+                    score += gap_open_penalty;
+                } else {
+                    score += gap_extend_penalty;
+                }
+                if (prev_edit.second == 0) {
+                    // Eliminated a gap
+                    score += gap_open_penalty;
+                } else {
+                    score += gap_extend_penalty;
+                }
+                
+            } else {
+                // The alignment ends in a match/mismatch followed by an indel.
+                // We remove one base from both sides of the alignment, so the
+                // indel shrinks and then grows, and the match/mismatch shrinks.
+                // TODO: Are we sure the alignment is still optimal?
+                prev_edit.second--;
+                
+                // Correct the score.
+                if (prev_edit.first == match) {
+                    score -= match_score;
+                } else {
+                    score += mismatch_penalty;
+                }
+            }
+            
+            if (prev_edit.second == 0) {
+                // Don't leave an empty edit in the middle.
+                prev_edit = last_edit;
+                // Invalidates the edit references.
+                edits.pop_back();
+            }
+        }
+    }
+    
+    if (edits.back().second == 0) {
+        // Don't leave an empty edit at the end
+        edits.pop_back();
+    }
+    
+    // We removed a base
+    length -= 1;
+    
+    // Now we need to work out whether to keep the last handle on the path.
+    
+    // Go through all the Edits and compute total graph length
+    size_t graph_length = 0;
+    for (auto& edit : edits) {
+        if (edit.first != insertion) {
+            graph_length += edit.second;
+        }
+    }
+    // Also get the total length of all handles before the last one.
+    size_t handle_length = 0;
+    for (size_t i = 0; i + 1 < path.size(); i++) {
+        handle_length += graph.get_length(path[i]);
+    }
+    if (handle_length >= node_offset + graph_length) {
+        // We have enough length without the last handle, so we don't need it anymore.
+        path.pop_back();
+    }
+}
+
 Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence) const {
 
     Path result;

@@ -270,6 +270,13 @@ struct WFAAlignment {
     /// shared match base. Either may be empty.
     void join_on_shared_match(const WFAAlignment& second, int match_score);
     
+    /// Concatenate another WFAAlignment onto this one, assuming they abut in
+    /// the read and the graph. Either may be empty.
+    void join(const WFAAlignment& second);
+    
+    /// Pop the last read and graph bases off the alignment
+    void pop_base(const HandleGraph& graph, int match_score, int mismatch_penalty, int gap_open_penalty, int gap_extend_penalty);
+    
     /// Convert the WFAAlignment into a Path.
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
