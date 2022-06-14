@@ -297,6 +297,11 @@ public:
     /**
      * Align the sequence to a haplotype between the two graph positions.
      *
+     * The endpoints are assumed to be valid graph positions. In order for
+     * there to be an alignment, there must be a haplotype that includes the
+     * endpoints and connects them. However, the endpoints are not covered
+     * by the returned alignment. 
+     *
      * The sequence that will be aligned is passed by value. All non-ACGT
      * characters are masked with character X, which should not match any
      * character in the graph.
