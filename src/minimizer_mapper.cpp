@@ -297,15 +297,24 @@ void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimi
 
     if (sequence.size() >= LONG_LIMIT) {
         // Describe the minimizers, because the read is huge
-        cerr << log_name() << "<";
-        if (to_include) {
-            // We're looking at only some minimizers
-            cerr << to_include->size();
+        size_t minimizer_count = to_include ? to_include->size() : minimizers.size();
+        if (minimizer_count < MANY_LIMIT) {
+            auto print_minimizer = [&](size_t i) {
+                cerr << log_name() << "Minimizer " << i << ": " << minimizers[i].forward_sequence() << "@" << minimizers[i].forward_offset() << " with " << minimizers[i].hits << " hits" << endl;
+            };
+            
+            if (to_include) {
+                for (auto& i : *to_include) {
+                    print_minimizer(i);
+                }
+            } else {
+                for (size_t i = 0; i < minimizers.size(); i++) {
+                     print_minimizer(i);
+                }
+            }
         } else {
-            // We're looking at all the minimizers
-            cerr << minimizers.size();
+            cerr << log_name() << "<" << minimizer_count << "minimizers>" << endl;
         }
-        cerr << " minimizers>" << endl;
     } else {
         // Draw a diagram
         dump_debug_sequence(cerr, sequence);
@@ -356,8 +365,8 @@ void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimi
 
 template<typename SeedType>
 void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds) {
-    if (minimizers.size() < 30) {
-        // There are a few minimizers to make seeds so describe them individually.
+    if (cluster.seeds.size() < MANY_LIMIT) {
+        // There are a few seeds so describe them individually.
         for (auto hit_index : cluster.seeds) {
             cerr << log_name() << "Minimizer " << seeds[hit_index].source << " is present in cluster " << cluster_number << endl;
         }
@@ -373,12 +382,12 @@ void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t clust
 
 template<typename SeedType>
 void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds) {
-    if (minimizers.size() < 30) {
-        // There are a few minimizers to make seeds so describe them individually.
+    if (selected_seeds.size() < MANY_LIMIT) {
+        // There are a few seeds so describe them individually.
         for (auto seed_index : selected_seeds) {
             const SeedType& seed = seeds[seed_index];
             const Minimizer& minimizer = minimizers[seed.source];
-            cerr << log_name() << "Seed read:" << minimizer.value.offset << " = " << seed.pos
+            cerr << log_name() << "Seed read:" << minimizer.value.offset << (minimizer.value.is_reverse ? '-' : '+') << " = " << seed.pos
                 << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
         }
     } else {
@@ -610,18 +619,27 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Say we're working on this cluster
                     funnel.processing_input(cluster_num);
                 }
-                
+               
+                // Count how many of each minimizer is in each cluster that we kept.
+                // TODO: deduplicate with extend_cluster
+                minimizer_kept_cluster_count.emplace_back(minimizers.size(), 0);
+                for (auto seed_index : cluster.seeds) {
+                    if (distance_index != nullptr) {
+                        auto& seed = seeds[seed_index];
+                        minimizer_kept_cluster_count.back()[seed.source]++;
+                    } else {
+                        auto& seed = old_seeds[seed_index];
+                        minimizer_kept_cluster_count.back()[seed.source]++;
+                    }
+                }
+                ++kept_cluster_count;
+               
                 // Sort all the seeds used in the cluster by start position, so we can chain them.
                 std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
-                std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
-                    if (distance_index != nullptr) {
-                        return minimizers[seeds[a].source].forward_offset() < minimizers[seeds[b].source].forward_offset();
-                    } else {
-                        return minimizers[old_seeds[a].source].forward_offset() < minimizers[old_seeds[b].source].forward_offset();
-                    }
-                });
                 
                 if (distance_index != nullptr) {
+                    dump_debug_seeds(minimizers, seeds, cluster.seeds);
+                
                     // Define a space to chain in.
                     // TODO: re-use!
                     algorithms::ChainingSpace<Seed, Minimizer> space(
@@ -629,15 +647,29 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         *get_regular_aligner(),
                         distance_index,
                         &gbwt_graph);
+                        
+                    // Sort seeds by read start of seeded region
+                    std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
+                        return space.read_start(seeds[a]) < space.read_start(seeds[b]);
+                    });
+                        
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
                 } else {
+                    dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
+                
                     // Define a space to chain in.
                     // TODO: re-use!
                     algorithms::ChainingSpace<OldSeed, Minimizer> space(
                         minimizers,
                         *get_regular_aligner(),
                         &gbwt_graph);
+                        
+                    // Sort seeds by read start of seeded region
+                    std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
+                        return space.read_start(old_seeds[a]) < space.read_start(old_seeds[b]);
+                    });
+                        
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain<OldSeed>({old_seeds, cluster_seeds_sorted}, space));
                 }

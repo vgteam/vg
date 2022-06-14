@@ -33,7 +33,7 @@ namespace algorithms {
 
 using namespace std;
 
-#define debug_chaining
+//#define debug_chaining
 
 /**
  * We want to be able to chain a reordered subset of things without moving the originals, so we use this view over things stored in a vector.
@@ -67,6 +67,17 @@ struct VectorView {
             return items[(*indexes)[index]];
         } else {
             return items[index];
+        }
+    }
+    
+    /**
+     * Get the backing index of an item by index.
+     */
+    const size_t backing_index(size_t index) const {
+        if (indexes) {
+            return (*indexes)[index];
+        } else {
+            return index;
         }
     }
     
@@ -281,7 +292,7 @@ struct BaseChainingSpace {
             handle_t here = graph_path_at(item, i);
             ss << graph->get_sequence(here).substr((i == 0) ? graph_path_offset(item) : 0);
         }
-        return ss.str();
+        return ss.str().substr(0, graph_length(item));
     }
     
     /// Return true if the first item is a perfect chain that can't be beat,
@@ -544,6 +555,14 @@ struct BaseChainingSpace {
             return numeric_limits<int>::min();
         }
     }
+    
+    /**
+     * Run checks to make sure the item is properly formed.
+     * Graph must be set.
+     */
+    virtual void validate(const Item& item, const std::string& full_read_sequence) const {
+        // By default, do nothing
+    }
 };
 
 
@@ -605,16 +624,17 @@ struct ChainingSpace<GaplessExtension, void>: public BaseChainingSpace<GaplessEx
     
 };
 
-/// This is how you chain up new seeds
-template<typename Source>
-struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingSpace<NewSnarlSeedClusterer::Seed> {
-    using Item = NewSnarlSeedClusterer::Seed;
-    
+/**
+ * This is how you chain minimizer-based seeds
+ */
+template<typename Item, typename Source>
+struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
+
     // These seeds can't really be interpreted without their sources, which
-    // they reference by index. Sources need to support a forward_offset() and a length.
+    // they reference by index. Source is assumed to be MinimizerIndex::Minimizer.
     const vector<Source>& sources;
     
-    ChainingSpace(const vector<Source>& sources,
+    MinimizerSourceChainingSpace(const vector<Source>& sources,
                   const Aligner& scoring,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
@@ -623,44 +643,78 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingS
         // Nothing to do!
     }
     
-    // The seeds really only know their start positions; a single seed from a
-    // minimizer occurrence in the graph might actually have multiple
-    // corresponding end positions if the graph forks but retains the same
-    // sequence. We need to consistently show a certain endpoint in the read
-    // and the graph, so we just take the rest of the node that the seed starts
-    // on.
+    // The seeds know either a start or an end position, depending on
+    // minimizer orientation, and a corresponding graph position.
+    // So we need to work out which of the start or end is actually seeded, and
+    // walk out until we use the rest of the graph node or the whole k-kmer,
+    // and that's our seed. 
     
     size_t read_start(const Item& item) const {
-        return sources[item.source].forward_offset();
+        if (this->sources[item.source].value.is_reverse) {
+            // If we're reverse, the start is gotten by walking from the end.
+            return this->read_end(item) - this->read_length(item);
+        } else {
+            // If we're forward, the start is the stored offset, and we walk right.
+            return this->sources[item.source].value.offset;
+        }
     }
     
     size_t read_end(const Item& item) const {
-        return sources[item.source].forward_offset() + read_length(item);
+        if (this->sources[item.source].value.is_reverse) {
+            // If we're reverse, the past-end is the stored offset + 1, and we walk left.
+            return this->sources[item.source].value.offset + 1;
+        } else {
+            // If we're forward, the end is gotten by walking from the start.
+            return this->read_start(item) + this->read_length(item);
+        }
     }
     
     size_t read_length(const Item& item) const {
-        if (graph) {
-            return graph_length(item);
+        if (this->graph) {
+            return this->graph_length(item);
         } else {
             // No graph so just treat the whole thing as the item.
-            return sources[item.source].length;
+            return this->sources[item.source].length;
         }
     }
     
     size_t graph_length(const Item& item) const {
-        handle_t start_handle = graph_path_at(item, 0);
-        // Length in graph is min of either remaining node or minimizer length
-        return std::min((size_t) sources[item.source].length,
-                        graph->get_length(start_handle) - graph_path_offset(item));
+        if (this->sources[item.source].value.is_reverse) {
+            // If we're reverse, we know the matching at the end.
+            handle_t end_handle = this->graph_path_at(item, 0);
+            // Length in graph is min of either used node or minimizer length
+            return std::min((size_t) sources[item.source].length,
+                            offset(item.pos) + 1);
+        } else {
+            // If we're forward, we know the matching at the start
+            handle_t start_handle = graph_path_at(item, 0);
+            // Length in graph is min of either remaining node or minimizer length
+            return std::min((size_t) this->sources[item.source].length,
+                            this->graph->get_length(start_handle) - offset(item.pos));
+        }
+        
     }
     
     pos_t graph_start(const Item& item) const {
-        return item.pos;
+        if (this->sources[item.source].value.is_reverse) {
+            // If we're reverse, we have the end position in the graph and need to walk it back.
+            pos_t end = this->graph_end(item);
+            return make_pos_t(id(end), is_rev(end), offset(end) - this->graph_length(item));
+        } else {
+            // If we're forward, we have the start position in the graph
+            return item.pos;
+        }
     }
     
     pos_t graph_end(const Item& item) const {
-        pos_t start = graph_start(item);
-        return make_pos_t(id(start), is_rev(start), offset(start) + graph_length(item));
+        if (this->sources[item.source].value.is_reverse) {
+            // If we're reverse, we have the end position and need to make it a past-end.
+            return make_pos_t(id(item.pos), is_rev(item.pos), offset(item.pos) + 1);
+        } else {
+            // If we're forward, we have the start position and need to walk it forward.
+            pos_t start = this->graph_start(item);
+            return make_pos_t(id(start), is_rev(start), offset(start) + this->graph_length(item));
+        }
     }
     
     size_t graph_path_size(const Item& item) const {
@@ -668,91 +722,63 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public BaseChainingS
     }
     
     handle_t graph_path_at(const Item& item, size_t index) const {
-        pos_t start = graph_start(item);
-        return graph->get_handle(id(start), is_rev(start));
+        return this->graph->get_handle(id(item.pos), is_rev(item.pos));
     }
     
     size_t graph_path_offset(const Item& item) const {
-        return offset(graph_start(item));
+        return offset(this->graph_start(item));
     }
     
     bool has_perfect_chain(const VectorView<Item>& items) const {
         return false;
     }
+    
+    void validate(const Item& item, const std::string& full_read_sequence) const {
+        string read_seq = this->get_read_sequence(item, full_read_sequence);
+        string graph_seq = this->get_graph_sequence(item);
+        string key_seq = sources[item.source].forward_sequence();
+        if (read_seq.empty() ||
+            read_seq != graph_seq || !(
+                sources[item.source].value.is_reverse ?
+                std::equal(read_seq.rbegin(), read_seq.rend(), key_seq.rbegin())
+                : std::equal(read_seq.begin(), read_seq.end(), key_seq.begin())
+        )) {
+            // Read and graph sequence have to match, and that sequence has to
+            // be a prefix or suffix of the read-orientation minimizer key, as
+            // appropriate.
+            throw std::runtime_error("Sequence mismatch for hit of source " + std::to_string(item.source) + "/" + std::to_string(sources.size()) + " on oriented key " + key_seq + " with read " + read_seq + " and graph " + graph_seq);
+        }
+    }
 };
 
-/// This is how you chain up old seeds
+/// This is how you chain up new seeds
 template<typename Source>
-struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public BaseChainingSpace<SnarlSeedClusterer::Seed> {
-    using Item = SnarlSeedClusterer::Seed;
-    
-    // These seeds can't really be interpreted without their sources, which
-    // they reference by index. Sources need to support a forward_offset() and a length.
-    const vector<Source>& sources;
+struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<NewSnarlSeedClusterer::Seed, Source> {
+    using Item = NewSnarlSeedClusterer::Seed;
     
     ChainingSpace(const vector<Source>& sources,
                   const Aligner& scoring,
+                  const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        BaseChainingSpace<Item>(scoring, nullptr, graph), sources(sources) {
+        MinimizerSourceChainingSpace<Item, Source>(sources, scoring, distance_index, graph) {
         
         // Nothing to do!
     }
     
-    // The seeds really only know their start positions; a single seed from a
-    // minimizer occurrence in the graph might actually have multiple
-    // corresponding end positions if the graph forks but retains the same
-    // sequence. We need to consistently show a certain endpoint in the read
-    // and the graph, so we just take the rest of the node that the seed starts
-    // on.
     
-    size_t read_start(const Item& item) const {
-        return sources[item.source].forward_offset();
-    }
+};
+
+/// This is how you chain up old seeds
+template<typename Source>
+struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<SnarlSeedClusterer::Seed, Source> {
+    using Item = SnarlSeedClusterer::Seed;
     
-    size_t read_end(const Item& item) const {
-        return sources[item.source].forward_offset() + read_length(item);
-    }
-    
-    size_t read_length(const Item& item) const {
-        if (graph) {
-            return graph_length(item);
-        } else {
-            // No graph so just treat the whole thing as the item.
-            return sources[item.source].length;
-        }
-    }
-    
-    size_t graph_length(const Item& item) const {
-        handle_t start_handle = graph_path_at(item, 0);
-        // Length in graph is min of either remaining node or minimizer length
-        return std::min((size_t) sources[item.source].length,
-                        graph->get_length(start_handle) - graph_path_offset(item));
-    }
-    
-    pos_t graph_start(const Item& item) const {
-        return item.pos;
-    }
-    
-    pos_t graph_end(const Item& item) const {
-        pos_t start = graph_start(item);
-        return make_pos_t(id(start), is_rev(start), offset(start) + graph_length(item));
-    }
-    
-    size_t graph_path_size(const Item& item) const {
-        return 1;
-    }
-    
-    handle_t graph_path_at(const Item& item, size_t index) const {
-        pos_t start = graph_start(item);
-        return graph->get_handle(id(start), is_rev(start));
-    }
-    
-    size_t graph_path_offset(const Item& item) const {
-        return offset(graph_start(item));
-    }
-    
-    bool has_perfect_chain(const VectorView<Item>& items) const {
-        return false;
+    ChainingSpace(const vector<Source>& sources,
+                  const Aligner& scoring,
+                  const HandleGraph* graph) :
+        MinimizerSourceChainingSpace<Item, Source>(sources, scoring, nullptr, graph) {
+        
+        // Nothing to do!
     }
 };
 

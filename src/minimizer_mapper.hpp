@@ -262,6 +262,12 @@ protected:
             // Work out the length of a whole window, and then from that and the window count get the overall length.
             return agglomeration_length - window_size() + 1;
         }
+        
+        /// What is the minimizer sequence, in read orientation?
+        inline string forward_sequence() const {
+            string sequence = value.key.decode(length);
+            return value.is_reverse ? reverse_complement(sequence) : sequence;
+        }
     };
     
     /// Convert an integer distance, with limits standing for no distance, to a
@@ -365,8 +371,8 @@ protected:
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
      */
-    template<typename Item, typename Source = void, typename Collection = algorithms::VectorView<Item>>
-    Alignment find_chain_alignment(const Alignment& aln, const Collection& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
+    template<typename Item, typename Source = void>
+    Alignment find_chain_alignment(const Alignment& aln, const algorithms::VectorView<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -747,6 +753,9 @@ protected:
     
     /// Length at which we cut over to long-alignment logging.
     const static size_t LONG_LIMIT = 256;
+    
+    /// Count at which we cut over to summary logging.
+    const static size_t MANY_LIMIT = 30;
 
     friend class TestMinimizerMapper;
 };
@@ -842,10 +851,10 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
     }
 }
 
-template<typename Item, typename Source, typename Collection>
+template<typename Item, typename Source>
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
-    const Collection& to_chain,
+    const algorithms::VectorView<Item>& to_chain,
     const algorithms::ChainingSpace<Item, Source>& space,
     const std::vector<size_t>& chain) const {
     
@@ -860,7 +869,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             for (auto item_number : chain) {
                 cerr << " " << item_number;
             }
-            cerr << endl;
+            cerr << " in " << to_chain.size() << " items of " << to_chain.items.size() << endl;
         }
     }
     
@@ -881,12 +890,17 @@ Alignment MinimizerMapper::find_chain_alignment(
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "First item " << *here_it << " aligns " << space.read_start(*here) << "-" << space.read_end(*here)
+            cerr << log_name() << "First item " << *here_it
+                << " with overall index " << to_chain.backing_index(*here_it)
+                << " aligns source " << here->source
+                << " at " << space.read_start(*here) << "-" << space.read_end(*here)
                 << " (" << space.get_read_sequence(*here, aln.sequence()) << ") with "
                 << space.graph_start(*here) << "-" << space.graph_end(*here)
                 << " (" << space.get_graph_sequence(*here) << ")" << endl;
         }
     }
+    
+    space.validate(*here, aln.sequence());
     
     WFAAlignment aligned;
     
@@ -958,12 +972,17 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Next item " << *here_it << " aligns " << space.read_start(*next) << "-" << space.read_end(*next)
+                cerr << log_name() << "Next item " << *next_it
+                    << " with overall index " << to_chain.backing_index(*next_it)
+                    << " aligns source " << next->source
+                    << " at " << space.read_start(*next) << "-" << space.read_end(*next)
                     << " (" << space.get_read_sequence(*next, aln.sequence()) << ") with "
                     << space.graph_start(*next) << "-" << space.graph_end(*next)
                     << " (" << space.get_graph_sequence(*next) << ")" << endl;
             }
         }
+        
+        space.validate(*next, aln.sequence());
         
         // Pull out the intervening string, if any.
         // Make sure to supply an extra base on the end, because we can't get a start-exclusive position out of *here.

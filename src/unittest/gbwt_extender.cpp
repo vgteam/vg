@@ -910,34 +910,14 @@ TEST_CASE("Gapless extensions can be converted to WFAAlignments and joined", "[w
     WFAAlignment b_aln = WFAAlignment::from_extension(b);
     correct_score(b_aln, aligner);
     
-    // Make a joining WFAAlignment to staple the two together.
-    WFAAlignment joining_aln {
-        {
-            gbwt_graph.get_handle(4, false),
-            gbwt_graph.get_handle(5, false)
-        },
-        {
-            {WFAAlignment::match, 2}
-        },
-        2,
-        3, // We start at base 3 in the read
-        2,
-        2 * aligner.match
-    };
-    correct_score(joining_aln, aligner);
-    
-    // Now start welding them together
+    // Now weld them together
     WFAAlignment joined;
-    joined.join_on_shared_match(a_aln, aligner.match);
+    joined.join(a_aln);
     REQUIRE(joined.length == a_aln.length);
     correct_score(joined, aligner);
     
-    joined.join_on_shared_match(joining_aln, aligner.match);
-    REQUIRE(joined.length == a_aln.length + joining_aln.length - 1);
-    correct_score(joined, aligner);
-    
-    joined.join_on_shared_match(b_aln, aligner.match);
-    REQUIRE(joined.length == a_aln.length + joining_aln.length - 1 + b_aln.length - 1);
+    joined.join(b_aln);
+    REQUIRE(joined.length == a_aln.length + b_aln.length);
     correct_score(joined, aligner);
     
     // And make sure we get the right final alignment

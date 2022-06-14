@@ -266,10 +266,6 @@ struct WFAAlignment {
     /// Ignores empty edits.
     void append(Edit edit, uint32_t length);
     
-    /// Concatenate another WFAAlignment onto this one, assuming a single
-    /// shared match base. Either may be empty.
-    void join_on_shared_match(const WFAAlignment& second, int match_score);
-    
     /// Concatenate another WFAAlignment onto this one, assuming they abut in
     /// the read and the graph. Either may be empty.
     void join(const WFAAlignment& second);
