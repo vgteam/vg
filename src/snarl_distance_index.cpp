@@ -691,9 +691,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     //Find the shortest path through this snarl and label each node with the chain, and the distance along the path + prefix sum
                     label_shortest_path_through_snarl(graph, chain_child_index.second, temp_index, 
                                 component_index, temp_chain_record.chain_components[chain_child_i], 
-                                SnarlDistanceIndex::sum({temp_chain_record.prefix_sum[chain_child_i], last_node_length}));
+                                SnarlDistanceIndex::sum({temp_chain_record.prefix_sum[chain_child_i-1], last_node_length}));
                 } else {
-                    //If this is a snarl, iterate the child number
+                    //If this is a node, iterate the child number
                     chain_child_i++;
                     last_node_length = temp_index.temp_node_records.at(chain_child_index.second - temp_index.min_node_id).node_length;
                 }
@@ -773,9 +773,10 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                     get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle))); 
             if (seen_nodes.count(make_pair(graph->get_id(next_handle), graph->get_is_reverse(next_handle))) != 0){
                 //IF we've already seen this node in this orientation
+                //Keep looking
                 return true;
             } else if(next_index.first == SnarlDistanceIndex::TEMP_NODE && next_index.second == temp_snarl_record.end_node_id){
-                //If this is the last node
+                //If this is the last node, stop looking since we've found the shortest path
                 seen_nodes.insert(make_pair(graph->get_id(next_handle), graph->get_is_reverse(next_handle)));
                 current_node = make_pair(SnarlDistanceIndex::sum({current_node.first, graph->get_length(next_handle)}),
                                              make_pair(next_index, graph->get_is_reverse(next_handle)));
@@ -809,7 +810,7 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                     if (next_index.first == SnarlDistanceIndex::TEMP_NODE) {
                         //If it's a node, label it with the values
                         temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_ancestor = root_ancestor;
-                        temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_offset = current_node.first;
+                        temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_offset = SnarlDistanceIndex::sum({offset, current_node.first});
                         temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_orientation = next_rev;
                         temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_component = chain_component;
 

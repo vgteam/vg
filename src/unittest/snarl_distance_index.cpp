@@ -1892,7 +1892,7 @@ namespace vg {
                 Node* n1 = graph.create_node("GCA");
                 Node* n2 = graph.create_node("T");
                 Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
+                Node* n4 = graph.create_node("CTG");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -1902,7 +1902,43 @@ namespace vg {
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-                
+
+                net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+                net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+                net_handle_t node3 = distance_index.get_node_net_handle(n3->id());
+                net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                net_handle_t chain14 = distance_index.get_parent(node1);
+
+                SECTION("Check the values along the longest path") {
+
+                    tuple<size_t, size_t, size_t, bool> path_values1 = distance_index.get_longest_path_and_offset(node1);
+                    tuple<size_t, size_t, size_t, bool> path_values2 = distance_index.get_longest_path_and_offset(node2);
+                    tuple<size_t, size_t, size_t, bool> path_values3 = distance_index.get_longest_path_and_offset(node3);
+                    tuple<size_t, size_t, size_t, bool> path_values4 = distance_index.get_longest_path_and_offset(node4);
+                    if (std::get<0>(path_values2) == std::numeric_limits<size_t>::max()) {
+                        REQUIRE(std::get<0>(path_values3) == distance_index.get_record_offset(chain14));
+                        REQUIRE(std::get<2>(path_values3) == 3);
+                    } else {
+                        assert(std::get<0>(path_values3) == std::numeric_limits<size_t>::max());
+                        REQUIRE(std::get<0>(path_values2) == distance_index.get_record_offset(chain14));
+                        REQUIRE(std::get<2>(path_values2) == 3);
+                    }
+                    REQUIRE(std::get<0>(path_values1) == distance_index.get_record_offset(chain14));
+                    REQUIRE(std::get<0>(path_values4) == distance_index.get_record_offset(chain14));
+                    if (distance_index.node_id(distance_index.get_bound(chain14, false, false)) == n1->id()) {
+                        //If it's traversed forward
+                        REQUIRE(std::get<2>(path_values1) == 0);
+                        REQUIRE(!std::get<3>(path_values1));
+                        REQUIRE(std::get<2>(path_values4) == 4);
+                        REQUIRE(!std::get<3>(path_values4));
+
+                    } else {
+                        REQUIRE(std::get<2>(path_values1) == 4);
+                        REQUIRE(std::get<3>(path_values1));
+                        REQUIRE(std::get<2>(path_values4) == 0);
+                        REQUIRE(std::get<3>(path_values4));
+                    }
+                }
             }
             
             SECTION( "Snarls can correctly navigate tree relationships") {
@@ -2707,6 +2743,96 @@ namespace vg {
             //    }
             //    
             //}  
+        }
+
+        TEST_CASE("Path through big snarl", "[snarl_distance][bug]") {
+                //Chain: 1 - (snarl 2-7) - 8
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("C");
+                Node* n3 = graph.create_node("A");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("GCA");
+                Node* n6 = graph.create_node("T");
+                Node* n7 = graph.create_node("G");
+                Node* n8 = graph.create_node("AGTA");
+                Node* n9 = graph.create_node("AGTAAGTA");
+                
+                Edge* e1 = graph.create_edge(n1, n2);
+                Edge* e3 = graph.create_edge(n2, n4);
+                Edge* e4 = graph.create_edge(n3, n4);
+                Edge* e5 = graph.create_edge(n4, n5);
+                Edge* e6 = graph.create_edge(n4, n6);
+                Edge* e7 = graph.create_edge(n5, n6);
+                Edge* e8 = graph.create_edge(n6, n2, false, true);
+                Edge* e9 = graph.create_edge(n6, n7);
+                Edge* e10 = graph.create_edge(n7, n8);
+                Edge* e11 = graph.create_edge(n4, n9);
+                Edge* e12 = graph.create_edge(n9, n7);
+
+                IntegratedSnarlFinder snarl_finder(graph);
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                SECTION("Path values are correct") {
+                    net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+                    net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+                    net_handle_t node3 = distance_index.get_node_net_handle(n3->id());
+                    net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                    net_handle_t node5 = distance_index.get_node_net_handle(n5->id());
+                    net_handle_t node6 = distance_index.get_node_net_handle(n6->id());
+                    net_handle_t node7 = distance_index.get_node_net_handle(n7->id());
+                    net_handle_t node8 = distance_index.get_node_net_handle(n8->id());
+
+                    net_handle_t chain18 = distance_index.get_parent(node1);
+
+                    tuple<size_t, size_t, size_t, bool> path_values1 = distance_index.get_longest_path_and_offset(node1);
+                    tuple<size_t, size_t, size_t, bool> path_values2 = distance_index.get_longest_path_and_offset(node2);
+                    tuple<size_t, size_t, size_t, bool> path_values3 = distance_index.get_longest_path_and_offset(node3);
+                    tuple<size_t, size_t, size_t, bool> path_values4 = distance_index.get_longest_path_and_offset(node4);
+                    tuple<size_t, size_t, size_t, bool> path_values5 = distance_index.get_longest_path_and_offset(node5);
+                    tuple<size_t, size_t, size_t, bool> path_values6 = distance_index.get_longest_path_and_offset(node6);
+                    tuple<size_t, size_t, size_t, bool> path_values7 = distance_index.get_longest_path_and_offset(node7);
+                    tuple<size_t, size_t, size_t, bool> path_values8 = distance_index.get_longest_path_and_offset(node8);
+
+                    REQUIRE(std::get<0>(path_values1) == distance_index.get_record_offset(chain18));
+                    REQUIRE(std::get<0>(path_values2) == distance_index.get_record_offset(chain18));
+                    REQUIRE(std::get<0>(path_values4) == distance_index.get_record_offset(chain18));
+                    REQUIRE(std::get<0>(path_values6) == distance_index.get_record_offset(chain18));
+                    REQUIRE(std::get<0>(path_values7) == distance_index.get_record_offset(chain18));
+                    REQUIRE(std::get<0>(path_values8) == distance_index.get_record_offset(chain18));
+                    if (distance_index.node_id(distance_index.get_bound(chain18, false, false)) == n1->id()) {
+                        //if chain 1-8 is traversed forwards
+                        REQUIRE(std::get<2>(path_values1) == 0);
+                        REQUIRE(std::get<2>(path_values2) == 3);
+                        REQUIRE(std::get<2>(path_values4) == 4);
+                        REQUIRE(std::get<2>(path_values6) == 8); 
+                        REQUIRE(std::get<2>(path_values7) == 9);
+                        REQUIRE(std::get<2>(path_values8) == 10);  
+                        REQUIRE(!std::get<3>(path_values1));
+                        REQUIRE(!std::get<3>(path_values2));
+                        REQUIRE(!std::get<3>(path_values4));
+                        REQUIRE(!std::get<3>(path_values6));
+                        REQUIRE(!std::get<3>(path_values7));
+                        REQUIRE(!std::get<3>(path_values8));
+                    } else {
+                        //If it's traversed backward
+                        REQUIRE(std::get<2>(path_values1) == 11);
+                        REQUIRE(std::get<2>(path_values2) == 10);
+                        REQUIRE(std::get<2>(path_values4) == 6);
+                        REQUIRE(std::get<2>(path_values6) == 5); 
+                        REQUIRE(std::get<2>(path_values7) == 4);
+                        REQUIRE(std::get<2>(path_values8) == 0);  
+                        REQUIRE(std::get<3>(path_values1));
+                        REQUIRE(std::get<3>(path_values2));
+                        REQUIRE(std::get<3>(path_values4));
+                        REQUIRE(std::get<3>(path_values6));
+                        REQUIRE(std::get<3>(path_values7));
+                        REQUIRE(std::get<3>(path_values8));
+                    }
+
+                }
         }
         
         TEST_CASE("Snarls can be found", "[snarl_distance]") {
@@ -5172,7 +5298,7 @@ namespace vg {
 
             }
         }
-        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance]" ) {
 
             //Intuitively, snarl from 1 to 10 with chain 2-5-7-9
             //Actually looping chain starting and ending 5fd
