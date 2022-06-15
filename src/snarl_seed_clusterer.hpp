@@ -152,6 +152,13 @@ class NewSnarlSeedClusterer {
             size_t distance_end_left = std::numeric_limits<size_t>::max();
             size_t distance_end_right = std::numeric_limits<size_t>::max();
 
+            //For nodes, store the identity of a longest path and the offset and orientation along the path
+            bool has_node_path_values = false;
+            size_t path_identifier = std::numeric_limits<size_t>::max();
+            size_t path_offset = std::numeric_limits<size_t>::max();
+            //TODO: I'm not using this size_t path_component = std::numeric_limits<size_t>::max();
+            bool path_is_reversed = false;
+
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
             NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index) :
