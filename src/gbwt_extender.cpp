@@ -735,6 +735,7 @@ struct state_hash {
 
 bool WFAAlignment::unlocalized_insertion() const {
     return (
+        this->ok &&
         this->path.empty() &&
         this->edits.size() == 1 &&
         this->edits.front().first == insertion
@@ -755,11 +756,11 @@ uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
 }
 
 void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
+    this->seq_offset = sequence.length() - this->seq_offset - this->length;
+
     if (this->path.empty()) {
         return;
     }
-
-    this->seq_offset = sequence.length() - this->seq_offset - this->length;
     this->node_offset = graph.get_length(this->path.back()) - this->final_offset(graph);
 
     // Reverse the path and the edits.
@@ -996,6 +997,9 @@ public:
     // The overall closed range of diagonals reached.
     std::pair<int32_t, int32_t> max_diagonals;
 
+    // TODO: Remove when unnecessary.
+    bool debug;
+
     WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, uint32_t node_offset, const Aligner& aligner) :
         graph(graph), sequence(sequence),
         nodes(),
@@ -1004,7 +1008,8 @@ public:
         gap_open(2 * (aligner.gap_open - aligner.gap_extension)),
         gap_extend(2 * aligner.gap_extension + aligner.match),
         score_bound(0),
-        possible_scores(), max_diagonals(0, 0)
+        possible_scores(), max_diagonals(0, 0),
+        debug(false)
     {
         this->nodes.emplace_back(root, 0);
         this->nodes.front().update(WFANode::MATCHES, 0, 0, 0, node_offset);
@@ -1103,6 +1108,7 @@ public:
                 if (!subst.empty()) {
                     subst.seq_offset++;
                     this->successor_offset(subst);
+                    this->expand_if_necessary(subst);
                 }
 
                 // Determine the edit that reaches furthest on the diagonal.
@@ -1134,7 +1140,6 @@ public:
                         }
                     }
                     this->nodes[subst.node()].update(WFANode::MATCHES, score, diagonal, subst);
-                    this->expand_if_necessary(subst);
                 }
             }
         }
@@ -1363,7 +1368,7 @@ private:
 //------------------------------------------------------------------------------
 
 WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
-    if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
+    if (this->graph == nullptr || this->aligner == nullptr) {
         return WFAAlignment();
     }
     gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
@@ -1373,6 +1378,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     this->mask(sequence);
 
     WFATree tree(*(this->graph), sequence, root_state, offset(from) + 1, *(this->aligner));
+    tree.debug = this->debug;
 
     int32_t score = 0;
     while (true) {
@@ -1401,15 +1407,13 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
             return WFAAlignment();
         }
     }
-    if (tree.candidate_point.seq_offset == 0) {
-        return WFAAlignment();
-    }
 
     // Start building an alignment. Store the path first.
     WFAAlignment result {
         {}, {}, static_cast<uint32_t>(offset(from) + 1), 0,
         tree.candidate_point.seq_offset + unaligned_tail,
-        tree.candidate_point.alignment_score(*(this->aligner), unaligned_tail)
+        tree.candidate_point.alignment_score(*(this->aligner), unaligned_tail),
+        true
     };
     uint32_t node = tree.candidate_node;
     while (true) {

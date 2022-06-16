@@ -922,6 +922,40 @@ gbwtgraph::GBWTGraph wfa_general_graph(const gbwt::GBWT& index) {
 
     return gbwtgraph::GBWTGraph(index, source);
 }
+gbwt::GBWT wfa_cycle_gbwt() {
+    std::vector<gbwt::vector_type> paths;
+
+    // Path that skips the cycle
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(3, false));
+
+    // Path that takes the cycle once.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(3, false));
+
+    // Path that takes the cycle twice.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(3, false));
+
+    return get_gbwt(paths);
+}
+
+gbwtgraph::GBWTGraph wfa_cycle_graph(const gbwt::GBWT& index) {
+    gbwtgraph::SequenceSource source;
+    source.add_node(1, "CGC");
+    source.add_node(2, "GA");
+    source.add_node(3, "TAT");
+    return gbwtgraph::GBWTGraph(index, source);
+}
 
 void check_score(const WFAAlignment& alignment, const Aligner& aligner, int32_t matches, int32_t mismatches, int32_t gaps, int32_t gap_length) {
     int32_t extensions = gap_length - gaps;
@@ -947,6 +981,8 @@ void check_unlocalized_insertion(const WFAAlignment& alignment, const std::strin
 
 void check_alignment(const WFAAlignment& alignment, const std::string& sequence, const gbwtgraph::GBWTGraph& graph, const Aligner& aligner, const pos_t* from, const pos_t* to) {
 
+    REQUIRE(alignment);
+
     // Sequence range is sane and corresponds to the specified endpoints.
     REQUIRE(alignment.seq_offset + alignment.length <= sequence.length());
     REQUIRE((from == nullptr) | (alignment.seq_offset == 0));
@@ -970,28 +1006,30 @@ void check_alignment(const WFAAlignment& alignment, const std::string& sequence,
     }
 
     // Check that the alignment is between the right positions, if provided, and the start/end nodes are used in the alignment.
-    REQUIRE(alignment.node_offset < graph.get_length(alignment.path.front()));
-    if (from != nullptr) {
-        handle_t from_handle = graph.get_handle(id(*from), is_rev(*from));
-        if (alignment.path.front() == from_handle && alignment.node_offset > 0) {
-            REQUIRE(alignment.node_offset == offset(*from) + 1);
-        } else {
-            REQUIRE(offset(*from) + 1 == graph.get_length(from_handle));
-            REQUIRE(graph.has_edge(from_handle, alignment.path.front()));
-            REQUIRE(alignment.node_offset == 0);
+    if (!alignment.path.empty()) {
+        REQUIRE(alignment.node_offset < graph.get_length(alignment.path.front()));
+        if (from != nullptr) {
+            handle_t from_handle = graph.get_handle(id(*from), is_rev(*from));
+            if (alignment.path.front() == from_handle && alignment.node_offset > 0) {
+                REQUIRE(alignment.node_offset == offset(*from) + 1);
+            } else {
+                REQUIRE(offset(*from) + 1 == graph.get_length(from_handle));
+                REQUIRE(graph.has_edge(from_handle, alignment.path.front()));
+                REQUIRE(alignment.node_offset == 0);
+            }
         }
-    }
-    uint32_t final_offset = alignment.final_offset(graph);
-    REQUIRE(final_offset > 0);
-    if (to != nullptr) {
-        handle_t to_handle = graph.get_handle(id(*to), is_rev(*to));
-        uint32_t final_node_length = graph.get_length(alignment.path.back());
-        if (alignment.path.back() == to_handle && final_offset < final_node_length) {
-            REQUIRE(final_offset == offset(*to));
-        } else {
-            REQUIRE(offset(*to) == 0);
-            REQUIRE(graph.has_edge(alignment.path.back(), to_handle));
-            REQUIRE(final_offset == final_node_length);
+        uint32_t final_offset = alignment.final_offset(graph);
+        REQUIRE(final_offset > 0);
+        if (to != nullptr) {
+            handle_t to_handle = graph.get_handle(id(*to), is_rev(*to));
+            uint32_t final_node_length = graph.get_length(alignment.path.back());
+            if (alignment.path.back() == to_handle && final_offset < final_node_length) {
+                REQUIRE(final_offset == offset(*to));
+            } else {
+                REQUIRE(offset(*to) == 0);
+                REQUIRE(graph.has_edge(alignment.path.back(), to_handle));
+                REQUIRE(final_offset == final_node_length);
+            }
         }
     }
 
@@ -1051,7 +1089,9 @@ void check_alignment(const WFAAlignment& alignment, const std::string& sequence,
             }
         }
     }
-    REQUIRE((path_offset == alignment.path.size() - 1) | (path_offset == alignment.path.size() && node_offset == 0));
+    if (!alignment.path.empty()) {
+        REQUIRE((path_offset == alignment.path.size() - 1) | (path_offset == alignment.path.size() && node_offset == 0));
+    }
 }
 
 } // anonymous namespace
@@ -1339,11 +1379,44 @@ TEST_CASE("Special cases in a linear graph", "[wfa_extender]") {
     Aligner aligner;
     WFAExtender extender(graph, aligner);
 
-    SECTION("Empty sequence") {
+    SECTION("Empty sequence, deletion") {
+        // DD
         std::string sequence;
         pos_t from(2, false, 0); pos_t to(2, false, 3);
         WFAAlignment result = extender.connect(sequence, from, to);
-        REQUIRE(result.empty());
+        check_score(result, aligner, sequence.length(), 0, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Empty sequence, failure") {
+        // DDDDDD|DDDD
+        std::string sequence;
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE_FALSE(result);
+    }
+
+    SECTION("Identical endpoints") {
+        std::string sequence;
+        pos_t from(2, false, 3); pos_t to(2, false, 3);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE_FALSE(result);
+    }
+
+    SECTION("Adjacent endpoints, empty sequence") {
+        std::string sequence;
+        pos_t from(2, false, 6); pos_t to(3, false, 0);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Adjacent endpoints, insertion") {
+        std::string sequence("AA");
+        pos_t from(2, false, 6); pos_t to(3, false, 0);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 
     SECTION("Cannot align within the score bound") {
@@ -1351,14 +1424,14 @@ TEST_CASE("Special cases in a linear graph", "[wfa_extender]") {
         std::string sequence("GAGGAGA");
         pos_t from(1, false, 2); pos_t to(3, false, 0);
         WFAAlignment result = extender.connect(sequence, from, to);
-        REQUIRE(result.empty());
+        REQUIRE_FALSE(result);
     }
 
     SECTION("Cannot reach target") {
         std::string sequence("GATTA");
         pos_t from(3, false, 0); pos_t to(2, false, 6);
         WFAAlignment result = extender.connect(sequence, from, to);
-        REQUIRE(result.empty());
+        REQUIRE_FALSE(result);
     }
 
     SECTION("Run out of graph") {
@@ -1366,7 +1439,7 @@ TEST_CASE("Special cases in a linear graph", "[wfa_extender]") {
         std::string sequence("ATCCCC");
         pos_t from(4, false, 0); pos_t to(5, false, 3);
         WFAAlignment result = extender.connect(sequence, from, to);
-        REQUIRE(result.empty());
+        REQUIRE_FALSE(result);
     }
 
     SECTION("Mixed edits") {
@@ -1401,7 +1474,8 @@ TEST_CASE("Prefixes in a linear graph", "[wfa_extender]") {
         std::string sequence;
         pos_t to(2, false, 1);
         WFAAlignment result = extender.prefix(sequence, to);
-        REQUIRE(result.empty());
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
     }
 
     SECTION("Got an unlocalized insertion") {
@@ -1417,7 +1491,8 @@ TEST_CASE("Prefixes in a linear graph", "[wfa_extender]") {
         std::string sequence("GGGGGG");
         pos_t to(3, false, 0);
         WFAAlignment result = extender.prefix(sequence, to);
-        REQUIRE(result.empty());
+        check_score(result, aligner, 0, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, nullptr, &to);
     }
 
     SECTION("Exact match, middle of a node") {
@@ -1502,7 +1577,8 @@ TEST_CASE("Suffixes in a linear graph", "[wfa_extender]") {
         std::string sequence;
         pos_t from(2, false, 1);
         WFAAlignment result = extender.suffix(sequence, from);
-        REQUIRE(result.empty());
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
     }
 
     SECTION("Got an unlocalized insertion") {
@@ -1518,7 +1594,8 @@ TEST_CASE("Suffixes in a linear graph", "[wfa_extender]") {
         std::string sequence("GGGGGG");
         pos_t from(2, false, 0);
         WFAAlignment result = extender.suffix(sequence, from);
-        REQUIRE(result.empty());
+        check_score(result, aligner, 0, 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, nullptr);
     }
 
     SECTION("Exact match, middle of a node") {
@@ -1641,7 +1718,15 @@ TEST_CASE("Connect in a general graph", "[wfa_extender]") {
         std::string sequence("GGAAGT");
         pos_t from(6, false, 0); pos_t to(10, false, 2);
         WFAAlignment result = extender.connect(sequence, from, to);
-        REQUIRE(result.empty());
+        REQUIRE_FALSE(result);
+    }
+
+    SECTION("No haplotype connection that includes the endpoints") {
+        // Matches node 8.
+        std::string sequence("GAA");
+        pos_t from(6, false, 1); pos_t to(10, false, 0);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE_FALSE(result);
     }
 
     SECTION("Not within score bound") {
@@ -1649,7 +1734,7 @@ TEST_CASE("Connect in a general graph", "[wfa_extender]") {
         std::string sequence("CCATTACATAGGA");
         pos_t from(1, false, 1); pos_t to(6, false, 0);
         WFAAlignment result = extender.connect(sequence, from, to);
-        REQUIRE(result.empty());
+        REQUIRE_FALSE(result);
     }
 }
 
@@ -1780,6 +1865,84 @@ TEST_CASE("Suffix in a general graph", "[wfa_extender]") {
         WFAAlignment result = extender.suffix(sequence, from);
         check_score(result, aligner, sequence.length() - 7, 0, 0, 0);
         check_alignment(result, sequence, graph, aligner, &from, nullptr);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Connect with a cycle", "[wfa_extender]") {
+    // CGC GA TAT
+    // CGC GA GA TAT
+    // CGC GA GA GA TAT
+    gbwt::GBWT index = wfa_cycle_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_cycle_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+
+    SECTION("Skip the cycle") {
+        std::string sequence("CGAT");
+        pos_t from(1, false, 1); pos_t to(3, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it once") {
+        std::string sequence("CGAGAT");
+        pos_t from(1, false, 1); pos_t to(3, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it twice") {
+        std::string sequence("CGAGAGAT");
+        pos_t from(1, false, 1); pos_t to(3, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it thrice, insertion") {
+        std::string sequence("CGAGAGAGAT");
+        pos_t from(1, false, 1); pos_t to(3, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it five times, fail") {
+        std::string sequence("CGAGAGAGAGAGAT");
+        pos_t from(1, false, 1); pos_t to(3, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE_FALSE(result);
+    }
+
+    SECTION("Reach the end twice") {
+        // MM|MM|M
+        std::string sequence("GCGAG");
+        pos_t from(1, false, 0); pos_t to(2, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Identical endpoints, at start") {
+        // M|MX; correct endpoint on the third visit to the node
+        std::string sequence("AGG");
+        pos_t from(2, false, 0); pos_t to(2, false, 0);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Identical endpoints, at end") {
+        // MM|X; correct endpoint on the third visit to the node
+        std::string sequence("GAT");
+        pos_t from(2, false, 1); pos_t to(2, false, 1);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
 
