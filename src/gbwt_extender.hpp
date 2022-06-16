@@ -239,8 +239,15 @@ struct WFAAlignment {
     /// Alignment score.
     int32_t score = 0;
 
-    /// Returns true if the alignment is empty.
-    bool empty() const { return (this->length == 0); }
+    /// Is this an actual alignment or a failure?
+    bool ok = false;
+
+    /// Is this an actual alignment or a failure?
+    operator bool() const { return this->ok; }
+
+    /// Returns true if the alignment does not cover anything in the sequence
+    /// and the graph.
+    bool empty() const { return (this->path.empty() && this->edits.empty()); }
 
     /// Returns true if the alignment is an insertion without a location.
     bool unlocalized_insertion() const;
@@ -280,7 +287,7 @@ struct WFAAlignment {
  *
  * VG scores a gap of length `n` as `gap_open + (n - 1) * gap_extend`, while WFA
  * papers use `gap_open + n * gap_extend`. Hence we use `gap_open - gap_extend` as
- * the effective four-parameter gap open score inside this aligner.
+ * the effective four-parameter gap open score inside the aligner.
  *
  * NOTE: Most internal arithmetic operations use 32-bit integers.
  */
@@ -297,12 +304,20 @@ public:
     /**
      * Align the sequence to a haplotype between the two graph positions.
      *
+     * The endpoints are assumed to be valid graph positions. In order for
+     * there to be an alignment, there must be a haplotype that includes the
+     * endpoints and connects them. However, the endpoints are not covered
+     * by the returned alignment.
+     *
      * The sequence that will be aligned is passed by value. All non-ACGT
      * characters are masked with character X, which should not match any
      * character in the graph.
      *
-     * Returns an empty alignment if there is no alignment with an acceptable
+     * Returns a failed alignment if there is no alignment with an acceptable
      * score.
+     *
+     * NOTE: The alignment is to a path after `from` and before `to`. If the
+     * points are identical, such a path can only exist if there is a cycle.
      */
     WFAAlignment connect(std::string sequence, pos_t from, pos_t to) const;
 
@@ -310,10 +325,10 @@ public:
      * A special case of connect() for aligning the sequence to a haplotype
      * starting at the given position. If there is no alignment for the
      * entire sequence with an acceptable score, returns the highest-scoring
-     * partial alignment.
+     * partial alignment, which may be empty.
      *
-     * NOTE: This creates a suffix of the alignment by aligning a prefix of
-     * the sequence.
+     * NOTE: This creates a suffix of the full alignment by aligning a
+     * prefix of the sequence.
      * TODO: Should we use full-length bonuses?
      */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
@@ -322,10 +337,10 @@ public:
      * A special case of connect() for aligning the sequence to a haplotype
      * ending at the given position. If there is no alignment for the entire
      * sequence with an acceptable score, returns the highest-scoring partial
-     * alignment.
+     * alignment, which may be empty.
      *
-     * NOTE: This creates a prefix of the alignment by aligning a suffix of
-     * the sequence.
+     * NOTE: This creates a prefix of the full alignment by aligning a suffix
+     * of the sequence.
      * TODO: Should we use full-length bonuses?
      */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;

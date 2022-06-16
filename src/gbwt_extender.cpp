@@ -735,6 +735,7 @@ struct state_hash {
 
 bool WFAAlignment::unlocalized_insertion() const {
     return (
+        this->ok &&
         this->path.empty() &&
         this->edits.size() == 1 &&
         this->edits.front().first == insertion
@@ -755,11 +756,11 @@ uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
 }
 
 void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
+    this->seq_offset = sequence.length() - this->seq_offset - this->length;
+
     if (this->path.empty()) {
         return;
     }
-
-    this->seq_offset = sequence.length() - this->seq_offset - this->length;
     this->node_offset = graph.get_length(this->path.back()) - this->final_offset(graph);
 
     // Reverse the path and the edits.
@@ -843,13 +844,6 @@ struct MatchPos {
             return false;
         }
         return (this->seq_offset < another.seq_offset);
-    }
-
-    // Returns the non-empty position further on the diagonal (on the sequence).
-    static const MatchPos& max(const MatchPos& a, const MatchPos& b) {
-        if (a.empty()) { return b; }
-        if (b.empty()) { return a; }
-        return (a.seq_offset > b.seq_offset ? a : b);
     }
 };
 
@@ -980,7 +974,7 @@ public:
     std::vector<WFANode> nodes;
 
     // Best alignment found so far. If we reached the destination in the graph,
-    // the score includes the possible insertion at the end but the point itself
+    // the score includes the implicit insertion at the end but the point itself
     // does not.
     WFAPoint candidate_point;
     uint32_t candidate_node;
@@ -1003,6 +997,9 @@ public:
     // The overall closed range of diagonals reached.
     std::pair<int32_t, int32_t> max_diagonals;
 
+    // TODO: Remove when unnecessary.
+    bool debug;
+
     WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, uint32_t node_offset, const Aligner& aligner) :
         graph(graph), sequence(sequence),
         nodes(),
@@ -1011,7 +1008,8 @@ public:
         gap_open(2 * (aligner.gap_open - aligner.gap_extension)),
         gap_extend(2 * aligner.gap_extension + aligner.match),
         score_bound(0),
-        possible_scores(), max_diagonals(0, 0)
+        possible_scores(), max_diagonals(0, 0),
+        debug(false)
     {
         this->nodes.emplace_back(root, 0);
         this->nodes.front().update(WFANode::MATCHES, 0, 0, 0, node_offset);
@@ -1031,8 +1029,13 @@ public:
     uint32_t parent(uint32_t node) const { return this->nodes[node].parent; }
 
     // Assumes length > 0.
+    int32_t gap_extend_penalty(uint32_t length) const {
+        return static_cast<int32_t>(length) * this->gap_extend;
+    }
+
+    // Assumes length > 0.
     int32_t gap_penalty(uint32_t length) const {
-        return this->gap_open + static_cast<int32_t>(length) * this->gap_extend;
+        return this->gap_open + this->gap_extend_penalty(length);
     }
 
     // wf_extend() in the paper.
@@ -1105,27 +1108,38 @@ public:
                 if (!subst.empty()) {
                     subst.seq_offset++;
                     this->successor_offset(subst);
+                    this->expand_if_necessary(subst);
                 }
-                subst = MatchPos::max(subst, ins);
-                subst = MatchPos::max(subst, del);
+
+                // Determine the edit that reaches furthest on the diagonal.
+                bool is_insertion = false;
+                if (subst < ins) {
+                    subst = std::move(ins);
+                    is_insertion = true;
+                }
+                if (subst < del) {
+                    subst = std::move(del);
+                    is_insertion = false;
+                }
+
                 if (!subst.empty()) {
-                    // If we are just past the end position, we get a candidate alignment by
-                    // assuming that the rest of the sequence is an insertion.
-                    // If `subst` is an insertion, we already got a better alignment from the
-                    // match preceding it.
-                    if (this->nodes[subst.node()].same_node(to) && subst.node_offset == offset(to) + 1) {
+                    // If we reached the end position with the edit, we get a candidate
+                    // alignment by assuming that the rest of the sequence is an insertion.
+                    // If the edit is an insertion, we charge the gap open cost again, but
+                    // we already got the same insertion without the extra cost from the
+                    // match preceding the insertion.
+                    if (this->nodes[subst.node()].same_node(to) && subst.node_offset == offset(to)) {
                         uint32_t gap_length = this->sequence.length() - subst.seq_offset;
-                        int32_t new_score = score;
+                        int32_t gap_score = 0;
                         if (gap_length > 0) {
-                            new_score += this->gap_penalty(gap_length);
+                            gap_score = this->gap_penalty(gap_length);
                         }
-                        if (new_score < this->candidate_point.score) {
-                            this->candidate_point = { new_score, diagonal, subst.seq_offset, subst.node_offset };
+                        if (score + gap_score < this->candidate_point.score) {
+                            this->candidate_point = { score + gap_score, diagonal, subst.seq_offset, subst.node_offset };
                             this->candidate_node = subst.node();
                         }
                     }
                     this->nodes[subst.node()].update(WFANode::MATCHES, score, diagonal, subst);
-                    this->expand_if_necessary(subst);
                 }
             }
         }
@@ -1221,18 +1235,18 @@ private:
             while (true) {
                 bool may_reach_to = this->nodes[pos.node()].same_node(to) & (pos.node_offset <= offset(to));
                 this->nodes[pos.node()].match_forward(this->sequence, this->graph, pos);
-                // We got a match that covers the end position but may extend past it.
+                // We got a match that reached the end or went past it.
                 // Alternatively there is no end position and we have aligned the entire sequence.
                 // This gives us a candidate where the rest of the sequence is an insertion.
-                if ((may_reach_to && pos.node_offset > offset(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
-                    uint32_t overshoot = (no_pos(to) ? 0 : pos.node_offset - offset(to) - 1);
+                if ((may_reach_to && pos.node_offset >= offset(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
+                    uint32_t overshoot = (no_pos(to) ? 0 : pos.node_offset - offset(to));
                     uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + overshoot;
-                    int32_t new_score = score;
+                    int32_t gap_score = 0;
                     if (gap_length > 0) {
-                        new_score += this->gap_penalty(gap_length);
+                        gap_score = this->gap_penalty(gap_length);
                     }
-                    if (new_score < this->candidate_point.score) {
-                        this->candidate_point = { new_score, diagonal, pos.seq_offset - overshoot, static_cast<uint32_t>(offset(to) + 1) };
+                    if (score + gap_score < this->candidate_point.score) {
+                        this->candidate_point = { score + gap_score, diagonal, pos.seq_offset - overshoot, static_cast<uint32_t>(offset(to)) };
                         this->candidate_node = pos.node();
                     }
                 }
@@ -1354,7 +1368,7 @@ private:
 //------------------------------------------------------------------------------
 
 WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
-    if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
+    if (this->graph == nullptr || this->aligner == nullptr) {
         return WFAAlignment();
     }
     gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
@@ -1363,7 +1377,8 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
     this->mask(sequence);
 
-    WFATree tree(*(this->graph), sequence, root_state, offset(from), *(this->aligner));
+    WFATree tree(*(this->graph), sequence, root_state, offset(from) + 1, *(this->aligner));
+    tree.debug = this->debug;
 
     int32_t score = 0;
     while (true) {
@@ -1392,15 +1407,13 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
             return WFAAlignment();
         }
     }
-    if (tree.candidate_point.seq_offset == 0) {
-        return WFAAlignment();
-    }
 
     // Start building an alignment. Store the path first.
     WFAAlignment result {
-        {}, {}, static_cast<uint32_t>(offset(from)), 0,
+        {}, {}, static_cast<uint32_t>(offset(from) + 1), 0,
         tree.candidate_point.seq_offset + unaligned_tail,
-        tree.candidate_point.alignment_score(*(this->aligner), unaligned_tail)
+        tree.candidate_point.alignment_score(*(this->aligner), unaligned_tail),
+        true
     };
     uint32_t node = tree.candidate_node;
     while (true) {
@@ -1418,7 +1431,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     if (unaligned_tail > 0) {
         uint32_t final_insertion = sequence.length() - tree.candidate_point.seq_offset;
         result.append(WFAAlignment::insertion, final_insertion);
-        point.score -= tree.gap_penalty(final_insertion);
+        point.score -= tree.gap_penalty(unaligned_tail);
     }
 
     // Backtrace the edits.
@@ -1471,6 +1484,14 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         }
     }
     std::reverse(result.edits.begin(), result.edits.end());
+
+    // We used "from + 1" as the starting position for the alignment. That could have
+    // been a past-the-end position in the initial node. Once we have an actual path
+    // instead of a tree of potential paths, we can remove the unused node.
+    if (!result.path.empty() && result.node_offset >= this->graph->get_length(result.path.front())) {
+        result.path.erase(result.path.begin());
+        result.node_offset = 0;
+    }
 
     // Due to the way we expand the tree of GBWT search states and store wavefront
     // information in the leaves, we sometimes do not use any bases in the final node.
