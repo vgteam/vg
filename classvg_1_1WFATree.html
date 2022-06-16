@@ -91,6 +91,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a333bb155a208e47bb86e08ed249679cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabd7f129c9af694426d4b0d54e45f16b"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#aabd7f129c9af694426d4b0d54e45f16b">parent</a> (uint32_t node) const</td></tr>
 <tr class="separator:aabd7f129c9af694426d4b0d54e45f16b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a514b68d1082be55e0b7f0909901390ee"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a514b68d1082be55e0b7f0909901390ee">gap_extend_penalty</a> (uint32_t length) const</td></tr>
+<tr class="separator:a514b68d1082be55e0b7f0909901390ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2f9bbb1fcce68edf6e439d0b3005af78"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a2f9bbb1fcce68edf6e439d0b3005af78">gap_penalty</a> (uint32_t length) const</td></tr>
 <tr class="separator:a2f9bbb1fcce68edf6e439d0b3005af78"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff60970aa101a9c48c61737ff121c94f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#aff60970aa101a9c48c61737ff121c94f">extend</a> (int32_t score, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> to)</td></tr>
@@ -143,6 +145,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ae0bdbe839661d93338272d064e00cef3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa784e9249edc480250bae85f45cb6256"><td class="memItemLeft" align="right" valign="top">std::pair&lt; int32_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#aa784e9249edc480250bae85f45cb6256">max_diagonals</a></td></tr>
 <tr class="separator:aa784e9249edc480250bae85f45cb6256"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8625337aae9080bcfd009375912de9f0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a8625337aae9080bcfd009375912de9f0">debug</a></td></tr>
+<tr class="separator:a8625337aae9080bcfd009375912de9f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -449,6 +453,32 @@ Private Member Functions</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a514b68d1082be55e0b7f0909901390ee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a514b68d1082be55e0b7f0909901390ee">&#9670;&nbsp;</a></span>gap_extend_penalty()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::WFATree::gap_extend_penalty </td>
+          <td>(</td>
+          <td class="paramtype">uint32_t&#160;</td>
+          <td class="paramname"><em>length</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -928,6 +958,20 @@ Private Member Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1WFAPoint.html">WFAPoint</a> vg::WFATree::candidate_point</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8625337aae9080bcfd009375912de9f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8625337aae9080bcfd009375912de9f0">&#9670;&nbsp;</a></span>debug</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::WFATree::debug</td>
         </tr>
       </table>
 </div><div class="memdoc">

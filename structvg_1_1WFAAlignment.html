@@ -89,8 +89,10 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a7f1464e6b2a86671cdf376137409eeeb"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAAlignment.html#a7f1464e6b2a86671cdf376137409eeeb">operator bool</a> () const</td></tr>
+<tr class="memdesc:a7f1464e6b2a86671cdf376137409eeeb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is this an actual alignment or a failure?  <a href="structvg_1_1WFAAlignment.html#a7f1464e6b2a86671cdf376137409eeeb">More...</a><br /></td></tr>
+<tr class="separator:a7f1464e6b2a86671cdf376137409eeeb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3dd26de023774ab65b2c7e115e0aa88a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAAlignment.html#a3dd26de023774ab65b2c7e115e0aa88a">empty</a> () const</td></tr>
-<tr class="memdesc:a3dd26de023774ab65b2c7e115e0aa88a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the alignment is empty.  <a href="structvg_1_1WFAAlignment.html#a3dd26de023774ab65b2c7e115e0aa88a">More...</a><br /></td></tr>
 <tr class="separator:a3dd26de023774ab65b2c7e115e0aa88a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f48d4dc6b6001b37549054ad20b9b47"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAAlignment.html#a5f48d4dc6b6001b37549054ad20b9b47">unlocalized_insertion</a> () const</td></tr>
 <tr class="memdesc:a5f48d4dc6b6001b37549054ad20b9b47"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the alignment is an insertion without a location.  <a href="structvg_1_1WFAAlignment.html#a5f48d4dc6b6001b37549054ad20b9b47">More...</a><br /></td></tr>
@@ -127,6 +129,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a066d6b546e0308e8df7fc74f42d5de67"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAAlignment.html#a066d6b546e0308e8df7fc74f42d5de67">score</a> = 0</td></tr>
 <tr class="memdesc:a066d6b546e0308e8df7fc74f42d5de67"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> score.  <a href="structvg_1_1WFAAlignment.html#a066d6b546e0308e8df7fc74f42d5de67">More...</a><br /></td></tr>
 <tr class="separator:a066d6b546e0308e8df7fc74f42d5de67"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a64f88d651eb19e3045ab6f9b5552e6c6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAAlignment.html#a64f88d651eb19e3045ab6f9b5552e6c6">ok</a> = false</td></tr>
+<tr class="memdesc:a64f88d651eb19e3045ab6f9b5552e6c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is this an actual alignment or a failure?  <a href="structvg_1_1WFAAlignment.html#a64f88d651eb19e3045ab6f9b5552e6c6">More...</a><br /></td></tr>
+<tr class="separator:a64f88d651eb19e3045ab6f9b5552e6c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>An alignment found by WFAAligner, consisting of a sequence of nodes, a sequence of edits, and a starting offset in the initial node. The alignment score is computed using the match / mismatch / gap open / gap extend parameters in the <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object given to the WFAAligner. Full-length bonuses are not used.</p>
@@ -204,8 +209,7 @@ Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Returns true if the alignment is empty. </p>
+<p>Returns true if the alignment does not cover anything in the sequence and the graph. </p>
 
 </div>
 </div>
@@ -256,6 +260,33 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Transforms the alignment to the other strand. </p>
+
+</div>
+</div>
+<a id="a7f1464e6b2a86671cdf376137409eeeb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f1464e6b2a86671cdf376137409eeeb">&#9670;&nbsp;</a></span>operator bool()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::WFAAlignment::operator bool </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Is this an actual alignment or a failure? </p>
 
 </div>
 </div>
@@ -354,6 +385,22 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Starting offset in the initial node. </p>
+
+</div>
+</div>
+<a id="a64f88d651eb19e3045ab6f9b5552e6c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a64f88d651eb19e3045ab6f9b5552e6c6">&#9670;&nbsp;</a></span>ok</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::WFAAlignment::ok = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Is this an actual alignment or a failure? </p>
 
 </div>
 </div>
