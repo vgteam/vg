@@ -1916,15 +1916,15 @@ namespace vg {
                     tuple<size_t, size_t, size_t, bool> path_values3 = distance_index.get_longest_path_and_offset(node3);
                     tuple<size_t, size_t, size_t, bool> path_values4 = distance_index.get_longest_path_and_offset(node4);
                     if (std::get<0>(path_values2) == std::numeric_limits<size_t>::max()) {
-                        REQUIRE(std::get<0>(path_values3) == distance_index.get_record_offset(chain14));
+                        REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values3)) == chain14);
                         REQUIRE(std::get<2>(path_values3) == 3);
                     } else {
                         assert(std::get<0>(path_values3) == std::numeric_limits<size_t>::max());
-                        REQUIRE(std::get<0>(path_values2) == distance_index.get_record_offset(chain14));
+                        REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values2)) == chain14);
                         REQUIRE(std::get<2>(path_values2) == 3);
                     }
-                    REQUIRE(std::get<0>(path_values1) == distance_index.get_record_offset(chain14));
-                    REQUIRE(std::get<0>(path_values4) == distance_index.get_record_offset(chain14));
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values1)) == chain14);
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values4)) == chain14);
                     if (distance_index.node_id(distance_index.get_bound(chain14, false, false)) == n1->id()) {
                         //If it's traversed forward
                         REQUIRE(std::get<2>(path_values1) == 0);
@@ -2796,12 +2796,13 @@ namespace vg {
                     tuple<size_t, size_t, size_t, bool> path_values7 = distance_index.get_longest_path_and_offset(node7);
                     tuple<size_t, size_t, size_t, bool> path_values8 = distance_index.get_longest_path_and_offset(node8);
 
-                    REQUIRE(std::get<0>(path_values1) == distance_index.get_record_offset(chain18));
-                    REQUIRE(std::get<0>(path_values2) == distance_index.get_record_offset(chain18));
-                    REQUIRE(std::get<0>(path_values4) == distance_index.get_record_offset(chain18));
-                    REQUIRE(std::get<0>(path_values6) == distance_index.get_record_offset(chain18));
-                    REQUIRE(std::get<0>(path_values7) == distance_index.get_record_offset(chain18));
-                    REQUIRE(std::get<0>(path_values8) == distance_index.get_record_offset(chain18));
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values1)) == chain18);
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values2)) == chain18);
+                    cerr << distance_index.net_handle_as_string( distance_index.get_handle_from_connected_component(std::get<0>(path_values4))) << endl;
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values4)) == chain18);
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values6)) == chain18);
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values7)) == chain18);
+                    REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values8)) == chain18);
                     if (distance_index.node_id(distance_index.get_bound(chain18, false, false)) == n1->id()) {
                         //if chain 1-8 is traversed forwards
                         REQUIRE(std::get<2>(path_values1) == 0);

@@ -25,8 +25,8 @@ class NewSnarlSeedClusterer {
 
             //Cached values from the minimizer
             //node length, root component, prefix sum, chain component, is_reversed
-            tuple<size_t, size_t, size_t, size_t, bool> minimizer_cache  = 
-                make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+            tuple<size_t, size_t, size_t, size_t, bool, bool> minimizer_cache  = 
+                make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, false);
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds

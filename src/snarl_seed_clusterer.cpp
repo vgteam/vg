@@ -308,7 +308,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
             
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
-            net_handle_t parent = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE
+            net_handle_t parent = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE || std::get<5>(seed.minimizer_cache)
                                 ? distance_index.get_parent(node_net_handle)
                                 : distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
 
@@ -323,7 +323,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //If the parent is a proper chain, then add the seed to the chain
                 //Also update the minimizer_cache on the seed 
-                size_t depth = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE ? distance_index.get_depth(parent) : 1;
+                size_t depth = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE || std::get<5>(seed.minimizer_cache) ? distance_index.get_depth(parent) : 1;
 
 
                 //Now we want to update the cached values of the seed
@@ -331,7 +331,7 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Seed payload is: node length, root component, prefix sum, chain component, is_reversed 
                 //Node length and is_reversed are always set
                 //TODO: It might be worth it to make a new NodeClusters to save this information instead of looking it up every time
-                size_t prefix_sum = std::get<2>(seed.minimizer_cache);
+                size_t prefix_sum = std::get<5>(seed.minimizer_cache) ? MIPayload::NO_VALUE : std::get<2>(seed.minimizer_cache);
                 size_t node_length = std::get<0>(seed.minimizer_cache);
                 bool is_reversed_in_parent = std::get<4>(seed.minimizer_cache);
                 if (prefix_sum == MIPayload::NO_VALUE) {
@@ -764,30 +764,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
     net_handle_t& child_handle1 = child_clusters1.containing_net_handle;
     net_handle_t& child_handle2 = child_clusters2.containing_net_handle;
 
-
-    //Get the distances between the two sides of the children in the parent
-    size_t distance_left_left = distance_index.distance_in_parent(parent_handle, distance_index.flip(child_handle1), distance_index.flip(child_handle2), graph,
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
-    size_t distance_left_right = distance_index.distance_in_parent(parent_handle, distance_index.flip(child_handle1), child_handle2, graph,
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
-    size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, child_handle2, graph,
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
-    size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, distance_index.flip(child_handle2), graph,
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
-
-    /* Find the distances from the start/end of the parent to the left/right of the first child
-     * If this is the root, then the distances are infinite since it has no start/end
-     */
-
-    if (is_root){
-        if (distance_left_left == std::numeric_limits<size_t>::max() &&
-            distance_left_right == std::numeric_limits<size_t>::max() &&
-            distance_right_right == std::numeric_limits<size_t>::max() &&
-            distance_right_left == std::numeric_limits<size_t>::max()) {
-            return;
-        }
-
-    } else if (first_child) {
+    if (!is_root && first_child) {
         //If this is a child of a snarl and the first time we see the first child, then we want to remember the distances
         //to the bounds of the snarl
         child_clusters1.distance_start_left = 
@@ -803,6 +780,79 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), child_handle1);
 
     }
+
+
+    //Get the distances between the two sides of the children in the parent
+    size_t distance_left_left = std::numeric_limits<size_t>::max();
+    size_t distance_left_right = std::numeric_limits<size_t>::max();
+    size_t distance_right_left = std::numeric_limits<size_t>::max();
+    size_t distance_right_right = std::numeric_limits<size_t>::max();
+
+    //If we can, use the paths to calculate the distance between two children
+    bool use_path = child_clusters1.has_node_path_values && child_clusters2.has_node_path_values &&
+        child_clusters1.containing_net_handle != child_clusters2.containing_net_handle &&
+        child_clusters1.path_identifier != std::numeric_limits<size_t>::max() &&
+        child_clusters1.path_identifier == child_clusters2.path_identifier;
+    if (use_path && 
+        (child_clusters1.path_offset < child_clusters2.path_offset && child_clusters1.path_is_reversed && !child_clusters2.path_is_reversed) ||
+        (child_clusters1.path_offset > child_clusters2.path_offset && !child_clusters1.path_is_reversed && child_clusters2.path_is_reversed)) {
+        //If the distance between the two will be through the correct sides of each
+        distance_left_left = child_clusters1.path_offset < child_clusters2.path_offset
+                           ? child_clusters2.path_offset - child_clusters1.path_offset
+                           : child_clusters1.path_offset - child_clusters2.path_offset;
+    } else {
+        //Otherwise, use the distance index
+        distance_left_left = distance_index.distance_in_parent(parent_handle, distance_index.flip(child_handle1), distance_index.flip(child_handle2), graph,
+                (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    }
+    if (use_path && 
+        (child_clusters1.path_offset < child_clusters2.path_offset && child_clusters1.path_is_reversed && child_clusters2.path_is_reversed) ||
+        (child_clusters1.path_offset > child_clusters2.path_offset && !child_clusters1.path_is_reversed && !child_clusters2.path_is_reversed)) {
+        //If the distance between the two will be through the correct sides of each
+        distance_left_right = child_clusters1.path_offset < child_clusters2.path_offset
+                           ? child_clusters2.path_offset - child_clusters1.path_offset
+                           : child_clusters1.path_offset - child_clusters2.path_offset;
+    } else {
+
+        distance_left_right = distance_index.distance_in_parent(parent_handle, distance_index.flip(child_handle1), child_handle2, graph,
+                (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    }
+    if (use_path && 
+        (child_clusters1.path_offset < child_clusters2.path_offset && !child_clusters1.path_is_reversed && child_clusters2.path_is_reversed) ||
+        (child_clusters1.path_offset > child_clusters2.path_offset && child_clusters1.path_is_reversed && !child_clusters2.path_is_reversed)) {
+        //If the distance between the two will be through the correct sides of each
+        distance_right_right = child_clusters1.path_offset < child_clusters2.path_offset
+                           ? child_clusters2.path_offset - child_clusters1.path_offset
+                           : child_clusters1.path_offset - child_clusters2.path_offset;
+    } else {
+        distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, child_handle2, graph,
+                (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    }
+    if (use_path && 
+        (child_clusters1.path_offset < child_clusters2.path_offset && !child_clusters1.path_is_reversed && !child_clusters2.path_is_reversed) ||
+        (child_clusters1.path_offset > child_clusters2.path_offset && child_clusters1.path_is_reversed && child_clusters2.path_is_reversed)) {
+        //If the distance between the two will be through the correct sides of each
+        distance_right_left = child_clusters1.path_offset < child_clusters2.path_offset
+                           ? child_clusters2.path_offset - child_clusters1.path_offset
+                           : child_clusters1.path_offset - child_clusters2.path_offset;
+    } else {
+        distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, distance_index.flip(child_handle2), graph,
+                (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    }
+
+    /* Find the distances from the start/end of the parent to the left/right of the first child
+     * If this is the root, then the distances are infinite since it has no start/end
+     */
+
+    if (is_root){
+        if (distance_left_left == std::numeric_limits<size_t>::max() &&
+            distance_left_right == std::numeric_limits<size_t>::max() &&
+            distance_right_right == std::numeric_limits<size_t>::max() &&
+            distance_right_left == std::numeric_limits<size_t>::max()) {
+            return;
+        }
+
+    } 
    
 #ifdef DEBUG_CLUSTER
     cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;

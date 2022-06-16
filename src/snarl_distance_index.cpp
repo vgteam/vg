@@ -1790,13 +1790,15 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
                   This is set if the node is in a nontrivial chain or in a simple snarl, in which case the component is
                   the chain component of the start and end nodes of the parent snarl
         -(bool)   is the node reversed in its parent 
+        -(bool)   is the node nested (not a top-level chain or in a simple snarl of the top-level chain)
  */
 
 
-tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
+tuple<size_t, size_t, size_t, size_t, bool, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
 
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
+    bool is_nested_node = false;
 
     //Is the node the direct child a top-level chain
     bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
@@ -1819,6 +1821,10 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     bool is_reversed_in_parent = distance_index.is_trivial_chain(parent_handle) 
                                  ? distance_index.is_reversed_in_parent(parent_handle)
                                  : distance_index.is_reversed_in_parent(node_handle);
+    size_t connected_component = in_top_level_chain 
+                       ?  distance_index.get_connected_component_number(node_handle)
+                       : std::numeric_limits<size_t>::max();
+
     if (distance_index.is_trivial_chain(parent_handle) && distance_index.is_simple_snarl(distance_index.get_parent(parent_handle))) {
         //If the grandparent of the node is a simple snarl, then remember the prefix sum value as being the distance to the start 
         //of the snarl - the prefix sum of the start node plus the length of the start node
@@ -1834,15 +1840,26 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
             component = distance_index.get_chain_component(snarl_start);
         }
 
+    } else if (!in_top_level_chain) {
+        //Otherwise, this is a nested node and we may want to store path values
+        tuple<size_t, size_t, size_t, bool> path_values = distance_index.get_longest_path_and_offset(node_handle);
+        if (std::get<0>(path_values) != std::numeric_limits<size_t>::max()) {
+            is_nested_node = true;
+            connected_component = std::get<0>(path_values);
+            component = std::get<1>(path_values);
+            prefix_sum = std::get<2>(path_values);
+            is_reversed_in_parent = std::get<3>(path_values);
+
+        }
+
     }
 
     return make_tuple(distance_index.minimum_length(node_handle),
-                      in_top_level_chain 
-                       ?  distance_index.get_connected_component_number(node_handle)
-                       : std::numeric_limits<size_t>::max(),
+                      connected_component,
                       prefix_sum,
                       component,
-                      is_reversed_in_parent);
+                      is_reversed_in_parent,
+                      is_nested_node);
 
 
 
