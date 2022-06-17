@@ -115,11 +115,14 @@ build-job:
 
 # The arm container build takes like 90 minutes, so we don't want to run it
 # before the main test phase where the other long tests live.
-# They also don't pass yet.
-arm-build-job:
+# To ship a final production Docker tag, we need the ARM and x86 builds
+# happening in the same command so we can push one multiarch manifest.
+production-build-job:
   stage: test
   only:
     - /^arm/
+    - master
+    - tags
   before_script:
     # Don't bother starting the Docker daemon or installing much
     - which docker || (sudo apt-get -q -y update && sudo apt-get -q -y install --no-upgrade docker.io)
@@ -136,9 +139,13 @@ arm-build-job:
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
   script:
     - make include/vg_git_version.hpp
-    # Build the arm container (emulated!)
-    - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
-    # Also run the tests (emulated!)
+    # Determine what we should be tagging vg Dockers as. If we're running on a Git tag we want to use that. Otherwise push over the tag we made already.
+    - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then VG_DOCKER_TAG="${CI_COMMIT_TAG}" ; else VG_DOCKER_TAG="ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"; fi
+    # Build the container for all architectures.
+    - docker buildx build --platform=linux/amd64,linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:${VG_DOCKER_TAG}" -f Dockerfile .
+    # Tag it latest if we pushed a real release tag
+    - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then docker buildx build --platform=linux/amd64,linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:latest" -f Dockerfile .; fi
+    # Also run the ARM tests (emulated!)
     # But don't fail if they fail yet, because they don't yet actually work.
     - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target test -f Dockerfile . || true
   variables:
