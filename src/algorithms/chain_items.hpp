@@ -922,26 +922,15 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * item. Returns the best observed score overall from that table,
  * with provenance to its location in the table, if tracked in the type.
  * Assumes some items exist.
- */
-template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
-Score chain_items_dp(vector<Score>& best_chain_score,
-                     const VectorView<Item>& to_chain,
-                     const ChainingSpace<Item, Source>& space);
-                     
-/**
- * Fill in the given DP table for the best chain score ending with each
- * item. Returns the best observed score overall from that table,
- * with provenance to its location in the table, if tracked in the type.
- * Assumes some items exist.
  *
  * Uses a finite lookback in items when checking where we can come from to
  * reach an item.
  */
 template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
-Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
-                                     const Collection& to_chain,
-                                     const ChainingSpace<Item, Source>& space,
-                                     size_t lookback = 5);
+Score chain_items_dp(vector<Score>& best_chain_score,
+                     const Collection& to_chain,
+                     const ChainingSpace<Item, Source>& space,
+                     size_t lookback = 5);
 
 /**
  * Trace back through in the given DP table from the best chain score.
@@ -998,361 +987,8 @@ int score_best_chain(const Collection& to_chain,
 template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
-                     const ChainingSpace<Item, Source>& space) {
-                    
-    // Grab the traits into a short name so we can use the accessors concisely.
-    using ST = score_traits<Score>;
-
-#ifdef debug_chaining
-    cerr << "Chaining group of " << to_chain.size() << " items" << endl;
-#endif
-    
-    
-    // This is a collection of one or more non-full-length extended seeds.
-    
-    // We use a sweep line algorithm to find relevant points along the read: item starts or ends.
-    // This records the last base to be covered by the current sweep line.
-    int64_t sweep_line = 0;
-    // This records the first base not covered by the last sweep line.
-    int64_t next_unswept = 0;
-    
-    // And we track the next unentered item
-    size_t unentered = 0;
-    // And the max observed end in read space so far
-    size_t max_end = space.read_end(to_chain[unentered]); 
-    
-    // Extensions we are in are in this min-heap of past-end position and item number.
-    using ending_at_t = pair<size_t, size_t>;
-    priority_queue<ending_at_t, vector<ending_at_t>, std::greater<ending_at_t>> end_heap;
-    
-    // We track the best score for a chain reaching the position before this one and ending in a gap.
-    // We never let it go below 0.
-    // Will be 0 when there's no gap that can be open
-    Score best_gap_score = ST::unset();
-    
-    // We track the score for the best chain ending with each item
-    best_chain_score.clear();
-    best_chain_score.resize(to_chain.size(), ST::unset());
-    
-    // And we're after the best score overall that we can reach when an item ends
-    Score best_past_ending_score_ever = ST::unset();
-    
-    // Overlaps are more complicated.
-    // We need a heap of all the items for which we have seen the
-    // start and that we can thus overlap.
-    // We filter things at the top of the heap if their past-end positions
-    // have occurred.
-    // So we store pairs of score we get backtracking to the current
-    // position, and past-end position for the thing we are backtracking
-    // from.
-    // We can just use the standard max-heap comparator.
-    priority_queue<pair<Score, size_t>> overlap_heap;
-    
-    // We encode the score relative to a counter that we increase by the
-    // gap extend every base we go through, so we don't need to update and
-    // re-sort the heap.
-    int overlap_score_offset = 0;
-    
-    while(next_unswept <= max_end) {
-        // We are processed through the position before next_unswept.
-        
-        // Find a place for sweep_line to go
-        
-        // Find the next seed start
-        int64_t next_seed_start = numeric_limits<int64_t>::max();
-        if (unentered < to_chain.size()) {
-            next_seed_start = space.read_start(to_chain[unentered]);
-        }
-        
-        // Find the next seed end
-        int64_t next_seed_end = numeric_limits<int64_t>::max();
-        if (!end_heap.empty()) {
-            next_seed_end = end_heap.top().first;
-        }
-        
-        // Whichever is closer between those points and the end, do that.
-        sweep_line = min(min(next_seed_end, next_seed_start), (int64_t) max_end);
-        
-        // So now we're only interested in things that happen at sweep_line.
-#ifdef debug_chaining
-        cerr << "Sweep to " << sweep_line << endl;
-#endif
-        
-        // Compute the distance from the previous sweep line position
-        // Make sure to account for next_unswept's semantics as the next unswept base.
-        int sweep_distance = sweep_line - next_unswept + 1;
-        
-        // We need to track the score of the best thing that past-ended here
-        Score best_past_ending_score_here = ST::unset();
-        
-        while(!end_heap.empty() && end_heap.top().first == sweep_line) {
-            // Find anything that past-ends here
-            size_t past_ending = end_heap.top().second;
-            
-            // Mix it into the score
-            ST::max_in(best_past_ending_score_here, best_chain_score, past_ending);
-            
-            // Remove it from the end-tracking heap
-            end_heap.pop();
-        }
-#ifdef debug_chaining
-        cerr << "Best score of an item past-ending here: " << best_past_ending_score_here << endl;
-#endif
-        
-
-        // Pick between that and the best score overall
-        best_past_ending_score_ever = std::max(best_past_ending_score_ever, best_past_ending_score_here);
-        
-        if (sweep_line == max_end) {
-            // We don't need to think about gaps or backtracking anymore since everything has ended
-            break;
-        }
-        
-        // Update the overlap score offset by removing some gap extends from it.
-        overlap_score_offset += sweep_distance * space.scoring.gap_extension;
-        
-        // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
-        Score best_overlap_score = ST::unset();
-        while (!overlap_heap.empty()) {
-            // While there is stuff on the heap
-            if (overlap_heap.top().second <= sweep_line) {
-                // We are already past this thing, so drop it
-                overlap_heap.pop();
-            } else {
-                // This is at the top of the heap and we aren't past it
-                // Decode and use its score offset if we only backtrack to here.
-                best_overlap_score = ST::add_points(overlap_heap.top().first, overlap_score_offset);
-                // Stop looking in the heap
-                break;
-            }
-        }
-#ifdef debug_chaining
-        cerr << "Best score of overlapping back to here: " << best_overlap_score << endl;
-#endif
-        
-        // The best way to end 1 before here in a gap is either:
-        
-        if (best_gap_score != ST::unset()) {
-            // Best way to end 1 before our last sweep line position with a gap, plus distance times gap extend penalty
-            ST::score(best_gap_score) -= sweep_distance * space.scoring.gap_extension;
-        }
-        
-        // Best way to end 1 before here with an actual item, plus the gap open part of the gap open penalty.
-        // (Will never be taken over an actual adjacency)
-        best_gap_score = std::max(ST::unset(), std::max(best_gap_score, ST::add_points(best_past_ending_score_here, -(space.scoring.gap_open - space.scoring.gap_extension))));
-#ifdef debug_chaining
-        cerr << "Best score here but in a gap: " << best_gap_score << endl;
-#endif
-        
-        while (unentered < to_chain.size() && space.read_start(to_chain[unentered]) == sweep_line) {
-            // For each thing that starts here
-            
-            // Bump out the max end
-            max_end = std::max(max_end, space.read_end(to_chain[unentered]));
-            
-            // We want to compute how much we should charge to come from
-            // each place we could come from, and then come from the best
-            // one.
-            Score overlap_option = best_overlap_score;
-            Score gap_option = best_gap_score;
-            Score here_option = best_past_ending_score_here;
-            
-            if (space.distance_index && space.graph) {
-                // We have a distance index, so we might charge different
-                // amounts for different transitions depending on the graph
-                // distance between the items.
-                
-                // So we adjust the options we have bgased on where we are
-                // coming from and where we are going to.
-                
-                // We could take:
-                // An overlap from source(overlap_option):
-                if (ST::source(overlap_option) != ST::nowhere()) {
-                    // See whether and how much they overlap in the graph
-                    size_t graph_overlap = space.get_graph_overlap(to_chain[ST::source(overlap_option)], to_chain[unentered]);
-                    // And also get the overlap in the read.
-                    size_t read_overlap = space.get_read_overlap(to_chain[ST::source(overlap_option)], to_chain[unentered]);
-                    if (graph_overlap > read_overlap) {
-                        // They overlap in the graph more than they do in the read.
-                        // We know read overlap is positive or we wouldn't be considering taking an overlap in the read.
-                        assert(read_overlap > 0);
-                        // Back out the extra gap extensions
-                        overlap_option = ST::add_points(overlap_option, space.scoring.gap_extension * (graph_overlap - read_overlap));
-                        // TODO: We need to not double-count the matches right?
-                        // When we go to synthesize an actual alignment we can cut out the double-matched area and match it only one place.
-#ifdef debug_chaining
-                        cerr << "Graph overlap exceeds read overlap (" << graph_overlap << " > " << read_overlap << "), charge only difference: " << overlap_option << endl;
-#endif
-                    } else if (graph_overlap == read_overlap) {
-                        // They overlap in the graph exactly as much as they do in the read.
-                        // Back out the whole read gap
-                        overlap_option = ST::add_points(overlap_option, space.scoring.gap_open + space.scoring.gap_extension * (read_overlap - 1));
-                        // TODO: We need to not double-count the matches right?
-#ifdef debug_chaining
-                        cerr << "Graph overlap equals read overlap (" << graph_overlap << " = " << read_overlap << "), do not charge for gap: " << overlap_option << endl;
-#endif
-                    } else if (graph_overlap > 0) {
-                        // They overlap in the graph but less than they do in the read.
-                        // Back out some of the read gap
-                        overlap_option = ST::add_points(overlap_option, space.scoring.gap_extension * (read_overlap - graph_overlap));
-#ifdef debug_chaining
-                        cerr << "Graph overlap is smaller than read overlap (" << graph_overlap << " < " << read_overlap << "), charge only difference: " << overlap_option << endl;
-#endif
-                    } else {
-                        // They don't overlap in the graph at all; they might abut or be separated or be unreachable.
-                        
-                        // Compute the graph distance if they don't overlap in the graph
-                        size_t graph_distance = space.get_graph_distance(to_chain[ST::source(overlap_option)], to_chain[unentered]);
-                        
-                        if (graph_distance == numeric_limits<size_t>::max()) {
-                            // We can't actually get between the relevant graph areas to do the overlap.
-                            // TODO: check if we can get between the points on either side of the overlapped area instead?
-                            // Right now just say we can't make this connection.
-                            overlap_option = ST::unset();
-#ifdef debug_chaining
-                            cerr << "Overlap option is actually unreachable in the graph: " << overlap_option << endl;
-#endif
-                        } else {
-                            // We need to charge for this extra graph distance being deleted, in addition to what we charge for the existing overlap gap.
-                            overlap_option = ST::add_points(overlap_option, -space.scoring.gap_extension * graph_distance);
-#ifdef debug_chaining
-                            cerr << "Graph overlap is actually a distance of " << graph_distance << " vs. read overlap of " << read_overlap << ", charge for additional distance: " << overlap_option << endl;
-#endif
-                        }
-                    }
-                }
-                
-                // A gap in the read from ST::source(gap_option):
-                if (ST::source(gap_option) != ST::nowhere()) {
-                    // Compute the graph distance
-                    size_t graph_distance = space.get_graph_distance(to_chain[ST::source(gap_option)],
-                                                                     to_chain[unentered]);
-                    if (graph_distance == numeric_limits<size_t>::max()) {
-                        // This is actually unreachable in the graph.
-                        // So say we can't actually do this.
-                        gap_option = ST::unset();
-                    } else {
-                        // Compare to the read distance in the same order
-                        size_t read_distance = space.get_read_distance(to_chain[ST::source(gap_option)], to_chain[unentered]);
-                        if (graph_distance == read_distance) {
-                            // This is actually even length.
-                            // Charge nothing for the gap by backing out the penalty.
-                            gap_option = ST::add_points(gap_option, space.scoring.gap_open + space.scoring.gap_extension * (graph_distance - 1));
-#ifdef debug_chaining
-                            cerr << "Graph gap is equal to read gap (" << graph_distance << " = " << read_distance << "), do not charge for gap: " << gap_option << endl;
-#endif
-                        } else if (graph_distance > read_distance && read_distance > 0) {
-                            // Graph distance is longer, but read distance is positive.
-                            // Back out what we charged for the extra extensions.
-                            gap_option = ST::add_points(gap_option, space.scoring.gap_extension * (graph_distance - read_distance));
-#ifdef debug_chaining
-                            cerr << "Graph gap exceeds read gap (" << graph_distance << " > " << read_distance << "), charge only difference: " << gap_option << endl;
-#endif
-                        } else if (read_distance == 0) {
-                            // This isn't really a gap-in-read option, we're
-                            // just looking at the gap started from the thing
-                            // we come right after.
-                            gap_option = ST::unset();
-#ifdef debug_chaining
-                            cerr << "Read gap just started and would be length 0, so prohibit it: " << gap_option << endl;
-#endif
-                        } else {
-                            // Read distance is longer.
-                            // Back out extend penalties from the part of
-                            // the gap that the graph also has, leaving
-                            // only the remaining surplus read gap.
-                            gap_option = ST::add_points(gap_option, space.scoring.gap_extension * graph_distance);
-#ifdef debug_chaining
-                            cerr << "Graph gap is smaller than read gap (" << graph_distance << " < " << read_distance << "), charge only difference: " << gap_option << endl;
-#endif
-                        }
-                    }
-                }
-                
-                // An adjacency in the read from ST::source(here_option):
-                if (ST::source(here_option) != ST::nowhere()) {
-                    // Compute the graph distance
-                    size_t graph_distance = space.get_graph_distance(to_chain[ST::source(here_option)],
-                                                                     to_chain[unentered]);
-                    if (graph_distance == numeric_limits<size_t>::max()) {
-                        // This is actually unreachable in the graph.
-                        // So say we can't actually do this.
-                        // TODO: might be better to do this as an overlap in the graph if we can?
-                        here_option = ST::unset();
-#ifdef debug_chaining
-                        cerr << "Adjacency in read is unreachable in graph: " << here_option << endl;
-#endif
-                    } else if (graph_distance > 0) { 
-                        // There's a gap in the graph but not in the read.
-                        // Charge for the gap
-                        here_option = ST::add_points(here_option, -space.scoring.gap_open - space.scoring.gap_extension * (graph_distance - 1));
-#ifdef debug_chaining
-                        cerr << "Adjacency in read is a gap of " << graph_distance << " in graph, charge for gap: " << here_option << endl;
-#endif
-                    } else {
-                        // These abut in the read and the graph, so do nothing.
-#ifdef debug_chaining
-                        cerr << "Adjacency in read is adjacency in graph: " << here_option << endl;
-#endif
-                    }
-                }
-                
-            }
-            
-            // Compute its chain score, allowing us to just start here also.
-            best_chain_score[unentered] = ST::add_points(
-                std::max(std::max(ST::unset(),
-                                  overlap_option),
-                         std::max(gap_option,
-                                  here_option)),
-                space.score(to_chain[unentered]));
-#ifdef debug_chaining
-            cerr << "Best score of chain ending in item " << unentered << ": " << best_chain_score[unentered] << endl;
-#endif
-            
-            // Compute its backtrack-to-here score and add it to the backtracking heap
-            // We want how far we would have had to have backtracked to be
-            // able to preceed the base we are at now, where this thing
-            // starts. That's a gap open for the last base, and then an
-            // extend for each base before it.
-            size_t item_length = space.read_length(to_chain[unentered]);
-            // We assume all items are 1 or more bases.
-            Score raw_overlap_score = ST::add_points(
-                ST::score_from(best_chain_score, unentered),
-                -space.scoring.gap_open - space.scoring.gap_extension * (item_length - 1));
-            Score encoded_overlap_score = ST::add_points(raw_overlap_score, -overlap_score_offset);
-            
-            // Stick it in the overlap heap
-            overlap_heap.emplace(encoded_overlap_score, space.read_end(to_chain[unentered]));
-#ifdef debug_chaining
-            cerr << "Overlap encoded as " << encoded_overlap_score << " available until " << space.read_end(to_chain[unentered]) << endl;
-#endif
-            
-            // Add it to the end finding heap
-            end_heap.emplace(space.read_end(to_chain[unentered]), unentered);
-            
-            // Advance and check the next thing to start
-            unentered++;
-            
-            if (unentered < to_chain.size()) {
-                // Bump out the max end
-                max_end = std::max(max_end, space.read_end(to_chain[unentered]));
-            }
-        }
-        
-        // Move next_unswept to sweep_line.
-        // We need to add 1 since next_unswept is the next *un*included base
-        next_unswept = sweep_line + 1;
-    }
-    
-    return best_past_ending_score_ever; 
-}
-
-template<typename Score, typename Item, typename Source, typename Collection>
-Score chain_items_finite_lookback_dp(vector<Score>& best_chain_score,
-                                     const Collection& to_chain,
-                                     const ChainingSpace<Item, Source>& space,
-                                     size_t lookback) {
+                     const ChainingSpace<Item, Source>& space,
+                     size_t lookback) {
                     
     // Grab the traits into a short name so we can use the accessors concisely.
     using ST = score_traits<Score>;
@@ -1472,9 +1108,9 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
         
         // We actually need to do DP
         vector<traced_score_t> best_chain_score;
-        traced_score_t best_past_ending_score_ever = chain_items_finite_lookback_dp(best_chain_score,
-                                                                                    to_chain,
-                                                                                    space);
+        traced_score_t best_past_ending_score_ever = chain_items_dp(best_chain_score,
+                                                                    to_chain,
+                                                                    space);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             score_traits<traced_score_t>::score(best_past_ending_score_ever),
@@ -1494,9 +1130,9 @@ int score_best_chain(const Collection& to_chain,
     } else {
         // Do the DP but without the traceback.
         vector<int> best_chain_score;
-        return algorithms::chain_items_finite_lookback_dp(best_chain_score,
-                                                          to_chain,
-                                                          space);
+        return algorithms::chain_items_dp(best_chain_score,
+                                          to_chain,
+                                          space);
     }
 }
 

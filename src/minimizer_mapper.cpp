@@ -3625,44 +3625,187 @@ vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
 
 //-----------------------------------------------------------------------------
 
-std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::chain_extensions(
-    const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const {
-
-    std::pair<std::vector<int>, std::vector<std::vector<size_t>>> result;
-    result.first.reserve(extensions.size());
-    result.second.reserve(extensions.size());
-
-    // Extension chaining substage.
-    if (this->track_provenance) {
-        funnel.substage("chain");
-    }
-    
-    // Define the scoring space
-    algorithms::ChainingSpace<GaplessExtension> space(
-        *get_regular_aligner(),
-        distance_index,
-        &gbwt_graph);
-
-    // We now estimate the best possible alignment score for each cluster.
-    for (size_t i = 0; i < extensions.size(); i++) {
+int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
+    int gap_open_penalty, int gap_extend_penalty) {
         
-        if (this->track_provenance) {
-            funnel.producing_output(i);
+    if (extended_seeds.empty()) {
+        // TODO: We should never see an empty group of extensions
+        return 0;
+    } else if (GaplessExtender::full_length_extensions(extended_seeds)) {
+        // These are full-length matches. We already have the score.
+        return extended_seeds.front().score;
+    } else {
+        // This is a collection of one or more non-full-length extended seeds.
+        
+        if (aln.sequence().size() == 0) {
+            // No score here
+            return 0;
+        }
+       
+        // We use a sweep line algorithm to find relevant points along the read: extension starts or ends.
+        // This records the last base to be covered by the current sweep line.
+        int64_t sweep_line = 0;
+        // This records the first base not covered by the last sweep line.
+        int64_t last_sweep_line = 0;
+        
+        // And we track the next unentered gapless extension
+        size_t unentered = 0;
+        
+        // Extensions we are in are in this min-heap of past-end position and gapless extension number.
+        vector<pair<size_t, size_t>> end_heap;
+        // The heap uses this comparator
+        auto min_heap_on_first = [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+            // Return true if a must come later in the heap than b
+            return a.first > b.first;
+        };
+        
+        // We track the best score for a chain reaching the position before this one and ending in a gap.
+        // We never let it go below 0.
+        // Will be 0 when there's no gap that can be open
+        int best_gap_score = 0;
+        
+        // We track the score for the best chain ending with each gapless extension
+        vector<int> best_chain_score(extended_seeds.size(), 0);
+        
+        // And we're after the best score overall that we can reach when an extension ends
+        int best_past_ending_score_ever = 0;
+        
+        // Overlaps are more complicated.
+        // We need a heap of all the extensions for which we have seen the
+        // start and that we can thus overlap.
+        // We filter things at the top of the heap if their past-end positions
+        // have occurred.
+        // So we store pairs of score we get backtracking to the current
+        // position, and past-end position for the thing we are backtracking
+        // from.
+        vector<pair<int, size_t>> overlap_heap;
+        // We can just use the standard max-heap comparator
+        
+        // We encode the score relative to a counter that we increase by the
+        // gap extend every base we go through, so we don't need to update and
+        // re-sort the heap.
+        int overlap_score_offset = 0;
+        
+        while(last_sweep_line <= aln.sequence().size()) {
+            // We are processed through the position before last_sweep_line.
+            
+            // Find a place for sweep_line to go
+            
+            // Find the next seed start
+            int64_t next_seed_start = numeric_limits<int64_t>::max();
+            if (unentered < extended_seeds.size()) {
+                next_seed_start = extended_seeds[unentered].read_interval.first;
+            }
+            
+            // Find the next seed end
+            int64_t next_seed_end = numeric_limits<int64_t>::max();
+            if (!end_heap.empty()) {
+                next_seed_end = end_heap.front().first;
+            }
+            
+            // Whichever is closer between those points and the end, do that.
+            sweep_line = min(min(next_seed_end, next_seed_start), (int64_t) aln.sequence().size());
+            
+            // So now we're only interested in things that happen at sweep_line.
+            
+            // Compute the distance from the previous sweep line position
+            // Make sure to account for last_sweep_line's semantics as the next unswept base.
+            int sweep_distance = sweep_line - last_sweep_line + 1;
+            
+            // We need to track the score of the best thing that past-ended here
+            int best_past_ending_score_here = 0;
+            
+            while(!end_heap.empty() && end_heap.front().first == sweep_line) {
+                // Find anything that past-ends here
+                size_t past_ending = end_heap.front().second;
+                
+                // Mix it into the score
+                best_past_ending_score_here = std::max(best_past_ending_score_here, best_chain_score[past_ending]);
+                
+                // Remove it from the end-tracking heap
+                std::pop_heap(end_heap.begin(), end_heap.end(), min_heap_on_first);
+                end_heap.pop_back();
+            }
+            
+
+            // Mix that into the best score overall
+            best_past_ending_score_ever = std::max(best_past_ending_score_ever, best_past_ending_score_here);
+            
+            if (sweep_line == aln.sequence().size()) {
+                // We don't need to think about gaps or backtracking anymore since everything has ended
+                break;
+            }
+            
+            // Update the overlap score offset by removing some gap extends from it.
+            overlap_score_offset += sweep_distance * gap_extend_penalty;
+            
+            // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
+            int best_overlap_score = 0;
+            while (!overlap_heap.empty()) {
+                // While there is stuff on the heap
+                if (overlap_heap.front().second <= sweep_line) {
+                    // We are already past this thing, so drop it
+                    std::pop_heap(overlap_heap.begin(), overlap_heap.end());
+                    overlap_heap.pop_back();
+                } else {
+                    // This is at the top of the heap and we aren't past it
+                    // Decode and use its score offset if we only backtrack to here.
+                    best_overlap_score = overlap_heap.front().first + overlap_score_offset;
+                    // Stop looking in the heap
+                    break;
+                }
+            }
+            
+            // The best way to end 1 before here in a gap is either:
+            
+            if (best_gap_score != 0) {
+                // Best way to end 1 before our last sweep line position with a gap, plus distance times gap extend penalty
+                best_gap_score -= sweep_distance * gap_extend_penalty;
+            }
+            
+            // Best way to end 1 before here with an actual extension, plus the gap open part of the gap open penalty.
+            // (Will never be taken over an actual adjacency)
+            best_gap_score = std::max(0, std::max(best_gap_score, best_past_ending_score_here - (gap_open_penalty - gap_extend_penalty)));
+            
+            while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
+                // For each thing that starts here
+                
+                // Compute its chain score
+                best_chain_score[unentered] = std::max(best_overlap_score,
+                    std::max(best_gap_score, best_past_ending_score_here)) + extended_seeds[unentered].score;
+                
+                // Compute its backtrack-to-here score and add it to the backtracking heap
+                // We want how far we would have had to have backtracked to be
+                // able to preceed the base we are at now, where this thing
+                // starts.
+                size_t extension_length = extended_seeds[unentered].read_interval.second - extended_seeds[unentered].read_interval.first;
+                int raw_overlap_score = best_chain_score[unentered] - gap_open_penalty - gap_extend_penalty * extension_length;
+                int encoded_overlap_score = raw_overlap_score - overlap_score_offset;
+                
+                // Stick it in the heap
+                overlap_heap.emplace_back(encoded_overlap_score, extended_seeds[unentered].read_interval.second);
+                std::push_heap(overlap_heap.begin(), overlap_heap.end());
+                
+                // Add it to the end finding heap
+                end_heap.emplace_back(extended_seeds[unentered].read_interval.second, unentered);
+                std::push_heap(end_heap.begin(), end_heap.end(), min_heap_on_first);
+                
+                // Advance and check the next thing to start
+                unentered++;
+            }
+            
+            // Move last_sweep_line to sweep_line.
+            // We need to add 1 since last_sweep_line is the next *un*included base
+            last_sweep_line = sweep_line + 1;
         }
         
-        // Do the chaining and move the answers
-        auto chained = algorithms::find_best_chain<GaplessExtension>(extensions[i], space);
-        result.first.emplace_back(std::move(chained.first));
-        result.second.emplace_back(std::move(chained.second));
-        
-        // Record the score with the funnel.
-        if (this->track_provenance) {
-            funnel.score(i, result.first.back());
-            funnel.produced_output();
-        }
+
+        // When we get here, we've seen the end of every extension and so we
+        // have the best score at the end of any of them.
+        return best_past_ending_score_ever;
     }
 
-    return result;
+
 }
 
 // TODO: Combine the two score_extensions overloads into one template when we get constexpr if.
@@ -3674,10 +3817,6 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::vector
         funnel.substage("score");
     }
 
-    // Define the scoring space, but don't bother with thinking in graph space.
-    algorithms::ChainingSpace<GaplessExtension> space(
-        *get_regular_aligner());
-
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> result(extensions.size(), 0);
     for (size_t i = 0; i < extensions.size(); i++) {
@@ -3686,7 +3825,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::vector
             funnel.producing_output(i);
         }
         
-        result[i] = algorithms::score_best_chain(extensions[i], space);
+        result[i] = score_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
         
         // Record the score with the funnel.
         if (this->track_provenance) {
@@ -3704,11 +3843,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
     if (this->track_provenance) {
         funnel.substage("score");
     }
-    
-    // Define the scoring space, but don't bother with thinking in graph space.
-    algorithms::ChainingSpace<GaplessExtension> space(
-        *get_regular_aligner());
-    
+
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> result(extensions.size(), 0);
     for (size_t i = 0; i < extensions.size(); i++) {
@@ -3717,7 +3852,7 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
             funnel.producing_output(i);
         }
         
-        result[i] = algorithms::score_best_chain(extensions[i].first, space);
+        result[i] = score_extension_group(aln, extensions[i].first, get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
         
         // Record the score with the funnel.
         if (this->track_provenance) {

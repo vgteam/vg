@@ -343,13 +343,20 @@ protected:
         vector<vector<size_t>>& minimizer_kept_cluster_count,
         size_t& kept_cluster_count,
         Funnel& funnel) const;
-   
+    
     /**
-     * Chain the set of extensions for each cluster.
-     * Return the scores and tracebacks in the same order as the extension groups.
-     * Returns scores and tracebacks separately for better compatibility with score_extensions()
+     * Score the given group of gapless extensions. Determines the best score
+     * that can be obtained by chaining extensions together, using the given
+     * gap open and gap extend penalties to charge for either overlaps or gaps
+     * in coverage of the read.
+     *
+     * Enforces that overlaps cannot result in containment.
+     *
+     * Input extended seeds must be sorted by start position.
      */
-    std::pair<std::vector<int>, std::vector<std::vector<size_t>>> chain_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    static int score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
+        int gap_open_penalty, int gap_extend_penalty);
+    
     /**
      * Score the set of extensions for each cluster using score_extension_group().
      * Return the scores in the same order as the extension groups.
@@ -567,7 +574,7 @@ protected:
         const string& sequence, const string& quality_bytes,
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t index);
-        
+    
     /**
      * Get all the trees defining tails off the specified side of the specified
      * gapless extension. Should only be called if a tail on that side exists,
