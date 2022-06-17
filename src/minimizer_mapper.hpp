@@ -905,10 +905,8 @@ Alignment MinimizerMapper::find_chain_alignment(
     WFAAlignment aligned;
     
     // Do the left tail, if any.
-    // We can't walk the anchor position left in the graph to get the last graph position to involve in the tail.
-    // So we align 1 more base and cut it off.
-    // TODO: Change interface?
-    string left_tail = aln.sequence().substr(0, space.read_start(*here) + 1);
+    // Anchor position will not be covered. 
+    string left_tail = aln.sequence().substr(0, space.read_start(*here));
     
     if (!left_tail.empty()) {
         // We align the left tail with prefix(), which creates a prefix of the alignment.
@@ -917,13 +915,10 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (aligned.length != left_tail.size()) {
             // We didn't get the alignment we expected.
             stringstream ss;
-            ss << "Aligning anchored left tail " << left_tail << " at " << space.graph_start(*here) << " produced wrong-length alignment ";
+            ss << "Aligning left tail " << left_tail << " from " << space.graph_start(*here) << " produced wrong-length alignment ";
             aligned.print(ss);
             throw std::runtime_error(ss.str());
         }
-        
-        // Pop off the extra base we can't help but supply.
-        aligned.pop_base(gbwt_graph, aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension);
         // Since the tail starts at offset 0, the alignment is already in full read space.
     }
     
@@ -985,24 +980,22 @@ Alignment MinimizerMapper::find_chain_alignment(
         space.validate(*next, aln.sequence());
         
         // Pull out the intervening string, if any.
-        // Make sure to supply an extra base on the end, because we can't get a start-exclusive position out of *here.
-        // TODO: change th interface?
-        string linking_bases = aln.sequence().substr(space.read_end(*here), space.read_start(*next) - space.read_end(*here) + 1);
+        string linking_bases = aln.sequence().substr(space.read_end(*here), space.read_start(*next) - space.read_end(*here));
         
         if (!linking_bases.empty()) {
             // And align it
-            WFAAlignment link_alignment = extender.connect(linking_bases, space.graph_end(*here), space.graph_start(*next));
+            // Make sure to walk back the left anchor so it is outside of the region to be aligned.
+            pos_t left_anchor = space.graph_end(*here);
+            get_offset(left_anchor)--;
+            WFAAlignment link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
             
             if (link_alignment.length != linking_bases.size()) {
                 // We didn't get the alignment we expected.
                 stringstream ss;
-                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) at " << space.graph_end(*here) << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
+                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
                 link_alignment.print(ss);
                 throw std::runtime_error(ss.str());
             }
-            
-            // Pop off the extra base we can't help but supply.
-            link_alignment.pop_base(gbwt_graph, aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension);
             // Put the alignment back into full read space
             link_alignment.seq_offset += space.read_end(*here);
             
@@ -1036,14 +1029,17 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Do the right tail, if any.
     string right_tail = aln.sequence().substr(space.read_end(*here));
     // We align the right tail with suffix(), which creates a suffix of the alignment.
-    WFAAlignment right_alignment = extender.suffix(right_tail, space.graph_end(*here));
+    // Make sure to walk back the anchor so it is outside of the region to be aligned.
+    pos_t left_anchor = space.graph_end(*here);
+    get_offset(left_anchor)--;
+    WFAAlignment right_alignment = extender.suffix(right_tail, left_anchor);
     // Put the alignment back into full read space
     right_alignment.seq_offset += space.read_end(*here);
     
     if (right_alignment.length != right_tail.size()) {
         // We didn't get the alignment we expected.
         stringstream ss;
-        ss << "Aligning right tail " << right_tail << " at " << space.graph_start(*here) << " produced wrong-length alignment ";
+        ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
         right_alignment.print(ss);
         throw std::runtime_error(ss.str());
     }

@@ -1699,7 +1699,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                             cluster,
                             cluster_num,
                             minimizers,
-                            seeds,
+                            old_seeds,
                             aln.sequence(),
                             minimizer_kept_cluster_count_by_read[read_num],
                             kept_cluster_count,
