@@ -736,7 +736,15 @@ struct state_hash {
 WFAAlignment WFAAlignment::from_extension(const GaplessExtension& extension) {
 
     // Start by aggregate-initializing.
-    WFAAlignment to_return {extension.path, {}, (uint32_t)extension.offset, (uint32_t)extension.read_interval.first, (uint32_t)extension.length(), extension.score};
+    WFAAlignment to_return {
+        extension.path, 
+        {}, 
+        (uint32_t)extension.offset, 
+        (uint32_t)extension.read_interval.first, 
+        (uint32_t)extension.length(), 
+        extension.score, 
+        true
+    };
     
     // We need to make edits for all the mismatches.
     // This tracks the base after the last edit in edits, in the sequence space.
@@ -764,6 +772,11 @@ WFAAlignment WFAAlignment::from_extension(const GaplessExtension& extension) {
     }
     
     return to_return;
+}
+
+WFAAlignment WFAAlignment::make_unlocalized_insertion(size_t sequence_offset, size_t length, int score) {
+    // We can do it all by aggregate-initializing
+    return {{}, {{insertion, length}}, 0, (uint32_t)sequence_offset, (uint32_t)length, score, true};
 }
 
 bool WFAAlignment::unlocalized_insertion() const {
@@ -829,6 +842,14 @@ void WFAAlignment::join(const WFAAlignment& second) {
     std::cerr << std::endl;
 #endif
     
+    if (!ok) {
+        throw std::runtime_error("Cannot join onto an alignment that is not OK");
+    }
+    
+    if (!second.ok) {
+        throw std::runtime_error("Cannot join an alignment that is not OK onto another alignment");
+    }
+    
     if (second.empty()) {
         // We are joining an empty alignment onto us. Do nothing.
         return;
@@ -849,10 +870,10 @@ void WFAAlignment::join(const WFAAlignment& second) {
                                  " is not at start position " +
                                  std::to_string(second.seq_offset));
     }
-    if (path.empty()) {
+    if (path.empty() && ! unlocalized_insertion()) {
         throw std::runtime_error("Cannot join alignments because first alignment has no path");
     }
-    if (second.path.empty()) {
+    if (second.path.empty() && ! second.unlocalized_insertion()) {
         throw std::runtime_error("Cannot join alignments because second alignment has no path");
     }
     if (edits.empty()) {
@@ -862,18 +883,21 @@ void WFAAlignment::join(const WFAAlignment& second) {
         throw std::runtime_error("Cannot join alignments because second alignment has no edits");
     }
     
-    if (second.node_offset == 0) {
-        // Include the first handle from the second alignment because it can't be shared
-        path.push_back(second.path.front());
-    } else {
-        // It must be shared
-        if (second.path.front() != path.back()) {
-            throw std::runtime_error("Cannot join alignments because second alignment starts in the middle of a handle that first alignment doesn't end on");
+    if (!second.unlocalized_insertion()) {
+        // The second alignment has a path
+        if (second.node_offset == 0 || unlocalized_insertion()) {
+            // Include the first handle from the second alignment because it can't be shared
+            path.push_back(second.path.front());
+        } else {
+            // It must be shared with this alignment
+            if (second.path.front() != path.back()) {
+                throw std::runtime_error("Cannot join alignments because second alignment starts in the middle of a handle that first alignment doesn't end on");
+            }
         }
-    }
     
-    // Copy all the other path handles.
-    std::copy(second.path.begin() + 1, second.path.end(), std::back_inserter(path));
+        // Copy all the other path handles.
+        std::copy(second.path.begin() + 1, second.path.end(), std::back_inserter(path));
+    }
     
     for (auto& edit : second.edits) {
         // Copy over all the edits
@@ -1013,7 +1037,11 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
 }
 
 std::ostream& WFAAlignment::print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const {
-    out << "{ path = [";
+    out << "{";
+    if (!ok) {
+        out << " NOT OK!";
+    }
+    out << " path = [";
     for (handle_t handle : this->path) {
         out << " (" << graph.get_id(handle) << ", " << graph.get_is_reverse(handle) << ")";
     }
@@ -1029,7 +1057,11 @@ std::ostream& WFAAlignment::print(const gbwtgraph::GBWTGraph& graph, std::ostrea
 }
 
 std::ostream& WFAAlignment::print(std::ostream& out) const {
-    out << "{ path = [";
+    out << "{";
+    if (!ok) {
+        out << " NOT OK!";
+    }
+    out << " path = [";
     for (handle_t handle : this->path) {
         out << " (" << as_integer(handle) << ")";
     }

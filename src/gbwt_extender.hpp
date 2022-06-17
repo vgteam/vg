@@ -231,6 +231,10 @@ struct WFAAlignment {
     /// constructor because then WFAAlignment wouldn't be able to be
     /// aggregate-initialized. 
     static WFAAlignment from_extension(const GaplessExtension& extension);
+    
+    /// Generate a WFAAlignment that is an unlocalized insertion of the given
+    /// length. Can also be used to represent a softclip.
+    static WFAAlignment make_unlocalized_insertion(size_t sequence_offset, size_t length, int score);
 
     /// Sequence of oriented nodes.
     std::vector<handle_t> path;
@@ -274,7 +278,7 @@ struct WFAAlignment {
     void append(Edit edit, uint32_t length);
     
     /// Concatenate another WFAAlignment onto this one, assuming they abut in
-    /// the read and the graph. Either may be empty.
+    /// the read and the graph. Either may be empty, or an unlocalized insertion.
     void join(const WFAAlignment& second);
     
     /// Convert the WFAAlignment into a Path.

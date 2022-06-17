@@ -197,7 +197,8 @@ struct BaseChainingSpace {
             (uint32_t)graph_path_offset(item),
             (uint32_t)read_start(item),
             (uint32_t)read_length(item),
-            score(item)
+            score(item),
+            true
         };
     }
     
