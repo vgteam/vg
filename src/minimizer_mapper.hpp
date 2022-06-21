@@ -947,6 +947,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             cerr << log_name() << "Start with left tail of " << aligned.length << " with score of " << aligned.score << endl;
         }
     }
+    aligned.check_lengths(gbwt_graph);
     
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
@@ -1052,6 +1053,8 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
         }
         
+        link_alignment.check_lengths(gbwt_graph);
+        
         // Then the link (possibly empty)
         aligned.join(link_alignment);
         
@@ -1068,8 +1071,12 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
     }
     
+    WFAAlignment here_alignment = space.to_wfa_alignment(*here);
+    
+    here_alignment.check_lengths(gbwt_graph);
+    
     // Do the final GaplessExtension itself (may be the first)
-    aligned.join(space.to_wfa_alignment(*here));
+    aligned.join(here_alignment);
     
     // Do the right tail, if any.
     string right_tail = aln.sequence().substr(space.read_end(*here));
@@ -1109,14 +1116,21 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
     }
     
+    right_alignment.check_lengths(gbwt_graph);
+    
     aligned.join(right_alignment);
     
     if (show_work) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Final alignment is length " << aligned.length << " with score of " << aligned.score << endl;
+            cerr << log_name() << "Final alignment: ";
+            aligned.print(cerr);
+            cerr << endl;
         }
     }
+    
+    aligned.check_lengths(gbwt_graph);
     
     // Convert to a vg Alignment.
     Alignment result(aln);

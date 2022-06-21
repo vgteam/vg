@@ -313,7 +313,7 @@ void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimi
                 }
             }
         } else {
-            cerr << log_name() << "<" << minimizer_count << "minimizers>" << endl;
+            cerr << log_name() << "<" << minimizer_count << " minimizers>" << endl;
         }
     } else {
         // Draw a diagram

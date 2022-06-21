@@ -285,9 +285,13 @@ struct WFAAlignment {
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
     /// Prints some debug information about the alignment.
-    std::ostream& print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const;
+    std::ostream& print(const HandleGraph& graph, std::ostream& out) const;
     /// Prints some debug information about the alignment.
     std::ostream& print(std::ostream& out) const;
+    
+    /// Make sure the stored lengths, paths, and edits are accurate and
+    /// consistent with each other.
+    void check_lengths(const HandleGraph& graph) const;
 };
 
 /// Allow printing an Edit
