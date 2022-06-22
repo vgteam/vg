@@ -231,6 +231,32 @@ alignment_plan_t make_plan(size_t length) {
     return alignment_plan_t(length, GraphBaseFate::Match);
 }
 
+/// Move all insertions at node boundaries into the later node in the path, if possible.
+void send_insertions_right(Path& path) {
+    for (size_t i = 0; i + 1 < path.mapping_size(); i++) {
+        Mapping* here = path.mutable_mapping(i);
+        if (here->edit_size() > 0) {
+            Edit* last_edit = here->mutable_edit(here->edit_size() - 1);
+            if (last_edit->from_length() == 0) {
+                // The last edit is an insertion. So move it over to the next mapping
+                Mapping* next = path.mutable_mapping(i + 1);
+                // Make a space
+                next->add_edit();
+                // Shift everything up
+                std::copy(next->mutable_edit()->begin(), next->mutable_edit()->end() - 1, next->mutable_edit()->begin() + 1);
+                // Put it in place
+                *next->mutable_edit(0) = *last_edit;
+                // Merge if needed
+                *next = merge_adjacent_edits(*next);
+                // Get rid of it on the Mapping we got it from
+                here->mutable_edit()->RemoveLast();
+            }
+        }
+    }
+}
+
+
+/// Make an alignment plan into a Path
 std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const HandleGraph& graph, const vector<handle_t>& base_path, size_t start_offset) {
     std::pair<Path, std::string> to_return;
     Path& path = to_return.first;
@@ -313,6 +339,10 @@ std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const Ha
     // Merge all the adjacent edits in the final mapping
     *mapping = merge_adjacent_edits(*mapping);
     
+    // Move all the insertions to the rightmost Mappings they can be in
+    send_insertions_right(path);
+    
+    // Remember to send the sequence
     sequence = ss.str();
     
     return to_return;
@@ -354,6 +384,7 @@ void for_each_alignment(const HandleGraph& graph, const vector<handle_t>& base_p
             while (!is_done(plan)) {
                 // Try the alignment form each plan
                 auto path_and_sequence = plan_to_path(plan, graph, base_path, start_offset);
+                assert(path_and_sequence.first.size() == path_to_length(path_and_sequence.second));
                 iteratee(path_and_sequence.first, path_and_sequence.second);
                 // Try the next plan
                 increment(plan);
