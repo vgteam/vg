@@ -951,7 +951,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         throw std::runtime_error("WFAAlignment has offset to or past end of first node");
     }
     // When the base along the node hits this, we leave the node.
-    // We track this separately so we can go
+    // We track this ourselves to avoid repeated length queries.
     size_t node_end = first_node_length;
     
     // Walk through the edits
@@ -986,14 +986,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
             // These edits consume some graph.
             // Make sure there is a graph node.
             if (path_it == this->path.end()) {
-                std::stringstream ss;
-                ss << "WFAAlignment tried to go past end of path with " 
-                    << edit_type << " edit " << (edit_it - edits.begin()) << "/" << edits.size()
-                    << " of " << edit_it->second << " bp, " 
-                    << current_edit_used << " bp used, last node is " << graph.get_id(path.back()) 
-                    << " orientation " << graph.get_is_reverse(path.back()) 
-                    << " sequence " << graph.get_sequence(path.back());
-                throw std::runtime_error(ss.str());
+                throw std::runtime_error("WFAAlignment tried to go past end of path");
             }
             if (node_cursor == node_end) {
                 // Make sure we aren't starting right at the end of the node.
