@@ -144,6 +144,225 @@ void correct_score(const WFAAlignment& alignment, const Aligner& aligner) {
     REQUIRE(alignment.score == expected_score);
 }
 
+/// Convert a vg Path into a WFAAlignment, for testing and comparison.
+/// Does not set score or sequence offset.
+WFAAlignment path_to_wfa_alignment(const Path& path, const HandleGraph& graph) {
+    WFAAlignment result {
+        {},
+        {},
+        0,
+        0,
+        0,
+        0,
+        true
+    };
+    
+    if (path.mapping_size() == 0) {
+        // THis is actually the empty path.
+        return result;
+    }
+    
+    result.node_offset = path.mapping(0).position().offset();
+    
+    for (auto& mapping : path.mapping()) {
+        // Remember what node we are on. We assume one mapping per node.
+        result.path.push_back(graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse()));
+        for (auto& edit : mapping.edit()) {
+            result.length += edit.to_length();
+            
+            if (edit.from_length() == edit.to_length()) {
+                if (edit.sequence().empty()) {
+                    // A match
+                    result.append(WFAAlignment::match, edit.to_length());
+                } else {
+                    // A mismatch
+                    result.append(WFAAlignment::mismatch, edit.to_length());
+                }
+            } else if (edit.from_length() == 0) {
+                // An insertion
+                result.append(WFAAlignment::insertion, edit.to_length());
+            } else if (edit.to_length() == 0) {
+                // A deletion
+                result.append(WFAAlignment::deletion, edit.from_length());
+            } else {
+                // Something weird
+                REQUIRE(false);
+            }
+        }
+    }
+    
+    return result;
+}
+
+/// When generating a test alignmentm what happened to each base in the graph?
+enum class GraphBaseFate {
+    Match = 0,
+    Mismatch,
+    Deletion,
+    InsertionMatch,
+    InsertionMismatch,
+    MatchInsertion,
+    MismatchInsertion,
+    End // Represents that we have run out of options.
+};
+
+/// What's a plan of base fates that we can turn into an alignment?
+using alignment_plan_t = std::vector<GraphBaseFate>;
+
+/// Tick over an alignment plan to the next value.
+void increment(alignment_plan_t& plan) {
+    plan.back() = (GraphBaseFate)((int)plan.back() + 1);
+    for (size_t i = plan.size(); i > 0; i--) {
+        if (plan[i] == GraphBaseFate::End) {
+            // Carry left
+            plan[i] = GraphBaseFate::Match;
+            plan[i - 1] = (GraphBaseFate)((int)plan[i - 1] + 1);
+        }
+    }
+}
+
+/// Return if we have ticked up the first base in the plan to End
+bool is_done(const alignment_plan_t& plan) {
+    return plan[0] == GraphBaseFate::End;
+}
+
+/// Make an initial alignment plan
+alignment_plan_t make_plan(size_t length) {
+    return alignment_plan_t(length, GraphBaseFate::Match);
+}
+
+std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const HandleGraph& graph, const vector<handle_t>& base_path, size_t start_offset) {
+    std::pair<Path, std::string> to_return;
+    Path& path = to_return.first;
+    std::string& sequence = to_return.second;
+    
+    // What node are we on
+    auto current_node = base_path.begin();
+    // How far are we done through on the current node?
+    size_t node_cursor = start_offset;
+    // How far are we done through on the path?
+    size_t plan_cursor = 0;
+    // What mapping are we working on?
+    Mapping* mapping = path.add_mapping();
+    // Set up its initial position
+    mapping->mutable_position()->set_node_id(graph.get_id(*current_node));
+    mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(*current_node));
+    mapping->mutable_position()->set_offset(start_offset);
+    // Assemble a simulated alignment sequence
+    std::stringstream ss;
+    
+    
+    while (plan_cursor < plan.size()) {
+        GraphBaseFate fate = plan[plan_cursor];
+        
+        // Handle this graph base.
+        // Just add individual edits and merge them up later.
+        
+        if (fate == GraphBaseFate::InsertionMatch || fate == GraphBaseFate::InsertionMismatch) {
+            // Put an insertion first
+            Edit* before = mapping->add_edit();
+            before->set_to_length(1);
+            before->set_sequence("N");
+            ss << "N";
+        }
+        // Put the main edit that consumes a graph base
+        Edit* here = mapping->add_edit();
+        here->set_from_length(1);
+        if (fate == GraphBaseFate::Mismatch || fate == GraphBaseFate::InsertionMismatch || fate == GraphBaseFate::MismatchInsertion) {
+            // Needs a sequence
+            here->set_sequence("N");
+            ss << "N";
+        }
+        if (fate == GraphBaseFate::Match || fate == GraphBaseFate::InsertionMatch || fate == GraphBaseFate::MatchInsertion) {
+            // Keep the real base.
+            // TODO: Use faster base accessor
+            ss << graph.get_sequence(*current_node)[node_cursor];
+        }
+        if (fate != GraphBaseFate::Deletion) {
+            // The graph base still exists in the sequence
+            here->set_to_length(1);
+        }
+        if (fate == GraphBaseFate::MatchInsertion || fate == GraphBaseFate::MismatchInsertion) {
+            // Put an insertion last
+            Edit* after = mapping->add_edit();
+            after->set_to_length(1);
+            after->set_sequence("N");
+            ss << "N";
+        }
+        
+        // Advance cursors
+        ++node_cursor;
+        ++plan_cursor;
+        
+        if (node_cursor == graph.get_length(*current_node)) {
+            // Advance node
+            ++current_node;
+            node_cursor = 0;
+            if (current_node != base_path.end()) {
+                // Merge all the individual edits
+                *mapping = merge_adjacent_edits(*mapping);
+                // Make a mapping for the next node
+                mapping = path.add_mapping();
+                mapping->mutable_position()->set_node_id(graph.get_id(*current_node));
+                mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(*current_node));
+            }
+        }
+        
+    }
+    
+    // Merge all the adjacent edits in the final mapping
+    *mapping = merge_adjacent_edits(*mapping);
+    
+    sequence = ss.str();
+    
+    return to_return;
+}
+
+/// Call the given function with each possible elaboration of the given path of handles into an alignment  path.
+void for_each_alignment(const HandleGraph& graph, const vector<handle_t>& base_path, const std::function<void(const Path&, const std::string&)> iteratee) {
+
+    if (base_path.empty()) {
+        return;
+    }
+
+    // How many bases of the path could be on the first handle?
+    size_t first_length = graph.get_length(base_path.front());
+    // How many bases of the path aren't on the first handle?
+    size_t middle_length = 0;
+    for (auto it = base_path.begin() + 1; it != base_path.end() && (it + 1) != base_path.end(); ++it) {
+        middle_length += graph.get_length(*it);
+    }
+    // How many bases can we leave off from the end of the last handle?
+    size_t last_length = graph.get_length(base_path.back());
+
+    for (size_t start_offset = 0; start_offset + 1 < first_length; start_offset++) {
+        // For each position we could start at on the first handle
+        
+        for (size_t last_omitted = 0; last_omitted + 1 < last_length && (base_path.size() > 1 || last_omitted + start_offset < first_length); last_omitted++) {
+            // For each number of bases we could leave out of the alignment on the last step (which may also be the first step)
+        
+            // Get the number of graph bases we should use.
+            // All the ones on the first node that are past the offset, plus
+            // those in the middle, plus those on the last node that aren't
+            // omitted. Except when the first and last nodes are the same we
+            // don't double-credit the bases we keep.
+            size_t graph_length = first_length - start_offset + middle_length + (base_path.size() > 1 ? last_length : (size_t)0) - last_omitted;
+            
+            // Now we need to count up, for each graph base, through the possible operations.
+            auto plan = make_plan(graph_length);
+            
+            while (!is_done(plan)) {
+                // Try the alignment form each plan
+                auto path_and_sequence = plan_to_path(plan, graph, base_path, start_offset);
+                iteratee(path_and_sequence.first, path_and_sequence.second);
+                // Try the next plan
+                increment(plan);
+            }
+        }
+    }
+
+}
+
 // Match: 1-9
 // Mismatch: ACGT
 // Insertion: + 1-9 str
@@ -2038,6 +2257,45 @@ TEST_CASE("Connect with a cycle", "[wfa_extender]") {
 }
 
 //------------------------------------------------------------------------------
+
+TEST_CASE("WFAAlignment can be converted to Path", "[wfa_alignment]") {
+
+    SECTION("Generic graph") {
+        gbwt::GBWT index = wfa_general_gbwt();
+        gbwtgraph::GBWTGraph graph = wfa_general_graph(index);
+        // Looks like: 1, 2, {3|4}, 5, {6|7}, 8, {9|10}, 11
+        
+        vector<vector<handle_t>> base_paths = {
+            {graph.get_handle(1), graph.get_handle(2), graph.get_handle(3), graph.get_handle(5)},
+            {graph.get_handle(11, true), graph.get_handle(9, true), graph.get_handle(8, true)}
+        };
+        
+        for (auto& base_path : base_paths) {
+            // For each basic route we want to look at through the graph 
+            for_each_alignment(graph, base_path, [&](const Path& truth_path, const std::string& truth_sequence) {
+                // Consider all possible alignments and round-trip to WFAAlignment and back.
+                std::cerr << "Consider sequence " << truth_sequence << " and Path " << pb2json(truth_path) << std::endl;
+                WFAAlignment converted = path_to_wfa_alignment(truth_path, graph);
+                std::cerr << "Becomes WFAAlignment: ";
+                converted.print(graph, std::cerr);
+                std::cerr << std::endl;
+                Path converted_back = converted.to_path(graph, truth_sequence);
+                std::cerr << "Converts back to Path " << pb2json(converted_back) << std::endl;
+                paths_match(converted_back, truth_path);
+             });
+        }
+       
+    }
+
+    SECTION("Cyclic graph") {
+        gbwt::GBWT index = wfa_cycle_gbwt();
+        gbwtgraph::GBWTGraph graph = wfa_cycle_graph(index);
+    }
+    
+}
+
+//------------------------------------------------------------------------------
+
 
 }
 }
