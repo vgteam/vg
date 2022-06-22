@@ -12,6 +12,7 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
+#include "randomness.hpp"
 
 #include <map>
 #include <unordered_set>
@@ -144,6 +145,8 @@ void correct_score(const WFAAlignment& alignment, const Aligner& aligner) {
     REQUIRE(alignment.score == expected_score);
 }
 
+//#define debug_conversion_tests
+
 /// Convert a vg Path into a WFAAlignment, for testing and comparison.
 /// Does not set score or sequence offset.
 WFAAlignment path_to_wfa_alignment(const Path& path, const HandleGraph& graph) {
@@ -209,26 +212,15 @@ enum class GraphBaseFate {
 /// What's a plan of base fates that we can turn into an alignment?
 using alignment_plan_t = std::vector<GraphBaseFate>;
 
-/// Tick over an alignment plan to the next value.
-void increment(alignment_plan_t& plan) {
-    plan.back() = (GraphBaseFate)((int)plan.back() + 1);
-    for (size_t i = plan.size(); i > 0; i--) {
-        if (plan[i] == GraphBaseFate::End) {
-            // Carry left
-            plan[i] = GraphBaseFate::Match;
-            plan[i - 1] = (GraphBaseFate)((int)plan[i - 1] + 1);
-        }
+/// Make a random alignment plan
+alignment_plan_t make_random_plan(size_t length, default_random_engine& engine) {
+    uniform_int_distribution<int> fate_distribution(0, (int)GraphBaseFate::End - 1);
+    alignment_plan_t plan;
+    plan.reserve(length);
+    for (size_t i = 0; i < length; i++) {
+        plan.push_back((GraphBaseFate)fate_distribution(engine));
     }
-}
-
-/// Return if we have ticked up the first base in the plan to End
-bool is_done(const alignment_plan_t& plan) {
-    return plan[0] == GraphBaseFate::End;
-}
-
-/// Make an initial alignment plan
-alignment_plan_t make_plan(size_t length) {
-    return alignment_plan_t(length, GraphBaseFate::Match);
+    return plan;
 }
 
 /// Move all insertions at node boundaries into the later node in the path, if possible.
@@ -242,8 +234,8 @@ void send_insertions_right(Path& path) {
                 Mapping* next = path.mutable_mapping(i + 1);
                 // Make a space
                 next->add_edit();
-                // Shift everything up
-                std::copy(next->mutable_edit()->begin(), next->mutable_edit()->end() - 1, next->mutable_edit()->begin() + 1);
+                // Shift everything up. Make sure to use reverse iterators to avoid clobbering.
+                std::copy(next->mutable_edit()->rbegin() + 1, next->mutable_edit()->rend(), next->mutable_edit()->rbegin());
                 // Put it in place
                 *next->mutable_edit(0) = *last_edit;
                 // Merge if needed
@@ -255,9 +247,45 @@ void send_insertions_right(Path& path) {
     }
 }
 
+std::ostream& operator<<(std::ostream& out, const alignment_plan_t& plan) {
+    for (auto& fate : plan) {
+        switch (fate) {
+        case GraphBaseFate::Match:
+            out << "|";
+            break;
+        case GraphBaseFate::Mismatch:
+            out << "*";
+            break;
+        case GraphBaseFate::Deletion:
+            out << "-";
+            break;
+        case GraphBaseFate::InsertionMatch:
+            out << "(";
+            break;
+        case GraphBaseFate::InsertionMismatch:
+            out << "<";
+            break;
+        case GraphBaseFate::MatchInsertion:
+            out << ")";
+            break;
+        case GraphBaseFate::MismatchInsertion:
+            out << ">";
+            break;
+        default:
+            throw std::runtime_error("Bad fate");    
+        }
+    }
+    return out;
+}
+
 
 /// Make an alignment plan into a Path
 std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const HandleGraph& graph, const vector<handle_t>& base_path, size_t start_offset) {
+    
+#ifdef debug_conversion_tests
+    std::cerr << "Plan: " << plan << "@" << start_offset << std::endl;
+#endif
+    
     std::pair<Path, std::string> to_return;
     Path& path = to_return.first;
     std::string& sequence = to_return.second;
@@ -348,13 +376,16 @@ std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const Ha
     return to_return;
 }
 
-/// Call the given function with each possible elaboration of the given path of handles into an alignment  path.
-void for_each_alignment(const HandleGraph& graph, const vector<handle_t>& base_path, const std::function<void(const Path&, const std::string&)> iteratee) {
+/// Call the given function with random elaborations of the given path of handles into an alignment  path.
+void for_each_random_alignment(const HandleGraph& graph, const vector<handle_t>& base_path, const std::function<void(const Path&, const std::string&)> iteratee) {
 
     if (base_path.empty()) {
         return;
     }
-
+    
+    // Get an RNG
+    default_random_engine generator(test_seed_source());
+    
     // How many bases of the path could be on the first handle?
     size_t first_length = graph.get_length(base_path.front());
     // How many bases of the path aren't on the first handle?
@@ -378,20 +409,57 @@ void for_each_alignment(const HandleGraph& graph, const vector<handle_t>& base_p
             // don't double-credit the bases we keep.
             size_t graph_length = first_length - start_offset + middle_length + (base_path.size() > 1 ? last_length : (size_t)0) - last_omitted;
             
-            // Now we need to count up, for each graph base, through the possible operations.
-            auto plan = make_plan(graph_length);
+            for (size_t i = 0; i < 100; i++) {
+                // Generate some random plans at this length
+                auto plan = make_random_plan(graph_length, generator);
             
-            while (!is_done(plan)) {
-                // Try the alignment form each plan
+                // Try the alignment from each plan
                 auto path_and_sequence = plan_to_path(plan, graph, base_path, start_offset);
-                assert(path_and_sequence.first.size() == path_to_length(path_and_sequence.second));
+                REQUIRE(path_to_length(path_and_sequence.first) == path_and_sequence.second.size());
                 iteratee(path_and_sequence.first, path_and_sequence.second);
-                // Try the next plan
-                increment(plan);
             }
         }
     }
 
+}
+
+void paths_match(const Path& path, const Path& correct_path) {
+    REQUIRE(path.mapping_size() == correct_path.mapping_size());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        const Mapping& mapping = path.mapping(i);
+        const Mapping& correct = correct_path.mapping(i);
+        REQUIRE(make_pos_t(mapping.position()) == make_pos_t(correct.position()));
+        REQUIRE(mapping.edit_size() == correct.edit_size());
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            REQUIRE(mapping.edit(j).from_length() == correct.edit(j).from_length());
+            REQUIRE(mapping.edit(j).to_length() == correct.edit(j).to_length());
+            REQUIRE(mapping.edit(j).sequence() == correct.edit(j).sequence());
+        }
+    }
+}
+
+/// Compose some random alignments against the given base path through the
+/// given graph and ensure they can be round-tripped from Path to WFAAlignment
+/// and back.
+void round_trip_versions_of(const std::vector<handle_t>& base_path, const HandleGraph& graph) {
+    // For each basic route we want to look at through the graph 
+    for_each_random_alignment(graph, base_path, [&](const Path& truth_path, const std::string& truth_sequence) {
+        // Consider some alignments and round-trip to WFAAlignment and back.
+#ifdef debug_conversion_tests
+        std::cerr << "Consider sequence " << truth_sequence << " and Path " << pb2json(truth_path) << std::endl;
+#endif
+        WFAAlignment converted = path_to_wfa_alignment(truth_path, graph);
+#ifdef debug_conversion_tests
+        std::cerr << "Becomes WFAAlignment: ";
+        converted.print(graph, std::cerr);
+        std::cerr << std::endl;
+#endif
+        Path converted_back = converted.to_path(graph, truth_sequence);
+#ifdef debug_conversion_tests
+        std::cerr << "Converts back to Path " << pb2json(converted_back) << std::endl;
+#endif
+        paths_match(converted_back, truth_path);
+     });
 }
 
 // Match: 1-9
@@ -443,21 +511,6 @@ Alignment get_alignment(const std::vector<std::pair<pos_t, std::string>>& mappin
     result.set_sequence(sequence);
     *(result.mutable_path()) = get_path(mappings);
     return result;
-}
-
-void paths_match(const Path& path, const Path& correct_path) {
-    REQUIRE(path.mapping_size() == correct_path.mapping_size());
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& mapping = path.mapping(i);
-        const Mapping& correct = correct_path.mapping(i);
-        REQUIRE(make_pos_t(mapping.position()) == make_pos_t(correct.position()));
-        REQUIRE(mapping.edit_size() == correct.edit_size());
-        for (size_t j = 0; j < mapping.edit_size(); j++) {
-            REQUIRE(mapping.edit(j).from_length() == correct.edit(j).from_length());
-            REQUIRE(mapping.edit(j).to_length() == correct.edit(j).to_length());
-            REQUIRE(mapping.edit(j).sequence() == correct.edit(j).sequence());
-        }
-    }
 }
 
 void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::pair<pos_t, std::string>>& correct_alignment, const GaplessExtender& extender, size_t error_bound, bool check_seeds) {
@@ -2296,31 +2349,29 @@ TEST_CASE("WFAAlignment can be converted to Path", "[wfa_alignment]") {
         gbwtgraph::GBWTGraph graph = wfa_general_graph(index);
         // Looks like: 1, 2, {3|4}, 5, {6|7}, 8, {9|10}, 11
         
-        vector<vector<handle_t>> base_paths = {
+        std::vector<std::vector<handle_t>> base_paths = {
             {graph.get_handle(1), graph.get_handle(2), graph.get_handle(3), graph.get_handle(5)},
             {graph.get_handle(11, true), graph.get_handle(9, true), graph.get_handle(8, true)}
         };
         
         for (auto& base_path : base_paths) {
-            // For each basic route we want to look at through the graph 
-            for_each_alignment(graph, base_path, [&](const Path& truth_path, const std::string& truth_sequence) {
-                // Consider all possible alignments and round-trip to WFAAlignment and back.
-                std::cerr << "Consider sequence " << truth_sequence << " and Path " << pb2json(truth_path) << std::endl;
-                WFAAlignment converted = path_to_wfa_alignment(truth_path, graph);
-                std::cerr << "Becomes WFAAlignment: ";
-                converted.print(graph, std::cerr);
-                std::cerr << std::endl;
-                Path converted_back = converted.to_path(graph, truth_sequence);
-                std::cerr << "Converts back to Path " << pb2json(converted_back) << std::endl;
-                paths_match(converted_back, truth_path);
-             });
+            round_trip_versions_of(base_path, graph);
         }
-       
     }
 
     SECTION("Cyclic graph") {
         gbwt::GBWT index = wfa_cycle_gbwt();
         gbwtgraph::GBWTGraph graph = wfa_cycle_graph(index);
+        // Looks like 1, 2*, 3
+        
+        std::vector<std::vector<handle_t>> base_paths = {
+            {graph.get_handle(1), graph.get_handle(2), graph.get_handle(3)},
+            {graph.get_handle(3, true), graph.get_handle(2, true), graph.get_handle(2, true), graph.get_handle(2, true), graph.get_handle(1, true)}
+        };
+        
+        for (auto& base_path : base_paths) {
+            round_trip_versions_of(base_path, graph);
+        }
     }
     
 }

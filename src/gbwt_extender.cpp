@@ -915,12 +915,12 @@ void WFAAlignment::join(const WFAAlignment& second) {
     // And that's all the fields we have!
 }
 
-#define debug_path
+//#define debug_path
 
 Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence) const {
 
     if (!*this) {
-        throw std::runtime_error("WFAAlignment is not OK and cannot bcome a path");
+        throw std::runtime_error("WFAAlignment is not OK and cannot become a path");
     }
     
     if (this->unlocalized_insertion()) {
@@ -950,7 +950,8 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
     if (this->node_offset >= first_node_length) {
         throw std::runtime_error("WFAAlignment has offset to or past end of first node");
     }
-    size_t node_end = first_node_length - this->node_offset;
+    // When the base along the node hits this, we leave the node.
+    size_t node_end = first_node_length;
     
     // Walk through the edits
     auto edit_cursor = this->edits.begin();
@@ -1008,10 +1009,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         assert(length_to_resolve > 0);
         
 #ifdef debug_path
-        std::cerr << "Use " << length_to_resolve << " bp of " << edit_cursor->second << edit_cursor->first << " against " << (path_cursor != path_end ? graph.get_id(*path_cursor) : (nid_t)0) << " to go from edit: " << (edit_cursor - edits.begin()) << "@" << current_edit_used << " and path step: " << (path_cursor - path.begin()) << "@" << node_cursor;
-        if (path_cursor != path_end) {
-            std::cerr << "(" << graph.get_length(*path_cursor) << " bp on " << graph.get_id(*path_cursor) << ")";
-        }
+        std::cerr << "Use " << length_to_resolve << " bp of " << edit_cursor->second << edit_cursor->first << " against node " << (path_cursor != path_end ? graph.get_id(*path_cursor) : (nid_t)0) << " to go from edit " << (edit_cursor - edits.begin()) << " offset " << current_edit_used << " = path step " << (path_cursor - path.begin()) << " offset " << node_cursor;
 #endif
         
         // Create a vg Edit to translate to
@@ -1049,6 +1047,10 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
             if (node_cursor == node_end) {
                 // Finished the node.
                 
+#ifdef debug_path
+                std::cerr << " (leave node at path step " << (path_cursor - path.begin()) << " offset " << node_cursor << ")";
+#endif
+                
                 // We already checked above, and the path cursor isn't at the end.
                 assert(path_cursor != path_end);
                 
@@ -1079,11 +1081,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         }
         
 #ifdef debug_path
-        std::cerr << " to edit: " << (edit_cursor - edits.begin()) << "@" << current_edit_used << " and path step: " << (path_cursor - path.begin()) << "@" << node_cursor;
-        if (path_cursor != path_end) {
-            std::cerr << "(" << graph.get_length(*path_cursor) << " bp on " << graph.get_id(*path_cursor) << ")";
-        }
-        std::cerr << std::endl;
+        std::cerr << " to edit " << (edit_cursor - edits.begin()) << " offset " << current_edit_used << " = path step " << (path_cursor - path.begin()) << " offset " << node_cursor << std::endl;
 #endif
     }
     
