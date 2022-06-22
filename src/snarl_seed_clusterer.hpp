@@ -153,6 +153,7 @@ class NewSnarlSeedClusterer {
             size_t distance_end_right = std::numeric_limits<size_t>::max();
 
             //For nodes, store the identity of a longest path and the offset and orientation along the path
+            //Chain component along the path will be in chain_component_start/end
             bool has_node_path_values = false;
             size_t path_identifier = std::numeric_limits<size_t>::max();
             size_t path_offset = std::numeric_limits<size_t>::max();

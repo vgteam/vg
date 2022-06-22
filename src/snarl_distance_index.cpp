@@ -683,24 +683,24 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //from the start of the top-level chain
             SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record 
                     = temp_index.temp_chain_records.at(component_index.second);
+            if (!temp_chain_record.loopable) {
+                //Only for non-looping, non-multicomponent chains
             
-            size_t chain_child_i = 0;
-            size_t last_node_length = 0;
-            for (pair<SnarlDistanceIndex::temp_record_t, size_t>& chain_child_index : temp_chain_record.children) {
-                if (chain_child_index.first == SnarlDistanceIndex::TEMP_SNARL) {
-                    //Find the shortest path through this snarl and label each node with the chain, and the distance along the path + prefix sum
-                    label_shortest_path_through_snarl(graph, chain_child_index.second, temp_index, 
-                                component_index, temp_chain_record.chain_components[chain_child_i], 
-                                SnarlDistanceIndex::sum({temp_chain_record.prefix_sum[chain_child_i-1], last_node_length}));
-                } else {
-                    //If this is a node, iterate the child number
-                    chain_child_i++;
-                    last_node_length = temp_index.temp_node_records.at(chain_child_index.second - temp_index.min_node_id).node_length;
+                size_t chain_child_i = 0;
+                size_t last_node_length = 0;
+                for (pair<SnarlDistanceIndex::temp_record_t, size_t>& chain_child_index : temp_chain_record.children) {
+                    if (chain_child_index.first == SnarlDistanceIndex::TEMP_SNARL) {
+                        //Find the shortest path through this snarl and label each node with the chain, and the distance along the path + prefix sum
+                        label_shortest_path_through_snarl(graph, chain_child_index.second, temp_index, 
+                                    component_index, temp_chain_record.chain_components[chain_child_i], 
+                                    SnarlDistanceIndex::sum({temp_chain_record.prefix_sum[chain_child_i-1], last_node_length}));
+                    } else {
+                        //If this is a node, iterate the child number
+                        chain_child_i++;
+                        last_node_length = temp_index.temp_node_records.at(chain_child_index.second - temp_index.min_node_id).node_length;
+                    }
                 }
             }
-
-
-            
         }
     }
     temp_index.root_structure_count = temp_index.components.size();
@@ -756,8 +756,14 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
     //Get a node by walking out from the start node. We only need one for the shortest path, so keep one that is on any shortest path 
     //(based on shortest_distance_start_end) 
     NetgraphNode current_node (0, make_pair( make_pair(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id), temp_snarl_record.start_node_rev));
+#ifdef deug_distance_indexing
+    cerr << "Find shortest path through snarl " << temp_index.structure_start_end_as_string(make_pair(SnarlDistanceIndex::TEMP_SNARL, snarl_index)) << endl; 
+#endif
     hash_set<pair<id_t, bool>> seen_nodes;
     while (current_node.first != shortest_distance_start_end) {
+#ifdef debug_distance_indexing
+        cerr << "at node " << temp_index.structure_start_end_as_string(current_node.second.first) << (current_node.second.second ? " rev" : " fd") << " with distance " << current_node.first  << endl;
+#endif
         pair<SnarlDistanceIndex::temp_record_t, size_t>& current_index = current_node.second.first;
         handle_t current_end_handle = current_index.first == SnarlDistanceIndex::TEMP_NODE ? 
                 graph->get_handle(current_index.second, current_node.second.second) :
@@ -765,21 +771,31 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                                                 !temp_index.temp_chain_records[current_index.second].start_node_rev) 
                           : graph->get_handle(temp_index.temp_chain_records[current_index.second].end_node_id, 
                                               temp_index.temp_chain_records[current_index.second].end_node_rev));
-                size_t start_distance = current_node.first;
+        size_t start_distance = current_node.first;
 
 
         graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
             pair<SnarlDistanceIndex::temp_record_t, size_t> next_index = 
                     get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle))); 
+#ifdef debug_distance_indexing
+            cerr << "\tnext node" << temp_index.structure_start_end_as_string(next_index) << (graph->get_is_reverse(next_handle) ? " rev" : " fd") << endl;
+#endif
+
             if (seen_nodes.count(make_pair(graph->get_id(next_handle), graph->get_is_reverse(next_handle))) != 0){
                 //IF we've already seen this node in this orientation
                 //Keep looking
+#ifdef debug_distance_indexing
+                cerr << "\t\talready seen" << endl;
+#endif
                 return true;
             } else if(next_index.first == SnarlDistanceIndex::TEMP_NODE && next_index.second == temp_snarl_record.end_node_id){
                 //If this is the last node, stop looking since we've found the shortest path
                 seen_nodes.insert(make_pair(graph->get_id(next_handle), graph->get_is_reverse(next_handle)));
                 current_node = make_pair(SnarlDistanceIndex::sum({current_node.first, graph->get_length(next_handle)}),
                                              make_pair(next_index, graph->get_is_reverse(next_handle)));
+#ifdef debug_distance_indexing
+                cerr << "\t\t this is the last node" << endl;
+#endif
                 return false;
             } else if (!(next_index.first == SnarlDistanceIndex::TEMP_NODE && next_index.second == temp_snarl_record.start_node_id)) {
                 seen_nodes.insert(make_pair(graph->get_id(next_handle), graph->get_is_reverse(next_handle)));
@@ -792,6 +808,7 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                                     ? graph->get_is_reverse(next_handle) 
                                     : graph->get_id(next_handle) == temp_index.temp_chain_records[next_index.second].end_node_id;
                             
+                //The distance from the end of next to the end of the snarl
                 size_t distance_to_end;
                 if (temp_snarl_record.distances.count(make_pair(make_pair(next_rank, !next_rev), make_pair(1, false))) != 0) {
                     distance_to_end = temp_snarl_record.distances.at(make_pair(make_pair(next_rank, !next_rev), make_pair(1, false)));
@@ -801,6 +818,7 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                     distance_to_end = std::numeric_limits<size_t>::max();
                 }
 
+                //The length of next
                 size_t current_node_length = next_index.first == SnarlDistanceIndex::TEMP_NODE ? graph->get_length(next_handle)
                                                                                                : temp_index.temp_chain_records[next_index.second].min_length;
 
@@ -815,13 +833,22 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                         temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_component = chain_component;
 
                     }
+#ifdef debug_distance_indexing
+                    cerr << "\t\tthis is the next node with distance " << current_node.first << "+" << current_node_length << "+" << distance_to_end << " != " << shortest_distance_start_end << endl;
+#endif
                     current_node = make_pair(SnarlDistanceIndex::sum({current_node.first, current_node_length}),
                                              make_pair(next_index, graph->get_is_reverse(next_handle)));
                     return false;
                 } else {
+#ifdef debug_distance_indexing
+                    cerr << "\t\tNot the right distance: " << current_node.first << "+" << current_node_length << "+" << distance_to_end << " != " << shortest_distance_start_end << endl;
+#endif
                     return true;
                 }
             } else {
+#ifdef debug_distance_indexing
+                cerr << "\t\tStart node so skip" << endl;
+#endif
                 seen_nodes.insert(make_pair(graph->get_id(next_handle), graph->get_is_reverse(next_handle)));
                 return true;
             }
