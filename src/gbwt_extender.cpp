@@ -927,36 +927,36 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         throw std::runtime_error("WFAAlignment is an unlocalized insertion and cannot bcome a path");
     }
     
+    if (this->seq_offset + this->length > sequence.size()) {
+        throw std::runtime_error("WFAAlignment extends past end of sequence");
+    }
+    
     Path result;
+    
+    if (this->path.empty()) {
+        // Nothing to do!
+        return result;
+    }
     
     // Walk through the sequence
     size_t sequence_cursor = this->seq_offset;
-    size_t sequence_end = this->seq_offset + this->length;
-    if (sequence_cursor == sequence_end) {
-        throw std::runtime_error("WFAAlignment has empty sequence");
-    }
-    if (sequence_end > sequence.size()) {
-        throw std::runtime_error("WFAAlignment extends past end of sequence");
-    }
+    
     // And each node along the path
-    auto path_cursor = this->path.begin();
-    auto path_end = this->path.end();
-    if (path_cursor == path_end) {
-        throw std::runtime_error("WFAAlignment has empty path");
-    }
+    auto path_it = this->path.begin();
+    
     // And each base along the current node
     size_t node_cursor = this->node_offset;
-    size_t first_node_length = graph.get_length(*path_cursor);
+    size_t first_node_length = graph.get_length(*path_it);
     if (this->node_offset >= first_node_length) {
         throw std::runtime_error("WFAAlignment has offset to or past end of first node");
     }
     // When the base along the node hits this, we leave the node.
+    // We track this separately so we can go
     size_t node_end = first_node_length;
     
     // Walk through the edits
-    auto edit_cursor = this->edits.begin();
-    auto edit_end = this->edits.end();
-    if (edit_cursor == edit_end) {
+    auto edit_it = this->edits.begin();
+    if (edit_it == this->edits.end()) {
         throw std::runtime_error("WFAAlignment has no edits");
     }
     // And track how much of the current edit has been resolved aleady.
@@ -965,31 +965,31 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
     // As we walk along, we build a mapping. Set up the first mapping
     Mapping* mapping_in_progress = result.add_mapping();
     // And set its position, with the offset
-    mapping_in_progress->mutable_position()->set_node_id(graph.get_id(*path_cursor));
-    mapping_in_progress->mutable_position()->set_is_reverse(graph.get_is_reverse(*path_cursor));
+    mapping_in_progress->mutable_position()->set_node_id(graph.get_id(*path_it));
+    mapping_in_progress->mutable_position()->set_is_reverse(graph.get_is_reverse(*path_it));
     mapping_in_progress->mutable_position()->set_offset(node_cursor);
     
-    while (edit_cursor != edit_end) {
-        if (current_edit_used == edit_cursor->second) {
+    while (edit_it != this->edits.end()) {
+        if (current_edit_used == edit_it->second) {
             // There's no edit left, but there ought to be as a loop invariant,
             // if no empty edits exist.
             throw std::runtime_error("WFAAlignment has empty edit");
         }
             
         // What kind of edit is it?
-        auto& edit_type = edit_cursor->first;
+        auto& edit_type = edit_it->first;
         
         // And how much is left?
-        size_t length_to_resolve = edit_cursor->second - current_edit_used;
+        size_t length_to_resolve = edit_it->second - current_edit_used;
         
         if (edit_type == match || edit_type == mismatch || edit_type == deletion) {
             // These edits consume some graph.
             // Make sure there is a graph node.
-            if (path_cursor == path_end) {
+            if (path_it == this->path.end()) {
                 std::stringstream ss;
                 ss << "WFAAlignment tried to go past end of path with " 
-                    << edit_type << " edit " << (edit_cursor - edits.begin()) << "/" << edits.size()
-                    << " of " << edit_cursor->second << " bp, " 
+                    << edit_type << " edit " << (edit_it - edits.begin()) << "/" << edits.size()
+                    << " of " << edit_it->second << " bp, " 
                     << current_edit_used << " bp used, last node is " << graph.get_id(path.back()) 
                     << " orientation " << graph.get_is_reverse(path.back()) 
                     << " sequence " << graph.get_sequence(path.back());
@@ -1009,7 +1009,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         assert(length_to_resolve > 0);
         
 #ifdef debug_path
-        std::cerr << "Use " << length_to_resolve << " bp of " << edit_cursor->second << edit_cursor->first << " against node " << (path_cursor != path_end ? graph.get_id(*path_cursor) : (nid_t)0) << " to go from edit " << (edit_cursor - edits.begin()) << " offset " << current_edit_used << " = path step " << (path_cursor - path.begin()) << " offset " << node_cursor;
+        std::cerr << "Use " << length_to_resolve << " bp of " << edit_it->second << edit_it->first << " against node " << (path_it != this->path.end() ? graph.get_id(*path_it) : (nid_t)0) << " to go from edit " << (edit_it - edits.begin()) << " offset " << current_edit_used << " = path step " << (path_it - path.begin()) << " offset " << node_cursor;
 #endif
         
         // Create a vg Edit to translate to
@@ -1022,7 +1022,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         }
         if (edit_type == mismatch || edit_type == insertion) {
             // These edits carry sequence
-            if (sequence_cursor + length_to_resolve > sequence_end) {
+            if (sequence_cursor + length_to_resolve > this->seq_offset + this->length) {
                 throw std::runtime_error("WFAAlignment uses more sequence than provided");
             }
             created->set_sequence(sequence.substr(sequence_cursor, length_to_resolve));
@@ -1036,10 +1036,10 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         // Now we've resolved at least part of this edit.
         current_edit_used += length_to_resolve;
         
-        if (current_edit_used == edit_cursor->second) {
+        if (current_edit_used == edit_it->second) {
             // Finished the edit.
             // Reset to the start of the next edit.
-            ++edit_cursor;
+            ++edit_it;
             current_edit_used = 0;
         }
         if (edit_type == match || edit_type == mismatch || edit_type == deletion) {
@@ -1048,29 +1048,29 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
                 // Finished the node.
                 
 #ifdef debug_path
-                std::cerr << " (leave node at path step " << (path_cursor - path.begin()) << " offset " << node_cursor << ")";
+                std::cerr << " (leave node at path step " << (path_it - path.begin()) << " offset " << node_cursor << ")";
 #endif
                 
                 // We already checked above, and the path cursor isn't at the end.
-                assert(path_cursor != path_end);
+                assert(path_it != this->path.end());
                 
                 // Reset to the start of the next node.
                 node_cursor = 0;
                 // And advance along the path if possible.
-                ++path_cursor;
-                if (path_cursor != path_end) {
+                ++path_it;
+                if (path_it != this->path.end()) {
                     // We've reached a new node, so work out where the end is
-                    node_end = graph.get_length(*path_cursor);
+                    node_end = graph.get_length(*path_it);
                     
                     if (node_cursor == node_end) {
-                        throw std::runtime_error("WFAAlignment has empty node " + std::to_string(graph.get_id(*path_cursor)));
+                        throw std::runtime_error("WFAAlignment has empty node " + std::to_string(graph.get_id(*path_it)));
                     }
                     
                     // Also start a new Mapping
                     mapping_in_progress = result.add_mapping();
                     // And set its position
-                    mapping_in_progress->mutable_position()->set_node_id(graph.get_id(*path_cursor));
-                    mapping_in_progress->mutable_position()->set_is_reverse(graph.get_is_reverse(*path_cursor));
+                    mapping_in_progress->mutable_position()->set_node_id(graph.get_id(*path_it));
+                    mapping_in_progress->mutable_position()->set_is_reverse(graph.get_is_reverse(*path_it));
                     // The offset will always be 0 since we entered from somewhere.
                 } else {
                     // No next node, so we should be at the end of what we use in the graph.
@@ -1081,7 +1081,7 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         }
         
 #ifdef debug_path
-        std::cerr << " to edit " << (edit_cursor - edits.begin()) << " offset " << current_edit_used << " = path step " << (path_cursor - path.begin()) << " offset " << node_cursor << std::endl;
+        std::cerr << " to edit " << (edit_it - edits.begin()) << " offset " << current_edit_used << " = path step " << (path_it - path.begin()) << " offset " << node_cursor << std::endl;
 #endif
     }
     
