@@ -641,7 +641,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
         filter_headings = annotated_headings
     
     # How long is the longest filter name
-    filter_width = max((len(x) for x in filter_headings))
+    filter_width = max(itertools.chain((len(x) for x in filter_headings), [0]))
     # Leave room for the header
     filter_header = "Filter"
     filter_width = max(filter_width, len(filter_header))
@@ -675,7 +675,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     lost_stage_header = "Lost"
     lost_stage_header2 = "reads"
     lost_stage_reads = [x for x in (stats_total[filter_name].get('last_correct_stage', 0) for filter_name in stats_total.keys()) if x is not None]
-    max_stage = max(lost_stage_reads)
+    max_stage = max(itertools.chain(lost_stage_reads, [0]))
     overall_lost_stage = sum(lost_stage_reads)
     lost_stage_width = max(len(lost_stage_header), len(lost_stage_header2), len(str(max_stage)), len(str(overall_lost_stage)))
     
@@ -690,7 +690,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     # Look at the reads lost at all filters
     # Account for None values for stages that don't have correctness defined yet.
     lost_reads = [x for x in (stats_total[filter_name]['failed_count_correct'] for filter_name in stats_total.keys()) if x is not None]
-    max_filter_stop = max(lost_reads)
+    max_filter_stop = max(itertools.chain(lost_reads, [0]))
     # How many correct reads are lost overall by filters?
     overall_lost = sum(lost_reads)
     lost_width = max(len(lost_header), len(lost_header2), len(str(max_filter_stop)), len(str(overall_lost)))
@@ -705,7 +705,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     # How big a number will we need to hold?
     # Look at the reads rejected at all filters
     rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in stats_total.keys()]
-    max_filter_stop = max(rejected_reads)
+    max_filter_stop = max(itertools.chain(rejected_reads, [0]))
     # How many incorrect reads are rejected overall by filters?
     overall_rejected = sum(rejected_reads)
     rejected_width = max(len(rejected_header), len(rejected_header2), len(str(max_filter_stop)), len(str(overall_rejected)))

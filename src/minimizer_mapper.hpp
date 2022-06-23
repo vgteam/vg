@@ -136,6 +136,14 @@ public:
     //more than this much, don't align it
     int extension_score_threshold = 1;
     
+    /// Disregard the extension set score thresholds when they would give us
+    /// fewer than this many extension sets.
+    int min_extension_sets = 2;
+    
+    /// Even if we would have fewer than min_extension_sets results, don't
+    /// process anything with a score smaller than this.
+    int extension_set_min_score = 20;
+    
     /// If true, produce alignments from extension sets by chaining gapless
     /// extensions up and aligning the sequences between them. If false,
     /// produce alignments by aligning the tails off of individual gapless
@@ -146,7 +154,7 @@ public:
     /// items or longest tail we will actually try to align? Passing strings
     /// longer than this can cause WFAAligner to run for a pathologically long
     /// amount of time.
-    size_t max_chain_connection = 3000;
+    size_t max_chain_connection = 1000;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
