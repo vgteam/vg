@@ -836,8 +836,10 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
 #ifdef debug_distance_indexing
                     cerr << "\t\tthis is the next node with distance " << current_node.first << "+" << current_node_length << "+" << distance_to_end << " != " << shortest_distance_start_end << endl;
 #endif
+                    bool is_reversed = next_index.first == SnarlDistanceIndex::TEMP_NODE ? graph->get_is_reverse(next_handle) 
+                                                                                         : graph->get_id(next_handle) == temp_index.temp_chain_records[next_index.second].end_node_id;
                     current_node = make_pair(SnarlDistanceIndex::sum({current_node.first, current_node_length}),
-                                             make_pair(next_index, graph->get_is_reverse(next_handle)));
+                                             make_pair(next_index, is_reversed));
                     return false;
                 } else {
 #ifdef debug_distance_indexing
