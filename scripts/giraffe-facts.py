@@ -134,7 +134,9 @@ def sniff_params(read):
     
     return params
     
-    
+# Stats under NO_FILTER are not associated with a filter
+NO_FILTER = "__none__"
+
 def make_stats(read):
     """
     Given a read dict parsed from JSON, compute a stats OrderedDict for the read.
@@ -174,6 +176,9 @@ def make_stats(read):
         
     Filters appear in the OrderedDict in an order corresponding to their filter
     number in the GAM.
+    
+    The stats dict may also have an entry for NO_FILTER, with stats not
+    associated with a filter.
     """
     
     # This is the annotation dict from the read
@@ -252,6 +257,12 @@ def make_stats(read):
     for filter_index in sorted(filters_by_index.keys()):
         filter_name = filters_by_index[filter_index]
         ordered_stats[filter_name] = filter_stats[filter_name]
+        
+    # Add in special non-filter stats
+    ordered_stats[NO_FILTER] = collections.Counter()
+    for k in ['time_used']:
+        if k in read:
+            ordered_stats[NO_FILTER][k] = read[k]
         
     return ordered_stats
 
@@ -348,6 +359,16 @@ class Table(object):
         
         # Remember if we need a line
         self.need_line = line_bottom
+        
+    def full_row(self, left_value, right_value):
+        """
+        Draw a full-width row in the table with a left-justified and a
+        right-justified value.
+        """
+        
+        full_value = left_value + right_value.rjust(self.inner_width() - len(left_value))
+        self.row([full_value], merge=[len(self.widths)])
+        
         
     def close(self):
         """
@@ -614,8 +635,11 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     # Column min widths from headers
     header_widths = []
     
+    # Find all the filters
+    filters = [k for k in stats_total.keys() if k != NO_FILTER]
+    
     # Compute filter row headings
-    filter_headings = stats_total.keys()
+    filter_headings = list(filters)
     
     if params is not None:
         # Annotate each filter with its parameter value
@@ -674,7 +698,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     # And the number of correct reads lost at each stage
     lost_stage_header = "Lost"
     lost_stage_header2 = "reads"
-    lost_stage_reads = [x for x in (stats_total[filter_name].get('last_correct_stage', 0) for filter_name in stats_total.keys()) if x is not None]
+    lost_stage_reads = [x for x in (stats_total[filter_name].get('last_correct_stage', 0) for filter_name in filters) if x is not None]
     max_stage = max(itertools.chain(lost_stage_reads, [0]))
     overall_lost_stage = sum(lost_stage_reads)
     lost_stage_width = max(len(lost_stage_header), len(lost_stage_header2), len(str(max_stage)), len(str(overall_lost_stage)))
@@ -689,7 +713,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     # How big a number will we need to hold?
     # Look at the reads lost at all filters
     # Account for None values for stages that don't have correctness defined yet.
-    lost_reads = [x for x in (stats_total[filter_name]['failed_count_correct'] for filter_name in stats_total.keys()) if x is not None]
+    lost_reads = [x for x in (stats_total[filter_name]['failed_count_correct'] for filter_name in filters) if x is not None]
     max_filter_stop = max(itertools.chain(lost_reads, [0]))
     # How many correct reads are lost overall by filters?
     overall_lost = sum(lost_reads)
@@ -704,7 +728,7 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     rejected_header2 = ""
     # How big a number will we need to hold?
     # Look at the reads rejected at all filters
-    rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in stats_total.keys()]
+    rejected_reads = [stats_total[filter_name]['failed_count_total'] for filter_name in filters]
     max_filter_stop = max(itertools.chain(rejected_reads, [0]))
     # How many incorrect reads are rejected overall by filters?
     overall_rejected = sum(rejected_reads)
@@ -736,14 +760,16 @@ def print_table(read_count, stats_total, params=None, out=sys.stdout):
     
     table.row(["Giraffe Facts"], 'c', merge=[len(header_widths)])
     table.line()
-    table.row(['Reads' + str(read_count).rjust(table.inner_width() - 5)], merge=[len(header_widths)])
+    table.full_row('Reads', str(read_count))
+    if 'time_used' in stats_total[NO_FILTER] and stats_total[NO_FILTER]['time_used'] != 0:
+        table.full_row('Mapping speed', '{:0.2f} RPS'.format(read_count / stats_total[NO_FILTER]['time_used']))
     table.line()
     table.row(headers, 'c')
     table.row(headers2, 'c')
     table.line()
     
     
-    for i, filter_name in enumerate(stats_total.keys()):
+    for i, filter_name in enumerate(filters):
         # Grab average results passing this filter per read
         total_passing = stats_total[filter_name]['passed_count_total']
         average_passing = total_passing / read_count if read_count != 0 else float('NaN')
