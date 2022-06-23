@@ -33,7 +33,7 @@ namespace algorithms {
 
 using namespace std;
 
-//#define debug_chaining
+#define debug_chaining
 
 /**
  * We want to be able to chain a reordered subset of things without moving the originals, so we use this view over things stored in a vector.

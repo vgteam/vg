@@ -154,6 +154,7 @@ public:
     /// items or longest tail we will actually try to align? Passing strings
     /// longer than this can cause WFAAligner to run for a pathologically long
     /// amount of time.
+    /// May not be 0.
     size_t max_chain_connection = 1000;
 
     size_t max_multimaps = 1;
@@ -926,20 +927,23 @@ Alignment MinimizerMapper::find_chain_alignment(
     WFAAlignment aligned;
     
     // Do the left tail, if any.
-    // Anchor position will not be covered. 
-    string left_tail = aln.sequence().substr(0, space.read_start(*here));
-    size_t left_tail_additional_offset = 0;
-    if (left_tail.size() > max_chain_connection) {
-        #pragma omp critical (cerr)
-        {
-            cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << left_tail.size() << " bp left tail in " << aln.name() << endl;
-        }
-        // Keep only the right part of the left tail
-        left_tail_additional_offset = left_tail.size() - max_chain_connection;
-        left_tail = left_tail.substr(left_tail_additional_offset);
-    }
+    size_t left_tail_length = space.read_start(*here);
     
-    if (!left_tail.empty()) {
+    if (left_tail_length > 0) {
+    
+        // Anchor position will not be covered. 
+        string left_tail = aln.sequence().substr(0, left_tail_length);
+        size_t left_tail_additional_offset = 0;
+        if (left_tail.size() > max_chain_connection) {
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << left_tail.size() << " bp left tail in " << aln.name() << endl;
+            }
+            // Keep only the right part of the left tail
+            left_tail_additional_offset = left_tail.size() - max_chain_connection;
+            left_tail = left_tail.substr(left_tail_additional_offset);
+        }
+        
         // We align the left tail with prefix(), which creates a prefix of the alignment.
         aligned = extender.prefix(left_tail, space.graph_start(*here));
         // Account for if we had to shorten the left tail
@@ -967,15 +971,19 @@ Alignment MinimizerMapper::find_chain_alignment(
             throw std::runtime_error(ss.str());
         }
         // Since the tail starts at offset 0, the alignment is already in full read space.
-    }
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Start with left tail of " << aligned.length << " with score of " << aligned.score << endl;
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Start with left tail of " << aligned.length << " with score of " << aligned.score << endl;
+            }
         }
+        aligned.check_lengths(gbwt_graph);
+    } else {
+        // No left tail to start with.
+        // Just use an empty starting alignment, which is OK.
+        aligned = WFAAlignment::make_empty(); 
     }
-    aligned.check_lengths(gbwt_graph);
     
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
@@ -1121,54 +1129,56 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - space.read_end(*here);
-    if (right_tail_length > max_chain_connection) {
-        #pragma omp critical (cerr)
-        {
-            cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << right_tail_length << " bp right tail in " << aln.name() << endl;
+    if (right_tail_length > 0) {
+        if (right_tail_length > max_chain_connection) {
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << right_tail_length << " bp right tail in " << aln.name() << endl;
+            }
         }
-    }
-    string right_tail = aln.sequence().substr(space.read_end(*here), max_chain_connection);
-    // We align the right tail with suffix(), which creates a suffix of the alignment.
-    // Make sure to walk back the anchor so it is outside of the region to be aligned.
-    pos_t left_anchor = space.graph_end(*here);
-    get_offset(left_anchor)--;
-    WFAAlignment right_alignment = extender.suffix(right_tail, left_anchor);
-    
-    if (!right_alignment) {
-        // Right tail did not align. Make a softclip for it.
-        right_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), aln.sequence().size() - space.read_end(*here), 0);
-    } else {
-        // Right tail did align. Put the alignment back into full read space.
-        right_alignment.seq_offset += space.read_end(*here);
-    }
-    if (right_alignment.seq_offset + right_alignment.length != aln.sequence().size()) {
-        // We didn't get all the way to the right end of the read without
-        // running out of score, or we had to truncate the tail to a manageable
-        // length for actual alignment.
-        // Append a softclip.
-        // TODO: Can we let the aligner know it can softclip for free?
-        size_t right_end = right_alignment.seq_offset + right_alignment.length;
-        size_t remaining = aln.sequence().size() - right_end;
-        right_alignment.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
-    }
-    if (right_alignment.length != right_tail_length) {
-        // We didn't get the alignment we expected.
-        stringstream ss;
-        ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
-        right_alignment.print(ss);
-        throw std::runtime_error(ss.str());
-    }
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+        string right_tail = aln.sequence().substr(space.read_end(*here), max_chain_connection);
+        // We align the right tail with suffix(), which creates a suffix of the alignment.
+        // Make sure to walk back the anchor so it is outside of the region to be aligned.
+        pos_t left_anchor = space.graph_end(*here);
+        get_offset(left_anchor)--;
+        WFAAlignment right_alignment = extender.suffix(right_tail, left_anchor);
+        
+        if (!right_alignment) {
+            // Right tail did not align. Make a softclip for it.
+            right_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), aln.sequence().size() - space.read_end(*here), 0);
+        } else {
+            // Right tail did align. Put the alignment back into full read space.
+            right_alignment.seq_offset += space.read_end(*here);
         }
+        if (right_alignment.seq_offset + right_alignment.length != aln.sequence().size()) {
+            // We didn't get all the way to the right end of the read without
+            // running out of score, or we had to truncate the tail to a manageable
+            // length for actual alignment.
+            // Append a softclip.
+            // TODO: Can we let the aligner know it can softclip for free?
+            size_t right_end = right_alignment.seq_offset + right_alignment.length;
+            size_t remaining = aln.sequence().size() - right_end;
+            right_alignment.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
+        }
+        if (right_alignment.length != right_tail_length) {
+            // We didn't get the alignment we expected.
+            stringstream ss;
+            ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
+            right_alignment.print(ss);
+            throw std::runtime_error(ss.str());
+        }
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+            }
+        }
+        
+        right_alignment.check_lengths(gbwt_graph);
+        
+        aligned.join(right_alignment);
     }
-    
-    right_alignment.check_lengths(gbwt_graph);
-    
-    aligned.join(right_alignment);
     
     if (show_work) {
         #pragma omp critical (cerr)

@@ -234,7 +234,11 @@ struct WFAAlignment {
     
     /// Generate a WFAAlignment that is an unlocalized insertion of the given
     /// length. Can also be used to represent a softclip.
+    /// Length may not be 0.
     static WFAAlignment make_unlocalized_insertion(size_t sequence_offset, size_t length, int score);
+    
+    /// Generate an empty WFAAlignment.
+    static WFAAlignment make_empty();
 
     /// Sequence of oriented nodes.
     std::vector<handle_t> path;
