@@ -531,6 +531,58 @@ TEST_CASE("find_best_chain chains two extensions that overlap the same amount in
     REQUIRE(result.second.size() == 1);
 }
 
+TEST_CASE("find_best_chain is willing to leave the main diagonal if the items suggest it", "[chain_items][find_best_chain]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(10, 1);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    Aligner scoring;
+    algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
+    
+    // Set up extensions
+    auto to_score = fake_extensions({{1, 2, {h[1]}, 0, 1}, // First one on main diagonal
+                                     {5, 6, {h[4]}, 0, 1}, // Middle one that is further in the read than the graph
+                                     {10, 11, {h[10]}, 0, 1}}); // Last one on main diagonal
+    
+    // Actually run the chaining and test
+    auto result = algorithms::find_best_chain(to_score, space);
+    // We should take all of the items in order and not be scared off by the indels.
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.at(2) == 2);
+    REQUIRE(result.second.size() == 3);
+}
+
+TEST_CASE("find_best_chain is willing to keep indels split if the items suggest it", "[chain_items][find_best_chain]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(10, 1);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    Aligner scoring;
+    algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
+    
+    // Set up extensions
+    auto to_score = fake_extensions({{1, 2, {h[1]}, 0, 1}, // First one on main diagonal
+                                     {4, 5, {h[3]}, 0, 1}, // Middle one that is further in the read than the graph
+                                     {7, 8, {h[9]}, 0, 1}, // Middle one that is further in the graph than the read
+                                     {10, 11, {h[10]}, 0, 1}}); // Last one on main diagonal
+    
+    // Actually run the chaining and test
+    auto result = algorithms::find_best_chain(to_score, space);
+    // We should take all of the items in order and not be scared off by the indels.
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.at(2) == 2);
+    REQUIRE(result.second.at(3) == 3);
+    REQUIRE(result.second.size() == 4);
+}
+
 }
 
 }
