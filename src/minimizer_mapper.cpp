@@ -638,7 +638,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
                 
                 if (distance_index != nullptr) {
-                    dump_debug_seeds(minimizers, seeds, cluster.seeds);
+                    if (show_work) {
+                        dump_debug_seeds(minimizers, seeds, cluster.seeds);
+                    }
                 
                     // Define a space to chain in.
                     // TODO: re-use!
@@ -656,7 +658,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
                 } else {
-                    dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
+                    if (show_work) {
+                        dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
+                    }
                 
                     // Define a space to chain in.
                     // TODO: re-use!
@@ -795,11 +799,39 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         aln.set_read_group(read_group);
     }
     
+    // We need to be able to discard a processed cluster because its score isn't good enough.
+    // We have more components to the score filter than process_until_threshold_b supports.
+    auto discard_processed_cluster_by_score = [&](size_t processed_num) -> void {
+        // This extension is not good enough.
+        if (track_provenance) {
+            funnel.fail("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
+        }
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "processed cluster " << processed_num << " failed because its score was not good enough (score=" << cluster_alignment_score_estimates[processed_num] << ")" << endl;
+                if (track_correctness && funnel.was_correct(processed_num)) {
+                    cerr << log_name() << "\tCORRECT!" << endl;
+                    if (!align_from_chains) {
+                        dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[processed_num]);
+                    }
+                }
+            }
+        }
+    };
+    
     // Go through the processed clusters in estimated-score order.
     process_until_threshold_b<int>(cluster_alignment_score_estimates,
-        extension_set_score_threshold, 2, max_alignments, rng, [&](size_t processed_num) -> bool {
+        extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t processed_num) -> bool {
             // This processed cluster is good enough.
             // Called in descending score order.
+            
+            if (cluster_alignment_score_estimates[processed_num] < extension_set_min_score) {
+                // Actually discard by score
+                discard_processed_cluster_by_score(processed_num);
+                return false;
+            }
             
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -988,25 +1020,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     }
                 }
             }
-        }, [&](size_t processed_num) -> void {
-            // This extension is not good enough.
-            if (track_provenance) {
-                funnel.fail("extension-set", processed_num, cluster_alignment_score_estimates[processed_num]);
-            }
-            
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "processed cluster " << processed_num << " failed because its score was not good enough (score=" << cluster_alignment_score_estimates[processed_num] << ")" << endl;
-                    if (track_correctness && funnel.was_correct(processed_num)) {
-                        cerr << log_name() << "\tCORRECT!" << endl;
-                        if (!align_from_chains) {
-                            dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[processed_num]);
-                        }
-                    }
-                }
-            }
-        });
+        }, discard_processed_cluster_by_score);
     
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment

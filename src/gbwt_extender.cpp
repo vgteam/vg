@@ -779,6 +779,11 @@ WFAAlignment WFAAlignment::make_unlocalized_insertion(size_t sequence_offset, si
     return {{}, {{insertion, length}}, 0, (uint32_t)sequence_offset, (uint32_t)length, score, true};
 }
 
+WFAAlignment WFAAlignment::make_empty() {
+    // We can do it all by aggregate-initializing
+    return {{}, {}, 0, 0, 0, 0, true};
+}
+
 bool WFAAlignment::unlocalized_insertion() const {
     return (
         this->ok &&
