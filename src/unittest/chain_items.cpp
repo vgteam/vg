@@ -48,21 +48,55 @@ static vector<GaplessExtension> fake_extensions(const vector<tuple<size_t, size_
     return to_score;
 }
 
+/// Make a disconnected graph of fixed-length nodes
+static HashGraph make_disconnected_graph(size_t nodes, size_t length = 32) {
+    HashGraph graph;
+    
+    // What node sequence should we use for everything?
+    string seq(length, 'A');
+    
+    for (size_t i = 0; i < nodes; i++) {
+        // Make all the nodes
+        graph.create_handle(seq, (nid_t) (i + 1));
+    }
+    
+    return graph;
+}
+
+/// Make a long graph of fixed-length nodes
+static HashGraph make_long_graph(size_t nodes, size_t length = 32) {
+    HashGraph graph = make_disconnected_graph(nodes, length);
+    
+    for (size_t i = 1; i < nodes; i++) {
+        // Link them up
+        graph.create_edge(graph.get_handle((nid_t) i, false), graph.get_handle((nid_t) (i + 1), false));
+    }
+    
+    return graph;
+}
+
+/// Get a vector of all handles in the graph by node ID.
+static vector<handle_t> get_handles(const HandleGraph& graph) {
+    vector<handle_t> handles;
+    // We just assume the graph has small dense node IDs and pack them in there.
+    handles.resize(graph.max_node_id() + 1);
+    graph.for_each_handle([&](const handle_t& h) {
+        handles[graph.get_id(h)] = h;
+    });
+    return handles;
+}
+
 TEST_CASE("ChainingSpace::get_graph_overlap works when extensions intersect but don't overlap for chaining purposes", "[chain_items][get_graph_overlap]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAA");
-    handle_t h2 = graph.create_handle("AAAA");
-    handle_t h3 = graph.create_handle("AAAA");
-    handle_t h4 = graph.create_handle("AAAA");
-    handle_t h5 = graph.create_handle("AAAA");
+    HashGraph graph = make_disconnected_graph(5, 4);
+    auto h = get_handles(graph);
     
-    graph.create_edge(h1, h2);
+    graph.create_edge(h[1], h[2]);
     
-    graph.create_edge(h5, h2);
+    graph.create_edge(h[5], h[2]);
     
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
+    graph.create_edge(h[2], h[3]);
+    graph.create_edge(h[3], h[4]);
     
     // Set up the aligner fixture
     Aligner scoring;
@@ -71,8 +105,8 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when extensions intersect but 
     
     
     // Set up extensions
-    auto extensions = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
-                                       {1, 10, {h5, h2, h3}, 1, 9}});
+    auto extensions = fake_extensions({{1, 10, {h[1], h[2], h[3]}, 1, 9},
+                                       {1, 10, {h[5], h[2], h[3]}, 1, 9}});
                                        
     // Check overlap
     REQUIRE(space.get_graph_overlap(extensions[0], extensions[1]) == 0);
@@ -81,8 +115,8 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when extensions intersect but 
 
 TEST_CASE("ChainingSpace::get_graph_overlap works when everything is on one giant handle", "[chain_items][get_graph_overlap]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAA");
+    HashGraph graph = make_long_graph(1, 18);
+    auto h = get_handles(graph);
     
     // Set up the aligner fixture
     Aligner scoring;
@@ -90,10 +124,10 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when everything is on one gian
     algorithms::ChainingSpace<GaplessExtension> space(scoring, nullptr, &graph);
     
     // Set up extensions
-    auto extensions = fake_extensions({{0, 5, {h1}, 0, 5},
-                                       {2, 7, {h1}, 2, 5},
-                                       {4, 9, {h1}, 4, 5},
-                                       {6, 11, {h1}, 6, 5}});
+    auto extensions = fake_extensions({{0, 5, {h[1]}, 0, 5},
+                                       {2, 7, {h[1]}, 2, 5},
+                                       {4, 9, {h[1]}, 4, 5},
+                                       {6, 11, {h[1]}, 6, 5}});
     
     // Check overlap
     REQUIRE(space.get_graph_overlap(extensions[0], extensions[1]) == 3);
@@ -148,7 +182,8 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 1-base g
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6));
+    // We assume the gap is the same in the graph and the read, and that it could all be matches.
+    REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 + 1));
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base gap correctly", "[chain_items][score_best_chain]") {
@@ -156,7 +191,8 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base g
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6 - 1));
+    // We assume the gap is the same in the graph and the read, and that it could all be matches.
+    REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 + 2));
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap correctly", "[chain_items][score_best_chain]") {
@@ -164,7 +200,8 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap c
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6));
+    // The answer should be that we don't allow the overlap.
+    REQUIRE(algorithms::score_best_chain(to_score, space) == 9);
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap correctly", "[chain_items][score_best_chain]") {
@@ -172,50 +209,11 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap c
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (9 + 9 - 6 - 1));
+    // The answer should be that we don't allow the overlap.
+    REQUIRE(algorithms::score_best_chain(to_score, space) == 9);
 }
 
-TEST_CASE("score_best_chain scores correctly when other overlapping extensions exist", "[chain_items][score_best_chain]") {
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring);
-    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}};
-    for (size_t i = 0; i < 35; i++) {
-        plan.emplace_back(i + 1, i + 1 + 30, 30);
-    }
-    auto to_score = fake_extensions(plan);
-    // We should get a 1-base extension and two 30-base extensions
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (1 + 30 + 30));
-}
-
-TEST_CASE("score_best_chain scores a backtrack correctly when other overlapping extensions exist", "[chain_items][score_best_chain]") {
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring);
-    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
-    for (size_t i = 0; i < 35; i++) {
-        plan.emplace_back(i + 1, i + 1 + 30, 30);
-    }
-    auto to_score = fake_extensions(plan);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (1 + 30 + 45 - 6 - 2));
-}
-
-TEST_CASE("score_best_chain scores a backtrack correctly when even more overlapping extensions exist", "[chain_items][score_best_chain]") {
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring);
-    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
-    for (size_t i = 0; i < 35; i++) {
-        plan.emplace_back(i + 1, i + 1 + 30, 30);
-    }
-    for (size_t i = 3; i < 29; i++) {
-        plan.emplace_back(i, i + 15, 15);
-    }
-    auto to_score = fake_extensions(plan);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
-    REQUIRE(algorithms::score_best_chain(to_score, space) == (1 + 30 + 45 - 6 - 2));
-}
-
-
-TEST_CASE("find_best_chain chains no gapless extensions as 0", "[chain_items][find_best_chain]") {
+TEST_CASE("find_best_chain chains no gapless extensions as score 0", "[chain_items][find_best_chain]") {
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
@@ -224,16 +222,17 @@ TEST_CASE("find_best_chain chains no gapless extensions as 0", "[chain_items][fi
     REQUIRE(result.second.size() == 0);
 }
 
-TEST_CASE("find_best_chain chains a 1-base gapless extension as 1", "[chain_items][find_best_chain]") {
+TEST_CASE("find_best_chain chains a 1-base gapless extension as score 1", "[chain_items][find_best_chain]") {
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == 1);
     REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.size() == 1);
 }
 
-TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as 2", "[chain_items][find_best_chain]") {
+TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as score 2", "[chain_items][find_best_chain]") {
     Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
@@ -242,6 +241,7 @@ TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as 2", 
     REQUIRE(result.first == 2);
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][find_best_chain]") {
@@ -251,6 +251,7 @@ TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][fin
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == 9);
     REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.size() == 1);
 }
 
 TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[chain_items][find_best_chain]") {
@@ -262,6 +263,7 @@ TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[c
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base gap correctly", "[chain_items][find_best_chain]") {
@@ -270,9 +272,11 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base ga
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
     auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (9 + 9 - 6));
+    // We assume the gap is the same in the graph and the read, and that it could all be matches.
+    REQUIRE(result.first == (9 + 9 + 1));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base gap correctly", "[chain_items][find_best_chain]") {
@@ -281,9 +285,11 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base ga
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
     auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (9 + 9 - 6 - 1));
+    // We assume the gap is the same in the graph and the read, and that it could all be matches.
+    REQUIRE(result.first == (9 + 9 + 2));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap correctly", "[chain_items][find_best_chain]") {
@@ -292,9 +298,10 @@ TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap co
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
     auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (9 + 9 - 6));
+    // The answer should be that we don't allow the overlap.
+    REQUIRE(result.first == 9);
     REQUIRE(result.second.at(0) == 0);
-    REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 1);
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions with a 2-base overlap correctly", "[chain_items][find_best_chain]") {
@@ -303,82 +310,16 @@ TEST_CASE("find_best_chain chains two 9-base extensions with a 2-base overlap co
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
     auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (9 + 9 - 6 - 1));
+    // The answer should be that we don't allow the overlap.
+    REQUIRE(result.first == 9);
     REQUIRE(result.second.at(0) == 0);
-    REQUIRE(result.second.at(1) == 1);
-}
-
-TEST_CASE("find_best_chain chains correctly when other overlapping extensions exist", "[chain_items][find_best_chain]") {
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring);
-    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}};
-    for (size_t i = 0; i < 35; i++) {
-        plan.emplace_back(i + 1, i + 1 + 30, 30);
-    }
-    auto to_score = fake_extensions(plan);
-    // We should get a 1-base extension and two 30-base extensions
-    auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (1 + 30 + 30));
-    REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
-    REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
-    REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 31);
-}
-
-TEST_CASE("find_best_chain chains a backtrack correctly when other overlapping extensions exist", "[chain_items][find_best_chain]") {
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring);
-    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
-    for (size_t i = 0; i < 35; i++) {
-        plan.emplace_back(i + 1, i + 1 + 30, 30);
-    }
-    auto to_score = fake_extensions(plan);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
-    auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (1 + 30 + 45 - 6 - 2));
-    REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
-    REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
-    REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 28);
-}
-
-TEST_CASE("find_best_chain chains a backtrack correctly when even more overlapping extensions exist", "[chain_items][find_best_chain]") {
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring);
-    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
-    for (size_t i = 0; i < 35; i++) {
-        plan.emplace_back(i + 1, i + 1 + 30, 30);
-    }
-    for (size_t i = 3; i < 29; i++) {
-        plan.emplace_back(i, i + 15, 15);
-    }
-    auto to_score = fake_extensions(plan);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 3,
-    // and a 45-base extension, or the equivalently-scored 1-base extension,
-    // 30-base extension, backtrack of 18, 15 base extension, 45 base
-    // extension, which is allowed even though it has one extension containing
-    // another.
-    //
-    // TODO: In practice we might want match and gap-extend scores to differ.
-    auto result = algorithms::find_best_chain(to_score, space);
-    REQUIRE(result.first == (1 + 30 + 45 - 6 - 2));
-    REQUIRE(result.second.size() >= 3);
-    REQUIRE(result.second.size() <= 4);
-    if (result.second.size() == 3) {
-        REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
-        REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
-        REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 28);
-    }
-    if (result.second.size() == 4) {
-        REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
-        REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
-        REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 13);
-        REQUIRE(to_score.at(result.second.at(3)).read_interval.first == 28);
-    }
+    REQUIRE(result.second.size() == 1);
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    HashGraph graph = make_long_graph(1);
+    auto h = get_handles(graph);
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
@@ -386,20 +327,21 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
-                                     {10, 19, {h1}, 10, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1]}, 1, 9},
+                                     {10, 19, {h[1]}, 10, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in graph correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    HashGraph graph = make_long_graph(1);
+    auto h = get_handles(graph);
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
@@ -407,20 +349,21 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
-                                     {10, 19, {h1}, 11, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1]}, 1, 9},
+                                     {10, 19, {h[1]}, 11, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in read correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    HashGraph graph = make_long_graph(1);
+    auto h = get_handles(graph);
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
@@ -428,28 +371,25 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
-                                     {11, 20, {h1}, 10, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1]}, 1, 9},
+                                     {11, 20, {h[1]}, 10, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions that abut over multiple nodes correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAA");
-    handle_t h2 = graph.create_handle("AAAA");
-    handle_t h3 = graph.create_handle("AAAA");
-    handle_t h4 = graph.create_handle("AAAA");
-    handle_t h5 = graph.create_handle("AAAA");
-    graph.create_edge(h1, h2);
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
-    graph.create_edge(h4, h5);
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
+    graph.create_edge(h[1], h[2]);
+    graph.create_edge(h[2], h[3]);
+    graph.create_edge(h[3], h[4]);
+    graph.create_edge(h[4], h[5]);
     
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
@@ -462,28 +402,25 @@ TEST_CASE("find_best_chain chains two extensions that abut over multiple nodes c
     //             ** **** ***
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
-                                     {10, 19, {h3, h4, h5}, 2, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1], h[2], h[3]}, 1, 9},
+                                     {10, 19, {h[3], h[4], h[5]}, 2, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions that abut in graph with a gap in read over multiple nodes correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAA");
-    handle_t h2 = graph.create_handle("AAAA");
-    handle_t h3 = graph.create_handle("AAAA");
-    handle_t h4 = graph.create_handle("AAAA");
-    handle_t h5 = graph.create_handle("AAAA");
-    graph.create_edge(h1, h2);
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
-    graph.create_edge(h4, h5);
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
+    graph.create_edge(h[1], h[2]);
+    graph.create_edge(h[2], h[3]);
+    graph.create_edge(h[3], h[4]);
+    graph.create_edge(h[4], h[5]);
     
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
@@ -496,28 +433,21 @@ TEST_CASE("find_best_chain chains two extensions that abut in graph with a gap i
     //             ** **** ***
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
-                                     {11, 20, {h3, h4, h5}, 2, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1], h[2], h[3]}, 1, 9},
+                                     {11, 20, {h[3], h[4], h[5]}, 2, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions that abut in read with a gap in graph over multiple nodes correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAA");
-    handle_t h2 = graph.create_handle("AAAA");
-    handle_t h3 = graph.create_handle("AAAA");
-    handle_t h4 = graph.create_handle("AAAA");
-    handle_t h5 = graph.create_handle("AAAA");
-    graph.create_edge(h1, h2);
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
-    graph.create_edge(h4, h5);
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
     
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
@@ -530,28 +460,21 @@ TEST_CASE("find_best_chain chains two extensions that abut in read with a gap in
     //              * **** ****
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
-                                     {10, 19, {h3, h4, h5}, 3, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1], h[2], h[3]}, 1, 9},
+                                     {10, 19, {h[3], h[4], h[5]}, 3, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     REQUIRE(result.first == (9 + 9 - 6));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions that have gaps of different sizes in graph and read over multiple nodes correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAA");
-    handle_t h2 = graph.create_handle("AAAA");
-    handle_t h3 = graph.create_handle("AAAA");
-    handle_t h4 = graph.create_handle("AAAA");
-    handle_t h5 = graph.create_handle("AAAA");
-    graph.create_edge(h1, h2);
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
-    graph.create_edge(h4, h5);
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
     
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
@@ -564,33 +487,27 @@ TEST_CASE("find_best_chain chains two extensions that have gaps of different siz
     //              * **** ****
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
-                                     {12, 21, {h3, h4, h5}, 3, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1], h[2], h[3]}, 1, 9},
+                                     {12, 21, {h[3], h[4], h[5]}, 3, 9}});
     
     // Gap in graph is 1 and gap in read is 2
     REQUIRE(space.get_graph_distance(to_score[0], to_score[1]) == 1);
     REQUIRE(space.get_read_distance(to_score[0], to_score[1]) == 2);
+    // So this is going to be 1bp of possible match and 1 bp of indel
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
     // So we pay 1 gap open, the difference in gap length.
-    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.first == (9 + 9 + 1 - 6));
     REQUIRE(result.second.at(0) == 0);
     REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 2);
 }
 
 TEST_CASE("find_best_chain chains two extensions that overlap the same amount in graph and read over multiple nodes correctly", "[chain_items][find_best_chain]") {
     // Set up graph fixture
-    HashGraph graph;
-    handle_t h1 = graph.create_handle("AAAA");
-    handle_t h2 = graph.create_handle("AAAA");
-    handle_t h3 = graph.create_handle("AAAA");
-    handle_t h4 = graph.create_handle("AAAA");
-    handle_t h5 = graph.create_handle("AAAA");
-    graph.create_edge(h1, h2);
-    graph.create_edge(h2, h3);
-    graph.create_edge(h3, h4);
-    graph.create_edge(h4, h5);
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
     
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
@@ -603,16 +520,15 @@ TEST_CASE("find_best_chain chains two extensions that overlap the same amount in
     //         * **** ****
     
     // Set up extensions
-    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
-                                     {7, 16, {h2, h3, h4}, 3, 9}});
+    auto to_score = fake_extensions({{1, 10, {h[1], h[2], h[3]}, 1, 9},
+                                     {7, 16, {h[2], h[3], h[4]}, 3, 9}});
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, space);
-    // We shouldn't charge for a gap at all here.
-    // TODO: we probably want to back out the shared matches though??? But what if some are mismatches???
-    REQUIRE(result.first == (9 + 9));
+    // The answer should be that we don't allow the overlap.
+    REQUIRE(result.first == 9);
     REQUIRE(result.second.at(0) == 0);
-    REQUIRE(result.second.at(1) == 1);
+    REQUIRE(result.second.size() == 1);
 }
 
 }

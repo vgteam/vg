@@ -494,57 +494,68 @@ struct BaseChainingSpace {
         if (read_end(left) == read_start(right)) {
             // They abut in the read.
             
-            // How far apart are they in the graph?
-            size_t graph_distance = get_graph_distance(left, right);
-            if (graph_distance == 0) {
-                // They also abut in the graph. No alignment to do.
-#ifdef debug_chaining
-                cerr << "Abutting items score 0" << endl;
-#endif
+            if (!graph) {
+                // Assume they abut in the graph too.
                 return 0;
-            } else if (graph_distance == numeric_limits<size_t>::max()) {
-                // They are unreachable in the graph (maybe an overlap?)
-#ifdef debug_chaining
-                cerr << "Items unreachable in graph" << endl;
-#endif
-                return numeric_limits<int>::min();
             } else {
-                // There is a gap; pure deletion to 0 bp. Charge for that.
+                // How far apart are they in the graph?
+                size_t graph_distance = get_graph_distance(left, right);
+                if (graph_distance == 0) {
+                    // They also abut in the graph. No alignment to do.
 #ifdef debug_chaining
-                cerr << "Items separated by " << graph_distance << " bp deletion" << endl;
+                    cerr << "Abutting items score 0" << endl;
 #endif
-                return -(scoring.gap_open + (graph_distance - 1) * scoring.gap_extension);
+                    return 0;
+                } else if (graph_distance == numeric_limits<size_t>::max()) {
+                    // They are unreachable in the graph (maybe an overlap?)
+#ifdef debug_chaining
+                    cerr << "Items unreachable in graph" << endl;
+#endif
+                    return numeric_limits<int>::min();
+                } else {
+                    // There is a gap; pure deletion to 0 bp. Charge for that.
+#ifdef debug_chaining
+                    cerr << "Items separated by " << graph_distance << " bp deletion" << endl;
+#endif
+                    return -(scoring.gap_open + (graph_distance - 1) * scoring.gap_extension);
+                }
             }
         } else if (read_end(left) < read_start(right)) {
             // There's a gap in the read
             size_t read_distance = get_read_distance(left, right);
             
-            // See how far they have to go in the graph
-            size_t graph_distance = get_graph_distance(left, right);
-            
-            if (graph_distance == numeric_limits<size_t>::max()) {
-                // These aren't actually reachable in the graph.
-#ifdef debug_chaining
-                cerr << "Items unreachable in graph" << endl;
-#endif
-                return numeric_limits<int>::min();
+            if (!graph) {
+                // Assume they are the same distance in the graph.
+                // Treat every base as a possible match.
+                return scoring.match * read_distance;
             } else {
-                // Otherwise, see if there's any length change
-                size_t length_change = (read_distance > graph_distance) ? (read_distance - graph_distance) : (graph_distance - read_distance);
-                // And see how many pases could be matches
-                size_t possible_matches = std::min(read_distance, graph_distance);
+                // See how far they have to go in the graph
+                size_t graph_distance = get_graph_distance(left, right);
                 
+                if (graph_distance == numeric_limits<size_t>::max()) {
+                    // These aren't actually reachable in the graph.
 #ifdef debug_chaining
-                cerr << "Items separated by " << possible_matches << " bp possible matches and at least a " << length_change << " bp indel" << endl;
+                    cerr << "Items unreachable in graph" << endl;
 #endif
-                
-                // The number of possible matches gives us a base score
-                int jump_points = scoring.match * possible_matches;
-                if (length_change > 0) {
-                    // We have to charge for a gap though
-                    jump_points -= (scoring.gap_open + (length_change - 1) * scoring.gap_extension);
+                    return numeric_limits<int>::min();
+                } else {
+                    // Otherwise, see if there's any length change
+                    size_t length_change = (read_distance > graph_distance) ? (read_distance - graph_distance) : (graph_distance - read_distance);
+                    // And see how many pases could be matches
+                    size_t possible_matches = std::min(read_distance, graph_distance);
+                    
+#ifdef debug_chaining
+                    cerr << "Items separated by " << possible_matches << " bp possible matches and at least a " << length_change << " bp indel" << endl;
+#endif
+                    
+                    // The number of possible matches gives us a base score
+                    int jump_points = scoring.match * possible_matches;
+                    if (length_change > 0) {
+                        // We have to charge for a gap though
+                        jump_points -= (scoring.gap_open + (length_change - 1) * scoring.gap_extension);
+                    }
+                    return jump_points;
                 }
-                return jump_points;
             }
         } else {
             // If there's an overlap in the read. say we can't do it.
@@ -1008,6 +1019,12 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         // For each item
         auto& here = to_chain[i];
         
+        // How many points is it worth to collect?
+        auto item_points = space.score(here);
+        
+        // If we come from nowhere, we get those points.
+        best_chain_score[i] = std::max(best_chain_score[i], ST::annotate(item_points, ST::nowhere()));
+        
         for (size_t back = 1; back < std::min(lookback, i) + 1; back++) {
             // For each possible source
             auto& source = to_chain[i - back];
@@ -1025,15 +1042,15 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                 // Get the score we are coming from
                 typename ST::Score source_score = ST::score_from(best_chain_score, i - back);
                 
-                // And the score with the transition
-                typename ST::Score from_source_score = ST::add_points(source_score, jump_points);
+                // And the score with the transition and the points from the item
+                typename ST::Score from_source_score = ST::add_points(source_score, jump_points + item_points);
                 
                 // Remember that we could make this jump
                 best_chain_score[i] = std::max(best_chain_score[i],
                                                from_source_score);
                                                
 #ifdef debug_chaining
-                cerr << "We can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << endl;
+                cerr << "We can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << " to collect " << item_points << endl;
 #endif
             }
         }
