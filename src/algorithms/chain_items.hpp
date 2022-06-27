@@ -33,7 +33,7 @@ namespace algorithms {
 
 using namespace std;
 
-#define debug_chaining
+//#define debug_chaining
 
 /**
  * We want to be able to chain a reordered subset of things without moving the originals, so we use this view over things stored in a vector.
@@ -935,14 +935,20 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * with provenance to its location in the table, if tracked in the type.
  * Assumes some items exist.
  *
- * Uses a finite lookback in items when checking where we can come from to
- * reach an item.
+ * Takes the given per-item bonus for each item collected.
+ *
+ * Uses a finite lookback in items and in read bases when checking where we can
+ * come from to reach an item. Also, once a given number of reachable items
+ * have been found, stop looking back.
  */
 template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     size_t lookback = 5);
+                     int item_bonus = 0,
+                     size_t lookback_items = 50,
+                     size_t lookback_bases = 250,
+                     size_t lookback_reachable_items = 1);
 
 /**
  * Trace back through in the given DP table from the best chain score.
@@ -1000,13 +1006,16 @@ template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     size_t lookback) {
+                     int item_bonus,
+                     size_t lookback_items,
+                     size_t lookback_bases,
+                     size_t lookback_reachable_items) {
                     
     // Grab the traits into a short name so we can use the accessors concisely.
     using ST = score_traits<Score>;
 
 #ifdef debug_chaining
-    cerr << "Chaining group of " << to_chain.size() << " items with lookback of " << lookback << endl;
+    cerr << "Chaining group of " << to_chain.size() << " items" << endl;
 #endif
     
     // Make our DP table big enough
@@ -1020,25 +1029,36 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         auto& here = to_chain[i];
         
         // How many points is it worth to collect?
-        auto item_points = space.score(here);
+        auto item_points = space.score(here) + item_bonus;
         
         // If we come from nowhere, we get those points.
         best_chain_score[i] = std::max(best_chain_score[i], ST::annotate(item_points, ST::nowhere()));
         
-        for (size_t back = 1; back < std::min(lookback, i) + 1; back++) {
+        // Count how many places we evaluated that we could have come from.
+        // We may want to limit this to prevent long gaps.
+        size_t reachable_items_found = 0;
+        for (size_t back = 1; back < std::min(lookback_items, i) + 1 && reachable_items_found < lookback_reachable_items; back++) {
             // For each possible source
             auto& source = to_chain[i - back];
             
 #ifdef debug_chaining
             cerr << "Consider " << space.read_start(source) << "-" << space.read_end(source) << " to " << space.read_start(here) << "-" << space.read_end(here) << endl;
 #endif
+
+            if (lookback_bases != 0 && space.get_read_distance(source, here) > lookback_bases) {
+#ifdef debug_chaining
+                cerr << "Skip because the read distance is longer than the lookback threshold." << endl;
+#endif
+                // We can't just break the loop because we sorted of left edge,
+                // not right edge, and so read distance isn't monotonic.
+                continue;
+            }
             
             // How much does it pay (+) or cost (-) to make the jump from there
             // to here?
             int jump_points = space.transition_score_upper_bound(source, here);
             
             if (jump_points != numeric_limits<int>::min()) {
-                
                 // Get the score we are coming from
                 typename ST::Score source_score = ST::score_from(best_chain_score, i - back);
                 
@@ -1052,6 +1072,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
                 cerr << "We can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << " to collect " << item_points << endl;
 #endif
+                reachable_items_found++;
             }
         }
         
