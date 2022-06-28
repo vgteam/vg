@@ -947,7 +947,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      const ChainingSpace<Item, Source>& space,
                      int item_bonus = 0,
                      size_t lookback_items = 50,
-                     size_t lookback_bases = 250,
+                     size_t lookback_bases = 1000,
                      size_t lookback_reachable_items = 1);
 
 /**

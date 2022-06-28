@@ -151,11 +151,12 @@ public:
     bool align_from_chains = false;
     
     /// When converting chains to alignments, what's the longest gap between
-    /// items or longest tail we will actually try to align? Passing strings
-    /// longer than this can cause WFAAligner to run for a pathologically long
-    /// amount of time.
+    /// items we will actually try to align? Passing strings longer than ~100bp
+    /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
     size_t max_chain_connection = 1000;
+    /// Similarly, what is the maximum tail length we will try to align?
+    size_t max_tail_length = 150;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
@@ -934,13 +935,13 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Anchor position will not be covered. 
         string left_tail = aln.sequence().substr(0, left_tail_length);
         size_t left_tail_additional_offset = 0;
-        if (left_tail.size() > max_chain_connection) {
+        if (left_tail.size() > max_tail_length) {
             #pragma omp critical (cerr)
             {
                 cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << left_tail.size() << " bp left tail in " << aln.name() << endl;
             }
             // Keep only the right part of the left tail
-            left_tail_additional_offset = left_tail.size() - max_chain_connection;
+            left_tail_additional_offset = left_tail.size() - max_tail_length;
             left_tail = left_tail.substr(left_tail_additional_offset);
         }
         
@@ -1130,13 +1131,13 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - space.read_end(*here);
     if (right_tail_length > 0) {
-        if (right_tail_length > max_chain_connection) {
+        if (right_tail_length > max_tail_length) {
             #pragma omp critical (cerr)
             {
                 cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << right_tail_length << " bp right tail in " << aln.name() << endl;
             }
         }
-        string right_tail = aln.sequence().substr(space.read_end(*here), max_chain_connection);
+        string right_tail = aln.sequence().substr(space.read_end(*here), max_tail_length);
         // We align the right tail with suffix(), which creates a suffix of the alignment.
         // Make sure to walk back the anchor so it is outside of the region to be aligned.
         pos_t left_anchor = space.graph_end(*here);
