@@ -1173,16 +1173,24 @@ void populate_snarl_index(
 
             size_t dist_start_left = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, false), start_in)) 
                     ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, false), start_in)) 
-                    :std::numeric_limits<size_t>::max();
+                    : (temp_snarl_record.distances.count(make_pair(start_in, make_pair(start_rank, false))) 
+                    ? temp_snarl_record.distances.at(make_pair(start_in, make_pair(start_rank, false)))
+                    : std::numeric_limits<size_t>::max());
             size_t dist_end_right = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, true), end_in)) 
                     ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, true), end_in))
-                    : std::numeric_limits<size_t>::max();
+                    : (temp_snarl_record.distances.count(make_pair(end_in, make_pair(start_rank, true))) 
+                    ? temp_snarl_record.distances.at(make_pair(end_in, make_pair(start_rank, true)))
+                    : std::numeric_limits<size_t>::max());
             size_t dist_start_right = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, true), start_in)) 
                     ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, true), start_in))
-                    : std::numeric_limits<size_t>::max();
+                    : (temp_snarl_record.distances.count(make_pair(start_in,make_pair(start_rank, true) )) 
+                    ? temp_snarl_record.distances.at(make_pair(start_in,make_pair(start_rank, true) ))
+                    : std::numeric_limits<size_t>::max());
             size_t dist_end_left = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, false), end_in))
                     ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, false), end_in))
-                    : std::numeric_limits<size_t>::max();
+                    : ( temp_snarl_record.distances.count(make_pair(end_in, make_pair(start_rank, false)))
+                    ? temp_snarl_record.distances.at(make_pair(end_in, make_pair(start_rank, false)))
+                    : std::numeric_limits<size_t>::max());
 
             size_t snarl_length_fd = SnarlDistanceIndex::sum({
                     dist_start_left, dist_end_right,child_max_length});
@@ -1217,12 +1225,10 @@ void populate_snarl_index(
             size_t rank =temp_node_record.rank_in_parent;
 
             //See if it is reversed in the parent by checking if it reaches the boundaries forwards or backwards
-            bool reaches_node_end_to_start = temp_snarl_record.distances.count(
-                std::make_pair(std::make_pair(rank, true),
-                               std::make_pair(0, false))) != 0;
-            bool reaches_start_to_node_end = temp_snarl_record.distances.count(
-                std::make_pair(std::make_pair(0, false),
-                               std::make_pair(rank, true))) != 0;
+            bool reaches_node_end_to_start = temp_snarl_record.distances.count(std::make_pair(std::make_pair(rank, true),std::make_pair(0, false))) != 0 ||
+                                             temp_snarl_record.distances.count(std::make_pair(std::make_pair(0, false),std::make_pair(rank, true))) != 0;
+            bool reaches_start_to_node_end = temp_snarl_record.distances.count(std::make_pair(std::make_pair(0, false),std::make_pair(rank, true))) != 0 ||
+                                            temp_snarl_record.distances.count(std::make_pair(std::make_pair(rank, true),std::make_pair(0, false))) != 0;
             
             //Set the orientation of this node in the simple snarl
             temp_node_record.reversed_in_parent = reaches_node_end_to_start || reaches_start_to_node_end;
