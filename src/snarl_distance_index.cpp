@@ -1126,13 +1126,18 @@ void populate_snarl_index(
                     if (visited_nodes.count(make_pair(next_index, next_rev)) == 0 &&
                         graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
                         graph->get_id(next_handle) != temp_snarl_record.end_node_id &&
-                        current_distance <= distance_limit) {
-                        //If this isn't leaving the snarl, then add the next node to the queue, 
-                        //along with the distance to traverse it
+                        (current_distance <= distance_limit
+                         || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.start_node_id)
+                         || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id))) {
+                        //If this isn't leaving the snarl, and the distance is either small enough to consider or came from a boundary node, 
+                        //then add the next node to the queue, along with the distance to traverse it
                         size_t next_node_len = next_index.first == SnarlDistanceIndex::TEMP_NODE ? graph->get_length(next_handle) :
                                         temp_index.temp_chain_records[next_index.second].min_length;
                         queue.push(make_pair(current_distance + next_node_len, 
                                        make_pair(next_index, next_rev)));
+                    } else if (current_distance > distance_limit) {
+                            temp_snarl_record.skipped_distances=true;
+                            
                     }
                     if (next_index.first == SnarlDistanceIndex::TEMP_CHAIN) {
                         size_t loop_distance = next_rev ? temp_index.temp_chain_records[next_index.second].backward_loops.back() 
@@ -1141,7 +1146,9 @@ void populate_snarl_index(
                             visited_nodes.count(make_pair(next_index, !next_rev)) == 0 &&
                             graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
                             graph->get_id(next_handle) != temp_snarl_record.end_node_id &&
-                            current_distance <= distance_limit) {
+                            (current_distance <= distance_limit
+                         || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.start_node_id)
+                         || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id))) {
                             //If the next node can loop back on itself, then add the next node in the opposite direction
                             size_t next_node_len = loop_distance + 2 * graph->get_length(next_handle);
                             queue.push(make_pair(current_distance + next_node_len, 
