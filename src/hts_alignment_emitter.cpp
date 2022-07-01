@@ -112,7 +112,7 @@ static bool for_each_subpath_of(const PathPositionHandleGraph& graph, const stri
     }
     
     // Parse out the metadata of the thing we want subpaths of
-    PathSense& sense;
+    PathSense sense;
     string sample;
     string locus;
     size_t haplotype;
@@ -155,7 +155,7 @@ static string get_path_base_name(const PathPositionHandleGraph& graph, const pat
         return graph.get_path_name(path);
     } else {
         // This is a subpath, so remember what it's a subpath of, and use that.
-        return PathMetadata::create_path_name(graph.get_path_sense(path),
+        return PathMetadata::create_path_name(graph.get_sense(path),
                                               graph.get_sample_name(path),
                                               graph.get_locus_name(path),
                                               graph.get_haplotype(path),
@@ -277,7 +277,7 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                 } else {
                     // The graph doesn't have this exact path; does it have any subregions of a full path with this name?
                     // If so, remember and use those.
-                    for_each_subpath_of(graph, sequence_name, [&](const path_handle_t) {
+                    for_each_subpath_of(graph, sequence_name, [&](const path_handle_t& match) {
                         // We know this can't be an exact match, since we already checked for one. It must be a subrange.
                         // We found a subpath we're looking for.
                         base_path_to_subpaths[sequence_name].push_back(match);
@@ -377,6 +377,8 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                     // max the end offset in against all the end offsets we have seen so far.
                     base_name_and_length.second = std::max(base_name_and_length.second, (int64_t) end_offset);
                 }
+                // Keep going
+                return true;
             });
         }
         
