@@ -338,11 +338,18 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
+# Control variable for allocator
+# On the command line, you can `make jemalloc=off` if you definitely don't want jemalloc.
+jemalloc = "on"
+ifeq ($(shell uname -s),Darwin)
+	jemalloc = "off"
+endif
+
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
 LINK_DEPS =
 
-ifneq ($(shell uname -s),Darwin)
+ifeq ($(jemalloc),on)
     # Use jemalloc at link time
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
     # We have to use it statically or we can't get at its secret symbols.
