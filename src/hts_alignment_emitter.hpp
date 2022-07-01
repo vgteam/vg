@@ -68,8 +68,10 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
  * an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines),
  * or a plain list of sequence names (which do not start with "@SQ"). If the
  * file is not openable or contains no entries, reports an error and quits. If
- * the filename is itself an empty string, all non-alt-allele paths from the
- * graph will be collected in arbitrary order.
+ * the filename is itself an empty string, all reference-sense paths from the
+ * graph will be collected in arbitrary order. If there are none, all
+ * non-alt-allele generic sense paths from the graph will be collected in
+ * arbitrary order.
  *
  * TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical
  * of references.
