@@ -101,7 +101,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -394,9 +394,6 @@ namespace vg {
                 distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id()))); 
                 REQUIRE(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id()))) == chain18);
 
-                cerr << distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id())) << endl;
-                cerr << distance_index.net_handle_as_string(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id()))));
-                cerr << distance_index.net_handle_as_string(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n12->id()))));
 
                 REQUIRE(distance_index.is_root(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id()))))); 
 
@@ -447,6 +444,97 @@ namespace vg {
                 REQUIRE(subgraph.count(n5->id()));
                 REQUIRE(subgraph.count(n6->id()));
                 REQUIRE(subgraph.size() == 5);
+            }
+
+            SECTION("Traceback on distances works when there is no path") {
+                pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
+                distance_index.minimum_distance(n5->id(), true, 0, n6->id(), true, 0, false, nullptr, &traceback);
+                REQUIRE(traceback.first.empty());
+                REQUIRE(traceback.second.empty());
+
+            }
+            SECTION("Traceback on distances works in same chain") {
+                pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
+                distance_index.minimum_distance(n2->id(), false, 0, n7->id(), false, 0, false, nullptr, &traceback);
+                bool rev = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id()));
+                REQUIRE(traceback.first.size() == 2);
+                REQUIRE(std::get<0>(traceback.first[0]) == distance_index.get_node_net_handle(n2->id()));
+
+                //Node 2 has distances (inf, 1)
+                REQUIRE(std::get<1>(traceback.first[0]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.first[0]) == 1);
+                //Node 7 has distances (1, inf)
+                REQUIRE(std::get<1>(traceback.second[0]) == 1);
+                REQUIRE(std::get<2>(traceback.second[0]) == std::numeric_limits<int32_t>::max());
+                //The distance between them in the chain is the same
+                //For node 2, (1, inf)
+                //For node 7, (inf, -1)
+                REQUIRE(std::get<1>(traceback.first[1]) == 1);
+                REQUIRE(std::get<2>(traceback.first[1]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<1>(traceback.second[1]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.second[1]) == -1);
+
+                REQUIRE(std::get<0>(traceback.first[1]) == distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
+                REQUIRE(traceback.second.size() == 2);
+                REQUIRE(std::get<0>(traceback.second[0]) == distance_index.get_node_net_handle(n7->id()));
+                REQUIRE(std::get<0>(traceback.second[1]) == distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
+
+            }
+            SECTION("Traceback on distances works in different common ancestors") {
+                pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
+                distance_index.minimum_distance(n6->id(), false, 0, n8->id(), false, 0, false, nullptr, &traceback);
+                bool rev = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id()));
+                REQUIRE(traceback.first.size() == 5);
+                REQUIRE(traceback.second.size() == 2);
+
+                //First for node 6: (n6, inf, 1)
+                net_handle_t node6 = distance_index.get_node_net_handle(n6->id());
+                REQUIRE(std::get<0>(traceback.first[0]) == node6);
+                REQUIRE(std::get<1>(traceback.first[0]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.first[0]) == 1);
+
+                //second for node 6: (chain6, inf, 0)
+                net_handle_t chain6 = distance_index.get_parent(node6);
+                //REQUIRE(std::get<0>(traceback.first[1]) == chain6);
+                //REQUIRE(std::get<1>(traceback.first[1]) == std::numeric_limits<int32_t>::max());
+                //REQUIRE(std::get<2>(traceback.first[1]) == 0);
+
+                //Second for node 6: (snarl 27, inf, 0
+                net_handle_t snarl27 = distance_index.get_parent(chain6);
+                REQUIRE(std::get<0>(traceback.first[1]) == snarl27);
+                REQUIRE(std::get<1>(traceback.first[1]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.first[1]) == 0);
+                
+                //Third for node 6: (chain 27, inf, 1
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                REQUIRE(std::get<0>(traceback.first[2]) == chain27);
+                REQUIRE(std::get<1>(traceback.first[2]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.first[2]) == 1);
+                
+                //Fourth for node 6: (snarl18, inf, 0
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+                REQUIRE(std::get<0>(traceback.first[3]) == snarl18);
+                REQUIRE(std::get<1>(traceback.first[3]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.first[3]) == 0);
+
+                //Fifth for node 6: (chain18, inf, 0
+                net_handle_t chain18 = distance_index.get_parent(snarl18);
+                REQUIRE(std::get<0>(traceback.first[4]) == chain18);
+                REQUIRE(std::get<1>(traceback.first[4]) == 0);
+                REQUIRE(std::get<2>(traceback.first[4]) == std::numeric_limits<int32_t>::max());
+
+                //First for node 8: (n8, 1, inf)
+                net_handle_t node8 = distance_index.get_node_net_handle(n8->id());
+                REQUIRE(std::get<0>(traceback.second[0]) == node8);
+                REQUIRE(std::get<1>(traceback.second[0]) == 1);
+                REQUIRE(std::get<2>(traceback.second[0]) == std::numeric_limits<int32_t>::max());
+
+                //Sixth for node 6: (chain18, 0, inf
+                REQUIRE(distance_index.get_parent(node8) == chain18);
+                REQUIRE(std::get<0>(traceback.second[1]) == chain18);
+                REQUIRE(std::get<1>(traceback.second[1]) == std::numeric_limits<int32_t>::max());
+                REQUIRE(std::get<2>(traceback.second[1]) == std::numeric_limits<int32_t>::min());
+
             }
         }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
@@ -2798,7 +2886,6 @@ namespace vg {
 
                     REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values1)) == chain18);
                     REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values2)) == chain18);
-                    cerr << distance_index.net_handle_as_string( distance_index.get_handle_from_connected_component(std::get<0>(path_values4))) << endl;
                     REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values4)) == chain18);
                     REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values6)) == chain18);
                     REQUIRE(distance_index.get_handle_from_connected_component(std::get<0>(path_values7)) == chain18);
@@ -3036,7 +3123,6 @@ namespace vg {
                                     REQUIRE((distance_index.is_node(child) || distance_index.is_snarl(child)));
                                     if (distance_index.is_snarl(child)){
                                         distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
-                                            cerr << "child " << distance_index.net_handle_as_string(grandchild) << endl;
                                             REQUIRE(distance_index.is_trivial_chain(grandchild));
                                         });
                                     }
@@ -6361,11 +6447,11 @@ namespace vg {
             
             for (size_t repeat = 0; repeat < 0; repeat++) {
             
-                uniform_int_distribution<size_t> bases_dist(100, 2000);
+                uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
                 uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
                 size_t variant_bases = variant_bases_dist(generator);
-                uniform_int_distribution<size_t> variant_count_dist(1, bases/10);
+                uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
                 size_t variant_count = variant_count_dist(generator);
 
                 uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
@@ -6429,19 +6515,43 @@ namespace vg {
                     if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
                         dijkstra_distance = offset2 - offset1;
     
-                        size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
+                        pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
+                        size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph, &traceback);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
                             graph.serialize_to_file("test_graph.vg");
+                            REQUIRE(false);
                         }
                         if (dijkstra_distance <= distance_limit) {
                             REQUIRE(snarl_distance == dijkstra_distance);
                         } else {
                             REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
                         }
+                        //if (!traceback.first.empty() && ! traceback.second.empty()) {
+                        //    size_t traceback_distance = 0;
+                        //    for (auto x : traceback.first){
+                        //        if (std::get<1>(x) != std::numeric_limits<int32_t>::max() && std::get<1>(x) != std::numeric_limits<int32_t>::min()) {
+                        //            traceback_distance += std::get<1>(x);
+                        //        } else if (std::get<2>(x) != std::numeric_limits<int32_t>::max() && std::get<2>(x) != std::numeric_limits<int32_t>::min()){
+                        //            traceback_distance += std::get<2>(x);
+                        //        }
+                        //    }
+                        //    for (auto x : traceback.second){
+                        //        if (std::get<1>(x) != std::numeric_limits<int32_t>::max() && std::get<1>(x) != std::numeric_limits<int32_t>::min()) {
+                        //            traceback_distance += std::get<1>(x);
+                        //        } else if (std::get<2>(x) != std::numeric_limits<int32_t>::max() && std::get<2>(x) != std::numeric_limits<int32_t>::min()){
+                        //            traceback_distance += std::get<2>(x);
+                        //        }
+                        //    }
+                        //    traceback_distance -= 1;
+                        //    REQUIRE(snarl_distance == traceback_distance);
+                        //} else {
+                        //    REQUIRE(snarl_distance == std::numeric_limits<size_t>::max());
+                        //}
+
                     } else if (node_id1 == node_id2 ) {
                         //TOOD: The dijkstra algorithm won't visit the start node twice
                     } else {
@@ -6465,6 +6575,7 @@ namespace vg {
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
                             graph.serialize_to_file("test_graph.vg");
+                            REQUIRE(false);
                         }
                         if (dijkstra_distance < distance_limit) {
                             REQUIRE(snarl_distance == dijkstra_distance);
