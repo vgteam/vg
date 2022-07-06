@@ -89,7 +89,7 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    size_t node_count = 100;
+    size_t node_count = 10;
     size_t node_length = 32;
     
     // Prepare a GBWT of one long path
