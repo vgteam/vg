@@ -1214,7 +1214,7 @@ TEST_CASE("Gapless extensions can be converted to WFAAlignments and joined", "[w
     correct_score(b_aln, aligner);
     
     // Now weld them together
-    WFAAlignment joined;
+    WFAAlignment joined = WFAAlignment::make_empty();
     joined.join(a_aln);
     REQUIRE(joined.length == a_aln.length);
     correct_score(joined, aligner);
