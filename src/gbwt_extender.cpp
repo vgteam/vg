@@ -1315,7 +1315,18 @@ struct WFAPoint {
 /// so it grows only with the number of haplotypes we are aligning against,
 /// which is bounded, and not directly with the sequence length. 
 struct WFANode {
+    /// This tracks the GBWT search states for all graph nodes we visit that
+    /// have been coalesced into this WFANode
     std::vector<gbwt::SearchState> states;
+    /// And this tracks the GBWT packed nodes (ID and orientation) that are
+    /// visited, and maps to start offset, for O(1) query. It cannot have
+    /// duplicates.
+    std::unordered_map<gbwt::node_type, size_t> starts_by_node;
+    /// And this tracks the start offsets of each in our sequence space.
+    /// TODO: Replace with something O(1)
+    std::map<size_t, size_t> states_by_start;
+    /// Total length
+    size_t stored_length;
 
     // Offsets in the vector of nodes.
     uint32_t parent;
@@ -1331,22 +1342,52 @@ struct WFANode {
     // Points on the wavefronts are indexed by score, diagonal.
     std::array<std::unordered_map<WFAPoint::key_type, WFAPoint::value_type>, 3> wavefronts;
 
-    WFANode(const vector<gbwt::SearchState>& states, uint32_t parent) :
+    WFANode(const vector<gbwt::SearchState>& states, uint32_t parent, const gbwtgraph::GBWTGraph& graph) :
         states(states),
+        starts_by_node(),
+        states_by_start(),
+        stored_length(0),
         parent(parent), children(),
         dead_end(false),
         wavefronts() {
+        if (states.empty()) {
+            throw std::runtime_error("Cannot make a WFANode for nothing");
+        }
+        // Fill in the visited nodes set and the index from start position to node.
+        this->starts_by_node.reserve(states.size());
+        for (size_t i = 0; i < this->states.size(); i++) {
+            // Remember that this node starts here
+            this->starts_by_node.emplace(this->states[i].node, stored_length);
+            // Remember that here starts this node
+            states_by_start[stored_length] = i;
+            // And up the start position
+            stored_length += graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->states[i].node));
+        }
     }
 
     bool is_leaf() const { return (this->children.empty() || this->dead_end); }
     bool expanded() const { return (!this->children.empty() || this->dead_end); }
 
     bool same_node(pos_t pos) const {
-        return (gbwt::Node::id(this->state.node) == id(pos) && gbwt::Node::is_reverse(this->state.node) == is_rev(pos));
+        // See if we have seen anything on this node
+        gbwt::node_type lookup = gbwt::Node::encode(id(pos), is_rev(pos));
+        return starts_by_node.count(lookup);
     }
 
-    size_t length(const gbwtgraph::GBWTGraph& graph) const {
-        return graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->state.node));
+    /// Map from graph position to offset along the WFANode.
+    /// TODO: Having this requires that the WFANode never visits the same
+    /// oriented geaph node twice. Can we get away with not having this
+    /// somehow?
+    size_t node_offset_of(pos_t pos) const {
+        gbwt::node_type lookup = gbwt::Node::encode(id(pos), is_rev(pos));
+        // Find where the referenced graph node starts in us
+        size_t start = starts_by_node.at(lookup);
+        // And then apply the offset
+        return start + offset(pos);
+    }
+
+    size_t length() const {
+        return stored_length;
     }
 
     // WFANode::find_pos
@@ -1388,19 +1429,53 @@ struct WFANode {
 
     // Returns a position at the first non-match after the given position.
     void match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
-        handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->state.node);
-        gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
-        while (pos.seq_offset < sequence.length() && pos.node_offset < node_seq.second && sequence[pos.seq_offset] == node_seq.first[pos.node_offset]) {
-            pos.seq_offset++; pos.node_offset++;
+        std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
+        // We have the index of the state starting at or after the match pos. So it's the one the position is on.
+        while (here != this->states_by_start.end()) {
+            // Until we hit the end of the WFANode
+            
+            // Grab the handle for the graph node we are at
+            handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
+            // And get a view of its sequence
+            gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
+            while (pos.seq_offset < sequence.length() && pos.node_offset - here->first < node_seq.second && sequence[pos.seq_offset] == node_seq.first[pos.node_offset - here->first]) {
+                // Until we hit the end of the sequence, or the graph node, or a mismatch, advance
+                pos.seq_offset++; pos.node_offset++;
+            }
+            if (pos.node_offset - here->first >= node_seq.second) {
+                // We hit the end of a graph node.
+                // Advance to the next graph node.
+                ++here;
+            } else {
+                // We hit the end of the sequence, or a mismatch.
+                break;
+            }
         }
     }
 
     // Returns a position at the start of the run of matches before the given position.
     void match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
-        handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->state.node);
-        gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
-        while (pos.seq_offset > 0 && pos.node_offset > 0 && sequence[pos.seq_offset - 1] == node_seq.first[pos.node_offset - 1]) {
-            pos.seq_offset--; pos.node_offset--;
+        std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
+        // We have the index of the state starting at or after the match pos. So it's the one the position is on.
+        while (pos.seq_offset > 0 && pos.node_offset > 0) {
+            // Until we hit the start of the WFANode
+            
+            // Grab the handle for the graph node we are at
+            handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
+            // And get a view of its sequence
+            gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
+            while (pos.seq_offset > 0 && pos.node_offset - here->first > 0 && sequence[pos.seq_offset - 1] == node_seq.first[pos.node_offset - here->first - 1]) {
+                // Until we hit the start of the sequence, or the graph node, or a mismatch, go left
+                pos.seq_offset--; pos.node_offset--;
+            }
+            if (pos.node_offset - here->first == 0 && here->first != 0) {
+                // We hit the start of a graph node, but we could go left still.
+                // Go left to the next graph node.
+                --here;
+            } else {
+                // We hit the end of the sequence, or the end of the node, or a mismatch.
+                break;
+            }
         }
     }
 };
@@ -1411,7 +1486,8 @@ class WFATree {
 public:
     const gbwtgraph::GBWTGraph& graph;
     const std::string& sequence;
-
+    
+    /// Each WFANode represents a run of graph nodes, as traversed by a set of haplotypes.
     std::vector<WFANode> nodes;
 
     // Best alignment found so far. If we reached the destination in the graph,
@@ -1452,7 +1528,7 @@ public:
         possible_scores(), max_diagonals(0, 0),
         debug(false)
     {
-        this->nodes.emplace_back(root, 0);
+        this->nodes.emplace_back(this->coalesce(root), 0, this->graph);
         this->nodes.front().update(WFANode::MATCHES, 0, 0, 0, node_offset);
 
         // Determine a reasonable upper bound for the number of edits.
@@ -1463,6 +1539,69 @@ public:
         this->score_bound = max_mismatches * this->mismatch + max_gaps * this->gap_open + max_gap_length * this->gap_extend;
 
         possible_scores[0] = { 0, 0, false };
+    }
+    
+    /// Get all the GBWT search states for a run of the same set of haplotypes
+    /// through nodes in the graph, without any haplotypes in the set branching
+    /// off, and without any visits to the same oriented graph node twice.
+    /// TODO: We can only visit each graph node once, or we can't map graph
+    /// pos_t values back to offsets along the WFANode. Do we need to be able
+    /// to do that, or can we try not doing that?
+    /// TODO: Save a scan by unifying with WFANode constructor?
+    vector<gbwt::SearchState> coalesce(const gbwt::SearchState& start, size_t base_limit = 1024) {
+        vector<gbwt::SearchState> coalesced {start};
+        std::unordered_set<gbwt::node_type> visited {start.node};
+        gbwt::SearchState here = start;
+        gbwt::CachedGBWT cache = graph.get_cache(); // TODO: Take in cache? Is this even useful here?
+        // How many bases have we grabbed?
+        size_t coalesced_bases = 0;
+        // How many places did we have to pick from?
+        size_t options = 1;
+        while(options == 1) {
+            // Until we find multiple next places we could go
+            
+            // See how far we have come
+            handle_t node_handle = gbwtgraph::GBWTGraph::node_to_handle(here.node);
+            size_t node_length = graph.get_length(node_handle);
+            coalesced_bases += node_length;
+            if (coalesced_bases >= base_limit) {
+                // We don't want to look any more bases out; we might be
+                // wasting our time lloking further than the remaining read.
+                break;
+            }
+            
+            
+            // If we want to keep going, see where we could go
+            options = 0;
+            gbwt::SearchState next;
+            graph.follow_paths(cache, here, [&](const gbwt::SearchState& reachable) {
+                options++;
+                if (options > 1) {
+                    // We found bore than one place to go, so stop coalescing.
+                    return false;
+                }
+                next = reachable;
+                return true;
+            });
+            if (options == 1) {
+                // We found exactly one place to go.
+                
+                if (visited.count(next.node)) {
+                    // We can't go there, we would cycle within a WFANode and
+                    // break mapping from graph position to WFANode offset
+                    break;
+                }
+                visited.insert(next.node);
+                
+                // Some haplotypes may have dropped out, but it is OK to keep
+                // coalescing because others did not.
+                // Go there.
+                here = next;
+                coalesced.push_back(here);
+            }
+        }
+        
+        return coalesced;
     }
 
     uint32_t size() const { return this->nodes.size(); }
@@ -1626,7 +1765,7 @@ public:
     // Move forward on the path corresponding to the position. If the position points
     // to the end of a node, we assume that it has not reached the end of the path.
     void successor_offset(MatchPos& pos) const {
-        if (pos.node_offset >= this->nodes[pos.node()].length(this->graph)) {
+        if (pos.node_offset >= this->nodes[pos.node()].length()) {
             pos.pop(); pos.node_offset = 0;
         }
         pos.node_offset++;
@@ -1638,7 +1777,7 @@ public:
             offset--;
         } else {
             node = this->parent(node);
-            offset = this->nodes[node].length(this->graph) - 1;
+            offset = this->nodes[node].length() - 1;
         }
     }
 
@@ -1697,7 +1836,7 @@ private:
                     }
                 }
                 this->nodes[pos.node()].update(WFANode::MATCHES, score, diagonal, pos);
-                if (pos.node_offset < this->nodes[pos.node()].length(this->graph)) {
+                if (pos.node_offset < this->nodes[pos.node()].length()) {
                     break;
                 }
                 this->expand_if_necessary(pos);
@@ -1762,13 +1901,13 @@ private:
     // If we have reached the end of the current node, expand its children if necessary.
     // Call this whenever the alignment advances in the node.
     void expand_if_necessary(const MatchPos& pos) {
-        if (this->nodes[pos.node()].expanded() || pos.node_offset < this->nodes[pos.node()].length(this->graph)) {
+        if (this->nodes[pos.node()].expanded() || pos.node_offset < this->nodes[pos.node()].length()) {
             return;
         }
         bool found = false;
-        this->graph.follow_paths(this->nodes[pos.node()].state, [&](const gbwt::SearchState& child) -> bool {
+        this->graph.follow_paths(this->nodes[pos.node()].states.back(), [&](const gbwt::SearchState& child) -> bool {
             this->nodes[pos.node()].children.push_back(this->size());
-            this->nodes.emplace_back(child, pos.node());
+            this->nodes.emplace_back(this->coalesce(child), pos.node(), this->graph);
             found = true;
             return true;
         });
@@ -1808,7 +1947,7 @@ private:
 
     // Assumes that the position is non-empty.
     bool at_dead_end(const MatchPos& pos) const {
-        return (this->nodes[pos.node()].dead_end && pos.node_offset >= this->nodes[pos.node()].length(this->graph));
+        return (this->nodes[pos.node()].dead_end && pos.node_offset >= this->nodes[pos.node()].length());
     }
 };
 
@@ -1864,7 +2003,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     };
     uint32_t node = tree.candidate_node;
     while (true) {
-        result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(tree.nodes[node].state.node));
+        for (auto& state : tree.nodes[node].states) {
+            result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(state.node));
+        }
         if (tree.is_root(node)) {
             break;
         }
