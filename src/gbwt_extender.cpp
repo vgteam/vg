@@ -1299,8 +1299,23 @@ struct WFAPoint {
 
 //------------------------------------------------------------------------------
 
+/// Represents a node in the tree of haplotypes we are traversing and doing WFA
+/// against.
+///
+/// Will have WFANode::find_pos() called against it as part of a loop for each
+/// diagonal, and if it doesn't answer its parent will be queried, recursively
+/// back to the root. If we allow the number of WFANode objects along a
+/// non-branching path to be linear in the sequence length, then we will make
+/// O(sequence length) calls for each diagonal, and we end up getting O(n^2)
+/// (or worse?) lookups.
+///
+/// So, it is essential that we allow one WFANode to stand for a whole
+/// non-branching run of haplotypes, up to about the total sequence length we
+/// will be working on. This limits the number of recursive queries of parents
+/// so it grows only with the number of haplotypes we are aligning against,
+/// which is bounded, and not directly with the sequence length. 
 struct WFANode {
-    gbwt::SearchState state;
+    std::vector<gbwt::SearchState> states;
 
     // Offsets in the vector of nodes.
     uint32_t parent;
@@ -1316,8 +1331,8 @@ struct WFANode {
     // Points on the wavefronts are indexed by score, diagonal.
     std::array<std::unordered_map<WFAPoint::key_type, WFAPoint::value_type>, 3> wavefronts;
 
-    WFANode(const gbwt::SearchState& state, uint32_t parent) :
-        state(state),
+    WFANode(const vector<gbwt::SearchState>& states, uint32_t parent) :
+        states(states),
         parent(parent), children(),
         dead_end(false),
         wavefronts() {
@@ -1334,6 +1349,7 @@ struct WFANode {
         return graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->state.node));
     }
 
+    // WFANode::find_pos
     // Returns the position for the given score and diagonal with the given path, or an empty position if it does not exist.
     MatchPos find_pos(size_t type, int32_t score, int32_t diagonal, std::stack<uint32_t>& path) const {
         WFAPoint::key_type key { score, diagonal };
@@ -1553,7 +1569,7 @@ public:
                     // If the edit is an insertion, we charge the gap open cost again, but
                     // we already got the same insertion without the extra cost from the
                     // match preceding the insertion.
-                    if (this->nodes[subst.node()].same_node(to) && subst.node_offset == offset(to)) {
+                    if (this->nodes[subst.node()].same_node(to) && subst.node_offset == this->nodes[subst.node()].node_offset_of(to)) {
                         uint32_t gap_length = this->sequence.length() - subst.seq_offset;
                         int32_t gap_score = 0;
                         if (gap_length > 0) {
@@ -1663,12 +1679,12 @@ private:
                 continue; // An impossible score / diagonal combination.
             }
             while (true) {
-                bool may_reach_to = this->nodes[pos.node()].same_node(to) & (pos.node_offset <= offset(to));
+                bool may_reach_to = this->nodes[pos.node()].same_node(to) & (pos.node_offset <= this->nodes[pos.node()].node_offset_of(to));
                 this->nodes[pos.node()].match_forward(this->sequence, this->graph, pos);
                 // We got a match that reached the end or went past it.
                 // Alternatively there is no end position and we have aligned the entire sequence.
                 // This gives us a candidate where the rest of the sequence is an insertion.
-                if ((may_reach_to && pos.node_offset >= offset(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
+                if ((may_reach_to && pos.node_offset >= this->nodes[pos.node()].node_offset_of(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
                     uint32_t overshoot = (no_pos(to) ? 0 : pos.node_offset - offset(to));
                     uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + overshoot;
                     int32_t gap_score = 0;
@@ -1761,6 +1777,7 @@ private:
         }
     }
 
+    // WFATree::find_pos
     // Returns the furthest position in given WFA matrix for (score, diagonal) at the
     // specified node or its ancestors, or an empty position if it does not exist.
     // Returns an empty position if an extendable position is requested but the position
