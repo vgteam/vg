@@ -89,7 +89,7 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    size_t node_count = 3;
+    size_t node_count = 100;
     size_t node_length = 32;
     
     // Prepare a GBWT of one long path
@@ -115,7 +115,6 @@ int main_benchmark(int argc, char** argv) {
             ss << "ACGT"[bits & 0x3];
             step_rng();
         }
-        std::cerr << "Node " << (i + 1) << ": " << ss.str() << std::endl;
         source.add_node(i + 1, ss.str());
     }
     // And then make the graph
@@ -154,8 +153,6 @@ int main_benchmark(int argc, char** argv) {
     seq_stream << source.get_sequence(get_id(to_pos)).substr(0, get_offset(to_pos)); 
     
     std::string to_connect = seq_stream.str();
-    
-    std::cerr << "Align " << to_connect << std::endl;
     
     // Make the Aligner and Extender
     Aligner aligner;
