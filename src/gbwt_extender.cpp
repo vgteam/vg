@@ -1242,7 +1242,7 @@ struct MatchPos {
     }
 };
 
-// A point in an WFA score matrix (for a specific node).
+// A point in an WFA score matrix (for a specific node). Must be aggregate-initializable.
 struct WFAPoint {
     int32_t  score;
     int32_t  diagonal; // seq_offset - target offset
@@ -1273,6 +1273,28 @@ struct WFAPoint {
     bool operator<(const WFAPoint& another) const {
         return (this->score < another.score || (this->score == another.score && this->diagonal < another.diagonal));
     }
+    
+    // We have a way to split up into a key and a value, and to be out back
+    // together again.
+    using key_type = std::pair<int32_t, int32_t>;
+    using value_type = std::pair<uint32_t, uint32_t>;
+    using map_entry_type = std::pair<key_type, value_type>;
+    
+    key_type key() const {
+        return key_type(this->score, this->diagonal);
+    }
+    
+    value_type value() const {
+        return value_type(this->seq_offset, this->node_offset);
+    }
+    
+    static WFAPoint from_key_value(const key_type& key, const value_type& value) {
+        return {key.first, key.second, value.first, value.second};
+    }
+    
+    static WFAPoint from_map_entry(const map_entry_type& entry) {
+        return from_key_value(entry.first, entry.second);
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -1291,8 +1313,8 @@ struct WFANode {
     constexpr static size_t INSERTIONS = 1; // characters in the sequence but not in the graph
     constexpr static size_t DELETIONS = 2;  // characters in the graph but not in the sequence
 
-    // Points on the wavefronts are sorted by score, diagonal.
-    std::array<std::vector<WFAPoint>, 3> wavefronts;
+    // Points on the wavefronts are indexed by score, diagonal.
+    std::array<std::unordered_map<WFAPoint::key_type, WFAPoint::value_type>, 3> wavefronts;
 
     WFANode(const gbwt::SearchState& state, uint32_t parent) :
         state(state),
@@ -1314,13 +1336,17 @@ struct WFANode {
 
     // Returns the position for the given score and diagonal with the given path, or an empty position if it does not exist.
     MatchPos find_pos(size_t type, int32_t score, int32_t diagonal, std::stack<uint32_t>& path) const {
-        WFAPoint key { score, diagonal, 0, 0 };
-        const std::vector<WFAPoint>& points = this->wavefronts[type];
-        auto iter = std::lower_bound(points.begin(), points.end(), key);
-        if (iter == points.end() || key < *iter) {
+        WFAPoint::key_type key { score, diagonal };
+        auto& points = this->wavefronts[type];
+        // Find the item with the same score and diagonal
+        auto iter = points.find(key);
+        if (iter == points.end()) {
+            // Nothing is stored for this score and diagonal
             return MatchPos();
         }
-        return iter->pos(path);
+        // Otherwise, something is stored for this score and diagonal. Reconstitute it.
+        WFAPoint point = WFAPoint::from_key_value(key, iter->second);
+        return point.pos(path);
     }
 
     // Update the WFA matrix with the given alignment position.
@@ -1330,13 +1356,17 @@ struct WFANode {
 
     // Update the WFA matrix with the given offsets.
     void update(size_t type, int32_t score, int32_t diagonal, uint32_t seq_offset, uint32_t node_offset) {
-        WFAPoint key { score, diagonal, seq_offset, node_offset };
-        std::vector<WFAPoint>& points = this->wavefronts[type];
-        auto iter = std::lower_bound(points.begin(), points.end(), key);
-        if (iter == points.end() || key < *iter) {
-            points.insert(iter, key);
+        // TODO: Make the WFAPoint and then split it up with its methods instead?
+        WFAPoint::key_type key { score, diagonal };
+        WFAPoint::value_type value { seq_offset, node_offset };
+        auto& points = this->wavefronts[type];
+        auto iter = points.find(key);
+        if (iter == points.end()) {
+            // This is a new score and diagonal
+            points.emplace_hint(iter, std::move(key), std::move(value));
         } else {
-            *iter = key;
+            // This score and diagonal already exists, so overwrite the value
+            iter->second = std::move(value);
         }
     }
 
@@ -1606,9 +1636,14 @@ public:
         this->candidate_node = 0;
         int32_t best_score = 0;
         for (uint32_t node = 0; node < this->size(); node++) {
-            for (const WFAPoint& point : this->nodes[node].wavefronts[WFANode::MATCHES]) {
+            for (auto& point_entry : this->nodes[node].wavefronts[WFANode::MATCHES]) {
+                // Scan all stored points on the node.
+                // TODO: Does iteration order matter?
+                // Convert map entries to points.
+                WFAPoint point = WFAPoint::from_map_entry(point_entry);
                 int32_t alignment_score = point.alignment_score(aligner);
                 if (alignment_score > best_score) {
+                    // This is a new winner
                     this->candidate_point = point;
                     this->candidate_node = node;
                     best_score = alignment_score;
