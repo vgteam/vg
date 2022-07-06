@@ -122,8 +122,8 @@ int main_benchmark(int argc, char** argv) {
     gbwtgraph::GBWTGraph graph(index, source);
     
     // Decide what we are going to align
-    pos_t from_pos = make_pos_t(1, 3, false);
-    pos_t to_pos = make_pos_t(node_count, 11, false);
+    pos_t from_pos = make_pos_t(1, false, 3);
+    pos_t to_pos = make_pos_t(node_count, false, 11);
     
     // Synthesize a sequence
     std::stringstream seq_stream;
