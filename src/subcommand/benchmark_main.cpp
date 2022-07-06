@@ -14,12 +14,8 @@
 #include "../benchmark.hpp"
 #include "../version.hpp"
 
-#include "../vg.hpp"
-#include "../xg.hpp"
-#include "../integrated_snarl_finder.hpp"
-#include "../min_distance.hpp"
-
-#include <bdsg/internal/mapped_structs.hpp>
+#include "../gbwt_extender.hpp"
+#include "../gbwt_helper.hpp"
 
 
 
@@ -93,135 +89,85 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    char filename[] = "tmpXXXXXX";
-    int tmpfd = mkstemp(filename);
-    assert(tmpfd != -1);
+    size_t node_count = 3;
+    size_t node_length = 32;
     
-    {
-        // Make all the vectors to benchmark
-        sdsl::int_vector<> sdsl_vec_holder;
-        auto sdsl_vec = &sdsl_vec_holder;
-        bdsg::CompatIntVector<> compat_vec_holder;
-        auto compat_vec = &compat_vec_holder;
-        bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector> mapped_vec;
-        mapped_vec.construct("");
-        mapped_vec.save(tmpfd);
-        
-        size_t vector_size = 1024 * 100;
-        size_t access_iters = 1000;
-        
-        sdsl_vec->width(24);
-        sdsl_vec->resize(vector_size);
-        for (size_t i = 0; i < sdsl_vec->size(); i++) {
-            (*sdsl_vec)[i] = i % 1<<20;
-        }
-        compat_vec->width(24);
-        compat_vec->resize(vector_size);
-        for (size_t i = 0; i < compat_vec->size(); i++) {
-            (*compat_vec)[i] = i % 1<<20;
-        }
-        mapped_vec->width(24);
-        mapped_vec->resize(vector_size);
-        for (size_t i = 0; i < sdsl_vec->size(); i++) {
-            (*mapped_vec)[i] = i % 1<<20;
-        }
-        
-        size_t bits = 1;
-        
-        results.push_back(run_benchmark("SDSL random access", 1000, [&]() {
-            for (size_t i = 1; i < access_iters; i++) {
-                size_t pos = bits % vector_size;
-                size_t read = (*sdsl_vec)[pos];
-                if (read != pos % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        results.push_back(run_benchmark("SDSL sequential access", 1000, [&]() {
-            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
-                size_t read = (*sdsl_vec)[i];
-                if (read != i % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        results.push_back(run_benchmark("Compat random access", 1000, [&]() {
-            for (size_t i = 1; i < access_iters; i++) {
-                size_t pos = bits % vector_size;
-                size_t read = (*compat_vec)[pos];
-                if (read != pos % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        results.push_back(run_benchmark("Compat sequential access", 1000, [&]() {
-            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
-                size_t read = (*compat_vec)[i];
-                if (read != i % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        results.push_back(run_benchmark("Mapped random access", 1000, [&]() {
-            for (size_t i = 1; i < access_iters; i++) {
-                size_t pos = bits % vector_size;
-                size_t read = (*mapped_vec)[pos];
-                if (read != pos % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        results.push_back(run_benchmark("Mapped sequential access", 1000, [&]() {
-            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
-                size_t read = (*mapped_vec)[i];
-                if (read != i % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        // Reloading the mapped vector will get it all into the same chain link
-        // and make sure we don't need to consult global tables on pointer
-        // access.
-        mapped_vec.reset();
-        mapped_vec.load(tmpfd, "");
-        
-        results.push_back(run_benchmark("Mapped reloaded random access", 1000, [&]() {
-            for (size_t i = 1; i < access_iters; i++) {
-                size_t pos = bits % vector_size;
-                size_t read = (*mapped_vec)[pos];
-                if (read != pos % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-                bits = bits ^ (bits << 13) ^ i;
-            }
-        }));
-        
-        results.push_back(run_benchmark("Mapped reloaded sequential access", 1000, [&]() {
-            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
-                size_t read = (*mapped_vec)[i];
-                if (read != i % 1<<20) {
-                    throw std::runtime_error("Incorrect read!");
-                }
-            }
-        }));
+    // Prepare a GBWT of one long path
+    std::vector<gbwt::vector_type> paths;
+    paths.emplace_back();
+    for (size_t i = 0; i < node_count; i++) {
+        paths.back().push_back(gbwt::Node::encode(i + 1, false));
     }
+    gbwt::GBWT index = get_gbwt(paths);
     
-    close(tmpfd);
-    unlink(filename);
+    // Turn it into a GBWTGraph.
+    // Make a SequenceSource we will consult later for getting sequence.
+    gbwtgraph::SequenceSource source;
+    uint32_t bits = 0xcafebebe;
+    auto step_rng = [&bits]() {
+        // Try out <https://stackoverflow.com/a/69142783>
+        bits = (bits * 73 + 1375) % 477218579;
+    };
+    for (size_t i = 0; i < node_count; i++) {
+        std::stringstream ss;
+        for (size_t j = 0; j < node_length; j++) {
+            // Pick a deterministic character
+            ss << "ACGT"[bits & 0x3];
+            step_rng();
+        }
+        std::cerr << "Node " << (i + 1) << ": " << ss.str() << std::endl;
+        source.add_node(i + 1, ss.str());
+    }
+    // And then make the graph
+    gbwtgraph::GBWTGraph graph(index, source);
     
+    // Decide what we are going to align
+    pos_t from_pos = make_pos_t(1, 3, false);
+    pos_t to_pos = make_pos_t(node_count, 11, false);
     
+    // Synthesize a sequence
+    std::stringstream seq_stream;
+    seq_stream << source.get_sequence(get_id(from_pos)).substr(get_offset(from_pos) + 1);
+    for (nid_t i = get_id(from_pos) + 1; i < get_id(to_pos); i++) {
+        std::string seq = source.get_sequence(i);
+        // Add some errors
+        if (bits & 0x1) {
+            int offset = bits % seq.size();
+            step_rng();
+            char replacement = "ACGT"[bits & 0x3];
+            step_rng();
+            if (bits & 0x1) {
+                seq[offset] = replacement;
+            } else {
+                step_rng();
+                if (bits & 0x1) {
+                    seq.insert(offset, 1, replacement);
+                } else {
+                    seq.erase(offset);
+                }
+            }
+        }
+        step_rng();
+        // And keep the sequence
+        seq_stream << seq;
+    }
+    seq_stream << source.get_sequence(get_id(to_pos)).substr(0, get_offset(to_pos)); 
+    
+    std::string to_connect = seq_stream.str();
+    
+    std::cerr << "Align " << to_connect << std::endl;
+    
+    // Make the Aligner and Extender
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+    
+    results.push_back(run_benchmark("connect() on long sequence", 1000, [&]() {
+        // Do the alignment
+        WFAAlignment aligned = extender.connect(to_connect, from_pos, to_pos);
+        // Make sure it succeeded
+        assert(aligned);
+    }));
+        
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
     
