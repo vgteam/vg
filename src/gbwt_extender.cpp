@@ -7,7 +7,7 @@
 #include <set>
 #include <stack>
 
-//#define debug_wfa
+#define debug_wfa
 
 namespace vg {
 
@@ -1355,6 +1355,11 @@ struct WFANode {
         if (states.empty()) {
             throw std::runtime_error("Cannot make a WFANode for nothing");
         }
+        
+#ifdef debug_wfa
+        std::cerr << "Making a WFANode " << this << " for " << states.size() << " graph nodes" << std::endl;
+#endif
+        
         // Fill in the visited nodes set and the index from start position to node.
         this->starts_by_node.reserve(states.size());
         for (size_t i = 0; i < this->states.size(); i++) {
@@ -1362,9 +1367,18 @@ struct WFANode {
             this->starts_by_node.emplace(this->states[i].node, stored_length);
             // Remember that here starts this node
             states_by_start[stored_length] = i;
+            
+#ifdef debug_wfa
+            std::cerr << "State #" << i << " is GBWT encoded node " << this->states[i].node << " and starts at offset " << stored_length << std::endl;
+#endif
+            
             // And up the start position
             stored_length += graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->states[i].node));
         }
+        
+#ifdef debug_wfa
+        std::cerr << "WFANode total length is " << stored_length << std::endl;
+#endif
     }
 
     bool is_leaf() const { return (this->children.empty() || this->dead_end); }
@@ -1373,7 +1387,13 @@ struct WFANode {
     bool same_node(pos_t pos) const {
         // See if we have seen anything on this node
         gbwt::node_type lookup = gbwt::Node::encode(id(pos), is_rev(pos));
-        return starts_by_node.count(lookup);
+        bool is_here = starts_by_node.count(lookup);
+        
+#ifdef debug_wfa
+        std::cerr << "Is " << id(pos) << " " << is_rev(pos) << " in  WFANode " << this << "? " << is_here << std::endl;
+#endif
+        
+        return is_here;
     }
 
     /// Map from graph position to offset along the WFANode.
@@ -1385,7 +1405,13 @@ struct WFANode {
         // Find where the referenced graph node starts in us
         size_t start = starts_by_node.at(lookup);
         // And then apply the offset
-        return start + offset(pos);
+        size_t result = start + offset(pos);
+        
+#ifdef debug_wfa
+        std::cerr << "Offset of " << id(pos) << " " << is_rev(pos) << " " << offset(pos) << " in WFANode " << this << " is " << result << std::endl;
+#endif
+
+        return result;
     }
 
     size_t length() const {
@@ -1431,6 +1457,11 @@ struct WFANode {
 
     // Returns a position at the first non-match after the given position.
     void match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
+    
+#ifdef debug_wfa
+        std::cerr << "Looking for first match after WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+#endif
+    
         std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
         // We have the index of the state starting at or after the match pos. So it's the one the position is on.
         while (here != this->states_by_start.end()) {
@@ -1453,10 +1484,19 @@ struct WFANode {
                 break;
             }
         }
+        
+#ifdef debug_wfa
+        std::cerr << "First match is WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+#endif
+        
     }
 
     // Returns a position at the start of the run of matches before the given position.
     void match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
+#ifdef debug_wfa
+        std::cerr << "Looking for last match before WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+#endif
+    
         std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
         // We have the index of the state starting at or after the match pos. So it's the one the position is on.
         while (pos.seq_offset > 0 && pos.node_offset > 0) {
@@ -1479,7 +1519,12 @@ struct WFANode {
                 break;
             }
         }
+        
+#ifdef debug_wfa
+        std::cerr << "Last match is WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+#endif
     }
+    
 };
 
 //------------------------------------------------------------------------------
@@ -1985,13 +2030,25 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         std::cerr << "WFA tick for score " << score << std::endl;
 #endif
         tree.extend(score, to);
+#ifdef debug_wfa
+        std::cerr << "Candidate point score " << tree.candidate_point.score << " vs. target " << score << std::endl;
+#endif
         if (tree.candidate_point.score <= score) {
             break;
         }
+#ifdef debug_wfa
+        std::cerr << "Candidate point isn't good enough" << std::endl;
+#endif
         score = tree.next_score(score);
+#ifdef debug_wfa
+        std::cerr << "Next target score is " << score << " vs. bound " << tree.score_bound << std::endl;
+#endif
         if (score > tree.score_bound) {
             break;
         }
+#ifdef debug_wfa
+        std::cerr << "Next target score is good enough; advance tree." << std::endl;
+#endif
         tree.next(score, to);
     }
 
