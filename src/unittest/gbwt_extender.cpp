@@ -1492,6 +1492,22 @@ void check_alignment(const WFAAlignment& alignment, const std::string& sequence,
 
 //------------------------------------------------------------------------------
 
+TEST_CASE("Exact match within a single node of a linear graph", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+    
+    extender.debug = true;
+
+    std::string sequence("ATTA");
+    pos_t from(2, false, 0); pos_t to(2, false, 5);
+    WFAAlignment result = extender.connect(sequence, from, to);
+    check_score(result, aligner, sequence.length(), 0, 0, 0);
+    check_alignment(result, sequence, graph, aligner, &from, &to);
+}
+
 TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
