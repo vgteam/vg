@@ -7,8 +7,6 @@
 #include <set>
 #include <stack>
 
-//#define debug_wfa
-
 namespace vg {
 
 //------------------------------------------------------------------------------
@@ -1625,9 +1623,6 @@ public:
     // if we do not use any characters in it.
     void extend(int32_t score, pos_t to) {
         for (int32_t diagonal = this->max_diagonals.first; diagonal <= this->max_diagonals.second; diagonal++) {
-#ifdef debug_wfa
-            std::cerr << "Extend diagonal " << diagonal << std::endl;
-#endif
             std::vector<uint32_t> leaves = this->get_leaves();
             this->extend_over(score, diagonal, to, leaves);
         }
@@ -1818,14 +1813,8 @@ private:
     // the given list of leaves in the tree of GBWT search states.
     void extend_over(int32_t score, int32_t diagonal, pos_t to, const std::vector<uint32_t>& leaves) {
         for (uint32_t leaf : leaves) {
-#ifdef debug_wfa
-            std::cerr << "Extend over leaf WFA node " << leaf << std::endl;
-#endif
             MatchPos pos = this->find_pos(WFANode::MATCHES, leaf, score, diagonal, false, false);
             if (pos.empty()) {
-#ifdef debug_wfa
-                std::cerr << "Cannot get this score on this diagonal here" << std::endl;
-#endif
                 continue; // An impossible score / diagonal combination.
             }
             while (true) {
@@ -1976,14 +1965,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
 
     WFATree tree(*(this->graph), sequence, root_state, offset(from) + 1, *(this->aligner));
     tree.debug = this->debug;
-#ifdef debug_wfa
-        std::cerr << "Connect with sequence " << sequence << std::endl;
-#endif
+
     int32_t score = 0;
     while (true) {
-#ifdef debug_wfa
-        std::cerr << "WFA tick for score " << score << std::endl;
-#endif
         tree.extend(score, to);
         if (tree.candidate_point.score <= score) {
             break;

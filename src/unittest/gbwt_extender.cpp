@@ -1626,15 +1626,6 @@ TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
         check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
-    
-    SECTION("Over multiple nodes, start to end") {
-        // MMMXMMMMMXMM
-        std::string sequence("GATAACAGACTA");
-        pos_t from(1, false, 2); pos_t to(4, false, 0);
-        WFAAlignment result = extender.connect(sequence, from, to);
-        check_score(result, aligner, sequence.length(), 0, 0, 0);
-        check_alignment(result, sequence, graph, aligner, &from, &to);
-    }
 }
 
 //------------------------------------------------------------------------------
