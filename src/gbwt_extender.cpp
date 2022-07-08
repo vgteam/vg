@@ -1223,54 +1223,53 @@ struct MatchPos {
     /// We need a stack-like type that can be copied or referred to quickly,
     /// since we consider MatchPos objects for each WFANode along a path when
     /// doing find_pos(), and they contain the path.
-    /// This path type ensures that we only ever push and *then* pop.
+    /// This path type assumes that we only ever push and *then* pop.
     struct PathList {
+        const static size_t NUM_INLINE = 4;
         size_t item_count = 0;
-        uint32_t bottom_item;
-        uint32_t top_item;
-        bool can_push = true;
-        std::shared_ptr<std::vector<uint32_t>> middle_items;
+        uint32_t inline_items[NUM_INLINE];
+        std::shared_ptr<std::vector<uint32_t>> additional_items;
         
         void push(uint32_t value) {
-            assert(can_push);
-            if (item_count == 0) {
-                bottom_item = value;
+            ++this->item_count;
+            if (this->item_count == NUM_INLINE + 1) {
+                this->additional_items.reset(new std::vector<uint32_t>());
             }
-            if (item_count > 1) {
-                // Need to stash the existing top item
-                if (!middle_items) {
-                    middle_items.reset(new std::vector<uint32_t>());
-                }
-                middle_items->push_back(top_item);
+            if (this->item_count > NUM_INLINE) {
+                this->additional_items->resize(this->item_count - NUM_INLINE);
             }
-            top_item = value;
-            ++item_count;
+            this->top() = value;
         }
         
         bool empty() const {
-            return item_count == 0;
+            return this->item_count == 0;
         }
         
         size_t size() const {
-            return item_count;
+            return this->item_count;
         }
         
-        uint32_t top() const {
-            return top_item;
+        const uint32_t& top() const {
+            if (this->item_count > NUM_INLINE) {
+                return this->additional_items->at(this->item_count - NUM_INLINE - 1);
+            } else {
+                return this->inline_items[this->item_count - 1];
+            }
+        }
+        
+        uint32_t& top() {
+            if (this->item_count > NUM_INLINE) {
+                return this->additional_items->at(this->item_count - NUM_INLINE - 1);
+            } else {
+                return this->inline_items[this->item_count - 1];
+            }
         }
         
         void pop() {
-            can_push = false;
-            if (item_count == 2) {
-                // Going from 2 items to 1 item.
-                top_item = bottom_item;
-            } else if (item_count > 2) {
-                // We are going to need to get an item from the middle and bring it to the end.
-                // TODO: Instead of filling in the middle in advance, have a way to fill in the middle only when we need it by tracing back from the end.
-                assert(middle_items);
-                top_item = middle_items->at(item_count - 3);
+            --this->item_count;
+            if (this->item_count == NUM_INLINE) {
+                this->additional_items.reset();
             }
-            --item_count;
         }
     };
     
