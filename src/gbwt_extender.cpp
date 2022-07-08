@@ -7,7 +7,7 @@
 #include <set>
 #include <stack>
 
-#define debug_wfa
+//#define debug_wfa
 
 namespace vg {
 
@@ -2156,6 +2156,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
 
     // Start building an alignment. Store the path first.
+    // No need to convert the node offset because it is from the root state's node start.
     WFAAlignment result {
         {}, {}, static_cast<uint32_t>(offset(from) + 1), 0,
         tree.candidate_point.seq_offset + unaligned_tail,
