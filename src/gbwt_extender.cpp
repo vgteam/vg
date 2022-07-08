@@ -5,7 +5,8 @@
 #include <cstring>
 #include <queue>
 #include <set>
-#include <stack>
+
+#include <structures/immutable_list.hpp>
 
 //#define debug_wfa
 
@@ -1218,18 +1219,24 @@ WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& align
 struct MatchPos {
     uint32_t seq_offset;
     uint32_t node_offset;
-    std::stack<uint32_t> path; // Sequence of tree offsets from a leaf to the relevant node.
+    
+    /// We need a stack-like type that can be copied or referred to quickly,
+    /// since we consider MatchPos objects for each WFANode along a path when
+    /// doing find_pos(), and they contain the path.
+    using PathList = structures::ImmutableList<uint32_t>;
+    
+    PathList path; // Sequence of tree offsets from a leaf to the relevant node.
 
     // Creates an empty position.
     MatchPos() : seq_offset(0), node_offset(0) {}
 
     // Creates a position with the given offsets and path.
-    MatchPos(uint32_t seq_offset, uint32_t node_offset, const std::stack<uint32_t>& path) : seq_offset(seq_offset), node_offset(node_offset), path(path) {}
+    MatchPos(uint32_t seq_offset, uint32_t node_offset, const PathList& path) : seq_offset(seq_offset), node_offset(node_offset), path(path) {}
 
     bool empty() const { return this->path.empty(); }
-    bool at_last_node() const { return (this->path.size() == 1); }
-    uint32_t node() const { return this->path.top(); }
-    void pop() { this->path.pop(); }
+    bool at_last_node() const { return (!this->path.empty() && this->path.pop_front().empty()); }
+    uint32_t node() const { return this->path.front(); }
+    void pop() { this->path = this->path.pop_front(); }
 
     // Positions are ordered by sequence offsets. Empty positions are smaller than
     // non-empty ones.
@@ -1267,7 +1274,7 @@ struct WFAPoint {
     }
 
     // Converts the point to an alignment position with the given path.
-    MatchPos pos(const std::stack<uint32_t>& path) const {
+    MatchPos pos(const MatchPos::PathList& path) const {
         return MatchPos(this->seq_offset, this->node_offset, path);
     }
 
@@ -1420,7 +1427,7 @@ struct WFANode {
 
     // WFANode::find_pos
     // Returns the position for the given score and diagonal with the given path, or an empty position if it does not exist.
-    MatchPos find_pos(size_t type, int32_t score, int32_t diagonal, std::stack<uint32_t>& path) const {
+    MatchPos find_pos(size_t type, int32_t score, int32_t diagonal, const MatchPos::PathList& path) const {
         WFAPoint::key_type key { score, diagonal };
         auto& points = this->wavefronts[type];
         // Find the item with the same score and diagonal
@@ -2069,9 +2076,13 @@ private:
         if (score < 0) {
             return MatchPos();
         }
-        std::stack<uint32_t> path;
+        MatchPos::PathList path;
         while(true) {
-            path.push(node);
+            // Make the path a bit longer.
+            path = path.push_front(node);
+            // Find a position at this node.
+            // The MatchPos will need to know the whole path, so we can return it.
+            // TODO: Actually manage the moves ourselves to make this faster!
             MatchPos pos = this->nodes[node].find_pos(type, score, diagonal, path);
             if (!pos.empty()) {
                 if (extendable_seq && pos.seq_offset >= this->sequence.length()) {
