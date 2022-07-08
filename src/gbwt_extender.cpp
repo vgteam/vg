@@ -795,8 +795,8 @@ bool WFAAlignment::unlocalized_insertion() const {
     );
 }
 
-uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
-    uint32_t final_offset = this->node_offset;
+int64_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
+    int64_t final_offset = this->node_offset;
     for (auto edit : this->edits) {
         if (edit.first != WFAAlignment::insertion) {
             final_offset += edit.second;
@@ -1390,7 +1390,7 @@ struct WFANode {
         bool is_here = starts_by_node.count(lookup);
         
 #ifdef debug_wfa
-        std::cerr << "Is " << id(pos) << " " << is_rev(pos) << " in  WFANode " << this << "? " << is_here << std::endl;
+        std::cerr << "Is " << id(pos) << " " << is_rev(pos) << " in WFANode " << this << "? " << is_here << std::endl;
 #endif
         
         return is_here;
@@ -1459,34 +1459,85 @@ struct WFANode {
     void match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
     
 #ifdef debug_wfa
-        std::cerr << "Looking for first match after WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+        std::cerr << "Looking for last match after WFANode " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
 #endif
     
+        // Get first graph node starting at or after our offset.
         std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
+        if (here == this->states_by_start.begin()) {
+            // We are somehow starting before the first item (which should start at 0). This should never happen.
+            throw std::runtime_error("Offset on WFANode starts before its first graph node, which ought to be at 0");
+        }
+        // Get last graph node starting before our offset.
+        --here;
+        
         // We have the index of the state starting at or after the match pos. So it's the one the position is on.
         while (here != this->states_by_start.end()) {
             // Until we hit the end of the WFANode
             
             // Grab the handle for the graph node we are at
             handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
+            
+#ifdef debug_wfa
+            std::cerr << "Look at graph node for GBWT encoded node " << this->states[here->second].node << " starting at " << here->first << " in WFANode" << std::endl;
+#endif
+            
             // And get a view of its sequence
             gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
-            while (pos.seq_offset < sequence.length() && pos.node_offset - here->first < node_seq.second && sequence[pos.seq_offset] == node_seq.first[pos.node_offset - here->first]) {
-                // Until we hit the end of the sequence, or the graph node, or a mismatch, advance
-                pos.seq_offset++; pos.node_offset++;
+            size_t graph_node_offset = pos.node_offset - here->first;
+            
+#ifdef debug_wfa
+            std::cerr << "WFANode " << pos.node_offset << " is " << graph_node_offset << "/" << node_seq.second;
+            if (graph_node_offset < node_seq.second) {
+                std::cerr << " and base " << node_seq.first[graph_node_offset];
             }
-            if (pos.node_offset - here->first >= node_seq.second) {
+            std::cerr << std::endl;
+            std::cerr << "Sequence " << pos.seq_offset;
+            if (pos.seq_offset < sequence.length()) {
+                std::cerr << " is " << sequence[pos.seq_offset];
+            }
+            std::cerr << std::endl;
+#endif
+            while (pos.seq_offset < sequence.length() && graph_node_offset < node_seq.second && sequence[pos.seq_offset] == node_seq.first[graph_node_offset]) {
+                // Until we hit the end of the sequence, or the graph node, or a mismatch, advance
+                pos.seq_offset++;
+                pos.node_offset++;
+                graph_node_offset = pos.node_offset - here->first;
+                
+#ifdef debug_wfa
+                std::cerr << "WFANode " << pos.node_offset << " is " << graph_node_offset << "/" << node_seq.second;
+                if (graph_node_offset < node_seq.second) {
+                    std::cerr << " and base " << node_seq.first[graph_node_offset];
+                }
+                std::cerr << std::endl;
+                std::cerr << "Sequence " << pos.seq_offset;
+                if (pos.seq_offset < sequence.length()) {
+                    std::cerr << " is " << sequence[pos.seq_offset];
+                }
+                std::cerr << std::endl;
+#endif
+                
+            }
+            if (graph_node_offset >= node_seq.second) {
+#ifdef debug_wfa
+                std::cerr << "Look at next graph node" << std::endl;
+#endif
                 // We hit the end of a graph node.
                 // Advance to the next graph node.
                 ++here;
             } else {
                 // We hit the end of the sequence, or a mismatch.
+                
+#ifdef debug_wfa
+                std::cerr << "Found end of sequence, or a mismatch" << std::endl;
+#endif
+                
                 break;
             }
         }
         
 #ifdef debug_wfa
-        std::cerr << "First match is WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+        std::cerr << "Last match is WFANode " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
 #endif
         
     }
@@ -1494,10 +1545,18 @@ struct WFANode {
     // Returns a position at the start of the run of matches before the given position.
     void match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
 #ifdef debug_wfa
-        std::cerr << "Looking for last match before WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+        std::cerr << "Looking for first match before WFANode " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
 #endif
     
+        // Get first graph node starting at or after our offset.
         std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
+        if (here == this->states_by_start.begin()) {
+            // We are somehow starting before the first item (which should start at 0). This should never happen.
+            throw std::runtime_error("Offset on WFANode starts before its first graph node, which ought to be at 0");
+        }
+        // Get last graph node starting before our offset.
+        --here;
+        
         // We have the index of the state starting at or after the match pos. So it's the one the position is on.
         while (pos.seq_offset > 0 && pos.node_offset > 0) {
             // Until we hit the start of the WFANode
@@ -1506,11 +1565,15 @@ struct WFANode {
             handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
             // And get a view of its sequence
             gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
-            while (pos.seq_offset > 0 && pos.node_offset - here->first > 0 && sequence[pos.seq_offset - 1] == node_seq.first[pos.node_offset - here->first - 1]) {
+            size_t graph_node_offset = pos.node_offset - here->first;
+            
+            while (pos.seq_offset > 0 && graph_node_offset > 0 && sequence[pos.seq_offset - 1] == node_seq.first[graph_node_offset - 1]) {
                 // Until we hit the start of the sequence, or the graph node, or a mismatch, go left
-                pos.seq_offset--; pos.node_offset--;
+                pos.seq_offset--;
+                pos.node_offset--;
+                graph_node_offset = pos.node_offset - here->first;
             }
-            if (pos.node_offset - here->first == 0 && here->first != 0) {
+            if (graph_node_offset == 0 && here->first != 0) {
                 // We hit the start of a graph node, but we could go left still.
                 // Go left to the next graph node.
                 --here;
@@ -1521,7 +1584,7 @@ struct WFANode {
         }
         
 #ifdef debug_wfa
-        std::cerr << "Last match is WFANode " << pos.node_offset << " =  sequence " << pos.seq_offset << std::endl;
+        std::cerr << "First match is WFANode " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
 #endif
     }
     
@@ -2076,12 +2139,16 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     };
     uint32_t node = tree.candidate_node;
     while (true) {
-        for (auto& state : tree.nodes[node].states) {
-            result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(state.node));
+        // Go back up the tree and compose the path in reverse order
+        for (auto it = tree.nodes[node].states.rbegin(); it != tree.nodes[node].states.rend(); ++it) {
+            // Visit all the states in each WFANode and put their graph nodes on the path in reverse order.
+            result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(it->node));
         }
         if (tree.is_root(node)) {
+            // Stop when we reach the root
             break;
         }
+        // Otherwise go to the parent
         node = tree.parent(node);
     }
     std::reverse(result.path.begin(), result.path.end());
@@ -2155,12 +2222,36 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
 
     // Due to the way we expand the tree of GBWT search states and store wavefront
-    // information in the leaves, we sometimes do not use any bases in the final node.
+    // information in the leaves, and how we coalesce graph nodes into WFANode
+    // objects, we sometimes do not use any bases in trailing graph nodes.
     // We deal with this now to avoid facing the issue later.
-    uint32_t final_offset = result.final_offset(*(this->graph));
-    if ((result.path.size() == 1 && final_offset == result.node_offset) || (result.path.size() > 1 && final_offset == 0)) {
+    int64_t final_offset = result.final_offset(*(this->graph));
+    
+#ifdef debug_wfa
+    std::cerr << "Alignment has node offset " << result.node_offset << " and final offset " << final_offset << std::endl;
+#endif
+    
+    while ((result.path.size() == 1 && final_offset == result.node_offset) || (result.path.size() > 1 && final_offset <= 0)) {
+        // No bases actually used on the final node, so drop it and adjust the offset.
         result.path.pop_back();
+        if (!result.path.empty()) {
+            // Offset should now be relative to the start of this node, and not end of this node/start of node after
+            final_offset += this->graph->get_length(result.path.back());
+#ifdef debug_wfa
+            std::cerr << "Pop back node, final offset is now " << final_offset << std::endl;
+#endif
+        } else {
+#ifdef debug_wfa
+            std::cerr << "Pop only node" << std::endl;
+#endif
+        }
     }
+
+#ifdef debug_wfa
+    std::cerr << "Got WFAAlignment: ";
+    result.print(*(this->graph), std::cerr);
+    std::cerr << std::endl;
+#endif
 
     return result;
 }

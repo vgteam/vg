@@ -272,7 +272,8 @@ struct WFAAlignment {
     bool unlocalized_insertion() const;
 
     /// Computes the node offset after the alignment in the final node.
-    uint32_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
+    /// Will be negative if the alignment's final node(s) are not actually used by edits.
+    int64_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
 
     /// Transforms the alignment to the other strand.
     void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);
