@@ -1440,7 +1440,7 @@ int main_giraffe(int argc, char** argv) {
             if (hts_output) {
                 // For htslib we need a non-empty list of paths.
                 assert(path_position_graph != nullptr);
-                paths = get_sequence_dictionary(ref_paths_name, *path_position_graph);
+                paths = get_sequence_dictionary(ref_paths_name, {}, *path_position_graph);
             }
             
             // Set up output to an emitter that will handle serialization and surjection.

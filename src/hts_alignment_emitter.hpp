@@ -67,11 +67,15 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
  * get_alignment_emitter_with_surjection(), by parsing a file. The file may be
  * an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines),
  * or a plain list of sequence names (which do not start with "@SQ"). If the
- * file is not openable or contains no entries, reports an error and quits. If
- * the filename is itself an empty string, all reference-sense paths from the
- * graph will be collected in arbitrary order. If there are none, all
- * non-alt-allele generic sense paths from the graph will be collected in
- * arbitrary order.
+ * file is not openable or contains no entries, reports an error and quits.
+ *
+ * If path_names has entries, they are treated as path names that supplement
+ * those in the file, if any.
+ *
+ * If the filename is itself an empty string, and no path names are passed,
+ * then all reference-sense paths from the graph will be collected in arbitrary
+ * order. If there are none, all non-alt-allele generic sense paths from the
+ * graph will be collected in arbitrary order.
  *
  * TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical
  * of references.
@@ -81,7 +85,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
  * This information needs to come from the user in order to be correct, but 
  * if it's not specified, it'll be guessed from the graph
  */
-vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);                                                   
+vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const PathPositionHandleGraph& graph);                                                   
 
 /**
  * Given a list of path handles and size info (from get_sequence_dictionary), return two things:

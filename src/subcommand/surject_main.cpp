@@ -35,9 +35,8 @@ void help_surject(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE      use this graph or xg index (required)" << endl
          << "    -t, --threads N         number of threads to use" << endl
-         << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
-         << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
-         << "    --ref-paths FILE        ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl    
+         << "    -p, --into-path NAME    surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
+         << "    -F, --into-paths FILE   surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
          << "    -l, --subpath-local     let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "    -G, --gaf-input         input file is GAF instead of GAM" << endl
@@ -61,12 +60,9 @@ int main_surject(int argc, char** argv) {
         return 1;
     }
     
-    #define OPT_REF_PATHS 1001
-
     string xg_name;
-    set<string> path_names;
+    vector<string> path_names;
     string path_file;
-    string ref_paths_name;
     string output_format = "GAM";
     string input_format = "GAM";
     bool spliced = false;
@@ -90,7 +86,7 @@ int main_surject(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
-            {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+            {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
             {"subpath-local", required_argument, 0, 'l'},
             {"interleaved", no_argument, 0, 'i'},
             {"gaf-input", no_argument, 0, 'G'},
@@ -124,17 +120,13 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'p':
-            path_names.insert(optarg);
+            path_names.push_back(optarg);
             break;
 
         case 'F':
             path_file = optarg;
             break;
         
-        case OPT_REF_PATHS:
-            ref_paths_name = optarg;
-            break;
-
         case 'l':
             subpath_global = false;
             break;
@@ -218,17 +210,7 @@ int main_surject(int argc, char** argv) {
     };
 
     string file_name = get_input_file_name(optind, argc, argv);
-
-    if (!path_file.empty()){
-        // open the file
-        ifstream in(path_file);
-        string line;
-        while (std::getline(in,line)) {
-            // Load up all the paths to surject into from the file
-            path_names.insert(line);
-        }
-    }
-
+    
     PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -240,17 +222,20 @@ int main_surject(int argc, char** argv) {
         cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
         exit(1);
     }
+    
+    // Get the paths to surject into and their length information, either from
+    // the given file, or from the provided list, or from sniffing the graph.
+    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *xgidx);
+    // Clear out path_names so we don't accidentally use it
+    path_names.clear();
 
-    // add the target paths.  if there are no path names, add them all.  otherwise, take into account possible subpath names.
+    // Convert to a set for membership testing 
     unordered_set<path_handle_t> paths;
-    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-        if (path_names.empty() || path_names.count(Paths::get_base_name(xgidx->get_path_name(path_handle)))) {
-            paths.insert(path_handle);
-        }
-        });
-    // don't use this anymore: it's no longer updated to include all paths when none given. 
-    path_names.clear();    
-
+    paths.reserve(sequence_dictionary.size());
+    for (auto& entry : sequence_dictionary) {
+        paths.insert(get<0>(entry));
+    }
+    
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
@@ -264,9 +249,6 @@ int main_surject(int argc, char** argv) {
         surjector.min_splice_length = numeric_limits<int64_t>::max();
     }
     
-    // Get the paths to use in the HTSLib header sequence dictionary
-    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(ref_paths_name, *xgidx); 
-   
     // Count our threads
     int thread_count = vg::get_thread_count();
     

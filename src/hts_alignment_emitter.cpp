@@ -189,7 +189,7 @@ pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path
     return make_pair(path_names_and_lengths, subpath_to_length);
 }
 
-vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph) {
+vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const PathPositionHandleGraph& graph) {
 
     // TODO: We assume we're using the one true default path metadata <-> name mapping
     
@@ -200,6 +200,57 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
     // Parse the input into this list.  If length was unspecified (ie in regular text file with one column) then it will be -1
     // and filled in later
     vector<pair<string, int64_t>> input_names_lengths;
+    
+    // When we get a sequence and possibly its length (or -1 if no length is
+    // known), put it in the dictionary.
+    // Can optionally provide a file name for error reporting.
+    auto handle_sequence = [&](const std::string& sequence_name, int64_t length, const std::string* filename) {
+        if (graph.has_path(sequence_name)) {
+            // If the graph does have a path by this exact name, do a length check.
+            path_handle_t path = graph.get_path_handle(sequence_name);
+            size_t graph_path_length = graph.get_path_length(path);
+            if (length == -1) {
+                // We need to infer the length
+                length = graph_path_length;
+            } else if (graph_path_length != length) {
+                // Length was given but doesn't match
+                cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " of length " << graph_path_length
+                     << " but should have a length of " << length;
+                if (filename) {
+                    // Report the source file.
+                    cerr << " from sequence dictionary in " << *filename;
+                }
+                cerr << endl;
+                exit(1);
+            }
+            // Remember the path
+            base_path_to_subpaths[sequence_name].push_back(path);
+        } else {
+            // The graph doesn't have this exact path; does it have any subregions of a full path with this name?
+            // If so, remember and use those.
+            for_each_subpath_of(graph, sequence_name, [&](const path_handle_t& match) {
+                // We know this can't be an exact match, since we already checked for one. It must be a subrange.
+                // We found a subpath we're looking for.
+                base_path_to_subpaths[sequence_name].push_back(match);
+                // Keep looking for more.
+                return true;
+            });
+            if (!base_path_to_subpaths.count(sequence_name)) {
+                // We didn't find any subpaths for this path as a base path either.
+                cerr << "error:[vg::get_sequence_dictionary] Graph does not have a path named " << sequence_name;
+                if (filename) {
+                    // Report the source file.
+                    cerr << " which was indicated in " << filename;
+                }
+                cerr << endl;
+                exit(1);
+            }
+            // The length may still be missing.
+        } 
+
+        input_names_lengths.push_back(make_pair(sequence_name, length));
+    };
+    
     
     if (!filename.empty()) {
         // TODO: As of right now HTSLib doesn't really let you iterate the sequence dictionary when you use its parser. So we use our own parser.
@@ -259,41 +310,8 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                     exit(1);
                 }
                 
-                if (graph.has_path(sequence_name)) {
-                    // If the graph does have a path by this exact name, do a length check.
-                    path_handle_t path = graph.get_path_handle(sequence_name);
-                    size_t graph_path_length = graph.get_path_length(path);
-                    if (missing_length) {
-                        // We need to infer the length
-                        length = graph_path_length;
-                    } else if (graph_path_length != length) {
-                        // Length was given but doesn't match
-                        cerr << "error:[vg mpmap] Graph contains a path " << sequence_name << " of length " << graph_path_length
-                             << " but sequence dictionary in " << filename << " indicates a length of " << length << endl;
-                        exit(1);
-                    }
-                    // Remember the path
-                    base_path_to_subpaths[sequence_name].push_back(path);
-                } else {
-                    // The graph doesn't have this exact path; does it have any subregions of a full path with this name?
-                    // If so, remember and use those.
-                    for_each_subpath_of(graph, sequence_name, [&](const path_handle_t& match) {
-                        // We know this can't be an exact match, since we already checked for one. It must be a subrange.
-                        // We found a subpath we're looking for.
-                        base_path_to_subpaths[sequence_name].push_back(match);
-                        // Keep looking for more.
-                        return true;
-                    });
-                    if (!base_path_to_subpaths.count(sequence_name)) {
-                        // We didn't find any subpaths for this path as a base path either.
-                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
-                        exit(1);
-                    }
-                    // The length may still be missing.
-                } 
-
-                input_names_lengths.push_back(make_pair(sequence_name, length));
-
+                // Now record that we want the sequence.
+                handle_sequence(sequence_name, length, &filename); 
             }
         });
         
@@ -302,7 +320,14 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             cerr << "error:[vg::get_sequence_dictionary] No sequence dictionary available in file: " << filename << endl;
             exit(1);
         }
-    } else {
+    } 
+    
+    for (auto& name : path_names) {
+        // Supplement with any names that were directly provided
+        handle_sequence(name, -1, nullptr);
+    }
+    
+    if (input_names_lengths.empty()) {
         // We got no paths in so we need to guess them.
         // We will deduplicate their base names, without subpath info.
         unordered_set<string> base_names;
