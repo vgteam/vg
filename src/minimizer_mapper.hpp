@@ -154,9 +154,9 @@ public:
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
-    size_t max_chain_connection = 1000;
+    size_t max_chain_connection = 5000;
     /// Similarly, what is the maximum tail length we will try to align?
-    size_t max_tail_length = 150;
+    size_t max_tail_length = 5000;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
