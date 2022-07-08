@@ -1223,7 +1223,56 @@ struct MatchPos {
     /// We need a stack-like type that can be copied or referred to quickly,
     /// since we consider MatchPos objects for each WFANode along a path when
     /// doing find_pos(), and they contain the path.
-    using PathList = structures::ImmutableList<uint32_t>;
+    /// This path type ensures that we only ever push and *then* pop.
+    struct PathList {
+        size_t item_count = 0;
+        uint32_t bottom_item;
+        uint32_t top_item;
+        bool can_push = true;
+        std::shared_ptr<std::vector<uint32_t>> middle_items;
+        
+        void push(uint32_t value) {
+            assert(can_push);
+            if (item_count == 0) {
+                bottom_item = value;
+            }
+            if (item_count > 1) {
+                // Need to stash the existing top item
+                if (!middle_items) {
+                    middle_items.reset(new std::vector<uint32_t>());
+                }
+                middle_items->push_back(top_item);
+            }
+            top_item = value;
+            ++item_count;
+        }
+        
+        bool empty() const {
+            return item_count == 0;
+        }
+        
+        size_t size() const {
+            return item_count;
+        }
+        
+        uint32_t top() const {
+            return top_item;
+        }
+        
+        void pop() {
+            can_push = false;
+            if (item_count == 2) {
+                // Going from 2 items to 1 item.
+                top_item = bottom_item;
+            } else if (item_count > 2) {
+                // We are going to need to get an item from the middle and bring it to the end.
+                // TODO: Instead of filling in the middle in advance, have a way to fill in the middle only when we need it by tracing back from the end.
+                assert(middle_items);
+                top_item = middle_items->at(item_count - 3);
+            }
+            --item_count;
+        }
+    };
     
     PathList path; // Sequence of tree offsets from a leaf to the relevant node.
 
@@ -1234,9 +1283,9 @@ struct MatchPos {
     MatchPos(uint32_t seq_offset, uint32_t node_offset, const PathList& path) : seq_offset(seq_offset), node_offset(node_offset), path(path) {}
 
     bool empty() const { return this->path.empty(); }
-    bool at_last_node() const { return (!this->path.empty() && this->path.pop_front().empty()); }
-    uint32_t node() const { return this->path.front(); }
-    void pop() { this->path = this->path.pop_front(); }
+    bool at_last_node() const { return this->path.size() == 1; }
+    uint32_t node() const { return this->path.top(); }
+    void pop() { this->path.pop(); }
 
     // Positions are ordered by sequence offsets. Empty positions are smaller than
     // non-empty ones.
@@ -2079,7 +2128,7 @@ private:
         MatchPos::PathList path;
         while(true) {
             // Make the path a bit longer.
-            path = path.push_front(node);
+            path.push(node);
             // Find a position at this node.
             // The MatchPos will need to know the whole path, so we can return it.
             // TODO: Actually manage the moves ourselves to make this faster!
