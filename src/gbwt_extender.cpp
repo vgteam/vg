@@ -1462,13 +1462,13 @@ struct WFANode {
         std::cerr << "Looking for last match after WFANode " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
 #endif
     
-        // Get first graph node starting at or after our offset.
-        std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
+        // Get first graph node starting after our offset.
+        std::map<size_t, size_t>::const_iterator here = this->states_by_start.upper_bound(pos.node_offset);
         if (here == this->states_by_start.begin()) {
             // We are somehow starting before the first item (which should start at 0). This should never happen.
             throw std::runtime_error("Offset on WFANode starts before its first graph node, which ought to be at 0");
         }
-        // Get last graph node starting before our offset.
+        // Get last graph node starting at or before our offset.
         --here;
         
         // We have the index of the state starting at or after the match pos. So it's the one the position is on.
@@ -1548,13 +1548,13 @@ struct WFANode {
         std::cerr << "Looking for first match before WFANode " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
 #endif
     
-        // Get first graph node starting at or after our offset.
-        std::map<size_t, size_t>::const_iterator here = this->states_by_start.lower_bound(pos.node_offset);
+        // Get first graph node starting after our offset.
+        std::map<size_t, size_t>::const_iterator here = this->states_by_start.upper_bound(pos.node_offset);
         if (here == this->states_by_start.begin()) {
             // We are somehow starting before the first item (which should start at 0). This should never happen.
             throw std::runtime_error("Offset on WFANode starts before its first graph node, which ought to be at 0");
         }
-        // Get last graph node starting before our offset.
+        // Get last graph node starting at or before our offset.
         --here;
         
         // We have the index of the state starting at or after the match pos. So it's the one the position is on.
