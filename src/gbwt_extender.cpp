@@ -1601,6 +1601,7 @@ public:
         debug(false)
     {
         this->nodes.emplace_back(this->coalesce(root), 0, this->graph);
+        // No need to convert the node offset because it is from the root state's node start
         this->nodes.front().update(WFANode::MATCHES, 0, 0, 0, node_offset);
 
         // Determine a reasonable upper bound for the number of edits.

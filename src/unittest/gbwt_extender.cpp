@@ -1582,6 +1582,22 @@ TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
 
 //------------------------------------------------------------------------------
 
+TEST_CASE("Mismatches over multiple nodes of a linear graph", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+    
+    // MMMXMMMMMXMM
+    std::string sequence("GATAACAGACTA");
+    pos_t from(1, false, 2); pos_t to(4, false, 0);
+    WFAAlignment result = extender.connect(sequence, from, to);
+    check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
+    check_alignment(result, sequence, graph, aligner, &from, &to);
+        
+}
+
 TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
@@ -1648,7 +1664,7 @@ TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
         std::string sequence("GATAACAGACTA");
         pos_t from(1, false, 2); pos_t to(4, false, 0);
         WFAAlignment result = extender.connect(sequence, from, to);
-        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
