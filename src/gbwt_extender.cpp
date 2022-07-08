@@ -1478,60 +1478,22 @@ struct WFANode {
             // Grab the handle for the graph node we are at
             handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->states[here->second].node);
             
-#ifdef debug_wfa
-            std::cerr << "Look at graph node for GBWT encoded node " << this->states[here->second].node << " starting at " << here->first << " in WFANode" << std::endl;
-#endif
-            
             // And get a view of its sequence
             gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
             size_t graph_node_offset = pos.node_offset - here->first;
             
-#ifdef debug_wfa
-            std::cerr << "WFANode " << pos.node_offset << " is " << graph_node_offset << "/" << node_seq.second;
-            if (graph_node_offset < node_seq.second) {
-                std::cerr << " and base " << node_seq.first[graph_node_offset];
-            }
-            std::cerr << std::endl;
-            std::cerr << "Sequence " << pos.seq_offset;
-            if (pos.seq_offset < sequence.length()) {
-                std::cerr << " is " << sequence[pos.seq_offset];
-            }
-            std::cerr << std::endl;
-#endif
             while (pos.seq_offset < sequence.length() && graph_node_offset < node_seq.second && sequence[pos.seq_offset] == node_seq.first[graph_node_offset]) {
                 // Until we hit the end of the sequence, or the graph node, or a mismatch, advance
                 pos.seq_offset++;
                 pos.node_offset++;
                 graph_node_offset = pos.node_offset - here->first;
-                
-#ifdef debug_wfa
-                std::cerr << "WFANode " << pos.node_offset << " is " << graph_node_offset << "/" << node_seq.second;
-                if (graph_node_offset < node_seq.second) {
-                    std::cerr << " and base " << node_seq.first[graph_node_offset];
-                }
-                std::cerr << std::endl;
-                std::cerr << "Sequence " << pos.seq_offset;
-                if (pos.seq_offset < sequence.length()) {
-                    std::cerr << " is " << sequence[pos.seq_offset];
-                }
-                std::cerr << std::endl;
-#endif
-                
             }
             if (graph_node_offset >= node_seq.second) {
-#ifdef debug_wfa
-                std::cerr << "Look at next graph node" << std::endl;
-#endif
                 // We hit the end of a graph node.
                 // Advance to the next graph node.
                 ++here;
             } else {
                 // We hit the end of the sequence, or a mismatch.
-                
-#ifdef debug_wfa
-                std::cerr << "Found end of sequence, or a mismatch" << std::endl;
-#endif
-                
                 break;
             }
         }
@@ -1660,6 +1622,7 @@ public:
     /// TODO: Save a scan by unifying with WFANode constructor?
     vector<gbwt::SearchState> coalesce(const gbwt::SearchState& start, size_t base_limit = 1024) {
         vector<gbwt::SearchState> coalesced {start};
+        
         std::unordered_set<gbwt::node_type> visited {start.node};
         gbwt::SearchState here = start;
         gbwt::CachedGBWT cache = graph.get_cache(); // TODO: Take in cache? Is this even useful here?
@@ -1745,8 +1708,20 @@ public:
     // of possible scores with those reachable from the given score but does not
     // set the diagonal ranges for them.
     int32_t next_score(int32_t match_score) {
+    
+#ifdef debug_wfa
+        std::cerr << "Possible scores after " << match_score << ":";
+        for (auto& kv : this->possible_scores) {
+            std::cerr << " " << kv.first;
+        }
+        std::cerr << std::endl;
+#endif
+    
         int32_t mismatch_score = match_score + this->mismatch;
         if (this->possible_scores.find(mismatch_score) == this->possible_scores.end()) {
+#ifdef debug_wfa
+            std::cerr << "Assume it is also possible to take an additional mismatch and get " << mismatch_score << std::endl;
+#endif
             this->possible_scores[mismatch_score] = { 0, 0, false };
         }
 
@@ -1756,8 +1731,16 @@ public:
             int32_t extend_score = match_score + this->gap_extend;
             auto extend_iter = this->possible_scores.find(extend_score);
             if (extend_iter != this->possible_scores.end()) {
+#ifdef debug_wfa
+                std::cerr << "Assume it is also possible to extend a gap and get existing score of " << extend_score << std::endl;
+#endif
+                
                 extend_iter->second.reachable_with_gap = true;
             } else {
+#ifdef debug_wfa
+                std::cerr << "Assume it is also possible to extend a gap and get " << extend_score << std::endl;
+#endif
+            
                 this->possible_scores[extend_score] = { 0, 0, true };
             }
         }
@@ -1765,8 +1748,14 @@ public:
         int32_t open_score = match_score + this->gap_open + this->gap_extend;
         auto open_iter = this->possible_scores.find(open_score);
         if (open_iter != this->possible_scores.end()) {
+#ifdef debug_wfa
+            std::cerr << "Assume it is also possible to open a gap and get existing score of " << open_score << std::endl;
+#endif
             open_iter->second.reachable_with_gap = true;
         } else {
+#ifdef debug_wfa
+            std::cerr << "Assume it is also possible to open a gap and get " << open_score << std::endl;
+#endif
             this->possible_scores[open_score] = { 0, 0, true };
         }
 
@@ -1927,31 +1916,66 @@ private:
     void extend_over(int32_t score, int32_t diagonal, pos_t to, const std::vector<uint32_t>& leaves) {
         for (uint32_t leaf : leaves) {
 #ifdef debug_wfa
-            std::cerr << "Extend over leaf WFA node " << leaf << std::endl;
+            std::cerr << "Extend over leaf WFA node " << &this->nodes[leaf] << " for states on GBWT encoded nodes " << this->nodes[leaf].states.front().node << "..." << this->nodes[leaf].states.back().node << std::endl;
 #endif
             MatchPos pos = this->find_pos(WFANode::MATCHES, leaf, score, diagonal, false, false);
             if (pos.empty()) {
 #ifdef debug_wfa
-                std::cerr << "Cannot get this score on this diagonal here" << std::endl;
+                std::cerr << "Cannot get score " << score << " on diagonal " << diagonal << " here" << std::endl;
 #endif
                 continue; // An impossible score / diagonal combination.
             }
             while (true) {
-                bool may_reach_to = this->nodes[pos.node()].same_node(to) && (pos.node_offset <= this->nodes[pos.node()].node_offset_of(to));
+#ifdef debug_wfa
+                std::cerr << "On the correct diagonal we have WFANode " << &this->nodes[pos.node()] << " offset " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
+#endif
+
+                // We want to determine if we could reach our fixed destination point, if it exists
+                bool may_reach_to;
+                // And if so, where it would be along this WFANode.
+                uint32_t to_offset;
+                if (this->nodes[pos.node()].same_node(to)) {
+                    // Work out where we would have to go
+                    to_offset = this->nodes[pos.node()].node_offset_of(to);
+                    // And if we can get there
+                    may_reach_to = this->nodes[pos.node()].same_node(to) && (pos.node_offset <= to_offset);
+                } else {
+                    // We can't get there, it's not on this WFANode.
+                    may_reach_to = false;
+                }
+                
+#ifdef debug_wfa
+                if (may_reach_to) {
+                    std::cerr << "Might be able to connect to the end" << std::endl;
+                }
+#endif
+                
                 this->nodes[pos.node()].match_forward(this->sequence, this->graph, pos);
+                
+#ifdef debug_wfa
+                std::cerr << "Extending with matches we have WFANode " << &this->nodes[pos.node()] << " offset " << pos.node_offset << " = sequence " << pos.seq_offset << std::endl;
+#endif
+                
                 // We got a match that reached the end or went past it.
                 // Alternatively there is no end position and we have aligned the entire sequence.
                 // This gives us a candidate where the rest of the sequence is an insertion.
-                if ((may_reach_to && pos.node_offset >= this->nodes[pos.node()].node_offset_of(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
-                    uint32_t overshoot = (no_pos(to) ? 0 : pos.node_offset - offset(to));
+                if ((may_reach_to && pos.node_offset >= to_offset) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
+                    uint32_t overshoot = (no_pos(to) ? 0 : pos.node_offset - to_offset);
                     uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + overshoot;
                     int32_t gap_score = 0;
                     if (gap_length > 0) {
                         gap_score = this->gap_penalty(gap_length);
                     }
+#ifdef debug_wfa
+                    std::cerr << "We can get to the end with matches, an overshoot of " << overshoot << " and a " << gap_length << " base gap" << std::endl;
+#endif
                     if (score + gap_score < this->candidate_point.score) {
-                        this->candidate_point = { score + gap_score, diagonal, pos.seq_offset - overshoot, static_cast<uint32_t>(offset(to)) };
+                        this->candidate_point = { score + gap_score, diagonal, pos.seq_offset - overshoot, to_offset };
                         this->candidate_node = pos.node();
+                        
+#ifdef debug_wfa
+                        std::cerr << "New candidate point score " << this->candidate_point.score;
+#endif
                     }
                 }
                 this->nodes[pos.node()].update(WFANode::MATCHES, score, diagonal, pos);

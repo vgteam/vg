@@ -2289,6 +2289,22 @@ TEST_CASE("Suffix in a general graph", "[wfa_extender]") {
 
 //------------------------------------------------------------------------------
 
+TEST_CASE("WFAExtender can connect three times around a cycle with an insertion", "[wfa_extender]") {
+    // CGC GA TAT
+    // CGC GA GA TAT
+    // CGC GA GA GA TAT
+    gbwt::GBWT index = wfa_cycle_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_cycle_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+    
+    std::string sequence("CGAGAGAGAT");
+    pos_t from(1, false, 1); pos_t to(3, false, 1);
+    WFAAlignment result = extender.connect(sequence, from, to);
+    check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
+    check_alignment(result, sequence, graph, aligner, &from, &to);
+}
+
 TEST_CASE("Connect with a cycle", "[wfa_extender]") {
     // CGC GA TAT
     // CGC GA GA TAT
