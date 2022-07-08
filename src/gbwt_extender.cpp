@@ -1937,7 +1937,7 @@ private:
                 continue; // An impossible score / diagonal combination.
             }
             while (true) {
-                bool may_reach_to = this->nodes[pos.node()].same_node(to) & (pos.node_offset <= this->nodes[pos.node()].node_offset_of(to));
+                bool may_reach_to = this->nodes[pos.node()].same_node(to) && (pos.node_offset <= this->nodes[pos.node()].node_offset_of(to));
                 this->nodes[pos.node()].match_forward(this->sequence, this->graph, pos);
                 // We got a match that reached the end or went past it.
                 // Alternatively there is no end position and we have aligned the entire sequence.
