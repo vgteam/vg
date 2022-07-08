@@ -1492,22 +1492,6 @@ void check_alignment(const WFAAlignment& alignment, const std::string& sequence,
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Exact match within a single node of a linear graph", "[wfa_extender]") {
-    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
-    gbwt::GBWT index = wfa_linear_gbwt();
-    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
-    Aligner aligner;
-    WFAExtender extender(graph, aligner);
-    
-    extender.debug = true;
-
-    std::string sequence("ATTA");
-    pos_t from(2, false, 0); pos_t to(2, false, 5);
-    WFAAlignment result = extender.connect(sequence, from, to);
-    check_score(result, aligner, sequence.length(), 0, 0, 0);
-    check_alignment(result, sequence, graph, aligner, &from, &to);
-}
-
 TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
     gbwt::GBWT index = wfa_linear_gbwt();
@@ -1526,6 +1510,14 @@ TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
     SECTION("Single node, middle") {
         std::string sequence("ATTAC");
         pos_t from(2, false, 0); pos_t to(2, false, 6);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("Single node, middle, not just before end") {
+        std::string sequence("ATTA");
+        pos_t from(2, false, 0); pos_t to(2, false, 5);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length(), 0, 0, 0);
         check_alignment(result, sequence, graph, aligner, &from, &to);
@@ -1581,22 +1573,6 @@ TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
 }
 
 //------------------------------------------------------------------------------
-
-TEST_CASE("Mismatches over multiple nodes of a linear graph", "[wfa_extender]") {
-    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
-    gbwt::GBWT index = wfa_linear_gbwt();
-    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
-    Aligner aligner;
-    WFAExtender extender(graph, aligner);
-    
-    // MMMXMMMMMXMM
-    std::string sequence("GATAACAGACTA");
-    pos_t from(1, false, 2); pos_t to(4, false, 0);
-    WFAAlignment result = extender.connect(sequence, from, to);
-    check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
-    check_alignment(result, sequence, graph, aligner, &from, &to);
-        
-}
 
 TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
     // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
@@ -2304,22 +2280,6 @@ TEST_CASE("Suffix in a general graph", "[wfa_extender]") {
 }
 
 //------------------------------------------------------------------------------
-
-TEST_CASE("WFAExtender can connect three times around a cycle with an insertion", "[wfa_extender]") {
-    // CGC GA TAT
-    // CGC GA GA TAT
-    // CGC GA GA GA TAT
-    gbwt::GBWT index = wfa_cycle_gbwt();
-    gbwtgraph::GBWTGraph graph = wfa_cycle_graph(index);
-    Aligner aligner;
-    WFAExtender extender(graph, aligner);
-    
-    std::string sequence("CGAGAGAGAT");
-    pos_t from(1, false, 1); pos_t to(3, false, 1);
-    WFAAlignment result = extender.connect(sequence, from, to);
-    check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
-    check_alignment(result, sequence, graph, aligner, &from, &to);
-}
 
 TEST_CASE("Connect with a cycle", "[wfa_extender]") {
     // CGC GA TAT
