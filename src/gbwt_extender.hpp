@@ -338,13 +338,52 @@ namespace vg {
  */
 class WFAExtender {
 public:
+
+    /**
+     * Defines how many of what kind of errors the WFA alignment algorithm
+     * should tolerate, as a function of sequence length.
+     *
+     * The WFA alignment can't actually limit edits by type, but it can limit
+     * the score such that you can't exceed all the limits on different event
+     * types at once.
+     */
+    struct ErrorModel {
+        
+        /// We have one of these each for matches, mismatches, and gaps to
+        /// define how many of them to allow.
+        struct Event {
+            /// How many of the event should we allow per base?
+            double per_base;
+            /// How many should we allow at least or at most, regardless
+            /// of sequence length? Min is a bonus over the per-base calculation,
+            /// but max is a cap.
+            int32_t min, max;
+            
+            /// Evaluate the model and get a limit number for this kind of
+            /// event for a given sequence length.
+            inline int32_t evaluate(size_t length) const {
+                return std::min(max, (int32_t)(per_base * length) + min);
+            }
+        };
+            
+        /// Limits for mismatches
+        Event mismatches;
+        /// Limits for total gaps (*not* gap opens; a gap open uses 1 gap and 1 gap length)
+        Event gaps;
+        /// Limits for total gap length (gap extends plus gap opens)
+        Event gap_length;
+    };
+    
+    /// If not specified, we use this default error model.
+    static const ErrorModel default_error_model;
+
     /// Create an empty WFAExtender.
     WFAExtender();
 
     /// Create a WFAExtender using the given GBWTGraph and Aligner objects.
-    /// TODO: Provide an error model for specifying bounds for acceptable
-    /// alignment scores.
-    WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
+    /// If an error model is passed, use that instead of the default error model.
+    /// All arguments must outlive the WFAExtender.
+    WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner, const ErrorModel& error_model = default_error_model);
 
     /**
      * Align the sequence to a haplotype between the two graph positions.
@@ -393,7 +432,8 @@ public:
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;
     const Aligner*              aligner;
-
+    const ErrorModel*           error_model;
+    
     /// TODO: Remove when unnecessary.
     bool debug = false;
 };
