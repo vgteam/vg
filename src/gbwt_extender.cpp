@@ -1200,11 +1200,11 @@ namespace vg {
 
 const WFAExtender::ErrorModel WFAExtender::default_error_model {
     // Mismatches (per base, plus min, cap at max)
-    {0.03, 1, 25},
+    {0.03, 1, 6},
     // Gaps
-    {0.05, 1, 25},
+    {0.05, 1, 10},
     // Gap length
-    {0.1, 1, 50}
+    {0.1, 1, 20}
 };
 
 WFAExtender::WFAExtender() :
