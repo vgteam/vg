@@ -1198,19 +1198,39 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+const WFAExtender::ErrorModel WFAExtender::default_error_model {
+    // Mismatches (per base, plus min, cap at max)
+    {0.03, 1, 25},
+    // Gaps
+    {0.05, 1, 25},
+    // Gap length
+    {0.1, 1, 50}
+};
+
 WFAExtender::WFAExtender() :
     graph(nullptr), mask("ACGT"), aligner(nullptr)
 {
 }
 
-WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
-    graph(&graph), mask("ACGT"), aligner(&aligner)
+WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner, const ErrorModel& error_model) :
+    graph(&graph), mask("ACGT"), aligner(&aligner), error_model(&error_model)
 {
     // Check that the scoring parameters are reasonable.
     assert(this->aligner->match >= 0);
     assert(this->aligner->mismatch > 0);
     assert(this->aligner->gap_open >= this->aligner->gap_extension);
     assert(this->aligner->gap_extension > 0);
+   
+    // Check that the error model makes sense.
+    for (auto& event : {
+        this->error_model->mismatches,
+        this->error_model->gaps,
+        this->error_model->gap_length
+    }) {
+        assert(event.per_base >= 0);
+        assert(event.min >= 0);
+        assert(event.max >= event.min);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1644,7 +1664,7 @@ public:
     // TODO: Remove when unnecessary.
     bool debug;
 
-    WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, uint32_t node_offset, const Aligner& aligner) :
+    WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, uint32_t node_offset, const Aligner& aligner, const WFAExtender::ErrorModel& error_model) :
         graph(graph), sequence(sequence),
         nodes(),
         candidate_point({ std::numeric_limits<int32_t>::max(), 0, 0, 0 }), candidate_node(0),
@@ -1660,10 +1680,9 @@ public:
         this->nodes.front().update(WFANode::MATCHES, 0, 0, 0, node_offset);
 
         // Determine a reasonable upper bound for the number of edits.
-        // FIXME Use an actual error model.
-        int32_t max_mismatches = 0.03 * sequence.length() + 1;
-        int32_t max_gaps = 0.05 * sequence.length() + 1;
-        int32_t max_gap_length = 0.1 * sequence.length() + 1;
+        int32_t max_mismatches = error_model.mismatches.evaluate(sequence.length());
+        int32_t max_gaps = error_model.gaps.evaluate(sequence.length());
+        int32_t max_gap_length =  error_model.gap_length.evaluate(sequence.length());
         this->score_bound = max_mismatches * this->mismatch + max_gaps * this->gap_open + max_gap_length * this->gap_extend;
 
         possible_scores[0] = { 0, 0, false };
@@ -2166,7 +2185,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
     this->mask(sequence);
 
-    WFATree tree(*(this->graph), sequence, root_state, offset(from) + 1, *(this->aligner));
+    WFATree tree(*(this->graph), sequence, root_state, offset(from) + 1, *(this->aligner), *(this->error_model));
     tree.debug = this->debug;
 #ifdef debug_wfa
         std::cerr << "Connect with sequence " << sequence << std::endl;

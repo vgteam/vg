@@ -1352,8 +1352,18 @@ gbwtgraph::GBWTGraph wfa_cycle_graph(const gbwt::GBWT& index) {
 }
 
 void check_score(const WFAAlignment& alignment, const Aligner& aligner, int32_t matches, int32_t mismatches, int32_t gaps, int32_t gap_length) {
+    // The Aligner scores gap opens and gap extends, while we are working in
+    // cap count and total length. So convert total length to number of
+    // extends.
     int32_t extensions = gap_length - gaps;
     int32_t expected_score = matches * aligner.match - mismatches * aligner.mismatch - gaps * aligner.gap_open - extensions * aligner.gap_extension;
+    if (alignment.score != expected_score) {
+        // Log a bit about what we don't like about this alignment.
+        std::cerr << "Expected " << matches << " matches, " << mismatches << " mismatches, and " << gaps << " gaps of total length " << gap_length << ", for total score " << expected_score << std::endl;
+        std::cerr << "Got: ";
+        alignment.print(std::cerr);
+        std::cerr << std::endl;
+    }
     REQUIRE(alignment.score == expected_score);
 }
 
@@ -2353,6 +2363,147 @@ TEST_CASE("Connect with a cycle", "[wfa_extender]") {
         pos_t from(2, false, 1); pos_t to(2, false, 1);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+
+    SECTION("One mismatch") {
+        // MMMXMM|MMMM
+        std::string sequence("ATTCCAGATT");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 1, 1},
+            {0, 0, 0},
+            {0, 0, 0}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("No more than one mismatch") {
+        // MMMXMM|MXMM
+        std::string sequence("ATTCCAGCTT");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 1, 1},
+            {0, 0, 0},
+            {0, 0, 0}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("No longer a gap than 0, even if a gap is allowed") {
+        //                            v
+        std::string sequence("GCGATTACCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 0, 0}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("One gap of length 1") {
+        //                            v
+        std::string sequence("GCGATTACCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 1, 1}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 0, 1, 1);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("No longer a gap than 1") {
+        //                            v
+        std::string sequence("GCGATTACCCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 1, 1}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("One gap of length 2") {
+        //                            v
+        std::string sequence("GCGATTACCCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 2, 2}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("No more than one gap, total length 2") {
+        //                            v      v
+        std::string sequence("GCGATTACCAGATTACTA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 2, 2}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("Two gaps of total length 2") {
+        //                            v      v
+        std::string sequence("GCGATTACCAGATTACTA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 2, 2},
+            {0, 2, 2}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 0, 2, 2);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
