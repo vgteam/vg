@@ -550,7 +550,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -972,7 +972,7 @@ namespace vg {
         
         }
         TEST_CASE( "Snarl decomposition can traverse a simple chain with trivial snarls",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
         
         
             VG graph;
@@ -1088,6 +1088,54 @@ namespace vg {
                     return true;
                 });
                 REQUIRE(traversal_i == 8);
+            }
+            SECTION("Find shortest path from simple snarl") {
+                SECTION("Distance traceback") {
+                    pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
+                    REQUIRE(distance_index.minimum_distance(3, false, 0, 10, false, 0, false, &graph, &traceback) == 9);
+                    REQUIRE(traceback.first.size() == 3);
+                    REQUIRE(traceback.second.size() == 2);
+
+                    //What the traceback should be
+                    vector<tuple<net_handle_t, int32_t, int32_t>> traceback1;
+                    traceback1.emplace_back(distance_index.get_node_net_handle(n3->id()), std::numeric_limits<int32_t>::max(), 1);
+                    if (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()))) {
+                        //IF the chain is traversed backwards, then distance to start
+                        traceback1.emplace_back(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())), 0, std::numeric_limits<int32_t>::max());
+
+                    } else { 
+                        traceback1.emplace_back(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))), std::numeric_limits<int32_t>::max(), 0);
+                    }
+                    traceback1.emplace_back(distance_index.get_parent(distance_index.get_node_net_handle(n1->id())), 8, std::numeric_limits<int32_t>::max());
+
+                    vector<tuple<net_handle_t, int32_t, int32_t>> traceback2;
+                    traceback2.emplace_back(distance_index.get_node_net_handle(n10->id()), 1, std::numeric_limits<int32_t>::max());
+                    traceback2.emplace_back(distance_index.get_parent(distance_index.get_node_net_handle(n1->id())), std::numeric_limits<int32_t>::max(), -8);
+
+                    REQUIRE(traceback.first[0] == traceback1[0]);
+                    REQUIRE(traceback.first[1] == traceback1[1]);
+                    REQUIRE(traceback.first[2] == traceback1[2]);
+                    REQUIRE(traceback.second[0] == traceback2[0]);
+                    REQUIRE(traceback.second[1] == traceback2[1]);
+                }
+
+                size_t traversal_i = 0;
+                vector<pair<handlegraph::handle_t, size_t>> actual_path;
+                actual_path.emplace_back(graph.get_handle(3, false), 0);
+                actual_path.emplace_back(graph.get_handle(5, false), 1);
+                actual_path.emplace_back(graph.get_handle(6, false), 4);
+                actual_path.emplace_back(graph.get_handle(7, false), 5);
+                actual_path.emplace_back(graph.get_handle(9, false), 6);
+                actual_path.emplace_back(graph.get_handle(10, false), 9);
+
+                distance_index.for_each_handle_in_shortest_path(3, false, 10, false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
+                    cerr << graph.get_id(handle) << " " << distance << endl;
+                    REQUIRE(handle == actual_path[traversal_i].first);
+                    REQUIRE(distance == actual_path[traversal_i].second);
+                    traversal_i ++;
+                    return true;
+                });
+                REQUIRE(traversal_i == 6);
             }
         }
   
@@ -6935,7 +6983,113 @@ namespace vg {
             }
         
             
+        } 
+        TEST_CASE( "random minimum distance paths",
+                  "[snarl_distance_random_paths]" ) {
+        
+            // Each actual graph takes a fairly long time to do so we randomize sizes...
+            
+            default_random_engine generator(test_seed_source());
+            
+            for (size_t repeat = 0; repeat < 2000; repeat++) {
+            
+                uniform_int_distribution<size_t> bases_dist(100, 1000);
+                size_t bases = bases_dist(generator);
+                uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
+                size_t variant_bases = variant_bases_dist(generator);
+                uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
+                size_t variant_count = variant_count_dist(generator);
+
+                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
+                size_t size_limit = snarl_size_limit_dist(generator);
+                size_t distance_limit = snarl_size_limit_dist(generator);
+                        
+#ifdef debug
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
+#endif
+            
+                VG graph;
+                random_graph(bases, variant_bases, variant_count, &graph);
+                IntegratedSnarlFinder finder(graph); 
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit, distance_limit);
+
+                            graph.serialize_to_file("test_graph.hg");
+                for (size_t repeat_positions = 0 ; repeat_positions < 500 ; repeat_positions++) {
+                    //Pick random pairs of positions and find the distance between them
+                    id_t node_id1 = 0;
+                    id_t node_id2 = 0;
+                    uniform_int_distribution<int> random_node_ids(graph.min_node_id(),graph.max_node_id());
+                    default_random_engine generator(test_seed_source());
+                    while (node_id1 == 0) {
+                        id_t new_id = random_node_ids(generator); 
+                        if (graph.has_node(new_id)) {
+                            node_id1 = new_id;
+                        }
+                    }
+                    while (node_id2 == 0) {
+                        id_t new_id = random_node_ids(generator); 
+                        if (graph.has_node(new_id)) {
+                            node_id2 = new_id;
+                        }
+                    }
+
+                    REQUIRE(graph.has_node(node_id1));
+                    REQUIRE(graph.has_node(node_id2));
+
+                    bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
+                    bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
+                    
+                    
+                    handle_t handle1 = graph.get_handle(node_id1, rev1);
+                    handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+                    size_t minimum_distance = distance_index.minimum_distance(node_id1, rev1, 0, node_id2, rev2, 0);
+                    vector<pair<handlegraph::handle_t, size_t>> path;
+                    cerr << "Find path from " << graph.get_id(handle1) << (graph.get_is_reverse(handle1) ? " rev" : " fd") << " TO " << graph.get_id(handle2) << (graph.get_is_reverse(handle2) ? " rev" : " fd") << endl;
+
+                    distance_index.for_each_handle_in_shortest_path(node_id1, rev1, node_id2, rev2, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
+                        cerr << "Traversing node " << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev" : " fd") << " with distance " << distance << endl; 
+                        path.emplace_back(handle, distance);
+                        return true;
+                    });
+                    cerr << "Distance path " << endl;
+                    for (auto x : path) {
+                        cerr << graph.get_id(x.first) << (graph.get_is_reverse(x.first) ? " rev" : " fd") << " with distance " << x.second << endl; 
+
+                    }
+                    if (path.size() == 0) {
+                        REQUIRE(minimum_distance == std::numeric_limits<size_t>::max());
+                    } else {
+                        REQUIRE(minimum_distance != std::numeric_limits<size_t>::max());
+
+                        size_t path_i = 0;
+                        cerr <<" NOw start dijkstra" << endl;
+                        handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                            cerr << "At node " << graph.get_id(reached) << (graph.get_is_reverse(reached) ? " rev" : " fd") << " at distance " << distance << endl;
+                            if (reached == handle2) {
+                                if (reached == handle1) {
+                                    REQUIRE(distance == path[path_i].second);
+                                    REQUIRE(path_i == 0);
+                                } else {
+                                    REQUIRE(distance+graph.get_length(handle1) == path[path_i].second);
+                                    REQUIRE(path_i == path.size() - 1);
+                                }
+                                return false;
+                            } else if (path[path_i].first == reached) {
+                                cerr << "\tmatched" << endl;
+                                if (reached == handle1) {
+                                    REQUIRE(distance == path[path_i].second);
+                                } else {
+                                    REQUIRE(distance+graph.get_length(handle1) == path[path_i].second);
+                                }
+                                path_i++;
+                            }
+                            return true;
+                        });
+                    }
+                }
+            }
         }
-       
    }
 }
