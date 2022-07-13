@@ -89,6 +89,12 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
+    // We're doing long alignments so we need to raise the WFA score caps
+    WFAExtender::ErrorModel error_model = WFAExtender::default_error_model;
+    error_model.mismatches.max = std::numeric_limits<int32_t>::max();
+    error_model.gaps.max = std::numeric_limits<int32_t>::max();
+    error_model.gap_length.max = std::numeric_limits<int32_t>::max();
+    
     size_t node_length = 32;
     
     for (size_t node_count = 10; node_count <= 320; node_count *= 2) {
@@ -157,7 +163,7 @@ int main_benchmark(int argc, char** argv) {
         
         // Make the Aligner and Extender
         Aligner aligner;
-        WFAExtender extender(graph, aligner);
+        WFAExtender extender(graph, aligner, error_model);
         
         results.push_back(run_benchmark("connect() on " + std::to_string(node_count) + " node sequence", 1, [&]() {
             // Do the alignment
