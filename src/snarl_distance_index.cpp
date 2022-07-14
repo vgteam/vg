@@ -1214,6 +1214,13 @@ void populate_snarl_index(
             if (max_length != std::numeric_limits<size_t>::max()) {
                 temp_snarl_record.max_length = std::max(temp_snarl_record.max_length, max_length);
             }
+            if ( temp_snarl_record.is_simple && 
+                ! ((dist_start_left == 0 && dist_end_right == 0 && dist_end_left == std::numeric_limits<size_t>::max() && dist_start_right == std::numeric_limits<size_t>::max() ) || 
+                   (dist_start_left == std::numeric_limits<size_t>::max() && dist_end_right == std::numeric_limits<size_t>::max() && dist_end_left == 0 && dist_start_right == 0 ))){
+                //If the snarl is simple, double check that this node is actually simple: that it can only be traversed going
+                //across the nsarl
+                temp_snarl_record.is_simple = false;
+            }
         }
     }
 
