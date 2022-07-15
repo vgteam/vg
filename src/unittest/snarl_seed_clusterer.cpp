@@ -489,7 +489,7 @@ namespace unittest {
         }
     }
 
-    TEST_CASE("Use path through big snarl", "[cluster][bug]") {
+    TEST_CASE("Use path through big snarl", "[cluster]") {
         //Chain: 1 - (snarl 2-7) - 8
         
         VG graph;

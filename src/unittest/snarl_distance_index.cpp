@@ -114,10 +114,6 @@ namespace vg {
         }
         TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
         
-        
-            // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
-            // and a snarl from 3 to 5, all nested in each other.
-            // And a chain from 9 to 11 that is attached to the node 12
             VG graph;
                 
             Node* n1 = graph.create_node("GCA");
@@ -148,7 +144,7 @@ namespace vg {
             Edge* e11 = graph.create_edge(n7, n10);
             Edge* e12 = graph.create_edge(n7, n8);
             Edge* e13 = graph.create_edge(n7, n8, false, true);
-            Edge* e14 = graph.create_edge(n8, n9);
+            Edge* e14 = graph.create_edge(n7, n9);
             Edge* e15 = graph.create_edge(n9, n10);
             Edge* e16 = graph.create_edge(n10, n11);
             Edge* e17 = graph.create_edge(n11, n12);
@@ -175,6 +171,10 @@ namespace vg {
                 REQUIRE(distance_index.distance_in_parent(chain1_13, distance_index.flip(node2), distance_index.flip(node2)) == 0); 
                 REQUIRE(distance_index.minimum_distance(n2->id(),true, 0, n2->id(), false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(n4->id(),true, 0, n5->id(), true, 0) == 19);
+                REQUIRE(distance_index.minimum_distance(n5->id(),false, 0, n5->id(), true, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(n7->id(),false, 0, n7->id(), true, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(n7->id(),false, 0, n8->id(), false, 0) == 1);
+                REQUIRE(distance_index.minimum_distance(n7->id(),false, 0, n8->id(), true, 0) == 1);
             }
             SECTION("Paths are correct") {
 
@@ -198,6 +198,33 @@ namespace vg {
                     return true;
                 });
                 REQUIRE(traversal_i == 9);
+            }
+            SECTION("Path that leaves lowest common ancestor") {
+
+                size_t traversal_i = 0;
+                vector<pair<handlegraph::handle_t, size_t>> actual_path;
+                actual_path.emplace_back(graph.get_handle(n8->id(), true), 0);
+                actual_path.emplace_back(graph.get_handle(n7->id(), true), 4);
+                actual_path.emplace_back(graph.get_handle(n5->id(), true), 5);
+                actual_path.emplace_back(graph.get_handle(n4->id(), true), 8);
+                actual_path.emplace_back(graph.get_handle(n2->id(), true), 12);
+                actual_path.emplace_back(graph.get_handle(n2->id(), false), 13);
+                actual_path.emplace_back(graph.get_handle(n4->id(), false), 14);
+                actual_path.emplace_back(graph.get_handle(n5->id(), false), 18);
+                actual_path.emplace_back(graph.get_handle(n7->id(), false), 21);
+                actual_path.emplace_back(graph.get_handle(n9->id(), false), 22);
+
+                distance_index.for_each_handle_in_shortest_path(n8->id(), true, n9->id(), false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
+                    cerr << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev: " : " fd: ") << distance << endl;
+                    REQUIRE(handle == actual_path[traversal_i].first);
+                    REQUIRE(distance == actual_path[traversal_i].second);
+                    traversal_i ++;
+                    if (traversal_i > 10) {
+                        REQUIRE(false);
+                    }
+                    return true;
+                });
+                REQUIRE(traversal_i == 10);
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
