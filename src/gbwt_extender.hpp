@@ -247,6 +247,7 @@ struct WFAAlignment {
     std::vector<std::pair<Edit, uint32_t>> edits;
 
     /// Starting offset in the initial node.
+    /// If there is no initial node, the value stored is undefined.
     uint32_t node_offset = 0;
 
     /// Starting offset in the sequence.

@@ -888,10 +888,14 @@ void WFAAlignment::join(const WFAAlignment& second) {
     if (second.edits.empty()) {
         throw std::runtime_error("Cannot join alignments because second alignment has no edits");
     }
-
+    
     if (!second.unlocalized_insertion()) {
         // The second alignment has a path
-        if (second.node_offset == 0 || unlocalized_insertion()) {
+        if (unlocalized_insertion()) {
+            // We don't, so include the first handle and copy the offset on it.
+            node_offset = second.node_offset;
+            path.push_back(second.path.front());
+        } else if (second.node_offset == 0) {
             // Include the first handle from the second alignment because it can't be shared
             path.push_back(second.path.front());
         } else {

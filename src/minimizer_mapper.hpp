@@ -983,7 +983,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     } else {
         // No left tail to start with.
         // Just use an empty starting alignment, which is OK.
-        aligned = WFAAlignment::make_empty(); 
+        aligned = WFAAlignment::make_empty();
     }
     
     while(next_it != chain.end()) {
