@@ -4381,13 +4381,23 @@ namespace vg {
                     to_return += name;
                     break;
                 case multipath_alignment_t::Double:
-                    to_return += name + ": \"" + to_string(*((const double*) annotation)) + "\"";
+                {
+                    to_return += name + ": ";
+                    // handle the annoying lack of an integer annotation
+                    double val = *((const double*) annotation);
+                    if (trunc(val) == val) {
+                        to_return += to_string((int64_t) val);
+                    }
+                    else {
+                        to_return += to_string(val);
+                    }
                     break;
+                }
                 case multipath_alignment_t::Bool:
                     to_return += name + ": " + (*((const bool*) annotation) ? "true" : "false");
                     break;
                 case multipath_alignment_t::String:
-                    to_return += name + ": " + *((const string*) annotation);
+                    to_return += name + ": \"" + *((const string*) annotation) + "\"";
                     break;
                 default:
                     cerr << "error: unrecognized annotation type" << endl;

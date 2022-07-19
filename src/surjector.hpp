@@ -121,7 +121,8 @@ using namespace std;
                            pair<step_handle_t, step_handle_t>& path_range_out,
                            bool allow_negative_scores,
                            bool preserve_N_alignments = false,
-                           bool preserve_tail_indel_anchors = false) const;
+                           bool preserve_tail_indel_anchors = false,
+                           vector<pair<step_handle_t, step_handle_t>>* all_path_ranges_out = nullptr) const;
         
         multipath_alignment_t
         spliced_surject(const PathPositionHandleGraph* path_position_graph,
