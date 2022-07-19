@@ -112,7 +112,7 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second.back()) == -5);
             }
         }
-        TEST_CASE( "Nested chain with loop", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Nested chain with loop", "[snarl_distance]" ) {
         
             VG graph;
                 
@@ -156,14 +156,10 @@ namespace vg {
             fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traversal of chain") {
                 net_handle_t chain1_13 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
-                cerr << "CHILDREN OF " << distance_index.net_handle_as_string(chain1_13) << endl;
                 distance_index.for_each_child(chain1_13, [&](const net_handle_t& child) {
-                    cerr << distance_index.net_handle_as_string(child) << endl;
                     if (distance_index.is_node(child)) {
-                        cerr << "\tchain values: " << distance_index.get_reverse_loop_value(child) << ", " <<  distance_index.get_forward_loop_value(child) << endl;
                     }
                 });
-                cerr << endl;
             }
             SECTION("Minimum distances are correct") {
                 net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
@@ -189,7 +185,6 @@ namespace vg {
                 actual_path.emplace_back(graph.get_handle(7, true), 14);
 
                 distance_index.for_each_handle_in_shortest_path(n4->id(), true, 5, true, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
-                    cerr << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev: " : " fd: ") << distance << endl;
                     REQUIRE(handle == actual_path[traversal_i].first);
                     REQUIRE(distance == actual_path[traversal_i].second);
                     traversal_i ++;
@@ -211,7 +206,6 @@ namespace vg {
                 actual_path.emplace_back(graph.get_handle(n7->id(), false), 17);
 
                 distance_index.for_each_handle_in_shortest_path(n8->id(), true, n9->id(), false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
-                    cerr << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev: " : " fd: ") << distance << endl;
                     REQUIRE(handle == actual_path[traversal_i].first);
                     REQUIRE(distance == actual_path[traversal_i].second);
                     traversal_i ++;
@@ -660,6 +654,48 @@ namespace vg {
 
             }
         }
+        TEST_CASE( "Snarl decomposition can traverse multiple components in the root",
+                  "[snarl_distance][bug]" ) {
+        
+        
+            // This graph will have a node 1 and a chain 2-5 that are connected in the root
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n1);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            
+            //get the snarls
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+            SECTION("Traverse the root") {
+                net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
+                net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+                net_handle_t chain2 = distance_index.get_parent(node2);
+                net_handle_t root_snarl = distance_index.get_parent(chain1);
+                REQUIRE(distance_index.is_root(root_snarl));
+                REQUIRE(distance_index.get_parent(chain2) == root_snarl);
+
+                size_t found = 0;
+                distance_index.follow_net_edges(chain1, &graph, false, [&](const net_handle_t next) {
+                    REQUIRE((next == chain2 || next == distance_index.flip(chain2) || next == chain1));
+                    found++;
+                });
+                REQUIRE(found == 2);
+            }
+        }
+
+
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
                   "[snarl_distance]" ) {
         
@@ -933,12 +969,6 @@ namespace vg {
                     pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
                     REQUIRE(distance_index.minimum_distance(2, false, 0, 8, false, 0, false, &graph, &traceback) == 3);
 
-                    for (auto x : traceback.first) {
-                        cerr << distance_index.net_handle_as_string(std::get<0>(x)) << " " << std::get<1>(x) << " " << std::get<2>(x) << endl;
-                    }
-                    for (auto x : traceback.second) {
-                        cerr << distance_index.net_handle_as_string(std::get<0>(x)) << " " << std::get<1>(x) << " " << std::get<2>(x) << endl;
-                    }
                     REQUIRE(traceback.first.size() == 4);
                     REQUIRE(traceback.second.size() == 2);
 
@@ -994,7 +1024,6 @@ namespace vg {
                 actual_path.emplace_back(graph.get_handle(7, false), 1);
 
                 distance_index.for_each_handle_in_shortest_path(2, false, 8, false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
-                    cerr << graph.get_id(handle) << " " << distance << endl;
                     REQUIRE(handle == actual_path[traversal_i].first);
                     REQUIRE(distance == actual_path[traversal_i].second);
                     traversal_i ++;
@@ -1007,12 +1036,6 @@ namespace vg {
                     pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
                     REQUIRE(distance_index.minimum_distance(1, false, 0, 7, false, 0, false, &graph, &traceback) == 5);
 
-                    for (auto x : traceback.first) {
-                        cerr << distance_index.net_handle_as_string(std::get<0>(x)) << " " << std::get<1>(x) << " " << std::get<2>(x) << endl;
-                    }
-                    for (auto x : traceback.second) {
-                        cerr << distance_index.net_handle_as_string(std::get<0>(x)) << " " << std::get<1>(x) << " " << std::get<2>(x) << endl;
-                    }
                     REQUIRE(traceback.first.size() == 2);
                     REQUIRE(traceback.second.size() == 4);
 
@@ -1068,7 +1091,6 @@ namespace vg {
                 actual_path.emplace_back(graph.get_handle(6, false), 1);
 
                 distance_index.for_each_handle_in_shortest_path(1, false, 7, false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
-                    cerr << graph.get_id(handle) << " " << distance << endl;
                     REQUIRE(handle == actual_path[traversal_i].first);
                     REQUIRE(distance == actual_path[traversal_i].second);
                     traversal_i ++;
@@ -1128,7 +1150,6 @@ namespace vg {
                 net_handle_t chain = distance_index.get_parent(node1);
                 size_t child_index = 0;
                 distance_index.for_each_child(chain, [&](const net_handle_t& child) {
-                    cerr << distance_index.net_handle_as_string(child) << endl;
                     if (child_index == 0) {
                         REQUIRE(child == node1);
                     } else if (child_index == 1) {
@@ -1186,7 +1207,6 @@ namespace vg {
                 actual_path.emplace_back(graph.get_handle(9, false), 7);
 
                 distance_index.for_each_handle_in_shortest_path(1, false, 10, false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
-                    cerr << graph.get_id(handle) << " " << distance << endl;
                     REQUIRE(handle == actual_path[traversal_i].first);
                     REQUIRE(distance == actual_path[traversal_i].second);
                     traversal_i ++;
@@ -1232,7 +1252,6 @@ namespace vg {
                 actual_path.emplace_back(graph.get_handle(9, false), 5);
 
                 distance_index.for_each_handle_in_shortest_path(3, false, 10, false, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
-                    cerr << graph.get_id(handle) << " " << distance << endl;
                     REQUIRE(handle == actual_path[traversal_i].first);
                     REQUIRE(distance == actual_path[traversal_i].second);
                     traversal_i ++;
@@ -7168,33 +7187,33 @@ namespace vg {
 
                     size_t minimum_distance = distance_index.minimum_distance(node_id1, rev1, 0, node_id2, rev2, 0, false, &graph, nullptr);
                     vector<pair<handlegraph::handle_t, size_t>> path;
+#ifdef debug
                     cerr << "Find path from " << graph.get_id(handle1) << (graph.get_is_reverse(handle1) ? " rev" : " fd") << " TO " << graph.get_id(handle2) << (graph.get_is_reverse(handle2) ? " rev" : " fd") << endl;
+#endif
 
                     distance_index.for_each_handle_in_shortest_path(node_id1, rev1, node_id2, rev2, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
+#ifdef debug
                         cerr << "Traversing node " << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev" : " fd") << " with distance " << distance << endl; 
                         cerr << "\twith length " << graph.get_length(handle) << endl;
+#endif
                         path.emplace_back(handle, distance);
                         return true;
                     });
+#ifdef debug
                     cerr << "Distance path " << endl;
                     for (auto x : path) {
                         cerr << graph.get_id(x.first) << (graph.get_is_reverse(x.first) ? " rev" : " fd") << " with distance " << x.second << endl; 
 
                     }
+#endif
                     if (path.size() == 0) {
                         REQUIRE((minimum_distance == std::numeric_limits<size_t>::max() || node_id1 == node_id2 || minimum_distance == graph.get_length(handle1)));
                     } else {
                         REQUIRE(minimum_distance != std::numeric_limits<size_t>::max());
-                        if (path.back().second != minimum_distance) {
-                            cerr << "Distance should be " << minimum_distance << " but the path says it's " << path.back().second << endl;
-                        }
 
                         size_t path_i = 0;
-                        cerr << "Now start dijkstra from " << graph.get_id(handle1) << (graph.get_is_reverse(handle1) ? " rev" : " fd") << " TO " << graph.get_id(handle2) << (graph.get_is_reverse(handle2) ? " rev" : " fd") << endl;
                         handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
-                            cerr << "At node " << graph.get_id(reached) << (graph.get_is_reverse(reached) ? " rev" : " fd") << " at distance " << distance << endl;
                             if (path[path_i].first == reached) {
-                                cerr << "\tmatched" << endl;
                                 REQUIRE(distance == path[path_i].second);
                                 if (path_i == path.size()-1) {
                                     return false;
