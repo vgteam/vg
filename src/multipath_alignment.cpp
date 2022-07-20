@@ -3495,21 +3495,40 @@ namespace vg {
                 }
                 cerr << "crossing a connection? " << across_connection << endl;
 #endif
+      
+                // check that we can extend all of the current runs, but not when going over
+                // a connection or not at the start of a node
+                // note: we only extend any run if all of the runs can extend, or else we might miss
+                // adjacencies into the middle of a run
+                bool all_extendable = false;
+                if (!across_connection && pos.offset() == 0) {
+                    all_extendable = graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
+                        if (graph.get_path_handle_of_step(step) != path_handle ||
+                            (graph.get_handle_of_step(step) != handle) != rev) {
+                            // we're only concerned about one strand of this one path
+                            return true;
+                        }
+                        step_handle_t prev = rev ? graph.get_next_step(step) : graph.get_previous_step(step);
+                        auto it = curr_runs.find(prev);
+                        return it == curr_runs.end() ? false : it->second.second == 0;
+                    });
+                }
+                
                 graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
                     if (graph.get_path_handle_of_step(step) != path_handle ||
                         (graph.get_handle_of_step(step) != handle) != rev) {
                         // we're only concerned about one strand of this one path
                         return;
                     }
-                    step_handle_t prev = rev ? graph.get_next_step(step) : graph.get_previous_step(step);
-
+                    
                     size_t remaining = (graph.get_length(graph.get_handle_of_step(step))
                                         - from_length - pos.offset());
-                    auto it = curr_runs.find(prev);
-                    if (it != curr_runs.end() && !across_connection && it->second.second == 0 &&
-                        pos.offset() == 0) {
+
+                    if (all_extendable) {
                         // this is the next step we would expect along a previous run, and it's
                         // not across a connection
+                        step_handle_t prev = rev ? graph.get_next_step(step) : graph.get_previous_step(step);
+                        auto it = curr_runs.find(prev);
                         next_runs[step] = make_pair(it->second.first, remaining);
                         auto& run_node = run_graph[it->second.first];
 #ifdef debug_cigar
@@ -3518,7 +3537,6 @@ namespace vg {
                         
                         ++get<2>(run_node);
                         get<3>(run_node) = step;
-                        curr_runs.erase(it);
                     }
                     else {
                         // we're at the start of a new run, or we just crossed a connection, start
@@ -3533,36 +3551,38 @@ namespace vg {
                 
                 // TODO: are there situations where i would need to split a run into multiple chunks
                 // in order to find the full length?
-                
-                // check if any of the unextended runs can make a long-distance adjacency
-                // to the new runs
-                for (const auto& curr_run : curr_runs) {
-                    // an unextended run from the previous iteration
-                    for (size_t run_idx = num_runs_before_extend; run_idx < run_graph.size(); ++run_idx) {
-                        // fresh new run that we just found
-                        auto& run_node = run_graph[run_idx];
-                        
-                        int64_t dist;
-                        if (rev) {
-                            dist = (graph.get_position_of_step(curr_run.first)
-                                    - graph.get_position_of_step(get<3>(run_node))
-                                    + mapping.position().offset() + curr_run.second.second
-                                    - graph.get_length(graph.get_handle_of_step(get<3>(run_node))));
-                        }
-                        else {
-                            dist = (graph.get_position_of_step(get<3>(run_node))
-                                    - graph.get_position_of_step(curr_run.first)
-                                    + mapping.position().offset() + curr_run.second.second
-                                    - graph.get_length(graph.get_handle_of_step(curr_run.first)));
-                        }
-                        if (dist >= 0) {
-                            // they are in increasing order (relative to the strand)
-
-                            // add an edge
-                            get<5>(run_graph[curr_run.second.first]).emplace_back(run_idx, dist);
+                if (!all_extendable) {
+                    // check if any of the unextended runs can make a long-distance adjacency
+                    // to the new runs
+                    
+                    for (const auto& curr_run : curr_runs) {
+                        // an unextended run from the previous iteration
+                        for (size_t run_idx = num_runs_before_extend; run_idx < run_graph.size(); ++run_idx) {
+                            // fresh new run that we just found
+                            auto& run_node = run_graph[run_idx];
+                            
+                            int64_t dist;
+                            if (rev) {
+                                dist = (graph.get_position_of_step(curr_run.first)
+                                        - graph.get_position_of_step(get<3>(run_node))
+                                        + mapping.position().offset() + curr_run.second.second
+                                        - graph.get_length(graph.get_handle_of_step(get<3>(run_node))));
+                            }
+                            else {
+                                dist = (graph.get_position_of_step(get<3>(run_node))
+                                        - graph.get_position_of_step(curr_run.first)
+                                        + mapping.position().offset() + curr_run.second.second
+                                        - graph.get_length(graph.get_handle_of_step(curr_run.first)));
+                            }
+                            if (dist >= 0) {
+                                // they are in increasing order (relative to the strand)
+                                
+                                // add an edge
+                                get<5>(run_graph[curr_run.second.first]).emplace_back(run_idx, dist);
 #ifdef debug_cigar
-                            cerr << "adjacency of length " << dist << " from " << curr_run.second.first << " to " << run_idx << endl;
+                                cerr << "adjacency of length " << dist << " from " << curr_run.second.first << " to " << run_idx << endl;
 #endif
+                            }
                         }
                     }
                 }
@@ -3795,7 +3815,7 @@ namespace vg {
         cerr << "coalescing runs of I/D..." << endl;
 #endif
 
-        consolidate_ID_runs(cigar);
+        simiplify_cigar(cigar);
         
 #ifdef debug_cigar
         cerr << "final cigar: ";

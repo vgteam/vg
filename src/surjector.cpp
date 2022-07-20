@@ -2416,6 +2416,10 @@ using namespace std;
             }
             copy_range[i + 1] = copy_range[i] + all_path_ranges.size();
             
+#ifdef debug_spliced_surject
+            cerr << "found " << all_path_ranges.size() << " path locations, recording in section copy interval " << copy_range[i] << ":" << copy_range[i + 1] << endl;
+#endif
+            
             // remove any extraneous full length bonuses
             // TODO: technically, this can give a non-optimal alignment because it's post hoc to the dynamic programming
             const auto& aligner = *get_aligner(!src_quality.empty());
@@ -2452,23 +2456,52 @@ using namespace std;
         
         // distance between the path ranges of two sections
         // assumes direct adjacency over an edge, but this may not be true in the case of a connection
-        // TODO: repetitive with path_dist
+        // TODO: repetitive with path_distance
         auto section_path_dist = [&](size_t i, size_t j) -> int64_t {
+            pos_t pos1 = final_position(sections[i].path());
+            pos_t pos2 = initial_position(sections[j].path());
+            step_handle_t step1 = section_path_ranges[i].second;
+            step_handle_t step2 = section_path_ranges[j].first;
             if (rev_strand) {
-                return (graph->get_position_of_step(section_path_ranges[i].second)
-                        - graph->get_position_of_step(section_path_ranges[j].first)
-                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[j].first)));
-                
+                return (graph->get_position_of_step(step1)
+                        + graph->get_length(graph->get_handle_of_step(step1))
+                        - graph->get_position_of_step(step2)
+                        - graph->get_length(graph->get_handle_of_step(step2))
+                        + offset(pos2)
+                        - offset(pos1));
             }
             else {
-                return (graph->get_position_of_step(section_path_ranges[j].first)
-                        - graph->get_position_of_step(section_path_ranges[i].second)
-                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[i].second)));
+                return (graph->get_position_of_step(step2)
+                        - graph->get_position_of_step(step1)
+                        + offset(pos2)
+                        - offset(pos1));
             }
         };
         
 #ifdef debug_spliced_surject
-        cerr << "computing optimal combination of sections" << endl;
+        cerr << "computing optimal combination of sections over section graph" << endl;
+        
+        cerr << "copy range array:" << endl;
+        for (auto i : copy_range) {
+            cerr << "\t" << i << endl;
+        }
+        cerr << "graph structure:" << endl;
+        for (size_t i = 0; i < sections.size(); ++i) {
+            cerr << i << " (original " << original_copy[i] << " at " << graph->get_position_of_step(section_path_ranges[i].first) << " - " << graph->get_position_of_step(section_path_ranges[i].second) <<  "):" << endl;
+            
+            for (auto& edge : comp_group_edges[original_copy[i]]) {
+                
+                for (size_t j = copy_range[get<0>(edge)], n = copy_range[get<0>(edge) + 1]; j < n; ++j) {
+                    auto d = section_path_dist(i, j);
+                    if (d >= 0) {
+                        cerr << "\t-> " << j << ", dist " << d << ", score " << get<1>(edge) << ", connection? " << get<2>(edge) << endl;
+                    }
+                    else {
+                        cerr << "\tX " << j << " (noncolinear, dist " << d << ")" << endl;
+                    }
+                }
+            }
+        }
 #endif
         
         // now we find use dynamic programming to find the best alignment across chunks
@@ -2501,7 +2534,7 @@ using namespace std;
                         int32_t extended_score = score_dp[j] + get<1>(edge) + sections[k].score();
                         
 #ifdef debug_spliced_surject
-                        cerr << "extending from component " << i << " copy " << j << " (DP score " << score_dp[i] << ") with score of " << extended_score << " to " << get<0>(edge) << " copy " << k << " (DP score " << score_dp[get<0>(edge)] << ") dist " << section_path_dist(i, get<0>(edge)) << endl;
+                        cerr << "extending from component " << i << " section copy index " << j << " (DP score " << score_dp[i] << ") with score of " << extended_score << " to " << get<0>(edge) << " section copy index " << k << " (DP score " << score_dp[get<0>(edge)] << ") dist " << section_path_dist(i, get<0>(edge)) << endl;
 #endif
                         int64_t dist = section_path_dist(j, k);
                         if (dist < 0) {
