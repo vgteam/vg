@@ -688,7 +688,7 @@ TEST_CASE("Duplicate path chunks can be detected", "[surject][multipath]") {
     
     vector<tuple<size_t, size_t, int32_t>> connections;
     
-    surjector.filter_redundant_path_chunks(path_chunks, ref_chunks, connections);
+    surjector.filter_redundant_path_chunks(false, path_chunks, ref_chunks, connections);
     
     REQUIRE(ref_chunks.size() == path_chunks.size());
     REQUIRE(path_chunks.size() == 2);

@@ -120,7 +120,7 @@ using namespace std;
             // the multipath alignment anchor algorithm can produce redundant paths if
             // the alignment's graph is not parsimonious, so we filter the shorter ones out
             for (pair<const pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& path_chunk_record : path_overlapping_anchors) {
-                filter_redundant_path_chunks(path_chunk_record.second.first, path_chunk_record.second.second,
+                filter_redundant_path_chunks(path_chunk_record.first.second, path_chunk_record.second.first, path_chunk_record.second.second,
                                              connections[path_chunk_record.first]);
             }
         }
@@ -2741,7 +2741,7 @@ using namespace std;
                                                                                              ref_path_interval.first, ref_path_interval.second);
             
             // split it into a forward and reverse strand
-            // TODO: we only should need one strand of the graph, but it might be different strands on
+            // TODO: we usually should only need one strand of the graph, but it might be different strands on
             // different nodes...
             StrandSplitGraph split_path_graph(&path_graph);
             
@@ -2982,7 +2982,7 @@ using namespace std;
         // map from (path, strand, subpath idx) to indexes among path chunks that have outgoing connections
         unordered_map<tuple<path_handle_t, bool, size_t>, vector<size_t>> connection_sources;
                 
-        // the mappings (subpath, mapping) that have already been associated with a step
+        // the mappings (subpath, mapping, step) that have already been associated
         unordered_set<tuple<int64_t, int64_t, step_handle_t>> associated;
         for (int64_t i = 0; i < source.subpath_size(); ++i) {
             const auto& path = source.subpath(i).path();
@@ -3154,6 +3154,9 @@ using namespace std;
                                 }
                                 
                                 if (branches_along_path) {
+#ifdef debug_multipath_surject
+                                    cerr << "setting n to end to abort DFS to preserve a blunt end at a possible splice edge" << endl;
+#endif
                                     // we'll prematurely end the DFS at this mapping
                                     get<2>(stack.back()) = subpath_here.next_size();
                                     continue;
@@ -3197,10 +3200,23 @@ using namespace std;
                                 if (graph->get_id(next_handle) == next_pos.node_id() &&
                                     (graph->get_is_reverse(next_handle) != next_pos.is_reverse()) == strand_rev) {
                                     // the next mapping is along the path how we would expect
+#ifdef debug_multipath_surject
+                                    cerr << "the next mapping is adjacent in the path" << endl;
+#endif
                                     stack.emplace_back(next_s_idx, next_m_idx, 0, next_step);
                                     added_new_mappings = true;
                                 }
+#ifdef debug_multipath_surject
+                                else {
+                                    cerr << "the next mapping is not adjacent in the path" << endl;
+                                }
+#endif
                             }
+#ifdef debug_multipath_surject
+                            else {
+                                cerr << "we have hit the end of the path" << endl;
+                            }
+#endif
                         }
                     }
                 });
@@ -3331,7 +3347,7 @@ using namespace std;
         return to_return;
     }
 
-    void Surjector::filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
+    void Surjector::filter_redundant_path_chunks(bool path_rev, vector<path_chunk_t>& path_chunks,
                                                  vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                  vector<tuple<size_t, size_t, int32_t>>& connections) const {
         
@@ -3438,6 +3454,19 @@ using namespace std;
                     path_chunks[j].first.second < chunk_here.first.second) {
                     // doesn't contain the right read interval
                     continue;
+                }
+                // check that the reference interval is contained
+                if (path_rev) {
+                    if (graph->get_position_of_step(ref_chunks[i].first) < graph->get_position_of_step(ref_chunks[j].first)
+                        || graph->get_position_of_step(ref_chunks[i].second) > graph->get_position_of_step(ref_chunks[j].second)) {
+                        continue;
+                    }
+                }
+                else {
+                    if (graph->get_position_of_step(ref_chunks[i].first) > graph->get_position_of_step(ref_chunks[j].first)
+                        || graph->get_position_of_step(ref_chunks[i].second) < graph->get_position_of_step(ref_chunks[j].second)) {
+                        continue;
+                    }
                 }
                 
                 auto& chunk_over = path_chunks[j];
