@@ -77,7 +77,7 @@ using namespace std;
         // we need one and only one data type: Alignment or multipath_alignment_t
         assert(!(source_aln && source_mp_aln));
         assert((source_aln && aln_out) || (source_mp_aln && mp_aln_out));
-        
+                
 #ifdef debug_anchored_surject
         cerr << "surjecting alignment: ";
         if (source_mp_aln) {
@@ -238,8 +238,7 @@ using namespace std;
             if (!preserve_deletions && source_aln) {
                 // unspliced GAM -> GAM surjection
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first.first, surj_record.first.second,
-                                                     surj_record.second.first, path_range, allow_negative_scores,
-                                                     false, false);
+                                                     surj_record.second.first, path_range, allow_negative_scores);
                 if (surjection.path().mapping_size() != 0) {
                     aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
                 }
@@ -2405,8 +2404,17 @@ using namespace std;
             // perform a full length surjection within the section
             section_path_ranges.emplace_back();
             vector<pair<step_handle_t, step_handle_t>> all_path_ranges;
-            sections.emplace_back(realigning_surject(graph, section_source, path_handle, rev_strand, section_path_chunks,
-                                                     section_path_ranges.back(), true, true, true, &all_path_ranges));
+            sections.emplace_back(realigning_surject(graph,
+                                                     section_source,
+                                                     path_handle,
+                                                     rev_strand,
+                                                     section_path_chunks,
+                                                     section_path_ranges.back(),
+                                                     true,                          // allow negative scores (global)
+                                                     true,                          // preserve N alignments
+                                                     !comp_group_edges[i].empty(),  // sinks are anchors
+                                                     !comp_is_source[i],            // sources are anchors
+                                                     &all_path_ranges));
             original_copy.push_back(i);
             // if there are multiple copies of the section on the path, add those as well
             for (size_t j = 1; j < all_path_ranges.size(); ++j) {
@@ -2674,7 +2682,7 @@ using namespace std;
     Alignment Surjector::realigning_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
                                             const path_handle_t& path_handle, bool rev_strand, const vector<path_chunk_t>& path_chunks,
                                             pair<step_handle_t, step_handle_t>& path_range_out, bool allow_negative_scores,
-                                            bool preserve_N_alignments, bool preserve_tail_indel_anchors,
+                                            bool preserve_N_alignments, bool sinks_are_anchors, bool sources_are_anchors,
                                             vector<pair<step_handle_t, step_handle_t>>* all_path_ranges_out) const {
         
 #ifdef debug_anchored_surject
@@ -2772,6 +2780,10 @@ using namespace std;
             }
             
             // compute the connectivity between the path chunks
+            // TODO: i'm not sure if we actually need to preserve all indel anchors in either case, but i don't
+            // want to change too much about the anchoring logic at once while i'm switching from blanket preservation
+            // to a more targeted method
+            bool preserve_tail_indel_anchors = (sinks_are_anchors || sources_are_anchors);
             MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
                                                  preserve_tail_indel_anchors);
             
@@ -2789,6 +2801,12 @@ using namespace std;
             mp_aln_graph.topological_sort(topological_order);
             mp_aln_graph.remove_transitive_edges(topological_order);
             
+            if (allow_negative_scores && mp_aln_graph.max_shift() > min_shift_for_prune) {
+                // we have at least one or more large implied indels, we will try to prune them away
+                // while maintaining topological invariants to save compute on low-promise alignments
+                mp_aln_graph.prune_high_shift_edges(shift_prune_diff, sources_are_anchors, sinks_are_anchors);
+            }
+            
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
             mp_aln_graph.align(source, split_path_graph, get_aligner(),
@@ -2805,6 +2823,7 @@ using namespace std;
                                nullptr,                                  // distance index
                                nullptr,                                  // projector
                                allow_negative_scores);
+            
             topologically_order_subpaths(mp_aln);
             
             if (preserve_tail_indel_anchors) {

@@ -99,6 +99,9 @@ using namespace std;
         /// while downsampling, try to get down to this coverage on each base
         int64_t downsample_coverage = 16;
         
+        int64_t min_shift_for_prune = 32 * 1024;
+        int64_t shift_prune_diff = 16 * 1024;
+        
         /// And have we complained about hitting it?
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
@@ -121,7 +124,8 @@ using namespace std;
                            pair<step_handle_t, step_handle_t>& path_range_out,
                            bool allow_negative_scores,
                            bool preserve_N_alignments = false,
-                           bool preserve_tail_indel_anchors = false,
+                           bool sinks_are_anchors = false,
+                           bool sources_are_anchors = false,
                            vector<pair<step_handle_t, step_handle_t>>* all_path_ranges_out = nullptr) const;
         
         multipath_alignment_t
