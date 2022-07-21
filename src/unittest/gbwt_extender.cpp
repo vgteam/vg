@@ -1319,6 +1319,52 @@ gbwtgraph::GBWTGraph wfa_cycle_graph(const gbwt::GBWT& index) {
     return gbwtgraph::GBWTGraph(index, source);
 }
 
+/// Make a GBWT that takes a cycle without diverging at every iteration, to
+/// make sure we can still distinguish the different loops. We then need
+/// out-of-cycle nodes to start at, so we can be in situations where we're
+/// going around the cycle multiple times with no selected haplotypes leaving
+/// or stopping.
+gbwt::GBWT wfa_non_diverging_multi_node_cycle_gbwt() {
+    std::vector<gbwt::vector_type> paths;
+
+    // Path that skips the cycle
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(5, false));
+
+    // Path that takes the cycle ten times.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    for (size_t i = 0; i < 10; i++) {
+        paths.back().push_back(gbwt::Node::encode(2, false));
+        paths.back().push_back(gbwt::Node::encode(3, false));
+        paths.back().push_back(gbwt::Node::encode(4, false));
+    }
+    paths.back().push_back(gbwt::Node::encode(5, false));
+
+    // Path that takes the cycle eleven times.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    for (size_t i = 0; i < 11; i++) {
+        paths.back().push_back(gbwt::Node::encode(2, false));
+        paths.back().push_back(gbwt::Node::encode(3, false));
+        paths.back().push_back(gbwt::Node::encode(4, false));
+    }
+    paths.back().push_back(gbwt::Node::encode(5, false));
+
+    return get_gbwt(paths);
+}
+
+gbwtgraph::GBWTGraph wfa_non_diverging_multi_node_cycle_graph(const gbwt::GBWT& index) {
+    gbwtgraph::SequenceSource source;
+    source.add_node(1, "CATTAG");
+    source.add_node(2, "GA");
+    source.add_node(3, "TTA");
+    source.add_node(4, "CA");
+    source.add_node(5, "TATAGAGA");
+    return gbwtgraph::GBWTGraph(index, source);
+}
+
 void check_score(const WFAAlignment& alignment, const Aligner& aligner, int32_t matches, int32_t mismatches, int32_t gaps, int32_t gap_length) {
     // The Aligner scores gap opens and gap extends, while we are working in
     // cap count and total length. So convert total length to number of
@@ -2334,6 +2380,72 @@ TEST_CASE("Connect with a cycle", "[wfa_extender]") {
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 }
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Connect with a non-diverging multi-node cycle", "[wfa_extender]") {
+    // CATTAG (GA TTA CA) x {0,10,11} TATAGAGA
+    gbwt::GBWT index = wfa_non_diverging_multi_node_cycle_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_non_diverging_multi_node_cycle_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+    
+    std::stringstream ss;
+    pos_t from(1, false, 0); pos_t to(5, false, 7);
+    ss << "ATTAG";
+
+    SECTION("Skip the cycle") {
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it 10 times") {
+        for (size_t i = 0; i < 10; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it 11 times") {
+        for (size_t i = 0; i < 10; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it 12 times, insertion") {
+        for (size_t i = 0; i < 12; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 7, 0, 1, 7);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("Take it 6 times, fail for bad score") {
+        for (size_t i = 0; i < 6; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE_FALSE(result);
+    }
+}
+
 
 //------------------------------------------------------------------------------
 
