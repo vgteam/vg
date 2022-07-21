@@ -197,12 +197,12 @@ WFAAlignment path_to_wfa_alignment(const Path& path, const HandleGraph& graph) {
     return result;
 }
 
-/// When generating a test alignmentm what happened to each base in the graph?
+/// When generating a test alignment, what happened to each base in the graph?
 enum class GraphBaseFate {
     Match = 0,
     Mismatch,
     Deletion,
-    InsertionMatch,
+    InsertionMatch, // Insertion before the base, then the base is a match (etc.)
     InsertionMismatch,
     MatchInsertion,
     MismatchInsertion,
@@ -246,38 +246,6 @@ void send_insertions_right(Path& path) {
         }
     }
 }
-
-std::ostream& operator<<(std::ostream& out, const alignment_plan_t& plan) {
-    for (auto& fate : plan) {
-        switch (fate) {
-        case GraphBaseFate::Match:
-            out << "|";
-            break;
-        case GraphBaseFate::Mismatch:
-            out << "*";
-            break;
-        case GraphBaseFate::Deletion:
-            out << "-";
-            break;
-        case GraphBaseFate::InsertionMatch:
-            out << "(";
-            break;
-        case GraphBaseFate::InsertionMismatch:
-            out << "<";
-            break;
-        case GraphBaseFate::MatchInsertion:
-            out << ")";
-            break;
-        case GraphBaseFate::MismatchInsertion:
-            out << ">";
-            break;
-        default:
-            throw std::runtime_error("Bad fate");    
-        }
-    }
-    return out;
-}
-
 
 /// Make an alignment plan into a Path
 std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const HandleGraph& graph, const vector<handle_t>& base_path, size_t start_offset) {
