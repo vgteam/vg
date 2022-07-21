@@ -15,7 +15,7 @@ on:
 jobs:
   testmac:
     name: Test on Mac
-    runs-on: macos-10.15
+    runs-on: macos-latest
 
     steps:
       - name: Use cache
