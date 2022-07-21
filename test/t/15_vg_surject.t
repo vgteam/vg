@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 39
+plan tests 40
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -36,6 +36,16 @@ is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc
 
 is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject doesn't need to be told which path to use"
+    
+vg paths -X -x x.vg | vg view -aj - | jq '.name = "sample#0#x#0"' | vg view -JGa - > paths.gam
+vg paths -X -x x.vg | vg view -aj - | jq '.name = "ref#0#x[55]"' | vg view -JGa - >> paths.gam
+vg augment x.vg -i paths.gam > x.aug.vg
+vg index -x x.aug.xg x.aug.vg
+
+is $(vg surject -x x.aug.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep "ref#0#x" | wc -l) \
+    100 "vg surject picks a reference-sense path if it is present"
+
+rm x.aug.vg x.aug.xg paths.gam
 
 is $(vg surject -p x -x x.xg -t 1 x.gam | vg view -a - | wc -l) \
     100 "vg surject works for every read simulated from a dense graph"

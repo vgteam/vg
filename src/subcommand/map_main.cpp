@@ -748,7 +748,7 @@ int main_map(int argc, char** argv) {
     // Look up all the paths we might need to surject to.
     vector<tuple<path_handle_t, size_t, size_t>> paths;
     if (hts_output) {
-        paths = get_sequence_dictionary(ref_paths_name, *xgidx);
+        paths = get_sequence_dictionary(ref_paths_name, {}, *xgidx);
     }
     
     // Set up output to an emitter that will handle serialization and surjection
