@@ -3497,6 +3497,7 @@ using namespace std;
             cerr << "looking for overlapping chunks for " << order[i] << endl;
             cerr << string(chunk_here.first.first, chunk_here.first.second) << " " << pb2json(chunk_here.second) << endl;
 #endif
+            
             // remove items from the heap if they are outside the window of this read interval
             while (!curr_chunks.empty() && path_chunks[curr_chunks.front()].first.second <= chunk_here.first.first) {
                 pop_heap(curr_chunks.begin(), curr_chunks.end(), cmp);
@@ -3511,14 +3512,14 @@ using namespace std;
                 }
                 // check that the reference interval is contained
                 if (path_rev) {
-                    if (graph->get_position_of_step(ref_chunks[i].first) < graph->get_position_of_step(ref_chunks[j].first)
-                        || graph->get_position_of_step(ref_chunks[i].second) > graph->get_position_of_step(ref_chunks[j].second)) {
+                    if (graph->get_position_of_step(ref_chunks[order[i]].first) > graph->get_position_of_step(ref_chunks[j].first)
+                        || graph->get_position_of_step(ref_chunks[order[i]].second) < graph->get_position_of_step(ref_chunks[j].second)) {
                         continue;
                     }
                 }
                 else {
-                    if (graph->get_position_of_step(ref_chunks[i].first) > graph->get_position_of_step(ref_chunks[j].first)
-                        || graph->get_position_of_step(ref_chunks[i].second) < graph->get_position_of_step(ref_chunks[j].second)) {
+                    if (graph->get_position_of_step(ref_chunks[order[i]].first) < graph->get_position_of_step(ref_chunks[j].first)
+                        || graph->get_position_of_step(ref_chunks[order[i]].second) > graph->get_position_of_step(ref_chunks[j].second)) {
                         continue;
                     }
                 }
