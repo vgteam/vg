@@ -121,6 +121,7 @@ using namespace std;
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
                            const path_handle_t& path_handle, bool rev_strand,
                            const vector<path_chunk_t>& path_chunks,
+                           const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                            pair<step_handle_t, step_handle_t>& path_range_out,
                            bool allow_negative_scores,
                            bool preserve_N_alignments = false,
@@ -166,7 +167,9 @@ using namespace std;
         /// end if there are no path chunks.
         pair<size_t, size_t>
         compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
-                              bool rev_strand, const vector<path_chunk_t>& path_chunks) const;
+                              bool rev_strand, const vector<path_chunk_t>& path_chunks,
+                              const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                              bool no_left_expansion, bool no_right_expansion) const;
         
         /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
         unordered_map<id_t, pair<id_t, bool>>

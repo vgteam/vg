@@ -238,7 +238,7 @@ using namespace std;
             if (!preserve_deletions && source_aln) {
                 // unspliced GAM -> GAM surjection
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first.first, surj_record.first.second,
-                                                     surj_record.second.first, path_range, allow_negative_scores);
+                                                     surj_record.second.first, surj_record.second.second, path_range, allow_negative_scores);
                 if (surjection.path().mapping_size() != 0) {
                     aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
                 }
@@ -2353,6 +2353,7 @@ using namespace std;
         for (size_t i = 0; i < comp_groups.size(); ++i) {
             pair<string::const_iterator, string::const_iterator> read_range;
             vector<path_chunk_t> section_path_chunks;
+            vector<pair<step_handle_t, step_handle_t>> section_ref_chunks;
                                     
             vector<size_t>& group = comp_groups[i];
                         
@@ -2360,6 +2361,7 @@ using namespace std;
             for (size_t j = 0; j < group.size(); ++j) {
                 
                 section_path_chunks.push_back(path_chunks[group[j]]);
+                section_ref_chunks.push_back(ref_chunks[group[j]]);
                 
                 if (j == 0 || read_range.first > path_chunks[group[j]].first.first) {
                     read_range.first = path_chunks[group[j]].first.first;
@@ -2409,6 +2411,7 @@ using namespace std;
                                                      path_handle,
                                                      rev_strand,
                                                      section_path_chunks,
+                                                     section_ref_chunks,
                                                      section_path_ranges.back(),
                                                      true,                          // allow negative scores (global)
                                                      true,                          // preserve N alignments
@@ -2681,6 +2684,7 @@ using namespace std;
 
     Alignment Surjector::realigning_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
                                             const path_handle_t& path_handle, bool rev_strand, const vector<path_chunk_t>& path_chunks,
+                                            const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                             pair<step_handle_t, step_handle_t>& path_range_out, bool allow_negative_scores,
                                             bool preserve_N_alignments, bool sinks_are_anchors, bool sources_are_anchors,
                                             vector<pair<step_handle_t, step_handle_t>>* all_path_ranges_out) const {
@@ -2697,8 +2701,10 @@ using namespace std;
         Alignment surjected;
         
         // find the end-inclusive interval of the ref path we need to consider
-        pair<size_t, size_t> ref_path_interval = compute_path_interval(path_position_graph, source, path_handle,
-                                                                       rev_strand, path_chunks);
+        pair<size_t, size_t> ref_path_interval = compute_path_interval(path_position_graph, source,
+                                                                       path_handle, rev_strand,
+                                                                       path_chunks, ref_chunks,
+                                                                       sources_are_anchors, sinks_are_anchors);
         if (ref_path_interval.first <= ref_path_interval.second) {
             // We actually got a nonempty range, so expand it.
             
@@ -3060,16 +3066,6 @@ using namespace std;
                                     // record that connections leave this patch chunk
                                     connection_sources[make_tuple(path_handle, path_strand.second, s_idx)].push_back(section_record.first.size());
                                 }
-                                if (j == 0) {
-                                    // translate connections into the indexes of their path chunks
-                                    // note: if these are on different strands, they'll be ignored
-                                    for (const auto& c : rev_connections[i]) {
-                                        for (auto source : connection_sources[make_tuple(path_handle, path_strand.second, c.first)]) {
-                                            connections_out[path_strand].emplace_back(source, section_record.first.size(),
-                                                                                      c.second);
-                                        }
-                                    }
-                                }
                                 
                                 // the interval of steps
                                 section_record.second.emplace_back(get<3>(stack.front()), get<3>(stack.back()));
@@ -3120,6 +3116,45 @@ using namespace std;
                                         to_proto_mapping(next_mapping, *path_chunk.add_mapping());
                                     }
                                 }
+                                
+                                if (j == 0) {
+                                    // translate connections into the indexes of their path chunks
+                                    // note: if these are on different strands, they'll be ignored
+                                    for (const auto& c : rev_connections[i]) {
+                                        for (auto source_idx : connection_sources[make_tuple(path_handle, path_strand.second, c.first)]) {
+                                            
+                                            // compute the distance along the path
+                                            pos_t pos1 = final_position(section_record.first[source_idx].second);
+                                            pos_t pos2 = initial_position(section_record.first.back().second);
+                                            step_handle_t step1 = section_record.second[source_idx].second;
+                                            step_handle_t step2 = section_record.second.back().first;
+                                            int64_t dist;
+                                            if (path_strand.second) {
+                                                // reverse strand of path
+                                                dist = (graph->get_position_of_step(step1)
+                                                        + graph->get_length(graph->get_handle_of_step(step1))
+                                                        - graph->get_position_of_step(step2)
+                                                        - graph->get_length(graph->get_handle_of_step(step2))
+                                                        + offset(pos2)
+                                                        - offset(pos1));
+                                            }
+                                            else {
+                                                // forward strand of path
+                                                dist = (graph->get_position_of_step(step2)
+                                                        - graph->get_position_of_step(step1)
+                                                        + offset(pos2)
+                                                        - offset(pos1));
+                                            }
+                                            
+                                            if (dist >= 0) {
+                                                connections_out[path_strand].emplace_back(source_idx, section_record.first.size() - 1,
+                                                                                          c.second);
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                
                                 // the read interval
                                 chunk.first.first = source.sequence().begin() + mapping_to_lengths[i][j];
                                 chunk.first.second = chunk.first.first + path_to_length(path_chunk);
@@ -3746,75 +3781,66 @@ using namespace std;
     }
     
     pair<size_t, size_t>
-    Surjector::compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
-                                     bool rev_strand, const vector<path_chunk_t>& path_chunks) const {
+    Surjector::compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source,
+                                     path_handle_t path_handle, bool rev_strand,
+                                     const vector<path_chunk_t>& path_chunks,
+                                     const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                     bool no_left_expansion, bool no_right_expansion) const {
         
         pair<size_t, size_t> interval(numeric_limits<size_t>::max(), numeric_limits<size_t>::min());
         
         size_t path_length = graph->get_path_length(path_handle);
         
-        for (const auto& path_chunk : path_chunks) {
+        for (size_t i = 0; i < path_chunks.size(); ++i) {
             
-            size_t left_overhang = (get_aligner()->longest_detectable_gap(source, path_chunk.first.first)
-                                    + (path_chunk.first.first - source.sequence().begin()));
+            const auto& path_chunk = path_chunks[i];
+            const auto& ref_chunk = ref_chunks[i];
             
-            size_t right_overhang = (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
-                                     + (source.sequence().end() - path_chunk.first.second));
+            size_t left_overhang = no_left_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.first)
+                                                            + (path_chunk.first.first - source.sequence().begin()));
+            
+            size_t right_overhang = no_right_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
+                                                              + (source.sequence().end() - path_chunk.first.second));
             
             const Position& first_pos = path_chunk.second.mapping(0).position();
-            handle_t first_handle = graph->get_handle(first_pos.node_id(), first_pos.is_reverse());
-            for (const step_handle_t& step : graph->steps_of_handle(first_handle)) {
+            if (rev_strand) {
+                size_t path_offset = (graph->get_position_of_step(ref_chunk.first)
+                                      + graph->get_length(graph->get_handle_of_step(ref_chunk.first))
+                                      - first_pos.offset());
                 
-                if (graph->get_path_handle_of_step(step) != path_handle ||
-                    (first_pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(step))) != rev_strand) {
-                    // this step isn't on the path strand we're considering
-                    continue;
-                }
-                
-                if (rev_strand) {
-                    size_t path_offset = graph->get_position_of_step(step) + graph->get_length(first_handle) - first_pos.offset();
-                    interval.second = max(interval.second, min(path_offset + left_overhang, path_length - 1));
+                interval.second = max(interval.second, min(path_offset + left_overhang, path_length - 1));
+            }
+            else {
+                size_t path_offset = graph->get_position_of_step(ref_chunk.first) + first_pos.offset();
+                if (left_overhang > path_offset) {
+                    // avoid underflow
+                    interval.first = 0;
                 }
                 else {
-                    size_t path_offset = graph->get_position_of_step(step) + first_pos.offset();
-                    if (left_overhang > path_offset) {
-                        // avoid underflow
-                        interval.first = 0;
-                    }
-                    else {
-                        interval.first = min(interval.first, path_offset - left_overhang);
-                    }
+                    interval.first = min(interval.first, path_offset - left_overhang);
                 }
             }
             
             const Mapping& final_mapping = path_chunk.second.mapping(path_chunk.second.mapping_size() - 1);
             const Position& final_pos = final_mapping.position();
-            handle_t final_handle = graph->get_handle(final_pos.node_id(), final_pos.is_reverse());
-            for (const step_handle_t& step : graph->steps_of_handle(final_handle)) {
-                
-                if (graph->get_path_handle_of_step(step) != path_handle ||
-                    (final_pos.is_reverse() != graph->get_is_reverse(graph->get_handle_of_step(step))) != rev_strand) {
-                    // this step isn't on the path we're considering
-                    continue;
-                }
-                
-                if (rev_strand) {
-                    size_t path_offset = (graph->get_position_of_step(step)
-                                          + graph->get_length(final_handle)
-                                          - final_pos.offset()
-                                          - mapping_from_length(final_mapping));
-                    if (right_overhang > path_offset) {
-                        // avoid underflow
-                        interval.first = 0;
-                    }
-                    else {
-                        interval.first = min(interval.first, path_offset - right_overhang);
-                    }
+            if (rev_strand) {
+                size_t path_offset = (graph->get_position_of_step(ref_chunk.second)
+                                      + graph->get_length(graph->get_handle_of_step(ref_chunk.second))
+                                      - final_pos.offset()
+                                      - mapping_from_length(final_mapping));
+                if (right_overhang > path_offset) {
+                    // avoid underflow
+                    interval.first = 0;
                 }
                 else {
-                    size_t path_offset = graph->get_position_of_step(step) + first_pos.offset() + mapping_to_length(final_mapping);
-                    interval.second = max(interval.second, min(path_offset + right_overhang, path_length - 1));
+                    interval.first = min(interval.first, path_offset - right_overhang);
                 }
+            }
+            else {
+                size_t path_offset = (graph->get_position_of_step(ref_chunk.second)
+                                      + final_pos.offset()
+                                      + mapping_from_length(final_mapping));
+                interval.second = max(interval.second, min(path_offset + right_overhang, path_length - 1));
             }
         }
         

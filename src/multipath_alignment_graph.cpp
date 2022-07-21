@@ -6310,6 +6310,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         vector<size_t> min_shift_fwd(path_nodes.size(), numeric_limits<size_t>::max());
         vector<size_t> min_shift_rev(path_nodes.size(), numeric_limits<size_t>::max());
         
+        // compute the min shift with reverse DP and also compute in degrees
         vector<size_t> in_degree(path_nodes.size(), 0);
         for (int64_t i = path_nodes.size() - 1; i >= 0; --i) {
             auto& path_node = path_nodes[i];
@@ -6333,6 +6334,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
         }
         
+        // compute the min shift the forward direction and find the optimal shift
         size_t opt_shift = numeric_limits<size_t>::max();
         for (size_t i = 0; i < path_nodes.size(); ++i) {
             
@@ -6362,6 +6364,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         }
 #endif
         
+        // prune edges as necessary
         for (size_t i = 0; i < path_nodes.size(); ++i) {
             auto& path_node = path_nodes[i];
             size_t removed = 0;
