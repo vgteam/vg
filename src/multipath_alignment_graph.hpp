@@ -88,18 +88,18 @@ namespace vg {
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns = true,
-                                bool preserve_tail_anchors = false);
+                                bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns = true,
-                                bool preserve_tail_anchors = false);
+                                bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// and using a lambda for a projector
         MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns = true,
-                                bool preserve_tail_anchors = false);
+                                bool preserve_tail_anchors = false, vector<size_t>* path_node_provenance = nullptr);
         
         /// Make a multipath alignment graph using the path of a single-path alignment. Only
         /// one of snarl_manager and dist_index need be supplied.
@@ -226,6 +226,12 @@ namespace vg {
         
         size_t size() const;
         
+        /// For a graph with reachability edges, identifies the largest difference between read interval and
+        /// reference distance
+        size_t max_shift() const;
+        
+        void prune_high_shift_edges(size_t prune_diff, bool prohibit_new_sources, bool prohibit_new_sinks);
+        
     protected:
         
         /// Nodes representing walked MEMs in the graph
@@ -253,7 +259,8 @@ namespace vg {
         /// Add the path chunks as nodes to the connectivity graph
         void create_path_chunk_nodes(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                      const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                     vector<size_t>* path_node_provenance = nullptr);
         
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
         void create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,

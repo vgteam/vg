@@ -1034,7 +1034,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
         }
     }
     
-    consolidate_ID_runs(cigar);
+    simiplify_cigar(cigar);
     
     return cigar;
 }
