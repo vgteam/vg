@@ -46,10 +46,10 @@ jobs:
         # We uninstall everything we don't need in order to prevent linking
         # conflicts with existing/outdated packages, which we can't resolve
         # because there's no way to tell Homebrew to force-link when installing
-        # from a Brewfile. We update/upgrade to make sure we actually have
-        # current package versions.
+        # from a Brewfile. We also update Protobuf to make sure we have 3.21.3+
+        # to avoid problems with ABI changes with/without -DNDEBUG.
         # We pre-install a pinned txm to work around https://github.com/anko/txm/issues/8
-        run: brew bundle cleanup --force && brew update && brew upgrade && brew bundle install && npm install -g txm@7.4.5
+        run: brew bundle cleanup --force && brew bundle install && brew update && brew install protobuf && npm install -g txm@7.4.5
 
       - name: Run build and test
         run: |
