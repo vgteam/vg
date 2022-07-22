@@ -15,7 +15,7 @@ on:
 jobs:
   testmac:
     name: Test on Mac
-    runs-on: macos-11
+    runs-on: macos-12
 
     steps:
       - name: Use cache
@@ -26,14 +26,14 @@ jobs:
             lib
             include
             bin
-          key: ${{ runner.os }}-11-${{ github.ref }}
+          key: ${{ runner.os }}-12-${{ github.ref }}
           # Restore keys are a "list", but really only a multiline string is
           # accepted. Also we match by prefix. And the most recent cache is
           # used, not the most specific.
           # See: https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows#matching-a-cache-key
           restore-keys: |
-            ${{ runner.os }}-11-${{ github.base_ref }}
-            ${{ runner.os }}-11
+            ${{ runner.os }}-12-${{ github.base_ref }}
+            ${{ runner.os }}-12
           
       - name: Checkout code without submodules
         uses: actions/checkout@v2
