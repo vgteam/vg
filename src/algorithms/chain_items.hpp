@@ -28,99 +28,14 @@
 #include "../seed_clusterer.hpp"
 #include "../handle.hpp"
 
+#include "../utility.hpp"
+
 namespace vg {
 namespace algorithms {
 
 using namespace std;
 
 //#define debug_chaining
-
-/**
- * We want to be able to chain a reordered subset of things without moving the originals, so we use this view over things stored in a vector.
- *
- * Both the backing collection and the indexes must outlive the view.
- */
-template<typename Item>
-struct VectorView {
-    const vector<Item>& items;
-    const vector<size_t>* indexes;
-    
-    /**
-     * Make a VectorView of a whole vector. Provides an implicit conversion.
-     */
-    VectorView(const vector<Item>& items) : items(items), indexes(nullptr) {
-        // Nothing to do!
-    }
-    
-    /**
-     * Make a VectorView of a reordered subset of a vector.
-     */
-    VectorView(const vector<Item>& items, const vector<size_t>& indexes) : items(items), indexes(&indexes) {
-        // Nothing to do!
-    }
-    
-    /**
-     * Get an item by index.
-     */
-    const Item& operator[](size_t index) const {
-        if (indexes) {
-            return items[(*indexes)[index]];
-        } else {
-            return items[index];
-        }
-    }
-    
-    /**
-     * Get the backing index of an item by index.
-     */
-    const size_t backing_index(size_t index) const {
-        if (indexes) {
-            return (*indexes)[index];
-        } else {
-            return index;
-        }
-    }
-    
-    /**
-     * Get the total number of items.
-     */
-    size_t size() const {
-        if (indexes) {
-            return indexes->size();
-        } else {
-            return items.size();
-        }
-    }
-    
-    /**
-     * Determine if there are no items.
-     */
-    bool empty() const {
-        if (indexes) {
-            return indexes->empty();
-        } else {
-            return items.empty();
-        }
-    }
-    
-    /**
-     * Call the given callback with a dense and properly ordered vector of the items.
-     */
-    void with_vector(const std::function<void(const vector<Item>&)>& callback) const {
-        if (indexes) {
-            // We need to reorder
-            vector<Item> reordered;
-            reordered.reserve(indexes->size());
-            for (auto& i : *indexes) {
-                reordered.emplace_back(items[i]);
-            }
-            callback(reordered);
-        } else {
-            // We already have this
-            callback(items);
-        }
-    }
-};
 
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring
@@ -569,7 +484,7 @@ struct BaseChainingSpace {
     }
     
     /**
-     * Run checks to make sure the item is properly formed.
+     * Run checks to make sure the item is self-consistent.
      * Graph must be set.
      */
     virtual void validate(const Item& item, const std::string& full_read_sequence) const {
@@ -644,9 +559,9 @@ struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
 
     // These seeds can't really be interpreted without their sources, which
     // they reference by index. Source is assumed to be MinimizerIndex::Minimizer.
-    const vector<Source>& sources;
+    const VectorView<Source> sources;
     
-    MinimizerSourceChainingSpace(const vector<Source>& sources,
+    MinimizerSourceChainingSpace(const VectorView<Source>& sources,
                   const Aligner& scoring,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
@@ -768,7 +683,7 @@ template<typename Source>
 struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<NewSnarlSeedClusterer::Seed, Source> {
     using Item = NewSnarlSeedClusterer::Seed;
     
-    ChainingSpace(const vector<Source>& sources,
+    ChainingSpace(const VectorView<Source>& sources,
                   const Aligner& scoring,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
@@ -785,7 +700,7 @@ template<typename Source>
 struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<SnarlSeedClusterer::Seed, Source> {
     using Item = SnarlSeedClusterer::Seed;
     
-    ChainingSpace(const vector<Source>& sources,
+    ChainingSpace(const VectorView<Source>& sources,
                   const Aligner& scoring,
                   const HandleGraph* graph) :
         MinimizerSourceChainingSpace<Item, Source>(sources, scoring, nullptr, graph) {
@@ -1001,6 +916,8 @@ int score_best_chain(const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space);
 
 // --------------------------------------------------------------------------------
+
+// Template implementations
 
 template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,

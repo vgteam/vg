@@ -326,16 +326,21 @@ protected:
     // Stages of mapping.
 
     /**
-     * Find the minimizers in the sequence using all minimizer indexes and
-     * return them sorted in descending order by score.
+     * Find the minimizers in the sequence using the minimizer index, and
+     * return them sorted in read order.
      */
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+    
+    /**
+     * Return the indices of all the minimizers, sorted in descending order by theit minimizers' scores.
+     */
+    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers) const;
 
     /**
      * Find seeds for all minimizers passing the filters.
      */
     template<typename SeedType>
-    std::vector<SeedType> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<SeedType> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
@@ -344,7 +349,7 @@ protected:
      * of the read covered by seeds in the cluster.
      */
     template<typename SeedType>
-    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, size_t seq_length, Funnel& funnel) const;
+    void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<SeedType>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
@@ -353,7 +358,7 @@ protected:
     vector<GaplessExtension> extend_cluster(
         const Cluster& cluster,
         size_t cluster_num,
-        const vector<Minimizer>& minimizers,
+        const VectorView<Minimizer>& minimizers,
         const std::vector<SeedType>& seeds,
         const string& sequence,
         vector<vector<size_t>>& minimizer_kept_cluster_count,
@@ -395,7 +400,7 @@ protected:
      * optimal Alignment.
      */
     template<typename Item, typename Source = void>
-    Alignment find_chain_alignment(const Alignment& aln, const algorithms::VectorView<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<Item>& to_chain, const algorithms::ChainingSpace<Item, Source>& space, const std::vector<size_t>& chain) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -419,13 +424,13 @@ protected:
      * Assumes that both reads are facing the same direction.
      * TODO: This should be const, but some of the function calls are not.
      */
-    void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward);
+    void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const VectorView<Minimizer>& minimizers, bool rescue_forward);
 
     /**
      * Return the all non-redundant seeds in the subgraph, including those from
      * minimizers not used for mapping.
      */
-    GaplessExtender::cluster_type seeds_in_subgraph(const std::vector<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
+    GaplessExtender::cluster_type seeds_in_subgraph(const VectorView<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
 
     /**
      * When we use dozeu for rescue, the reported alignment score is incorrect.
@@ -464,13 +469,13 @@ protected:
     /**
      * Set pair partner references for paired mapping results.
      */
-    void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;
+    void pair_all(std::array<vector<Alignment>, 2>& mappings) const;
     
     /**
      * Add annotations to an Alignment with statistics about the minimizers.
      */
     template<typename SeedType>
-    void annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const Funnel& funnel) const;
+    void annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 
@@ -482,7 +487,7 @@ protected:
      *
      * Returns only an "extended" cap at the moment.
      */
-    double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+    double compute_mapq_caps(const Alignment& aln, const VectorView<Minimizer>& minimizers,
                              const SmallBitset& explored);
 
     /**
@@ -504,7 +509,7 @@ protected:
      * easiest-to-disrupt possible layout of the windows, and the lowest
      * possible qualities for the disrupting bases.
      */
-    static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+    static double window_breaking_quality(const VectorView<Minimizer>& minimizers, vector<size_t>& broken,
         const string& sequence, const string& quality_bytes);
     
     /**
@@ -535,7 +540,7 @@ protected:
      * Will sort minimizers_explored (which is indices into minimizers) by
      * minimizer start position.
      */
-    static double faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored, const string& sequence, const string& quality_bytes);
+    static double faster_cap(const VectorView<Minimizer>& minimizers, vector<size_t>& minimizers_explored, const string& sequence, const string& quality_bytes);
     
     /**
      * Given a collection of minimizers, and a list of the minimizers we
@@ -553,7 +558,7 @@ protected:
      * minimizers itself. Only contiguous ranges in minimizer_indices actually
      * make sense.
      */
-    static void for_each_agglomeration_interval(const vector<Minimizer>& minimizers,
+    static void for_each_agglomeration_interval(const VectorView<Minimizer>& minimizers,
         const string& sequence, const string& quality_bytes,
         const vector<size_t>& minimizer_indices,
         const function<void(size_t, size_t, size_t, size_t)>& iteratee);      
@@ -570,7 +575,7 @@ protected:
      * left and right are the inclusive and exclusive bounds of the interval
      * of the read where the disruption occurs.
      */
-    static double get_log10_prob_of_disruption_in_interval(const vector<Minimizer>& minimizers,
+    static double get_log10_prob_of_disruption_in_interval(const VectorView<Minimizer>& minimizers,
         const string& sequence, const string& quality_bytes,
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t left, size_t right);
@@ -586,7 +591,7 @@ protected:
      *
      * index is the position in the read where the disruption occurs.
      */
-    static double get_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+    static double get_prob_of_disruption_in_column(const VectorView<Minimizer>& minimizers,
         const string& sequence, const string& quality_bytes,
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t index);
@@ -752,7 +757,7 @@ protected:
     static string log_bits(const std::vector<bool>& bits);
     
     /// Dump all the given minimizers, with optional subset restriction
-    static void dump_debug_minimizers(const vector<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
+    static void dump_debug_minimizers(const VectorView<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
     
     /// Dump all the extansions in an extension set
     static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds);
@@ -762,11 +767,11 @@ protected:
     
     /// Print the seed content of a cluster.
     template<typename SeedType>
-    static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
+    static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const VectorView<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
     
     /// Print information about a selected set of seeds.
     template<typename SeedType>
-    static void dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds);
+    static void dump_debug_seeds(const VectorView<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds);
     
     /// Print information about a read to be aligned
     static void dump_debug_query(const Alignment& aln);
@@ -877,7 +882,7 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
 template<typename Item, typename Source>
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
-    const algorithms::VectorView<Item>& to_chain,
+    const VectorView<Item>& to_chain,
     const algorithms::ChainingSpace<Item, Source>& space,
     const std::vector<size_t>& chain) const {
     
@@ -892,7 +897,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             for (auto item_number : chain) {
                 cerr << " " << item_number;
             }
-            cerr << " in " << to_chain.size() << " items of " << to_chain.items.size() << endl;
+            cerr << " in " << to_chain.size() << " items" << endl;
         }
     }
     

@@ -252,12 +252,182 @@ struct Tree {
 
 };
 
-// vector containing positive integer values in [begin, end)
+
+/**
+ * We want to be able to operate on reordered subset of things without moving
+ * the originals, so we use this view over things stored in a vector.
+ *
+ * Both the backing collection and the indexes must outlive the view.
+ *
+ * Copyable and assignable, and default-constructable to an empty state.
+ */
+template<typename Item>
+struct VectorView {
+    const vector<Item>* items;
+    const vector<size_t>* indexes;
+    
+    inline VectorView() : items(nullptr), indexes(nullptr) {
+        // Nothing to do!
+    };
+    
+    // Behave like a nice value.
+    ~VectorView() = default;
+    VectorView(const VectorView& other) = default;
+    VectorView(VectorView&& other) = default;
+    VectorView& operator=(const VectorView& other) = default;
+    VectorView& operator=(VectorView&& other) = default;
+    
+    /**
+     * Make a VectorView of a whole vector. Provides an implicit conversion.
+     */
+    inline VectorView(const vector<Item>& items) : items(&items), indexes(nullptr) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Make a VectorView of a reordered subset of a vector.
+     */
+    inline VectorView(const vector<Item>& items, const vector<size_t>& indexes) : items(&items), indexes(&indexes) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Get an item by index.
+     */
+    inline const Item& operator[](size_t index) const {
+        if (indexes) {
+            return (*items)[(*indexes)[index]];
+        } else {
+            return (*items)[index];
+        }
+    }
+    
+    /**
+     * Get the backing index of an item by index.
+     */
+    inline const size_t backing_index(size_t index) const {
+        if (indexes) {
+            return (*indexes)[index];
+        } else {
+            return index;
+        }
+    }
+    
+    /**
+     * Get the total number of items.
+     */
+    inline size_t size() const {
+        if (indexes) {
+            return indexes->size();
+        } else if (items) {
+            return items->size();
+        } else {
+            return 0;
+        }
+    }
+    
+    /**
+     * Determine if there are no items.
+     */
+    inline bool empty() const {
+        if (indexes) {
+            return indexes->empty();
+        } else if (items) {
+            return items->empty();
+        } else {
+            return true;
+        }
+    }
+    
+    /**
+     * Call the given callback with a dense and properly ordered vector of the items.
+     */
+    inline void with_vector(const std::function<void(const vector<Item>&)>& callback) const {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back((*items)[i]);
+            }
+            callback(reordered);
+        } else if (items) {
+            // We already have this
+            callback(*items);
+        } else {
+            // We have no items at all.
+            return callback({});
+        }
+    }
+    
+    /// Minimal iterator for looping over.
+    struct const_iterator {
+        const VectorView<Item>& parent;
+        size_t offset = 0;
+        
+        /// Advance the iterator. Pre-increment only.
+        const_iterator& operator++() {
+            ++offset;
+            return *this;
+        }
+        
+        /// Check if two iterators on the same container are equal
+        bool operator==(const const_iterator& other) const {
+            return offset == other.offset;
+        }
+        
+        /// Check if two iterators on the same container are not equal
+        bool operator!=(const const_iterator& other) const {
+            return offset != other.offset;
+        }
+        
+        /// Get the item pointed to by the iterator. * only, no ->
+        const Item& operator*() const {
+            return parent[offset];
+        }
+    };
+    
+    /// Get iterator to first item.
+    const_iterator begin() const {
+        return {*this, 0};
+    };
+    
+    /// Get tierator to past-end item.
+    const_iterator end() const {
+        return {*this, size()};
+    };
+};
+
+
+/// Vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);
     
-// vector containing positive integer values in [0, end)
+/// Vector containing positive integer values in [0, end)
 inline vector<size_t> range_vector(size_t end) {
     return range_vector(0, end);
+}
+
+/// Get the index permutation that sorts the given items with the given comparator instead of <
+template<typename Iterator>
+std::vector<size_t> sort_permutation(const Iterator& begin,
+                                     const Iterator& end,
+                                     const std::function<bool(const typename Iterator::value_type&, const typename Iterator::value_type&)>& comparator) {
+    // Start with all numbers in number order.
+    std::vector<size_t> indexes = range_vector(end - begin);
+    // Then sort them using the comparator
+    std::sort(indexes.begin(), indexes.end(), [&](size_t a, size_t b) {
+        return comparator(*(begin + a), *(begin + b));
+    });
+    // And return
+    return indexes;
+}
+
+/// Get the index permutation that sorts the given items ascending using <
+template<typename Iterator>
+std::vector<size_t> sort_permutation(const Iterator& begin, const Iterator& end) {
+    return sort_permutation(begin, end, [](const typename Iterator::value_type& a, const typename Iterator::value_type& b) {
+        return a < b;
+    });
 }
 
 struct IncrementIter {
