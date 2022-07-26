@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -346,9 +346,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     prefix_sum = is_trivial_chain 
                             ? std::numeric_limits<size_t>::max() 
                             : distance_index.get_prefix_sum_value(node_net_handle);
-                    if (!std::get<5>(old_cache)){
-                        std::get<2>(seed.minimizer_cache) = prefix_sum;
-                    }
+                    std::get<2>(seed.minimizer_cache) = prefix_sum;
 
                     //component
                     std::get<3>(seed.minimizer_cache) = distance_index.is_multicomponent_chain(parent) 
