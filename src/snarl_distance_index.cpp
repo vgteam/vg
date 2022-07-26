@@ -20,6 +20,7 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     vector<const SnarlDistanceIndex::TemporaryDistanceIndex*> indexes;
     indexes.emplace_back(&temp_index);
     distance_index->get_snarl_tree_records(indexes, graph);
+    distance_index->add_minimum_distance_paths(graph);
 }
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
     const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit)  {
@@ -691,9 +692,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                 for (pair<SnarlDistanceIndex::temp_record_t, size_t>& chain_child_index : temp_chain_record.children) {
                     if (chain_child_index.first == SnarlDistanceIndex::TEMP_SNARL) {
                         //Find the shortest path through this snarl and label each node with the chain, and the distance along the path + prefix sum
-                        label_shortest_path_through_snarl(graph, chain_child_index.second, temp_index, 
-                                    component_index, temp_chain_record.chain_components[chain_child_i], 
-                                    SnarlDistanceIndex::sum({temp_chain_record.prefix_sum[chain_child_i-1], last_node_length}));
+                        //label_shortest_path_through_snarl(graph, chain_child_index.second, temp_index, 
+                        //            component_index, temp_chain_record.chain_components[chain_child_i], 
+                        //            SnarlDistanceIndex::sum({temp_chain_record.prefix_sum[chain_child_i-1], last_node_length}));
                     } else {
                         //If this is a node, iterate the child number
                         chain_child_i++;
@@ -711,6 +712,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
     return temp_index;
 }
 
+//TODO: Skip this
 void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_index, 
             SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
             pair<SnarlDistanceIndex::temp_record_t, size_t> root_ancestor, size_t chain_component, size_t offset){
@@ -825,14 +827,15 @@ void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_in
                 if (SnarlDistanceIndex::sum({current_node.first, current_node_length, distance_to_end}) == shortest_distance_start_end) {
                     //IF this node is on a minimum distance path
 
-                    if (next_index.first == SnarlDistanceIndex::TEMP_NODE) {
-                        //If it's a node, label it with the values
-                        temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_ancestor = root_ancestor;
-                        temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_offset = SnarlDistanceIndex::sum({offset, current_node.first});
-                        temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_orientation = next_rev;
-                        temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_component = chain_component;
+                    //TODO: I'm taking this out of here and putting it in the actual distance index after it's been computed
+                    //if (next_index.first == SnarlDistanceIndex::TEMP_NODE) {
+                    //    //If it's a node, label it with the values
+                    //    temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_ancestor = root_ancestor;
+                    //    temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_offset = SnarlDistanceIndex::sum({offset, current_node.first});
+                    //    temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_orientation = next_rev;
+                    //    temp_index.temp_node_records[next_index.second - temp_index.min_node_id].path_component = chain_component;
 
-                    }
+                    //}
 #ifdef debug_distance_indexing
                     cerr << "\t\tthis is the next node with distance " << current_node.first << "+" << current_node_length << "+" << distance_to_end << " != " << shortest_distance_start_end << endl;
 #endif
@@ -1840,6 +1843,8 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
                   the chain component of the start and end nodes of the parent snarl
         -(bool)   is the node reversed in its parent 
         -(bool)   is the node nested (not a top-level chain or in a simple snarl of the top-level chain)
+
+    if is_nested_node is true, then stores the same values, but they are for the shortest path in a top-level chain
  */
 
 
