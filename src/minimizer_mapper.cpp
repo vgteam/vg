@@ -12,6 +12,7 @@
 #include "subgraph.hpp"
 #include "statistics.hpp"
 #include "algorithms/count_covered.hpp"
+#include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
@@ -2971,6 +2972,46 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const VectorView<Minimi
     }
     
     return p;
+}
+
+//-----------------------------------------------------------------------------
+
+template<typename SeedType>
+vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order) const {
+    // Find the minimizers between the ones for the bounding seeds and make sure there are any
+    
+    pos_t left_bound;
+    pos_t right_bound;
+    
+    // Query distance index to see if the seeds are actually plausibly reachable
+    auto graph_min_distance = 0;
+    
+    // Decide how far we want to search
+    auto graph_distance = graph_min_distance * 2 + 1000;
+    
+    // Extract the connecting graph
+    HashGraph connecting_graph;
+    unordered_map<id_t, id_t> extracted_to_original = algorithms::extract_connecting_graph(&this->gbwt_graph, &connecting_graph, graph_distance, left_bound, right_bound);
+    
+    // Find hits in the subgraph
+
+    // Forge seeds for the hits
+    vector<SeedType> forged_seeds;
+    
+    return forged_seeds;
+}
+
+template<typename SeedType>
+void MinimizerMapper::reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, size_t fallow_region_size) const {
+    // Make a VectorView over the seeds
+    
+    // Scan along pairs and check read distance
+    
+    // If a pair is too far apart, forge some fill-in seeds
+    
+    // Append the fill-in seeds onto the seed storage vector
+    
+    // After filling in all the fallow regions, if we actually got any new seeds, extend and re-sort sorted_seed_indexes
 }
 
 //-----------------------------------------------------------------------------

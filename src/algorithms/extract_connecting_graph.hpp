@@ -37,6 +37,8 @@ namespace algorithms {
     ///  pos_2                      end position, subgraph walks end here in the same orientation
     ///  strict_max_len             only extract nodes and edges if they fall on some walk between pos_1 and pos_2
     ///                             that is under the maximum length (implies only_walks = true)
+    ///
+    /// Returns: a map from node ids in the extracted graph to the node ids in the original graph
     unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
                                                        DeletableHandleGraph* into,
                                                        int64_t max_len,

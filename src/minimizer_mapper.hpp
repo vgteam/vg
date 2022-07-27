@@ -414,6 +414,46 @@ protected:
 
 //-----------------------------------------------------------------------------
 
+    // Reseeding clusters to avoid big "fallow" gaps where there are no seeds
+    
+    /**
+     * Look at the minimizers which occur between the given seeds in the read,
+     * and locate their hits that occur in the part of the graph between the
+     * given seeds in the graph, if any.
+     *
+     * Returns new, forged seeds in read order.
+     *
+     * Forged seeds will not have all fields set, because they did not actually
+     * go through the clustering process. They will only have locations in the
+     * read and the graph.
+     *
+     * TODO: Use a different kind of seed type to avoid this forgery!
+     */
+    template<typename SeedType>
+    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order) const;
+    
+    /**
+     * Reseed all fallow regions (regions in the read where the distance
+     * between seeds is at least fallow_region_size) by locating hits of the
+     * given minimizers that occur in the part of the graph between existing
+     * seeds.
+     *
+     * The minimizers must be sorted in read order.
+     *
+     * seed_storage is a collection of seeds, and sorted_seed_indexes is index
+     * numbers in that collection of seeds, sorted by read order.
+     *
+     * Updates seed_storage with newely-found forged seeds (which only have
+     * their read and graph position fields set), and updates
+     * sorted_seed_indexes to sort the newly expanded list of seeds in read
+     * order.
+     */
+    template<typename SeedType>
+    void reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, size_t fallow_region_size = 100) const;
+
+
+//-----------------------------------------------------------------------------
+
     // Rescue.
 
     /**
