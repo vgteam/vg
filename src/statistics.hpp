@@ -1018,7 +1018,7 @@ public:
         auto used_bits = numeric_limits<long long unsigned int>::digits - unused_bits;
         
         // Get just that max used bit
-        OutType used_bit = 1 << (used_bits - 1);
+        OutType used_bit = OutType(1) << (used_bits - 1);
         
         // If a generated number from the RNG has this bit flag in it, it has
         // passed the largest complete power of 2 it can make and needs to be
