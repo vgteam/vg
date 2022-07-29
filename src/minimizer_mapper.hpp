@@ -427,11 +427,14 @@ protected:
     /**
      * Look at the minimizers which occur between the given seeds in the read,
      * and locate their hits that occur in the part of the graph between the
-     * given seeds in the graph, if any.
+     * given seeds in the graph, if any. Graph search is limited by
+     * max_fallow_search_distance. 
      *
-     * Returns new, forged seeds in read order. These seeds use the numbers in
-     * minimizer_numbers to refer to each minimizer (intended to be the inverse
-     * of the permutation that puts the minimizers in score order).
+     * Takes a lazy place to put an inverse of the minimizer score
+     * order sort (which is the space they are numbered in for seed
+     * references), from the space's sources view.
+     *
+     * Returns new, forged seeds in read order.
      *
      * Forged seeds will not have all fields set, because they did not actually
      * go through the clustering process. They will only have locations in the
@@ -440,7 +443,7 @@ protected:
      * TODO: Use a different kind of seed type to avoid this forgery!
      */
     template<typename SeedType>
-    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order, const vector<size_t>& minimizer_numbers) const;
+    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<vector<size_t>>& minimizer_score_sort_inverse) const;
     
     /**
      * Reseed all fallow regions (regions in the read where the distance
@@ -448,8 +451,9 @@ protected:
      * given minimizers that occur in the part of the graph between existing
      * seeds.
      *
-     * The minimizers must be sorted in read order. We also need the inverse of
-     * the permutation for the view of them in score order.
+     * Takes a lazy place to put an inverse of the minimizer score
+     * order sort (which is the space they are numbered in for seed
+     * references), from the space's sources view.
      *
      * seed_storage is a collection of seeds, and sorted_seed_indexes is index
      * numbers in that collection of seeds, sorted by read order.
@@ -460,7 +464,7 @@ protected:
      * order.
      */
     template<typename SeedType>
-    void reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, const vector<size_t>& minimizer_numbers) const;
+    void reseed_fallow_regions(vector<SeedType>& seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<vector<size_t>>& minimizer_score_sort_inverse) const;
 
 
 //-----------------------------------------------------------------------------
