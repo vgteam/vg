@@ -405,34 +405,34 @@ struct VectorView {
  * ask about values that aren't actually in the view. If an item appears
  * multiple times, one index will win.
  *
- * If the VectorView is modified, the inverse will need to be re-made.
+ * If the VectorView's backing vectors are modified, the inverse will need to
+ * be re-made.
+ *
+ * In keeping with VectorView's value semantics, the inverted VectorView does
+ * not need to outlivce this object.
  */
-template<typename Item>
 class VectorViewInverse {
 
 private:
-    /// Points to the VectorView we are inverting.
-    const VectorView<Item>* view;
     /// Stores the index in the view at which each item in the backing storage appears.
     vector<size_t> inverse;
     
 public:
     /// Default-construct an inverse of nothing
-    inline InvertibleVectorView() : view(nullptr), inverse() {
+    inline VectorViewInverse() : inverse() {
         // Nothing to do!
     };
     
     /// Invert the given VectorView.
-    inline VectorViewInverse(const VectorView<Item>& view) : view(&view), inverse() {
-        if (!this->view->indexes) {
-            // No transformation to invert
-            inverse.clear();
-        } else {
+    template<typename Item>
+    inline VectorViewInverse(const VectorView<Item>& view) : inverse() {
+        if (view.indexes) {
+            // A transformation exists to invert.
             // Make sure we have room for all the dense inverse values
-            inverse.resize(this->view->items->size());
-            for (size_t view_index = 0; view_index < this->view->indexes->size(); view_index++) {
+            inverse.resize(view.items->size());
+            for (size_t view_index = 0; view_index < view.indexes->size(); view_index++) {
                 // Save all the inverse references.
-                inverse[(*(this->view->indexes))[view_index]] = view_index;
+                inverse[(*(view.indexes))[view_index]] = view_index;
             }
         }
     };
@@ -440,97 +440,16 @@ public:
     /**
      * Get the view index from a backing index.
      */
-    size_t operator[](size_t backing_index) {
-        if (!this->view) {
-            // Nothing to invert. We can do whatever we want.
+    inline size_t operator[](size_t backing_index) {
+        if (inverse.empty()) {
+            // No transformation necessary.
             return backing_index;
         }
-        if (!this->view->indexes) {
-            // The view represents no transformation, so do no transformation to invert it.
-            return backing_index;
-        }
-        // Look in the stored inverse and hope we asked for something actually
-        // in the view.
+        // Otherwise, look in the stored inverse and hope we asked for
+        // something actually in the view.
         return inverse[backing_index];
     }
-}
-
-/**
- * Sometimes we need to go back and forth between the view space and the
- * original space, so we use this VectorView that supplements itself with an
- * inverse of its transformation on construction.
- *
- * You can get the backing index of an index in the view with backing_index(),
- * and reverse that operation with view_index(). 
- *
- * Assumes we have the memory for a dense inverse, and that nobody will ever
- * ask about values that aren't actually in the view. If an item appears
- * multiple times, one index will win.
- *
- * If the vectors defining the view are modified, you will need to call
- * invert() to update the inverse.
- */
-template<typename Item>
-struct InvertibleVectorView : public VectorView<Item> {
-    /// Stores the index in the view at which each item in the backing storage appears.
-    vector<size_t> inverse;
-    
-    inline InvertibleVectorView() : VectorView(), inverse() {
-        // Nothing to do!
-    };
-    
-    // Behave like a nice value.
-    ~InvertibleVectorView() = default;
-    InvertibleVectorView(const InvertibleVectorView& other) = default;
-    InvertibleVectorView(InvertibleVectorView&& other) = default;
-    InvertibleVectorView& operator=(const InvertibleVectorView& other) = default;
-    InvertibleVectorView& operator=(InvertibleVectorView&& other) = default;
-    
-    /**
-     * Make a InvertibleVectorView of a whole vector. Provides an implicit conversion.
-     */
-    inline InvertibleVectorView(const vector<Item>& items) : VectorView(items), inverse() {
-        // Nothing to do!
-    }
-    
-    /**
-     * Make a InvertibleVectorView of a reordered subset of a vector. Compute the inverse.
-     */
-    inline InvertibleVectorView(const vector<Item>& items, const vector<size_t>& indexes) : VectorView(items, indexes), inverse(items.size()) {
-        this->invert();
-    }
-    
-    /**
-     * Compute the inverse of the view. Must be called if the indexes of the view are ever modified.
-     */
-    void invert() {
-        if (!indexes) {
-            // No transformation to invert
-            inverse.clear();
-        } else {
-            // Make sure we have room for all the dense inverse values
-            inverse.resize(items->size());
-            for (size_t view_index = 0; view_index < this->indexes->size(); view_index++) {
-                // Save all the inverse references.
-                inverse[(*(this->indexes))[view_index]] = view_index;
-            }
-        }
-    };
-    
-    /**
-     * Get the view's index of an item from its backing index. Result isn
-     * undefined if the item at that backing index does not appear in the view.
-     */
-    inline size_t view_index(size_t backing_index) const {
-        if (indexes) {
-            // There's a transformation, so use the inverse of it.
-            return inverse[backing_index];
-        } else {
-            // Indexes are the same all through
-            return index;
-        }
-    }
-}
+};
 
 /// Vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);

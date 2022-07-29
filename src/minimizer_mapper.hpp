@@ -434,7 +434,7 @@ protected:
      * order sort (which is the space they are numbered in for seed
      * references), from the space's sources view.
      *
-     * Returns new, forged seeds in read order.
+     * Returns new, forged seeds in an arbitrary order.
      *
      * Forged seeds will not have all fields set, because they did not actually
      * go through the clustering process. They will only have locations in the
@@ -443,7 +443,7 @@ protected:
      * TODO: Use a different kind of seed type to avoid this forgery!
      */
     template<typename SeedType>
-    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<vector<size_t>>& minimizer_score_sort_inverse) const;
+    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const;
     
     /**
      * Reseed all fallow regions (regions in the read where the distance
@@ -464,7 +464,7 @@ protected:
      * order.
      */
     template<typename SeedType>
-    void reseed_fallow_regions(vector<SeedType>& seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<vector<size_t>>& minimizer_score_sort_inverse) const;
+    void reseed_fallow_regions(vector<SeedType>& seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const;
 
 
 //-----------------------------------------------------------------------------

@@ -467,6 +467,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
+    // We may or may not need to invert this view, but if we do we will want to
+    // keep the result. So have a place to lazily keep an inverse.
+    std::unique_ptr<VectorViewInverse> minimizer_score_sort_inverse;
+    
 
     //Since there can be two different versions of a distance index, find seeds and clusters differently
 
@@ -659,9 +663,21 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
                         return space.read_start(seeds[a]) < space.read_start(seeds[b]);
                     });
-                        
+                    
+                    if (track_provenance) {
+                        funnel.substage("reseed");
+                    }
+                    // Fill in fallow gaps between seeds, if possible.
+                    // TODO: since we have no distance index in the space, we see everything as unreachable in the graph and might never do this.
+                    reseed_fallow_regions(seeds, cluster_seeds_sorted, space, minimizer_score_sort_inverse);
+                    if (track_provenance) {
+                        funnel.substage("find_chain");
+                    }    
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
+                    if (track_provenance) {
+                        funnel.substage_stop();
+                    }
                 } else {
                     if (show_work) {
                         dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
@@ -678,9 +694,21 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
                         return space.read_start(old_seeds[a]) < space.read_start(old_seeds[b]);
                     });
-                        
+                    
+                    if (track_provenance) {
+                        funnel.substage("reseed");
+                    }
+                    // Fill in fallow gaps between seeds, if possible.
+                    // TODO: since we have no distance index in the space, we see everything as unreachable in the graph and might never do this.
+                    reseed_fallow_regions(old_seeds, cluster_seeds_sorted, space, minimizer_score_sort_inverse);
+                    if (track_provenance) {
+                        funnel.substage("find_chain");
+                    }    
                     // Compute the best chain
                     cluster_chains.emplace_back(algorithms::find_best_chain<OldSeed>({old_seeds, cluster_seeds_sorted}, space));
+                    if (track_provenance) {
+                        funnel.substage_stop();
+                    }
                 }
                 
                 // Remember which sorted seeds go with which chains, so we can interpret the chains.
@@ -2977,7 +3005,7 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const VectorView<Minimi
 //-----------------------------------------------------------------------------
 
 template<typename SeedType>
-vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, const InvertibleVectorView<Minimizer>& minimizers) const {
+vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const {
     // We have two seeds here, so there aren't no minimizers.
     // We know there must be a collection of minimizers in read order, so grab that.
     const vector<Minimizer>& minimizers_in_read_order = *space.sources.items;
@@ -2992,12 +3020,16 @@ vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, con
         return {};
     }
     
-    // Get the graph bounds we care about looking between
-    const pos_t& left_bound = space.graph_end(left);
-    const pos_t& right_bound = space.graph_start(right);
-    
     // Query distance index to see if the seeds are actually plausibly reachable
-    size_t graph_min_distance = space.get_graph_distance(left_bound, right_bound);
+    size_t graph_min_distance;
+    if (space.distance_index) {
+        // We have a (new) graph distance index, so use that.
+        // TODO: support old graph distance index???
+        graph_min_distance = space.get_graph_distance(left, right);
+    } else {
+        // No graph distances. Just search the limit.
+        graph_min_distance = max_fallow_search_distance;
+    }
     
     if (graph_min_distance == std::numeric_limits<size_t>::max()) {
         // Actually unreachable, so don't add any seeds.
@@ -3017,10 +3049,13 @@ vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, con
     // Extract the connecting graph. We need the IDs in sorted order.
     vector<id_t> sorted_ids;
     {
+        // Get the graph bounds we care about looking between
+        const pos_t& left_bound = space.graph_end(left);
+        const pos_t& right_bound = space.graph_start(right);
         // TODO: Add an algorithm version that doesn't bother actually extracting?
         HashGraph connecting_graph;
         unordered_map<id_t, id_t> extracted_to_original = algorithms::extract_connecting_graph(space.graph, &connecting_graph, graph_distance, left_bound, right_bound);
-        connecting_graph_nodes.reserve(extracted_to_original.size());
+        sorted_ids.reserve(extracted_to_original.size());
         for (auto& kv : extracted_to_original) {
             // Save the original-graph node IDs
             sorted_ids.push_back(kv.second);
@@ -3049,7 +3084,11 @@ vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, con
             forged_seeds.back().pos = pos;
             // Run the read-order index it through the inverse permutation to
             // get the number everyone else will know it by.
-            forged_seeds.back().source = minimizers.view_index(i);
+            if (!minimizer_score_sort_inverse) {
+                // But lazily make sure we have the inverse permutation first.
+                minimizer_score_sort_inverse = std::make_unique<VectorViewInverse>(space.sources);
+            }
+            forged_seeds.back().source = (*minimizer_score_sort_inverse)[i];
         });
     }
 
@@ -3057,7 +3096,7 @@ vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, con
 }
 
 template<typename SeedType>
-void MinimizerMapper::reseed_fallow_regions(vector<SeedType> seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, const InvertibleVectorView<Minimizer>& minimizers) const {
+void MinimizerMapper::reseed_fallow_regions(vector<SeedType>& seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const {
     // Make a VectorView over the seeds
     VectorView<SeedType> seed_view {seed_storage, sorted_seed_indexes};
     
@@ -3071,7 +3110,7 @@ void MinimizerMapper::reseed_fallow_regions(vector<SeedType> seed_storage, vecto
         
         if (read_distance > fallow_region_size) {
             // If a pair is too far apart, forge some fill-in seeds
-            vector<SeedType> new_seeds = reseed_fallow_region(seed_view[left], seed_view[right], minimizers);
+            vector<SeedType> new_seeds = reseed_fallow_region(seed_view[left], seed_view[right], space, minimizer_score_sort_inverse);
         
             // Append the fill-in seeds onto the seed storage vector. Safe to do
             // even when we're using a view over it.
@@ -3088,6 +3127,11 @@ void MinimizerMapper::reseed_fallow_regions(vector<SeedType> seed_storage, vecto
         while(sorted_seed_indexes.size() < seed_storage.size()) {
             sorted_seed_indexes.push_back(sorted_seed_indexes.size());
         }
+        
+        // TODO: De-duplicate sort with the initial sort
+        std::sort(sorted_seed_indexes.begin(), sorted_seed_indexes.end(), [&](const size_t& a, const size_t& b) -> bool {
+            return space.read_start(seed_storage[a]) < space.read_start(seed_storage[b]);
+        });
     }
         
 }
@@ -3300,7 +3344,7 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
 int64_t MinimizerMapper::distance_between(const pos_t& pos1, const pos_t& pos2) {
     int64_t min_dist;
     if (distance_index != nullptr) {
-        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), false, &gbwt_graph);
+        min_dist = distance_index->minimum_distance(id(pos1), is_rev(pos1), offset(pos1), id(pos2), is_rev(pos1), offset(pos2), false, &gbwt_graph);
     } else {
         min_dist = old_distance_index->min_distance(pos1, pos2);
     }
