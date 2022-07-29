@@ -571,6 +571,129 @@ TEST_CASE("find_best_chain is willing to keep indels split if the items suggest 
     REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
 }
 
+// Define a test chaining space for within-node-only matchings.
+
+struct TestItem {
+    pos_t pos;
+    size_t source;
+};
+    
+struct TestSource {
+    size_t start;
+    size_t length;
+};
+
+}
+
+namespace algorithms {
+
+using unittest::TestItem;
+using unittest::TestSource;
+
+template<>
+struct ChainingSpace<TestItem, TestSource> : public SourceChainingSpace<TestItem, TestSource> {
+    using Item = TestItem;
+    using Source = TestSource;
+    
+    ChainingSpace(const VectorView<Source>& sources,
+                  const Aligner& scoring,
+                  const SnarlDistanceIndex* distance_index,
+                  const HandleGraph* graph) :
+        SourceChainingSpace<Item, Source>(sources, scoring, distance_index, graph) {
+        
+        // Nothing to do!
+    }
+    
+    virtual size_t source_read_start(const Source& source) const {
+        return source.start;
+    }
+    
+    virtual size_t source_read_end(const Source& source) const {
+        return source.start + source.length;
+    }
+    
+    virtual size_t source_read_length(const Source& source) const {
+        return source.length;
+    }
+    
+    pos_t graph_start(const Item& item) const {
+        return item.pos;
+    }
+    
+    pos_t graph_end(const Item& item) const {
+        pos_t end = item.pos;
+        get_offset(end) += this->graph_length(item);
+        return end;
+    }
+    
+    size_t graph_path_size(const Item& item) const {
+        return 1;
+    }
+    
+    handle_t graph_path_at(const Item& item, size_t index) const {
+        return this->graph->get_handle(id(item.pos), is_rev(item.pos));
+    }
+    
+    size_t graph_path_offset(const Item& item) const {
+        return offset(item.pos);
+    }
+    
+    
+};
+
+}
+
+namespace unittest {
+
+TEST_CASE("A forward-strand fallow region with one missing seed can be filled in", "[chain_items][reseed_fallow_region]") {
+
+    
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    vector<TestSource> sources {
+        {0, 1},
+        {50, 1},
+        {90, 5}
+    };
+    
+    vector<TestItem> items {
+        {make_pos_t(1, false, 0), 0},
+        {make_pos_t(10, false, 0), 2}
+    };
+    
+    auto for_each_pos_for_source_in_subgraph = [&](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
+        if (source.start == 50 && std::find(subgraph_ids.begin(), subgraph_ids.end(), 6) != subgraph_ids.end()) {
+            // We've been asked about our no-item source and we have the right node so make an item for it.
+            iteratee(make_pos_t(6, false, 0));
+        }
+    };
+    
+    Aligner scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items[0],
+        items[1],
+        space,
+        source_sort_inverse,
+        for_each_pos_for_source_in_subgraph
+    );
+                                                                 
+    REQUIRE(reseeded.size() == 1);
+    REQUIRE(reseeded[0].source == 1);
+                                                                 
+                                                                 
+                                                                 
+}
+
 }
 
 }

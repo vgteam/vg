@@ -12,7 +12,6 @@
 #include "subgraph.hpp"
 #include "statistics.hpp"
 #include "algorithms/count_covered.hpp"
-#include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
@@ -646,6 +645,21 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // Sort all the seeds used in the cluster by start position, so we can chain them.
                 std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
                 
+                // We are going to need a widget for finding minimizer hot
+                // positions in a subgraph, in the right orientation.
+                auto find_minimizer_hit_positions = [&](const Minimizer& m, const vector<id_t>& sorted_ids, const std::function<void(const pos_t)>& iteratee) -> void {
+                    
+                    gbwtgraph::hits_in_subgraph(m.hits, m.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+                        if (m.value.is_reverse) {
+                            // Convert to face along forward strand of read.
+                            size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
+                            pos = reverse_base_pos(pos, node_length);
+                        }
+                        // Show the properly stranded position to the iteratee.
+                        iteratee(pos);
+                    });
+                };
+                
                 if (distance_index != nullptr) {
                     if (show_work) {
                         dump_debug_seeds(minimizers, seeds, cluster.seeds);
@@ -668,8 +682,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         funnel.substage("reseed");
                     }
                     // Fill in fallow gaps between seeds, if possible.
-                    // TODO: since we have no distance index in the space, we see everything as unreachable in the graph and might never do this.
-                    reseed_fallow_regions(seeds, cluster_seeds_sorted, space, minimizer_score_sort_inverse);
+                    algorithms::reseed_fallow_regions<Seed, Minimizer>(
+                        seeds,
+                        cluster_seeds_sorted,
+                        space,
+                        minimizer_score_sort_inverse,
+                        find_minimizer_hit_positions, 
+                        max_fallow_search_distance,
+                        fallow_region_size
+                    );
                     if (track_provenance) {
                         funnel.substage("find_chain");
                     }    
@@ -700,7 +721,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     }
                     // Fill in fallow gaps between seeds, if possible.
                     // TODO: since we have no distance index in the space, we see everything as unreachable in the graph and might never do this.
-                    reseed_fallow_regions(old_seeds, cluster_seeds_sorted, space, minimizer_score_sort_inverse);
+                    algorithms::reseed_fallow_regions<OldSeed, Minimizer>(
+                        old_seeds,
+                        cluster_seeds_sorted,
+                        space,
+                        minimizer_score_sort_inverse,
+                        find_minimizer_hit_positions, 
+                        max_fallow_search_distance,
+                        fallow_region_size
+                    );
                     if (track_provenance) {
                         funnel.substage("find_chain");
                     }    
@@ -3000,140 +3029,6 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const VectorView<Minimi
     }
     
     return p;
-}
-
-//-----------------------------------------------------------------------------
-
-template<typename SeedType>
-vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const {
-    // We have two seeds here, so there aren't no minimizers.
-    // We know there must be a collection of minimizers in read order, so grab that.
-    const vector<Minimizer>& minimizers_in_read_order = *space.sources.items;
-    
-    // Find the range of indexes in read order for the minimizer hits between
-    // those of the bounding seeds.
-    size_t range_begin = space.sources.backing_index(left.source) + 1;
-    size_t range_end = space.sources.backing_index(right.source);
-    
-    if (range_begin >= range_end) {
-        // Not actually any minimizers between here in the read.
-        return {};
-    }
-    
-    // Query distance index to see if the seeds are actually plausibly reachable
-    size_t graph_min_distance;
-    if (space.distance_index) {
-        // We have a (new) graph distance index, so use that.
-        // TODO: support old graph distance index???
-        graph_min_distance = space.get_graph_distance(left, right);
-    } else {
-        // No graph distances. Just search the limit.
-        graph_min_distance = max_fallow_search_distance;
-    }
-    
-    if (graph_min_distance == std::numeric_limits<size_t>::max()) {
-        // Actually unreachable, so don't add any seeds.
-        // TODO: detect and warn? Try different bounds?
-        return {};
-    }
-    
-    if (graph_min_distance > max_fallow_search_distance) {
-        // This would be too far to search.
-        // TODO: warn!
-        return {};
-    }
-    
-    // Decide how far we want to search
-    size_t graph_distance = std::min(max_fallow_search_distance, graph_min_distance * 2 + 1000);
-    
-    // Extract the connecting graph. We need the IDs in sorted order.
-    vector<id_t> sorted_ids;
-    {
-        // Get the graph bounds we care about looking between
-        const pos_t& left_bound = space.graph_end(left);
-        const pos_t& right_bound = space.graph_start(right);
-        // TODO: Add an algorithm version that doesn't bother actually extracting?
-        HashGraph connecting_graph;
-        unordered_map<id_t, id_t> extracted_to_original = algorithms::extract_connecting_graph(space.graph, &connecting_graph, graph_distance, left_bound, right_bound);
-        sorted_ids.reserve(extracted_to_original.size());
-        for (auto& kv : extracted_to_original) {
-            // Save the original-graph node IDs
-            sorted_ids.push_back(kv.second);
-        }
-    }
-    std::sort(sorted_ids.begin(), sorted_ids.end());
-    
-    // Find hits on these nodes, for the minimizers that are in the right part of the read, and forge seeds for them.
-    vector<SeedType> forged_seeds;
-    // We don't just call seeds_in_subgraph() because that returns an internal
-    // format that loses the actual matched position.
-    for (size_t i = range_begin; i < range_end; i++) {
-        // For each minimizer between the bounds
-        const Minimizer& m = minimizers_in_read_order[i];
-        // Find all its hits in the part of the graph between the bounds
-        gbwtgraph::hits_in_subgraph(m.hits, m.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
-            if (m.value.is_reverse) {
-                // Convert to face along forward strand of read.
-                size_t node_length = space.graph->get_length(space.graph->get_handle(id(pos)));
-                pos = reverse_base_pos(pos, node_length);
-            }
-            // So now we know pos corresponds to read base
-            // m.value.offset, in the read's forward orientation.
-            // Forge a seed.
-            forged_seeds.emplace_back();
-            forged_seeds.back().pos = pos;
-            // Run the read-order index it through the inverse permutation to
-            // get the number everyone else will know it by.
-            if (!minimizer_score_sort_inverse) {
-                // But lazily make sure we have the inverse permutation first.
-                minimizer_score_sort_inverse = std::make_unique<VectorViewInverse>(space.sources);
-            }
-            forged_seeds.back().source = (*minimizer_score_sort_inverse)[i];
-        });
-    }
-
-    return forged_seeds;
-}
-
-template<typename SeedType>
-void MinimizerMapper::reseed_fallow_regions(vector<SeedType>& seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const {
-    // Make a VectorView over the seeds
-    VectorView<SeedType> seed_view {seed_storage, sorted_seed_indexes};
-    
-    for (size_t left = 0; left + 1 < seed_view.size(); left++) {
-        // For each pair...
-        size_t right = left + 1;
-        
-        // Check read distance.
-        // TODO: Could we use the faster non-space way of doing this without ever touching the graph?
-        size_t read_distance = space.get_read_distance(seed_view[left], seed_view[right]);
-        
-        if (read_distance > fallow_region_size) {
-            // If a pair is too far apart, forge some fill-in seeds
-            vector<SeedType> new_seeds = reseed_fallow_region(seed_view[left], seed_view[right], space, minimizer_score_sort_inverse);
-        
-            // Append the fill-in seeds onto the seed storage vector. Safe to do
-            // even when we're using a view over it.
-            seed_storage.reserve(seed_storage.size() + new_seeds.size());
-            std::copy(new_seeds.begin(), new_seeds.end(), std::back_inserter(seed_storage));
-        }
-    }
-    
-    if (seed_storage.size() != sorted_seed_indexes.size()) {
-        // After filling in all the fallow regions, if we actually got any new
-        // seeds, extend and re-sort sorted_seed_indexes.
-        // TODO: Can we just build this in order as we go left to right along the read actually?
-        sorted_seed_indexes.reserve(seed_storage.size());
-        while(sorted_seed_indexes.size() < seed_storage.size()) {
-            sorted_seed_indexes.push_back(sorted_seed_indexes.size());
-        }
-        
-        // TODO: De-duplicate sort with the initial sort
-        std::sort(sorted_seed_indexes.begin(), sorted_seed_indexes.end(), [&](const size_t& a, const size_t& b) -> bool {
-            return space.read_start(seed_storage[a]) < space.read_start(seed_storage[b]);
-        });
-    }
-        
 }
 
 //-----------------------------------------------------------------------------

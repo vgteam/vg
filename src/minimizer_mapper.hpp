@@ -424,47 +424,7 @@ protected:
 
     // Reseeding clusters to avoid big "fallow" gaps where there are no seeds
     
-    /**
-     * Look at the minimizers which occur between the given seeds in the read,
-     * and locate their hits that occur in the part of the graph between the
-     * given seeds in the graph, if any. Graph search is limited by
-     * max_fallow_search_distance. 
-     *
-     * Takes a lazy place to put an inverse of the minimizer score
-     * order sort (which is the space they are numbered in for seed
-     * references), from the space's sources view.
-     *
-     * Returns new, forged seeds in an arbitrary order.
-     *
-     * Forged seeds will not have all fields set, because they did not actually
-     * go through the clustering process. They will only have locations in the
-     * read and the graph.
-     *
-     * TODO: Use a different kind of seed type to avoid this forgery!
-     */
-    template<typename SeedType>
-    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const;
     
-    /**
-     * Reseed all fallow regions (regions in the read where the distance
-     * between seeds is at least fallow_region_size) by locating hits of the
-     * given minimizers that occur in the part of the graph between existing
-     * seeds.
-     *
-     * Takes a lazy place to put an inverse of the minimizer score
-     * order sort (which is the space they are numbered in for seed
-     * references), from the space's sources view.
-     *
-     * seed_storage is a collection of seeds, and sorted_seed_indexes is index
-     * numbers in that collection of seeds, sorted by read order.
-     *
-     * Updates seed_storage with newely-found forged seeds (which only have
-     * their read and graph position fields set), and updates
-     * sorted_seed_indexes to sort the newly expanded list of seeds in read
-     * order.
-     */
-    template<typename SeedType>
-    void reseed_fallow_regions(vector<SeedType>& seed_storage, vector<size_t>& sorted_seed_indexes, const algorithms::ChainingSpace<SeedType, Minimizer>& space, std::unique_ptr<VectorViewInverse>& minimizer_score_sort_inverse) const;
 
 
 //-----------------------------------------------------------------------------
@@ -485,7 +445,7 @@ protected:
      * Return the all non-redundant seeds in the subgraph, including those from
      * minimizers not used for mapping.
      */
-    GaplessExtender::cluster_type seeds_in_subgraph(const VectorView<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
+    GaplessExtender::cluster_type seeds_in_subgraph(const VectorView<Minimizer>& minimizers, const std::unordered_set<nid_t>& subgraph) const;
 
     /**
      * When we use dozeu for rescue, the reported alignment score is incorrect.

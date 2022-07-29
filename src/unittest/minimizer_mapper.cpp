@@ -160,10 +160,6 @@ TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][m
     REQUIRE(!isinf(cap));
 }
 
-
-
-
-
 }
 
 }

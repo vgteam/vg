@@ -22,6 +22,8 @@
  * Helper entry points are find_best_chain() and score_best_chain() which set
  * up the DP for you and do the traceback if appropriate.
  */
+ 
+#include "extract_connecting_graph.hpp"
 
 #include "../gbwt_extender.hpp"
 #include "../snarl_seed_clusterer.hpp"
@@ -213,7 +215,9 @@ struct BaseChainingSpace {
     
     /// Return true if the first item is a perfect chain that can't be beat,
     /// and false otherwise.
-    virtual bool has_perfect_chain(const VectorView<Item>& items) const = 0;
+    virtual bool has_perfect_chain(const VectorView<Item>& items) const {
+        return false;
+    }
     
     /**
      * Return the amount by which the end of the left item is past the position
@@ -552,20 +556,59 @@ struct ChainingSpace<GaplessExtension, void>: public BaseChainingSpace<GaplessEx
 };
 
 /**
- * This is how you chain minimizer-based seeds
+ * This is how you chain seeds that come from sources.
  */
 template<typename Item, typename Source>
-struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
-
+struct SourceChainingSpace: public BaseChainingSpace<Item> {
     // These seeds can't really be interpreted without their sources, which
     // they reference by index. Source is assumed to be MinimizerIndex::Minimizer.
     const VectorView<Source> sources;
     
+    SourceChainingSpace(const VectorView<Source>& sources,
+                        const Aligner& scoring,
+                        const SnarlDistanceIndex* distance_index,
+                        const HandleGraph* graph) :
+        BaseChainingSpace<Item>(scoring, distance_index, graph), sources(sources) {
+        
+        // Nothing to do!
+    }
+    
+    // API for sources
+    
+    virtual size_t source_read_start(const Source& source) const = 0;
+    
+    virtual size_t source_read_end(const Source& source) const = 0;
+    
+    virtual size_t source_read_length(const Source& source) const = 0;
+    
+    // Default implementation implements everything read-related on top of that.
+    
+    virtual size_t read_start(const Item& item) const {
+        return source_read_start(this->sources[item.source]);
+    }
+    
+    virtual size_t read_end(const Item& item) const {
+        return source_read_end(this->sources[item.source]);
+    }
+    
+    virtual size_t read_length(const Item& item) const {
+        return source_read_length(this->sources[item.source]);
+    }
+};
+
+/**
+ * This is how you chain minimizer-based seeds
+ */
+template<typename Item, typename Source>
+struct MinimizerSourceChainingSpace : public SourceChainingSpace<Item, Source> {
+
+    // Source is assumed to be MinimizerIndex::Minimizer.
+
     MinimizerSourceChainingSpace(const VectorView<Source>& sources,
                   const Aligner& scoring,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        BaseChainingSpace<Item>(scoring, distance_index, graph), sources(sources) {
+        SourceChainingSpace<Item, Source>(sources, scoring, distance_index, graph) {
         
         // Nothing to do!
     }
@@ -575,6 +618,31 @@ struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
     // So we need to work out which of the start or end is actually seeded, and
     // walk out until we use the rest of the graph node or the whole k-kmer,
     // and that's our seed. 
+    
+    virtual size_t source_read_start(const Source& source) const {
+        if (source.value.is_reverse) {
+            // If we're reverse, the start is gotten by walking from the end.
+            return this->source_read_end(source) - this->source_read_length(source);
+        } else {
+            // If we're forward, the start is the stored offset, and we walk right.
+            return source.value.offset;
+        }
+    };
+    
+    virtual size_t source_read_end(const Source& source) const {
+        if (source.value.is_reverse) {
+            // If we're reverse, the past-end is the stored offset + 1, and we walk left.
+            return source.value.offset + 1;
+        } else {
+            // If we're forward, the end is gotten by walking from the start.
+            return this->source_read_start(source) + this->source_read_length(source);
+        }
+    };
+    
+    virtual size_t source_read_length(const Source& source) const {
+        // No graph position without an item so just treat the whole thing as the source.
+        return source.length;
+    };
     
     size_t read_start(const Item& item) const {
         if (this->sources[item.source].value.is_reverse) {
@@ -610,7 +678,7 @@ struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
             // If we're reverse, we know the matching at the end.
             handle_t end_handle = this->graph_path_at(item, 0);
             // Length in graph is min of either used node or minimizer length
-            return std::min((size_t) sources[item.source].length,
+            return std::min((size_t) this->sources[item.source].length,
                             offset(item.pos) + 1);
         } else {
             // If we're forward, we know the matching at the start
@@ -656,24 +724,20 @@ struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
         return offset(this->graph_start(item));
     }
     
-    bool has_perfect_chain(const VectorView<Item>& items) const {
-        return false;
-    }
-    
     void validate(const Item& item, const std::string& full_read_sequence) const {
         string read_seq = this->get_read_sequence(item, full_read_sequence);
         string graph_seq = this->get_graph_sequence(item);
-        string key_seq = sources[item.source].forward_sequence();
+        string key_seq = this->sources[item.source].forward_sequence();
         if (read_seq.empty() ||
             read_seq != graph_seq || !(
-                sources[item.source].value.is_reverse ?
+                this->sources[item.source].value.is_reverse ?
                 std::equal(read_seq.rbegin(), read_seq.rend(), key_seq.rbegin())
                 : std::equal(read_seq.begin(), read_seq.end(), key_seq.begin())
         )) {
             // Read and graph sequence have to match, and that sequence has to
             // be a prefix or suffix of the read-orientation minimizer key, as
             // appropriate.
-            throw std::runtime_error("Sequence mismatch for hit of source " + std::to_string(item.source) + "/" + std::to_string(sources.size()) + " on oriented key " + key_seq + " with read " + read_seq + " and graph " + graph_seq);
+            throw std::runtime_error("Sequence mismatch for hit of source " + std::to_string(item.source) + "/" + std::to_string(this->sources.size()) + " on oriented key " + key_seq + " with read " + read_seq + " and graph " + graph_seq);
         }
     }
 };
@@ -914,6 +978,66 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
 template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
 int score_best_chain(const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space);
+                     
+/**
+ * Look at the sources which occur between the given items in the read,
+ * and locate their hits that occur in the part of the graph between the
+ * given items in the graph, if any. Graph search is limited by
+ * max_fallow_search_distance. 
+ *
+ * Takes a lazy place to put an inverse of the source score
+ * order sort (which is the space they are numbered in for item
+ * references), from the space's sources view.
+ *
+ * Also takes a function which, when given a Source and the sorted IDs of a
+ * subgraph, calls back with each pos_t in the subgraph that can correspond to
+ * the source to form an Item.
+ *
+ * Returns new, forged items in an arbitrary order.
+ *
+ * Forged items will not have all fields set. They will only have locations and
+ * sources.
+ *
+ * TODO: Use a different kind of item type to avoid this forgery!
+ */
+template<typename Item, typename Source>
+vector<Item> reseed_fallow_region(const Item& left,
+                                  const Item& right,
+                                  const ChainingSpace<Item, Source>& space,
+                                  std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                  const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                                  size_t max_fallow_search_distance = 10000);
+
+/**
+ * Reseed all fallow regions (regions in the read where the distance
+ * between items is at least fallow_region_size) by locating hits of the
+ * given sources that occur in the part of the graph between existing
+ * items.
+ *
+ * Takes a lazy place to put an inverse of the source score
+ * order sort (which is the space they are numbered in for item
+ * references), from the space's sources view.
+ *
+ * Also takes a function which, when given a Source and the sorted IDs of a
+ * subgraph, calls back with each pos_t in the subgraph that can correspond to
+ * the source to form an Item.
+ *
+ * item_storage is a collection of items, and sorted_item_indexes is index
+ * numbers in that collection of items, sorted by read order.
+ *
+ * Updates item_storage with newely-found forged items (which only have
+ * their position and source fields set), and updates
+ * sorted_item_indexes to sort the newly expanded list of items in read
+ * order.
+ */
+template<typename Item, typename Source>
+void reseed_fallow_regions(vector<Item>& item_storage,
+                           vector<size_t>& sorted_item_indexes,
+                           const ChainingSpace<Item, Source>& space,
+                           std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                           const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                           size_t max_fallow_search_distance = 10000,
+                           size_t fallow_region_size = 200);
 
 // --------------------------------------------------------------------------------
 
@@ -1090,6 +1214,148 @@ int score_best_chain(const Collection& to_chain,
                                           to_chain,
                                           space);
     }
+}
+
+template<typename Item, typename Source>
+vector<Item> reseed_fallow_region(const Item& left,
+                                  const Item& right,
+                                  const algorithms::ChainingSpace<Item, Source>& space,
+                                  std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                  const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                                  size_t max_fallow_search_distance) {
+    // We have two seeds here, so there aren't no sources.
+    // We know there must be a collection of sources in read order, so grab that.
+    const vector<Source>& sources_in_read_order = *space.sources.items;
+    
+    // Find the range of indexes in read order for the source hits between
+    // those of the bounding items.
+    size_t range_begin = space.sources.backing_index(left.source) + 1;
+    size_t range_end = space.sources.backing_index(right.source);
+    
+    if (range_begin >= range_end) {
+        // Not actually any sources between here in the read.
+        return {};
+    }
+    
+    // Query distance index to see if the items are actually plausibly reachable
+    size_t graph_min_distance;
+    if (space.distance_index) {
+        // We have a (new) graph distance index, so use that.
+        // TODO: support old graph distance index???
+        graph_min_distance = space.get_graph_distance(left, right);
+    } else {
+        // No graph distances. Just search the limit.
+        graph_min_distance = max_fallow_search_distance;
+    }
+    
+    if (graph_min_distance == std::numeric_limits<size_t>::max()) {
+        // Actually unreachable, so don't add any items.
+        // TODO: detect and warn? Try different bounds?
+        return {};
+    }
+    
+    if (graph_min_distance > max_fallow_search_distance) {
+        // This would be too far to search.
+        // TODO: warn!
+        return {};
+    }
+    
+    // Decide how far we want to search
+    size_t graph_distance = std::min(max_fallow_search_distance, graph_min_distance * 2 + 1000);
+    
+    // Extract the connecting graph. We need the IDs in sorted order.
+    vector<nid_t> sorted_ids;
+    {
+        // Get the graph bounds we care about looking between
+        const pos_t& left_bound = space.graph_end(left);
+        const pos_t& right_bound = space.graph_start(right);
+        // TODO: Add an algorithm version that doesn't bother actually extracting?
+        HashGraph connecting_graph;
+        unordered_map<nid_t, nid_t> extracted_to_original = algorithms::extract_connecting_graph(space.graph, &connecting_graph, graph_distance, left_bound, right_bound);
+        sorted_ids.reserve(extracted_to_original.size());
+        for (auto& kv : extracted_to_original) {
+            // Save the original-graph node IDs
+            sorted_ids.push_back(kv.second);
+        }
+    }
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+    
+    // Find hits on these nodes, for the sources that are in the right part of the read, and forge items for them.
+    vector<Item> forged_items;
+    for (size_t i = range_begin; i < range_end; i++) {
+        // For each source between the bounds
+        const Source& m = sources_in_read_order[i];
+        
+        // Find all its hits in the part of the graph between the bounds
+        for_each_pos_for_source_in_subgraph(m, sorted_ids, [&](const pos_t& pos) {
+            // So now we know pos corresponds to read base
+            // m.value.offset, in the read's forward orientation.
+            // Forge an item.
+            forged_items.emplace_back();
+            forged_items.back().pos = pos;
+            // Run the read-order index it through the inverse permutation to
+            // get the number everyone else will know it by.
+            if (!source_sort_inverse) {
+                // But lazily make sure we have the inverse permutation first.
+                source_sort_inverse = std::make_unique<VectorViewInverse>(space.sources);
+            }
+            forged_items.back().source = (*source_sort_inverse)[i];
+        });
+    }
+
+    return forged_items;
+}
+
+template<typename Item, typename Source>
+void reseed_fallow_regions(vector<Item>& item_storage,
+                           vector<size_t>& sorted_item_indexes,
+                           const algorithms::ChainingSpace<Item, Source>& space,
+                           std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                           const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                           size_t max_fallow_search_distance,
+                           size_t fallow_region_size) {
+    // Make a VectorView over the items
+    VectorView<Item> item_view {item_storage, sorted_item_indexes};
+    
+    for (size_t left = 0; left + 1 < item_view.size(); left++) {
+        // For each pair...
+        size_t right = left + 1;
+        
+        // Check read distance.
+        // TODO: Could we use the faster non-space way of doing this without ever touching the graph?
+        size_t read_distance = space.get_read_distance(item_view[left], item_view[right]);
+        
+        if (read_distance > fallow_region_size) {
+            // If a pair is too far apart, forge some fill-in items
+            vector<Item> new_items = reseed_fallow_region(item_view[left],
+                                                          item_view[right],
+                                                          space,
+                                                          source_sort_inverse,
+                                                          for_each_pos_for_source_in_subgraph,
+                                                          max_fallow_search_distance);
+        
+            // Append the fill-in items onto the item storage vector. Safe to do
+            // even when we're using a view over it.
+            item_storage.reserve(item_storage.size() + new_items.size());
+            std::copy(new_items.begin(), new_items.end(), std::back_inserter(item_storage));
+        }
+    }
+    
+    if (item_storage.size() != sorted_item_indexes.size()) {
+        // After filling in all the fallow regions, if we actually got any new
+        // items, extend and re-sort sorted_item_indexes.
+        // TODO: Can we just build this in order as we go left to right along the read actually?
+        sorted_item_indexes.reserve(item_storage.size());
+        while(sorted_item_indexes.size() < item_storage.size()) {
+            sorted_item_indexes.push_back(sorted_item_indexes.size());
+        }
+        
+        // TODO: De-duplicate sort with the initial sort
+        std::sort(sorted_item_indexes.begin(), sorted_item_indexes.end(), [&](const size_t& a, const size_t& b) -> bool {
+            return space.read_start(item_storage[a]) < space.read_start(item_storage[b]);
+        });
+    }
+        
 }
 
 }
