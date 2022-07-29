@@ -157,6 +157,14 @@ public:
     size_t max_chain_connection = 5000;
     /// Similarly, what is the maximum tail length we will try to align?
     size_t max_tail_length = 5000;
+    
+    /// When chaining, go back for more seeds if seeds in a cluster are this
+    /// far apart in the read.
+    size_t fallow_region_size = 100;
+    
+    /// When looking for seeds in fallow regions, limit graph search to this
+    /// distance in bp.
+    size_t max_fallow_search_distance = 2000;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
@@ -421,7 +429,9 @@ protected:
      * and locate their hits that occur in the part of the graph between the
      * given seeds in the graph, if any.
      *
-     * Returns new, forged seeds in read order.
+     * Returns new, forged seeds in read order. These seeds use the numbers in
+     * minimizer_numbers to refer to each minimizer (intended to be the inverse
+     * of the permutation that puts the minimizers in score order).
      *
      * Forged seeds will not have all fields set, because they did not actually
      * go through the clustering process. They will only have locations in the
@@ -430,7 +440,7 @@ protected:
      * TODO: Use a different kind of seed type to avoid this forgery!
      */
     template<typename SeedType>
-    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order) const;
+    vector<SeedType> reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order, const vector<size_t>& minimizer_numbers) const;
     
     /**
      * Reseed all fallow regions (regions in the read where the distance
@@ -438,7 +448,8 @@ protected:
      * given minimizers that occur in the part of the graph between existing
      * seeds.
      *
-     * The minimizers must be sorted in read order.
+     * The minimizers must be sorted in read order. We also need the inverse of
+     * the permutation for the view of them in score order.
      *
      * seed_storage is a collection of seeds, and sorted_seed_indexes is index
      * numbers in that collection of seeds, sorted by read order.
@@ -449,7 +460,7 @@ protected:
      * order.
      */
     template<typename SeedType>
-    void reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, size_t fallow_region_size = 100) const;
+    void reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, const vector<size_t>& minimizer_numbers) const;
 
 
 //-----------------------------------------------------------------------------
@@ -488,7 +499,12 @@ protected:
     // Helper functions.
 
     /**
-     * Get the distance between a pair of read alignments
+     * Get the distance between a pair of positions, or std::numeric_limits<int64_t>::max() if unreachable.
+     */
+    int64_t distance_between(const pos_t& pos1, const pos_t& pos2);
+
+    /**
+     * Get the distance between a pair of read alignments, or std::numeric_limits<int64_t>::max() if unreachable.
      */
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 

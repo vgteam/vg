@@ -2977,32 +2977,79 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const VectorView<Minimi
 //-----------------------------------------------------------------------------
 
 template<typename SeedType>
-vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order) const {
+vector<SeedType> MinimizerMapper::reseed_fallow_region(const SeedType& left, const SeedType& right, const vector<Minimizer>& minimizers_in_read_order, const vector<size_t>& minimizer_numbers) const {
     // Find the minimizers between the ones for the bounding seeds and make sure there are any
+    vector<Minimizert>::const_iterator minimizer_range_begin = minimizers_in_read_order.begin();
+    vector<Minimizert>::const_iterator minimizer_range_end = minimizers_in_read_order.end();
     
-    pos_t left_bound;
-    pos_t right_bound;
+    // TODO: do the binary search for the two breakpoints.
+    
+    // TODO: share some work so that this doesn't get repeated for every fallow region when there are several and make us do O(n log n) work?
+    
+    if (minimizer_range_begin == minimizer_range_end) {
+        // Not actually any minimizers between here in the read.
+        return {};
+    }
+    
+    // The actual seeds are single matched start bases, since end bases may be multiple.
+    // TODO: Try walking out to the ends of the relevant nodes or the minimizers, whichever comes first, like we do for chaining?
+    const pos_t& left_bound = left.pos;
+    const pos_t& right_bound = right.pos;
     
     // Query distance index to see if the seeds are actually plausibly reachable
-    auto graph_min_distance = 0;
+    int64_t graph_min_distance = distance_between(left_bound, right_bound);
+    
+    if (graph_min_distance == std::numeric_limits<size_t>::max()) {
+        // Actually unreachable, so don't add any seeds.
+        // TODO: detect and warn? Try different bounds?
+        return {};
+    }
     
     // Decide how far we want to search
-    auto graph_distance = graph_min_distance * 2 + 1000;
+    int64_t graph_distance = std::min(max_fallow_search_distance, graph_min_distance * 2 + 1000);
     
-    // Extract the connecting graph
-    HashGraph connecting_graph;
-    unordered_map<id_t, id_t> extracted_to_original = algorithms::extract_connecting_graph(&this->gbwt_graph, &connecting_graph, graph_distance, left_bound, right_bound);
+    // Extract the connecting graph. We need the IDs in sorted order.
+    vector<id_t> sorted_ids;
+    {
+        // TODO: Add an algorithm version that doesn't bother actually extracting?
+        HashGraph connecting_graph;
+        unordered_map<id_t, id_t> extracted_to_original = algorithms::extract_connecting_graph(&this->gbwt_graph, &connecting_graph, graph_distance, left_bound, right_bound);
+        connecting_graph_nodes.reserve(extracted_to_original.size());
+        for (auto& kv : extracted_to_original) {
+            // Save the original-graph node IDs
+            sorted_ids.push_back(kv.second);
+        }
+    }
+    std::sort(sorted_ids.begin(), sorted_ids.end());
     
-    // Find hits in the subgraph
-
-    // Forge seeds for the hits
+    // Find hits on these nodes, for the minimizers that are in the right part of the read, and forge seeds for them.
     vector<SeedType> forged_seeds;
-    
+    // We don't just call seeds_in_subgraph() because that returns an internal
+    // format that loses the actual matched position.
+    for (auto it = minimizer_range_begin; it != minimizer_range_end; ++it) {
+        gbwtgraph::hits_in_subgraph(it->hits, it->occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+            if (it->value.is_reverse) {
+                // Convert to face along forward strand of read.
+                size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
+                pos = reverse_base_pos(pos, node_length);
+            }
+            // So now we know pos corresponds to read base
+            // it->value.offset, in the read's forward orientation.
+            // Forge a seed.
+            forged_seeds.emplace_back();
+            forged_seeds.back().pos = pos;
+            // Get the index of the minimizer in read order, and then run it
+            // through the inverse permutation to get the number everyone else
+            // will know it by.
+            forged_seeds.back().source = minimizer_numbers[it - minimizers_in_read_order.begin()];
+        });
+    }
+
     return forged_seeds;
 }
 
 template<typename SeedType>
-void MinimizerMapper::reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, size_t fallow_region_size) const {
+void MinimizerMapper::reseed_fallow_regions(vector<SeedType> seed_storage, vector<int>& sorted_seed_indexes, const vector<Minimizer>& minimizers_in_read_order, const vector<size_t>& minimizer_numbers) const {
     // Make a VectorView over the seeds
     
     // Scan along pairs and check read distance
@@ -3218,13 +3265,8 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
 
 //-----------------------------------------------------------------------------
 
-int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
-    assert(aln1.path().mapping_size() != 0); 
-    assert(aln2.path().mapping_size() != 0); 
-     
-    pos_t pos1 = initial_position(aln1.path()); 
-    pos_t pos2 = final_position(aln2.path());
 
+int64_t MinimizerMapper::distance_between(const pos_t& pos1, const pos_t& pos2) {
     int64_t min_dist;
     if (distance_index != nullptr) {
         min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), false, &gbwt_graph);
@@ -3232,6 +3274,16 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
         min_dist = old_distance_index->min_distance(pos1, pos2);
     }
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+}
+
+int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
+    assert(aln1.path().mapping_size() != 0); 
+    assert(aln2.path().mapping_size() != 0); 
+     
+    pos_t pos1 = initial_position(aln1.path()); 
+    pos_t pos2 = final_position(aln2.path());
+
+    return distance_between(pos1, pos2);
 }
 
 void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
