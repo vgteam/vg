@@ -85,8 +85,10 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a69dfd9b067f6a73345d9ec2120052f2b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a69dfd9b067f6a73345d9ec2120052f2b">WFATree</a> (const gbwtgraph::GBWTGraph &amp;<a class="el" href="classvg_1_1WFATree.html#a4d4a1c25ba968a73c9722bc105f4a553">graph</a>, const std::string &amp;<a class="el" href="classvg_1_1WFATree.html#abbd67ff2f910ad5a4c0c1f49b10394a5">sequence</a>, const gbwt::SearchState &amp;root, uint32_t node_offset, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;aligner)</td></tr>
-<tr class="separator:a69dfd9b067f6a73345d9ec2120052f2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2083af2b7c9d63a32cc625eabbc2f61f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a2083af2b7c9d63a32cc625eabbc2f61f">WFATree</a> (const gbwtgraph::GBWTGraph &amp;<a class="el" href="classvg_1_1WFATree.html#a4d4a1c25ba968a73c9722bc105f4a553">graph</a>, const std::string &amp;<a class="el" href="classvg_1_1WFATree.html#abbd67ff2f910ad5a4c0c1f49b10394a5">sequence</a>, const gbwt::SearchState &amp;root, uint32_t node_offset, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;aligner, const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">WFAExtender::ErrorModel</a> &amp;error_model)</td></tr>
+<tr class="separator:a2083af2b7c9d63a32cc625eabbc2f61f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad58054cdd0c145ba12445fb639e73a7f"><td class="memItemLeft" align="right" valign="top">vector&lt; gbwt::SearchState &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#ad58054cdd0c145ba12445fb639e73a7f">coalesce</a> (const gbwt::SearchState &amp;start, size_t base_limit=1024)</td></tr>
+<tr class="separator:ad58054cdd0c145ba12445fb639e73a7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a333bb155a208e47bb86e08ed249679cd"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a333bb155a208e47bb86e08ed249679cd">size</a> () const</td></tr>
 <tr class="separator:a333bb155a208e47bb86e08ed249679cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aabd7f129c9af694426d4b0d54e45f16b"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#aabd7f129c9af694426d4b0d54e45f16b">parent</a> (uint32_t node) const</td></tr>
@@ -128,6 +130,7 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:abbd67ff2f910ad5a4c0c1f49b10394a5"><td class="memItemLeft" align="right" valign="top">const std::string &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#abbd67ff2f910ad5a4c0c1f49b10394a5">sequence</a></td></tr>
 <tr class="separator:abbd67ff2f910ad5a4c0c1f49b10394a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a786ffc1f75cffa39bb4fe43cf22b0926"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1WFANode.html">WFANode</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#a786ffc1f75cffa39bb4fe43cf22b0926">nodes</a></td></tr>
+<tr class="memdesc:a786ffc1f75cffa39bb4fe43cf22b0926"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each <a class="el" href="structvg_1_1WFANode.html">WFANode</a> represents a run of graph nodes, as traversed by a set of haplotypes.  <a href="classvg_1_1WFATree.html#a786ffc1f75cffa39bb4fe43cf22b0926">More...</a><br /></td></tr>
 <tr class="separator:a786ffc1f75cffa39bb4fe43cf22b0926"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa76e2e4ad1b023beda464e4e74312df5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1WFAPoint.html">WFAPoint</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFATree.html#aa76e2e4ad1b023beda464e4e74312df5">candidate_point</a></td></tr>
 <tr class="separator:aa76e2e4ad1b023beda464e4e74312df5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -166,8 +169,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a98b3e5f4f226261068acfa268ec416ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a69dfd9b067f6a73345d9ec2120052f2b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a69dfd9b067f6a73345d9ec2120052f2b">&#9670;&nbsp;</a></span>WFATree()</h2>
+<a id="a2083af2b7c9d63a32cc625eabbc2f61f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2083af2b7c9d63a32cc625eabbc2f61f">&#9670;&nbsp;</a></span>WFATree()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -203,7 +206,13 @@ Private Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;&#160;</td>
-          <td class="paramname"><em>aligner</em>&#160;</td>
+          <td class="paramname"><em>aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">WFAExtender::ErrorModel</a> &amp;&#160;</td>
+          <td class="paramname"><em>error_model</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -244,6 +253,43 @@ Private Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad58054cdd0c145ba12445fb639e73a7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad58054cdd0c145ba12445fb639e73a7f">&#9670;&nbsp;</a></span>coalesce()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;gbwt::SearchState&gt; vg::WFATree::coalesce </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::SearchState &amp;&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>base_limit</em> = <code>1024</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get all the GBWT search states for a run of the same set of haplotypes through nodes in the graph, without any haplotypes in the set branching off, and without any visits to the same oriented graph node twice. TODO: We can only visit each graph node once, or we can't map graph pos_t values back to offsets along the <a class="el" href="structvg_1_1WFANode.html">WFANode</a>. Do we need to be able to do that, or can we try not doing that? TODO: Save a scan by unifying with <a class="el" href="structvg_1_1WFANode.html">WFANode</a> constructor? </p>
 
 </div>
 </div>
@@ -1059,6 +1105,8 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Each <a class="el" href="structvg_1_1WFANode.html">WFANode</a> represents a run of graph nodes, as traversed by a set of haplotypes. </p>
 
 </div>
 </div>

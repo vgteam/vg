@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['load_5ffunction_5ft_11826',['load_function_t',['../namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31',1,'vg::io']]]
+  ['key_5ftype_12034',['key_type',['../structvg_1_1WFAPoint.html#a7f118f60c7b8ac46926e6627afaa4d23',1,'vg::WFAPoint']]]
 ];

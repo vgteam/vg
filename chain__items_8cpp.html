@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/unittest/driver.cpp File Reference</title>
+<title>vg: src/algorithms/chain_items.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,54 +62,35 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_a44a4b99fe3fe69e1ebc58d975a5fec8.html">unittest</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
-<a href="#define-members">Macros</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">driver.cpp File Reference</div>  </div>
+<div class="title">chain_items.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="driver_8hpp.html">driver.hpp</a>&quot;</code><br />
-<code>#include &quot;catch.hpp&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="chain__items_8hpp.html">chain_items.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1unittest"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1unittest.html">vg::unittest</a></td></tr>
+<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
-Macros</h2></td></tr>
-<tr class="memitem:a34b4c3eca7342fbc4cba090d02139902"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="driver_8cpp.html#a34b4c3eca7342fbc4cba090d02139902">CATCH_CONFIG_RUNNER</a></td></tr>
-<tr class="separator:a34b4c3eca7342fbc4cba090d02139902"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ae154dafb36ee57ef618704a37a11fb0c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c">vg::unittest::run_unit_tests</a> (int argc, char **argv)</td></tr>
-<tr class="separator:ae154dafb36ee57ef618704a37a11fb0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95a1de5bc2045689233e2b35f18eec22"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a95a1de5bc2045689233e2b35f18eec22">vg::algorithms::operator&lt;&lt;</a> (ostream &amp;out, const traced_score_t &amp;value)</td></tr>
+<tr class="memdesc:a95a1de5bc2045689233e2b35f18eec22"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print operator.  <a href="namespacevg_1_1algorithms.html#a95a1de5bc2045689233e2b35f18eec22">More...</a><br /></td></tr>
+<tr class="separator:a95a1de5bc2045689233e2b35f18eec22"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="a34b4c3eca7342fbc4cba090d02139902"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a34b4c3eca7342fbc4cba090d02139902">&#9670;&nbsp;</a></span>CATCH_CONFIG_RUNNER</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define CATCH_CONFIG_RUNNER</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Non-template function implementations for chaining pieces of a read-to-graph alignment. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

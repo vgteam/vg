@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/unittest/driver.hpp File Reference</title>
+<title>vg: vg::seed_traits&lt; SeedType &gt; Struct Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,30 +62,23 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_a44a4b99fe3fe69e1ebc58d975a5fec8.html">unittest</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="structvg_1_1seed__traits.html">seed_traits</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
-  <div class="summary">
-<a href="#namespaces">Namespaces</a> &#124;
-<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">driver.hpp File Reference</div>  </div>
+<div class="title">vg::seed_traits&lt; SeedType &gt; Struct Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
-Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1unittest"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1unittest.html">vg::unittest</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:ae154dafb36ee57ef618704a37a11fb0c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c">vg::unittest::run_unit_tests</a> (int argc, char **argv)</td></tr>
-<tr class="separator:ae154dafb36ee57ef618704a37a11fb0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><h3>template&lt;typename SeedType&gt;<br />
+struct vg::seed_traits&lt; SeedType &gt;</h3>
+
+<p>Accessors for attributes of a type when used as a seed. We use these to make templated code generic over the old and new seeds, so we don't need to write the same algorithm twice to satisfy the type system, or because things have slightly different names or types depending on which seeds we're using.</p>
+<p>You are meant to pass this template the seed type you are using, and then fetch out the type or function you need, and you will get the right version for the seed type you have. </p>
+</div><hr/>The documentation for this struct was generated from the following file:<ul>
+<li>src/<a class="el" href="minimizer__mapper_8cpp.html">minimizer_mapper.cpp</a></li>
+</ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

@@ -1,6 +1,10 @@
 var searchData=
 [
-  ['value_11878',['Value',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a74a157bf3bce2696b04754f1c6dd72b9',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;']]],
-  ['value_5ftype_11879',['value_type',['../classvg_1_1count__back__inserter.html#a18a57c061e584b32ad1cc805c59b8a84',1,'vg::count_back_inserter::value_type()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a93f9129d2273ed4e7475456485be17b1',1,'vg::PhasedGenome::iterator::value_type()'],['../structstd_1_1iterator__traits_3_01vg_1_1PhasedGenome_1_1iterator_01_4.html#a5d5cc51db9a7bee260aa4b303b8d593a',1,'std::iterator_traits&lt; vg::PhasedGenome::iterator &gt;::value_type()'],['../classvg_1_1SmallBitset.html#a424751e879964b97d81879b1c2ef2e25',1,'vg::SmallBitset::value_type()']]],
-  ['vectorizablehandlegraph_11880',['VectorizableHandleGraph',['../namespacevg.html#a449aa64ac606119e59f71cecb8a3b218',1,'vg']]]
+  ['tag_5flist_5ft_12085',['tag_list_t',['../classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1',1,'vg::algorithms::GFAParser']]],
+  ['taggedmessage_12086',['TaggedMessage',['../classvg_1_1io_1_1MessageIterator.html#ac914a651c928eedea34171366c9f62e8',1,'vg::io::MessageIterator']]],
+  ['thread_5fids_5ft_12087',['thread_ids_t',['../namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26',1,'vg']]],
+  ['thread_5ft_12088',['thread_t',['../namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2',1,'vg']]],
+  ['time_5fpoint_12089',['time_point',['../classvg_1_1Funnel.html#a573543e4560aee58697f78cc266f22c7',1,'vg::Funnel::time_point()'],['../classvg_1_1Watchdog.html#adbdb9378ef086d2e9255f22ff9ef454d',1,'vg::Watchdog::time_point()']]],
+  ['traced_5fscore_5ft_12090',['traced_score_t',['../namespacevg_1_1algorithms.html#ac419b0eea83da8d3334b6f8a52528182',1,'vg::algorithms']]],
+  ['type_12091',['type',['../structvg_1_1Range.html#a5ea713fb16f3d49d94278914668503a9',1,'vg::Range::type()'],['../structhandlegraph_1_1return__type__of_3_01Returns_07Owner_1_1_5_08_07Args_8_8_8_08_01const_01_4.html#ac5175c5d84e3de42bbf69d38196d8026',1,'handlegraph::return_type_of&lt; Returns(Owner::*)(Args...) const &gt;::type()'],['../structhandlegraph_1_1return__type__of_3_01Returns_07Owner_1_1_5_08_07Args_8_8_8_08_4.html#aea61ef0da1a01e10576a705d6d1605ac',1,'handlegraph::return_type_of&lt; Returns(Owner::*)(Args...)&gt;::type()'],['../structhandlegraph_1_1return__type__of_3_01Returns_07_5_08_07Args_8_8_8_08_4.html#a579d806514cabd7b397ad5e0c1db94b4',1,'handlegraph::return_type_of&lt; Returns(*)(Args...)&gt;::type()']]]
 ];

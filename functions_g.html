@@ -135,6 +135,9 @@ $(function() {
 , <a class="el" href="classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb">vg::GSSWAligner</a>
 , <a class="el" href="classvg_1_1SSWAligner.html#a2248e3e561aab8d3b1036d51850b3c2f">vg::SSWAligner</a>
 </li>
+<li>gap_length
+: <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#a9cf62e400ef2e4efb434e8e5a452e7e8">vg::WFAExtender::ErrorModel</a>
+</li>
 <li>gap_memo_max_size
 : <a class="el" href="classvg_1_1MultipathMapper.html#a864cc168b7061cf1885ef61785e474d3">vg::MultipathMapper</a>
 </li>
@@ -149,6 +152,9 @@ $(function() {
 </li>
 <li>GaplessExtender()
 : <a class="el" href="classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271">vg::GaplessExtender</a>
+</li>
+<li>gaps
+: <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html#ac60921b93f505b6731badc2aef7f64f5">vg::WFAExtender::ErrorModel</a>
 </li>
 <li>gbwt
 : <a class="el" href="classvg_1_1GBWTTraversalFinder.html#a7827a0ee00890a2d8cf1716017e39db7">vg::GBWTTraversalFinder</a>
@@ -546,6 +552,15 @@ $(function() {
 : <a class="el" href="structGraphHandler.html#ab0c19a482787b623d946746f33b2fb80">GraphHandler</a>
 , <a class="el" href="classvg_1_1Packer.html#a19b5aa3c38b65c9e35e2ab7604bdbec4">vg::Packer</a>
 , <a class="el" href="classvg_1_1VariantAdder.html#a1271c6d39e6387bac452d9bf80689ed5">vg::VariantAdder</a>
+</li>
+<li>get_graph_distance()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#af41f5611747369b83143c809dfc35d23">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>get_graph_overlap()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#afc5bc870773dcf27f06b77259bd1a371">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>get_graph_sequence()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#aedb760592a3317ed654e1fe25457d844">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
 </li>
 <li>get_handle()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#a0a950e73c94a514de69f95be80f96b7e">handlegraph::algorithms::SubHandleGraph</a>
@@ -968,6 +983,9 @@ $(function() {
 <li>get_radius()
 : <a class="el" href="classvg_1_1VariantAdder.html#ae974fd5d06287893b0b1f8690624d18f">vg::VariantAdder</a>
 </li>
+<li>get_read_distance()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#acd087a656ac1c2e97ee9ae0375aa1ab6">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
 <li>get_read_fn()
 : <a class="el" href="classvg_1_1io_1_1JSONStreamHelper.html#a549e248d11b13f164c871cbf3ccbf935">vg::io::JSONStreamHelper&lt; T &gt;</a>
 </li>
@@ -976,6 +994,12 @@ $(function() {
 </li>
 <li>get_read_offset()
 : <a class="el" href="classvg_1_1GaplessExtender.html#a5c568cad31cb0cc1007ef05183c197ab">vg::GaplessExtender</a>
+</li>
+<li>get_read_overlap()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a7f3c24d4a2f32b44f1df061b00e2b163">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>get_read_sequence()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a843fa9e4fb72e2df9afd9455ee16c8d8">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
 </li>
 <li>get_ref_following()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a2e9ec5540a31571c3daba83abf03d18d">haplo::linear_haplo_structure</a>
@@ -1146,7 +1170,7 @@ $(function() {
 </li>
 <li>get_support()
 : <a class="el" href="structvg_1_1AugmentedGraph.html#ad239a8516427304ef304e944f7d20c00">vg::AugmentedGraph</a>
-, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a4c86be41ce8680c5473080c704ddcc10">vg::SupportAugmentedGraph</a>
+, <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a0ffa85683b46b7f8d6b64da42ba19fbb">vg::SupportAugmentedGraph</a>
 </li>
 <li>get_support_finder()
 : <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a04ebbd23ec0162a72c959351131e17ba">vg::SupportBasedSnarlCaller</a>
@@ -1277,6 +1301,7 @@ $(function() {
 , <a class="el" href="classhaplo_1_1hDP__gbwt__graph__accessor.html#a99d071619c6462165528d8428d4bb7fa">haplo::hDP_gbwt_graph_accessor&lt; GBWTType &gt;</a>
 , <a class="el" href="structhaplo_1_1linear__haplo__structure.html#acb5692ebbb1a6f91db791d01bb2ab294">haplo::linear_haplo_structure</a>
 , <a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">vg::AbstractReadSampler</a>
+, <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#aff9767543599c13692d5320623636a47">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
 , <a class="el" href="classvg_1_1AliasGraph.html#a85dd8f136025b7325d9fa19058d2bb4f">vg::AliasGraph</a>
 , <a class="el" href="structvg_1_1AugmentedGraph.html#afb05832f68a8db43e7a8c510397b8ce3">vg::AugmentedGraph</a>
 , <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9d4f47628b410f5639f985dae1b1b5e0">vg::BandedGlobalAligner&lt; IntType &gt;::AltTracebackStack</a>
@@ -1338,8 +1363,17 @@ $(function() {
 <li>graph_cigar()
 : <a class="el" href="classvg_1_1GSSWAligner.html#aa00d5de382ccbd9e9c0c46bbfa38aab1">vg::GSSWAligner</a>
 </li>
+<li>graph_end()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a7043e7a00435dbf4ff6b856e3d681e15">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#af69536d64eb3d188c98a72870a8c4051">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a1cf0ceb7bbe6ec65c68ac53940331a7f">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
+</li>
 <li>graph_gbz
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a759ff53fb7d1c506e3be18f608607ac5">GraphHandler</a>
+</li>
+<li>graph_length()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a0f79c21709699e7c18ee45822f791fff">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae3f0a1eacfc999af0a96ff3098f18522">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
 </li>
 <li>graph_mixed_distance_estimate()
 : <a class="el" href="classvg_1_1Mapper.html#a67fb2b4bc540b81be063075ce5593569">vg::Mapper</a>
@@ -1356,11 +1390,43 @@ $(function() {
 <li>graph_path
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50af316f5a8669d38d1c1801caf9d5671d7">GraphHandler</a>
 </li>
+<li>graph_path_at()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a4b22044d35ba29eb522d42f323b8f4aa">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a0a2bb2ed60c936aae76e5b8815eff214">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#aa0e923dae311f0513632c2e76a330682">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
+</li>
+<li>graph_path_begin()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a7e792828ca259f1371507a39035f0ac1">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>graph_path_end()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a81fee4ced8b70601667c5458365863dc">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>graph_path_offset()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a0c2f1dcdcd826e10aacd7c51d64c3c0d">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a6effa263f6d89545b929dea9b844767a">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae57189a39c70ce99812af9aa172cca50">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
+</li>
+<li>graph_path_rbegin()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#aba8b0768eeae44189d13c2cead2b0705">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>graph_path_rend()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a53439ff6527ffaab9cbfb2bad0a4de33">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+</li>
+<li>graph_path_size()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a507e14209bf5d5af720f8de98ec7b1c7">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a9c4831245cb01e301217c899badfe363">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
+</li>
 <li>graph_pos_at_path_position()
 : <a class="el" href="classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296">xg::XG</a>
 </li>
 <li>graph_source
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea">GraphHandler</a>
+</li>
+<li>graph_start()
+: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a5a1bbc5b42abff521992e76bfeb318d6">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a8125b9585ad62cf2539dbd0e2d6f4ed1">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>
+, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a39ae9c98239d10252419e243ed0313f1">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
 </li>
 <li>graph_type
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50">GraphHandler</a>
@@ -1436,7 +1502,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae">vg::GSSWAligner</a>
 </li>
 <li>GSSWAligner()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a8dc84b7b4cf4632d7a21c328c4b94b4b">vg::GSSWAligner</a>
 </li>
 </ul>
 </div><!-- contents -->

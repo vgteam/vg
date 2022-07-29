@@ -67,8 +67,10 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="classvg_1_1WFAExtender-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::WFAExtender Class Reference</div>  </div>
@@ -77,13 +79,18 @@ $(function() {
 
 <p><code>#include &lt;gbwt_extender.hpp&gt;</code></p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a7d7324769e3d80c6acdd68de034c5830"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a7d7324769e3d80c6acdd68de034c5830">WFAExtender</a> ()</td></tr>
 <tr class="memdesc:a7d7324769e3d80c6acdd68de034c5830"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an empty <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a>.  <a href="classvg_1_1WFAExtender.html#a7d7324769e3d80c6acdd68de034c5830">More...</a><br /></td></tr>
 <tr class="separator:a7d7324769e3d80c6acdd68de034c5830"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a92dfd7802699f0640f6828db8ef48f5e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a92dfd7802699f0640f6828db8ef48f5e">WFAExtender</a> (const gbwtgraph::GBWTGraph &amp;<a class="el" href="classvg_1_1WFAExtender.html#a7362ec7bfdf80dc2fc343e483bdf0e5d">graph</a>, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;<a class="el" href="classvg_1_1WFAExtender.html#a85f8f39bc292b1b5f0737c70c14c7fdd">aligner</a>)</td></tr>
-<tr class="separator:a92dfd7802699f0640f6828db8ef48f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9cc09b85da35171c971868e80cfe2938"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a9cc09b85da35171c971868e80cfe2938">WFAExtender</a> (const gbwtgraph::GBWTGraph &amp;<a class="el" href="classvg_1_1WFAExtender.html#a7362ec7bfdf80dc2fc343e483bdf0e5d">graph</a>, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;<a class="el" href="classvg_1_1WFAExtender.html#a85f8f39bc292b1b5f0737c70c14c7fdd">aligner</a>, const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a> &amp;<a class="el" href="classvg_1_1WFAExtender.html#a1378f212c728e87b7ba1231b1b2a2d2d">error_model</a>=<a class="el" href="classvg_1_1WFAExtender.html#af4e721ca734a32164df1e6ff9cce233c">default_error_model</a>)</td></tr>
+<tr class="separator:a9cc09b85da35171c971868e80cfe2938"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afa5938e94fc17adb3df680632ff97601"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1WFAAlignment.html">WFAAlignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#afa5938e94fc17adb3df680632ff97601">connect</a> (std::string sequence, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> from, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> to) const</td></tr>
 <tr class="separator:afa5938e94fc17adb3df680632ff97601"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a73ca61152596774e30d6c6f40aeea984"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1WFAAlignment.html">WFAAlignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a73ca61152596774e30d6c6f40aeea984">suffix</a> (const std::string &amp;sequence, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> from) const</td></tr>
@@ -99,9 +106,17 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a1af2acef8bd391f46798288e9322019b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a85f8f39bc292b1b5f0737c70c14c7fdd"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a85f8f39bc292b1b5f0737c70c14c7fdd">aligner</a></td></tr>
 <tr class="separator:a85f8f39bc292b1b5f0737c70c14c7fdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1378f212c728e87b7ba1231b1b2a2d2d"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#a1378f212c728e87b7ba1231b1b2a2d2d">error_model</a></td></tr>
+<tr class="separator:a1378f212c728e87b7ba1231b1b2a2d2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed19b7214850f12708cb91f8b0b98cf8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#aed19b7214850f12708cb91f8b0b98cf8">debug</a> = false</td></tr>
 <tr class="memdesc:aed19b7214850f12708cb91f8b0b98cf8"><td class="mdescLeft">&#160;</td><td class="mdescRight">TODO: Remove when unnecessary.  <a href="classvg_1_1WFAExtender.html#aed19b7214850f12708cb91f8b0b98cf8">More...</a><br /></td></tr>
 <tr class="separator:aed19b7214850f12708cb91f8b0b98cf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:af4e721ca734a32164df1e6ff9cce233c"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WFAExtender.html#af4e721ca734a32164df1e6ff9cce233c">default_error_model</a></td></tr>
+<tr class="memdesc:af4e721ca734a32164df1e6ff9cce233c"><td class="mdescLeft">&#160;</td><td class="mdescRight">If not specified, we use this default error model.  <a href="classvg_1_1WFAExtender.html#af4e721ca734a32164df1e6ff9cce233c">More...</a><br /></td></tr>
+<tr class="separator:af4e721ca734a32164df1e6ff9cce233c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A class that supports haplotype-consistent seed extension in a GBWTGraph using the WFA algorithm:</p>
@@ -131,8 +146,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a92dfd7802699f0640f6828db8ef48f5e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a92dfd7802699f0640f6828db8ef48f5e">&#9670;&nbsp;</a></span>WFAExtender() <span class="overload">[2/2]</span></h2>
+<a id="a9cc09b85da35171c971868e80cfe2938"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9cc09b85da35171c971868e80cfe2938">&#9670;&nbsp;</a></span>WFAExtender() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -147,7 +162,13 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;&#160;</td>
-          <td class="paramname"><em>aligner</em>&#160;</td>
+          <td class="paramname"><em>aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a> &amp;&#160;</td>
+          <td class="paramname"><em>error_model</em> = <code><a class="el" href="classvg_1_1WFAExtender.html#af4e721ca734a32164df1e6ff9cce233c">default_error_model</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -156,7 +177,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Create a <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> using the given GBWTGraph and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects. TODO: Provide an error model for specifying bounds for acceptable alignment scores. </p>
+<p>Create a <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a> using the given GBWTGraph and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects. If an error model is passed, use that instead of the default error model. All arguments must outlive the <a class="el" href="classvg_1_1WFAExtender.html">WFAExtender</a>. </p>
 
 </div>
 </div>
@@ -288,6 +309,52 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>TODO: Remove when unnecessary. </p>
+
+</div>
+</div>
+<a id="af4e721ca734a32164df1e6ff9cce233c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af4e721ca734a32164df1e6ff9cce233c">&#9670;&nbsp;</a></span>default_error_model</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">WFAExtender::ErrorModel</a> vg::WFAExtender::default_error_model</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">{</div>
+<div class="line">    </div>
+<div class="line">    {0.03, 1, 6},</div>
+<div class="line">    </div>
+<div class="line">    {0.05, 1, 10},</div>
+<div class="line">    </div>
+<div class="line">    {0.1, 1, 20}</div>
+<div class="line">}</div>
+</div><!-- fragment -->
+<p>If not specified, we use this default error model. </p>
+
+</div>
+</div>
+<a id="a1378f212c728e87b7ba1231b1b2a2d2d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1378f212c728e87b7ba1231b1b2a2d2d">&#9670;&nbsp;</a></span>error_model</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="structvg_1_1WFAExtender_1_1ErrorModel.html">ErrorModel</a>* vg::WFAExtender::error_model</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

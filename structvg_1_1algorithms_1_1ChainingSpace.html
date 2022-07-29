@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: vg::unittest Namespace Reference</title>
+<title>vg: vg::algorithms::ChainingSpace&lt; Item, Source &gt; Struct Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,54 +62,24 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="namespacevg_1_1unittest.html">unittest</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="namespacevg_1_1algorithms.html">algorithms</a></li><li class="navelem"><a class="el" href="structvg_1_1algorithms_1_1ChainingSpace.html">ChainingSpace</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
-  <div class="summary">
-<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">vg::unittest Namespace Reference</div>  </div>
+<div class="title">vg::algorithms::ChainingSpace&lt; Item, Source &gt; Struct Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:ae154dafb36ee57ef618704a37a11fb0c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c">run_unit_tests</a> (int argc, char **argv)</td></tr>
-<tr class="separator:ae154dafb36ee57ef618704a37a11fb0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table>
-<h2 class="groupheader">Function Documentation</h2>
-<a id="ae154dafb36ee57ef618704a37a11fb0c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae154dafb36ee57ef618704a37a11fb0c">&#9670;&nbsp;</a></span>run_unit_tests()</h2>
 
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int vg::unittest::run_unit_tests </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>argc</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Take the original argc and argv from a <code>vg unittest</code> command-line call and run the unit tests. We keep this in its own CPP/HPP to keep our unit test library from being a dependency of main.o and other real application code.</p>
-<p>Passes the args along to the unit test system.</p>
-<p>Returns exit code 0 on success, other codes on failure. </p>
+<p><code>#include &lt;chain_items.hpp&gt;</code></p>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><h3>template&lt;typename Item, typename Source = void&gt;<br />
+struct vg::algorithms::ChainingSpace&lt; Item, Source &gt;</h3>
 
-</div>
-</div>
+<p>We support chaining different kinds of things, so we have a type that abstracts out accessing their chaining-relevant fields and measuring distance between them. We support things that come from other source things (i.e. minimizers). See <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html" title="Base class of specialized ChainingSpace classes. Defines the ChainingSpace interface.">BaseChainingSpace</a> for the actual interface. </p>
+</div><hr/>The documentation for this struct was generated from the following file:<ul>
+<li>src/algorithms/<a class="el" href="chain__items_8hpp.html">chain_items.hpp</a></li>
+</ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

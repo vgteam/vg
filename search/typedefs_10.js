@@ -1,9 +1,14 @@
 var searchData=
 [
-  ['tag_5flist_5ft_11872',['tag_list_t',['../classvg_1_1algorithms_1_1GFAParser.html#ad6ed4063154c14a6e348a5c646bae1f1',1,'vg::algorithms::GFAParser']]],
-  ['taggedmessage_11873',['TaggedMessage',['../classvg_1_1io_1_1MessageIterator.html#ac914a651c928eedea34171366c9f62e8',1,'vg::io::MessageIterator']]],
-  ['thread_5fids_5ft_11874',['thread_ids_t',['../namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26',1,'vg']]],
-  ['thread_5ft_11875',['thread_t',['../namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2',1,'vg']]],
-  ['time_5fpoint_11876',['time_point',['../classvg_1_1Funnel.html#a573543e4560aee58697f78cc266f22c7',1,'vg::Funnel::time_point()'],['../classvg_1_1Watchdog.html#adbdb9378ef086d2e9255f22ff9ef454d',1,'vg::Watchdog::time_point()']]],
-  ['type_11877',['type',['../structvg_1_1Range.html#a5ea713fb16f3d49d94278914668503a9',1,'vg::Range::type()'],['../structhandlegraph_1_1return__type__of_3_01Returns_07Owner_1_1_5_08_07Args_8_8_8_08_01const_01_4.html#ac5175c5d84e3de42bbf69d38196d8026',1,'handlegraph::return_type_of&lt; Returns(Owner::*)(Args...) const &gt;::type()'],['../structhandlegraph_1_1return__type__of_3_01Returns_07Owner_1_1_5_08_07Args_8_8_8_08_4.html#aea61ef0da1a01e10576a705d6d1605ac',1,'handlegraph::return_type_of&lt; Returns(Owner::*)(Args...)&gt;::type()'],['../structhandlegraph_1_1return__type__of_3_01Returns_07_5_08_07Args_8_8_8_08_4.html#a579d806514cabd7b397ad5e0c1db94b4',1,'handlegraph::return_type_of&lt; Returns(*)(Args...)&gt;::type()']]]
+  ['save_5ffunction_5ft_12074',['save_function_t',['../namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57',1,'vg::io']]],
+  ['score_12075',['Score',['../structvg_1_1algorithms_1_1score__traits_3_01traced__score__t_01_4.html#a40e817e6c2a7f95d6e0f748b0c5c3425',1,'vg::algorithms::score_traits&lt; traced_score_t &gt;::Score()'],['../structvg_1_1algorithms_1_1score__traits_3_01int_01_4.html#aadc29b3f61a1b10f4a656c2d258488ef',1,'vg::algorithms::score_traits&lt; int &gt;::Score()']]],
+  ['search_5ftype_12076',['search_type',['../classvg_1_1PhaseUnfolder.html#a7484966dc448f4c3b894a53233f46d9f',1,'vg::PhaseUnfolder']]],
+  ['seed_12077',['Seed',['../classvg_1_1MinimizerMapper.html#a1c6b64b4eff8d44a478fc4a0b58c723f',1,'vg::MinimizerMapper']]],
+  ['seed_5ftype_12078',['seed_type',['../structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081',1,'vg::GaplessExtension::seed_type()'],['../classvg_1_1GaplessExtender.html#a8891a422c7921863c589850636d9f252',1,'vg::GaplessExtender::seed_type()']]],
+  ['seedtype_12079',['SeedType',['../structvg_1_1seed__traits_3_01NewSnarlSeedClusterer_1_1Seed_01_4.html#a2e5ef230e07b24a98f1715b45dcbf379',1,'vg::seed_traits&lt; NewSnarlSeedClusterer::Seed &gt;::SeedType()'],['../structvg_1_1seed__traits_3_01SnarlSeedClusterer_1_1Seed_01_4.html#a5c77a7b7eb43afff15c2f299bdf36d7b',1,'vg::seed_traits&lt; SnarlSeedClusterer::Seed &gt;::SeedType()']]],
+  ['serializablehandlegraph_12080',['SerializableHandleGraph',['../namespacevg.html#a7378a177b4ed2e7be87e02a9bfcb7d4e',1,'vg']]],
+  ['state_5ftype_12081',['state_type',['../classvg_1_1PhaseUnfolder.html#a95529e399d5ef61f6a426e1b5cfe9237',1,'vg::PhaseUnfolder']]],
+  ['step_5fhandle_5ft_12082',['step_handle_t',['../namespacevg.html#a40b137bbd07d198ca2b77962eeeaf7c8',1,'vg::step_handle_t()'],['../namespacevg_1_1io.html#a5473f8a5ac351719453cfd62655beebb',1,'vg::io::step_handle_t()']]],
+  ['subrange_5ft_12083',['subrange_t',['../namespacevg.html#ae28b502adf2ce7302acbb3138280f06c',1,'vg::subrange_t()'],['../namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a',1,'handlegraph::subrange_t()']]],
+  ['supportmap_12084',['SupportMap',['../classvg_1_1NestedCachedPackedTraversalSupportFinder.html#af8ae65b6009d1f121c27fb3ab969ef90',1,'vg::NestedCachedPackedTraversalSupportFinder']]]
 ];

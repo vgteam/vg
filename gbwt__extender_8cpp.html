@@ -80,13 +80,15 @@ $(function() {
 <code>#include &lt;cstring&gt;</code><br />
 <code>#include &lt;queue&gt;</code><br />
 <code>#include &lt;set&gt;</code><br />
-<code>#include &lt;stack&gt;</code><br />
+<code>#include &lt;structures/immutable_list.hpp&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1state__hash.html">vg::state_hash</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MatchPos.html">vg::MatchPos</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MatchPos_1_1PathList.html">vg::MatchPos::PathList</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1WFAPoint.html">vg::WFAPoint</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -100,6 +102,9 @@ Classes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacestd"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacestd.html">std</a></td></tr>
+<tr class="memdesc:namespacestd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Hash functor to hash <code>NodeSide</code>s using std::hash. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
@@ -133,6 +138,12 @@ Functions</h2></td></tr>
 <tr class="separator:a66796444cb3b92c35ebeddbb7a9bc6bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77211f457b4e1f61915d771faf06cda0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a77211f457b4e1f61915d771faf06cda0">vg::trim_mismatches</a> (GaplessExtension &amp;extension, const gbwtgraph::CachedGBWTGraph &amp;graph, const Aligner &amp;aligner)</td></tr>
 <tr class="separator:a77211f457b4e1f61915d771faf06cda0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1fbb5dfd532a055d9e8251d2dcab3e58"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fbb5dfd532a055d9e8251d2dcab3e58">vg::operator&lt;&lt;</a> (std::ostream &amp;out, const WFAAlignment::Edit &amp;edit)</td></tr>
+<tr class="memdesc:a1fbb5dfd532a055d9e8251d2dcab3e58"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow printing an <a class="el" href="structvg_1_1Edit.html">Edit</a>.  <a href="namespacevg.html#a1fbb5dfd532a055d9e8251d2dcab3e58">More...</a><br /></td></tr>
+<tr class="separator:a1fbb5dfd532a055d9e8251d2dcab3e58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec6a9d59586ce5d9e0acc951c9c355c8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacestd.html#aec6a9d59586ce5d9e0acc951c9c355c8">std::to_string</a> (const <a class="el" href="structvg_1_1WFAAlignment.html#a1ce899c26978ebac4bc7a31623809eeb">vg::WFAAlignment::Edit</a> &amp;edit)</td></tr>
+<tr class="memdesc:aec6a9d59586ce5d9e0acc951c9c355c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a WFAAlignment Edit operation to a string.  <a href="namespacestd.html#aec6a9d59586ce5d9e0acc951c9c355c8">More...</a><br /></td></tr>
+<tr class="separator:aec6a9d59586ce5d9e0acc951c9c355c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
