@@ -78,6 +78,9 @@ struct GaplessExtension
 
     /// Number of shared (read position, graph position) pairs in the extensions.
     size_t overlap(const HandleGraph& graph, const GaplessExtension& another) const;
+    
+    /// Take a prefix of the extension as a new GaplessExtension object.
+    GaplessExtension prefix(size_t prefix_length) const;
 
     /// Convert the extension into a Path.
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
@@ -217,9 +220,25 @@ public:
  *
  * Note: The aligner merges consecutive edit operations of the same type. Hence an
  * edit may span multiple nodes.
+ *
+ * This struct is an aggregate and can be aggregate-initialized with a
+ * brace-enclosed initializer list.
  */
 struct WFAAlignment {
     enum Edit { match, mismatch, insertion, deletion };
+    
+    /// Generate a WFAAlignment from a GaplessExtension. This can't be a
+    /// constructor because then WFAAlignment wouldn't be able to be
+    /// aggregate-initialized. 
+    static WFAAlignment from_extension(const GaplessExtension& extension);
+    
+    /// Generate a WFAAlignment that is an unlocalized insertion of the given
+    /// length. Can also be used to represent a softclip.
+    /// Length may not be 0.
+    static WFAAlignment make_unlocalized_insertion(size_t sequence_offset, size_t length, int score);
+    
+    /// Generate an empty WFAAlignment.
+    static WFAAlignment make_empty();
 
     /// Sequence of oriented nodes.
     std::vector<handle_t> path;
@@ -228,6 +247,7 @@ struct WFAAlignment {
     std::vector<std::pair<Edit, uint32_t>> edits;
 
     /// Starting offset in the initial node.
+    /// If there is no initial node, the value stored is undefined.
     uint32_t node_offset = 0;
 
     /// Starting offset in the sequence.
@@ -253,7 +273,8 @@ struct WFAAlignment {
     bool unlocalized_insertion() const;
 
     /// Computes the node offset after the alignment in the final node.
-    uint32_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
+    /// Will be negative if the alignment's final node(s) are not actually used by edits.
+    int64_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
 
     /// Transforms the alignment to the other strand.
     void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);
@@ -261,10 +282,35 @@ struct WFAAlignment {
     /// Appends an edit operation, merging it with the latest edit if possible.
     /// Ignores empty edits.
     void append(Edit edit, uint32_t length);
+    
+    /// Concatenate another WFAAlignment onto this one, assuming they abut in
+    /// the read and the graph. Either may be empty, or an unlocalized insertion.
+    void join(const WFAAlignment& second);
+    
+    /// Convert the WFAAlignment into a Path.
+    Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
     /// Prints some debug information about the alignment.
-    std::ostream& print(const gbwtgraph::GBWTGraph& graph, std::ostream& out) const;
+    std::ostream& print(const HandleGraph& graph, std::ostream& out) const;
+    /// Prints some debug information about the alignment.
+    std::ostream& print(std::ostream& out) const;
+    
+    /// Make sure the stored lengths, paths, and edits are accurate and
+    /// consistent with each other.
+    void check_lengths(const HandleGraph& graph) const;
 };
+
+/// Allow printing an Edit
+std::ostream& operator<<(std::ostream& out, const WFAAlignment::Edit& edit);
+
+}
+
+namespace std {
+    /// Convert a WFAAlignment Edit operation to a string
+    std::string to_string(const vg::WFAAlignment::Edit& edit);
+}
+
+namespace vg {
 
 //------------------------------------------------------------------------------
 
@@ -293,13 +339,52 @@ struct WFAAlignment {
  */
 class WFAExtender {
 public:
+
+    /**
+     * Defines how many of what kind of errors the WFA alignment algorithm
+     * should tolerate, as a function of sequence length.
+     *
+     * The WFA alignment can't actually limit edits by type, but it can limit
+     * the score such that you can't exceed all the limits on different event
+     * types at once.
+     */
+    struct ErrorModel {
+        
+        /// We have one of these each for matches, mismatches, and gaps to
+        /// define how many of them to allow.
+        struct Event {
+            /// How many of the event should we allow per base?
+            double per_base;
+            /// How many should we allow at least or at most, regardless
+            /// of sequence length? Min is a bonus over the per-base calculation,
+            /// but max is a cap.
+            int32_t min, max;
+            
+            /// Evaluate the model and get a limit number for this kind of
+            /// event for a given sequence length.
+            inline int32_t evaluate(size_t length) const {
+                return std::min(max, (int32_t)(per_base * length) + min);
+            }
+        };
+            
+        /// Limits for mismatches
+        Event mismatches;
+        /// Limits for total gaps (*not* gap opens; a gap open uses 1 gap and 1 gap length)
+        Event gaps;
+        /// Limits for total gap length (gap extends plus gap opens)
+        Event gap_length;
+    };
+    
+    /// If not specified, we use this default error model.
+    static const ErrorModel default_error_model;
+
     /// Create an empty WFAExtender.
     WFAExtender();
 
     /// Create a WFAExtender using the given GBWTGraph and Aligner objects.
-    /// TODO: Provide an error model for specifying bounds for acceptable
-    /// alignment scores.
-    WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
+    /// If an error model is passed, use that instead of the default error model.
+    /// All arguments must outlive the WFAExtender.
+    WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner, const ErrorModel& error_model = default_error_model);
 
     /**
      * Align the sequence to a haplotype between the two graph positions.
@@ -348,7 +433,8 @@ public:
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;
     const Aligner*              aligner;
-
+    const ErrorModel*           error_model;
+    
     /// TODO: Remove when unnecessary.
     bool debug = false;
 };

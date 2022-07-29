@@ -12,6 +12,7 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
+#include "randomness.hpp"
 
 #include <map>
 #include <unordered_set>
@@ -122,6 +123,313 @@ void correct_score(const GaplessExtension& extension, const Aligner& aligner) {
     REQUIRE(extension.score == expected_score);
 }
 
+void correct_score(const WFAAlignment& alignment, const Aligner& aligner) {
+    int32_t expected_score = 0;
+    for (auto& edit : alignment.edits) {
+        switch (edit.first) {
+        case WFAAlignment::match:
+            expected_score += edit.second * aligner.match;
+            break;
+        case WFAAlignment::mismatch:
+            expected_score -= edit.second * aligner.mismatch;
+            break;
+        case WFAAlignment::insertion:
+            // Fall-through
+        case WFAAlignment::deletion:
+            expected_score -= (aligner.gap_open + (edit.second - 1) * aligner.gap_extension);
+            break;
+        default:
+            REQUIRE(false);
+        }
+    }
+    REQUIRE(alignment.score == expected_score);
+}
+
+//#define debug_conversion_tests
+
+/// Convert a vg Path into a WFAAlignment, for testing and comparison.
+/// Does not set score or sequence offset.
+WFAAlignment path_to_wfa_alignment(const Path& path, const HandleGraph& graph) {
+    WFAAlignment result {
+        {},
+        {},
+        0,
+        0,
+        0,
+        0,
+        true
+    };
+    
+    if (path.mapping_size() == 0) {
+        // THis is actually the empty path.
+        return result;
+    }
+    
+    result.node_offset = path.mapping(0).position().offset();
+    
+    for (auto& mapping : path.mapping()) {
+        // Remember what node we are on. We assume one mapping per node.
+        result.path.push_back(graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse()));
+        for (auto& edit : mapping.edit()) {
+            result.length += edit.to_length();
+            
+            if (edit.from_length() == edit.to_length()) {
+                if (edit.sequence().empty()) {
+                    // A match
+                    result.append(WFAAlignment::match, edit.to_length());
+                } else {
+                    // A mismatch
+                    result.append(WFAAlignment::mismatch, edit.to_length());
+                }
+            } else if (edit.from_length() == 0) {
+                // An insertion
+                result.append(WFAAlignment::insertion, edit.to_length());
+            } else if (edit.to_length() == 0) {
+                // A deletion
+                result.append(WFAAlignment::deletion, edit.from_length());
+            } else {
+                // Something weird
+                REQUIRE(false);
+            }
+        }
+    }
+    
+    return result;
+}
+
+/// When generating a test alignment, what happened to each base in the graph?
+enum class GraphBaseFate {
+    Match = 0,
+    Mismatch,
+    Deletion,
+    InsertionMatch, // Insertion before the base, then the base is a match (etc.)
+    InsertionMismatch,
+    MatchInsertion,
+    MismatchInsertion,
+    End // Represents that we have run out of options.
+};
+
+/// What's a plan of base fates that we can turn into an alignment?
+using alignment_plan_t = std::vector<GraphBaseFate>;
+
+/// Make a random alignment plan
+alignment_plan_t make_random_plan(size_t length, default_random_engine& engine) {
+    uniform_int_distribution<int> fate_distribution(0, (int)GraphBaseFate::End - 1);
+    alignment_plan_t plan;
+    plan.reserve(length);
+    for (size_t i = 0; i < length; i++) {
+        plan.push_back((GraphBaseFate)fate_distribution(engine));
+    }
+    return plan;
+}
+
+/// Move all insertions at node boundaries into the later node in the path, if possible.
+void send_insertions_right(Path& path) {
+    for (size_t i = 0; i + 1 < path.mapping_size(); i++) {
+        Mapping* here = path.mutable_mapping(i);
+        if (here->edit_size() > 0) {
+            Edit* last_edit = here->mutable_edit(here->edit_size() - 1);
+            if (last_edit->from_length() == 0) {
+                // The last edit is an insertion. So move it over to the next mapping
+                Mapping* next = path.mutable_mapping(i + 1);
+                // Make a space
+                next->add_edit();
+                // Shift everything up. Make sure to use reverse iterators to avoid clobbering.
+                std::copy(next->mutable_edit()->rbegin() + 1, next->mutable_edit()->rend(), next->mutable_edit()->rbegin());
+                // Put it in place
+                *next->mutable_edit(0) = *last_edit;
+                // Merge if needed
+                *next = merge_adjacent_edits(*next);
+                // Get rid of it on the Mapping we got it from
+                here->mutable_edit()->RemoveLast();
+            }
+        }
+    }
+}
+
+/// Make an alignment plan into a Path
+std::pair<Path, std::string> plan_to_path(const alignment_plan_t& plan, const HandleGraph& graph, const vector<handle_t>& base_path, size_t start_offset) {
+    
+#ifdef debug_conversion_tests
+    std::cerr << "Plan: " << plan << "@" << start_offset << std::endl;
+#endif
+    
+    std::pair<Path, std::string> to_return;
+    Path& path = to_return.first;
+    std::string& sequence = to_return.second;
+    
+    // What node are we on
+    auto current_node = base_path.begin();
+    // How far are we done through on the current node?
+    size_t node_cursor = start_offset;
+    // How far are we done through on the path?
+    size_t plan_cursor = 0;
+    // What mapping are we working on?
+    Mapping* mapping = path.add_mapping();
+    // Set up its initial position
+    mapping->mutable_position()->set_node_id(graph.get_id(*current_node));
+    mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(*current_node));
+    mapping->mutable_position()->set_offset(start_offset);
+    // Assemble a simulated alignment sequence
+    std::stringstream ss;
+    
+    
+    while (plan_cursor < plan.size()) {
+        GraphBaseFate fate = plan[plan_cursor];
+        
+        // Handle this graph base.
+        // Just add individual edits and merge them up later.
+        
+        if (fate == GraphBaseFate::InsertionMatch || fate == GraphBaseFate::InsertionMismatch) {
+            // Put an insertion first
+            Edit* before = mapping->add_edit();
+            before->set_to_length(1);
+            before->set_sequence("N");
+            ss << "N";
+        }
+        // Put the main edit that consumes a graph base
+        Edit* here = mapping->add_edit();
+        here->set_from_length(1);
+        if (fate == GraphBaseFate::Mismatch || fate == GraphBaseFate::InsertionMismatch || fate == GraphBaseFate::MismatchInsertion) {
+            // Needs a sequence
+            here->set_sequence("N");
+            ss << "N";
+        }
+        if (fate == GraphBaseFate::Match || fate == GraphBaseFate::InsertionMatch || fate == GraphBaseFate::MatchInsertion) {
+            // Keep the real base.
+            // TODO: Use faster base accessor
+            ss << graph.get_sequence(*current_node)[node_cursor];
+        }
+        if (fate != GraphBaseFate::Deletion) {
+            // The graph base still exists in the sequence
+            here->set_to_length(1);
+        }
+        if (fate == GraphBaseFate::MatchInsertion || fate == GraphBaseFate::MismatchInsertion) {
+            // Put an insertion last
+            Edit* after = mapping->add_edit();
+            after->set_to_length(1);
+            after->set_sequence("N");
+            ss << "N";
+        }
+        
+        // Advance cursors
+        ++node_cursor;
+        ++plan_cursor;
+        
+        if (node_cursor == graph.get_length(*current_node)) {
+            // Advance node
+            ++current_node;
+            node_cursor = 0;
+            if (current_node != base_path.end()) {
+                // Merge all the individual edits
+                *mapping = merge_adjacent_edits(*mapping);
+                // Make a mapping for the next node
+                mapping = path.add_mapping();
+                mapping->mutable_position()->set_node_id(graph.get_id(*current_node));
+                mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(*current_node));
+            }
+        }
+        
+    }
+    
+    // Merge all the adjacent edits in the final mapping
+    *mapping = merge_adjacent_edits(*mapping);
+    
+    // Move all the insertions to the rightmost Mappings they can be in
+    send_insertions_right(path);
+    
+    // Remember to send the sequence
+    sequence = ss.str();
+    
+    return to_return;
+}
+
+/// Call the given function with random elaborations of the given path of handles into an alignment  path.
+void for_each_random_alignment(const HandleGraph& graph, const vector<handle_t>& base_path, const std::function<void(const Path&, const std::string&)> iteratee) {
+
+    if (base_path.empty()) {
+        return;
+    }
+    
+    // Get an RNG
+    default_random_engine generator(test_seed_source());
+    
+    // How many bases of the path could be on the first handle?
+    size_t first_length = graph.get_length(base_path.front());
+    // How many bases of the path aren't on the first handle?
+    size_t middle_length = 0;
+    for (auto it = base_path.begin() + 1; it != base_path.end() && (it + 1) != base_path.end(); ++it) {
+        middle_length += graph.get_length(*it);
+    }
+    // How many bases can we leave off from the end of the last handle?
+    size_t last_length = graph.get_length(base_path.back());
+
+    for (size_t start_offset = 0; start_offset + 1 < first_length; start_offset++) {
+        // For each position we could start at on the first handle
+        
+        for (size_t last_omitted = 0; last_omitted + 1 < last_length && (base_path.size() > 1 || last_omitted + start_offset < first_length); last_omitted++) {
+            // For each number of bases we could leave out of the alignment on the last step (which may also be the first step)
+        
+            // Get the number of graph bases we should use.
+            // All the ones on the first node that are past the offset, plus
+            // those in the middle, plus those on the last node that aren't
+            // omitted. Except when the first and last nodes are the same we
+            // don't double-credit the bases we keep.
+            size_t graph_length = first_length - start_offset + middle_length + (base_path.size() > 1 ? last_length : (size_t)0) - last_omitted;
+            
+            for (size_t i = 0; i < 100; i++) {
+                // Generate some random plans at this length
+                auto plan = make_random_plan(graph_length, generator);
+            
+                // Try the alignment from each plan
+                auto path_and_sequence = plan_to_path(plan, graph, base_path, start_offset);
+                REQUIRE(path_to_length(path_and_sequence.first) == path_and_sequence.second.size());
+                iteratee(path_and_sequence.first, path_and_sequence.second);
+            }
+        }
+    }
+
+}
+
+void paths_match(const Path& path, const Path& correct_path) {
+    REQUIRE(path.mapping_size() == correct_path.mapping_size());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        const Mapping& mapping = path.mapping(i);
+        const Mapping& correct = correct_path.mapping(i);
+        REQUIRE(make_pos_t(mapping.position()) == make_pos_t(correct.position()));
+        REQUIRE(mapping.edit_size() == correct.edit_size());
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            REQUIRE(mapping.edit(j).from_length() == correct.edit(j).from_length());
+            REQUIRE(mapping.edit(j).to_length() == correct.edit(j).to_length());
+            REQUIRE(mapping.edit(j).sequence() == correct.edit(j).sequence());
+        }
+    }
+}
+
+/// Compose some random alignments against the given base path through the
+/// given graph and ensure they can be round-tripped from Path to WFAAlignment
+/// and back.
+void round_trip_versions_of(const std::vector<handle_t>& base_path, const HandleGraph& graph) {
+    // For each basic route we want to look at through the graph 
+    for_each_random_alignment(graph, base_path, [&](const Path& truth_path, const std::string& truth_sequence) {
+        // Consider some alignments and round-trip to WFAAlignment and back.
+#ifdef debug_conversion_tests
+        std::cerr << "Consider sequence " << truth_sequence << " and Path " << pb2json(truth_path) << std::endl;
+#endif
+        WFAAlignment converted = path_to_wfa_alignment(truth_path, graph);
+#ifdef debug_conversion_tests
+        std::cerr << "Becomes WFAAlignment: ";
+        converted.print(graph, std::cerr);
+        std::cerr << std::endl;
+#endif
+        Path converted_back = converted.to_path(graph, truth_sequence);
+#ifdef debug_conversion_tests
+        std::cerr << "Converts back to Path " << pb2json(converted_back) << std::endl;
+#endif
+        paths_match(converted_back, truth_path);
+     });
+}
+
 // Match: 1-9
 // Mismatch: ACGT
 // Insertion: + 1-9 str
@@ -171,21 +479,6 @@ Alignment get_alignment(const std::vector<std::pair<pos_t, std::string>>& mappin
     result.set_sequence(sequence);
     *(result.mutable_path()) = get_path(mappings);
     return result;
-}
-
-void paths_match(const Path& path, const Path& correct_path) {
-    REQUIRE(path.mapping_size() == correct_path.mapping_size());
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& mapping = path.mapping(i);
-        const Mapping& correct = correct_path.mapping(i);
-        REQUIRE(make_pos_t(mapping.position()) == make_pos_t(correct.position()));
-        REQUIRE(mapping.edit_size() == correct.edit_size());
-        for (size_t j = 0; j < mapping.edit_size(); j++) {
-            REQUIRE(mapping.edit(j).from_length() == correct.edit(j).from_length());
-            REQUIRE(mapping.edit(j).to_length() == correct.edit(j).to_length());
-            REQUIRE(mapping.edit(j).sequence() == correct.edit(j).sequence());
-        }
-    }
 }
 
 void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::pair<pos_t, std::string>>& correct_alignment, const GaplessExtender& extender, size_t error_bound, bool check_seeds) {
@@ -843,6 +1136,75 @@ TEST_CASE("Non-ACGT characters do not match", "[gapless_extender]") {
 
 //------------------------------------------------------------------------------
 
+TEST_CASE("Gapless extensions can be converted to WFAAlignments and joined", "[wfa_alignment]") {
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+    // Build a GBWT-backed graph.
+    gbwtgraph::GBWTGraph gbwt_graph = build_gbwt_graph(gbwt_index);
+    
+    // And we need an Aligner.
+    Aligner aligner;
+    
+    // Make an extension
+    GaplessExtension a {
+        {
+            gbwt_graph.get_handle(1, false),
+            gbwt_graph.get_handle(4, false)
+        },
+        0, gbwt::BidirectionalState(),
+        { 0, 4 }, { },
+        4 * aligner.match, false, false,
+        false, false, 0, 0
+    };
+    correct_score(a, aligner);
+    // And turn it into a WFAAlignment
+    WFAAlignment a_aln = WFAAlignment::from_extension(a);
+    correct_score(a_aln, aligner);
+    
+    // Make another abutting extension
+    GaplessExtension b {
+        {
+            gbwt_graph.get_handle(5, false),
+            gbwt_graph.get_handle(6, false),
+            gbwt_graph.get_handle(8, false),
+            gbwt_graph.get_handle(9, false)
+        },
+        0, gbwt::BidirectionalState(),
+        { 4, 8 }, { },
+        4 * aligner.match, false, false,
+        false, false, 0, 0
+    };
+    // And turn it into a WFAAlignment
+    correct_score(b, aligner);
+    WFAAlignment b_aln = WFAAlignment::from_extension(b);
+    correct_score(b_aln, aligner);
+    
+    // Now weld them together
+    WFAAlignment joined = WFAAlignment::make_empty();
+    joined.join(a_aln);
+    REQUIRE(joined.length == a_aln.length);
+    correct_score(joined, aligner);
+    
+    joined.join(b_aln);
+    REQUIRE(joined.length == a_aln.length + b_aln.length);
+    correct_score(joined, aligner);
+    
+    // And make sure we get the right final alignment
+    REQUIRE(joined.edits.size() == 1);
+    REQUIRE(joined.edits.at(0).first == WFAAlignment::match);
+    REQUIRE(joined.edits.at(0).second == 8);
+    REQUIRE(joined.path.size() == 6);
+    REQUIRE(joined.path.at(0) == gbwt_graph.get_handle(1, false));
+    REQUIRE(joined.path.at(1) == gbwt_graph.get_handle(4, false));
+    REQUIRE(joined.path.at(2) == gbwt_graph.get_handle(5, false));
+    REQUIRE(joined.path.at(3) == gbwt_graph.get_handle(6, false));
+    REQUIRE(joined.path.at(4) == gbwt_graph.get_handle(8, false));
+    REQUIRE(joined.path.at(5) == gbwt_graph.get_handle(9, false));
+    REQUIRE(joined.score == 8 * aligner.match);
+}
+
 namespace {
 
 gbwt::GBWT wfa_linear_gbwt() {
@@ -957,9 +1319,65 @@ gbwtgraph::GBWTGraph wfa_cycle_graph(const gbwt::GBWT& index) {
     return gbwtgraph::GBWTGraph(index, source);
 }
 
+/// Make a GBWT that takes a cycle without diverging at every iteration, to
+/// make sure we can still distinguish the different loops. We then need
+/// out-of-cycle nodes to start at, so we can be in situations where we're
+/// going around the cycle multiple times with no selected haplotypes leaving
+/// or stopping.
+gbwt::GBWT wfa_non_diverging_multi_node_cycle_gbwt() {
+    std::vector<gbwt::vector_type> paths;
+
+    // Path that skips the cycle
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(5, false));
+
+    // Path that takes the cycle ten times.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    for (size_t i = 0; i < 10; i++) {
+        paths.back().push_back(gbwt::Node::encode(2, false));
+        paths.back().push_back(gbwt::Node::encode(3, false));
+        paths.back().push_back(gbwt::Node::encode(4, false));
+    }
+    paths.back().push_back(gbwt::Node::encode(5, false));
+
+    // Path that takes the cycle eleven times.
+    paths.emplace_back();
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    for (size_t i = 0; i < 11; i++) {
+        paths.back().push_back(gbwt::Node::encode(2, false));
+        paths.back().push_back(gbwt::Node::encode(3, false));
+        paths.back().push_back(gbwt::Node::encode(4, false));
+    }
+    paths.back().push_back(gbwt::Node::encode(5, false));
+
+    return get_gbwt(paths);
+}
+
+gbwtgraph::GBWTGraph wfa_non_diverging_multi_node_cycle_graph(const gbwt::GBWT& index) {
+    gbwtgraph::SequenceSource source;
+    source.add_node(1, "CATTAG");
+    source.add_node(2, "GA");
+    source.add_node(3, "TTA");
+    source.add_node(4, "CA");
+    source.add_node(5, "TATAGAGA");
+    return gbwtgraph::GBWTGraph(index, source);
+}
+
 void check_score(const WFAAlignment& alignment, const Aligner& aligner, int32_t matches, int32_t mismatches, int32_t gaps, int32_t gap_length) {
+    // The Aligner scores gap opens and gap extends, while we are working in
+    // cap count and total length. So convert total length to number of
+    // extends.
     int32_t extensions = gap_length - gaps;
     int32_t expected_score = matches * aligner.match - mismatches * aligner.mismatch - gaps * aligner.gap_open - extensions * aligner.gap_extension;
+    if (alignment.score != expected_score) {
+        // Log a bit about what we don't like about this alignment.
+        std::cerr << "Expected " << matches << " matches, " << mismatches << " mismatches, and " << gaps << " gaps of total length " << gap_length << ", for total score " << expected_score << std::endl;
+        std::cerr << "Got: ";
+        alignment.print(std::cerr);
+        std::cerr << std::endl;
+    }
     REQUIRE(alignment.score == expected_score);
 }
 
@@ -1120,6 +1538,14 @@ TEST_CASE("Exact matches in a linear graph", "[wfa_extender]") {
         check_score(result, aligner, sequence.length(), 0, 0, 0);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
+    
+    SECTION("Single node, middle, not just before end") {
+        std::string sequence("ATTA");
+        pos_t from(2, false, 0); pos_t to(2, false, 5);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
 
     SECTION("Multiple nodes, start to end") {
         std::string sequence("GATTACAGATTA");
@@ -1228,6 +1654,15 @@ TEST_CASE("Mismatches in a linear graph", "[wfa_extender]") {
         // MMMX|XMMMMM
         std::string sequence("AATAAGTAAT");
         pos_t from(3, true, 0); pos_t to(2, true, 6);
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("Over multiple nodes, start to end") {
+        // MMMXMMMMMXMM
+        std::string sequence("GATAACAGACTA");
+        pos_t from(1, false, 2); pos_t to(4, false, 0);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length() - 2, 2, 0, 0);
         check_alignment(result, sequence, graph, aligner, &from, &to);
@@ -1947,6 +2382,250 @@ TEST_CASE("Connect with a cycle", "[wfa_extender]") {
 }
 
 //------------------------------------------------------------------------------
+
+TEST_CASE("Connect with a non-diverging multi-node cycle", "[wfa_extender]") {
+    // CATTAG (GA TTA CA) x {0,10,11} TATAGAGA
+    gbwt::GBWT index = wfa_non_diverging_multi_node_cycle_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_non_diverging_multi_node_cycle_graph(index);
+    Aligner aligner;
+    WFAExtender extender(graph, aligner);
+    
+    std::stringstream ss;
+    pos_t from(1, false, 0); pos_t to(5, false, 7);
+    ss << "ATTAG";
+
+    SECTION("Skip the cycle") {
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it 10 times") {
+        for (size_t i = 0; i < 10; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it 11 times") {
+        for (size_t i = 0; i < 10; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+
+    SECTION("Take it 12 times, insertion") {
+        for (size_t i = 0; i < 12; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 7, 0, 1, 7);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("Take it 6 times, fail for bad score") {
+        for (size_t i = 0; i < 6; i++) {
+            ss << "GATTACA";
+        }
+        ss << "TATAGAG";
+        std::string sequence = ss.str();
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE_FALSE(result);
+    }
+}
+
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("WFA score caps constrain returned alignments", "[wfa_extender]") {
+    // Create the structures for graph 1: CGC, 2: GATTACA, 3: GATTA, 4: TAT
+    gbwt::GBWT index = wfa_linear_gbwt();
+    gbwtgraph::GBWTGraph graph = wfa_linear_graph(index);
+    Aligner aligner;
+
+    SECTION("One mismatch") {
+        // MMMXMM|MMMM
+        std::string sequence("ATTCCAGATT");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 1, 1},
+            {0, 0, 0},
+            {0, 0, 0}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 1, 0, 0);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("No more than one mismatch") {
+        // MMMXMM|MXMM
+        std::string sequence("ATTCCAGCTT");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 1, 1},
+            {0, 0, 0},
+            {0, 0, 0}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("No longer a gap than 0, even if a gap is allowed") {
+        //                            v
+        std::string sequence("GCGATTACCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 0, 0}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("One gap of length 1") {
+        //                            v
+        std::string sequence("GCGATTACCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 1, 1}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 1, 0, 1, 1);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("No longer a gap than 1") {
+        //                            v
+        std::string sequence("GCGATTACCCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 1, 1}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("One gap of length 2") {
+        //                            v
+        std::string sequence("GCGATTACCCAGATTATA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 2, 2}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 0, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("No more than one gap, total length 2") {
+        //                            v      v
+        std::string sequence("GCGATTACCAGATTACTA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 1, 1},
+            {0, 2, 2}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        REQUIRE(!(bool)(result));
+    }
+    
+    SECTION("Two gaps of total length 2") {
+        //                            v      v
+        std::string sequence("GCGATTACCAGATTACTA");
+        pos_t from(1, false, 0); pos_t to(4, false, 2);
+        
+        WFAExtender::ErrorModel errors {
+            {0, 0, 0},
+            {0, 2, 2},
+            {0, 2, 2}
+        };
+        WFAExtender extender(graph, aligner, errors);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length() - 2, 0, 2, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+}
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("WFAAlignment can be converted to Path", "[wfa_alignment]") {
+
+    SECTION("Generic graph") {
+        gbwt::GBWT index = wfa_general_gbwt();
+        gbwtgraph::GBWTGraph graph = wfa_general_graph(index);
+        // Looks like: 1, 2, {3|4}, 5, {6|7}, 8, {9|10}, 11
+        
+        std::vector<std::vector<handle_t>> base_paths = {
+            {graph.get_handle(1), graph.get_handle(2), graph.get_handle(3), graph.get_handle(5)},
+            {graph.get_handle(11, true), graph.get_handle(9, true), graph.get_handle(8, true)}
+        };
+        
+        for (auto& base_path : base_paths) {
+            round_trip_versions_of(base_path, graph);
+        }
+    }
+
+    SECTION("Cyclic graph") {
+        gbwt::GBWT index = wfa_cycle_gbwt();
+        gbwtgraph::GBWTGraph graph = wfa_cycle_graph(index);
+        // Looks like 1, 2*, 3
+        
+        std::vector<std::vector<handle_t>> base_paths = {
+            {graph.get_handle(1), graph.get_handle(2), graph.get_handle(3)},
+            {graph.get_handle(3, true), graph.get_handle(2, true), graph.get_handle(2, true), graph.get_handle(2, true), graph.get_handle(1, true)}
+        };
+        
+        for (auto& base_path : base_paths) {
+            round_trip_versions_of(base_path, graph);
+        }
+    }
+    
+}
+
+//------------------------------------------------------------------------------
+
 
 }
 }

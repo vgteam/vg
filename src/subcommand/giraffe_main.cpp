@@ -353,6 +353,7 @@ void help_giraffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
+    << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
@@ -389,6 +390,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_SHOW_WORK 1011
     #define OPT_NAMED_COORDINATES 1012
     #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
+    #define OPT_ALIGN_FROM_CHAINS 1014
     
 
     // initialize parameters with their default options
@@ -405,8 +407,10 @@ int main_giraffe(int argc, char** argv) {
     bool show_progress = false;
     // Should we exclude overlapping minimizers
     bool exclude_overlapping_min = false;
-    // Should we try chaining or just give up if we can't find a full length gapless alignment?
+    // Should we try dynamic programming, or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
+    // Should we align from chains of gapless extensions, or from individual gapless extensions?
+    bool align_from_chains = false;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -552,6 +556,7 @@ int main_giraffe(int argc, char** argv) {
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
             {"no-dp", no_argument, 0, 'O'},
+            {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
@@ -900,6 +905,10 @@ int main_giraffe(int argc, char** argv) {
                 do_dp = false;
                 break;
                 
+            case OPT_ALIGN_FROM_CHAINS:
+                align_from_chains = true;
+                break;
+                
             case 'r':
                 {
                     forced_rescue_attempts = true;
@@ -929,7 +938,7 @@ int main_giraffe(int argc, char** argv) {
             case OPT_EXCLUDE_OVERLAPPING_MIN:
                 exclude_overlapping_min = true;
                 break;
-
+                
             case OPT_FRAGMENT_MEAN:
                 forced_mean = true;
                 fragment_mean = parse<double>(optarg);
@@ -1156,8 +1165,14 @@ int main_giraffe(int argc, char** argv) {
     string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
     ifstream infile_dist (distance_index_file_name);
     if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
+        if (show_progress) {
+            cerr << "Loading Distance Index v1" << endl;
+        }
         old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     } else {
+        if (show_progress) {
+            cerr << "Loading Distance Index v2" << endl;
+        }
         distance_index.deserialize(distance_index_file_name);
         distance_index_ptr = &distance_index;
     }
@@ -1321,6 +1336,11 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--extension-set " << extension_set << endl;
         }
         minimizer_mapper.extension_set_score_threshold = extension_set;
+
+        if (show_progress && align_from_chains) {
+            cerr << "--align-from-chains " << endl;
+        }
+        minimizer_mapper.align_from_chains = align_from_chains;
 
         if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;
