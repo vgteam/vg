@@ -142,7 +142,7 @@ int main_index(int argc, char** argv) {
 
     //Distance index
     size_t snarl_limit = 3000;
-    size_t distance_limit = 5000;
+    size_t distance_limit = 100000;
 
     int c;
     optind = 2; // force optind past command positional argument

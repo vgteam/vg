@@ -15,7 +15,7 @@ using namespace bdsg;
 //Fill in the index
 //size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
 //distance_limit is a limit on the length of a path after which the index won't continue to traverse a snarl looking for distances
-void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000, size_t distance_limit = 2000);
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000, size_t distance_limit = 100000);
 
 //Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
