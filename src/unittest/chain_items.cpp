@@ -585,6 +585,10 @@ struct TestItem {
         return !(*this == other);
     }
 };
+
+ostream& operator<<(ostream& out, const TestItem& item) {
+    return out << "Item at " << id(item.pos) << (is_rev(item.pos) ? '-' : '+') << offset(item.pos) << " from source " << item.source;
+}
     
 struct TestSource {
     size_t start;
@@ -598,6 +602,10 @@ struct TestSource {
         return !(*this == other);
     }
 };
+
+ostream& operator<<(ostream& out, const TestSource& source) {
+    return out << "Source at " << source.start << " length " << source.length;
+}
 
 }
 
@@ -659,7 +667,34 @@ struct ChainingSpace<TestItem, TestSource> : public SourceChainingSpace<TestItem
 
 }
 
+}
+
+namespace std {
+
+using vg::unittest::TestItem;
+using vg::unittest::TestSource;
+
+string to_string(const TestItem& item) {
+
+    stringstream ss;
+    ss << item;
+    return ss.str();
+}
+
+string to_string(const TestSource& item) {
+
+    stringstream ss;
+    ss << item;
+    return ss.str();
+}
+
+}
+
+namespace vg {
+
 namespace unittest {
+
+using namespace std;
 
 TEST_CASE("A forward-strand fallow region with one missing seed can be filled in", "[chain_items][reseed_fallow_region]") {
     
@@ -727,10 +762,14 @@ static std::tuple<vector<TestSource>, vector<TestItem>, vector<TestItem>, std::f
         
         if (std::get<2>(all_items[item_num])) {
             // For each item we should see initially, make it
-            items.emplace_back(std::get<1>(all_items[item_num]), source_num);
+            items.emplace_back();
+            items.back().pos = std::get<1>(all_items[item_num]);
+            items.back().source = source_num;
         } else {
             // If we shouldn't see it initially, store it for later
-            recoverable.emplace_back(std::get<1>(all_items[item_num]), source_num);
+            recoverable.emplace_back();
+            recoverable.back().pos = std::get<1>(all_items[item_num]);
+            recoverable.back().source = source_num;
         }
     }
     
@@ -739,7 +778,7 @@ static std::tuple<vector<TestSource>, vector<TestItem>, vector<TestItem>, std::f
     auto for_each_pos_for_source_in_subgraph = [sources, recoverable](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
         // Just do a scan for every query
         for (auto& item : recoverable) {
-            if (sources[item.source] == source && subgraph_ids.count(id(item.pos))) {
+            if (sources[item.source] == source && std::binary_search(subgraph_ids.begin(), subgraph_ids.end(), id(item.pos))) {
                 iteratee(item.pos);
             }
         }
@@ -777,6 +816,8 @@ TEST_CASE("A fallow region with several seeds can be filled in", "[chain_items][
     vector<TestItem>& recoverable = std::get<2>(problem);
     auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
     
+    REQUIRE(recoverable.size() == 7);
+    
     Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
@@ -792,6 +833,190 @@ TEST_CASE("A fallow region with several seeds can be filled in", "[chain_items][
                                                                  
     REQUIRE(reseeded.size() == recoverable.size());
     REQUIRE(reseeded == recoverable);
+}
+
+TEST_CASE("Seeds not in the region are not found", "[chain_items][reseed_fallow_region]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{45, 3}, make_pos_t(5, false, 5), false},
+        {{49, 1}, make_pos_t(5, true, 0), false},
+        {{50, 1}, make_pos_t(6, false, 0), true},
+        {{52, 1}, make_pos_t(6, false, 2), false},
+        {{55, 1}, make_pos_t(6, false, 5), false},
+        {{55, 1}, make_pos_t(6, false, 6), false},
+        {{55, 1}, make_pos_t(6, false, 7), false},
+        {{90, 5}, make_pos_t(10, false, 0), true}
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 6);
+    
+    Aligner scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items.at(1),
+        items.at(2),
+        space,
+        source_sort_inverse,
+        for_each_pos_for_source_in_subgraph
+    );
+                                                                 
+    REQUIRE(reseeded.size() == 4);
+}
+
+TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_fallow_regions]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{45, 3}, make_pos_t(5, false, 5), false},
+        {{49, 1}, make_pos_t(5, true, 0), false},
+        {{50, 1}, make_pos_t(6, false, 0), true},
+        {{52, 1}, make_pos_t(6, false, 2), false},
+        {{55, 1}, make_pos_t(6, false, 5), false},
+        {{55, 1}, make_pos_t(6, false, 6), false},
+        {{55, 1}, make_pos_t(6, false, 7), false},
+        {{90, 5}, make_pos_t(10, false, 0), true}
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 6);
+    
+    Aligner scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    // We need to operate on mutable vectors
+    vector<TestItem> reseeded {items.begin(), items.end()};
+    // Everything's already in read order.
+    vector<size_t> reseeded_indexes = range_vector(items.size());
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+    
+    SECTION("no reseeding is done if the fallow region threshold is large") {
+
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            100
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        reseeded_view.with_vector([&](const vector<TestItem>& reordered) {
+            // Make sure we still just see the original items
+            REQUIRE(reordered == items);
+        });
+    }
+    
+    SECTION("reseeding is only done in gaps that are larger than the threshold") {
+        // Only the first gap is too long here
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            45
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        REQUIRE(reseeded_view.size() == 5);
+    }
+    
+    SECTION("reseeding does all gaps longer than the threshold") {
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            10
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        REQUIRE(reseeded_view.size() == all_items.size());
+        
+        // We can't actually insist on the same position order as all_items,
+        // since order of graph hits isn't specified, but we can insist on the
+        // same source order
+        
+        for (size_t i = 0; i < reseeded_view.size(); i++) {
+            REQUIRE(sources[reseeded_view[i].source] == std::get<0>(all_items[i]));
+        }
+    }
+    
+    SECTION("reseeding works when reordering is important") {
+
+        std::reverse(reseeded.begin(), reseeded.end());
+        std::reverse(reseeded_indexes.begin(), reseeded_indexes.end());
+
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            10
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        REQUIRE(reseeded_view.size() == all_items.size());
+        
+        // Sort all the items we ought to have
+        vector<TestItem> sorted {items.begin(), items.end()};
+        sorted.reserve(sorted.size() + recoverable.size());
+        std::copy(recoverable.begin(), recoverable.end(), std::back_inserter(sorted));
+        std::sort(sorted.begin(), sorted.end(), [&](const TestItem& a, const TestItem& b) -> bool {
+            return (sources.at(a.source).start < sources.at(b.source).start ||
+                    (sources.at(a.source).start == sources.at(b.source).start && sources.at(a.source).length < sources.at(b.source).length));
+        });
+         
+        reseeded_view.with_vector([&](const vector<TestItem>& reordered) {
+            // Make sure they match
+            REQUIRE(reordered == sorted);
+        });
+    }
 }
 
 }

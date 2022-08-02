@@ -362,6 +362,13 @@ struct VectorView {
     
     /// Minimal iterator for looping over.
     struct const_iterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = const Item;
+        using pointer = const Item*;
+        using reference = const Item&;
+        using difference_type = std::ptrdiff_t;
+        
+    
         const VectorView<Item>& parent;
         size_t offset = 0;
         
