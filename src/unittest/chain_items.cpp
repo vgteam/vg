@@ -576,11 +576,27 @@ TEST_CASE("find_best_chain is willing to keep indels split if the items suggest 
 struct TestItem {
     pos_t pos;
     size_t source;
+    
+    inline bool operator==(const TestItem& other) const {
+        return (this->pos == other.pos && this->source == other.source);
+    }
+    
+    inline bool operator!=(const TestItem& other) const {
+        return !(*this == other);
+    }
 };
     
 struct TestSource {
     size_t start;
     size_t length;
+    
+    inline bool operator==(const TestSource& other) const {
+        return (this->start == other.start && this->length == other.length);
+    }
+    
+    inline bool operator!=(const TestSource& other) const {
+        return !(*this == other);
+    }
 };
 
 }
@@ -646,8 +662,6 @@ struct ChainingSpace<TestItem, TestSource> : public SourceChainingSpace<TestItem
 namespace unittest {
 
 TEST_CASE("A forward-strand fallow region with one missing seed can be filled in", "[chain_items][reseed_fallow_region]") {
-
-    
     
     HashGraph graph = make_long_graph(10, 10);
     auto h = get_handles(graph);
@@ -689,9 +703,95 @@ TEST_CASE("A forward-strand fallow region with one missing seed can be filled in
                                                                  
     REQUIRE(reseeded.size() == 1);
     REQUIRE(reseeded[0].source == 1);
+    REQUIRE(reseeded[0].pos == make_pos_t(6, false, 0));
+}
+
+/// Take a table of sources, hit positions, and whether the hit should
+/// initially be visible.
+///
+/// Returns a vector of deduplicated sources, a vector of initially visible
+/// hits, a vector of hits that could be recovered, and a function that finds
+/// the recoverable hits when asked.
+static std::tuple<vector<TestSource>, vector<TestItem>, vector<TestItem>, std::function<void(const TestSource&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>> make_reseed_problem(const vector<tuple<TestSource, pos_t, bool>>& all_items) {
+    // Build out sources, initial items, and recoverable items
+    vector<TestSource> sources;
+    vector<TestItem> items;
+    vector<TestItem> recoverable;
+    for (size_t item_num = 0; item_num < all_items.size(); item_num++) {
+        // Make sure we have all the unique sources.
+        if (sources.size() == 0 || std::get<0>(all_items[item_num]) != sources.back()) {
+            // New source
+            sources.push_back(std::get<0>(all_items[item_num]));
+        }
+        size_t source_num = sources.size() - 1;
+        
+        if (std::get<2>(all_items[item_num])) {
+            // For each item we should see initially, make it
+            items.emplace_back(std::get<1>(all_items[item_num]), source_num);
+        } else {
+            // If we shouldn't see it initially, store it for later
+            recoverable.emplace_back(std::get<1>(all_items[item_num]), source_num);
+        }
+    }
+    
+    // We need to capture sources and recoverable by value to ensure that we
+    // have access to them after the enclosing function returns.
+    auto for_each_pos_for_source_in_subgraph = [sources, recoverable](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
+        // Just do a scan for every query
+        for (auto& item : recoverable) {
+            if (sources[item.source] == source && subgraph_ids.count(id(item.pos))) {
+                iteratee(item.pos);
+            }
+        }
+    };
+    
+    return std::tie(sources, items, recoverable, for_each_pos_for_source_in_subgraph);
+}
+
+TEST_CASE("A fallow region with several seeds can be filled in", "[chain_items][reseed_fallow_region]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{45, 3}, make_pos_t(5, false, 5), false},
+        {{49, 1}, make_pos_t(5, true, 0), false},
+        {{50, 1}, make_pos_t(6, false, 0), false},
+        {{52, 1}, make_pos_t(6, false, 2), false},
+        {{55, 1}, make_pos_t(6, false, 5), false},
+        {{55, 1}, make_pos_t(6, false, 6), false},
+        {{55, 1}, make_pos_t(6, false, 7), false},
+        {{90, 5}, make_pos_t(10, false, 0), true}
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    Aligner scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items.front(),
+        items.back(),
+        space,
+        source_sort_inverse,
+        for_each_pos_for_source_in_subgraph
+    );
                                                                  
-                                                                 
-                                                                 
+    REQUIRE(reseeded.size() == recoverable.size());
+    REQUIRE(reseeded == recoverable);
 }
 
 }
