@@ -15,18 +15,13 @@ using namespace bdsg;
 //Fill in the index
 //size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
 //distance_limit is a limit on the length of a path after which the index won't continue to traverse a snarl looking for distances
-void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000, size_t distance_limit = std::numeric_limits<size_t>::max());
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000, size_t distance_limit = 2000);
 
 //Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
     pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, size_t distance_limit, const HandleGraph* graph) ;
 
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit);
-
-
-//Given a snarl, find the shortest path through the snarl and label each node along the path 
-//Sets path_ancestor, path_offset, path_orientation, and path_component for each node
-void label_shortest_path_through_snarl(const HandleGraph* graph, size_t snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, pair<SnarlDistanceIndex::temp_record_t, size_t> root_ancestor, size_t chain_component, size_t offset);
 
 //Define wang_hash for net_handle_t's so that we can use a hash_map
 template<> struct wang_hash<handlegraph::net_handle_t> {
@@ -56,9 +51,8 @@ public:
 
 
 //Given a position, return the distances that can be stored by a minimizer
-//node length, connected component, prefix sum, chain component, is-reversed,
-//is_nested_node
-tuple<size_t, size_t, size_t, size_t, bool, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+//node length, connected component, prefix sum, chain component, is-reversed
+tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
 
@@ -106,8 +100,8 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 // We store this information in the minimizer index.
 // 
 //     
-//   1 bit    |   11 bit    |            12         |     31       |         8         |      1
-// is_nested  | node length |  connected component  |  prefix sum  |  chain_component  | is_reversed
+//     11 bit   |            13         |     31       |         8         |      1
+//  node length |  connected component  |  prefix sum  |  chain_component  | is_reversed
 //
 
 struct MIPayload {
@@ -125,25 +119,21 @@ struct MIPayload {
     const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
     
     const static size_t COMPONENT_OFFSET = 40;
-    const static size_t COMPONENT_WIDTH = 12;
+    const static size_t COMPONENT_WIDTH = 13;
     const static code_type COMPONENT_MASK = (static_cast<code_type>(1) << COMPONENT_WIDTH) - 1;
     
-    const static size_t NODE_LENGTH_OFFSET = 52;
+    const static size_t NODE_LENGTH_OFFSET = 53;
     const static size_t NODE_LENGTH_WIDTH = 11;
     const static code_type NODE_LENGTH_MASK = (static_cast<code_type>(1) << NODE_LENGTH_WIDTH) - 1;
 
-    const static size_t IS_NESTED_OFFSET = 63;
-    const static size_t IS_NESTED_WIDTH = 1;
 
-
-    static code_type encode(tuple<size_t, size_t, size_t, size_t, bool, bool> info) {
+    static code_type encode(tuple<size_t, size_t, size_t, size_t, bool> info) {
 
         size_t node_length = std::get<0>(info);
         size_t component = std::get<1>(info);
         size_t prefix_sum = std::get<2>(info);
         size_t chain_component = std::get<3>(info);
         bool is_reversed = std::get<4>(info);
-        bool is_nested = std::get<5>(info);
 
         if ( node_length > NODE_LENGTH_MASK
              || component > COMPONENT_MASK
@@ -153,8 +143,7 @@ struct MIPayload {
             return NO_CODE;
         }
 
-        return (static_cast<code_type>(is_nested) << IS_NESTED_OFFSET)
-             | (static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET)
+        return (static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET)
              | (static_cast<code_type>(component) << COMPONENT_OFFSET)
              | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET)
              | (static_cast<code_type>(chain_component) << CHAIN_COMPONENT_OFFSET)
@@ -164,18 +153,17 @@ struct MIPayload {
 
     
 
-    //return node length, root component, prefix sum, chain component, is_reversed, is_nested
-    static tuple<size_t, size_t, size_t, size_t, bool, bool> decode(code_type code) {
+    //return node length, root component, prefix sum, chain component, is_reversed
+    static tuple<size_t, size_t, size_t, size_t, bool> decode(code_type code) {
         if (code == NO_CODE) {
-            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false, false);
+            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
         } else {
-            return std::tuple<size_t, size_t, size_t, size_t, bool, bool> (
+            return std::tuple<size_t, size_t, size_t, size_t, bool> (
                 code >> NODE_LENGTH_OFFSET & NODE_LENGTH_MASK,
                 code >> COMPONENT_OFFSET & COMPONENT_MASK,
                 code >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK,
                 code >> CHAIN_COMPONENT_OFFSET & CHAIN_COMPONENT_MASK,
-                code & 1,
-                code >> IS_NESTED_OFFSET & 1);
+                code & 1);
 
         }
     }
