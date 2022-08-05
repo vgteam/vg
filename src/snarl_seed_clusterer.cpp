@@ -654,7 +654,28 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                      compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[chain_index]);
                 }
             } else {
-                //If the parent is just a snarl, add it to its parent snarl
+                //If the parent is just a snarl
+
+                //Remember the distances to the ends of the parent 
+
+                NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_index];
+                bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
+                chain_clusters.distance_start_left = 
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed);
+
+                chain_clusters.distance_start_right = 
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed);
+
+                chain_clusters.distance_end_left =
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed);
+
+                chain_clusters.distance_end_right = 
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed);
+#ifdef DEBUG_CLUSTER
+                cerr << "This child has distances to end : " << child_clusters1.distance_start_left << " " << child_clusters1.distance_start_right 
+                     << " " << child_clusters1.distance_end_left << " " << child_clusters1.distance_end_right << endl;
+#endif
+                //And add it to its parent snarl
                 size_t parent_index;
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     parent_index = tree_state.all_node_clusters.size();
@@ -665,6 +686,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
                 tree_state.snarl_to_children.emplace(parent_index, chain_index);
+
 
             }
             current_chain_children.clear();
@@ -791,28 +813,6 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             distance_right_left == std::numeric_limits<size_t>::max()) {
             return;
         }
-
-    } else if (first_child) {
-        //If this is a child of a snarl and the first time we see the first child, then we want to remember the distances
-        //to the bounds of the snarl
-      
-
-        child_clusters1.distance_start_left = 
-                distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), 
-                                                                 distance_index.flip(child_handle1));
-
-        child_clusters1.distance_start_right = 
-            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), child_handle1);
-
-        child_clusters1.distance_end_left =
-            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), distance_index.flip(child_handle1));
-
-        child_clusters1.distance_end_right = 
-            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), child_handle1);
-#ifdef DEBUG_CLUSTER
-        cerr << "This child has distances to end : " << child_clusters1.distance_start_left << " " << child_clusters1.distance_start_right 
-             << " " << child_clusters1.distance_end_left << " " << child_clusters1.distance_end_right << endl;
-#endif
 
     }
  
