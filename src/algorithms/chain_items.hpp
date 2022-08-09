@@ -21,6 +21,9 @@
  *
  * Helper entry points are find_best_chain() and score_best_chain() which set
  * up the DP for you and do the traceback if appropriate.
+ *
+ * There is also reseed_fallow_regions() which can orchestrate finding more
+ * items to chain when there are big gaps between the existing ones.
  */
  
 #include "extract_connecting_graph.hpp"
@@ -1029,15 +1032,18 @@ vector<Item> reseed_fallow_region(const Item& left,
  * their position and source fields set), and updates
  * sorted_item_indexes to sort the newly expanded list of items in read
  * order.
+ *
+ * Returns some statistics: the number of fallow regions found, and the length
+ * of the longest one.
  */
 template<typename Item, typename Source>
-void reseed_fallow_regions(vector<Item>& item_storage,
-                           vector<size_t>& sorted_item_indexes,
-                           const ChainingSpace<Item, Source>& space,
-                           std::unique_ptr<VectorViewInverse>& source_sort_inverse,
-                           const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
-                           size_t max_fallow_search_distance = 10000,
-                           size_t fallow_region_size = 200);
+pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
+                                           vector<size_t>& sorted_item_indexes,
+                                           const ChainingSpace<Item, Source>& space,
+                                           std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                           const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                                           size_t max_fallow_search_distance = 10000,
+                                           size_t fallow_region_size = 200);
 
 // --------------------------------------------------------------------------------
 
@@ -1307,13 +1313,17 @@ vector<Item> reseed_fallow_region(const Item& left,
 }
 
 template<typename Item, typename Source>
-void reseed_fallow_regions(vector<Item>& item_storage,
-                           vector<size_t>& sorted_item_indexes,
-                           const algorithms::ChainingSpace<Item, Source>& space,
-                           std::unique_ptr<VectorViewInverse>& source_sort_inverse,
-                           const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
-                           size_t max_fallow_search_distance,
-                           size_t fallow_region_size) {
+pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
+                                           vector<size_t>& sorted_item_indexes,
+                                           const algorithms::ChainingSpace<Item, Source>& space,
+                                           std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                           const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                                           size_t max_fallow_search_distance,
+                                           size_t fallow_region_size) {
+    pair<size_t, size_t> statistics {0, 0};
+    auto& fallow_region_count = statistics.first;
+    auto& longest_fallow_region_length = statistics.second;
+    
     // Make a VectorView over the items
     VectorView<Item> item_view {item_storage, sorted_item_indexes};
     
@@ -1326,7 +1336,13 @@ void reseed_fallow_regions(vector<Item>& item_storage,
         size_t read_distance = space.get_read_distance(item_view[left], item_view[right]);
         
         if (read_distance > fallow_region_size) {
-            // If a pair is too far apart, forge some fill-in items
+            // If a pair is too far apart
+            
+            // Count it
+            fallow_region_count++;
+            longest_fallow_region_length = std::max(longest_fallow_region_length, read_distance);
+            
+            // Forge some fill-in items
             vector<Item> new_items = reseed_fallow_region(item_view[left],
                                                           item_view[right],
                                                           space,
@@ -1355,7 +1371,8 @@ void reseed_fallow_regions(vector<Item>& item_storage,
             return space.read_start(item_storage[a]) < space.read_start(item_storage[b]);
         });
     }
-        
+    
+    return statistics;
 }
 
 }

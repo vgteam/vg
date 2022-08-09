@@ -160,7 +160,7 @@ public:
     
     /// When chaining, go back for more seeds if seeds in a cluster are this
     /// far apart in the read.
-    size_t fallow_region_size = 100;
+    size_t fallow_region_size = 10000;
     
     /// When looking for seeds in fallow regions, limit graph search to this
     /// distance in bp.

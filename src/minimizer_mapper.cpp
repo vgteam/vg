@@ -572,6 +572,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // What cluster seeds, in start position order, went into each processed cluster result?
     vector<vector<size_t>> processed_cluster_sorted_seeds;
     
+    // Over all clusters, we track some reseed statistics.
+    size_t total_fallow_regions = 0;
+    size_t longest_fallow_region = 0;
+    size_t reseed_seed_count = 0;
+    
     //Process clusters sorted by both score and read coverage
     process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
             return clusters[i].coverage;
@@ -645,7 +650,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // Sort all the seeds used in the cluster by start position, so we can chain them.
                 std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
                 
-                // We are going to need a widget for finding minimizer hot
+                // We are going to need a widget for finding minimizer hit
                 // positions in a subgraph, in the right orientation.
                 auto find_minimizer_hit_positions = [&](const Minimizer& m, const vector<id_t>& sorted_ids, const std::function<void(const pos_t)>& iteratee) -> void {
                     
@@ -659,6 +664,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         iteratee(pos);
                     });
                 };
+                
+                // We track statistics for reseeding. Get set up for that
+                // outside the terrible duplicating if.
+                size_t clustered_seed_count = cluster_seeds_sorted.size();
+                pair<size_t, size_t> reseed_statistics;
                 
                 if (distance_index != nullptr) {
                     if (show_work) {
@@ -682,7 +692,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         funnel.substage("reseed");
                     }
                     // Fill in fallow gaps between seeds, if possible.
-                    algorithms::reseed_fallow_regions<Seed, Minimizer>(
+                    reseed_statistics = algorithms::reseed_fallow_regions<Seed, Minimizer>(
                         seeds,
                         cluster_seeds_sorted,
                         space,
@@ -691,6 +701,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         max_fallow_search_distance,
                         fallow_region_size
                     );
+                    
                     if (track_provenance) {
                         funnel.substage("find_chain");
                     }    
@@ -721,7 +732,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     }
                     // Fill in fallow gaps between seeds, if possible.
                     // TODO: since we have no distance index in the space, we see everything as unreachable in the graph and might never do this.
-                    algorithms::reseed_fallow_regions<OldSeed, Minimizer>(
+                    reseed_statistics = algorithms::reseed_fallow_regions<OldSeed, Minimizer>(
                         old_seeds,
                         cluster_seeds_sorted,
                         space,
@@ -739,6 +750,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         funnel.substage_stop();
                     }
                 }
+                
+                // Remember the reseeding statistics
+                total_fallow_regions += reseed_statistics.first;
+                longest_fallow_region = std::max(longest_fallow_region, reseed_statistics.second);
+                reseed_seed_count += cluster_seeds_sorted.size() - clustered_seed_count;
+                // TODO: Go back and introduce these to the funnel somehow?
                 
                 // Remember which sorted seeds go with which chains, so we can interpret the chains.
                 processed_cluster_sorted_seeds.emplace_back(std::move(cluster_seeds_sorted));
@@ -1241,6 +1258,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
+    // Annotate with statistics about the mapping process.
+    // TODO: Control this with a flag?
+    set_annotation(mappings[0], "total_fallow_regions", (double) total_fallow_regions);
+    set_annotation(mappings[0], "longest_fallow_region", (double) longest_fallow_region);
+    set_annotation(mappings[0], "reseed_seed_count", (double) reseed_seed_count);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
