@@ -275,7 +275,7 @@ int main_minimizer(int argc, char** argv) {
     }
     if (distance_name.empty()) {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::payload_type {
-            return MIPayload::NO_CODE;
+            return std::make_pair(MIPayload::NO_CODE, MIPayload::NO_CODE);
         });
     } else {
         if (use_new_distance_index) {

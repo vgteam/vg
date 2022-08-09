@@ -3071,7 +3071,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
                 tuple<size_t, size_t, size_t, size_t, bool> chain_info (MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
-                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
+                if (minimizer.occs[j].payload != std::make_pair(MIPayload::NO_CODE, MIPayload::NO_CODE)) {
                     chain_info = MIPayload::decode(minimizer.occs[j].payload);
                 }
                 seeds.push_back({ hit, i, chain_info});
