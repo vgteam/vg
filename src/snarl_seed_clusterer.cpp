@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -308,61 +308,115 @@ cerr << "Add all seeds to nodes: " << endl;
 
             
             //Remember the new cache. We will replace it with the actual values for the seed as necessary
-            tuple<size_t, size_t, size_t, size_t, bool> old_cache = seed.minimizer_cache;
+            //cached values are:
+            //record offset of node, record offset of parent, node record offset, node length, is_reversed, 
+            // is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
+            tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> old_cache = seed.minimizer_cache;
 
-            net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
-            net_handle_t parent = std::get<1>(old_cache) == MIPayload::NO_VALUE
-                                ? distance_index.get_parent(node_net_handle)
-                                : distance_index.get_handle_from_connected_component(std::get<1>(old_cache));
+            //TODO: For now, we're either storing all values or none
+            bool has_cached_values = std::get<0>(old_cache) != MIPayload::NO_VALUE;
 
+
+            net_handle_t node_net_handle = !has_cached_values ? distance_index.get_node_net_handle(id) 
+                                            : distance_index.get_net_handle(std::get<0>(old_cache), 
+                                                             SnarlDistanceIndex::START_END, 
+                                                             SnarlDistanceIndex::NODE_HANDLE, 
+                                                             std::get<2>(old_cache)); 
+
+
+            net_handle_t parent;
+            if (has_cached_values) {
+                if (std::get<5>(old_cache)) {
+                    //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
+                    parent = distance_index.get_net_handle (distance_index.get_record_offset(node_net_handle),
+                                                            SnarlDistanceIndex::START_END,
+                                                            SnarlDistanceIndex::CHAIN_HANDLE,
+                                                            std::get<2>(old_cache));
+                } else if (std::get<7>(old_cache) && !std::get<6>(old_cache)) {
+                    //If the parent is a root snarl
+                    parent = distance_index.get_net_handle(std::get<1>(old_cache),
+                                                           SnarlDistanceIndex::START_END,
+                                                           SnarlDistanceIndex::ROOT_HANDLE);
+                } else if (std::get<7>(old_cache)) {
+                    //The parent is just the root
+                    parent = distance_index.get_root();
+                } else {
+                    //Otherwise the parent is an actual chain and we use the value from the cache
+                    parent = distance_index.get_net_handle(std::get<1>(old_cache),
+                                                           SnarlDistanceIndex::START_END,
+                                                           SnarlDistanceIndex::CHAIN_HANDLE);
+                }
+            } else {
+                parent = distance_index.get_parent(node_net_handle);
+            }
+
+            bool is_trivial_chain = has_cached_values ? std::get<5>(old_cache) 
+                                                      : distance_index.is_trivial_chain(parent);
+            bool parent_is_root = has_cached_values ? std::get<7>(old_cache)
+                                                    : distance_index.is_root(parent);
+
+#ifdef DEBUG_CLUSTER
+            assert(node_net_handle == distance_index.get_node_net_handle(id));
+            assert( parent == distance_index.get_parent(node_net_handle));
+            assert(is_trivial_chain == distance_index.is_trivial_chain(parent));
+            assert(parent_is_root == distance_index.is_root(parent));
+#endif
             seed.node_handle = node_net_handle;
-            bool is_trivial_chain = distance_index.get_record_offset(node_net_handle) ==
-                                    distance_index.get_record_offset(parent);
             
-            if (!distance_index.is_root(parent)) {
+            if (!parent_is_root) {
+                //If the parent is not the root and not a root snarl (it is a chain or trivial chain)
+
 #ifdef DEBUG_CLUSTER
                 cerr << "\tchild of a chain " << distance_index.net_handle_as_string(parent) << endl;
 #endif
 
-                //If the parent is a proper chain, then add the seed to the chain
+                //Add the seed to its parent
                 //Also update the minimizer_cache on the seed 
-                size_t depth = std::get<1>(old_cache) == MIPayload::NO_VALUE ? distance_index.get_depth(parent) : 1;
+
+                //TODO: Could also save a bool for if it's on the root-chain
+                size_t depth = distance_index.get_depth(parent);
 
 
-                //Now we want to update the cached values of the seed
+                //Seed payload is: 
+                //record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
 
-                //Seed payload is: node length, root component, prefix sum, chain component, is_reversed 
-                //Node length and is_reversed are always set
-                //TODO: It might be worth it to make a new NodeClusters to save this information instead of looking it up every time
-                size_t prefix_sum = std::get<2>(old_cache);
-                size_t node_length = std::get<0>(old_cache);
+                size_t prefix_sum = std::get<8>(old_cache);
+                size_t node_length = std::get<3>(old_cache);
                 bool is_reversed_in_parent = std::get<4>(old_cache);
-                if (prefix_sum == MIPayload::NO_VALUE) {
+
+                if (!has_cached_values) {
                     //If we didn't store information in the seed, then get it from the distance index
 
                     //prefix sum
-                    prefix_sum = is_trivial_chain 
-                            ? std::numeric_limits<size_t>::max() 
-                            : distance_index.get_prefix_sum_value(node_net_handle);
-                    std::get<2>(seed.minimizer_cache) = prefix_sum;
+                    prefix_sum = is_trivial_chain ? std::numeric_limits<size_t>::max() 
+                                                  : distance_index.get_prefix_sum_value(node_net_handle);
+                    std::get<8>(seed.minimizer_cache) = prefix_sum;
 
                     //component
-                    std::get<3>(seed.minimizer_cache) = distance_index.is_multicomponent_chain(parent) 
+                    std::get<9>(seed.minimizer_cache) = distance_index.is_multicomponent_chain(parent) 
                             ? distance_index.get_chain_component(node_net_handle)
                             : 0;
 
-                    if (node_length == MIPayload::NO_VALUE) {
-                        //node length
-                        node_length = distance_index.minimum_length(node_net_handle);
-                        std::get<0>(seed.minimizer_cache) = node_length;
-                        //is_reversed_in_parent
-                        is_reversed_in_parent = is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
-                                                                 : distance_index.is_reversed_in_parent(node_net_handle);
-                        std::get<4>(seed.minimizer_cache) = is_reversed_in_parent;
-                    }
-                }
+                    //node length
+                    node_length = distance_index.minimum_length(node_net_handle);
+                    std::get<3>(seed.minimizer_cache) = node_length;
 
-                //Add the parent
+                    //is_reversed_in_parent
+                    is_reversed_in_parent = is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
+                                                             : distance_index.is_reversed_in_parent(node_net_handle);
+                    std::get<4>(seed.minimizer_cache) = is_reversed_in_parent;
+
+                }
+#ifdef DEBUG_CLUSTER
+                //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
+                //                                  : distance_index.get_prefix_sum_value(node_net_handle)));
+                assert(node_length == distance_index.minimum_length(node_net_handle));
+
+                assert(is_reversed_in_parent == (is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
+                                                             : distance_index.is_reversed_in_parent(node_net_handle)));
+#endif
+
+                //Add the parent chain or trivial chain
                 size_t parent_index;
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     //If we haven't seen the parent chain before, add it
@@ -387,8 +441,12 @@ cerr << "Add all seeds to nodes: " << endl;
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
                 chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, 
-                              std::get<3>(seed.minimizer_cache), 
+                              std::get<9>(seed.minimizer_cache),  //component
                               is_trivial_chain ? seed.distance_left : SnarlDistanceIndex::sum({prefix_sum, seed.distance_left}));
+
+
+                //TODO
+                //If the parent is a trivial chain, then we also stored the identity of the snarl, so add it here too
 
 
             } else {
@@ -401,7 +459,7 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Seed payload is: node length, root component, prefix sum, chain component, is_reversed 
                 //If there were cached minimizers, then node length and is_reversed are always set
                 //Node length and is_reversed are always set
-                if (node_length == MIPayload::NO_VALUE) {
+                if (!has_cached_values) {
                    node_length = distance_index.minimum_length(node_net_handle);
                    is_reversed_in_parent = distance_index.is_reversed_in_parent(parent);
                 }
@@ -409,10 +467,16 @@ cerr << "Add all seeds to nodes: " << endl;
                 if (seen_nodes.count(id) < 1){
                     seen_nodes.insert(id);
 
-
                     //And now add the node to its parent, creating a NodeClusters for the parent if necessary
-                    net_handle_t grandparent = distance_index.get_parent(parent);
-                    if (distance_index.is_root(parent) || distance_index.is_root(grandparent)) {
+                    //If the parent we stored is a chain (std::get<6>(old_cache)), then the grandparent is a simple snarl and has the 
+                    //same record offset as the node and its parent. Otherwise, we stored the record offset in the cache
+                    net_handle_t grandparent_snarl = std::get<6>(old_cache) ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
+                                                                                    SnarlDistanceIndex::START_END,
+                                                                                    SnarlDistanceIndex::SNARL_HANDLE)
+                                                                      : distance_index.get_net_handle(std::get<1>(old_cache),
+                                                                                    SnarlDistanceIndex::START_END,
+                                                                                    SnarlDistanceIndex::SNARL_HANDLE);
+                    if (distance_index.is_root(parent) || distance_index.is_root(grandparent_snarl)) {
 #ifdef DEBUG_CLUSTER
                         cerr << "\t child of the root" << endl; 
 #endif
@@ -672,8 +736,8 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                 chain_clusters.distance_end_right = 
                         distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed);
 #ifdef DEBUG_CLUSTER
-                cerr << "This child has distances to end : " << child_clusters1.distance_start_left << " " << child_clusters1.distance_start_right 
-                     << " " << child_clusters1.distance_end_left << " " << child_clusters1.distance_end_right << endl;
+                cerr << "This child has distances to end : " << chain_clusters.distance_start_left << " " << chain_clusters.distance_start_right 
+                     << " " << chain_clusters.distance_end_left << " " << chain_clusters.distance_end_right << endl;
 #endif
                 //And add it to its parent snarl
                 size_t parent_index;
@@ -1646,7 +1710,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     //If the last child is a snarl, get it from the NodeClusters otherwise from the seed's cache
     size_t last_prefix_sum = std::get<4>(last_child);
     size_t last_length = std::get<2>(last_child) == std::numeric_limits<size_t>::max() ? tree_state.all_node_clusters[std::get<1>(last_child)].node_length
-                                          : std::get<0>(tree_state.all_seeds->at(std::get<1>(last_child))->at(std::get<2>(last_child)).minimizer_cache);
+                                          : std::get<3>(tree_state.all_seeds->at(std::get<1>(last_child))->at(std::get<2>(last_child)).minimizer_cache);
     size_t last_chain_component_end = std::get<2>(last_child) == std::numeric_limits<size_t>::max() ? tree_state.all_node_clusters[std::get<1>(last_child)].chain_component_end
                                           : std::get<3>(last_child);
 
@@ -1900,17 +1964,17 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         //If this isn't the first child we're looking at
         if (last_child_handle == child_handle) {
             distance_from_last_child_to_current_child = 0; 
-        } else if ( last_chain_component_end == std::get<3>(current_child_seed.minimizer_cache)) {
+        } else if ( last_chain_component_end == std::get<9>(current_child_seed.minimizer_cache)) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max()) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                distance_from_last_child_to_current_child = std::get<2>(current_child_seed.minimizer_cache);//prefix sum value
+                distance_from_last_child_to_current_child = std::get<8>(current_child_seed.minimizer_cache);//prefix sum value
             } else {
                 size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({last_prefix_sum,last_length});
     
                 //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
-                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(std::get<2>(current_child_seed.minimizer_cache), 
+                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(std::get<8>(current_child_seed.minimizer_cache), 
                                                 distance_from_chain_start_to_last_node); 
             }
         }
@@ -1927,7 +1991,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
             distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                     ? std::numeric_limits<size_t>::max() : 
             (last_child_handle == child_handle ? 0 
-                : SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, std::get<0>(current_child_seed.minimizer_cache)}));
+                : SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, std::get<3>(current_child_seed.minimizer_cache)}));
     
     //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
     //The distances will include the distance to the end of a trivial chain,
@@ -1940,27 +2004,27 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         distance_from_current_end_to_end_of_chain = 0;
     } else if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
         //If this is the last node in the chain
-        if (chain_clusters.chain_component_end != std::get<3>(current_child_seed.minimizer_cache)) { 
+        if (chain_clusters.chain_component_end != std::get<9>(current_child_seed.minimizer_cache)) { 
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
             distance_from_current_end_to_end_of_chain = 0;
         }
-    } else if (chain_clusters.chain_component_end != std::get<3>(current_child_seed.minimizer_cache)) { 
+    } else if (chain_clusters.chain_component_end != std::get<9>(current_child_seed.minimizer_cache)) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
     
         //Length of the chain - (prefix sum + node length of the current node)
         distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                    SnarlDistanceIndex::sum({std::get<2>(current_child_seed.minimizer_cache), 
-                                             std::get<0>(current_child_seed.minimizer_cache)}));
+                    SnarlDistanceIndex::sum({std::get<8>(current_child_seed.minimizer_cache), 
+                                             std::get<3>(current_child_seed.minimizer_cache)}));
     
     }
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-    cerr << "\tDistance from start of chain to the left side of this one: " << (std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : std::get<2>(current_child_seed.minimizer_cache)) << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (std::get<9>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : std::get<8>(current_child_seed.minimizer_cache)) << endl;
     cerr << "\tDistance from the last child to the right side of this one: " << distance_from_last_child_to_current_end << endl;
     cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
 #endif
@@ -1994,13 +2058,13 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         //The distance left and right of the seed are currently oriented relative to the chain
     
         //The current left distance is infinite if it is not in the first component of a multicomponent chain
-        if (std::get<3>(current_child_seed.minimizer_cache) != 0) {
+        if (std::get<9>(current_child_seed.minimizer_cache) != 0) {
             //If this node isn't in the first component of the chain
             current_child_seed.distance_left = std::numeric_limits<size_t>::max();
         } else {
             //Prefix sum + offset of the seed in the node
             current_child_seed.distance_left = SnarlDistanceIndex::sum({current_child_seed.distance_left, 
-                                                                        std::get<2>(current_child_seed.minimizer_cache)});
+                                                                        std::get<8>(current_child_seed.minimizer_cache)});
         }
         current_child_seed.distance_right = SnarlDistanceIndex::sum({current_child_seed.distance_right, 
                                                        distance_from_current_end_to_end_of_chain});
@@ -2038,8 +2102,8 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         // (or 0 if it isn't the last thing in the chain)
         pair<size_t, size_t> new_distances = make_pair(
                 SnarlDistanceIndex::sum({current_child_seed.distance_left, 
-                        std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
-                                                                             : std::get<2>(current_child_seed.minimizer_cache)}),
+                        std::get<9>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
+                                                                             : std::get<8>(current_child_seed.minimizer_cache)}),
                 SnarlDistanceIndex::sum({current_child_seed.distance_right, distance_from_current_end_to_end_of_chain})); 
     
     
@@ -2073,7 +2137,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                 //If the last child was the same as this child (seeds on the same node), 
                 //then the distances right are including the current node, so subtract
                 //the length of this node
-                distance_between -= std::get<0>(current_child_seed.minimizer_cache);
+                distance_between -= std::get<3>(current_child_seed.minimizer_cache);
             }
 
 #ifdef DEBUG_CLUSTER
@@ -2164,9 +2228,9 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
     //Update the last node we saw to this one
     last_child = current_child_indices;
     last_child_handle = child_handle;
-    last_prefix_sum = std::get<2>(current_child_seed.minimizer_cache);//The prefix sum of this node
-    last_length = std::get<0>(current_child_seed.minimizer_cache); //The length of this node
-    last_chain_component_end = std::get<3>(current_child_seed.minimizer_cache);//The chain component of this node
+    last_prefix_sum = std::get<8>(current_child_seed.minimizer_cache);//The prefix sum of this node
+    last_length = std::get<3>(current_child_seed.minimizer_cache); //The length of this node
+    last_chain_component_end = std::get<9>(current_child_seed.minimizer_cache);//The chain component of this node
 
 }
 

@@ -51,8 +51,8 @@ public:
 
 
 //Given a position, return the distances that can be stored by a minimizer
-//node length, connected component, prefix sum, chain component, is-reversed
-tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+//record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, prefix sum, chain_component 
+tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
 
@@ -99,10 +99,20 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 // The encoding of distances for positions in top-level chains
 // We store this information in the minimizer index.
 // 
-//     
-//     11 bit   |            13         |     31       |         8         |      1
-//  node length |  connected component  |  prefix sum  |  chain_component  | is_reversed
+// This gets stored in two separate uint64_t's
 //
+//           32 bits       |           32
+//   record offset of node |  record offset of parent  
+//     
+//    8 bits          |    12 bit   |      1      |          1       |     1           |        1       |   32       |         8        
+// node record offset | node length | is_reversed | is trivial chain | parent is chain | parent is root | prefix sum |  chain_component 
+//
+//
+// These values are en/de-coded from the raw values in the order above
+//
+// If no values are stored, then the two uint64_t's will both be inf
+// bools are always stored, everything else is all 1's if it is not stored
+// 
 
 struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
@@ -112,64 +122,100 @@ struct MIPayload {
     constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
-    const static size_t CHAIN_COMPONENT_OFFSET = 1;
+
+    //Static values for the offset from the right side of the uint64_t storing the values, the width of each value, and a bit mask for the value
+    const static size_t PARENT_RECORD_OFFSET = 0;
+    const static size_t PARENT_RECORD_WIDTH = 32;
+    const static code_type PARENT_RECORD_MASK = (static_cast<code_type>(1) << PARENT_RECORD_WIDTH) - 1;
+
+    const static size_t NODE_RECORD_OFFSET = 32;
+    const static size_t NODE_RECORD_WIDTH = 32;
+    const static code_type NODE_RECORD_MASK = (static_cast<code_type>(1) << NODE_RECORD_WIDTH) - 1;
+
+
+    const static size_t CHAIN_COMPONENT_OFFSET = 0;
     const static size_t CHAIN_COMPONENT_WIDTH = 8;
     const static code_type CHAIN_COMPONENT_MASK = (static_cast<code_type>(1) << CHAIN_COMPONENT_WIDTH) - 1;
     
-    const static size_t PREFIX_SUM_OFFSET = 9;
-    const static size_t PREFIX_SUM_WIDTH = 31;
+    const static size_t PREFIX_SUM_OFFSET = 8;
+    const static size_t PREFIX_SUM_WIDTH = 32;
     const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
+
+    const static size_t PARENT_IS_ROOT_OFFSET = 40;
+    const static size_t PARENT_IS_CHAIN_OFFSET = 41;
+    const static size_t IS_TRIVIAL_CHAIN_OFFSET = 42;
+    const static size_t IS_REVERSED_OFFSET = 43;
     
-    const static size_t COMPONENT_OFFSET = 40;
-    const static size_t COMPONENT_WIDTH = 13;
-    const static code_type COMPONENT_MASK = (static_cast<code_type>(1) << COMPONENT_WIDTH) - 1;
-    
-    const static size_t NODE_LENGTH_OFFSET = 53;
-    const static size_t NODE_LENGTH_WIDTH = 11;
+    const static size_t NODE_LENGTH_OFFSET = 44;
+    const static size_t NODE_LENGTH_WIDTH = 12;
     const static code_type NODE_LENGTH_MASK = (static_cast<code_type>(1) << NODE_LENGTH_WIDTH) - 1;
+    
+    const static size_t NODE_RECORD_OFFSET_OFFSET = 56;
+    const static size_t NODE_RECORD_OFFSET_WIDTH = 8;
+    const static code_type NODE_RECORD_OFFSET_MASK = (static_cast<code_type>(1) << NODE_RECORD_OFFSET_WIDTH) - 1;
 
+    //Encode and decode from the following values:
+    //record offset of node, record offset of parent, node record offset, node length, is_reversed, parent is chain, prefix sum, chain_component 
+    static payload_type encode(tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> info) {
 
-    static payload_type encode(tuple<size_t, size_t, size_t, size_t, bool> info) {
-
-        size_t node_length = std::get<0>(info);
-        size_t component = std::get<1>(info);
-        size_t prefix_sum = std::get<2>(info);
-        size_t chain_component = std::get<3>(info);
+        size_t node_record = std::get<0>(info);
+        size_t parent_record = std::get<1>(info);
+        size_t node_record_offset = std::get<2>(info);
+        size_t node_length = std::get<3>(info);
         bool is_reversed = std::get<4>(info);
+        bool is_trivial_chain = std::get<5>(info);
+        bool parent_is_chain = std::get<6>(info);
+        bool parent_is_root = std::get<7>(info);
+        size_t prefix_sum = std::get<8>(info);
+        size_t chain_component = std::get<9>(info);
 
-        if ( node_length > NODE_LENGTH_MASK
-             || component > COMPONENT_MASK
+        if ( node_record > NODE_RECORD_MASK 
+             || parent_record > PARENT_RECORD_MASK
+             || node_record_offset > NODE_RECORD_OFFSET_MASK
+             || node_length > NODE_LENGTH_MASK
              || prefix_sum > PREFIX_SUM_MASK
              || chain_component > CHAIN_COMPONENT_MASK) {
             //If there aren't enough bits to represent one of the values
             return std::make_pair(std::numeric_limits<code_type>::max(),
-                                                           std::numeric_limits<code_type>::max());
+                                  std::numeric_limits<code_type>::max());
         }
 
-        return std::make_pair((static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET)
-             | (static_cast<code_type>(component) << COMPONENT_OFFSET)
-             | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET)
-             | (static_cast<code_type>(chain_component) << CHAIN_COMPONENT_OFFSET)
-             | is_reversed,
-             
-           NO_CODE);
+        code_type encoded1 = (static_cast<code_type>(node_record)        << NODE_RECORD_OFFSET)
+                           | (static_cast<code_type>(parent_record)      << PARENT_RECORD_OFFSET);
+
+        code_type encoded2 = (static_cast<code_type>(node_record_offset) << NODE_RECORD_OFFSET_OFFSET)
+                           | (static_cast<code_type>(node_length)        << NODE_LENGTH_OFFSET)
+                           | (static_cast<code_type>(is_reversed)        << IS_REVERSED_OFFSET)
+                           | (static_cast<code_type>(is_trivial_chain)   << IS_TRIVIAL_CHAIN_OFFSET)
+                           | (static_cast<code_type>(parent_is_chain)    << PARENT_IS_CHAIN_OFFSET)
+                           | (static_cast<code_type>(parent_is_root)    << PARENT_IS_ROOT_OFFSET)
+                           | (static_cast<code_type>(prefix_sum)         << PREFIX_SUM_OFFSET)
+                           | (static_cast<code_type>(chain_component)    << CHAIN_COMPONENT_OFFSET);
+
+        return std::make_pair(encoded1, encoded2);
 
      }
 
     
 
-    //return node length, root component, prefix sum, chain component, is_reversed
-    static tuple<size_t, size_t, size_t, size_t, bool> decode(payload_type code) {
+    static tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> decode(payload_type code) {
         if (code == std::make_pair(std::numeric_limits<code_type>::max(),
                                                            std::numeric_limits<code_type>::max())) {
-            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
+            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false, false, false, false, NO_VALUE, NO_VALUE);
         } else {
-            return std::tuple<size_t, size_t, size_t, size_t, bool> (
-                code.first >> NODE_LENGTH_OFFSET & NODE_LENGTH_MASK,
-                code.first >> COMPONENT_OFFSET & COMPONENT_MASK,
-                code.first >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK,
-                code.first >> CHAIN_COMPONENT_OFFSET & CHAIN_COMPONENT_MASK,
-                code.first & 1);
+            return std::tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> (
+                code.first  >> NODE_RECORD_OFFSET        & NODE_RECORD_MASK,
+                code.first  >> PARENT_RECORD_OFFSET      & PARENT_RECORD_MASK,
+
+                code.second >> NODE_RECORD_OFFSET_OFFSET & NODE_RECORD_OFFSET_MASK,
+                code.second >> NODE_LENGTH_OFFSET        & NODE_LENGTH_MASK,
+                code.second >> IS_REVERSED_OFFSET        & 1,
+                code.second >> IS_TRIVIAL_CHAIN_OFFSET   & 1,
+                code.second >> PARENT_IS_CHAIN_OFFSET    & 1,
+                code.second >> PARENT_IS_ROOT_OFFSET     & 1,
+                code.second >> PREFIX_SUM_OFFSET         & PREFIX_SUM_MASK,
+                code.second >> CHAIN_COMPONENT_OFFSET    & CHAIN_COMPONENT_MASK);
+
 
         }
     }

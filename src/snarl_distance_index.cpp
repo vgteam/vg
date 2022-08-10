@@ -1691,26 +1691,34 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 /*Given a position, return distances that can be stored by a minimizer
  *
  * This stores:
-        -(size_t) length of the node,
-        -(size_t) connected component number of the parent of the node, if the parent is a child of the root
-        -(size_t) prefix sum value of the node (or prefix sum to the start of the parent snarl)
-        -(size_t) the chain component of the node
-                  This is set if the node is in a nontrivial chain or in a simple snarl, in which case the component is
-                  the chain component of the start and end nodes of the parent snarl
-        -(bool)   is the node reversed in its parent 
+        
+        - (size_t)  record offset of node
+        - (size_t)  record offset of parent (or the grandparent if the node and parent have the same offset)
+        - (size_t)  node record offset
+        - (size_t)  length of the node
+        - (bool)    is the node reversed in its parent 
+        - (bool)    is trivial chain
+        - (bool)    is the parent a chain
+        - (bool)    is the parent a root  
+        - (size_t)  prefix sum value of the node (or prefix sum to the start of the parent snarl)
+        - (size_t)  the chain component of the node
+                    This is set if the node is in a nontrivial chain or in a simple snarl, in which case the component is
+                    the chain component of the start and end nodes of the parent snarl
+ 
+   If the node is on a chain, then all the values are what you'd expect
+   If the node is in a trivial chain in a simple snarl, then the parent is the record offset of the chain, and the prefix sum and chain component
+      values are for the start of the simple snarl
+   If the node is a trivial chain in a non-simple snarl, then parent is the record offset of the parent snarl, and the prefix sum and components are inf
 
  */
 
 
-tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
+tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
 
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
 
-    //Is the node the direct child a top-level chain
-    bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
-                              distance_index.is_root(distance_index.get_parent(parent_handle)) &&
-                              !distance_index.is_root_snarl(distance_index.get_parent(parent_handle));
+    bool parent_is_root = distance_index.is_root(parent_handle);
 
     //The prefix sum value of the node in its parent chain, inf if it is in a trivial chain or the child of the root 
     size_t prefix_sum = distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(parent_handle)
@@ -1728,9 +1736,6 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     bool is_reversed_in_parent = distance_index.is_trivial_chain(parent_handle) 
                                  ? distance_index.is_reversed_in_parent(parent_handle)
                                  : distance_index.is_reversed_in_parent(node_handle);
-    size_t connected_component = in_top_level_chain 
-                       ?  distance_index.get_connected_component_number(node_handle)
-                       : std::numeric_limits<size_t>::max();
 
     if (distance_index.is_trivial_chain(parent_handle) && distance_index.is_simple_snarl(distance_index.get_parent(parent_handle))) {
         //If the grandparent of the node is a simple snarl, then remember the prefix sum value as being the distance to the start 
@@ -1748,12 +1753,29 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
         }
 
     }
+    bool is_trivial_chain = distance_index.is_trivial_chain(parent_handle);
+    bool parent_is_chain = true;
+    if (is_trivial_chain) {
+        parent_handle = distance_index.get_parent(parent_handle);
+        if (distance_index.is_simple_snarl(parent_handle)) {
+            //If the node is the trivial chain child of a simple snarl, then store the parent chain of the simple snarl
+            parent_handle = distance_index.get_parent(parent_handle);
+            parent_is_chain = true;
+        } else {
+            parent_is_chain = false;
+        }
+    }
 
-    return make_tuple(distance_index.minimum_length(node_handle),
-                      connected_component,
+    return make_tuple(distance_index.get_record_offset(node_handle),
+                      distance_index.get_record_offset(parent_handle),
+                      distance_index.get_node_record_offset(node_handle),
+                      distance_index.minimum_length(node_handle),
+                      is_reversed_in_parent,
+                      is_trivial_chain,
+                      parent_is_chain,
+                      parent_is_root,
                       prefix_sum,
-                      component,
-                      is_reversed_in_parent);
+                      component);
 
 
 

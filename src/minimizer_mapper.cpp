@@ -3070,7 +3070,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
-                tuple<size_t, size_t, size_t, size_t, bool> chain_info (MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+                tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> chain_info (
+                        MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, 
+                        false, false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
                 if (minimizer.occs[j].payload != std::make_pair(MIPayload::NO_CODE, MIPayload::NO_CODE)) {
                     chain_info = MIPayload::decode(minimizer.occs[j].payload);
                 }
