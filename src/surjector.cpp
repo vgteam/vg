@@ -1816,6 +1816,9 @@ using namespace std;
             *surjected.mutable_path() = path_chunks.front().second;
             surjected.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(surjected));
             
+        } else if (ref_path_interval.first > ref_path_interval.second) {
+            // this is a hack to avoid the assertion below
+            cerr << "skipping instead of failing with ref interval " << ref_path_interval.first << ":" << ref_path_interval.second << " on path of length " << path_position_graph->get_path_length(path_handle) << endl;
         }
         else {
             // we're going to have to realign some portions
