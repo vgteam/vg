@@ -354,6 +354,8 @@ void help_giraffe(char** argv) {
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
+    << "  --fallow-region-size INT      distance between seeds in the read required to consider a region fallow [1000]" << endl
+    << "  --reseed-distance INT         distance to search in the graph when reseeding a fallow region [2000]" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
@@ -391,6 +393,8 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_NAMED_COORDINATES 1012
     #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
     #define OPT_ALIGN_FROM_CHAINS 1014
+    #define OPT_FALLOW_REGION_SIZE 1015
+    #define OPT_RESEED_DISTANCE 1016
     
 
     // initialize parameters with their default options
@@ -411,6 +415,10 @@ int main_giraffe(int argc, char** argv) {
     bool do_dp = true;
     // Should we align from chains of gapless extensions, or from individual gapless extensions?
     bool align_from_chains = false;
+    // How far apart do seeds need to be in the read to create a fallow region?
+    Range<size_t> fallow_region_size = 1000;
+    // How far in the graph should we go to find the subgraph we use to reseed hits for minimizers in fallow regions?
+    Range<size_t> reseed_distance = 2000;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -479,6 +487,8 @@ int main_giraffe(int argc, char** argv) {
         .chain(minimizer_score_fraction)
         .chain(rescue_attempts)
         .chain(max_unique_min)
+        .chain(fallow_region_size)
+        .chain(reseed_distance)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -557,6 +567,8 @@ int main_giraffe(int argc, char** argv) {
             {"score-fraction", required_argument, 0, 'F'},
             {"no-dp", no_argument, 0, 'O'},
             {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
+            {"fallow-region-size", required_argument, 0, OPT_FALLOW_REGION_SIZE},
+            {"reseed-distance", required_argument, 0, OPT_RESEED_DISTANCE},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
@@ -907,6 +919,14 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_ALIGN_FROM_CHAINS:
                 align_from_chains = true;
+                break;
+
+            case OPT_FALLOW_REGION_SIZE:
+                fallow_region_size = parse<Range<size_t>>(optarg);
+                break;
+
+            case OPT_RESEED_DISTANCE:
+                reseed_distance = parse<Range<size_t>>(optarg);
                 break;
                 
             case 'r':
@@ -1341,6 +1361,16 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--align-from-chains " << endl;
         }
         minimizer_mapper.align_from_chains = align_from_chains;
+
+        if (show_progress) {
+            cerr << "--fallow-region-size " << fallow_region_size << endl;
+        }
+        minimizer_mapper.fallow_region_size = fallow_region_size;
+
+        if (show_progress) {
+            cerr << "--reseed-distance " << reseed_distance << endl;
+        }
+        minimizer_mapper.reseed_distance = reseed_distance;
 
         if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;

@@ -698,7 +698,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         space,
                         minimizer_score_sort_inverse,
                         find_minimizer_hit_positions, 
-                        max_fallow_search_distance,
+                        reseed_distance,
                         fallow_region_size
                     );
                     
@@ -738,7 +738,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         space,
                         minimizer_score_sort_inverse,
                         find_minimizer_hit_positions, 
-                        max_fallow_search_distance,
+                        reseed_distance,
                         fallow_region_size
                     );
                     if (track_provenance) {
