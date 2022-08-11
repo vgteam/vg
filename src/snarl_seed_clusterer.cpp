@@ -309,8 +309,8 @@ cerr << "Add all seeds to nodes: " << endl;
             
             //Remember the new cache. We will replace it with the actual values for the seed as necessary
             //cached values are:
-            //record offset of node, record offset of parent, node record offset, node length, is_reversed, 
-            // is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
+            //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
+            // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
             tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> old_cache = seed.minimizer_cache;
 
             //TODO: For now, we're either storing all values or none
@@ -372,7 +372,19 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Also update the minimizer_cache on the seed 
 
                 //TODO: Could also save a bool for if it's on the root-chain
-                size_t depth = distance_index.get_depth(parent);
+                size_t depth;
+                if (std::get<5>(old_cache) && std::get<6>(old_cache) && std::get<7>(old_cache)) {
+                    //IF the node is a trivial chain, and the parent we stored is a chain and root,
+                    //then the node is in a simple snarl on the root-level chain
+                    depth = 2;
+                } else if (std::get<7>(old_cache)) {
+                    depth = 1;
+                } else {
+                    depth = distance_index.get_depth(parent);
+                }
+#ifdef DEBUG_CLUSTE
+                assert(depth == distance_index.get_depth(parent));R
+#endif
 
 
                 //Seed payload is: 
