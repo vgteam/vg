@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -352,14 +352,12 @@ cerr << "Add all seeds to nodes: " << endl;
 
             bool is_trivial_chain = has_cached_values ? std::get<5>(old_cache) 
                                                       : distance_index.is_trivial_chain(parent);
-            bool parent_is_root = has_cached_values ? std::get<7>(old_cache)
-                                                    : distance_index.is_root(parent);
+            bool parent_is_root = distance_index.is_root(parent);
 
 #ifdef DEBUG_CLUSTER
             assert(node_net_handle == distance_index.get_node_net_handle(id));
             assert( parent == distance_index.get_parent(node_net_handle));
             assert(is_trivial_chain == distance_index.is_trivial_chain(parent));
-            assert(parent_is_root == distance_index.is_root(parent));
 #endif
             seed.node_handle = node_net_handle;
             
@@ -418,6 +416,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 //Add the parent chain or trivial chain
                 size_t parent_index;
+                bool new_parent = false;
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     //If we haven't seen the parent chain before, add it
                     parent_index = tree_state.all_node_clusters.size();
@@ -431,6 +430,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
                                                               tree_state.seed_count_prefix_sum.back(), distance_index);
                     }
+                    new_parent = true;
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
@@ -446,7 +446,60 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
                 //TODO
-                //If the parent is a trivial chain, then we also stored the identity of the snarl, so add it here too
+                //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
+               // if (new_parent && has_cached_values && is_trivial_chain && !std::get<7>(old_cache)) {
+               //     bool grandparent_is_simple_snarl = std::get<6>(old_cache);
+               //     //If the parent we stored is a chain (std::get<6>(old_cache)), then the grandparent is a simple snarl and has the 
+               //     //same record offset as the node and its parent. Otherwise, we stored the record offset in the cache
+               //     net_handle_t grandparent_snarl = grandparent_is_simple_snarl 
+               //                                         ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
+               //                                                                         SnarlDistanceIndex::START_END,
+               //                                                                         SnarlDistanceIndex::SNARL_HANDLE,
+               //                                                                         1)
+               //                                         : distance_index.get_net_handle(std::get<1>(old_cache),
+               //                                                                         SnarlDistanceIndex::START_END,
+               //                                                                         SnarlDistanceIndex::SNARL_HANDLE);
+
+               //     //Add the parent chain or trivial chain
+               //     size_t grandparent_index;
+               //     bool new_grandparent = false;
+               //     if (tree_state.net_handle_to_index.count(grandparent_snarl) == 0) {
+
+               //         grandparent_index = tree_state.all_node_clusters.size();
+               //         tree_state.net_handle_to_index[grandparent_snarl] = grandparent_index;
+               //         tree_state.all_node_clusters.emplace_back(grandparent_snarl, tree_state.all_seeds->size(),
+               //                                               tree_state.seed_count_prefix_sum.back(), distance_index);
+
+               //         new_grandparent = true;
+               //     } else {
+               //         grandparent_index = tree_state.net_handle_to_index[grandparent_snarl];
+               //     }
+               //     //TODO :Can't do this here because snarl_to_children is just for the current level
+               //     //tree_state.snarl_to_children.emplace(grandparent_index, parent_index);
+               //     
+               //     if (new_grandparent && grandparent_is_simple_snarl) {
+               //         //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
+               //         net_handle_t greatgrandparent_chain = distance_index.get_net_handle(std::get<1>(old_cache),
+               //                                                                             SnarlDistanceIndex::START_END,
+               //                                                                             SnarlDistanceIndex::CHAIN_HANDLE);
+               //         size_t greatgrandparent_index;
+               //         if (tree_state.net_handle_to_index.count(greatgrandparent_chain) == 0) {
+
+               //             greatgrandparent_index = tree_state.all_node_clusters.size();
+               //             tree_state.net_handle_to_index[greatgrandparent_chain] = greatgrandparent_index;
+               //             tree_state.all_node_clusters.emplace_back(greatgrandparent_chain, tree_state.all_seeds->size(),
+               //                                                   tree_state.seed_count_prefix_sum.back(), distance_index);
+
+               //         } else {
+               //             greatgrandparent_index = tree_state.net_handle_to_index[greatgrandparent_chain];
+               //         }
+               //         assert(depth > 0);
+               //         assert(depth-1 == distance_index.get_depth(greatgrandparent_chain));
+               //         chain_to_children_by_level[depth-1].add_child(greatgrandparent_index, grandparent_snarl, grandparent_index, 
+               //                                                 std::numeric_limits<size_t>::max(), std::get<9>(old_cache), std::get<8>(old_cache));
+
+               //     }
+               // }
 
 
             } else {

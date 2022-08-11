@@ -161,6 +161,7 @@ class NewSnarlSeedClusterer {
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){
                 read_cluster_heads.reserve(seed_count);
+                //TODO: Don't get this here, wait until we actually access the snarl tree records for the first time, then set everything
                 if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
                     is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
                     node_length = distance_index.chain_minimum_length(containing_net_handle);

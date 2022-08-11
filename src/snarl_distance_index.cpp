@@ -1756,13 +1756,18 @@ tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> ge
     bool is_trivial_chain = distance_index.is_trivial_chain(parent_handle);
     bool parent_is_chain = true;
     if (is_trivial_chain) {
+        //If the node is in a trivial chain, then the chain handle is just the node handle pretending to be a chain, 
+        //so remember the parent as being the chain's parent 
         parent_handle = distance_index.get_parent(parent_handle);
+        parent_is_chain = false;
+        parent_is_root = distance_index.is_root(parent_handle);
         if (distance_index.is_simple_snarl(parent_handle)) {
             //If the node is the trivial chain child of a simple snarl, then store the parent chain of the simple snarl
             parent_handle = distance_index.get_parent(parent_handle);
+            assert(distance_index.is_chain(parent_handle));
+            assert(!distance_index.is_root(parent_handle));
+            parent_is_root = false;
             parent_is_chain = true;
-        } else {
-            parent_is_chain = false;
         }
     }
 
