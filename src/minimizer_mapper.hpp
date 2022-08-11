@@ -149,6 +149,14 @@ public:
     /// produce alignments by aligning the tails off of individual gapless
     /// extensions.
     bool align_from_chains = false;
+
+    /// When chaining, go back for more seeds if seeds in a cluster are this
+    /// far apart in the read.
+    size_t fallow_region_size = 1000;
+    
+    /// When looking for seeds in fallow regions, limit graph search to this
+    /// distance in bp.
+    size_t reseed_distance = 2000;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -158,14 +166,6 @@ public:
     /// Similarly, what is the maximum tail length we will try to align?
     size_t max_tail_length = 5000;
     
-    /// When chaining, go back for more seeds if seeds in a cluster are this
-    /// far apart in the read.
-    size_t fallow_region_size = 1000;
-    
-    /// When looking for seeds in fallow regions, limit graph search to this
-    /// distance in bp.
-    size_t reseed_distance = 2000;
-
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
     

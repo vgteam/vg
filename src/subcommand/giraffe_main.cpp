@@ -356,6 +356,8 @@ void help_giraffe(char** argv) {
     << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
     << "  --fallow-region-size INT      distance between seeds in the read required to consider a region fallow [1000]" << endl
     << "  --reseed-distance INT         distance to search in the graph when reseeding a fallow region [2000]" << endl
+    << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [5000]" << endl
+    << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [5000]" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
@@ -395,6 +397,8 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_ALIGN_FROM_CHAINS 1014
     #define OPT_FALLOW_REGION_SIZE 1015
     #define OPT_RESEED_DISTANCE 1016
+    #define OPT_MAX_CHAIN_CONNECTION 1017
+    #define OPT_MAX_TAIL_LENGTH 1018
     
 
     // initialize parameters with their default options
@@ -413,12 +417,18 @@ int main_giraffe(int argc, char** argv) {
     bool exclude_overlapping_min = false;
     // Should we try dynamic programming, or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
+
     // Should we align from chains of gapless extensions, or from individual gapless extensions?
     bool align_from_chains = false;
     // How far apart do seeds need to be in the read to create a fallow region?
     Range<size_t> fallow_region_size = 1000;
     // How far in the graph should we go to find the subgraph we use to reseed hits for minimizers in fallow regions?
     Range<size_t> reseed_distance = 2000;
+    // How far apart can seeds be and still be chained together?
+    Range<size_t> max_chain_connection = 5000;
+    // How long of a tail are we willing to align in a chain before forcing a softclip?
+    Range<size_t> max_tail_length = 5000;
+    
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -489,6 +499,8 @@ int main_giraffe(int argc, char** argv) {
         .chain(max_unique_min)
         .chain(fallow_region_size)
         .chain(reseed_distance)
+        .chain(max_chain_connection)
+        .chain(max_tail_length)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -569,6 +581,8 @@ int main_giraffe(int argc, char** argv) {
             {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
             {"fallow-region-size", required_argument, 0, OPT_FALLOW_REGION_SIZE},
             {"reseed-distance", required_argument, 0, OPT_RESEED_DISTANCE},
+            {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
+            {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
@@ -927,6 +941,14 @@ int main_giraffe(int argc, char** argv) {
 
             case OPT_RESEED_DISTANCE:
                 reseed_distance = parse<Range<size_t>>(optarg);
+                break;
+
+            case OPT_MAX_CHAIN_CONNECTION:
+                max_chain_connection = parse<Range<size_t>>(optarg);
+                break;
+
+            case OPT_MAX_TAIL_LENGTH:
+                max_tail_length = parse<Range<size_t>>(optarg);
                 break;
                 
             case 'r':
@@ -1371,6 +1393,16 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--reseed-distance " << reseed_distance << endl;
         }
         minimizer_mapper.reseed_distance = reseed_distance;
+
+        if (show_progress) {
+            cerr << "--max-chain-connection " << max_chain_connection << endl;
+        }
+        minimizer_mapper.max_chain_connection = max_chain_connection;
+
+        if (show_progress) {
+            cerr << "--max-tail-length " << max_tail_length << endl;
+        }
+        minimizer_mapper.max_tail_length = max_tail_length;
 
         if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;
