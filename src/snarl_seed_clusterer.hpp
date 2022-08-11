@@ -110,6 +110,13 @@ class NewSnarlSeedClusterer {
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
 
+            //These are sometimes set if the value was in the cache
+            //TODO: I should probably make this a static member of the class in case it changes
+            bool has_parent_handle = false;;
+            net_handle_t parent_net_handle;
+            bool has_grandparent_handle = false;
+            net_handle_t grandparent_net_handle;
+
             //Only set these for nodes or snarls in chains
             nid_t node_id = 0;
             bool is_reversed_in_parent = false;
