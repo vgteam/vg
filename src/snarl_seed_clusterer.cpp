@@ -280,8 +280,8 @@ void NewSnarlSeedClusterer::get_nodes( TreeState& tree_state, vector<ParentToChi
 cerr << "Add all seeds to nodes: " << endl;
 #endif
 
-    //Map node id to the depth of its parent
-    hash_map<id_t, size_t> id_to_depth;
+    //Map the parent handle to its depth
+    hash_map<net_handle_t, size_t> parent_to_depth;
 
 
     // Assign each seed to a node.
@@ -382,11 +382,11 @@ cerr << "Add all seeds to nodes: " << endl;
                     depth = 2;
                 } else if (std::get<7>(old_cache)) {
                     depth = 1;
-                } else if (id_to_depth.count(id) == 0) {
+                } else if (parent_to_depth.count(parent) == 0) {
                     depth = distance_index.get_depth(parent);
-                    id_to_depth[id] = depth;
+                    parent_to_depth[parent] = depth;
                 } else {
-                    depth = id_to_depth[id];
+                    depth = parent_to_depth[parent];
                 }
 #ifdef DEBUG_CLUSTE
                 assert(depth == distance_index.get_depth(parent));R
