@@ -137,6 +137,7 @@ class NewSnarlSeedClusterer {
             //This one gets set for a (nontrivial) chain or snarl
             net_handle_t start_in;
             net_handle_t end_in;
+            bool is_trivial_chain = false;
             
 
             //set of the indices of heads of clusters (group ids in the 
@@ -168,18 +169,6 @@ class NewSnarlSeedClusterer {
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){
                 read_cluster_heads.reserve(seed_count);
-                //TODO: Don't get this here, wait until we actually access the snarl tree records for the first time, then set everything
-                if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
-                    is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
-                    node_length = distance_index.chain_minimum_length(containing_net_handle);
-                    start_in = distance_index.get_bound(containing_net_handle, false, true);
-                    end_in = distance_index.get_bound(containing_net_handle, true, true);
-                    chain_component_end = distance_index.get_chain_component(end_in, true);
-                } else if (distance_index.is_snarl(containing_net_handle)) {
-                    node_length = distance_index.minimum_length(containing_net_handle);
-                    start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
-                    end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
-                }
             }
             //Constructor for a node or trivial chain
             NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
@@ -195,7 +184,22 @@ class NewSnarlSeedClusterer {
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){
                     read_cluster_heads.reserve(seed_count);
-                }
+            }
+            void set_chain_values(const SnarlDistanceIndex& distance_index) {
+                is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
+                node_length = distance_index.chain_minimum_length(containing_net_handle);
+                start_in = distance_index.get_bound(containing_net_handle, false, true);
+                end_in = distance_index.get_bound(containing_net_handle, true, true);
+                chain_component_end = distance_index.get_chain_component(end_in, true);
+            }
+            void set_snarl_values(const SnarlDistanceIndex& distance_index) {
+                node_length = distance_index.minimum_length(containing_net_handle);
+                start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
+                end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
+                set_chain_components = true;
+                chain_component_start = distance_index.get_chain_component(start_in);
+                chain_component_end = distance_index.get_chain_component(end_in);
+            }
 
         };
 

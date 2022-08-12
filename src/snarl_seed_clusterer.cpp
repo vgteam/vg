@@ -442,6 +442,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
                                                      tree_state.seed_count_prefix_sum.back(),
                                                      false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()); 
+                        tree_state.all_node_clusters.back().is_trivial_chain = true;
                     } else {
                         //The parent is an actual chain
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
@@ -679,14 +680,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
                  }
             } else {
                 //Add the snarl to its parent chain
-                //Remember the chain component of the start and end nodes of the snarl
                 NodeClusters& parent_clusters = tree_state.all_node_clusters[parent_index];
-                if (parent_clusters.chain_component_end != 0 && parent_clusters.chain_component_end != std::numeric_limits<size_t>::max()
-                        && !snarl_clusters.set_chain_components) {
-                    snarl_clusters.set_chain_components = true;
-                    snarl_clusters.chain_component_start = distance_index.get_chain_component(snarl_clusters.start_in);
-                    snarl_clusters.chain_component_end = distance_index.get_chain_component(snarl_clusters.end_in);
-                } 
                 tree_state.parent_chain_to_children->add_child(parent_index, snarl_clusters.containing_net_handle, snarl_index, std::numeric_limits<size_t>::max(), 
                                                                snarl_clusters.chain_component_start, snarl_clusters.prefix_sum_value);
             }
@@ -1478,6 +1472,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
     
 
     NodeClusters& snarl_clusters = tree_state.all_node_clusters[snarl_clusters_index]; 
+    snarl_clusters.set_snarl_values(distance_index);
 #ifdef DEBUG_CLUSTER
         cerr << "Finding clusters on snarl " << distance_index.net_handle_as_string(snarl_clusters.containing_net_handle) << endl;
 #endif
@@ -1663,6 +1658,9 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 
     NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_clusters_index];
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
+    if (!chain_clusters.is_trivial_chain) {
+        chain_clusters.set_chain_values(distance_index);
+    }
 
     /**Now actually start the work of clustering **/
 
