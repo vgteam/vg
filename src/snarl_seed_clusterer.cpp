@@ -463,8 +463,11 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
                 if (depth+1 > chain_to_children_by_level.size()) {
-                    chain_to_children_by_level.resize(depth+1);
-                    chain_to_children_by_level.back().reserve(tree_state.seed_count_prefix_sum.back());
+                    size_t to_add = (depth+1) - chain_to_children_by_level.size(); 
+                    for (size_t i = 0 ; i < to_add ; i++) {
+                        chain_to_children_by_level.emplace_back();
+                        chain_to_children_by_level.back().reserve(tree_state.seed_count_prefix_sum.back());
+                    }
                 }
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
