@@ -280,8 +280,9 @@ void NewSnarlSeedClusterer::get_nodes( TreeState& tree_state, vector<ParentToChi
 cerr << "Add all seeds to nodes: " << endl;
 #endif
 
-    //Map the parent handle to its depth
-    hash_map<net_handle_t, size_t> parent_to_depth;
+    //Map the parent NodeClusters to its depth
+    vector<size_t> parent_node_cluster_offset_to_depth;
+    parent_node_cluster_offset_to_depth.reserve(tree_state.seed_count_prefix_sum.back());
 
 
     // Assign each seed to a node.
@@ -374,23 +375,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Add the seed to its parent
                 //Also update the minimizer_cache on the seed 
 
-                //TODO: Could also save a bool for if it's on the root-chain
-                size_t depth;
-                if (std::get<5>(old_cache) && std::get<6>(old_cache) && std::get<7>(old_cache)) {
-                    //IF the node is a trivial chain, and the parent we stored is a chain and root,
-                    //then the node is in a simple snarl on the root-level chain
-                    depth = 2;
-                } else if (std::get<7>(old_cache)) {
-                    depth = 1;
-                } else if (parent_to_depth.count(parent) == 0) {
-                    depth = distance_index.get_depth(parent);
-                    parent_to_depth[parent] = depth;
-                } else {
-                    depth = parent_to_depth[parent];
-                }
-#ifdef DEBUG_CLUSTE
-                assert(depth == distance_index.get_depth(parent));R
-#endif
 
 
                 //Seed payload is: 
@@ -435,6 +419,21 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Add the parent chain or trivial chain
                 size_t parent_index;
                 bool new_parent = false;
+                //TODO: Could also save a bool for if it's on the root-chain
+                size_t depth;
+                if (std::get<5>(old_cache) && std::get<6>(old_cache) && std::get<7>(old_cache)) {
+                    //IF the node is a trivial chain, and the parent we stored is a chain and root,
+                    //then the node is in a simple snarl on the root-level chain
+                    depth = 2;
+                } else if (std::get<7>(old_cache)) {
+                    depth = 1;
+                } else {
+                    //Otherwise get it from parent_node_cluster_offset_to_depth
+                    depth = std::numeric_limits<size_t>::max();
+                }
+#ifdef DEBUG_CLUSTE
+                assert(depth == distance_index.get_depth(parent));
+#endif
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     //If we haven't seen the parent chain before, add it
                     parent_index = tree_state.all_node_clusters.size();
@@ -448,10 +447,21 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
                                                               tree_state.seed_count_prefix_sum.back(), distance_index);
                     }
+                    parent_node_cluster_offset_to_depth.emplace_back(std::numeric_limits<size_t>::max());
                     new_parent = true;
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
+                if (depth == std::numeric_limits<size_t>::max()) {
+                    if (parent_node_cluster_offset_to_depth[parent_index] == std::numeric_limits<size_t>::max()) {
+                        depth = distance_index.get_depth(parent);
+                        parent_node_cluster_offset_to_depth[parent_index] = depth;
+                    } else {
+                        depth = parent_node_cluster_offset_to_depth[parent_index];
+                    }
+                }
+
+
                 if (depth+1 > chain_to_children_by_level.size()) {
                     chain_to_children_by_level.resize(depth+1);
                     chain_to_children_by_level.back().reserve(tree_state.seed_count_prefix_sum.back());
@@ -528,6 +538,7 @@ cerr << "Add all seeds to nodes: " << endl;
                                         NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
                                                      tree_state.seed_count_prefix_sum.back(),
                                                      false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
+                            parent_node_cluster_offset_to_depth.emplace_back(std::numeric_limits<size_t>::max());
                             //Remember to cluster it later
                             to_cluster.emplace_back(child_index, parent);
                         }
