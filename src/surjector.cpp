@@ -3802,7 +3802,7 @@ using namespace std;
             
             size_t right_overhang = no_right_expansion ? 0 : (get_aligner()->longest_detectable_gap(source, path_chunk.first.second)
                                                               + (source.sequence().end() - path_chunk.first.second));
-            
+                        
             const Position& first_pos = path_chunk.second.mapping(0).position();
             if (rev_strand) {
                 size_t path_offset = (graph->get_position_of_step(ref_chunk.first)
@@ -3818,7 +3818,7 @@ using namespace std;
                     interval.first = 0;
                 }
                 else {
-                    interval.first = min(interval.first, path_offset - left_overhang);
+                    interval.first = min(min(interval.first, path_offset - left_overhang), path_length - 1);
                 }
             }
             
@@ -3834,7 +3834,7 @@ using namespace std;
                     interval.first = 0;
                 }
                 else {
-                    interval.first = min(interval.first, path_offset - right_overhang);
+                    interval.first = min(min(interval.first, path_offset - right_overhang), path_length - 1);
                 }
             }
             else {
