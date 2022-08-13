@@ -312,7 +312,7 @@ int main_autoindex(int argc, char** argv) {
     
     if (!gfa_name.empty()) {
         if (IndexRegistry::gfa_has_haplotypes(gfa_name)) {
-            registry.provide("Reference GFA w/ Haplotypes", optarg);
+            registry.provide("Reference GFA w/ Haplotypes", gfa_name);
         }
         else {
             registry.provide("Reference GFA", gfa_name);
