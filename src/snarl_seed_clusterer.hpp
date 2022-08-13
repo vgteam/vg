@@ -140,11 +140,9 @@ class NewSnarlSeedClusterer {
             bool is_trivial_chain = false;
             
 
-            //set of the indices of heads of clusters (group ids in the 
-            //union find)
-            //TODO: Add cluster distances here
-            //maps pair of <read index, seed index> to pair of <left distance, right distance>
-            hash_set<pair<size_t, size_t>> read_cluster_heads;
+            //set of the indices of heads of clusters (group ids in the union find)
+            //Reference to a hash_set in all_read_cluster_heads
+            hash_set<pair<size_t, size_t>>& read_cluster_heads;
 
             //The shortest distance from any seed in any cluster to the 
             //left/right end of the snarl tree node that contains these
@@ -163,15 +161,17 @@ class NewSnarlSeedClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index) :
+            NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index, hash_set<pair<size_t, size_t>>& cluster_heads) :
                 containing_net_handle(std::move(net)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
-                read_best_right(read_count, std::numeric_limits<size_t>::max()){
+                read_best_right(read_count, std::numeric_limits<size_t>::max()),
+                read_cluster_heads(cluster_heads) {
                 read_cluster_heads.reserve(seed_count);
             }
             //Constructor for a node or trivial chain
-            NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
+            NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, 
+                          size_t prefix_sum, size_t component, hash_set<pair<size_t, size_t>>& cluster_heads) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
@@ -182,7 +182,8 @@ class NewSnarlSeedClusterer {
                 node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
-                read_best_right(read_count, std::numeric_limits<size_t>::max()){
+                read_best_right(read_count, std::numeric_limits<size_t>::max()),
+                read_cluster_heads(cluster_heads) {
                     read_cluster_heads.reserve(seed_count);
             }
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
@@ -334,6 +335,10 @@ class NewSnarlSeedClusterer {
             //This stores all the node clusters so we stop spending all our time allocating lots of vectors of NodeClusters
             vector<NodeClusters> all_node_clusters;
 
+            //This stores all the cluster heads a NodeClusters, one for each in all_node_clusters
+            //The vectors match but NodeClusters also stores a reference to the hash_set
+            vector<hash_set<pair<size_t, size_t>>> all_read_cluster_heads;
+
             //Map each net_handle to its index in all_node_clusters
             hash_map<net_handle_t, size_t> net_handle_to_index;
 
@@ -387,6 +392,7 @@ class NewSnarlSeedClusterer {
                 }
 
                 all_node_clusters.reserve(5*seed_count);
+                all_read_cluster_heads.reserve(5*seed_count);
                 net_handle_to_index.reserve(5*seed_count);
                 root_children.reserve(seed_count);
             }
