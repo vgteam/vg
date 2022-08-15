@@ -107,19 +107,33 @@ class NewSnarlSeedClusterer {
             // snarl/chain that is a node the parent snarl's netgraph,
             // or a snarl in a chain
 
+            //set of the indices of heads of clusters (group ids in the 
+            //union find)
+            //TODO: Add cluster distances here
+            //maps pair of <read index, seed index> to pair of <left distance, right distance>
+            hash_set<pair<size_t, size_t>> read_cluster_heads;
+
+            //The shortest distance from any seed in any cluster to the 
+            //left/right end of the snarl tree node that contains these
+            //clusters
+            vector<size_t> read_best_left;
+            vector<size_t> read_best_right;
+            size_t fragment_best_left = std::numeric_limits<size_t>::max();
+            size_t fragment_best_right = std::numeric_limits<size_t>::max();
+
+            //Distance from the start of the parent to the left of this node, etc
+            size_t distance_start_left = std::numeric_limits<size_t>::max();
+            size_t distance_start_right = std::numeric_limits<size_t>::max();
+            size_t distance_end_left = std::numeric_limits<size_t>::max();
+            size_t distance_end_right = std::numeric_limits<size_t>::max();
+
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
-
-            //These are sometimes set if the value was in the cache
-            //TODO: I should probably make this a static member of the class in case it changes
-            bool has_parent_handle = false;;
             net_handle_t parent_net_handle;
-            bool has_grandparent_handle = false;
             net_handle_t grandparent_net_handle;
+            net_handle_t end_in;
 
-            //Only set these for nodes or snarls in chains
             nid_t node_id = 0;
-            bool is_reversed_in_parent = false;
 
             //Minimum length of a node or snarl
             //If it is a chain, then it is distance_index.chain_minimum_length(), which is
@@ -131,6 +145,15 @@ class NewSnarlSeedClusterer {
             size_t chain_component_end = 0; //of node or end of snarl
 
             size_t loop_left = std::numeric_limits<size_t>::max();
+
+            //These are sometimes set if the value was in the cache
+            //TODO: I should probably make this a static member of the class in case it changes
+            bool has_parent_handle = false;;
+            bool has_grandparent_handle = false;
+
+            //Only set these for nodes or snarls in chains
+            bool is_reversed_in_parent = false;
+
             size_t loop_right = std::numeric_limits<size_t>::max();
 
 
@@ -138,30 +161,10 @@ class NewSnarlSeedClusterer {
             //This one gets set for a (nontrivial) chain
 
             //Net handle of the chains last node pointing in
-            net_handle_t end_in;
             bool is_trivial_chain = false;
             bool is_looping_chain = false;
             
 
-            //set of the indices of heads of clusters (group ids in the 
-            //union find)
-            //TODO: Add cluster distances here
-            //maps pair of <read index, seed index> to pair of <left distance, right distance>
-            hash_set<pair<size_t, size_t>> read_cluster_heads;
-
-            //The shortest distance from any seed in any cluster to the 
-            //left/right end of the snarl tree node that contains these
-            //clusters
-            size_t fragment_best_left = std::numeric_limits<size_t>::max();
-            size_t fragment_best_right = std::numeric_limits<size_t>::max();
-            vector<size_t> read_best_left;
-            vector<size_t> read_best_right;
-
-            //Distance from the start of the parent to the left of this node, etc
-            size_t distance_start_left = std::numeric_limits<size_t>::max();
-            size_t distance_start_right = std::numeric_limits<size_t>::max();
-            size_t distance_end_left = std::numeric_limits<size_t>::max();
-            size_t distance_end_right = std::numeric_limits<size_t>::max();
 
 
             //Constructor
