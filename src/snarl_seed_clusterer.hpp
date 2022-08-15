@@ -109,8 +109,7 @@ class NewSnarlSeedClusterer {
 
             //set of the indices of heads of clusters (group ids in the 
             //union find)
-            //TODO: Add cluster distances here
-            //maps pair of <read index, seed index> to pair of <left distance, right distance>
+            //pair of <read index, seed index>
             hash_set<pair<size_t, size_t>> read_cluster_heads;
 
             //The shortest distance from any seed in any cluster to the 
@@ -145,6 +144,7 @@ class NewSnarlSeedClusterer {
             size_t chain_component_end = 0; //of node or end of snarl
 
             size_t loop_left = std::numeric_limits<size_t>::max();
+            size_t loop_right = std::numeric_limits<size_t>::max();
 
             //These are sometimes set if the value was in the cache
             //TODO: I should probably make this a static member of the class in case it changes
@@ -154,7 +154,6 @@ class NewSnarlSeedClusterer {
             //Only set these for nodes or snarls in chains
             bool is_reversed_in_parent = false;
 
-            size_t loop_right = std::numeric_limits<size_t>::max();
 
 
 
