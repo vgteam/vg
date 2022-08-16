@@ -115,8 +115,8 @@ class NewSnarlSeedClusterer {
             //The shortest distance from any seed in any cluster to the 
             //left/right end of the snarl tree node that contains these
             //clusters
-            vector<size_t> read_best_left;
-            vector<size_t> read_best_right;
+            pair<size_t, size_t> read_best_left = make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            pair<size_t, size_t> read_best_right = make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
             size_t fragment_best_left = std::numeric_limits<size_t>::max();
             size_t fragment_best_right = std::numeric_limits<size_t>::max();
 
@@ -170,9 +170,7 @@ class NewSnarlSeedClusterer {
             //read_count is the number of reads in a fragment (2 for paired end)
             NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, const SnarlDistanceIndex& distance_index) :
                 containing_net_handle(std::move(net)),
-                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
-                read_best_left(read_count, std::numeric_limits<size_t>::max()), 
-                read_best_right(read_count, std::numeric_limits<size_t>::max()){
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
                 read_cluster_heads.reserve(seed_count);
             }
             //Constructor for a node or trivial chain
@@ -184,9 +182,7 @@ class NewSnarlSeedClusterer {
                 chain_component_start(component),
                 chain_component_end(component),
                 node_id(node_id),
-                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
-                read_best_left(read_count, std::numeric_limits<size_t>::max()), 
-                read_best_right(read_count, std::numeric_limits<size_t>::max()){
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
                     read_cluster_heads.reserve(seed_count);
             }
             void set_chain_values(const SnarlDistanceIndex& distance_index) {
@@ -303,6 +299,14 @@ class NewSnarlSeedClusterer {
                 return children;
             }
         };
+        //These will be the cluster heads and distances for a cluster
+        struct ClusterIndices {
+            size_t read_num = std::numeric_limits<size_t>::max();
+            size_t cluster_num = 0;
+            size_t distance_left = 0;
+            size_t distance_right = 0;
+        };
+
 
         struct TreeState {
             //Hold all the tree relationships, seed locations, and cluster info
@@ -442,8 +446,8 @@ class NewSnarlSeedClusterer {
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
-                                        vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
-                                        bool& found_first_node, vector<bool>& found_first_node_by_read,
+                                        vector<ClusterIndices>& cluster_heads_to_add_again,
+                                        bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                         tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child,
                                         bool skip_distances_to_ends) const;
 
@@ -451,8 +455,8 @@ class NewSnarlSeedClusterer {
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
-                                        vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
-                                        bool& found_first_node, vector<bool>& found_first_node_by_read,
+                                        vector<ClusterIndices>& cluster_heads_to_add_again,
+                                        bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                         tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child, 
                                         bool skip_distances_to_ends) const;
 
