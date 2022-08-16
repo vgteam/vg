@@ -827,10 +827,6 @@ void NewSnarlSeedClusterer::cluster_one_node(
     for (std::multimap<nid_t, std::pair<size_t, size_t>>::iterator& node_to_seed_iterator = lower_bound; node_to_seed_iterator != upper_bound ; ++node_to_seed_iterator) {
         seeds.emplace_back(node_to_seed_iterator->second);
     }
-    std::sort(seeds.begin(), seeds.end(), [&](const auto& a, const auto b) -> bool {
-        return  tree_state.all_seeds->at(a.first)->at(a.second).distance_left <
-                tree_state.all_seeds->at(b.first)->at(b.second).distance_left;
-    });
 
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
@@ -3079,6 +3075,12 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
 
     //The seeds may form multiple clusters on the node
     //Walk through a sorted list of seeds and split into clusters
+
+    //start by sorting the seeds
+    std::sort(seed_indices.begin(), seed_indices.end(), [&](const auto& a, const auto b) -> bool {
+        return  std::get<2>(get_offset_from_seed_index(a)) <
+                std::get<2>(get_offset_from_seed_index(b));
+    });
         
     
     //Offset of the first seed for the cluster we're building
