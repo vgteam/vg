@@ -413,9 +413,14 @@ struct BaseChainingSpace {
      * If the items overlap in the read or the graph, returns
      * std::numeric_limits<int>::min() because one side of the alignment would
      * have negative length.
+     *
+     * If a required gap would be longer than max_gap_length, returns
+     * std::numeric_limits<int>::min() (because we're probably going the long
+     * way around an inversion or something.
      */
     virtual int transition_score_upper_bound(const Item& left,
-                                             const Item& right) const {
+                                             const Item& right,
+                                             size_t max_gap_length = std::numeric_limits<size_t>::max()) const {
                                              
         if (read_end(left) == read_start(right)) {
             // They abut in the read.
@@ -424,6 +429,15 @@ struct BaseChainingSpace {
                 // Assume they abut in the graph too.
                 return 0;
             } else {
+                // Do they overlap in the graph?
+                size_t graph_overlap = get_graph_overlap(left, right);
+                if (graph_overlap > 0) {
+#ifdef debug_chaining
+                    cerr << "Abutting items in read overlap by " << graph_overlap << " bp in graph" << endl;
+#endif
+                    return numeric_limits<int>::min();
+                }
+                
                 // How far apart are they in the graph?
                 size_t graph_distance = get_graph_distance(left, right);
                 if (graph_distance == 0) {
@@ -443,6 +457,13 @@ struct BaseChainingSpace {
 #ifdef debug_chaining
                     cerr << "Items separated by " << graph_distance << " bp deletion" << endl;
 #endif
+                    if (graph_distance > max_gap_length) {
+                        // This deletion is too long to allow the transition.
+#ifdef debug_chaining
+                        std::cerr << "Indel is too long to allow transition" << std::endl;
+#endif
+                        return numeric_limits<int>::min();
+                    }
                     return -(scoring.gap_open + (graph_distance - 1) * scoring.gap_extension);
                 }
             }
@@ -455,6 +476,15 @@ struct BaseChainingSpace {
                 // Treat every base as a possible match.
                 return scoring.match * read_distance;
             } else {
+                // Do they overlap in the graph?
+                size_t graph_overlap = get_graph_overlap(left, right);
+                if (graph_overlap > 0) {
+#ifdef debug_chaining
+                    cerr << "Items that are " << read_distance << " bp apart in read overlap by " << graph_overlap << " bp in graph" << endl;
+#endif
+                    return numeric_limits<int>::min();
+                }
+            
                 // See how far they have to go in the graph
                 size_t graph_distance = get_graph_distance(left, right);
                 
@@ -467,12 +497,21 @@ struct BaseChainingSpace {
                 } else {
                     // Otherwise, see if there's any length change
                     size_t length_change = (read_distance > graph_distance) ? (read_distance - graph_distance) : (graph_distance - read_distance);
+                    
                     // And see how many pases could be matches
                     size_t possible_matches = std::min(read_distance, graph_distance);
                     
 #ifdef debug_chaining
                     cerr << "Items separated by " << possible_matches << " bp possible matches and at least a " << length_change << " bp indel" << endl;
 #endif
+
+                    if (length_change > max_gap_length) {
+                        // This indel is too long to allow the transition.
+#ifdef debug_chaining
+                        std::cerr << "Indel is too long to allow transition" << std::endl;
+#endif
+                        return numeric_limits<int>::min();
+                    } 
                     
                     // The number of possible matches gives us a base score
                     int jump_points = scoring.match * possible_matches;
@@ -926,6 +965,9 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * Uses a finite lookback in items and in read bases when checking where we can
  * come from to reach an item. Also, once a given number of reachable items
  * have been found, stop looking back.
+ *
+ * Limits transitions to those involving indels of the given size or less, to
+ * avoid very bad transitions still counting as "reachable".
  */
 template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
 Score chain_items_dp(vector<Score>& best_chain_score,
@@ -934,7 +976,8 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      int item_bonus = 0,
                      size_t lookback_items = 50,
                      size_t lookback_bases = 1000,
-                     size_t lookback_reachable_items = 1);
+                     size_t lookback_reachable_items = 1,
+                     size_t max_indel_bases = 10000);
 
 /**
  * Trace back through in the given DP table from the best chain score.
@@ -1060,7 +1103,8 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      int item_bonus,
                      size_t lookback_items,
                      size_t lookback_bases,
-                     size_t lookback_reachable_items) {
+                     size_t lookback_reachable_items,
+                     size_t max_indel_bases) {
                     
     // Grab the traits into a short name so we can use the accessors concisely.
     using ST = score_traits<Score>;
@@ -1093,7 +1137,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             auto& source = to_chain[i - back];
             
 #ifdef debug_chaining
-            cerr << "Consider transition from " << space.read_start(source) << "-" << space.read_end(source) << " at " << space.graph_start(source) << " score " << best_chain_score[i-back] << " to " << space.read_start(here) << "-" << space.read_end(here) << " at " << space.graph_start(here) << " witn read distance " << space.get_read_distance(source, here) << " and graph distance " << space.get_graph_distance(source, here) << endl;
+            cerr << "Consider transition from " << space.read_start(source) << "-" << space.read_end(source) << " at " << space.graph_start(source) << " score " << best_chain_score[i-back] << " to " << space.read_start(here) << "-" << space.read_end(here) << " at " << space.graph_start(here) << " with read distance " << space.get_read_distance(source, here) << " and graph distance " << space.get_graph_distance(source, here) << endl;
 #endif
 
             if (lookback_bases != 0 && space.get_read_distance(source, here) > lookback_bases) {
@@ -1107,7 +1151,9 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             
             // How much does it pay (+) or cost (-) to make the jump from there
             // to here?
-            int jump_points = space.transition_score_upper_bound(source, here);
+            // Don't allow the transition if it seems like we're going the long
+            // way around an inversion and needing a huge indel.
+            int jump_points = space.transition_score_upper_bound(source, here, max_indel_bases);
             
             if (jump_points != numeric_limits<int>::min()) {
                 // Get the score we are coming from
