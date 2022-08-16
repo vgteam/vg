@@ -653,7 +653,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // We are going to need a widget for finding minimizer hit
                 // positions in a subgraph, in the right orientation.
                 auto find_minimizer_hit_positions = [&](const Minimizer& m, const vector<id_t>& sorted_ids, const std::function<void(const pos_t)>& iteratee) -> void {
-                    
                     gbwtgraph::hits_in_subgraph(m.hits, m.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
                         if (m.value.is_reverse) {
                             // Convert to face along forward strand of read.

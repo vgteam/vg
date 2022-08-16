@@ -40,7 +40,8 @@ namespace algorithms {
 
 using namespace std;
 
-//#define debug_chaining
+#define debug_chaining
+#define debug_reseeding
 
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring
@@ -1089,7 +1090,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             auto& source = to_chain[i - back];
             
 #ifdef debug_chaining
-            cerr << "Consider " << space.read_start(source) << "-" << space.read_end(source) << " to " << space.read_start(here) << "-" << space.read_end(here) << endl;
+            cerr << "Consider transition from " << space.read_start(source) << "-" << space.read_end(source) << " at " << space.graph_start(source) << " score " << best_chain_score[i-back] << " to " << space.read_start(here) << "-" << space.read_end(here) << " at " << space.graph_start(here) << endl;
 #endif
 
             if (lookback_bases != 0 && space.get_read_distance(source, here) > lookback_bases) {
@@ -1286,16 +1287,31 @@ vector<Item> reseed_fallow_region(const Item& left,
     }
     std::sort(sorted_ids.begin(), sorted_ids.end());
     
+#ifdef debug_reseeding
+    cerr << "Reseeding " << (range_end - range_begin) << " sources against " << sorted_ids.size() << " graph nodes" << endl;
+#endif
+    
     // Find hits on these nodes, for the sources that are in the right part of the read, and forge items for them.
     vector<Item> forged_items;
     for (size_t i = range_begin; i < range_end; i++) {
         // For each source between the bounds
         const Source& m = sources_in_read_order[i];
         
+        // We may see duplicates, so we want to do our own deduplication.
+        unordered_set<pos_t> seen;
+        
         // Find all its hits in the part of the graph between the bounds
         for_each_pos_for_source_in_subgraph(m, sorted_ids, [&](const pos_t& pos) {
             // So now we know pos corresponds to read base
             // m.value.offset, in the read's forward orientation.
+            
+            if (seen.count(pos)) {
+                // This is a duplicate position for this source, so skip it.
+                // TODO: Why do these happen?
+                return;
+            }
+            seen.insert(pos);
+            
             // Forge an item.
             forged_items.emplace_back();
             forged_items.back().pos = pos;
@@ -1306,6 +1322,11 @@ vector<Item> reseed_fallow_region(const Item& left,
                 source_sort_inverse = std::make_unique<VectorViewInverse>(space.sources);
             }
             forged_items.back().source = (*source_sort_inverse)[i];
+            
+#ifdef debug_reseeding
+            cerr << "Found new seed for read-order source " << i << " of read@" << space.read_start(forged_items.back()) << " = graph@" << std::to_string(space.graph_start(forged_items.back())) << endl;
+#endif
+            
         });
     }
 
@@ -1337,6 +1358,14 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         
         if (read_distance > fallow_region_size) {
             // If a pair is too far apart
+            
+#ifdef debug_reseeding
+            cerr << "Reseeding between seeds " << item_view.backing_index(left)
+                << " at read index " << space.read_start(item_view[left])
+                << " and " << item_view.backing_index(right)
+                << " at read index " << space.read_start(item_view[right])
+                << endl;
+#endif
             
             // Count it
             fallow_region_count++;
