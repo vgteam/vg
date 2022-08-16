@@ -1693,7 +1693,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 
     NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_clusters_index];
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
-    if (!chain_clusters.is_trivial_chain) {
+    if (!chain_clusters.is_trivial_chain && ! is_top_level_chain) {
         //TODO: DOn't get values if it's a top-level chain
         chain_clusters.set_chain_values(distance_index);
     }
