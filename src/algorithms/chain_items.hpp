@@ -40,6 +40,9 @@ namespace algorithms {
 
 using namespace std;
 
+// Make sure all of vg's print operators are available.
+using vg::operator<<;
+
 #define debug_chaining
 #define debug_reseeding
 
@@ -1090,7 +1093,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             auto& source = to_chain[i - back];
             
 #ifdef debug_chaining
-            cerr << "Consider transition from " << space.read_start(source) << "-" << space.read_end(source) << " at " << space.graph_start(source) << " score " << best_chain_score[i-back] << " to " << space.read_start(here) << "-" << space.read_end(here) << " at " << space.graph_start(here) << endl;
+            cerr << "Consider transition from " << space.read_start(source) << "-" << space.read_end(source) << " at " << space.graph_start(source) << " score " << best_chain_score[i-back] << " to " << space.read_start(here) << "-" << space.read_end(here) << " at " << space.graph_start(here) << " witn read distance " << space.get_read_distance(source, here) << " and graph distance " << space.get_graph_distance(source, here) << endl;
 #endif
 
             if (lookback_bases != 0 && space.get_read_distance(source, here) > lookback_bases) {
@@ -1324,7 +1327,7 @@ vector<Item> reseed_fallow_region(const Item& left,
             forged_items.back().source = (*source_sort_inverse)[i];
             
 #ifdef debug_reseeding
-            cerr << "Found new seed for read-order source " << i << " of read@" << space.read_start(forged_items.back()) << " = graph@" << std::to_string(space.graph_start(forged_items.back())) << endl;
+            cerr << "Found new seed for read-order source " << i << " of read@" << space.read_start(forged_items.back()) << " = graph@" << space.graph_start(forged_items.back()) << endl;
 #endif
             
         });
