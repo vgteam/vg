@@ -362,7 +362,6 @@ cerr << "Add all seeds to nodes: " << endl;
 #ifdef DEBUG_CLUSTER
             assert(node_net_handle == distance_index.get_node_net_handle(id));
             assert( parent == distance_index.get_parent(node_net_handle));
-            assert(is_trivial_chain == distance_index.is_trivial_chain(parent));
 #endif
             seed.node_handle = node_net_handle;
             
@@ -433,9 +432,6 @@ cerr << "Add all seeds to nodes: " << endl;
                     //Otherwise get it from parent_node_cluster_offset_to_depth
                     depth = std::numeric_limits<size_t>::max();
                 }
-#ifdef DEBUG_CLUSTER
-                assert(depth == distance_index.get_depth(parent));
-#endif
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     //If we haven't seen the parent chain before, add it
                     parent_index = tree_state.all_node_clusters.size();
@@ -461,6 +457,9 @@ cerr << "Add all seeds to nodes: " << endl;
                         depth = parent_node_cluster_offset_to_depth[parent_index];
                     }
                 }
+#ifdef DEBUG_CLUSTER
+                assert(depth == distance_index.get_depth(parent));
+#endif
 
 
                 if (depth+1 > chain_to_children_by_level.size()) {
@@ -535,7 +534,10 @@ cerr << "Add all seeds to nodes: " << endl;
                                     NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
                                                  tree_state.seed_count_prefix_sum.back(),
                                                  false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
+
+                        //The depth is never used but add it just to match the length of all_node_clusters
                         parent_node_cluster_offset_to_depth.emplace_back(0);
+
                         //Remember to cluster it later
                         to_cluster.emplace_back(child_index, parent, grandparent_snarl);
                     }
@@ -728,7 +730,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                                 : distance_index.get_parent(chain_handle);
             bool is_root = distance_index.is_root(parent);
             bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
-            bool is_top_level_chain = (depth == 0) && !is_root_snarl;
+            bool is_top_level_chain = (depth == 1) && !is_root_snarl;
 
             // Compute the clusters for the chain (the previous chain)
             cluster_one_chain(tree_state, chain_index, current_chain_children, only_seeds, is_top_level_chain);
@@ -1610,7 +1612,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
     bool got_right = false;
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
         cerr << "\t\tfor read num " << read_num << " best left: " << (read_num == 0 ? snarl_clusters.read_best_left.first : snarl_clusters.read_best_left.second) 
-             << " best right: " << (read_num == 0 ? snarl_clusters.read_best_right.first : snarl_clusters.read_best_righ.second) << endl;
+             << " best right: " << (read_num == 0 ? snarl_clusters.read_best_right.first : snarl_clusters.read_best_right.second) << endl;
         bool got_read_left=false;
         bool got_read_right = false;
         bool any_clusters = false;
@@ -1674,6 +1676,16 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 
     NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_clusters_index];
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
+
+    if  (is_top_level_chain) {
+        //is_top_level_chain doesn't count external connectivity in the root snarl, so also check that here
+        is_top_level_chain = is_top_level_chain &&
+                             !distance_index.is_externally_start_start_connected(chain_handle) &&
+                             !distance_index.is_externally_start_end_connected(chain_handle) &&
+                             !distance_index.is_externally_end_end_connected(chain_handle) &&
+                             !distance_index.is_looping_chain(chain_handle);
+    }
+
     if (!chain_clusters.is_trivial_chain && ! is_top_level_chain) {
         //TODO: DOn't get values if it's a top-level chain
         chain_clusters.set_chain_values(distance_index);
