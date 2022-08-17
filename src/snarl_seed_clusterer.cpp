@@ -506,7 +506,7 @@ cerr << "Add all seeds to nodes: " << endl;
             } else {
                 //Otherwise, the parent is either the root or a trivial chain that is the child of a snarl
 
-                tree_state.node_to_seeds.emplace(id, std::make_pair(read_num, i));
+                tree_state.node_to_seeds.emplace_back(id, read_num, i);
 
                 //Get the values from the seed. Some may be infinite and need to be re-set
                 size_t node_length = std::get<0>(old_cache);
@@ -820,13 +820,16 @@ void NewSnarlSeedClusterer::cluster_one_node(
     size_t node_length = node_clusters.node_length;
     nid_t node_id = node_clusters.node_id;
 
-    //Iterator to the first and last occurrence of this node in node_to_seeds
-    auto lower_bound = tree_state.node_to_seeds.lower_bound(node_id);
-    auto upper_bound = tree_state.node_to_seeds.upper_bound(node_id);
+    //Iterator to the first occurrence of this node in node_to_seeds
+    auto seed_range_start = std::lower_bound(
+            tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(),
+            std::tuple<id_t, size_t, size_t>(node_id, 0, 0));
+
     vector<std::pair<size_t, size_t>> seeds;
-    for (auto iter = lower_bound; iter != upper_bound ; ++iter) {
+    for (auto iter = seed_range_start; iter != tree_state.node_to_seeds.end() && std::get<0>(*iter) == node_id; ++iter) {
         //Go through each seed on this node and add it to the list of seeds
-        seeds.emplace_back(iter->second);
+        seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
+
     }
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
