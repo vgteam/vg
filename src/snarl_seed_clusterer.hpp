@@ -345,7 +345,7 @@ class NewSnarlSeedClusterer {
             //Maps each node to a vector of the seeds that are contained in it
             //seeds are represented by indexes into the seeds vector (read_num, seed_num)
             //The array is sorted.
-            vector<tuple<id_t, size_t, size_t>> node_to_seeds;
+            std::multimap<id_t, std::pair<size_t, size_t>> node_to_seeds;
 
             //This stores all the node clusters so we stop spending all our time allocating lots of vectors of NodeClusters
             vector<NodeClusters> all_node_clusters;
