@@ -357,8 +357,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 parent = distance_index.get_parent(node_net_handle);
             }
 
-            bool is_trivial_chain = has_cached_values ? std::get<5>(old_cache) 
-                                                      : distance_index.is_trivial_chain(parent);
             bool parent_is_root = distance_index.is_root(parent);
 
 #ifdef DEBUG_CLUSTER
@@ -383,6 +381,8 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Seed payload is: 
                 //record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
 
+                bool is_trivial_chain = has_cached_values ? std::get<5>(old_cache) 
+                                                      : distance_index.is_trivial_chain(parent);
                 size_t prefix_sum = std::get<8>(old_cache);
                 size_t node_length = std::get<3>(old_cache);
                 bool is_reversed_in_parent = std::get<4>(old_cache);
@@ -422,7 +422,6 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Add the parent chain or trivial chain
                 size_t parent_index;
                 bool new_parent = false;
-                //TODO: Could also save a bool for if it's on the root-chain
                 size_t depth;
                 if (std::get<5>(old_cache) && std::get<6>(old_cache) && std::get<7>(old_cache)) {
                     //IF the node is a trivial chain, and the parent we stored is a chain and root,
@@ -451,7 +450,10 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
                                                               tree_state.seed_count_prefix_sum.back(), distance_index);
                     }
-                    parent_node_cluster_offset_to_depth.emplace_back(std::numeric_limits<size_t>::max());
+                    if (depth == std::numeric_limits<size_t>::max()) {
+                        depth = distance_index.get_depth(parent);
+                    }
+                    parent_node_cluster_offset_to_depth.emplace_back(depth);
                     new_parent = true;
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
