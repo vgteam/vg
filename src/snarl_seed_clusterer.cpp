@@ -528,10 +528,9 @@ cerr << "Add all seeds to nodes: " << endl;
                     //If this is a child of the root, add it to its parent to cluster after going through
                     //all seeds
 
-                    //Create a new NodeClusters for this node, and remember where it is
-                    if (tree_state.net_handle_to_index.count(node_net_handle) == 0) {
+                    //Create a new NodeClusters for this node. Don't need to remember where it is because we just cluster in the root 
+                    if (seen_nodes.count(id) == 0) {
                         size_t child_index = tree_state.all_node_clusters.size();
-                        tree_state.net_handle_to_index[node_net_handle] = child_index;
                         tree_state.all_node_clusters.emplace_back(
                                     NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
                                                  tree_state.seed_count_prefix_sum.back(),
