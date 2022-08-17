@@ -291,7 +291,7 @@ cerr << "Add all seeds to nodes: " << endl;
     // Assign each seed to a node.
 
     //All nodes we've already created node_clusters for
-    hash_set<nid_t> seen_nodes;
+    hash_set<id_t> seen_nodes;
     //A vector of indices into all_node_clusters of nodes that need to be clustered
     vector<tuple<size_t, net_handle_t, net_handle_t>> to_cluster; 
     seen_nodes.reserve(tree_state.seed_count_prefix_sum.back());
@@ -300,14 +300,10 @@ cerr << "Add all seeds to nodes: " << endl;
         for (size_t i = 0; i < seeds->size(); i++) {
             Seed& seed = seeds->at(i);
             pos_t pos = seed.pos;
-            nid_t id = get_id(pos);
+            id_t id = get_id(pos);
             
 
-            if (tree_state.node_to_seeds.count(id) == 0) {
-                tree_state.node_to_seeds[id] = { make_pair(read_num, i)};
-            } else {
-                tree_state.node_to_seeds[id].emplace_back(read_num, i);
-            }
+            tree_state.node_to_seeds.emplace(id, std::make_pair(read_num, i));
 #ifdef DEBUG_CLUSTER
             cerr << "\t" << read_num << ":" << pos << ", ";
 #endif
@@ -822,11 +818,15 @@ void NewSnarlSeedClusterer::cluster_one_node(
 
     size_t node_length = node_clusters.node_length;
     nid_t node_id = node_clusters.node_id;
-    if (tree_state.node_to_seeds.count(node_id) == 0) {
-        return;
-    }
 
-    vector<pair<size_t, size_t>> seeds = tree_state.node_to_seeds[node_id];
+    //Get seeds from on node
+    std::multimap<nid_t, std::pair<size_t, size_t>>::iterator lower_bound = tree_state.node_to_seeds.lower_bound(node_id);
+    std::multimap<nid_t, std::pair<size_t, size_t>>::iterator upper_bound = tree_state.node_to_seeds.upper_bound(node_id);
+
+    vector<pair<size_t, size_t>> seeds;
+    for (std::multimap<nid_t, std::pair<size_t, size_t>>::iterator& node_to_seed_iterator = lower_bound; node_to_seed_iterator != upper_bound ; ++node_to_seed_iterator) {
+        seeds.emplace_back(node_to_seed_iterator->second);
+    }
 
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
