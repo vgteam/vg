@@ -815,12 +815,20 @@ void NewSnarlSeedClusterer::cluster_one_node(
             tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(),
             std::tuple<id_t, size_t, size_t>(node_id, 0, 0));
 
+    //Get the seeds on this node, as indices into all_seeds
     vector<std::pair<size_t, size_t>> seeds;
     for (auto iter = seed_range_start; iter != tree_state.node_to_seeds.end() && std::get<0>(*iter) == node_id; ++iter) {
         //Go through each seed on this node and add it to the list of seeds
         seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
 
     }
+
+    //Sort the seeds
+    std::sort(seeds.begin(), seeds.end(), [&] (const auto& a, const auto& b) {
+        return tree_state.all_seeds->at(a.first)->at(a.second).distance_left <
+               tree_state.all_seeds->at(b.first)->at(b.second).distance_left;
+    });
+
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
@@ -828,12 +836,6 @@ void NewSnarlSeedClusterer::cluster_one_node(
                     tree_state.all_seeds->at(seed_index.first)->at(seed_index.second).distance_left); 
     };
 
-
-    //Sort the seeds
-    std::sort(seeds.begin(), seeds.end(), [&] (const auto& a, const auto& b) {
-        return tree_state.all_seeds->at(a.first)->at(a.second).distance_left <
-               tree_state.all_seeds->at(b.first)->at(b.second).distance_left;
-    });
     cluster_seeds_on_linear_structure(tree_state, node_clusters, seeds, node_length, get_offset_from_indices, false);
 
 #ifdef DEBUG_CLUSTER
@@ -3021,7 +3023,7 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
 
         //The cluster heads of the new cluster
         size_t fragment_group_id = std::numeric_limits<size_t>::max();
-        vector<size_t> group_ids (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max());
+        pair<size_t, size_t> group_ids (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
 
         for (const SeedIndex& seed_index_template : seed_indices) {
             //Go through all seeds in the range
@@ -3049,10 +3051,10 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
 
 
             //Put this seed in the cluster for the node
-            if (group_ids[read_num] == std::numeric_limits<size_t>::max()) {
-                group_ids[read_num] = seed_i;
+            if ((read_num == 0 ? group_ids.first : group_ids.second) == std::numeric_limits<size_t>::max()) {
+                (read_num == 0 ? group_ids.first : group_ids.second) = seed_i;
             }
-            group_ids[read_num] = tree_state.read_union_find[read_num].union_groups(group_ids[read_num], seed_i);
+            (read_num == 0 ? group_ids.first : group_ids.second) = tree_state.read_union_find[read_num].union_groups((read_num == 0 ? group_ids.first : group_ids.second), seed_i);
             if (tree_state.fragment_distance_limit != 0 ) {
                 if (fragment_group_id == std::numeric_limits<size_t>::max() ) {
                     fragment_group_id = seed_i + tree_state.seed_count_prefix_sum[read_num];
@@ -3068,8 +3070,8 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
 
             //Record the new cluster
             for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++ ) {
-                if (group_ids[read_num] != std::numeric_limits<size_t>::max()) {
-                    size_t group_id = group_ids[read_num];
+                if ((read_num == 0 ? group_ids.first : group_ids.second) != std::numeric_limits<size_t>::max()) {
+                    size_t group_id = (read_num == 0 ? group_ids.first : group_ids.second);
                     node_clusters.read_cluster_heads.emplace(read_num, group_id);
                     tree_state.all_seeds->at(read_num)->at(group_id).distance_left = (read_num == 0 ? node_clusters.read_best_left.first : node_clusters.read_best_left.second);
                     tree_state.all_seeds->at(read_num)->at(group_id).distance_right = (read_num == 0 ? node_clusters.read_best_right.first : node_clusters.read_best_right.second);
@@ -3094,13 +3096,13 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
     
     //Offset of the first seed for the cluster we're building
     //One for each read
-    vector<size_t> read_first_offset (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max());
+    pair<size_t, size_t> read_first_offset (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
     //Offset of the latest seed for the cluster we're building
-    vector<size_t> read_last_offset (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max());
+    pair<size_t, size_t> read_last_offset (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
     //And the same for the fragment 
     size_t fragment_last_offset = std::numeric_limits<size_t>::max();
     size_t fragment_last_cluster = std::numeric_limits<size_t>::max();
-    vector<size_t> read_last_cluster (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max());
+    pair<size_t, size_t> read_last_cluster (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
 
     //Get the best left and right values of the node from the first and last seeds
     node_clusters.fragment_best_left = std::get<2>(get_offset_from_seed_index(seed_indices.front()));
@@ -3118,19 +3120,19 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
         size_t seed_num = std::get<1>(s);
         size_t offset = std::get<2>(s);
 
-        if (read_first_offset[read_num] == std::numeric_limits<size_t>::max()) {
+        if ((read_num == 0 ? read_first_offset.first : read_first_offset.second) == std::numeric_limits<size_t>::max()) {
             //If this is the first seed we've seen of this read
-            read_first_offset[read_num] = offset;
+            (read_num == 0 ? read_first_offset.first : read_first_offset.second) = offset;
             (read_num == 0 ? node_clusters.read_best_left.first : node_clusters.read_best_left.second) = offset;
         }
 
-        if (read_last_offset[read_num] != std::numeric_limits<size_t>::max() &&
-            offset - read_last_offset[read_num] <= tree_state.read_distance_limit) {
+        if ((read_num == 0 ? read_last_offset.first : read_last_offset.second) != std::numeric_limits<size_t>::max() &&
+            offset - (read_num == 0 ? read_last_offset.first : read_last_offset.second) <= tree_state.read_distance_limit) {
             //If this seed is in the same read cluster as the previous one,
             //union them
 
-            read_last_cluster[read_num] = tree_state.read_union_find[read_num].union_groups(seed_num, read_last_cluster[read_num]);
-            read_last_offset[read_num] = offset;
+            (read_num == 0 ? read_last_cluster.first : read_last_cluster.second) = tree_state.read_union_find[read_num].union_groups(seed_num, (read_num == 0 ? read_last_cluster.first : read_last_cluster.second));
+            (read_num == 0 ? read_last_offset.first : read_last_offset.second) = offset;
 
             if (tree_state.fragment_distance_limit != 0) {
                 //If we are also clustering paired end reads by fragment distance,
@@ -3139,15 +3141,15 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             }
         } else {
             //This becomes a new read cluster
-            if (!skip_distances_to_ends && read_last_cluster[read_num] != std::numeric_limits<size_t>::max()) {
+            if (!skip_distances_to_ends && (read_num == 0 ? read_last_cluster.first : read_last_cluster.second) != std::numeric_limits<size_t>::max()) {
                 //Record the previous cluster
-                node_clusters.read_cluster_heads.emplace(read_num, read_last_cluster[read_num]);
-                tree_state.all_seeds->at(read_num)->at(read_last_cluster[read_num]).distance_left = read_first_offset[read_num];
-                tree_state.all_seeds->at(read_num)->at(read_last_cluster[read_num]).distance_right =  structure_length - read_last_offset[read_num] + 1;
+                node_clusters.read_cluster_heads.emplace(read_num, (read_num == 0 ? read_last_cluster.first : read_last_cluster.second));
+                tree_state.all_seeds->at(read_num)->at((read_num == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_left = (read_num == 0 ? read_first_offset.first : read_first_offset.second);
+                tree_state.all_seeds->at(read_num)->at((read_num == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_right =  structure_length - (read_num == 0 ? read_last_offset.first : read_last_offset.second) + 1;
             }
-            read_last_cluster[read_num] = seed_num;
-            read_first_offset[read_num] = offset;
-            read_last_offset[read_num] = offset;
+            (read_num == 0 ? read_last_cluster.first : read_last_cluster.second) = seed_num;
+            (read_num == 0 ? read_first_offset.first : read_first_offset.second) = offset;
+            (read_num == 0 ? read_last_offset.first : read_last_offset.second) = offset;
             if (tree_state.fragment_distance_limit != 0) {
                 if (fragment_last_offset != std::numeric_limits<size_t>::max() &&
                     offset - fragment_last_offset <= tree_state.fragment_distance_limit) {
@@ -3163,15 +3165,15 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
         fragment_last_offset = offset;
     }
     if (!skip_distances_to_ends) {
-        for (size_t i = 0 ; i < read_last_cluster.size() ; i++) {
-            if (read_last_cluster[i] != std::numeric_limits<size_t>::max()) {
-                node_clusters.read_cluster_heads.emplace(i, read_last_cluster[i]);
-                tree_state.all_seeds->at(i)->at(read_last_cluster[i]).distance_left = read_first_offset[i];
-                tree_state.all_seeds->at(i)->at(read_last_cluster[i]).distance_right = structure_length-read_last_offset[i]+1;
+        for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
+            if ((i == 0 ? read_last_cluster.first : read_last_cluster.second) != std::numeric_limits<size_t>::max()) {
+                node_clusters.read_cluster_heads.emplace(i, (i == 0 ? read_last_cluster.first : read_last_cluster.second));
+                tree_state.all_seeds->at(i)->at((i == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_left = (i == 0 ? read_first_offset.first : read_first_offset.second);
+                tree_state.all_seeds->at(i)->at((i == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_right = structure_length-(i == 0 ? read_last_offset.first : read_last_offset.second)+1;
                 if (i == 0) {
-                    node_clusters.read_best_right.first = structure_length-read_last_offset[i]+1;
+                    node_clusters.read_best_right.first = structure_length-(i == 0 ? read_last_offset.first : read_last_offset.second) +1;
                 } else {
-                    node_clusters.read_best_right.second = structure_length-read_last_offset[i]+1;
+                    node_clusters.read_best_right.second = structure_length-(i == 0 ? read_last_offset.first : read_last_offset.second)+1;
                 }
             }
         }
