@@ -433,7 +433,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     //Otherwise get it from parent_node_cluster_offset_to_depth
                     depth = std::numeric_limits<size_t>::max();
                 }
-#ifdef DEBUG_CLUSTE
+#ifdef DEBUG_CLUSTER
                 assert(depth == distance_index.get_depth(parent));
 #endif
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
@@ -457,12 +457,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     new_parent = true;
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
-                }
-                if (depth == std::numeric_limits<size_t>::max()) {
-                    if (parent_node_cluster_offset_to_depth[parent_index] == std::numeric_limits<size_t>::max()) {
-                        depth = distance_index.get_depth(parent);
-                        parent_node_cluster_offset_to_depth[parent_index] = depth;
-                    } else {
+                    if (depth == std::numeric_limits<size_t>::max()) {
                         depth = parent_node_cluster_offset_to_depth[parent_index];
                     }
                 }
@@ -511,16 +506,11 @@ cerr << "Add all seeds to nodes: " << endl;
                 tree_state.node_to_seeds.emplace_back(id, read_num, i);
 
                 //Get the values from the seed. Some may be infinite and need to be re-set
-                size_t node_length = std::get<0>(old_cache);
-                bool is_reversed_in_parent = std::get<4>(old_cache);
+                size_t node_length = has_cached_values ? std::get<0>(old_cache)
+                                                       : distance_index.minimum_length(node_net_handle);
+                bool is_reversed_in_parent = has_cached_values ? std::get<4>(old_cache)
+                                                               : distance_index.is_reversed_in_parent(parent);
 
-                //Seed payload is: node length, root component, prefix sum, chain component, is_reversed 
-                //If there were cached minimizers, then node length and is_reversed are always set
-                //Node length and is_reversed are always set
-                if (!has_cached_values) {
-                   node_length = distance_index.minimum_length(node_net_handle);
-                   is_reversed_in_parent = distance_index.is_reversed_in_parent(parent);
-                }
 
                 if (seen_nodes.count(id) < 1){
                     seen_nodes.insert(id);
@@ -534,29 +524,26 @@ cerr << "Add all seeds to nodes: " << endl;
                                                                       : distance_index.get_net_handle(std::get<1>(old_cache),
                                                                                     SnarlDistanceIndex::START_END,
                                                                                     SnarlDistanceIndex::SNARL_HANDLE);
-                    if (distance_index.is_root(parent) || distance_index.is_root(grandparent_snarl)) {
-#ifdef DEBUG_CLUSTER
-                        cerr << "\t child of the root" << endl; 
-#endif
-                        //If this is a child of the root, add it to its parent to cluster after going through
-                        //all seeds
 
-                        //Create a new NodeClusters for this node, and remember where it is
-                        if (tree_state.net_handle_to_index.count(node_net_handle) == 0) {
-                            size_t child_index = tree_state.all_node_clusters.size();
-                            tree_state.net_handle_to_index[node_net_handle] = child_index;
-                            tree_state.all_node_clusters.emplace_back(
-                                        NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
-                                                     tree_state.seed_count_prefix_sum.back(),
-                                                     false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
-                            parent_node_cluster_offset_to_depth.emplace_back(std::numeric_limits<size_t>::max());
-                            //Remember to cluster it later
-                            to_cluster.emplace_back(child_index, parent, grandparent_snarl);
-                        }
+                    //If this is a child of the root, add it to its parent to cluster after going through
+                    //all seeds
 
-
-                        
+                    //Create a new NodeClusters for this node, and remember where it is
+                    if (tree_state.net_handle_to_index.count(node_net_handle) == 0) {
+                        size_t child_index = tree_state.all_node_clusters.size();
+                        tree_state.net_handle_to_index[node_net_handle] = child_index;
+                        tree_state.all_node_clusters.emplace_back(
+                                    NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
+                                                 tree_state.seed_count_prefix_sum.back(),
+                                                 false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
+                        parent_node_cluster_offset_to_depth.emplace_back(0);
+                        //Remember to cluster it later
+                        to_cluster.emplace_back(child_index, parent, grandparent_snarl);
                     }
+
+
+                    
+                    
                 }
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
