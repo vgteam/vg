@@ -304,7 +304,6 @@ cerr << "Add all seeds to nodes: " << endl;
             id_t id = get_id(pos);
             
 
-            tree_state.node_to_seeds.emplace(id, std::make_pair(read_num, i));
 #ifdef DEBUG_CLUSTER
             cerr << "\t" << read_num << ":" << pos << ", ";
 #endif
@@ -506,6 +505,8 @@ cerr << "Add all seeds to nodes: " << endl;
 
             } else {
                 //Otherwise, the parent is either the root or a trivial chain that is the child of a snarl
+
+                tree_state.node_to_seeds.emplace(id, std::make_pair(read_num, i));
 
                 //Get the values from the seed. Some may be infinite and need to be re-set
                 size_t node_length = std::get<0>(old_cache);
