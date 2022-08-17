@@ -236,12 +236,12 @@ class NewSnarlSeedClusterer {
             //Component is the component of the node or start component of the snarl
             //Offset is the prefix sum value of the seed, or the prefix sum of the start node of the snarl + 
             // node length of the start node
-            void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2, 
-                           size_t component, size_t offset) {
+            void add_child(size_t& parent_index, net_handle_t& handle, size_t& child_index, size_t child_index2, 
+                           size_t& component, size_t offset) {
                 parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, component, offset);
                 is_sorted=false;
             }
-            void reserve(size_t size) {
+            void reserve(size_t& size) {
                 parent_to_children.reserve(size);
             }
 
