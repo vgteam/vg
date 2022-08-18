@@ -333,7 +333,6 @@ cerr << "Add all seeds to nodes: " << endl;
                                                              std::get<2>(old_cache)); 
 
 
-            //Get the parent from the cache or the distance index
             net_handle_t parent;
             if (has_cached_values) {
                 if (std::get<5>(old_cache)) {
@@ -391,7 +390,6 @@ cerr << "Add all seeds to nodes: " << endl;
 
                 if (!has_cached_values) {
                     //If we didn't store information in the seed, then get it from the distance index
-                    //And store it in the seed
 
                     //prefix sum
                     prefix_sum = is_trivial_chain ? std::numeric_limits<size_t>::max() 
@@ -470,14 +468,14 @@ cerr << "Add all seeds to nodes: " << endl;
                     size_t to_add = (depth+1) - chain_to_children_by_level.size(); 
                     for (size_t i = 0 ; i < to_add ; i++) {
                         chain_to_children_by_level.emplace_back();
+                        chain_to_children_by_level.back().reserve(tree_state.seed_count_prefix_sum.back());
                     }
                 }
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
                 chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, 
                               std::get<9>(seed.minimizer_cache),  //component
-                              is_trivial_chain ? seed.distance_left : SnarlDistanceIndex::sum({prefix_sum, seed.distance_left}),
-                              true, tree_state.seed_count_prefix_sum.back());
+                              is_trivial_chain ? seed.distance_left : SnarlDistanceIndex::sum({prefix_sum, seed.distance_left}));
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
@@ -679,8 +677,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
                 //Add the snarl to its parent chain
                 NodeClusters& parent_clusters = tree_state.all_node_clusters[parent_index];
                 tree_state.parent_chain_to_children->add_child(parent_index, snarl_clusters.containing_net_handle, snarl_index, std::numeric_limits<size_t>::max(), 
-                                                               snarl_clusters.chain_component_start, snarl_clusters.prefix_sum_value,
-                                                               false, tree_state.seed_count_prefix_sum.back());
+                                                               snarl_clusters.chain_component_start, snarl_clusters.prefix_sum_value);
             }
         }
         child_list_iterator = std::move(next_child_list_iterator);
@@ -697,97 +694,121 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
 
 void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t depth) const {
 
-    if (tree_state.chain_to_children->parent_to_children.empty()) {
+    //Go through chain_to_children, which is a vector of chain, child pairs. Start by sorting by parent chain
+    tree_state.chain_to_children->sort(distance_index);
+    vector<tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
+
+    if (chain_to_children.empty()) {
         return;
     }
 
-    //Go through each parent chain and its list of children
-    tree_state.chain_to_children->for_each_parent([&](const size_t& chain_index, vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>& chain_children, const bool& only_seeds) {
-        
-        //First, sort the children of the chain
-        tree_state.chain_to_children->sort_children(chain_children, distance_index);
 
-        net_handle_t chain_handle = tree_state.all_node_clusters[chain_index].containing_net_handle;
+    //Go through the list of children, where the children are represented as a tuple of parent, child
+    //Keep a list of all children of the current chain, and cluster a chain when we find its last child
+    vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>> current_chain_children;
+    current_chain_children.reserve(chain_to_children.size());
+    bool only_seeds=true;
+
+    for (size_t chain_child_i = 0 ; chain_child_i < chain_to_children.size() ; chain_child_i++) {
+
+        const std::tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& parent_to_child_tuple = chain_to_children.at(chain_child_i);
+
+        //Add the current chain
+        size_t chain_index = std::get<0>(parent_to_child_tuple);
+        current_chain_children.emplace_back(std::get<1>(parent_to_child_tuple),
+                                            std::get<2>(parent_to_child_tuple),
+                                            std::get<3>(parent_to_child_tuple),
+                                            std::get<4>(parent_to_child_tuple),
+                                            std::get<5>(parent_to_child_tuple));
+        if (std::get<3>(parent_to_child_tuple) == std::numeric_limits<size_t>::max()) {
+            //If this is a snarl
+            only_seeds = false;
+        }
+
+
+
+        if (chain_child_i == chain_to_children.size() -1 || std::get<0>(chain_to_children[chain_child_i+1]) != chain_index) {
+            //If this is the last child of the current chain, then cluster it
+
+            net_handle_t chain_handle = tree_state.all_node_clusters[chain_index].containing_net_handle;
 #ifdef DEBUG_CLUSTER
-        cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << endl;
+            cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << endl;
 #endif
 
 
-        net_handle_t parent = tree_state.all_node_clusters[chain_index].has_parent_handle
-                            ? tree_state.all_node_clusters[chain_index].parent_net_handle
-                            : distance_index.get_parent(chain_handle);
-        bool is_root = distance_index.is_root(parent);
-        bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
-        bool is_top_level_chain = (depth == 1) && !is_root_snarl &&
-                             !distance_index.is_externally_start_start_connected(chain_handle) &&
-                             !distance_index.is_externally_start_end_connected(chain_handle) &&
-                             !distance_index.is_externally_end_end_connected(chain_handle) &&
-                             !distance_index.is_looping_chain(chain_handle);
+            net_handle_t parent = tree_state.all_node_clusters[chain_index].has_parent_handle
+                                ? tree_state.all_node_clusters[chain_index].parent_net_handle
+                                : distance_index.get_parent(chain_handle);
+            bool is_root = distance_index.is_root(parent);
+            bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
+            bool is_top_level_chain = (depth == 1) && !is_root_snarl;
 
-        // Compute the clusters for the chain
-        cluster_one_chain(tree_state, chain_index, chain_children, only_seeds, is_top_level_chain);
+            // Compute the clusters for the chain (the previous chain)
+            cluster_one_chain(tree_state, chain_index, current_chain_children, only_seeds, is_top_level_chain);
 
-        //Add the chain to its parent
-        if (is_root) {
-            //If the parent is the root, remember the index of this chain in all_node_clusters
-            if (is_root_snarl) {
-                //If the parent is a root snarl, then remember it to cluster in the root
+            //Add the chain to its parent
+            if (is_root) {
+                //If the parent is the root, remember the index of this chain in all_node_clusters
+                if (is_root_snarl) {
+                    //If the parent is a root snarl, then remember it to cluster in the root
+                    size_t parent_index;
+                    if (tree_state.net_handle_to_index.count(parent) == 0) {
+                        parent_index = tree_state.all_node_clusters.size();
+                        tree_state.net_handle_to_index[parent] = parent_index;
+                        tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
+                    } else {
+                        parent_index = tree_state.net_handle_to_index[parent];
+                    }
+                    tree_state.root_children.emplace_back(parent_index,chain_index);
+                } else {
+                    //Otherwise, cluster it with itself using external connectivity only
+                     compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[chain_index]);
+                }
+            } else {
+                //If the parent is just a snarl
+
+                //Remember the distances to the ends of the parent 
+
+                NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_index];
+                bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
+                chain_clusters.distance_start_left = 
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed);
+
+                chain_clusters.distance_start_right = 
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed);
+
+                chain_clusters.distance_end_left =
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed);
+
+                chain_clusters.distance_end_right = 
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed);
+#ifdef DEBUG_CLUSTER
+                cerr << "This child has distances to end : " << chain_clusters.distance_start_left << " " << chain_clusters.distance_start_right 
+                     << " " << chain_clusters.distance_end_left << " " << chain_clusters.distance_end_right << endl;
+#endif
+                //And add it to its parent snarl
                 size_t parent_index;
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     parent_index = tree_state.all_node_clusters.size();
                     tree_state.net_handle_to_index[parent] = parent_index;
                     tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
-                                                          tree_state.seed_count_prefix_sum.back(), distance_index);
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
+                    if (chain_clusters.has_grandparent_handle) {
+                        tree_state.all_node_clusters.back().has_parent_handle = true;
+                        tree_state.all_node_clusters.back().parent_net_handle = chain_clusters.grandparent_net_handle;
+                    }
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
-                tree_state.root_children.emplace_back(parent_index,chain_index);
-            } else {
-                //Otherwise, cluster it with itself using external connectivity only
-                 compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[chain_index]);
+                tree_state.snarl_to_children.emplace(parent_index, chain_index);
+
+
             }
-        } else if (!is_top_level_chain) {
-            //If the parent is just a snarl
-
-            //Remember the distances to the ends of the parent 
-
-            NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_index];
-            bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
-            chain_clusters.distance_start_left = 
-                    distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed);
-
-            chain_clusters.distance_start_right = 
-                    distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed);
-
-            chain_clusters.distance_end_left =
-                    distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed);
-
-            chain_clusters.distance_end_right = 
-                    distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed);
-#ifdef DEBUG_CLUSTER
-            cerr << "This child has distances to end : " << chain_clusters.distance_start_left << " " << chain_clusters.distance_start_right 
-                 << " " << chain_clusters.distance_end_left << " " << chain_clusters.distance_end_right << endl;
-#endif
-            //And add it to its parent snarl
-            size_t parent_index;
-            if (tree_state.net_handle_to_index.count(parent) == 0) {
-                parent_index = tree_state.all_node_clusters.size();
-                tree_state.net_handle_to_index[parent] = parent_index;
-                tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
-                                                          tree_state.seed_count_prefix_sum.back(), distance_index);
-                if (chain_clusters.has_grandparent_handle) {
-                    tree_state.all_node_clusters.back().has_parent_handle = true;
-                    tree_state.all_node_clusters.back().parent_net_handle = chain_clusters.grandparent_net_handle;
-                }
-            } else {
-                parent_index = tree_state.net_handle_to_index[parent];
-            }
-            tree_state.snarl_to_children.emplace(parent_index, chain_index);
-
-
+            current_chain_children.clear();
+            only_seeds = true;
         }
-
-    });
+    }
 }
 
 
@@ -1670,6 +1691,14 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_clusters_index];
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
 
+    if  (is_top_level_chain) {
+        //is_top_level_chain doesn't count external connectivity in the root snarl, so also check that here
+        is_top_level_chain = is_top_level_chain &&
+                             !distance_index.is_externally_start_start_connected(chain_handle) &&
+                             !distance_index.is_externally_start_end_connected(chain_handle) &&
+                             !distance_index.is_externally_end_end_connected(chain_handle) &&
+                             !distance_index.is_looping_chain(chain_handle);
+    }
 
     if (!chain_clusters.is_trivial_chain && ! is_top_level_chain) {
         //TODO: DOn't get values if it's a top-level chain
