@@ -292,10 +292,12 @@ cerr << "Add all seeds to nodes: " << endl;
 
     //All nodes we've already created node_clusters for
     hash_set<id_t> seen_nodes;
-    //A vector of indices into all_node_clusters of nodes that need to be clustered
-    vector<tuple<size_t, net_handle_t, net_handle_t>> to_cluster; 
     seen_nodes.reserve(tree_state.seed_count_prefix_sum.back());
+
+    //A vector of indices into all_node_clusters (and parent and grandparent) of nodes that need to be clustered
+    vector<tuple<size_t, net_handle_t, net_handle_t>> to_cluster; 
     to_cluster.reserve(tree_state.seed_count_prefix_sum.back());
+
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
         vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
         for (size_t i = 0; i < seeds->size(); i++) {
@@ -500,7 +502,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
             } else {
-                //Otherwise, the parent is either the root or a trivial chain that is the child of a snarl
+                //Otherwise, the parent is the root
 
                 tree_state.node_to_seeds.emplace_back(id, read_num, i);
 
@@ -551,6 +553,15 @@ cerr << "Add all seeds to nodes: " << endl;
             }
         }
     }
+    //Sort node_to_seeds by the node and the seeds by their offset
+    std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(), [&](const auto& a, const auto b) -> bool {
+        if (std::get<0>(a) == std::get<0>(b) ) { 
+            return  tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
+                    tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
+        } else {
+            return std::get<0>(a) < std::get<0>(b);
+       } 
+    });
 
 #ifdef DEBUG_CLUSTER
     cerr << endl;
@@ -822,12 +833,6 @@ void NewSnarlSeedClusterer::cluster_one_node(
         seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
 
     }
-
-    //Sort the seeds
-    std::sort(seeds.begin(), seeds.end(), [&] (const auto& a, const auto& b) {
-        return tree_state.all_seeds->at(a.first)->at(a.second).distance_left <
-               tree_state.all_seeds->at(b.first)->at(b.second).distance_left;
-    });
 
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
