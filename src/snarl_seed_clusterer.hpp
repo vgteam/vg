@@ -216,87 +216,67 @@ class NewSnarlSeedClusterer {
             //The children are represented as an index into all_clusters
 
             //The actual data that gets stored
-            //The first size_t is the parent, as an index into all_clusters
-            //The net_handle_t is the containing net handle
-            //The second/third size_t is for the child; If it is a snarl, then an index into all_seeds
-            // if it is a seed, then the two indies into all_seeds
-            //The fourth size_t is the chain component of the child
-            //The fifth size_t is the left offset of the seed or start node of the snarl snarl 
-            //(this is used for sorting children)
-            //This stores every child as a separate pair
-            vector<tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>> parent_to_children;
+            //hash map from the parent (as an index into all_clusters) to a vector of its children
+            //Child list has a bool only_seeds
+            //Each child is a tuple: 
+            //
+            // -The net_handle_t is the containing net handle
+            // -The next two size_ts are depend on the net handle: if it's a snarl, then the first
+            //   size_t is an index into all_node_clusters and the second is inf.
+            //   If it's a node then they are the read_num, seed_num indices into all_seeds
+            // -The third size_t is the chain component of the child
+            // -The fourth size_t is the left offset of the seed or start node of the snarl snarl 
+            //  (this is used for sorting children)
+            hash_map<size_t, pair<bool, vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>>> parent_to_children;
 
-            //is parent_to_children sorted?
-            //Each time we look up the children of a parent, sort and look it up
-            //If it's already sorted, skip sorting
-            //Also set this to false any time something gets added
-            bool is_sorted = false;
 
             //Add a child (the handle, child_index) to its parent (parent_index)
             //Component is the component of the node or start component of the snarl
             //Offset is the prefix sum value of the seed, or the prefix sum of the start node of the snarl + 
             // node length of the start node
+            // expected_size is the size to reserve for each parent chain
             void add_child(size_t& parent_index, net_handle_t& handle, size_t& child_index, size_t child_index2, 
-                           size_t& component, size_t offset) {
-                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, component, offset);
-                is_sorted=false;
-            }
-            void reserve(size_t& size) {
-                parent_to_children.reserve(size);
+                           size_t& component, size_t offset, bool is_seed, size_t expected_size) {
+                if (parent_to_children.count(parent_index) == 0) {
+                    parent_to_children[parent_index] = make_pair(is_seed, std::vector< tuple<net_handle_t, size_t, size_t, size_t, size_t>> (0));
+                    parent_to_children[parent_index].second.reserve(expected_size);
+
+                }
+                parent_to_children[parent_index].first = parent_to_children[parent_index].first && is_seed;
+                parent_to_children[parent_index].second.emplace_back(handle, child_index, child_index2, component, offset);
             }
 
-            //Sort the parent_to_children vector first by parent, and second by the order
+            //For each pair of parent and child list, run iteratee
+            void for_each_parent(const std::function<void(const size_t&, vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>&, const bool& only_seeds)>& iteratee) {
+                for (auto& parent_and_child : parent_to_children) {
+                    iteratee(parent_and_child.first, parent_and_child.second.second, parent_and_child.second.first);
+                }
+            }
+
+            //Sort the child vector first by parent, and second by the order
             //of the children determined by comparator
-            void sort(const SnarlDistanceIndex& distance_index) {
-                if (!is_sorted) {
-                    std::sort(parent_to_children.begin(), parent_to_children.end(),
-                    [&] (const tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& a,
-                         const tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& b)->bool {
-                        if (std::get<0>(a) == std::get<0>(b)) {
-                            //If they are on the same parent chain
+            //returns true if it only contains seeds
+            void sort_children(vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>& child_list,
+                      const SnarlDistanceIndex& distance_index) {
+                std::sort(child_list.begin(), child_list.end(),
+                [&] (const tuple<net_handle_t, size_t, size_t, size_t, size_t>& a,
+                     const tuple<net_handle_t, size_t, size_t, size_t, size_t>& b)->bool {
+                    if (std::get<3>(a) == std::get<3>(b)) {
+                        //If they are on the same component of the chain
 
-                            if (std::get<4>(a) == std::get<4>(b)) {
-                                //If they are on the same component of the chain
-
-                                if (std::get<5>(a) == std::get<5>(b)) {
-                                    //If they have the same prefix sum value, order using the distance index
-                                    return distance_index.is_ordered_in_chain(std::get<1>(a), std::get<1>(b));
-                                } else {
-                                    //IF they have different prefix sum values, sort by prefix sum
-                                    return std::get<5>(a) < std::get<5>(b);
-                                }
-
-                            } else {
-                                //If they are on different components, sort by component
-                                return std::get<4>(a) < std::get<4>(b);
-                            }
+                        if (std::get<4>(a) == std::get<4>(b)) {
+                            //If they have the same prefix sum value, order using the distance index
+                            return distance_index.is_ordered_in_chain(std::get<0>(a), std::get<0>(b));
                         } else {
-                            //If they are on different parent chains, sort by parent
-                            return std::get<0>(a) < std::get<0>(b);
+                            //IF they have different prefix sum values, sort by prefix sum
+                            return std::get<4>(a) < std::get<4>(b);
                         }
-                    });
-                    is_sorted = true;
-                }
-            }
 
-            //Get a list of the children of this parent
-            //Equivalent of map[parent]
-            //Does this by sorting (if necessary) the vector parent_to_children of the parent
-            //and then finding the first occurrence of the parent using std::lower_bound and walking
-            //through the vector
-            //The vector of children will not be sorted
-            vector<tuple<net_handle_t, size_t, size_t>> get_children(const size_t& parent, const SnarlDistanceIndex& distance_index) {
-                //We need to sort the vector first to find everything with the right parent
-                if (!is_sorted) {
-                    sort(distance_index);
-                }
-                vector<tuple<net_handle_t, size_t, size_t>> children;
-                auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
-                        std::tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>(parent, as_net_handle(0), (size_t)0, (size_t)0, (size_t)0, (size_t)0));
-                for (auto iter = iter_start ; iter != parent_to_children.end() && std::get<0>(*iter) == parent ; ++iter) {
-                    children.emplace_back(std::get<1>(*iter), std::get<2>(*iter), std::get<3>(*iter));
-                }
-                return children;
+                    } else {
+                        //If they are on different components, sort by component
+                        return std::get<3>(a) < std::get<3>(b);
+                    }
+                });
             }
         };
         //These will be the cluster heads and distances for a cluster
