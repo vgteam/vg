@@ -506,7 +506,10 @@ cerr << "Add all seeds to nodes: " << endl;
             } else {
                 //Otherwise, the parent is the root
 
-                tree_state.node_to_seeds.emplace_back(id, read_num, i);
+                if (tree_state.node_to_seeds.count(id) == 0) {
+                    tree_state.node_to_seeds[id] = std::vector<std::pair<size_t, size_t>> (0);
+                }
+                tree_state.node_to_seeds[id].emplace_back(read_num, i);
 
                 //Get the values from the seed. Some may be infinite and need to be re-set
                 size_t node_length = has_cached_values ? std::get<0>(old_cache)
@@ -555,15 +558,6 @@ cerr << "Add all seeds to nodes: " << endl;
             }
         }
     }
-    //Sort node_to_seeds by the node and the seeds by their offset
-    std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(), [&](const auto& a, const auto b) -> bool {
-        if (std::get<0>(a) == std::get<0>(b) ) { 
-            return  tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
-                    tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
-        } else {
-            return std::get<0>(a) < std::get<0>(b);
-       } 
-    });
 
 #ifdef DEBUG_CLUSTER
     cerr << endl;
@@ -799,19 +793,12 @@ void NewSnarlSeedClusterer::cluster_one_node(
 
     size_t node_length = node_clusters.node_length;
     nid_t node_id = node_clusters.node_id;
-
-    //Iterator to the first occurrence of this node in node_to_seeds
-    auto seed_range_start = std::lower_bound(
-            tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(),
-            std::tuple<id_t, size_t, size_t>(node_id, 0, 0));
-
     //Get the seeds on this node, as indices into all_seeds
-    vector<std::pair<size_t, size_t>> seeds;
-    for (auto iter = seed_range_start; iter != tree_state.node_to_seeds.end() && std::get<0>(*iter) == node_id; ++iter) {
-        //Go through each seed on this node and add it to the list of seeds
-        seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
-
-    }
+    vector<std::pair<size_t, size_t>>& seeds = tree_state.node_to_seeds[node_id];
+    std::sort(seeds.begin(), seeds.end(), [&] (const auto& a, const auto b) -> bool {
+        return  tree_state.all_seeds->at(a.first)->at(a.second).distance_left <
+                tree_state.all_seeds->at(b.first)->at(b.second).distance_left;
+    });
 
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
