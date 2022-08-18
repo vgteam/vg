@@ -741,7 +741,11 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                                 : distance_index.get_parent(chain_handle);
             bool is_root = distance_index.is_root(parent);
             bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
-            bool is_top_level_chain = (depth == 1) && !is_root_snarl;
+            bool is_top_level_chain = (depth == 1) && !is_root_snarl &&
+                             !distance_index.is_externally_start_start_connected(chain_handle) &&
+                             !distance_index.is_externally_start_end_connected(chain_handle) &&
+                             !distance_index.is_externally_end_end_connected(chain_handle) &&
+                             !distance_index.is_looping_chain(chain_handle);
 
             // Compute the clusters for the chain (the previous chain)
             cluster_one_chain(tree_state, chain_index, current_chain_children, only_seeds, is_top_level_chain);
@@ -765,7 +769,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                     //Otherwise, cluster it with itself using external connectivity only
                      compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[chain_index]);
                 }
-            } else {
+            } else if (!is_top_level_chain) {
                 //If the parent is just a snarl
 
                 //Remember the distances to the ends of the parent 
@@ -1691,14 +1695,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_clusters_index];
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
 
-    if  (is_top_level_chain) {
-        //is_top_level_chain doesn't count external connectivity in the root snarl, so also check that here
-        is_top_level_chain = is_top_level_chain &&
-                             !distance_index.is_externally_start_start_connected(chain_handle) &&
-                             !distance_index.is_externally_start_end_connected(chain_handle) &&
-                             !distance_index.is_externally_end_end_connected(chain_handle) &&
-                             !distance_index.is_looping_chain(chain_handle);
-    }
 
     if (!chain_clusters.is_trivial_chain && ! is_top_level_chain) {
         //TODO: DOn't get values if it's a top-level chain
