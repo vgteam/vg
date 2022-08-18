@@ -960,6 +960,8 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * with provenance to its location in the table, if tracked in the type.
  * Assumes some items exist.
  *
+ * Input items must be sorted by start position in the read.
+ *
  * Takes the given per-item bonus for each item collected.
  *
  * Uses a finite lookback in items and in read bases when checking where we can
@@ -974,7 +976,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
                      int item_bonus = 0,
-                     size_t lookback_items = 50,
+                     size_t lookback_items = 500,
                      size_t lookback_bases = 1000,
                      size_t lookback_reachable_items = 1,
                      size_t max_indel_bases = 10000);
@@ -990,20 +992,9 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
 
 /**
  * Chain up the given group of items. Determines the best score and
- * traceback that can be obtained by chaining items together, using the
- * given gap open and gap extend penalties to charge for either overlaps or
- * gaps in coverage of the read.
- *
- * Overlaps are charged only gap open/extend penalties; multiple matches to
- * the same read base are scored as matches.
- *
- * Overlaps may result in one item containing another.
+ * traceback that can be obtained by chaining items together.
  *
  * Input items must be sorted by start position in the read.
- *
- * Optionally takes a distance index and a graph, and uses distances in the
- * graph alogn with distances in the read to score transitions between
- * items.
  *
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
@@ -1014,16 +1005,9 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
 
 /**
  * Score the given group of items. Determines the best score that can be
- * obtained by chaining items together, using the given space to define gap
- * open and gap extend penalties to charge for either overlaps or gaps in
- * coverage of the read.
+ * obtained by chaining items together.
  *
- * Overlaps are charged only gap open/extend penalties; multiple matches to the
- * same read base are scored as matches.
- *
- * Overlaps may result in one item containing another.
- *
- * Input items must be sorted by start position.
+ * Input items must be sorted by start position in the read.
  */
 template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
 int score_best_chain(const Collection& to_chain,
@@ -1073,7 +1057,7 @@ vector<Item> reseed_fallow_region(const Item& left,
  * the source to form an Item.
  *
  * item_storage is a collection of items, and sorted_item_indexes is index
- * numbers in that collection of items, sorted by read order.
+ * numbers in that collection of items, sorted by start position in the read.
  *
  * Updates item_storage with newely-found forged items (which only have
  * their position and source fields set), and updates
@@ -1118,7 +1102,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     
     // What's the winner so far?
     Score best_score = ST::unset();
-   
+    
     for (size_t i = 0; i < to_chain.size(); i++) {
         // For each item
         auto& here = to_chain[i];
