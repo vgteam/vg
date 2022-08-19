@@ -360,9 +360,9 @@ struct VectorView {
         }
     }
     
-    /// Minimal iterator for looping over.
+    /// Random access iterator.
     struct const_iterator {
-        using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::random_access_iterator_tag;
         using value_type = const Item;
         using pointer = const Item*;
         using reference = const Item&;
@@ -372,10 +372,61 @@ struct VectorView {
         const VectorView<Item>& parent;
         size_t offset = 0;
         
-        /// Advance the iterator. Pre-increment only.
+        /// Advance the iterator. Pre-increment.
         const_iterator& operator++() {
             ++offset;
             return *this;
+        }
+        
+        /// De-advance the iterator. Pre-decrement.
+        const_iterator& operator--() {
+            --offset;
+            return *this;
+        }
+        
+        /// Advance the iterator by a distance, in place
+        const_iterator& operator+=(const difference_type& difference) {
+            offset += difference;
+            return *this;
+        }
+        
+        /// De-advance the iterator by a distance, in place
+        const_iterator& operator-=(const difference_type& difference) {
+            offset -= difference;
+            return *this;
+        }
+        
+        /// Advance the iterator. Post-increment.
+        const_iterator operator++(int) {
+            auto copy = *this;
+            ++(*this);
+            return copy;
+        }
+        
+        /// De-advance the iterator. Post-decrement.
+        const_iterator operator--(int) {
+            auto copy = *this;
+            --(*this);
+            return copy;
+        }
+        
+        /// Advance the iterator by a distance, copying
+        const_iterator operator+(const difference_type& difference) const {
+            auto copy = *this;
+            copy += difference;
+            return copy;
+        }
+        
+        /// De-advance the iterator by a distance, copying
+        const_iterator operator-(const difference_type& difference) const {
+            auto copy = *this;
+            copy -= difference;
+            return copy;
+        }
+        
+        /// Get a difference of iterators on the same container
+        difference_type operator-(const const_iterator& other) const {
+            return offset - other.offset;
         }
         
         /// Check if two iterators on the same container are equal
@@ -388,9 +439,15 @@ struct VectorView {
             return offset != other.offset;
         }
         
-        /// Get the item pointed to by the iterator. * only, no ->
+        /// Get the item pointed to by the iterator.
         const Item& operator*() const {
             return parent[offset];
+        }
+        
+        /// Get a pointer to the item pointed to by the itarator.
+        const Item* operator->() const {
+            // Since the items really exist, this is easy.
+            return &parent[offset];
         }
     };
     
@@ -399,11 +456,17 @@ struct VectorView {
         return {*this, 0};
     };
     
-    /// Get tierator to past-end item.
+    /// Get iterator to past-end item.
     const_iterator end() const {
         return {*this, size()};
     };
 };
+
+/// Allow VectorView iterators to be added to numbers.
+template<typename Item>
+typename VectorView<Item>::const_iterator operator+(typename VectorView<Item>::const_iterator::difference_type a, const typename VectorView<Item>::const_iterator& b) {
+    return b + a;
+}
 
 /**
  * Represents the reverse of the view transformation used in a VectorView.

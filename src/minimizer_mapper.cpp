@@ -705,7 +705,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         funnel.substage("find_chain");
                     }    
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
+                    cluster_chains.emplace_back(algorithms::find_best_chain({seeds, cluster_seeds_sorted}, space));
                     if (track_provenance) {
                         funnel.substage_stop();
                     }
@@ -744,7 +744,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         funnel.substage("find_chain");
                     }    
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain<OldSeed>({old_seeds, cluster_seeds_sorted}, space));
+                    cluster_chains.emplace_back(algorithms::find_best_chain({old_seeds, cluster_seeds_sorted}, space));
                     if (track_provenance) {
                         funnel.substage_stop();
                     }
