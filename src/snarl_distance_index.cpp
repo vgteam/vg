@@ -1699,7 +1699,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
         - (bool)    is the node reversed in its parent 
         - (bool)    is trivial chain
         - (bool)    is the parent a chain
-        - (bool)    is the parent a root  
+        - (bool)    is the parent a root (the parent we saved is a root-snarl or root-level chain) 
         - (size_t)  prefix sum value of the node (or prefix sum to the start of the parent snarl)
         - (size_t)  the chain component of the node
                     This is set if the node is in a nontrivial chain or in a simple snarl, in which case the component is
@@ -1719,6 +1719,10 @@ tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> ge
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
 
     bool parent_is_root = distance_index.is_root(parent_handle);
+    if (!parent_is_root && !distance_index.is_trivial_chain(parent_handle)) {
+        //If the parent isn't a root, also check if the parent chain is a root-level chain
+        parent_is_root = distance_index.is_root(distance_index.get_parent(parent_handle));
+    }
 
     //The prefix sum value of the node in its parent chain, inf if it is in a trivial chain or the child of the root 
     size_t prefix_sum = distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(parent_handle)

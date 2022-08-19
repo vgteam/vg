@@ -346,7 +346,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     parent = distance_index.get_net_handle(std::get<1>(old_cache),
                                                            SnarlDistanceIndex::START_END,
                                                            SnarlDistanceIndex::ROOT_HANDLE);
-                } else if (std::get<7>(old_cache)) {
+                } else if (std::get<1>(old_cache) == 0) {
                     //The parent is just the root
                     parent = distance_index.get_root();
                 } else {
@@ -362,6 +362,9 @@ cerr << "Add all seeds to nodes: " << endl;
             bool parent_is_root = distance_index.is_root(parent);
 
 #ifdef DEBUG_CLUSTER
+cerr << std::get<5>(old_cache) << " " << std::get<6>(old_cache) << " " << std::get<7>(old_cache) << endl;
+cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << distance_index.net_handle_as_string(parent) << endl;
+cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_parent(node_net_handle));
             assert(node_net_handle == distance_index.get_node_net_handle(id));
             assert( parent == distance_index.get_parent(node_net_handle));
 #endif
@@ -429,6 +432,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     //then the node is in a simple snarl on the root-level chain
                     depth = 2;
                 } else if (std::get<7>(old_cache)) {
+                    //If the parent is a root (or root-level chain)
                     depth = 1;
                 } else {
                     //Otherwise get it from parent_node_cluster_offset_to_depth
@@ -1675,7 +1679,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
 
 void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, 
         vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>& children_in_chain, bool only_seeds, bool is_top_level_chain) const {
-#ifdef DBUG_CLUSTERS
+#ifdef DEBUG_CLUSTERS
     assert(distance_index.is_chain(chain_clusters.containing_net_handle));
     if (only_seeds) {
         for (auto child : children_in_chain) {
