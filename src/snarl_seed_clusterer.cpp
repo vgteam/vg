@@ -486,24 +486,31 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
-                if (new_parent && has_cached_values && is_trivial_chain && !cached_parent_is_root) {
-                    bool grandparent_is_simple_snarl = cached_parent_is_chain;
-                    tree_state.all_node_clusters[parent_index].has_parent_handle = true;
-                    tree_state.all_node_clusters[parent_index].parent_net_handle = grandparent_is_simple_snarl 
-                                                        ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
-                                                                                        SnarlDistanceIndex::START_END,
-                                                                                        SnarlDistanceIndex::SNARL_HANDLE,
-                                                                                        1)
-                                                        : distance_index.get_net_handle(std::get<1>(old_cache),
-                                                                                        SnarlDistanceIndex::START_END,
-                                                                                        SnarlDistanceIndex::SNARL_HANDLE);
-
-                    if (grandparent_is_simple_snarl) {
-                        //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
-                        tree_state.all_node_clusters[parent_index].has_grandparent_handle = true;
-                        tree_state.all_node_clusters[parent_index].grandparent_net_handle = distance_index.get_net_handle(std::get<1>(old_cache),
+                if (new_parent && has_cached_values) {
+                    if (is_trivial_chain && !cached_parent_is_root) {
+                        bool grandparent_is_simple_snarl = cached_parent_is_chain;
+                        tree_state.all_node_clusters[parent_index].has_parent_handle = true;
+                        tree_state.all_node_clusters[parent_index].parent_net_handle = grandparent_is_simple_snarl 
+                                                            ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
                                                                                             SnarlDistanceIndex::START_END,
-                                                                                            SnarlDistanceIndex::CHAIN_HANDLE);
+                                                                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                                                                            1)
+                                                            : distance_index.get_net_handle(std::get<1>(old_cache),
+                                                                                            SnarlDistanceIndex::START_END,
+                                                                                            SnarlDistanceIndex::SNARL_HANDLE);
+
+                        if (grandparent_is_simple_snarl) {
+                            //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
+                            tree_state.all_node_clusters[parent_index].has_grandparent_handle = true;
+                            tree_state.all_node_clusters[parent_index].grandparent_net_handle = distance_index.get_net_handle(std::get<1>(old_cache),
+                                                                                                SnarlDistanceIndex::START_END,
+                                                                                                SnarlDistanceIndex::CHAIN_HANDLE);
+                        }
+                    } else if (cached_parent_is_root && cached_parent_is_chain && !is_trivial_chain) {
+                        //The parent chain is a child of the root
+                        tree_state.all_node_clusters[parent_index].has_parent_handle = true;
+                        tree_state.all_node_clusters[parent_index].parent_net_handle = 
+                                distance_index.get_net_handle(0, SnarlDistanceIndex::START_END, SnarlDistanceIndex::ROOT_HANDLE);
                     }
                 }
 
@@ -772,8 +779,9 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                         parent_index = tree_state.net_handle_to_index[parent];
                     }
                     tree_state.root_children.emplace_back(parent_index,chain_index);
-                } else {
+                } else if (!is_top_level_chain) {
                     //Otherwise, cluster it with itself using external connectivity only
+                    //is_top_level_chain also includes external connectivity, so if it's true we don't need to check this
                      compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[chain_index]);
                 }
             } else if (!is_top_level_chain) {
