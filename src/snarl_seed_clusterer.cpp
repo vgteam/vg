@@ -324,6 +324,9 @@ cerr << "Add all seeds to nodes: " << endl;
 
             //TODO: For now, we're either storing all values or none
             bool has_cached_values = std::get<0>(old_cache) != MIPayload::NO_VALUE;
+            bool cached_is_trivial_chain = std::get<5>(old_cache);
+            bool cached_parent_is_chain = std::get<6>(old_cache);
+            bool cached_parent_is_root = std::get<7>(old_cache);
 
 
             net_handle_t node_net_handle = !has_cached_values ? distance_index.get_node_net_handle(id) 
@@ -335,20 +338,20 @@ cerr << "Add all seeds to nodes: " << endl;
 
             net_handle_t parent;
             if (has_cached_values) {
-                if (std::get<5>(old_cache)) {
+                if (cached_is_trivial_chain) {
                     //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
                     parent = distance_index.get_net_handle (distance_index.get_record_offset(node_net_handle),
                                                             SnarlDistanceIndex::START_END,
                                                             SnarlDistanceIndex::CHAIN_HANDLE,
                                                             std::get<2>(old_cache));
-                } else if (std::get<7>(old_cache) && !std::get<6>(old_cache)) {
+                } else if (std::get<1>(old_cache) == 0) {
+                    //The parent is just the root
+                    parent = distance_index.get_root();
+                } else if (cached_parent_is_root && !cached_parent_is_chain) {
                     //If the parent is a root snarl
                     parent = distance_index.get_net_handle(std::get<1>(old_cache),
                                                            SnarlDistanceIndex::START_END,
                                                            SnarlDistanceIndex::ROOT_HANDLE);
-                } else if (std::get<1>(old_cache) == 0) {
-                    //The parent is just the root
-                    parent = distance_index.get_root();
                 } else {
                     //Otherwise the parent is an actual chain and we use the value from the cache
                     parent = distance_index.get_net_handle(std::get<1>(old_cache),
@@ -362,7 +365,7 @@ cerr << "Add all seeds to nodes: " << endl;
             bool parent_is_root = distance_index.is_root(parent);
 
 #ifdef DEBUG_CLUSTER
-cerr << std::get<5>(old_cache) << " " << std::get<6>(old_cache) << " " << std::get<7>(old_cache) << endl;
+cerr << cached_is_trivial_chain << " " << cached_parent_is_chain << " " << cached_parent_is_root << endl;
 cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << distance_index.net_handle_as_string(parent) << endl;
 cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_parent(node_net_handle));
             assert(node_net_handle == distance_index.get_node_net_handle(id));
@@ -385,7 +388,7 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
                 //Seed payload is: 
                 //record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
 
-                bool is_trivial_chain = has_cached_values ? std::get<5>(old_cache) 
+                bool is_trivial_chain = has_cached_values ? cached_is_trivial_chain 
                                                       : distance_index.is_trivial_chain(parent);
                 size_t prefix_sum = std::get<8>(old_cache);
                 size_t node_length = std::get<3>(old_cache);
@@ -427,11 +430,11 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
                 size_t parent_index;
                 bool new_parent = false;
                 size_t depth;
-                if (std::get<5>(old_cache) && std::get<6>(old_cache) && std::get<7>(old_cache)) {
+                if (cached_is_trivial_chain && cached_parent_is_chain && cached_parent_is_root) {
                     //IF the node is a trivial chain, and the parent we stored is a chain and root,
                     //then the node is in a simple snarl on the root-level chain
                     depth = 2;
-                } else if (std::get<7>(old_cache)) {
+                } else if (cached_parent_is_root) {
                     //If the parent is a root (or root-level chain)
                     depth = 1;
                 } else {
@@ -483,8 +486,8 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
-                if (new_parent && has_cached_values && is_trivial_chain && !std::get<7>(old_cache)) {
-                    bool grandparent_is_simple_snarl = std::get<6>(old_cache);
+                if (new_parent && has_cached_values && is_trivial_chain && !cached_parent_is_root) {
+                    bool grandparent_is_simple_snarl = cached_parent_is_chain;
                     tree_state.all_node_clusters[parent_index].has_parent_handle = true;
                     tree_state.all_node_clusters[parent_index].parent_net_handle = grandparent_is_simple_snarl 
                                                         ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
@@ -523,7 +526,7 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
                     //And now add the node to its parent, creating a NodeClusters for the parent if necessary
                     //If the parent we stored is a chain (std::get<6>(old_cache)), then the grandparent is a simple snarl and has the 
                     //same record offset as the node and its parent. Otherwise, we stored the record offset in the cache
-                    net_handle_t grandparent_snarl = std::get<6>(old_cache) ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
+                    net_handle_t grandparent_snarl = cached_parent_is_chain ? distance_index.get_net_handle(distance_index.get_record_offset(node_net_handle),
                                                                                     SnarlDistanceIndex::START_END,
                                                                                     SnarlDistanceIndex::SNARL_HANDLE)
                                                                       : distance_index.get_net_handle(std::get<1>(old_cache),
