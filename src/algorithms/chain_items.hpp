@@ -971,9 +971,9 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions still counting as "reachable".
  */
-template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
+template<typename Score, typename Item, typename Source = void>
 Score chain_items_dp(vector<Score>& best_chain_score,
-                     const Collection& to_chain,
+                     const VectorView<Item>& to_chain,
                      const ChainingSpace<Item, Source>& space,
                      int item_bonus = 0,
                      size_t lookback_items = 500,
@@ -984,9 +984,9 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 /**
  * Trace back through in the given DP table from the best chain score.
  */
-template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
+template<typename Score, typename Item, typename Source = void>
 vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
-                                     const Collection& to_chain,
+                                     const VectorView<Item>& to_chain,
                                      const Score& best_past_ending_score_ever,
                                      const ChainingSpace<Item, Source>& space);
 
@@ -999,8 +999,8 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
  */
-template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
-pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
+template<typename Item, typename Source = void>
+pair<int, vector<size_t>> find_best_chain(const VectorView<Item>& to_chain,
                                           const algorithms::ChainingSpace<Item, Source>& space);
 
 /**
@@ -1009,8 +1009,8 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
  *
  * Input items must be sorted by start position in the read.
  */
-template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
-int score_best_chain(const Collection& to_chain,
+template<typename Item, typename Source = void>
+int score_best_chain(const VectorView<Item>& to_chain,
                      const ChainingSpace<Item, Source>& space);
                      
 /**
@@ -1080,9 +1080,9 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
 
 // Template implementations
 
-template<typename Score, typename Item, typename Source, typename Collection>
+template<typename Score, typename Item, typename Source>
 Score chain_items_dp(vector<Score>& best_chain_score,
-                     const Collection& to_chain,
+                     const VectorView<Item>& to_chain,
                      const ChainingSpace<Item, Source>& space,
                      int item_bonus,
                      size_t lookback_items,
@@ -1096,6 +1096,19 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
     cerr << "Chaining group of " << to_chain.size() << " items" << endl;
 #endif
+    
+    // We want to consider all the important transitions in the graph of what
+    // items can come before what other items. We aren't allowing any
+    // transitions between items that overlap in the read. We're going through
+    // the destination items in order by read start, so we should also keep a
+    // list of them in order by read end, and sweep a cursor over that, so we
+    // always know the last item that does not overlap with or pass the current
+    // destination item, in the read. Then when we look for possible
+    // predecessors of the destination item, we can start there and look left.
+    vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Item& a, const Item& b) {
+        return space.get_read_end(a) < space.get_read_end(b);
+    });
+    size_t last_nonoverlapping_item = 0;
     
     // Make our DP table big enough
     best_chain_score.resize(to_chain.size(), ST::unset());
@@ -1173,9 +1186,9 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     return best_score;
 }
 
-template<typename Score, typename Item, typename Source, typename Collection>
+template<typename Score, typename Item, typename Source>
 vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
-                               const Collection& to_chain,
+                               const VectorView<Item>& to_chain,
                                const Score& best_past_ending_score_ever,
                                const ChainingSpace<Item, Source>& space) {
     
@@ -1215,8 +1228,8 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
     return traceback;
 }
 
-template<typename Item, typename Source, typename Collection>
-pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
+template<typename Item, typename Source>
+pair<int, vector<size_t>> find_best_chain(const VectorView<Item>& to_chain,
                                           const ChainingSpace<Item, Source>& space) {
                                                                  
     if (to_chain.empty()) {
@@ -1238,8 +1251,8 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
     }
 }
 
-template<typename Item, typename Source, typename Collection>
-int score_best_chain(const Collection& to_chain,
+template<typename Item, typename Source>
+int score_best_chain(const VectorView<Item>& to_chain,
                      const ChainingSpace<Item, Source>& space) {
     
     if (to_chain.empty()) {
