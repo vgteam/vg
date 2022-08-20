@@ -1989,11 +1989,12 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
             if (distance_between_left_right <= tree_state.read_distance_limit
              || distance_between_right_left <= tree_state.read_distance_limit) {
                 //If we can combine the read
-                if ((read_num == 0 ? combined_cluster_by_read.first : combined_cluster_by_read.second) == std::numeric_limits<size_t>::max()) {
-                    (read_num == 0 ? combined_cluster_by_read.first : combined_cluster_by_read.second) = cluster_num;
+                size_t& combined_cluster_num = (read_num == 0 ? combined_cluster_by_read.first : combined_cluster_by_read.second);
+                if (combined_cluster_num == std::numeric_limits<size_t>::max()) {
+                    combined_cluster_num = cluster_num;
                 } else {
-                    tree_state.read_union_find[read_num].union_groups(
-                        (read_num == 0 ? combined_cluster_by_read.first : combined_cluster_by_read.second), cluster_num);
+                    combined_cluster_num = tree_state.read_union_find[read_num].union_groups(
+                                                combined_cluster_num, cluster_num);
                 }
             }
             size_t distance_between_left_right_fragment = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_left, chain_clusters.fragment_best_right}) ,1);
@@ -2003,10 +2004,11 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
               || distance_between_right_left_fragment <= tree_state.fragment_distance_limit)) {
 
                 if (combined_cluster_fragment != std::numeric_limits<size_t>::max()) {
-                    tree_state.fragment_union_find.union_groups(combined_cluster_fragment, 
+                    combined_cluster_fragment = tree_state.fragment_union_find.union_groups(combined_cluster_fragment, 
                             cluster_num + tree_state.seed_count_prefix_sum[read_num]);
+                } else {
+                    combined_cluster_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
                 }
-                combined_cluster_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
             }
         }
 
@@ -2460,9 +2462,10 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
                          make_pair(updated_left, updated_right));
                 } else {
                     to_erase.emplace_back(combined_left[read_num].first);
-                    tree_state.read_union_find.at(read_num).union_groups(cluster_num, combined_left[read_num].first.second);
                     combined_left[read_num] = make_pair(
-                         make_pair(read_num, cluster_num), 
+                         make_pair(read_num, 
+                                   tree_state.read_union_find.at(read_num).union_groups(cluster_num, 
+                                                                                        combined_left[read_num].first.second)), 
                          make_pair(std::min(updated_left, combined_left[read_num].second.first), 
                                    std::min(updated_right, combined_left[read_num].second.second))); 
                     
@@ -2475,9 +2478,10 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
                     combined_right[read_num] = make_pair(cluster_head, make_pair(updated_left, updated_right));
                 } else {
                     to_erase.emplace_back(combined_right[read_num].first);
-                    tree_state.read_union_find.at(read_num).union_groups(cluster_num, combined_right[read_num].first.second);
                     combined_right[read_num] =make_pair(
-                         make_pair(read_num, cluster_num), 
+                         make_pair(read_num, 
+                                   tree_state.read_union_find.at(read_num).union_groups(cluster_num, 
+                                                                                        combined_right[read_num].first.second)), 
                          make_pair(std::min(updated_left, combined_right[read_num].second.first), 
                                    std::min(updated_right, combined_right[read_num].second.second))); 
                     
@@ -2488,10 +2492,12 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
                  || distance_between_left_fragment <= tree_state.fragment_distance_limit)) {
                 //Combine the fragment
                 if (combined_fragment != std::numeric_limits<size_t>::max()) {
-                    tree_state.fragment_union_find.union_groups(combined_fragment, 
+                    combined_fragment = tree_state.fragment_union_find.union_groups(combined_fragment, 
                             cluster_num + tree_state.seed_count_prefix_sum[read_num]);
+                } else {
+                    combined_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
                 }
-                combined_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
+                cluster_num + tree_state.seed_count_prefix_sum[read_num];
             }
          }
         for (pair<size_t, size_t>& cluster_head : to_erase) {
@@ -2776,10 +2782,11 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             //If we can combine the fragments
             if (tree_state.fragment_distance_limit != 0 && fragment_distance_between <= tree_state.fragment_distance_limit){
                 if (new_cluster_head_fragment != std::numeric_limits<size_t>::max()) {
-                    tree_state.fragment_union_find.union_groups(new_cluster_head_fragment, 
+                    new_cluster_head_fragment = tree_state.fragment_union_find.union_groups(new_cluster_head_fragment, 
                             cluster_num + tree_state.seed_count_prefix_sum[read_num]);
+                } else {
+                    new_cluster_head_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
                 }
-                new_cluster_head_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
             }
         
         
@@ -2868,10 +2875,11 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             if (tree_state.fragment_distance_limit != 0 && distance_between_fragment <= tree_state.fragment_distance_limit) {
                 //If we can union the fragments
                 if (new_cluster_head_fragment != std::numeric_limits<size_t>::max()) {
-                    tree_state.fragment_union_find.union_groups(new_cluster_head_fragment, 
+                    new_cluster_head_fragment = tree_state.fragment_union_find.union_groups(new_cluster_head_fragment, 
                             cluster_num + tree_state.seed_count_prefix_sum[read_num]);
+                } else {
+                    new_cluster_head_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
                 }
-                new_cluster_head_fragment = cluster_num + tree_state.seed_count_prefix_sum[read_num];
             }
             chain_clusters.fragment_best_right = std::min(chain_clusters.fragment_best_right, new_distances.second); 
             (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second) = std::min((read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second), new_distances.second);
@@ -3073,10 +3081,11 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             (read_num == 0 ? group_ids.first : group_ids.second) = tree_state.read_union_find[read_num].union_groups((read_num == 0 ? group_ids.first : group_ids.second), seed_i);
             if (tree_state.fragment_distance_limit != 0 ) {
                 if (fragment_group_id == std::numeric_limits<size_t>::max() ) {
-                    fragment_group_id = seed_i + tree_state.seed_count_prefix_sum[read_num];
-                }
-                fragment_group_id = tree_state.fragment_union_find.union_groups(
+                    fragment_group_id = fragment_group_id = seed_i + tree_state.seed_count_prefix_sum[read_num];
+                } else {
+                    fragment_group_id = tree_state.fragment_union_find.union_groups(
                         fragment_group_id, seed_i + tree_state.seed_count_prefix_sum[read_num]);
+                }
             }
         }
         if (!skip_distances_to_ends) {
