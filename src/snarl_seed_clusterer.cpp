@@ -482,7 +482,7 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
                 chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, 
                               std::get<9>(seed.minimizer_cache),  //component
-                              is_trivial_chain ? seed.distance_left : SnarlDistanceIndex::sum({prefix_sum, seed.distance_left}));
+                              is_trivial_chain ? seed.distance_left : SnarlDistanceIndex::sum(prefix_sum, seed.distance_left));
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
@@ -1091,10 +1091,10 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             pair<size_t, size_t> distances = child_distances[child_cluster_head.second + tree_state.seed_count_prefix_sum[read_num]];
 
             //Distances to the parent
-            size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first, child_clusters1.distance_start_left}),
-                                            SnarlDistanceIndex::sum({distances.second, child_clusters1.distance_start_right}));
-            size_t new_dist_right= std::min(SnarlDistanceIndex::sum({distances.first, child_clusters1.distance_end_left}),
-                                            SnarlDistanceIndex::sum({distances.second, child_clusters1.distance_end_right}));
+            size_t new_dist_left = std::min(SnarlDistanceIndex::sum(distances.first, child_clusters1.distance_start_left),
+                                            SnarlDistanceIndex::sum(distances.second, child_clusters1.distance_start_right));
+            size_t new_dist_right= std::min(SnarlDistanceIndex::sum(distances.first, child_clusters1.distance_end_left),
+                                            SnarlDistanceIndex::sum(distances.second, child_clusters1.distance_end_right));
             pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
             //If this is already in the parent, take the minimum of the parent distances
             if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
@@ -1106,29 +1106,29 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
             //Check if the left of 1 can connect with the left of 2
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-                SnarlDistanceIndex::sum({distances.first, distance_left_left, (read_num == 0 ? child_clusters2.read_best_left.first : child_clusters2.read_best_left.second)}), 
-                SnarlDistanceIndex::sum({distances.first, distance_left_left, child_clusters2.fragment_best_left}), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first, distance_left_left), (read_num == 0 ? child_clusters2.read_best_left.first : child_clusters2.read_best_left.second)), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first, distance_left_left), child_clusters2.fragment_best_left), 
                 distances_to_parent, new_cluster_left_left, 
                 new_cluster_left_left_fragment);
 
             //Check if the left of 1 can connect with the right of 2
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-                SnarlDistanceIndex::sum({distances.first,distance_left_right, (read_num == 0 ? child_clusters2.read_best_right.first : child_clusters2.read_best_right.second)}), 
-                SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters2.fragment_best_right}), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_right), (read_num == 0 ? child_clusters2.read_best_right.first : child_clusters2.read_best_right.second)), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_right), child_clusters2.fragment_best_right), 
                 distances_to_parent, new_cluster_left_right, 
                 new_cluster_left_right_fragment);
 
             //Check if the right of 1 can connect with the right of 2
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-                SnarlDistanceIndex::sum({distances.second,distance_right_right, (read_num == 0 ? child_clusters2.read_best_right.first : child_clusters2.read_best_right.second)}), 
-                SnarlDistanceIndex::sum({distances.second,distance_right_right, child_clusters2.fragment_best_right}), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_right), (read_num == 0 ? child_clusters2.read_best_right.first : child_clusters2.read_best_right.second)), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_right), child_clusters2.fragment_best_right), 
                 distances_to_parent, new_cluster_right_right, 
                 new_cluster_right_right_fragment);
 
             //Check if the right of 1 can connect with the left of 2
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-                SnarlDistanceIndex::sum({distances.second,distance_right_left, (read_num == 0 ? child_clusters2.read_best_left.first : child_clusters2.read_best_left.second)}), 
-                SnarlDistanceIndex::sum({distances.second,distance_right_left, child_clusters2.fragment_best_left}), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_left), (read_num == 0 ? child_clusters2.read_best_left.first : child_clusters2.read_best_left.second)), 
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_left), child_clusters2.fragment_best_left), 
                 distances_to_parent, new_cluster_right_left, 
                 new_cluster_right_left_fragment);
 
@@ -1165,10 +1165,10 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
                 ClusterIndices& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first : new_cluster_right_left_by_read.second);
 
                 pair<size_t, size_t> distances = child_distances[child_cluster_head.second + tree_state.seed_count_prefix_sum[read_num]];
-                size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_start_left}), 
-                                                SnarlDistanceIndex::sum({distances.second,child_clusters2.distance_start_right}));
-                size_t new_dist_right = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_end_left}), 
-                                                SnarlDistanceIndex::sum({distances.second,child_clusters2.distance_end_right}));
+                size_t new_dist_left = std::min(SnarlDistanceIndex::sum(distances.first,child_clusters2.distance_start_left), 
+                                                SnarlDistanceIndex::sum(distances.second,child_clusters2.distance_start_right));
+                size_t new_dist_right = std::min(SnarlDistanceIndex::sum(distances.first,child_clusters2.distance_end_left), 
+                                                SnarlDistanceIndex::sum(distances.second,child_clusters2.distance_end_right));
                 pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
 
                 if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
@@ -1179,26 +1179,26 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
                 //Check if the left of 1 can connect with the left of 2
                 compare_and_combine_clusters (read_num, cluster_num, 
-                    SnarlDistanceIndex::sum({distances.first,distance_left_left, (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)}), 
-                    SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.fragment_best_left}), 
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_left), (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)), 
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_left),child_clusters1.fragment_best_left), 
                     distances_to_parent, new_cluster_left_left, new_cluster_left_left_fragment);
 
                 //Check if the left of 1 can connect with the right of 2
                 compare_and_combine_clusters (read_num, cluster_num, 
-                    SnarlDistanceIndex::sum({distances.second,distance_left_right, (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)}),
-                    SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.fragment_best_left}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_left_right), (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_left_right),child_clusters1.fragment_best_left),
                     distances_to_parent, new_cluster_left_right, new_cluster_left_right_fragment);
 
                 //Check if the right of 1 can connect with the right of 2
                 compare_and_combine_clusters (read_num, cluster_num, 
-                    SnarlDistanceIndex::sum({distances.second,distance_right_right, (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)}),
-                    SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.fragment_best_right}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_right), (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_right),child_clusters1.fragment_best_right),
                     distances_to_parent, new_cluster_right_right, new_cluster_right_right_fragment);
 
                 //Check if the right of 1 can connect with the left of 2
                 compare_and_combine_clusters (read_num, cluster_num, 
-                    SnarlDistanceIndex::sum({distances.first,distance_right_left, (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)}),
-                    SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.fragment_best_right}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_right_left), (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_right_left),child_clusters1.fragment_best_right),
                     distances_to_parent, new_cluster_right_left, new_cluster_right_left_fragment);
             }
 
@@ -1322,20 +1322,20 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
      */
     //Update the parent's fragment best distances
     parent_clusters.fragment_best_left = std::min(parent_clusters.fragment_best_left,
-                                         std::min(SnarlDistanceIndex::sum({child_clusters1.distance_start_left, child_clusters1.fragment_best_left}),
-                                                  SnarlDistanceIndex::sum({child_clusters1.distance_start_right , child_clusters1.fragment_best_right})));
+                                         std::min(SnarlDistanceIndex::sum(child_clusters1.distance_start_left, child_clusters1.fragment_best_left),
+                                                  SnarlDistanceIndex::sum(child_clusters1.distance_start_right , child_clusters1.fragment_best_right)));
     parent_clusters.fragment_best_right = std::min(parent_clusters.fragment_best_right,
-                                          std::min(SnarlDistanceIndex::sum({child_clusters1.distance_end_left , child_clusters1.fragment_best_left}),
-                                                   SnarlDistanceIndex::sum({child_clusters1.distance_end_right , child_clusters1.fragment_best_right})));
+                                          std::min(SnarlDistanceIndex::sum(child_clusters1.distance_end_left , child_clusters1.fragment_best_left),
+                                                   SnarlDistanceIndex::sum(child_clusters1.distance_end_right , child_clusters1.fragment_best_right)));
 
 
     //Update the best distances in the parent for each read num
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num ++) {
         //Find the best distances to the ends of the parent from child1
-        size_t best_start = std::min(SnarlDistanceIndex::sum({child_clusters1.distance_start_left, (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)}), 
-                                    SnarlDistanceIndex::sum({child_clusters1.distance_start_right, (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)}));
-        size_t best_end = std::min(SnarlDistanceIndex::sum({child_clusters1.distance_end_left, (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)}), 
-                                    SnarlDistanceIndex::sum({child_clusters1.distance_end_right, (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)}));
+        size_t best_start = std::min(SnarlDistanceIndex::sum(child_clusters1.distance_start_left, (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)), 
+                                    SnarlDistanceIndex::sum(child_clusters1.distance_start_right, (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)));
+        size_t best_end = std::min(SnarlDistanceIndex::sum(child_clusters1.distance_end_left, (read_num == 0 ? child_clusters1.read_best_left.first : child_clusters1.read_best_left.second)), 
+                                    SnarlDistanceIndex::sum(child_clusters1.distance_end_right, (read_num == 0 ? child_clusters1.read_best_right.first : child_clusters1.read_best_right.second)));
         //And update the distances in the parent
         if (read_num == 0) {
             parent_clusters.read_best_left.first = std::min(best_start, parent_clusters.read_best_left.first);
@@ -1493,26 +1493,26 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& 
 
         //Check if the left of 1 can connect with the left of 2
         compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.first,distance_left_left, (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second)}), 
-            SnarlDistanceIndex::sum({distances.first,distance_left_left, child_clusters.fragment_best_left}), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_left), (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second)), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_left), child_clusters.fragment_best_left), 
                 new_cluster_left_left, new_cluster_left_left_fragment);
 
         //Check if the left of 1 can connect with the right of 2
         compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.first,distance_left_right, (read_num == 0 ? child_clusters.read_best_right.first : child_clusters.read_best_right.second)}), 
-            SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters.fragment_best_right}), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_right), (read_num == 0 ? child_clusters.read_best_right.first : child_clusters.read_best_right.second)), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.first,distance_left_right), child_clusters.fragment_best_right), 
               new_cluster_left_right, new_cluster_left_right_fragment);
 
         //Check if the right of 1 can connect with the left of 2
         compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.second,distance_left_right, (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second)}), 
-            SnarlDistanceIndex::sum({distances.second,distance_left_right, child_clusters.fragment_best_left}), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_left_right), (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second)), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_left_right), child_clusters.fragment_best_left), 
               new_cluster_left_right, new_cluster_left_right_fragment);
 
         //Check if the right of 1 can connect with the right of 2
         compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.second,distance_right_right, (read_num == 0 ? child_clusters.read_best_right.first : child_clusters.read_best_right.second)}), 
-            SnarlDistanceIndex::sum({distances.second,distance_right_right, child_clusters.fragment_best_right}), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_right), (read_num == 0 ? child_clusters.read_best_right.first : child_clusters.read_best_right.second)), 
+            SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distances.second,distance_right_right), child_clusters.fragment_best_right), 
             new_cluster_right_right, new_cluster_right_right_fragment);
     }
 
@@ -1984,8 +1984,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
             size_t dist_left = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left;
             size_t dist_right = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right;
 
-            size_t distance_between_left_right =SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_left, (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second)}), 1); 
-            size_t distance_between_right_left = SnarlDistanceIndex::minus( SnarlDistanceIndex::sum({dist_right, (read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second)}), 1);
+            size_t distance_between_left_right =SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(dist_left, (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second)), 1); 
+            size_t distance_between_right_left = SnarlDistanceIndex::minus( SnarlDistanceIndex::sum(dist_right, (read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second)), 1);
             if (distance_between_left_right <= tree_state.read_distance_limit
              || distance_between_right_left <= tree_state.read_distance_limit) {
                 //If we can combine the read
@@ -1997,8 +1997,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                                                 combined_cluster_num, cluster_num);
                 }
             }
-            size_t distance_between_left_right_fragment = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_left, chain_clusters.fragment_best_right}) ,1);
-            size_t distance_between_right_left_fragment = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_right, chain_clusters.fragment_best_left}) ,1);
+            size_t distance_between_left_right_fragment = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(dist_left, chain_clusters.fragment_best_right) ,1);
+            size_t distance_between_right_left_fragment = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(dist_right, chain_clusters.fragment_best_left) ,1);
             if (tree_state.fragment_distance_limit != 0 &&
                 (distance_between_left_right_fragment <= tree_state.fragment_distance_limit
               || distance_between_right_left_fragment <= tree_state.fragment_distance_limit)) {
@@ -2093,7 +2093,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
                 distance_from_last_child_to_current_child = std::get<8>(current_child_seed.minimizer_cache);//prefix sum value
             } else {
-                size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({last_prefix_sum,last_length});
+                size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum(last_prefix_sum,last_length);
     
                 //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
                 distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(std::get<8>(current_child_seed.minimizer_cache), 
@@ -2113,7 +2113,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
             distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                     ? std::numeric_limits<size_t>::max() : 
             (last_child_handle == child_handle ? 0 
-                : SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, std::get<3>(current_child_seed.minimizer_cache)}));
+                : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, std::get<3>(current_child_seed.minimizer_cache)));
     
     //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
     //The distances will include the distance to the end of a trivial chain,
@@ -2139,8 +2139,8 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
     
         //Length of the chain - (prefix sum + node length of the current node)
         distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                    SnarlDistanceIndex::sum({std::get<8>(current_child_seed.minimizer_cache), 
-                                             std::get<3>(current_child_seed.minimizer_cache)}));
+                    SnarlDistanceIndex::sum(std::get<8>(current_child_seed.minimizer_cache), 
+                                             std::get<3>(current_child_seed.minimizer_cache)));
     
     }
 
@@ -2153,7 +2153,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
 
 
     if (last_child_handle != child_handle &&
-        SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, chain_clusters.fragment_best_right}) 
+        SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, chain_clusters.fragment_best_right) 
           > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
 #ifdef DEBUG_CLUSTER
             cerr << "This child is too far away from the last one to cluster anything" << endl;
@@ -2188,11 +2188,11 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
             current_child_seed.distance_left = std::numeric_limits<size_t>::max();
         } else {
             //Prefix sum + offset of the seed in the node
-            current_child_seed.distance_left = SnarlDistanceIndex::sum({current_child_seed.distance_left, 
-                                                                        std::get<8>(current_child_seed.minimizer_cache)});
+            current_child_seed.distance_left = SnarlDistanceIndex::sum(current_child_seed.distance_left, 
+                                                                        std::get<8>(current_child_seed.minimizer_cache));
         }
-        current_child_seed.distance_right = SnarlDistanceIndex::sum({current_child_seed.distance_right, 
-                                                       distance_from_current_end_to_end_of_chain});
+        current_child_seed.distance_right = SnarlDistanceIndex::sum(current_child_seed.distance_right, 
+                                                       distance_from_current_end_to_end_of_chain);
     
         //Add the cluster to the chain
         chain_clusters.read_cluster_heads.emplace(read_num, cluster_num);
@@ -2212,13 +2212,15 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         for (size_t chain_read_num = 0 ; chain_read_num < tree_state.all_seeds->size() ; chain_read_num++) {
             if (chain_read_num != read_num) {
                 if (chain_read_num == 0) {
-                    chain_clusters.read_best_right.first = SnarlDistanceIndex::sum({chain_clusters.read_best_right.first,
-                                                                                         distance_from_last_child_to_current_end,
-                                                                                          distance_from_current_end_to_end_of_chain});
+                    chain_clusters.read_best_right.first = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                                chain_clusters.read_best_right.first,
+                                                                distance_from_last_child_to_current_end),
+                                                                distance_from_current_end_to_end_of_chain);
                 } else {
-                    chain_clusters.read_best_right.second = SnarlDistanceIndex::sum({chain_clusters.read_best_right.second,
-                                                                                         distance_from_last_child_to_current_end,
-                                                                                          distance_from_current_end_to_end_of_chain});
+                    chain_clusters.read_best_right.second = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                                chain_clusters.read_best_right.second,
+                                                                distance_from_last_child_to_current_end),
+                                                                distance_from_current_end_to_end_of_chain);
                 }
             }
         }
@@ -2232,10 +2234,10 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
         // (or 0 if it isn't the last thing in the chain)
         pair<size_t, size_t> new_distances = make_pair(
-                SnarlDistanceIndex::sum({current_child_seed.distance_left, 
+                SnarlDistanceIndex::sum(current_child_seed.distance_left, 
                         std::get<9>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
-                                                                             : std::get<8>(current_child_seed.minimizer_cache)}),
-                SnarlDistanceIndex::sum({current_child_seed.distance_right, distance_from_current_end_to_end_of_chain})); 
+                                                                             : std::get<8>(current_child_seed.minimizer_cache)),
+                SnarlDistanceIndex::sum(current_child_seed.distance_right, distance_from_current_end_to_end_of_chain)); 
     
     
         //Cluster heads to remove because they got combined with the current seed
@@ -2260,9 +2262,9 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
     
             //The distance between the current seed and the current chain cluster
             size_t distance_between = SnarlDistanceIndex::minus(
-                    SnarlDistanceIndex::sum({chain_cluster_distances.second, 
-                                             distance_from_last_child_to_current_child, 
-                                             current_child_seed.distance_left}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(chain_cluster_distances.second, 
+                                             distance_from_last_child_to_current_child), 
+                                             current_child_seed.distance_left),
                     1);
             if (!is_first_child && last_child_handle == child_handle) {
                 //If the last child was the same as this child (seeds on the same node), 
@@ -2300,9 +2302,9 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                 tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
                             chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
                 tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = 
-                        SnarlDistanceIndex::sum({chain_cluster_distances.second, 
-                                                 distance_from_last_child_to_current_end,
-                                                 distance_from_current_end_to_end_of_chain});
+                        SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(chain_cluster_distances.second, 
+                                                 distance_from_last_child_to_current_end),
+                                                 distance_from_current_end_to_end_of_chain);
             } else {
                 //If this chain cluster doesn't get combined, then it is too far away to combine with anything later in the chain, 
                 //so we remove it but remember to add it again if the left distance is small enough
@@ -2349,13 +2351,15 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         for (size_t chain_read_num = 0 ; chain_read_num < tree_state.all_seeds->size() ; chain_read_num++) {
             if (chain_read_num != read_num) {
                 if (chain_read_num == 0) {
-                    chain_clusters.read_best_right.first = SnarlDistanceIndex::sum({chain_clusters.read_best_right.first,
-                                                                                         distance_from_last_child_to_current_end,
-                                                                                          distance_from_current_end_to_end_of_chain});
+                    chain_clusters.read_best_right.first = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                                    chain_clusters.read_best_right.first,
+                                                                    distance_from_last_child_to_current_end),
+                                                                    distance_from_current_end_to_end_of_chain);
                 } else {
-                    chain_clusters.read_best_right.second = SnarlDistanceIndex::sum({chain_clusters.read_best_right.second,
-                                                                                         distance_from_last_child_to_current_end,
-                                                                                          distance_from_current_end_to_end_of_chain});
+                    chain_clusters.read_best_right.second = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                                    chain_clusters.read_best_right.second,
+                                                                    distance_from_last_child_to_current_end),
+                                                                    distance_from_current_end_to_end_of_chain);
                 }
             }
         }
@@ -2412,8 +2416,8 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
             size_t old_left =  tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left;
             size_t old_right = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right;
             //Get the new best distances for the cluster considering chain loops
-            size_t updated_left = std::min(old_left, SnarlDistanceIndex::sum({old_right, child_clusters.loop_right, child_clusters.node_length}));
-            size_t updated_right = std::min(old_right, SnarlDistanceIndex::sum({old_left, child_clusters.loop_left, child_clusters.node_length}));
+            size_t updated_left = std::min(old_left, SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_right, child_clusters.loop_right), child_clusters.node_length));
+            size_t updated_right = std::min(old_right, SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_left, child_clusters.loop_left), child_clusters.node_length));
 
 
 
@@ -2434,24 +2438,24 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
             //Now see if we can combine this cluster with anything else 
             //The distance between this cluster and anything else taking the left loop
             size_t distance_between_left = SnarlDistanceIndex::minus(
-                    SnarlDistanceIndex::sum({updated_left, 
-                                             child_clusters.loop_left,
-                                             (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second)}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(updated_left, 
+                                             child_clusters.loop_left),
+                                             (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second)),
                     1); 
             size_t distance_between_right = SnarlDistanceIndex::minus(
-                     SnarlDistanceIndex::sum({updated_right, 
-                                              child_clusters.loop_right,
-                                              (read_num == 0 ? child_clusters.read_best_right.first : child_clusters.read_best_right.second)}),
+                     SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(updated_right, 
+                                              child_clusters.loop_right),
+                                              (read_num == 0 ? child_clusters.read_best_right.first : child_clusters.read_best_right.second)),
                      1); 
             size_t distance_between_left_fragment = SnarlDistanceIndex::minus(
-                      SnarlDistanceIndex::sum({updated_left, 
-                                                child_clusters.loop_left,
-                                                child_clusters.fragment_best_left}),
+                      SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(updated_left, 
+                                                child_clusters.loop_left),
+                                                child_clusters.fragment_best_left),
                       1); 
             size_t distance_between_right_fragment = SnarlDistanceIndex::minus(
-                       SnarlDistanceIndex::sum({updated_right, 
-                                                child_clusters.loop_right,
-                                                child_clusters.fragment_best_right}),
+                       SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(updated_right, 
+                                                child_clusters.loop_right),
+                                                child_clusters.fragment_best_right),
                        1); 
             pair<size_t, size_t> cluster_head = make_pair(read_num, cluster_num);
             if (distance_between_left <= tree_state.read_distance_limit) {
@@ -2559,7 +2563,7 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
                 distance_from_last_child_to_current_child = child_clusters.prefix_sum_value;
             } else {
-                size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({last_prefix_sum,last_length});
+                size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum(last_prefix_sum,last_length);
                 distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(child_clusters.prefix_sum_value, 
                                                 distance_from_chain_start_to_last_node); 
             }
@@ -2576,8 +2580,8 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
             distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                     ? std::numeric_limits<size_t>::max() : 
             (last_child_handle == child_handle ? 0 
-                : SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, 
-                                           child_clusters.node_length}));
+                : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, 
+                                           child_clusters.node_length));
     
     //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
     //The distances will include the distance to the end of a trivial chain,
@@ -2615,7 +2619,7 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
     
         } else {
             distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                        SnarlDistanceIndex::sum({child_clusters.prefix_sum_value, child_clusters.node_length}));
+                        SnarlDistanceIndex::sum(child_clusters.prefix_sum_value, child_clusters.node_length));
         }
     
     }
@@ -2648,7 +2652,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
     
     
     if (last_child_handle != child_handle &&
-        SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, old_best_right}) 
+        SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, old_best_right) 
           > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
 #ifdef DEBUG_CLUSTER
         cerr << "This child is too far away from the last one to cluster anything" << endl;
@@ -2689,8 +2693,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 //If the snarl is isn't in the first component of the chain, then the left distance is infinite
                 pair<size_t, size_t> new_distances = make_pair(
                          child_clusters.chain_component_start != 0 ? std::numeric_limits<size_t>::max() 
-                                                                   : SnarlDistanceIndex::sum({dist_left, child_clusters.prefix_sum_value}),
-                         SnarlDistanceIndex::sum({dist_right, distance_from_current_end_to_end_of_chain}));
+                                                                   : SnarlDistanceIndex::sum(dist_left, child_clusters.prefix_sum_value),
+                         SnarlDistanceIndex::sum(dist_right, distance_from_current_end_to_end_of_chain));
     
                 //Add this to the chain
                 chain_clusters.read_cluster_heads.emplace(cluster_head); 
@@ -2728,22 +2732,22 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             const size_t distance_right = child_is_reversed ? dists.first : dists.second;
             //Distance between this cluster and a cluster on the same read from the previous child
             size_t distance_between = SnarlDistanceIndex::minus(
-                     SnarlDistanceIndex::sum({distance_left, 
-                                              distance_from_last_child_to_current_child,
-                                              (read_num == 0 ? old_best_right_by_read.first : old_best_right_by_read.second)}),
+                     SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distance_left, 
+                                              distance_from_last_child_to_current_child),
+                                              (read_num == 0 ? old_best_right_by_read.first : old_best_right_by_read.second)),
                       1);
             //Distance between this cluster and any cluster on the previous child
             size_t fragment_distance_between = SnarlDistanceIndex::minus(
-                      SnarlDistanceIndex::sum({distance_left, 
-                                               distance_from_last_child_to_current_child,  
-                                               old_best_right}),
+                      SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distance_left, 
+                                               distance_from_last_child_to_current_child),  
+                                               old_best_right),
                       1);
     
             //The new distances from this child to the start of the chain and the end of this child
             pair<size_t, size_t> new_distances = make_pair(
                      child_clusters.chain_component_start != 0 ? std::numeric_limits<size_t>::max() 
-                                                               : SnarlDistanceIndex::sum({distance_left, child_clusters.prefix_sum_value}),
-                    SnarlDistanceIndex::sum({distance_right, distance_from_current_end_to_end_of_chain})); 
+                                                               : SnarlDistanceIndex::sum(distance_left, child_clusters.prefix_sum_value),
+                    SnarlDistanceIndex::sum(distance_right, distance_from_current_end_to_end_of_chain)); 
     
             if (distance_between <= tree_state.read_distance_limit) {
 #ifdef DEBUG_CLUSTER
@@ -2826,20 +2830,20 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             const size_t current_fragment_distance_left =  child_best_left_fragment;
             const size_t distance_right = dists.second;
             size_t distance_between = SnarlDistanceIndex::minus(
-                    SnarlDistanceIndex::sum({distance_right, 
-                                             distance_from_last_child_to_current_child, 
-                                             current_distance_left}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distance_right, 
+                                             distance_from_last_child_to_current_child), 
+                                             current_distance_left),
                     1);
             size_t distance_between_fragment = SnarlDistanceIndex::minus(
-                    SnarlDistanceIndex::sum({distance_right, 
-                                             distance_from_last_child_to_current_child, 
-                                             current_fragment_distance_left}),
+                    SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(distance_right, 
+                                             distance_from_last_child_to_current_child), 
+                                             current_fragment_distance_left),
                     1);
             pair<size_t, size_t> new_distances = make_pair(
                 dists.first,
-                SnarlDistanceIndex::sum({dists.second, 
-                                         distance_from_last_child_to_current_end,
-                                         distance_from_current_end_to_end_of_chain}));
+                SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(dists.second, 
+                                         distance_from_last_child_to_current_end),
+                                         distance_from_current_end_to_end_of_chain));
         
                  
             if (distance_between <= tree_state.read_distance_limit) {
@@ -2912,20 +2916,20 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
        cerr << distance_from_last_child_to_current_end << " and " << distance_from_current_end_to_end_of_chain <<  " to the distances right" << endl;
 #endif
         //If this was a snarl that we skipped because the distances were too big, then we need to update the distances
-        chain_clusters.fragment_best_right = SnarlDistanceIndex::sum({old_best_right,
-                                                                      distance_from_last_child_to_current_end,
-                                                                      distance_from_current_end_to_end_of_chain});
-        chain_clusters.read_best_right.first = SnarlDistanceIndex::sum({old_best_right_by_read.first,
-                                                                  distance_from_last_child_to_current_end,
-                                                                  distance_from_current_end_to_end_of_chain});
-        chain_clusters.read_best_right.second = SnarlDistanceIndex::sum({old_best_right_by_read.second,
-                                                                  distance_from_last_child_to_current_end,
-                                                                  distance_from_current_end_to_end_of_chain});
+        chain_clusters.fragment_best_right = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_best_right,
+                                                                      distance_from_last_child_to_current_end),
+                                                                      distance_from_current_end_to_end_of_chain);
+        chain_clusters.read_best_right.first = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_best_right_by_read.first,
+                                                                  distance_from_last_child_to_current_end),
+                                                                  distance_from_current_end_to_end_of_chain);
+        chain_clusters.read_best_right.second = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_best_right_by_read.second,
+                                                                  distance_from_last_child_to_current_end),
+                                                                  distance_from_current_end_to_end_of_chain);
         for (pair<size_t, size_t> cluster_head : chain_clusters.read_cluster_heads) {
-            tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right = SnarlDistanceIndex::sum({
+            tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
                                                         tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right,
-                                                        distance_from_last_child_to_current_end,
-                                                        distance_from_current_end_to_end_of_chain});
+                                                        distance_from_last_child_to_current_end),
+                                                        distance_from_current_end_to_end_of_chain);
         }
     }
     
