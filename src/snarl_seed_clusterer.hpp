@@ -474,7 +474,7 @@ class NewSnarlSeedClusterer {
         //Helper function for adding the next seed to the chain clusters
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         ParentToChildMap::ParentChildValues& last_child,
-                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, bool& found_first_cluster_set, 
+                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<ClusterIndices>& cluster_heads_to_add_again,
                                         bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                         const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, bool is_last_child,
@@ -483,7 +483,7 @@ class NewSnarlSeedClusterer {
         //Helper function for adding the next snarl to the chain clusters
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         ParentToChildMap::ParentChildValues& last_child, 
-                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, bool& found_first_cluster_set, 
+                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<ClusterIndices>& cluster_heads_to_add_again,
                                         bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                         const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, bool is_last_child, 

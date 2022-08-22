@@ -1902,11 +1902,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                                           ? tree_state.all_node_clusters[last_child.child_index1].chain_component_end
                                           : last_child.child_chain_component;
 
-    //As we walk through the chain and build up clusters, we stop remembering clusters if the thing we're on is too far
-    //away from the last thing, and we may add back the clusters we've found so far. we only need to add them back
-    //if this is the first time we're forgetting clusters, so remember if we're on the first cluster set
-    bool found_first_cluster_set = false;
-
     //These are clusters that we don't want to consider as we walk through the chain but that 
     //we want to remember after we're done with the chain because the left distance is small
     vector<ClusterIndices> cluster_heads_to_add_again;
@@ -1932,7 +1927,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 
             //If this is a snarl, then cluster the children here
             add_snarl_to_chain_clusters(tree_state, chain_clusters, last_child, last_prefix_sum, last_length,
-                                       last_chain_component_end, found_first_cluster_set, cluster_heads_to_add_again, found_first_node, found_first_node_by_read,
+                                       last_chain_component_end, cluster_heads_to_add_again, found_first_node, found_first_node_by_read,
                                        child_clusters, i==0, i == (chain_range_end - chain_range_start-1), is_top_level_chain);
         } else {
 
@@ -1940,7 +1935,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
             cerr << "At child seed " << tree_state.all_seeds->at(child_clusters.child_index1)->at(child_clusters.child_index2).pos << endl;
 #endif
             add_seed_to_chain_clusters(tree_state, chain_clusters, last_child,  last_prefix_sum, last_length,
-                                       last_chain_component_end, found_first_cluster_set, cluster_heads_to_add_again, found_first_node, found_first_node_by_read,
+                                       last_chain_component_end, cluster_heads_to_add_again, found_first_node, found_first_node_by_read,
                                        child_clusters, i==0, i == (chain_range_end - chain_range_start-1), is_top_level_chain);
         }
 
@@ -2144,7 +2139,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                 ParentToChildMap::ParentChildValues& last_child,
                                 size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
-                                bool& found_first_cluster_set,
                                 vector<ClusterIndices>& cluster_heads_to_add_again,
                                 bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                 const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, 
@@ -2239,8 +2233,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
             cerr << "This child is too far away from the last one to cluster anything" << endl;
 #endif
         //If the distance from the last cluster is too far to cluster anything
-
-        if (!skip_distances_to_ends && !found_first_cluster_set) {
+        if (!skip_distances_to_ends) {
             for (auto& cluster_head : chain_clusters.read_cluster_heads) {
                 //For each of the chain clusters, remember the ones that are still reachable from the left side of the chain
                 pair<size_t, size_t> dists (tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left,
@@ -2305,7 +2298,6 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                 }
             }
         }
-        found_first_cluster_set = true;
     
     } else {
         //Otherwise, check to see if anything on the current child can be combined with 
@@ -2466,7 +2458,6 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
 void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                 ParentToChildMap::ParentChildValues& last_child, 
                                 size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
-                                bool& found_first_cluster_set,
                                 vector<ClusterIndices>& cluster_heads_to_add_again,
                                 bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                 const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, 
@@ -2738,7 +2729,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 #ifdef DEBUG_CLUSTER
         cerr << "This child is too far away from the last one to cluster anything" << endl;
 #endif
-        if (!skip_distances_to_ends && !found_first_cluster_set) {
+        if (!skip_distances_to_ends) {
             //If the distance from the last cluster is too far to cluster anything
             for (auto& cluster_head : chain_clusters.read_cluster_heads) {
                 //For each of the chain clusters, remember the ones that are still reachable from the left side of the chain
@@ -2792,7 +2783,6 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second) = std::min((read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second), new_distances.second);
             }
         }
-        found_first_cluster_set = true;
     
     
     } else if (!skip_snarl) {
