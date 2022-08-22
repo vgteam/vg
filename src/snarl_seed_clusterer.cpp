@@ -926,26 +926,19 @@ void NewSnarlSeedClusterer::cluster_one_node(
     nid_t node_id = node_clusters.node_id;
 
     //Iterator to the first occurrence of this node in node_to_seeds
-    auto seed_range_start = std::lower_bound(
+    auto seed_range = std::equal_range(
             tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(),
             std::tuple<id_t, size_t, size_t>(node_id, 0, 0));
 
-    //Get the seeds on this node, as indices into all_seeds
-    vector<std::pair<size_t, size_t>> seeds;
-    for (auto iter = seed_range_start; iter != tree_state.node_to_seeds.end() && std::get<0>(*iter) == node_id; ++iter) {
-        //Go through each seed on this node and add it to the list of seeds
-        seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
 
-    }
-
-    std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
-        [&](const std::pair<size_t, size_t>& seed_index){
+    std::function<std::tuple<size_t, size_t, size_t>(const std::tuple<nid_t, size_t, size_t>&)> get_offset_from_indices = 
+        [&](const std::tuple<nid_t, size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
-            return std::make_tuple(seed_index.first, seed_index.second,
-                    tree_state.all_seeds->at(seed_index.first)->at(seed_index.second).distance_left); 
+            return std::make_tuple(std::get<1>(seed_index), std::get<2>(seed_index),
+                    tree_state.all_seeds->at(std::get<1>(seed_index))->at(std::get<2>(seed_index)).distance_left); 
     };
 
-    cluster_seeds_on_linear_structure(tree_state, node_clusters, seeds, seeds.begin(), seeds.end(), node_length, get_offset_from_indices, false);
+    cluster_seeds_on_linear_structure(tree_state, node_clusters, tree_state.node_to_seeds, seed_range.first, seed_range.second, node_length, get_offset_from_indices, false);
 
 #ifdef DEBUG_CLUSTER
 
@@ -1635,11 +1628,6 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
 
             NodeClusters& child_clusters = tree_state.all_node_clusters[iter->second];
 
-            //If this is a trivial chain, then we haven't clustered it yet
-            //TODO: I think we actually have
-            //if (distance_index.is_trivial_chain(child_clusters.containing_net_handle)) {
-            //    cluster_one_node(tree_state, child_clusters);
-            //}
             if (child_clusters.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
                 child_clusters.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
                 continue;
@@ -1686,10 +1674,6 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
             //Go through each child node of the netgraph
 
             NodeClusters& node_clusters = tree_state.all_node_clusters[iter->second]; 
-
-            //TODO: Already did this
-            //The child is a trivial chain so cluster it as if it were a node
-            //cluster_one_node(tree_state, node_clusters);
 
             //Now add it to the snarl, reversing all distances if it is reversed in the snar
             //Add the cluster heads
