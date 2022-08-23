@@ -786,16 +786,32 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                 NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_range_start->parent_index];
                 bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
                 chain_clusters.distance_start_left = 
-                        distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed);
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 
                 chain_clusters.distance_start_right = 
-                        distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed);
+                        distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 
                 chain_clusters.distance_end_left =
-                        distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed);
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 
                 chain_clusters.distance_end_right = 
-                        distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed);
+                        distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 #ifdef DEBUG_CLUSTER
                 cerr << "This child has distances to end : " << chain_clusters.distance_start_left << " " << chain_clusters.distance_start_right 
                      << " " << chain_clusters.distance_end_left << " " << chain_clusters.distance_end_right << endl;
@@ -870,16 +886,32 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                     NodeClusters& chain_clusters = tree_state.all_node_clusters[current_iterator->parent_index];
                     bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
                     chain_clusters.distance_start_left = 
-                            distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed);
+                            distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 
                     chain_clusters.distance_start_right = 
-                            distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed);
+                            distance_index.distance_to_parent_bound(parent, true, chain_handle, chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 
                     chain_clusters.distance_end_left =
-                            distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed);
+                            distance_index.distance_to_parent_bound(parent, false, chain_handle, !chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 
                     chain_clusters.distance_end_right = 
-                            distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed);
+                            distance_index.distance_to_parent_bound(parent, false, chain_handle, chain_handle_is_reversed,
+                            std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
+                                            SnarlDistanceIndex::SNARL_HANDLE,
+                                            (chain_clusters.is_trivial_chain ? SnarlDistanceIndex::NODE_HANDLE : SnarlDistanceIndex::CHAIN_HANDLE), 
+                                            SnarlDistanceIndex::CHAIN_HANDLE));
 #ifdef DEBUG_CLUSTER
                     cerr << "This child has distances to end : " << chain_clusters.distance_start_left << " " << chain_clusters.distance_start_right 
                          << " " << chain_clusters.distance_end_left << " " << chain_clusters.distance_end_right << endl;
