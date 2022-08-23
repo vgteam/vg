@@ -43,8 +43,8 @@ using namespace std;
 // Make sure all of vg's print operators are available.
 using vg::operator<<;
 
-//#define debug_chaining
-//#define debug_reseeding
+#define debug_chaining
+#define debug_reseeding
 
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring
