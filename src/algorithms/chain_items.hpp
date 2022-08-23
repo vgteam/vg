@@ -392,23 +392,26 @@ struct BaseChainingSpace {
     }
     
     /**
-     * Get the distance in the read between two items, or 0 if they abut or
-     * overlap.
+     * Get the distance in the read between two items, or 0 if they abut.
+     * Returns std::numeric_limits<size_t>::max() if they overlap.
      */
     virtual size_t get_read_distance(const Item& left,
                                      const Item& right) const {
         size_t l = read_end(left);
         size_t r = read_start(right);
         if (r < l) {
-            return 0;
+            return std::numeric_limits<size_t>::max();
         }
         return r - l;
     }
     
     /**
-     * Get the highest score in points that the alignment of the region between
-     * two Items could possibly get. Should assume that any bases that might
-     * match actually match.
+     * Get the score to make a transition from one item to another, or
+     * std::numeric_limits<int>::min() if the transition should be disallowed.
+     *
+     * Default implementation: highest score in points that the alignment of
+     * the region between two Items could possibly get. Should assume that any
+     * bases that might match actually match.
      *
      * If the items overlap in the read or the graph, returns
      * std::numeric_limits<int>::min() because one side of the alignment would
@@ -418,9 +421,9 @@ struct BaseChainingSpace {
      * std::numeric_limits<int>::min() (because we're probably going the long
      * way around an inversion or something.
      */
-    virtual int transition_score_upper_bound(const Item& left,
-                                             const Item& right,
-                                             size_t max_gap_length = std::numeric_limits<size_t>::max()) const {
+    virtual int transition_score(const Item& left,
+                                 const Item& right,
+                                 size_t max_gap_length = std::numeric_limits<size_t>::max()) const {
                                              
         if (read_end(left) == read_start(right)) {
             // They abut in the read.
@@ -657,6 +660,47 @@ struct MinimizerSourceChainingSpace : public SourceChainingSpace<Item, Source> {
         SourceChainingSpace<Item, Source>(sources, scoring, distance_index, graph) {
         
         // Nothing to do!
+    }
+    
+    /// Score items flat by minimizer length
+    virtual int score(const Item& item) const {
+        return this->scoring.match * this->sources[item.source].length;
+    }
+    
+    /// Score transitions just as indel costs, with no points for implied matches/mismatches
+    virtual int transition_score(const Item& left,
+                                 const Item& right,
+                                 size_t max_gap_length = std::numeric_limits<size_t>::max()) const {
+                                 
+        if (!this->graph) {
+            // No graph means no known indel
+            return 0;
+        }
+        
+        size_t read_distance = this->get_read_distance(left, right);
+        if (read_distance == numeric_limits<size_t>::max()) {
+            // Overlap in read, so not allowed.
+            return std::numeric_limits<int>::min();
+        }
+        
+        size_t graph_distance = this->get_graph_distance(left, right);
+        if (graph_distance == numeric_limits<size_t>::max()) {
+            // No graph connection
+            return std::numeric_limits<int>::min();
+        }
+        
+        // Decide how much lenght changed
+        size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
+        
+        // Then charge for that indel
+        int score = 0;
+        if (indel_length > 0) {
+            score -= this->scoring.gap_open;
+            if (indel_length > 1) {
+                score -= this->scoring.gap_extension * (indel_length - 1);
+            }
+        }
+        return score;
     }
     
     // The seeds know either a start or an end position, depending on
@@ -1200,7 +1244,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             // to here?
             // Don't allow the transition if it seems like we're going the long
             // way around an inversion and needing a huge indel.
-            int jump_points = space.transition_score_upper_bound(source, here, max_indel_bases);
+            int jump_points = space.transition_score(source, here, max_indel_bases);
             
             if (jump_points != numeric_limits<int>::min()) {
                 // Get the score we are coming from
