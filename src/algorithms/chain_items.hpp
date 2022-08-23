@@ -43,8 +43,8 @@ using namespace std;
 // Make sure all of vg's print operators are available.
 using vg::operator<<;
 
-#define debug_chaining
-#define debug_reseeding
+//#define debug_chaining
+//#define debug_reseeding
 
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring
@@ -983,7 +983,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      int item_bonus = 0,
                      size_t lookback_items = 500,
                      size_t lookback_bases = 1000,
-                     size_t lookback_reachable_items = 1,
+                     size_t lookback_reachable_items = 5,
                      size_t max_indel_bases = 10000);
 
 /**

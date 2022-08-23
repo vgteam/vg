@@ -369,6 +369,7 @@ void help_giraffe(char** argv) {
     << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [100]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+    << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
 }
 
@@ -489,6 +490,8 @@ int main_giraffe(int argc, char** argv) {
     bool track_correctness = false;
     // Should we log our mapping decision making?
     bool show_work = false;
+    // How many reads per batch to run at a time?
+    uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = distance_limit
@@ -594,12 +597,13 @@ int main_giraffe(int argc, char** argv) {
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"show-work", no_argument, 0, OPT_SHOW_WORK},
+            {"batch-size", required_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:Ot:r:A:L:",
+        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:OB:t:r:A:L:",
                          long_options, &option_index);
 
 
@@ -1017,6 +1021,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_SHOW_WORK:
                 show_work = true;
+                break;
+                
+            case 'B':
+                batch_size = parse<uint64_t>(optarg);
                 break;
                 
             case 't':
@@ -1657,12 +1665,12 @@ int main_giraffe(int argc, char** argv) {
                     });
                 } else if (!fastq_filename_2.empty()) {
                     //A pair of FASTQ files to map
-                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready);
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready, batch_size);
 
 
                 } else if ( !fastq_filename_1.empty()) {
                     // An interleaved FASTQ file to map, map all its pairs in parallel.
-                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready, batch_size);
                 }
 
                 // Now map all the ambiguous pairs
@@ -1704,13 +1712,13 @@ int main_giraffe(int argc, char** argv) {
                     // GAM file to remap
                     get_input_file(gam_filename, [&](istream& in) {
                         // Open it and map all the reads in parallel.
-                        vg::io::for_each_parallel<Alignment>(in, map_read);
+                        vg::io::for_each_parallel<Alignment>(in, map_read, batch_size);
                     });
                 }
                 
                 if (!fastq_filename_1.empty()) {
                     // FASTQ file to map, map all its reads in parallel.
-                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read);
+                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read, batch_size);
                 }
             }
         

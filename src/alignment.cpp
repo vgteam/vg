@@ -183,7 +183,7 @@ bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, s
     return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
 }
 
-size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda) {
+size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda, uint64_t batch_size) {
     
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
@@ -198,7 +198,7 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     };
     
     
-    size_t nLines = unpaired_for_each_parallel(get_read, lambda);
+    size_t nLines = unpaired_for_each_parallel(get_read, lambda, batch_size);
     
     delete[] buf;
     gzclose(fp);
@@ -206,17 +206,18 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     
 }
 
-size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda) {
-    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;});
+size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda, uint64_t batch_size) {
+    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;}, batch_size);
 }
     
-size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda) {
-    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;});
+size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda, uint64_t batch_size) {
+    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;}, batch_size);
 }
     
 size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
                                                              function<void(Alignment&, Alignment&)> lambda,
-                                                             function<bool(void)> single_threaded_until_true) {
+                                                             function<bool(void)> single_threaded_until_true,
+                                                             uint64_t batch_size) {
     
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
@@ -230,7 +231,7 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
         return get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
     };
     
-    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
+    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true, batch_size);
     
     delete[] buf;
     gzclose(fp);
@@ -239,7 +240,8 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
-                                                           function<bool(void)> single_threaded_until_true) {
+                                                           function<bool(void)> single_threaded_until_true,
+                                                           uint64_t batch_size) {
     
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp1) {
@@ -257,7 +259,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
         return get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
     };
     
-    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
+    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true, batch_size);
     
     delete[] buf;
     gzclose(fp1);

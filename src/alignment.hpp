@@ -38,21 +38,26 @@ size_t fastq_paired_interleaved_for_each(const string& filename, function<void(A
 size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda);
 // parallel versions of above
 size_t fastq_unpaired_for_each_parallel(const string& filename,
-                                        function<void(Alignment&)> lambda);
+                                        function<void(Alignment&)> lambda,
+                                        uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_interleaved_for_each_parallel(const string& filename,
-                                                  function<void(Alignment&, Alignment&)> lambda);
+                                                  function<void(Alignment&, Alignment&)> lambda,
+                                                  uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
                                                              function<void(Alignment&, Alignment&)> lambda,
-                                                             function<bool(void)> single_threaded_until_true);
+                                                             function<bool(void)> single_threaded_until_true,
+                                                             uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2,
-                                                function<void(Alignment&, Alignment&)> lambda);
+                                                function<void(Alignment&, Alignment&)> lambda,
+                                                uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
     
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
-                                                           function<bool(void)> single_threaded_until_true);
+                                                           function<bool(void)> single_threaded_until_true,
+                                                           uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
