@@ -66,7 +66,7 @@ class NewSnarlSeedClusterer {
         //The read clusters refer to seeds by their indexes in the input vectors of seeds
         //The fragment clusters give seeds the index they would get if the vectors of
         // seeds were appended to each other in the order given
-        // TODO: Fix documentation
+        // Requires that there are only two reads
         // Returns: For each read, a vector of clusters.
 
         vector<vector<Cluster>> cluster_seeds ( 
@@ -76,6 +76,7 @@ class NewSnarlSeedClusterer {
 
 
         //Actual clustering function that takes a vector of pointers to seeds
+        //The fragment_distance_limit default of 0 indicates that we shouldn't cluster the fragment
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
                 vector<vector<Seed>*>& all_seeds,
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
@@ -83,28 +84,14 @@ class NewSnarlSeedClusterer {
         const SnarlDistanceIndex& distance_index;
         const HandleGraph* graph;
 
-        enum ChildNodeType {CHAIN, SNARL, NODE};
-
         
-        static inline string typeToString(ChildNodeType t) {
-            switch (t) {
-            case CHAIN:
-                return "CHAIN";
-            case SNARL:
-                return "SNARL";
-            case NODE:
-                return "NODE";
-            default:
-                return "OUT_OF_BOUNDS";
-            }
-        }
 
-
+        /*
+         * The NodeClusters struct represents all the clusters on one snarl tree node (node/chain/snarl)
+         * It remembers the cluster heads on a particular node and the best distances from any
+         * seed in the cluster to the ends of the node
+         */
         struct NodeClusters {
-            //All clusters of a snarl tree node
-            //The node containing this struct may be an actual node,
-            // snarl/chain that is a node the parent snarl's netgraph,
-            // or a snarl in a chain
 
             //set of the indices of heads of clusters (group ids in the 
             //union find)
@@ -127,8 +114,6 @@ class NewSnarlSeedClusterer {
 
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
-            net_handle_t parent_net_handle;
-            net_handle_t grandparent_net_handle;
             net_handle_t end_in;
 
             nid_t node_id = 0;
@@ -144,11 +129,6 @@ class NewSnarlSeedClusterer {
 
             size_t loop_left = std::numeric_limits<size_t>::max();
             size_t loop_right = std::numeric_limits<size_t>::max();
-
-            //These are sometimes set if the value was in the cache
-            //TODO: I should probably make this a static member of the class in case it changes
-            bool has_parent_handle = false;;
-            bool has_grandparent_handle = false;
 
             //Only set these for nodes or snarls in chains
             bool is_reversed_in_parent = false;

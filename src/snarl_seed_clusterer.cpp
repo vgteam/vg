@@ -585,19 +585,13 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
 
             //Make a new NodeClusters for the parent
 
-            net_handle_t snarl_parent = snarl_clusters.has_parent_handle
-                                      ? snarl_clusters.parent_net_handle
-                                      : distance_index.get_parent(snarl_clusters.containing_net_handle);
+            net_handle_t snarl_parent = distance_index.get_parent(snarl_clusters.containing_net_handle);
             size_t parent_index;
             if (tree_state.net_handle_to_index.count(snarl_parent) == 0) {
                 parent_index = tree_state.all_node_clusters.size();
                 tree_state.net_handle_to_index[snarl_parent] = parent_index;
                 tree_state.all_node_clusters.emplace_back(snarl_parent, tree_state.all_seeds->size(),
                                                       tree_state.seed_count_prefix_sum.back(), distance_index);
-                if (snarl_clusters.has_grandparent_handle) {
-                    tree_state.all_node_clusters.back().has_parent_handle = true;
-                    tree_state.all_node_clusters.back().parent_net_handle = snarl_clusters.grandparent_net_handle;
-                }
             } else {
                 parent_index = tree_state.net_handle_to_index[snarl_parent];
             }
@@ -662,9 +656,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 #endif
 
 
-            net_handle_t parent = tree_state.all_node_clusters[chain_range_start->parent_index].has_parent_handle
-                                ? tree_state.all_node_clusters[chain_range_start->parent_index].parent_net_handle
-                                : distance_index.get_parent(chain_handle);
+            net_handle_t parent = distance_index.get_parent(chain_handle);
             bool is_root = distance_index.is_root(parent);
             bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
             bool is_top_level_chain = (depth == 1) && !is_root_snarl &&
@@ -747,10 +739,6 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                     tree_state.net_handle_to_index[parent] = parent_index;
                     tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
                                                               tree_state.seed_count_prefix_sum.back(), distance_index);
-                    if (chain_clusters.has_grandparent_handle) {
-                        tree_state.all_node_clusters.back().has_parent_handle = true;
-                        tree_state.all_node_clusters.back().parent_net_handle = chain_clusters.grandparent_net_handle;
-                    }
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
@@ -768,9 +756,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 #endif
 
 
-                net_handle_t parent = tree_state.all_node_clusters[current_iterator->parent_index].has_parent_handle
-                                    ? tree_state.all_node_clusters[current_iterator->parent_index].parent_net_handle
-                                    : distance_index.get_parent(chain_handle);
+                net_handle_t parent = distance_index.get_parent(chain_handle);
                 bool is_root = distance_index.is_root(parent);
                 bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
                 bool is_top_level_chain = (depth == 1) && !is_root_snarl &&
@@ -847,10 +833,6 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                         tree_state.net_handle_to_index[parent] = parent_index;
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
                                                                   tree_state.seed_count_prefix_sum.back(), distance_index);
-                        if (chain_clusters.has_grandparent_handle) {
-                            tree_state.all_node_clusters.back().has_parent_handle = true;
-                            tree_state.all_node_clusters.back().parent_net_handle = chain_clusters.grandparent_net_handle;
-                        }
                     } else {
                         parent_index = tree_state.net_handle_to_index[parent];
                     }
