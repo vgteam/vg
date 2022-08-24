@@ -32,7 +32,7 @@
 #include "../snarl_seed_clusterer.hpp"
 #include "../seed_clusterer.hpp"
 #include "../handle.hpp"
-
+#include "../explainer.hpp"
 #include "../utility.hpp"
 
 namespace vg {
@@ -45,6 +45,8 @@ using vg::operator<<;
 
 #define debug_chaining
 #define debug_reseeding
+
+
 
 /// We support chaining different kinds of things, so we have a type that
 /// abstracts out accessing their chaining-relevant fields and measuring
@@ -1138,7 +1140,9 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      size_t lookback_bases,
                      size_t lookback_reachable_items,
                      size_t max_indel_bases) {
-                    
+    
+    DiagramExplainer diagram({{"rankdir", "LR"}});
+    
     // Grab the traits into a short name so we can use the accessors concisely.
     using ST = score_traits<Score>;
 
@@ -1186,6 +1190,8 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         
         // How many points is it worth to collect?
         auto item_points = space.score(here) + item_bonus;
+        
+        std::string here_gvnode = "i" + std::to_string(i);
         
         // If we come from nowhere, we get those points.
         best_chain_score[i] = std::max(best_chain_score[i], ST::annotate(item_points, ST::nowhere()));
@@ -1260,6 +1266,13 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
                 cerr << "\t\tWe can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << " to collect " << item_points << endl;
 #endif
+                std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
+                // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, ST::score(from_source_score), {
+                    {"label", std::to_string(jump_points)},
+                    {"weight", std::to_string(std::max<int>(1, ST::score(from_source_score)))}
+                });
+
                 reachable_items_found++;
             }
         }
@@ -1267,6 +1280,19 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
         cerr << "\tBest way to reach " << i << " is " << best_chain_score[i] << endl;
 #endif
+        
+        diagram.add_node(here_gvnode, {
+            {"label", std::to_string(i) + " = " + std::to_string(item_points) + "/" + std::to_string(ST::score(best_chain_score[i]))}
+        });
+        if (space.graph) {
+            auto graph_start = space.graph_start(here);
+            std::string graph_gvnode = "n" + std::to_string(id(graph_start));
+            diagram.ensure_node(graph_gvnode, {
+                {"label", std::to_string(id(graph_start))},
+                {"shape", "box"}
+            });
+            diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+        }
         
         // See if this is the best overall
         ST::max_in(best_score, best_chain_score, i);
