@@ -2786,7 +2786,7 @@ size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
     return node_to_component[node_id-min_node_id];
 }
 
-constexpr MinimumDistanceIndex::MIPayload::payload_type MinimumDistanceIndex::MIPayload::NO_CODE;
+constexpr MinimumDistanceIndex::MIPayload::code_type MinimumDistanceIndex::MIPayload::NO_CODE;
 constexpr size_t MinimumDistanceIndex::MIPayload::NO_VALUE;
 
 }
