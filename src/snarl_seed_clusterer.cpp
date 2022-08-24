@@ -331,7 +331,6 @@ cerr << "Add all seeds to nodes: " << endl;
                                     distance_index.get_record_offset(parent);
 
 #ifdef DEBUG_CLUSTER
-cerr << cached_is_trivial_chain << " " << cached_parent_is_chain << " " << cached_parent_is_root << endl;
 cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << distance_index.net_handle_as_string(parent) << endl;
 cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_parent(node_net_handle));
             assert(node_net_handle == distance_index.get_node_net_handle(id));
@@ -2177,7 +2176,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-    cerr << "\tDistance from start of chain to the left side of this one: " << (std::get<9>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : std::get<8>(current_child_seed.minimizer_cache)) << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : std::get<2>(current_child_seed.minimizer_cache)) << endl;
     cerr << "\tDistance from the last child to the right side of this one: " << distance_from_last_child_to_current_end << endl;
     cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
 #endif
