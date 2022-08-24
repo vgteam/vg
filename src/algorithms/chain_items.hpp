@@ -1141,7 +1141,8 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      size_t lookback_reachable_items,
                      size_t max_indel_bases) {
     
-    DiagramExplainer diagram({{"rankdir", "LR"}});
+    DiagramExplainer diagram;
+    diagram.add_globals({{"rankdir", "LR"}});
     
     // Grab the traits into a short name so we can use the accessors concisely.
     using ST = score_traits<Score>;
@@ -1266,12 +1267,17 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
                 cerr << "\t\tWe can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << " to collect " << item_points << endl;
 #endif
-                std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
-                // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, ST::score(from_source_score), {
-                    {"label", std::to_string(jump_points)},
-                    {"weight", std::to_string(std::max<int>(1, ST::score(from_source_score)))}
-                });
+                if (ST::score(from_source_score) > 0) {
+                    // Only explain edges that were actual candidates since we
+                    // won't let local score go negative
+                    
+                    std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
+                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, ST::score(from_source_score), {
+                        {"label", std::to_string(jump_points)},
+                        {"weight", std::to_string(std::max<int>(1, ST::score(from_source_score)))}
+                    });
+                }
 
                 reachable_items_found++;
             }

@@ -28,9 +28,12 @@ public:
     using annotation_t = std::vector<std::pair<std::string, std::string>>;
 
     /// Construct a DiagramExplainer that will save a diagram to a file
-    DiagramExplainer(const annotation_t& global_annotations = {});
+    DiagramExplainer();
     /// Close out the file being explained to
     ~DiagramExplainer();
+    
+    /// Add global annotations (like rankdir)
+    void add_globals(const annotation_t& annotations);
     
     /// Add a node. Optionally give it the given annotation, which must be pre-escaped.
     /// The node is assumed not to exist already

@@ -8,15 +8,18 @@
 namespace vg {
 
 std::atomic<size_t> DiagramExplainer::next_explanation_number {0};
-const size_t DiagramExplainer::MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY {5};
+const size_t DiagramExplainer::MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY {2};
 
-DiagramExplainer::DiagramExplainer(const annotation_t& global_annotations) {
+DiagramExplainer::DiagramExplainer() {
     // Get a unique filename
     file = std::ofstream("graph" + std::to_string(DiagramExplainer::next_explanation_number++) + ".dot");
     // And start the graphviz graph
     file << "digraph explanation {" << std::endl;
-    for (auto& kv : global_annotations) {
-        // Add all the globals like rankdir
+}
+
+void DiagramExplainer::add_globals(const annotation_t& annotations) {
+    for (auto& kv : annotations) {
+        // Add all the globals, which have a different syntax than item annotations.
         file << kv.first << "=\"" << kv.second << "\";" << std::endl;
     }
 }
