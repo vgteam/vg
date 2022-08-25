@@ -304,7 +304,7 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
 
     tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_name);
     const string& base_name = get<0>(subpath_parse) ? get<1>(subpath_parse) : path_name;
-    size_t offset = get<2>(subpath_parse);
+    size_t offset = 1 + get<2>(subpath_parse);
 
     graph.for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
             unordered_set<string> path_set;
