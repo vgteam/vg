@@ -22,10 +22,13 @@ class NewSnarlSeedClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
 
-            //node length, root component, prefix sum, chain component, is_reversed
-            tuple<size_t, size_t, size_t, size_t, bool> minimizer_cache  = 
-                make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 
+            //Cached values from the minimizer
+            //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
+            // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
+
+            tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> minimizer_cache  = 
+                make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
