@@ -51,18 +51,25 @@ public:
     void suggest_edge(const std::string& a_id, const std::string& b_id, const std::string& category, double importance, const annotation_t& annotations = {});
     
 protected:
-    /// The file we are reporting to
-    std::ofstream file;
+    /// What number explanation are we? Distinguishes different objects.
+    size_t explanation_number;
     
-    /// Set used for deduplicating nodes for ensure_node
-    std::unordered_set<std::string> ensured_node_ids;
+    /// Collection of all global diagram key-value pairs (like rankdir)
+    annotation_t globals;
+
+    /// Collection of all nodes, by ID
+    std::unordered_map<std::string, annotation_t> nodes;
     
-    // We will need to store edges for managing suggested edges
+    /// We will need to store edges
     using stored_edge_t = std::tuple<std::string, std::string, annotation_t>;
+    
+    /// Collection of all required edges
+    std::vector<stored_edge_t> edges;
+    
     using suggested_edge_t = std::pair<double, stored_edge_t>;
     
     /// Top k most important edges for each suggested edge category
-    std::unordered_map<std::string, std::priority_queue<suggested_edge_t, std::vector<suggested_edge_t>, std::greater<suggested_edge_t>>> suggested_edges;
+    std::unordered_map<std::string, std::vector<suggested_edge_t>> suggested_edges;
     
     
     /// Counter used to give different explanations their own unique filenames.
@@ -73,7 +80,20 @@ protected:
     
     
     /// Save the annotations for a node or edge, if any.
-    void write_annotations(const annotation_t& annotations);
+    void write_annotations(std::ostream& out, const annotation_t& annotations) const;
+    
+    /// Write out a node
+    void write_node(std::ostream& out, const std::string& id, const annotation_t& annotations) const;
+    
+    /// Write out an edge
+    void write_edge(std::ostream& out, const std::string& a_id, const std::string& b_id, const annotation_t& annotations) const;
+    
+    /// Write out globals
+    void write_globals(std::ostream& out, const annotation_t& annotations) const;
+    
+    /// Write each connected component to a different file
+    void write_connected_components() const;
+    
 };
 
 }
