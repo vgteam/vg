@@ -1310,12 +1310,6 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             // And show them as connected. 
             diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
         }
-        if (*first_overlapping_it != i) {
-            // There's overlap with something other than us.
-            // Connect the overlap network
-            std::string overlapped_gvnode = "i" + std::to_string(*first_overlapping_it);
-            diagram.add_edge(overlapped_gvnode, here_gvnode, {{"color", "orange"}, {"constraint", "false"}});
-        }
         
         // See if this is the best overall
         ST::max_in(best_score, best_chain_score, i);
