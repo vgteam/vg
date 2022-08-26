@@ -1287,17 +1287,34 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         cerr << "\tBest way to reach " << i << " is " << best_chain_score[i] << endl;
 #endif
         
+        std::stringstream label_stream;
+        label_stream << "#" << i << " (" << space.read_start(here) << "-" << space.read_end(here) << ") = " << item_points << "/" << ST::score(best_chain_score[i]);
         diagram.add_node(here_gvnode, {
-            {"label", std::to_string(i) + " = " + std::to_string(item_points) + "/" + std::to_string(ST::score(best_chain_score[i]))}
+            {"label", label_stream.str()}
         });
         if (space.graph) {
             auto graph_start = space.graph_start(here);
-            std::string graph_gvnode = "n" + std::to_string(id(graph_start));
+            std::string graph_gvnode = "n" + std::to_string(id(graph_start)) + (is_rev(graph_start) ? "r" : "f");
             diagram.ensure_node(graph_gvnode, {
-                {"label", std::to_string(id(graph_start))},
+                {"label", std::to_string(id(graph_start)) + (is_rev(graph_start) ? "-" : "+")},
                 {"shape", "box"}
             });
+            // Show the item as connected to its source graph node
             diagram.add_edge(here_gvnode, graph_gvnode, {{"color", "gray"}});
+            // Make the next graph node along the same strand
+            std::string graph_gvnode2 = "n" + std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "r" : "f");
+            diagram.ensure_node(graph_gvnode2, {
+                {"label", std::to_string(id(graph_start) + (is_rev(graph_start) ? -1 : 1)) + (is_rev(graph_start) ? "-" : "+")},
+                {"shape", "box"}
+            });
+            // And show them as connected. 
+            diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
+        }
+        if (*first_overlapping_it != i) {
+            // There's overlap with something other than us.
+            // Connect the overlap network
+            std::string overlapped_gvnode = "i" + std::to_string(*first_overlapping_it);
+            diagram.add_edge(overlapped_gvnode, here_gvnode, {{"color", "orange"}, {"constraint", "false"}});
         }
         
         // See if this is the best overall

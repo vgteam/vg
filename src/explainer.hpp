@@ -17,6 +17,9 @@
 #include <functional>
 #include <queue>
 
+// For pair hash overload
+#include "hash_map.hpp"
+
 namespace vg {
 
 /**
@@ -43,8 +46,13 @@ public:
     /// Deduplicates multiple calls with the same ID.
     void ensure_node(const std::string& id, const annotation_t& annotations = {});
     
-    /// Add an edge. Optionally give it the given annotation, which must be pre-escaped.
+    /// Add an edge. Optionally give it the given annotation, which must be
+    /// pre-escaped. The edge is assumed not to exist already.
     void add_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations = {});
+    
+    /// Add an edge. Optionally give it the given annotation, which must be
+    /// pre-escaped. Deduplicates multiple calls with the same IDs in the same order.
+    void ensure_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations = {});
     
     /// Add an optional edge. Optionally give it the given annotation, which must be pre-escaped.
     /// Only the k most important edges in each category will actually render
@@ -62,9 +70,11 @@ protected:
     
     /// We will need to store edges
     using stored_edge_t = std::tuple<std::string, std::string, annotation_t>;
+    /// And show them to people
+    using edge_ref_t = std::tuple<const std::string&, const std::string&, const annotation_t&>;
     
     /// Collection of all required edges
-    std::vector<stored_edge_t> edges;
+    std::unordered_map<std::pair<std::string, std::string>, annotation_t> edges;
     
     using suggested_edge_t = std::pair<double, stored_edge_t>;
     
@@ -78,6 +88,8 @@ protected:
     /// Limit on suggested edges
     static const size_t MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY;
     
+    /// Loop over all the edges, across all kinds of storage
+    void for_each_edge(const std::function<void(const edge_ref_t&)>& iteratee) const;
     
     /// Save the annotations for a node or edge, if any.
     void write_annotations(std::ostream& out, const annotation_t& annotations) const;

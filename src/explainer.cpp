@@ -38,7 +38,15 @@ void DiagramExplainer::ensure_node(const std::string& id, const annotation_t& an
 }
 
 void DiagramExplainer::add_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations) {
-    edges.emplace_back(a_id, b_id, annotations);
+    edges.emplace(std::make_pair(a_id, b_id), annotations);
+}
+
+void DiagramExplainer::ensure_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations) {
+    auto key = std::make_pair(a_id, b_id);
+    auto found = edges.find(key);
+    if (found == edges.end()) {
+        edges.emplace_hint(found, std::move(key), annotations);
+    }
 }
 
 void DiagramExplainer::suggest_edge(const std::string& a_id, const std::string& b_id, const std::string& category, double importance, const annotation_t& annotations) {
@@ -56,7 +64,21 @@ void DiagramExplainer::suggest_edge(const std::string& a_id, const std::string& 
         std::pop_heap(heap.begin(), heap.end(), comp);
         heap.pop_back();
     }
+}
+
+void DiagramExplainer::for_each_edge(const std::function<void(const edge_ref_t&)>& iteratee) const {
+    for (auto& kv : edges) {
+        // Do all the required edges
+        iteratee(edge_ref_t(kv.first.first, kv.first.second, kv.second));
+    }
     
+    for (auto& kv : suggested_edges) {
+        for (auto& suggestion : kv.second) {
+            const stored_edge_t& edge = suggestion.second;
+            // Do all the surviving suggested edges
+            iteratee(edge_ref_t(std::get<0>(edge), std::get<1>(edge), std::get<2>(edge)));
+        }
+    }
 }
 
 void DiagramExplainer::write_annotations(std::ostream& out, const annotation_t& annotations) const {
@@ -102,18 +124,11 @@ void DiagramExplainer::write_connected_components() const {
     
     // Compose connected components
     structures::UnionFind components(node_order.size());
-    for (const stored_edge_t& edge : edges) {
-        // Connect connected components for each required edge
-        components.union_groups(id_to_index.at(std::get<0>(edge)), id_to_index.at(std::get<1>(edge)));
-    }
     
-    for (auto& kv : suggested_edges) {
-        for (auto& suggestion : kv.second) {
-            const stored_edge_t& edge = suggestion.second;
-            // Connect connected components for each surviving suggested edge
-            components.union_groups(id_to_index.at(std::get<0>(edge)), id_to_index.at(std::get<1>(edge)));
-        }
-    }
+    for_each_edge([&](const edge_ref_t& edge) {
+        // Connect connected components for each edge
+        components.union_groups(id_to_index.at(std::get<0>(edge)), id_to_index.at(std::get<1>(edge)));
+    });
     
     std::unordered_map<size_t, std::ofstream> files_by_group;
     for (size_t i = 0; i < node_order.size(); i++) {
@@ -138,20 +153,11 @@ void DiagramExplainer::write_connected_components() const {
         write_node(file_it->second, node_order[i]->first, node_order[i]->second);
     }
     
-    for (const stored_edge_t& edge : edges) {
-        // Add each required edge to the file for its group
+    for_each_edge([&](const edge_ref_t& edge) {
+        // Add each edge to the file for its group
         size_t group = components.find_group(id_to_index.at(std::get<0>(edge)));
         write_edge(files_by_group.at(group), std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
-    }
-    
-    for (auto& kv : suggested_edges) {
-        for (auto& suggestion : kv.second) {
-            const stored_edge_t& edge = suggestion.second;
-            // Add each surviving suggested edge to the file for its group
-            size_t group = components.find_group(id_to_index.at(std::get<0>(edge)));
-            write_edge(files_by_group.at(group), std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
-        }
-    }
+    });
     
     for (auto& kv : files_by_group) {
         // Close out all the files
