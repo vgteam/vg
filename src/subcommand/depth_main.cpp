@@ -44,7 +44,7 @@ void help_depth(char** argv) {
          << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
          << "    -P, --paths-by STR     select the paths with the given name prefix" << endl        
          << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
-         << "    -m, --min-coverage N   ignore nodes with less than N coverage [1]" << endl
+         << "    -m, --min-coverage N   ignore nodes with less than N coverage depth [1]" << endl
          << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
 
