@@ -394,12 +394,6 @@ class NewSnarlSeedClusterer {
             //////////Data structures to hold snarl tree relationships
             //The snarls and chains get updated as we move up the snarl tree
 
-            //Maps each node to a vector of the seeds that are contained in it
-            //seeds are represented by indexes into the seeds vector (read_num, seed_num)
-            //This only gets used for nodes in the root. All other seeds are added directly
-            //to their parent chains as children
-            vector<std::tuple<id_t,size_t, size_t>> node_to_seeds;
-
             //This stores all the node clusters so we stop spending all our time allocating lots of vectors of NodeClusters
             vector<NodeClusters> all_node_clusters;
 
@@ -429,7 +423,7 @@ class NewSnarlSeedClusterer {
             //This holds all the child clusters of the root
             //each size_t is the index into all_node_clusters
             //Each pair is the parent and the child. This will be sorted by parent before
-            //clustering so it
+            //clustering
             vector<pair<size_t, size_t>> root_children;
 
 
@@ -477,7 +471,11 @@ class NewSnarlSeedClusterer {
         void cluster_chain_level(TreeState& tree_state, size_t depth) const;
 
         //Cluster the seeds on the specified node
-        void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
+        //seed_range_start/end are iterators to the range in a vector of seeds for this node
+        //the tuple is <index of node in all_node_clusters, read_num of seed, cluster_num of seed>
+        void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters,
+                              const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_start,
+                              const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_end) const; 
 
         //Cluster the seeds in a snarl
         //Snarl_cluster_index is the index into tree_state.all_node_clusters

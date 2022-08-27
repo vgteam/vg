@@ -127,8 +127,8 @@ cerr << "\tread distance limit: " << read_distance_limit << " and fragment dista
     TreeState tree_state (&all_seeds, read_distance_limit, fragment_distance_limit, seed_count);
 
 
-    //Populate tree_state.node_to_seeds (mapping each node to the seeds it
-    //contains) and chain_to_children_by_level
+    //Initialize chain_to_children_by_level with all the seeds on chains
+    //Also clusters seeds on nodes in the root or root snarls and adds them to the root snarls
     get_nodes(tree_state, chain_to_children_by_level);
 
     //Initialize the tree state to the bottom level
@@ -278,6 +278,14 @@ void NewSnarlSeedClusterer::get_nodes( TreeState& tree_state, vector<ParentToChi
 cerr << "Add all seeds to nodes: " << endl;
 #endif
 
+    //This is to remember the nodes that we are going to cluster at the end of get_nodes
+    //these will be the nodes that are children of the root or root snarl. 
+    //All other seeds are added directly to their parent chains as children
+    //Used as a map from each node (as an index into all_node_clusters) to all of its seeds
+    //seeds are represented by indexes into the seeds vector (read_num, seed_num)
+    vector<std::tuple<size_t,size_t, size_t>> node_to_seeds;
+
+
     //Map the parent NodeClusters to its depth so we don't use get_depth() as much
     vector<size_t> parent_node_cluster_offset_to_depth;
     parent_node_cluster_offset_to_depth.reserve(tree_state.seed_count_prefix_sum.back());
@@ -286,11 +294,6 @@ cerr << "Add all seeds to nodes: " << endl;
     //All nodes we've already assigned
     hash_set<id_t> seen_nodes;
     seen_nodes.reserve(tree_state.seed_count_prefix_sum.back());
-
-    //A vector of indices into all_node_clusters (and parent and grandparent) of nodes that need to be clustered
-    //These include anything that's a child of a root or root-snarl
-    vector<tuple<size_t, net_handle_t, net_handle_t>> to_cluster; 
-    to_cluster.reserve(tree_state.seed_count_prefix_sum.back());
 
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
         vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
@@ -333,6 +336,9 @@ cerr << "Add all seeds to nodes: " << endl;
 
             //Get the parent of the node
             net_handle_t parent;
+            //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
+            //because they will be clustered here and added to the root instead of being added to the 
+            //snarl tree to be clustered
             if (has_cached_values) {
                 if (cached_is_trivial_chain) {
                     //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
@@ -340,6 +346,20 @@ cerr << "Add all seeds to nodes: " << endl;
                                                             SnarlDistanceIndex::START_END,
                                                             SnarlDistanceIndex::CHAIN_HANDLE,
                                                             std::get<2>(old_cache));
+                    if (std::get<1>(old_cache) == 0) {
+                        //If the parent offset stored in the cache is the root, then this is a trivial chain
+                        //child of the root not in a root snarl, so remember the root as the parent and the 
+                        //trivial chain as th enode
+                        node_net_handle = parent;
+                        parent = distance_index.get_root();
+                    } else if (cached_parent_is_root && !cached_parent_is_chain) {
+                        //If the parent is a root snarl, then the node becomes the trivial chain 
+                        //and we get the parent root snarl from the cache
+                        node_net_handle = parent;
+                        parent = distance_index.get_net_handle_from_values(std::get<1>(old_cache),
+                                                                           SnarlDistanceIndex::START_END,
+                                                                           SnarlDistanceIndex::ROOT_HANDLE);
+                    }
                 } else if (std::get<1>(old_cache) == 0) {
                     //The parent is just the root
                     parent = distance_index.get_root();
@@ -356,18 +376,23 @@ cerr << "Add all seeds to nodes: " << endl;
                 }
             } else {
                 parent = distance_index.get_parent(node_net_handle);
+                if (distance_index.is_trivial_chain(parent)){
+                    net_handle_t grandparent = distance_index.get_parent(parent);
+                    if (distance_index.is_root(grandparent)){
+                        node_net_handle = parent;
+                        parent = grandparent;
+                    }
+                }
             }
-
-            bool parent_is_root = distance_index.is_root(parent);
 
 #ifdef DEBUG_CLUSTER
 cerr << cached_is_trivial_chain << " " << cached_parent_is_chain << " " << cached_parent_is_root << endl;
 cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << distance_index.net_handle_as_string(parent) << endl;
-cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_parent(node_net_handle));
-            assert(node_net_handle == distance_index.get_node_net_handle(id));
-            assert( parent == distance_index.get_parent(node_net_handle));
+            if (!distance_index.is_root(parent)) {
+                assert( parent == distance_index.get_parent(node_net_handle));
+            }
 #endif
-            if (!parent_is_root) {
+            if (!distance_index.is_root(parent)) {
                 //If the parent is not the root and not a root snarl (it is a chain or trivial chain)
 
 #ifdef DEBUG_CLUSTER
@@ -520,56 +545,47 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
 
 
             } else {
-                //Otherwise, the parent is the root
+                //Otherwise, the parent is the root or a root snarl, and the node_net_handle is a node
 
-                tree_state.node_to_seeds.emplace_back(id, read_num, i);
 
                 //Get the values from the seed. Some may be infinite and need to be re-set
-                size_t node_length = has_cached_values ? std::get<0>(old_cache)
+                size_t node_length = has_cached_values ? std::get<3>(old_cache)
                                                        : distance_index.minimum_length(node_net_handle);
                 bool is_reversed_in_parent = has_cached_values ? std::get<4>(old_cache)
-                                                               : distance_index.is_reversed_in_parent(parent);
+                                                         : distance_index.is_reversed_in_parent(node_net_handle);
 
 
-                if (seen_nodes.count(id) < 1){
+                size_t node_index;
+                //Create a new NodeClusters for this node
+                if (seen_nodes.count(id) == 0) {
+                    node_index = tree_state.all_node_clusters.size();
+                    tree_state.all_node_clusters.emplace_back(
+                                NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
+                                             tree_state.seed_count_prefix_sum.back(),
+                                             false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
+                    //Remember the parent of this node, since it will be needed to remember the root snarl later
+                    tree_state.all_node_clusters.back().parent_net_handle = parent;
+
+                    //The depth is never used but add it just to match the length of all_node_clusters
+                    parent_node_cluster_offset_to_depth.emplace_back(0);
+
                     seen_nodes.insert(id);
 
-                    //And now add the node to its parent, creating a NodeClusters for the parent if necessary
-                    //If the parent we stored is a chain (std::get<6>(old_cache)), then the grandparent is a simple snarl and has the 
-                    //same record offset as the node and its parent. Otherwise, we stored the record offset in the cache
-                    net_handle_t grandparent_snarl = cached_parent_is_chain ? distance_index.get_net_handle_from_values(distance_index.get_record_offset(node_net_handle),
-                                                                                    SnarlDistanceIndex::START_END,
-                                                                                    SnarlDistanceIndex::SNARL_HANDLE)
-                                                                      : distance_index.get_net_handle_from_values(std::get<1>(old_cache),
-                                                                                    SnarlDistanceIndex::START_END,
-                                                                                    SnarlDistanceIndex::SNARL_HANDLE);
-
-                    //Create a new NodeClusters for this node. Don't need to remember where it is because we just cluster in the root 
-                    if (seen_nodes.count(id) == 0) {
-                        size_t child_index = tree_state.all_node_clusters.size();
-                        tree_state.all_node_clusters.emplace_back(
-                                    NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
-                                                 tree_state.seed_count_prefix_sum.back(),
-                                                 false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
-
-                        //The depth is never used but add it just to match the length of all_node_clusters
-                        parent_node_cluster_offset_to_depth.emplace_back(0);
-
-                        //Remember to cluster it later
-                        to_cluster.emplace_back(child_index, parent, grandparent_snarl);
-                    }
-
-
-                    
-                    
+                    //Remember the index of the NodeClusters
+                     tree_state.net_handle_to_index[node_net_handle] = node_index; 
+                } else {
+                    node_index = tree_state.net_handle_to_index[node_net_handle]; 
                 }
+
+                //Remember this seed as a child of the node
+                node_to_seeds.emplace_back(node_index, read_num, i);
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
             }
         }
     }
     //Sort node_to_seeds by the node and the seeds by their offset
-    std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(), [&](const auto& a, const auto b) -> bool {
+    std::sort(node_to_seeds.begin(), node_to_seeds.end(), [&](const auto& a, const auto b) -> bool {
         if (std::get<0>(a) == std::get<0>(b) ) { 
             return  tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
                     tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
@@ -582,23 +598,23 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
     cerr << endl;
 #endif
 
-    //Go through and cluster nodes that are trivial snarls or children of the root
-    //TODO: Maybe go through node_to_seeds instead of using to_cluster
-    //also double check that i'm getting trivial chain cildren of the root properly
-    for(tuple<size_t, net_handle_t, net_handle_t>& cluster_index_parent : to_cluster) {
-        size_t cluster_index = std::get<0>(cluster_index_parent);
-        NodeClusters& node_clusters = tree_state.all_node_clusters[cluster_index];
-        net_handle_t parent = std::get<1>(cluster_index_parent);
-        net_handle_t grandparent = std::get<2>(cluster_index_parent);
+    //Go through and cluster nodes that are children of the root or root snarls
+    std::vector<std::tuple<size_t, size_t, size_t>>::iterator seed_range_start = node_to_seeds.begin();
+    for(auto current_iterator = node_to_seeds.begin() ; current_iterator != node_to_seeds.end() ; ++current_iterator) {
+        if (std::next(current_iterator) == node_to_seeds.end() 
+             || std::get<0>(*current_iterator) != std::get<0>(*seed_range_start)) {
+            //If the current iterator is pointing to a different node than seed_range_start, then we just passed the last
+            //seed for that node and we can cluster it
+            NodeClusters& node_clusters = tree_state.all_node_clusters[std::get<0>(*seed_range_start)];
 
-        cluster_one_node(tree_state, node_clusters);
-        if (!distance_index.is_root(parent) && distance_index.is_root(grandparent)) {
-            //If the node is a trivial chain that is the child of the root, then use the chain as the child 
-            node_clusters.containing_net_handle = parent;
-            parent = grandparent;
-        }
-        if (distance_index.is_root(parent)) {
-            //If the node is a child of the root
+            //Cluster the node. Give it the range in node_to_seeds, which is from seed_range_start
+            //to either current_iterator (if current_iterator is a different node), or the end of node_to_seeds
+            //if current_iterator is the last thing in the list and the same node
+            cluster_one_node(tree_state, node_clusters, seed_range_start, 
+                              (std::get<0>(*current_iterator) != std::get<0>(*seed_range_start) ? current_iterator
+                                                                               : node_to_seeds.end()));
+
+            net_handle_t parent = node_clusters.parent_net_handle;
 
             if (distance_index.is_root_snarl(parent)) {
                 //If this is a root snarl, then remember it to cluster in the root
@@ -611,11 +627,44 @@ cerr << "Should be " << distance_index.net_handle_as_string( distance_index.get_
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
-                tree_state.root_children.emplace_back(parent_index, cluster_index);
+                tree_state.root_children.emplace_back(parent_index, std::get<0>(*seed_range_start));
             } else {
                 //Otherwise, just compare the single child's external connectivity
                 compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters.back());
             }
+            if (std::next(current_iterator) == node_to_seeds.end() 
+                 && std::get<0>(*current_iterator) != std::get<0>(*seed_range_start)) {
+                //If this is the last thing in the list and is a different node than seed_range_start,
+                //then deal cluster the last node. Even though it will just be one cluster,
+                //we still need to cluster it to get the distances to the ends of the node and 
+                //check connectivity in the root
+
+                NodeClusters& node_clusters = tree_state.all_node_clusters[std::get<0>(*current_iterator)];
+
+                //Cluster the node
+                cluster_one_node(tree_state, node_clusters, current_iterator, node_to_seeds.end());
+
+                net_handle_t parent = node_clusters.parent_net_handle;
+
+                if (distance_index.is_root_snarl(parent)) {
+                    //If this is a root snarl, then remember it to cluster in the root
+                    size_t parent_index;
+                    if (tree_state.net_handle_to_index.count(parent) == 0) {
+                        parent_index = tree_state.all_node_clusters.size();
+                        tree_state.net_handle_to_index[parent] = parent_index;
+                        tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
+                                                                  tree_state.seed_count_prefix_sum.back(), distance_index);
+                    } else {
+                        parent_index = tree_state.net_handle_to_index[parent];
+                    }
+                    tree_state.root_children.emplace_back(parent_index, std::get<0>(*current_iterator));
+                } else {
+                    //Otherwise, just compare the single child's external connectivity
+                    compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters.back());
+                }
+            }
+
+            seed_range_start = current_iterator;
         }
     }
 
@@ -961,27 +1010,29 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 
 
 void NewSnarlSeedClusterer::cluster_one_node(
-                   TreeState& tree_state, NodeClusters& node_clusters) const {
+                   TreeState& tree_state, NodeClusters& node_clusters, 
+                   const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_start,
+                   const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_end) const {
 #ifdef DEBUG_CLUSTER
     cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle) << endl;
+    for (auto x = seed_range_start ; x != seed_range_end ; ++x) {
+        NodeClusters& seed_clusters = tree_state.all_node_clusters[std::get<0>(*x)];
+        assert(&node_clusters == &seed_clusters);
+        assert(node_clusters.containing_net_handle == seed_clusters.containing_net_handle);
+    }
 #endif
 
     size_t node_length = node_clusters.node_length;
     nid_t node_id = node_clusters.node_id;
 
-    //Iterator to the first occurrence of this node in node_to_seeds
-    auto seed_range = std::equal_range(
-            tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(),
-            std::tuple<id_t, size_t, size_t>(node_id, 0, 0));
 
-
-    std::function<std::tuple<size_t, size_t, size_t>(const std::tuple<nid_t, size_t, size_t>&)> get_offset_from_indices = 
-        [&](const std::tuple<nid_t, size_t, size_t>& seed_index){
+    std::function<std::tuple<size_t, size_t, size_t>(const std::tuple<size_t, size_t, size_t>&)> get_offset_from_indices = 
+        [&](const std::tuple<size_t, size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
             return std::make_tuple(std::get<1>(seed_index), std::get<2>(seed_index),
                     tree_state.all_seeds->at(std::get<1>(seed_index))->at(std::get<2>(seed_index)).distance_left); 
     };
-    cluster_seeds_on_linear_structure(tree_state, node_clusters, seed_range.first, seed_range.second, 
+    cluster_seeds_on_linear_structure(tree_state, node_clusters, seed_range_start, seed_range_end, 
                                       node_length, get_offset_from_indices, false);
 
 #ifdef DEBUG_CLUSTER
@@ -3076,32 +3127,38 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
         const pair<size_t, size_t>& parent_to_child = tree_state.root_children[root_child_i];
         net_handle_t& parent = tree_state.all_node_clusters[parent_to_child.first].containing_net_handle;
 
-        if (current_parent == parent || root_child_i == 0 || root_child_i == tree_state.root_children.size()-1) {
+        if (current_parent == parent || root_child_i == 0) {
             children.emplace_back(parent_to_child.second);
         }
         if (current_parent != parent || root_child_i == tree_state.root_children.size()-1) {
+#ifdef DEBUG_CLUSTER
+            cerr << "Clustering root snarl " << distance_index.net_handle_as_string(parent) << " with " << children.size() << " chidlren" << endl;
+#endif
 
-            for (size_t i = 0; i < children.size() ; i++) {
-                //Go through each child node of the netgraph
+            if (children.size() > 0) {
 
-                NodeClusters& child_clusters = tree_state.all_node_clusters[children[i]];
-                for (const pair<size_t, size_t>& head : child_clusters.read_cluster_heads) {
-                    child_distances[head.second + tree_state.seed_count_prefix_sum[head.first]] = 
-                        make_pair(tree_state.all_seeds->at(head.first)->at(head.second).distance_left,
-                                 tree_state.all_seeds->at(head.first)->at(head.second).distance_right);
-                }
+                for (size_t i = 0; i < children.size() ; i++) {
+                    //Go through each child node of the netgraph
 
-                for (size_t j = 0 ; j <= i ; j++){
-                    //Go through other child net graph nodes up to and including i
+                    NodeClusters& child_clusters = tree_state.all_node_clusters[children[i]];
+                    for (const pair<size_t, size_t>& head : child_clusters.read_cluster_heads) {
+                        child_distances[head.second + tree_state.seed_count_prefix_sum[head.first]] = 
+                            make_pair(tree_state.all_seeds->at(head.first)->at(head.second).distance_left,
+                                     tree_state.all_seeds->at(head.first)->at(head.second).distance_right);
+                    }
 
-                    //Get the other node and its clusters
-                    NodeClusters& child_clusters_j = tree_state.all_node_clusters[children[j]];
+                    for (size_t j = 0 ; j <= i ; j++){
+                        //Go through other child net graph nodes up to and including i
+
+                        //Get the other node and its clusters
+                        NodeClusters& child_clusters_j = tree_state.all_node_clusters[children[j]];
 
 
 
-                    compare_and_combine_cluster_on_child_structures(tree_state, child_clusters,
-                                child_clusters_j, root_clusters, child_distances, true, false);
+                        compare_and_combine_cluster_on_child_structures(tree_state, child_clusters,
+                                    child_clusters_j, root_clusters, child_distances, true, false);
 
+                    }
                 }
             }
             current_parent = parent;
