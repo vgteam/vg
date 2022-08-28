@@ -1161,8 +1161,8 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
     //to the current cluster head and distances of the potential combined cluster (pair<pair<>pair<>> which will be updated if it gets combined),
     //the relevant combined cluster head for the fragment
     //Returns true if this cluster got combined
-    auto compare_and_combine_clusters = [&] (size_t read_num, size_t cluster_num, size_t distance_between_reads, 
-            size_t distance_between_fragments, pair<size_t, size_t>& old_distances, 
+    auto compare_and_combine_clusters = [&] (const size_t& read_num, const size_t& cluster_num, const size_t& distance_between_reads, 
+            const size_t& distance_between_fragments, pair<size_t, size_t>& old_distances, 
             ClusterIndices& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
         if ((read_num == new_cluster_head_and_distances.read_num 
                 && cluster_num ==  new_cluster_head_and_distances.cluster_num) || 
@@ -1171,11 +1171,11 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             //then don't bother trying to compare
             return false;
         }
-        distance_between_reads = SnarlDistanceIndex::minus(distance_between_reads, 1);
-        distance_between_fragments = SnarlDistanceIndex::minus(distance_between_fragments, 1);
+        size_t distance_reads = SnarlDistanceIndex::minus(distance_between_reads, 1);
+        size_t distance_fragments = SnarlDistanceIndex::minus(distance_between_fragments, 1);
         bool combined = false;
 
-        if (distance_between_reads <= tree_state.read_distance_limit) {
+        if (distance_reads <= tree_state.read_distance_limit) {
             //If this can be combined with the given combined cluster
             if (new_cluster_head_and_distances.read_num == std::numeric_limits<size_t>::max()){
                 //new cluster head
@@ -1197,6 +1197,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
                 new_cluster_head_and_distances.distance_left = new_best_left; 
                 new_cluster_head_and_distances.distance_right = new_best_right;
 
+                //Remember these distances because we might need to check them later
                 old_distances = make_pair(new_best_left, new_best_right);
                 tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left = new_best_left;
                 tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right = new_best_right;
@@ -1212,7 +1213,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 #endif
         }
         if (tree_state.fragment_distance_limit != 0 && 
-                    distance_between_fragments <= tree_state.fragment_distance_limit ) {
+                    distance_fragments <= tree_state.fragment_distance_limit ) {
             //Just union the fragment
             if (new_cluster_head_fragment == std::numeric_limits<size_t>::max()) {
                 new_cluster_head_fragment =cluster_num+tree_state.seed_count_prefix_sum[read_num];
@@ -1405,13 +1406,15 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
                 //If the new cluster is clusterable, then add the new cluster_left_left
                 if (new_cluster_left_left.read_num != std::numeric_limits<size_t>::max()){
+
+                    //Check the old distances for this cluster head, because it may include the distance from another combined cluster
+                    //head
                     pair<size_t, size_t> old_distances = 
                                                 parent_clusters.read_cluster_heads.count(make_pair(new_cluster_left_left.read_num, new_cluster_left_left.cluster_num)) == 0
                                                 ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
                                                 : make_pair(tree_state.all_seeds->at(read_num)->at(new_cluster_left_left.cluster_num).distance_left,
                                                             tree_state.all_seeds->at(read_num)->at(new_cluster_left_left.cluster_num).distance_right);
                      //Is the distance small enough that we can cluster it with something else?
-                     //TODO: I"m pretty sure best_left and best_right don't need to check the old distances
                      size_t best_left = std::min(new_cluster_left_left.distance_left, old_distances.first);
                      size_t best_right = std::min(new_cluster_left_left.distance_right, old_distances.second);
                      bool reachable_left = best_left <= 
@@ -2267,17 +2270,6 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
     }
     
     
-    //The distance from the right side of the last child to the right side of this child, which is
-    //the distance we need to update the chain clusters to the end of this child
-    //This isn't quite right for the first thing in the chain but it doesn't matter because it only
-    //gets added to chain clusters
-    //IF it gets calculated, then it's the distance from the last child to this node + the length
-    //of this node (the first value in the cache)
-    size_t distance_from_last_child_to_current_end = 
-            distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
-                    ? std::numeric_limits<size_t>::max() : 
-            (last_child.child_handle == current_child.child_handle ? 0 
-                : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, std::get<3>(current_child_seed.minimizer_cache)));
     
     //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
     //The distances will include the distance to the end of a trivial chain,
@@ -2373,19 +2365,13 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second) = current_child_seed.distance_right;
     
         //Also update the best right distances to the end of this node for the other read
-        //TODO: I think this can be infinity, since it was too far away to cluster anything. Then distance_from_last_child_to_current_end only needs to be declared if things get combined
+        //Since it was too far away from this node, it will be too far away from anything else and it can just be infinite
         for (size_t chain_read_num = 0 ; chain_read_num < tree_state.all_seeds->size() ; chain_read_num++) {
             if (chain_read_num != read_num) {
                 if (chain_read_num == 0) {
-                    chain_clusters.read_best_right.first = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
-                                                                chain_clusters.read_best_right.first,
-                                                                distance_from_last_child_to_current_end),
-                                                                distance_from_current_end_to_end_of_chain);
+                    chain_clusters.read_best_right.first = std::numeric_limits<size_t>::max();
                 } else {
-                    chain_clusters.read_best_right.second = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
-                                                                chain_clusters.read_best_right.second,
-                                                                distance_from_last_child_to_current_end),
-                                                                distance_from_current_end_to_end_of_chain);
+                    chain_clusters.read_best_right.second = std::numeric_limits<size_t>::max();
                 }
             }
         }
@@ -2393,6 +2379,18 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
     } else {
         //Otherwise, check to see if anything on the current child can be combined with 
         //anything in the chain thus far
+
+        //The distance from the right side of the last child to the right side of this child, which is
+        //the distance we need to update the chain clusters to the end of this child
+        //This isn't quite right for the first thing in the chain but it doesn't matter because it only
+        //gets added to chain clusters
+        //IF it gets calculated, then it's the distance from the last child to this node + the length
+        //of this node (the first value in the cache)
+        size_t distance_from_last_child_to_current_end = 
+                distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
+                        ? std::numeric_limits<size_t>::max() : 
+                (last_child.child_handle == current_child.child_handle ? 0 
+                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, std::get<3>(current_child_seed.minimizer_cache)));
     
         //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
         //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
@@ -2776,7 +2774,8 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
             distance_from_current_end_to_end_of_chain = 0;
         }
     } else if (chain_clusters.is_looping_chain) {
-        //TODO: I think I should be able to do this without the distance index
+        //TODO: I think I should be able to do this without the distance index but none of our graphs so far have loops 
+        //      so I'm not going to bother
         //If it's a looping chain then use the distance index
         distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_clusters.end_in, 
                  current_child.child_handle);
