@@ -206,13 +206,13 @@ Functions</h2></td></tr>
 <tr class="separator:a16bd0de261a829b2d81ec48eed9d6482"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a80703607cfe21f1f593f7b2f03c08b40"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a80703607cfe21f1f593f7b2f03c08b40">sample_gam_depth</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq)</td></tr>
 <tr class="separator:a80703607cfe21f1f593f7b2f03c08b40"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a525ae96af5b25dac90113978e25ab753"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a525ae96af5b25dac90113978e25ab753">path_depths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const string &amp;path_name, size_t min_coverage, ostream &amp;out_stream)</td></tr>
-<tr class="separator:a525ae96af5b25dac90113978e25ab753"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a153048e142651932b77284c1c8b55849"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a153048e142651932b77284c1c8b55849">path_depth_of_bin</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_plus_one_step, size_t min_coverage)</td></tr>
-<tr class="memdesc:a153048e142651932b77284c1c8b55849"><td class="mdescLeft">&#160;</td><td class="mdescRight">like packed_depth_of_bin (above), but use paths (as in path_depths) for measuring coverage  <a href="namespacevg_1_1algorithms.html#a153048e142651932b77284c1c8b55849">More...</a><br /></td></tr>
-<tr class="separator:a153048e142651932b77284c1c8b55849"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aba3268bcd6ac6a6016aa529977b4f155"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; size_t, size_t, double, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aba3268bcd6ac6a6016aa529977b4f155">binned_path_depth</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const string &amp;path_name, size_t bin_size, size_t min_coverage)</td></tr>
-<tr class="separator:aba3268bcd6ac6a6016aa529977b4f155"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85250c33b7d32346be371ab7e4404471"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a85250c33b7d32346be371ab7e4404471">path_depths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const string &amp;path_name, size_t min_coverage, bool count_cycles, ostream &amp;out_stream)</td></tr>
+<tr class="separator:a85250c33b7d32346be371ab7e4404471"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8c66507d55ed6e10e9d77e1281d4bcfc"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8c66507d55ed6e10e9d77e1281d4bcfc">path_depth_of_bin</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_plus_one_step, size_t min_coverage, bool count_cycles)</td></tr>
+<tr class="memdesc:a8c66507d55ed6e10e9d77e1281d4bcfc"><td class="mdescLeft">&#160;</td><td class="mdescRight">like packed_depth_of_bin (above), but use paths (as in path_depths) for measuring coverage  <a href="namespacevg_1_1algorithms.html#a8c66507d55ed6e10e9d77e1281d4bcfc">More...</a><br /></td></tr>
+<tr class="separator:a8c66507d55ed6e10e9d77e1281d4bcfc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d48562b230a318ee15820aa508867fc"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; size_t, size_t, double, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1d48562b230a318ee15820aa508867fc">binned_path_depth</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const string &amp;path_name, size_t bin_size, size_t min_coverage, bool count_cycles)</td></tr>
+<tr class="separator:a1d48562b230a318ee15820aa508867fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a244822514c71473756cfd5ad87f79e08"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a244822514c71473756cfd5ad87f79e08">sample_mapping_depth</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq)</td></tr>
 <tr class="memdesc:a244822514c71473756cfd5ad87f79e08"><td class="mdescLeft">&#160;</td><td class="mdescRight">As above, but read a vector instead of a stream.  <a href="namespacevg_1_1algorithms.html#a244822514c71473756cfd5ad87f79e08">More...</a><br /></td></tr>
 <tr class="separator:a244822514c71473756cfd5ad87f79e08"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1116,8 +1116,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="aba3268bcd6ac6a6016aa529977b4f155"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aba3268bcd6ac6a6016aa529977b4f155">&#9670;&nbsp;</a></span>binned_path_depth()</h2>
+<a id="a1d48562b230a318ee15820aa508867fc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d48562b230a318ee15820aa508867fc">&#9670;&nbsp;</a></span>binned_path_depth()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1144,7 +1144,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_coverage</em>&#160;</td>
+          <td class="paramname"><em>min_coverage</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>count_cycles</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3681,8 +3687,8 @@ template&lt;typename Item , typename Source  = void, typename Collection  = Vect
 
 </div>
 </div>
-<a id="a153048e142651932b77284c1c8b55849"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a153048e142651932b77284c1c8b55849">&#9670;&nbsp;</a></span>path_depth_of_bin()</h2>
+<a id="a8c66507d55ed6e10e9d77e1281d4bcfc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c66507d55ed6e10e9d77e1281d4bcfc">&#9670;&nbsp;</a></span>path_depth_of_bin()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3709,7 +3715,13 @@ template&lt;typename Item , typename Source  = void, typename Collection  = Vect
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_coverage</em>&#160;</td>
+          <td class="paramname"><em>min_coverage</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>count_cycles</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3723,8 +3735,8 @@ template&lt;typename Item , typename Source  = void, typename Collection  = Vect
 
 </div>
 </div>
-<a id="a525ae96af5b25dac90113978e25ab753"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a525ae96af5b25dac90113978e25ab753">&#9670;&nbsp;</a></span>path_depths()</h2>
+<a id="a85250c33b7d32346be371ab7e4404471"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85250c33b7d32346be371ab7e4404471">&#9670;&nbsp;</a></span>path_depths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3746,6 +3758,12 @@ template&lt;typename Item , typename Source  = void, typename Collection  = Vect
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>min_coverage</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>count_cycles</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

@@ -95,7 +95,7 @@ var searchData=
   ['binary_5fextend_5fintervals_450',['binary_extend_intervals',['../structhaplo_1_1haplo__DP__column.html#a69b9396f9bc9534432d89c411c60c8c5',1,'haplo::haplo_DP_column']]],
   ['binned_5fpacked_5fdepth_451',['binned_packed_depth',['../namespacevg_1_1algorithms.html#a8fb3df22b1d7955546bbcc8c438f6efc',1,'vg::algorithms']]],
   ['binned_5fpacked_5fdepth_5findex_452',['binned_packed_depth_index',['../namespacevg_1_1algorithms.html#af05e00ad1e6a7b34cde8c37aa9dbbdbc',1,'vg::algorithms']]],
-  ['binned_5fpath_5fdepth_453',['binned_path_depth',['../namespacevg_1_1algorithms.html#aba3268bcd6ac6a6016aa529977b4f155',1,'vg::algorithms']]],
+  ['binned_5fpath_5fdepth_453',['binned_path_depth',['../namespacevg_1_1algorithms.html#a1d48562b230a318ee15820aa508867fc',1,'vg::algorithms']]],
   ['binneddepthindex_454',['BinnedDepthIndex',['../namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9',1,'vg::algorithms']]],
   ['binomial_5fcmf_5fln_455',['binomial_cmf_ln',['../namespacevg.html#a038ccb26c0c9c0a87601edc7b8b5df70',1,'vg']]],
   ['bins_5fby_5fid_5fprefix_456',['bins_by_id_prefix',['../classvg_1_1StreamIndexBase.html#a19b9a91061212bfd558a384fa19d4854',1,'vg::StreamIndexBase']]],
