@@ -86,13 +86,13 @@ rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
 vg index -x 2snp.xg 2snp.vg
-vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim
+vg sim -s 2323 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg augment flat.vg 2snp.gam -i -S | vg paths -d -v - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTATCTGGAGTTCTATTATATCCCAACTCTCTG/' | vg view -Fv - >2err.vg
-vg sim -l 30 -x 2err.vg -n 10 -a >2err.sim
+vg sim -s 2323 -l 30 -x 2err.vg -n 10 -a >2err.sim
 vg map -g flat.gcsa -x flat.xg -G 2err.sim -k 8 >2err.gam
 cat 2snp.gam 2err.gam > 4edits.gam
 vg augment flat.vg 2snp.gam -S | vg view - | grep S | awk '{print $3}' | sort >  2snp_default.nodes
