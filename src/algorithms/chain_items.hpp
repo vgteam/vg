@@ -1548,6 +1548,30 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                                            const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                            size_t max_fallow_search_distance,
                                            size_t fallow_region_size) {
+    
+    // You might think that we could just walk through all the items in read
+    // order and do the gaps between successive items that are longer than the
+    // threshold.
+    //
+    // But you would be wrong! Some items will be tied in read order, and place
+    // the same piece of the read at different places in the graph. We need to
+    // consider all participants in each tie set at each end of a break in the
+    // items.
+    //
+    // Then we need to figure out which pairs of participants really ought to
+    // go with each other, and use those as the graph bounds for
+    // reseeding/subgraph extraction, or we'll end up trying to extract
+    // potentially huge subgraphs.
+    
+    // TODO: To really make sure we are getting the correct participants on the
+    // left side, we really need to look at the items sorted by read end
+    // position, so we can get everything ending a tthe same point. Or, we need
+    // to get some latest-endiong item on the left side of the gap, and
+    // everything overlapping it.
+    // For now we just group by read start position, which could mislead us
+    // depending on where the graph node breaks are and how we define our
+    // items' lengths.
+    
     pair<size_t, size_t> statistics {0, 0};
     auto& fallow_region_count = statistics.first;
     auto& longest_fallow_region_length = statistics.second;
@@ -1555,42 +1579,82 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     // Make a VectorView over the items
     VectorView<Item> item_view {item_storage, sorted_item_indexes};
     
-    for (size_t left = 0; left + 1 < item_view.size(); left++) {
-        // For each pair...
-        size_t right = left + 1;
+    size_t left_run_start = 0;
+    size_t left_run_end = 1;
+    while (left_run_end < item_view.size() && space.read_start(item_view[left_run_end]) == space.read_start(item_view[left_run_start])) {
+        // Scan until we find the next thing that starts after us.
+        ++left_run_end;
+    }
+    
+    while (left_run_end < item_view.size()) {
+        // For each run of items sharing a start position and having something after them
+        
+        // Find all the right run items
+        size_t right_run_start = left_run_end;
+        size_t right_run_end = right_run_start + 1;
+        while (right_run_end < item_view.size() && space.read_start(item_view[right_run_end]) == space.read_start(item_view[right_run_start])) {
+            // Scan until we find the next thing that starts after us.
+            ++right_run_end;
+        }
         
         // Check read distance.
-        // TODO: Could we use the faster non-space way of doing this without ever touching the graph?
-        size_t read_distance = space.get_read_distance(item_view[left], item_view[right]);
+        size_t read_distance = space.get_read_distance(item_view[left_run_start], item_view[right_run_start]);
         
         if (read_distance > fallow_region_size) {
-            // If a pair is too far apart
             
-#ifdef debug_reseeding
-            cerr << "Reseeding between seeds " << item_view.backing_index(left)
-                << " at read index " << space.read_start(item_view[left])
-                << " and " << item_view.backing_index(right)
-                << " at read index " << space.read_start(item_view[right])
-                << endl;
-#endif
+            // Now we know that the items between left_run_start and left_run_end form a fallow region with the items between right_run_start and right_run_end.
             
             // Count it
             fallow_region_count++;
             longest_fallow_region_length = std::max(longest_fallow_region_length, read_distance);
-            
-            // Forge some fill-in items
-            vector<Item> new_items = reseed_fallow_region(item_view[left],
-                                                          item_view[right],
-                                                          space,
-                                                          source_sort_inverse,
-                                                          for_each_pos_for_source_in_subgraph,
-                                                          max_fallow_search_distance);
         
-            // Append the fill-in items onto the item storage vector. Safe to do
-            // even when we're using a view over it.
-            item_storage.reserve(item_storage.size() + new_items.size());
-            std::copy(new_items.begin(), new_items.end(), std::back_inserter(item_storage));
+            // Now we need to figure out which items to actually pair.
+            // This is probably going to be O(n^2) distance index queries to
+            // find the pairs that are closest together.
+            // TODO: speed this up with a greedy matching or something.
+            
+            for (size_t left = left_run_start; left < left_run_end; left++) {
+                // We'll just find the closest right for each left and do that pair
+                size_t closest_graph_distance = std::numeric_limits<size_t>::max();
+                size_t closest_right = std::numeric_limits<size_t>::max();
+                for (size_t right = right_run_start; right < right_run_end; right++) {
+                    size_t graph_distance = space.get_graph_distance(item_view[left], item_view[right]);
+                    if (graph_distance < closest_graph_distance) {
+                        closest_graph_distance = graph_distance;
+                        closest_right = right;
+                    }
+                }
+            
+                if (closest_right != std::numeric_limits<size_t>::max()) {
+                    // We actually found somethign we think we can reach
+        
+#ifdef debug_reseeding
+                    cerr << "Reseeding between seeds " << item_view.backing_index(left)
+                        << " at read index " << space.read_start(item_view[left])
+                        << " and " << item_view.backing_index(closest_right)
+                        << " at read index " << space.read_start(item_view[closest_right])
+                        << endl;
+#endif
+            
+                    // Forge some fill-in items
+                    vector<Item> new_items = reseed_fallow_region(item_view[left],
+                                                                  item_view[closest_right],
+                                                                  space,
+                                                                  source_sort_inverse,
+                                                                  for_each_pos_for_source_in_subgraph,
+                                                                  max_fallow_search_distance);
+                
+                    // Append the fill-in items onto the item storage vector. Safe to do
+                    // even when we're using a view over it.
+                    item_storage.reserve(item_storage.size() + new_items.size());
+                    std::copy(new_items.begin(), new_items.end(), std::back_inserter(item_storage));
+                }
+            }
         }
+        
+        // Make the right nrun into the left run
+        left_run_start = right_run_start;
+        left_run_end = right_run_end;
     }
     
     if (item_storage.size() != sorted_item_indexes.size()) {
