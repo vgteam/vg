@@ -1100,14 +1100,16 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
         {0, 1},
         {1, 1},
         {50, 1},
-        {90, 5}
+        {90, 5},
         {92, 5}
     };
     
     vector<TestItem> items {
         {make_pos_t(1, false, 0), 0},
         {make_pos_t(1, false, 1), 1},
-        {make_pos_t(10, false, 0), 3}
+        {make_pos_t(5, true, 1), 1},
+        {make_pos_t(8, true, 0), 3},
+        {make_pos_t(10, false, 0), 3},
         {make_pos_t(10, false, 2), 4}
     };
     
@@ -1123,9 +1125,19 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
                         iteratee(make_pos_t(1, false, 1));
                     }
                     break;
+                case 5:
+                    if (source.start == 1) {
+                        iteratee(make_pos_t(5, true, 1));
+                    }
+                    break;
                 case 6:
                     if (source.start == 50) {
                         iteratee(make_pos_t(6, false, 0));
+                    }
+                    break;
+                case 8:
+                    if (source.start == 90) {
+                        iteratee(make_pos_t(8, true, 0));
                     }
                     break;
                 case 10:
@@ -1143,19 +1155,43 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
     Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
-    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+    SECTION("reseed_fallow_region doesn't find its bounds or other hits of them") {
+        std::unique_ptr<VectorViewInverse> source_sort_inverse;
 
-    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
-        items[1],
-        items[3],
-        space,
-        source_sort_inverse,
-        for_each_pos_for_source_in_subgraph
-    );
-                                                                 
-    REQUIRE(reseeded.size() == 1);
-    REQUIRE(reseeded[0].source == 1);
-    REQUIRE(reseeded[0].pos == make_pos_t(6, false, 0)); 
+        vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+            items[1],
+            items[4],
+            space,
+            source_sort_inverse,
+            for_each_pos_for_source_in_subgraph
+        );
+                                                                     
+        REQUIRE(reseeded.size() == 1);
+        REQUIRE(reseeded[0].source == 2);
+        REQUIRE(reseeded[0].pos == make_pos_t(6, false, 0));
+    }
+    
+    SECTION("reseed_fallow_regions doesn't find multiple copies of things") {
+        std::unique_ptr<VectorViewInverse> source_sort_inverse;
+       
+        // We need to operate on mutable vectors
+        vector<TestItem> reseeded {items.begin(), items.end()};
+        // Everything's already in read order.
+        vector<size_t> reseeded_indexes = range_vector(items.size());
+       
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            10
+        );
+        
+        // We should have one item per hit our search function can generate
+        REQUIRE(reseeded.size() == 7);
+    }
     
 }
 
