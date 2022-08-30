@@ -1019,6 +1019,74 @@ TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_f
     }
 }
 
+TEST_CASE("Reseeding works when hits collide and are over-clustered", "[chain_items][reseed_fallow_regions]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(3, false, 0), true},
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{0, 1}, make_pos_t(5, false, 0), true},
+        {{0, 1}, make_pos_t(7, false, 0), true},
+        {{10, 1}, make_pos_t(4, false, 0), false},
+        {{10, 1}, make_pos_t(6, false, 0), false},
+        {{10, 1}, make_pos_t(8, false, 0), false},
+        {{10, 1}, make_pos_t(2, false, 0), false},
+        {{20, 1}, make_pos_t(3, false, 0), true},
+        {{20, 1}, make_pos_t(7, false, 0), true},
+        {{20, 1}, make_pos_t(9, false, 0), true},
+        {{20, 1}, make_pos_t(5, false, 0), true},
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 4);
+    
+    Aligner scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    // We need to operate on mutable vectors
+    vector<TestItem> reseeded {items.begin(), items.end()};
+    // Everything's already in read order.
+    vector<size_t> reseeded_indexes = range_vector(items.size());
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+    
+    algorithms::reseed_fallow_regions<TestItem, TestSource>(
+        reseeded,
+        reseeded_indexes,
+        space,
+        source_sort_inverse,
+        for_each_pos_for_source_in_subgraph,
+        100,
+        10
+    );
+    REQUIRE(reseeded.size() == reseeded_indexes.size());
+    VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+    
+    REQUIRE(reseeded_view.size() == all_items.size());
+    
+    // We can't actually insist on the same position order as all_items,
+    // since order of graph hits isn't specified, but we can insist on the
+    // same source order
+    
+    for (size_t i = 0; i < reseeded_view.size(); i++) {
+        REQUIRE(sources[reseeded_view[i].source] == std::get<0>(all_items[i]));
+    }
+    
+}
+
 }
 
 }
