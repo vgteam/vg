@@ -1016,11 +1016,11 @@ ostream& operator<<(ostream& out, const traced_score_t& value);
  * Takes the given per-item bonus for each item collected.
  *
  * Uses a finite lookback in items and in read bases when checking where we can
- * come from to reach an item. Also, once a given number of reachable items
- * have been found, stop looking back.
+ * come from to reach an item. Also, once a given number of good-looking
+ * predecessor items have been found, stop looking back.
  *
  * Limits transitions to those involving indels of the given size or less, to
- * avoid very bad transitions still counting as "reachable".
+ * avoid very bad transitions.
  */
 template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
 Score chain_items_dp(vector<Score>& best_chain_score,
@@ -1029,7 +1029,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      int item_bonus = 0,
                      size_t lookback_items = 500,
                      size_t lookback_bases = 1000,
-                     size_t lookback_reachable_items = 5,
+                     size_t lookback_good_items = 10,
                      size_t max_indel_bases = 10000);
 
 /**
@@ -1138,7 +1138,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                      int item_bonus,
                      size_t lookback_items,
                      size_t lookback_bases,
-                     size_t lookback_reachable_items,
+                     size_t lookback_good_items,
                      size_t max_indel_bases) {
     
     DiagramExplainer diagram;
@@ -1206,15 +1206,15 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         cerr << endl;
 #endif
         
-        // Count how many places we evaluated that we could have come from.
-        // We may want to limit this to prevent long gaps.
+        // Count how many good-looking predecessors hits we have. Once we have
+        // enough we will stop to save time. 
+        size_t good_items_found = 0;
+        // How many are merely reachable?
         size_t reachable_items_found = 0;
         // Count how many total source items were considered for reachability
         size_t lookback_items_tested = 0;
         auto predecessor_index_it = first_overlapping_it;
-        while (predecessor_index_it != read_end_order.begin() &&
-               reachable_items_found < lookback_reachable_items &&
-               lookback_items_tested < lookback_items) {
+        while (predecessor_index_it != read_end_order.begin()) {
             --predecessor_index_it;
             // For each source that ended before here started, in reverse order by end position...
             auto& source = to_chain[*predecessor_index_it];
@@ -1254,6 +1254,9 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             int jump_points = space.transition_score(source, here, max_indel_bases);
             
             if (jump_points != numeric_limits<int>::min()) {
+                // The jump is possible
+                reachable_items_found++;
+            
                 // Get the score we are coming from
                 typename ST::Score source_score = ST::score_from(best_chain_score, *predecessor_index_it);
                 
@@ -1277,11 +1280,32 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                         {"label", std::to_string(jump_points)},
                         {"weight", std::to_string(std::max<int>(1, ST::score(from_source_score)))}
                     });
+                    
+                    // Now figure out if this looks like a good transition, or if we should keep digging.
+                    auto score_achieved = ST::score(from_source_score);
+                    
+                    if (score_achieved >= ST::score(best_score)) {
+                    
+                        good_items_found++;
+                        if (good_items_found == lookback_good_items) {
+#ifdef debug_chaining
+                            cerr << "\tExhausted good item limit" << endl;
+#endif
+                            break;
+                        }
+                    }
                 }
-
-                reachable_items_found++;
+            }
+            
+            if (lookback_items_tested == lookback_items) {
+#ifdef debug_chaining
+                cerr << "\tExhausted item limit" << endl;
+#endif
+                break;
             }
         }
+        
+
         
 #ifdef debug_chaining
         cerr << "\tBest way to reach " << i << " is " << best_chain_score[i] << endl;
