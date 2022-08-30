@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 94
+plan tests 96
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -471,6 +471,8 @@ vg convert ref.vg -F out.gaf > out2.gam
 vg convert ref.vg -G out2.gam > out2.gaf
 diff out.gaf out2.gaf
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output (GAF check)"
+vg validate ref.vg -a out2.gam
+is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output (GAM check)"
 
 rm -f ref.vg ref.gcsa out.gam out.gaf out2.gam
 
@@ -483,5 +485,6 @@ vg convert ref.vg -F out.gaf > out2.gam
 vg convert ref.vg -G out2.gam > out2.gaf
 diff out.gaf out2.gaf
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAF check)"
-
+vg validate ref.vg -a out2.gam
+is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAM check)"
 rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam
