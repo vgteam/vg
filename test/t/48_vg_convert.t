@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 92
+plan tests 96
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -115,7 +115,7 @@ printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:4
 #manually convert to cg:
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 #this is what we expect back, mut.gaf where insertions and snps are converted to Ns:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-AC-T-AG:16\n" > mut.cs.exp.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
 vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"
@@ -142,7 +142,7 @@ is "$?" 0 "vg convert gam -> gaf -> gam ->gaf makes same gaf each time on 1mb1kg
 
 printf '{"name": "split", "path": {"mapping": [{"edit": [{"from_length": 13, "to_length": 13}], "position": {"node_id": "1", "offset": "10"}}, {"edit": [{"from_length": 2, "to_length": 2}], "position": {"node_id": "3", "offset": "5"}}]}}' | vg view -JaG - > split.gam
 vg convert zflat.vg -G split.gam > split.gaf
-is "$(awk '{print $13}' split.gaf)" "cs:Z::13-CCAGTGCTC-GCATC:2" "split alignment converted using deletions to represent internal offsets"
+is "$(awk '{print $13}' split.gaf)" "cs:Z::13-CCAGTGCTCGCATC:2" "split alignment converted using deletions to represent internal offsets"
 vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - > split-back.gaf
 diff split.gaf split-back.gaf
 is "$?" 0 "vg convert gam -> gaf ->gam -> gaf makes same gaf each time for split alignment"
@@ -459,5 +459,32 @@ cat tiny/tiny.rgfa | vg view - | sort > tiny.rgfa.2
 diff tiny.rgfa.1 tiny.rgfa.2
 is $? 0 "rGFA handled consistently when streaming as when loaded from file"
 
+rm -f tiny.rgfa.1 tiny.rgfa.2
 
+printf ">a\nAATTGGGATGGGGGTTATGCTAGACGTTGACGTATACGCAAGGTATTACGTCTGAATTGCCTCTGGGGCCAGTGGGGGCGTACACCCCTCGGCTCAATATTAATGAAGGGGGTGTTCTCCCACTCAAAGTCCACCTCGGAGCCACGCTTGGAGGTTGCAAGGACCACCATCCTATCCCGAGTTAGGACGCTGTTTACGCAGATACCTGCTCGGACGACACGTTAAGAGTCCTCGGGTAAATCATTTGTGAGTCGTTCAGGGGCTCCGCTGCGCAACATTGGCAAGGGCCCGAGTGCGGGCATGAAATAAAGTGAGATGGCACGAGCGTCC\n" > ref.fa
+printf ">b\nTATGGGATGGGGTTTGCTAGACGTTGACGTATACCAAGGTATTACTCAAGTCTCGGCAGTGGGGGCGTACACCCCTCGGTCAATTATGAAGGGGGGTCTCCGACTCAAATCACTCGGAGCACGCTGGAGGTTGCAAGGCACCACCTATCCGAGTTAACGCTGTTACGCAGATACCTGCTCGGAGAACGTTAAGATCGGTAAATCATTTTCGTTCAGGGGCTACGGCGCAACATGAGGGCCCGAGGCGGGCATGAAATAAGTGAGATGGCACGCTC\n" > query.fa
+vg construct -r ref.fa > ref.vg
+vg index -g ref.gcsa -k 16 ref.vg
+vg map -f query.fa -x ref.vg -g ref.gcsa  > out.gam
+vg convert ref.vg -G out.gam > out.gaf
+vg convert ref.vg -F out.gaf > out2.gam
+vg convert ref.vg -G out2.gam > out2.gaf
+diff out.gaf out2.gaf
+is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output (GAF check)"
+vg validate ref.vg -a out2.gam
+is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output (GAM check)"
 
+rm -f ref.vg ref.gcsa out.gam out.gaf out2.gam
+
+vg construct -r ref.fa -m 1000 > ref.vg
+vg construct -r ref.fa > ref.vg
+vg index -g ref.gcsa -k 16 ref.vg
+vg map -f query.fa -x ref.vg -g ref.gcsa  > out.gam
+vg convert ref.vg -G out.gam > out.gaf
+vg convert ref.vg -F out.gaf > out2.gam
+vg convert ref.vg -G out2.gam > out2.gaf
+diff out.gaf out2.gaf
+is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAF check)"
+vg validate ref.vg -a out2.gam
+is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAM check)"
+rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam
