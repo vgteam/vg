@@ -1087,6 +1087,78 @@ TEST_CASE("Reseeding works when hits collide and are over-clustered", "[chain_it
     
 }
 
+TEST_CASE("Reseeding does not create extraneous hits even when they are visible in search", "[chain_items][reseed_fallow_regions]") {
+    
+   HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    vector<TestSource> sources {
+        {0, 1},
+        {1, 1},
+        {50, 1},
+        {90, 5}
+        {92, 5}
+    };
+    
+    vector<TestItem> items {
+        {make_pos_t(1, false, 0), 0},
+        {make_pos_t(1, false, 1), 1},
+        {make_pos_t(10, false, 0), 3}
+        {make_pos_t(10, false, 2), 4}
+    };
+    
+    // Synthesize all the existing items when asked, as well as the new ones.
+    auto for_each_pos_for_source_in_subgraph = [&](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
+        for (auto id : subgraph_ids) {
+            switch(id) {
+                case 1:
+                    if (source.start == 0) {
+                        iteratee(make_pos_t(1, false, 0));
+                    }
+                    if (source.start == 1) {
+                        iteratee(make_pos_t(1, false, 1));
+                    }
+                    break;
+                case 6:
+                    if (source.start == 50) {
+                        iteratee(make_pos_t(6, false, 0));
+                    }
+                    break;
+                case 10:
+                    if (source.start == 90) {
+                        iteratee(make_pos_t(10, false, 0));
+                    }
+                    if (source.start == 92) {
+                        iteratee(make_pos_t(10, false, 2));
+                    }
+                    break;
+            }
+        }
+    };
+    
+    Aligner scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items[1],
+        items[3],
+        space,
+        source_sort_inverse,
+        for_each_pos_for_source_in_subgraph
+    );
+                                                                 
+    REQUIRE(reseeded.size() == 1);
+    REQUIRE(reseeded[0].source == 1);
+    REQUIRE(reseeded[0].pos == make_pos_t(6, false, 0)); 
+    
+}
+
 }
 
 }
