@@ -154,7 +154,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                                                   subrange);
         if (graph->has_path(implied_path_name)) {
             // This is a duplicate.
-            throw GFAFormatError("Duplicate path " + implied_path_name + " would be created in graph");
+            throw GFADuplicatePathError(implied_path_name);
         }
         
         // Create the path.
@@ -246,7 +246,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                                                   assigned_subrange);
         if (graph->has_path(implied_path_name)) {
             // This is a duplicate.
-            throw GFAFormatError("Duplicate path " + implied_path_name + " would be created in graph");
+            throw GFADuplicatePathError(implied_path_name);
         }
         
         // Create the path.
@@ -905,6 +905,22 @@ void GFAParser::parse(istream& in) {
     string buffer_name;
     ofstream buffer_out_stream;
     
+    // For error handling, we need a way to tell an error where it is
+    auto annotate_error = [&](GFAFormatError& e) {
+        // Inform the error of where exactly it is.
+        // We have line buffer in scope and positions are relative to the line buffer.
+        e.pass_number = pass_number;
+        if (!stream_is_seekable && pass_number > 1) {
+            // We're working on this temp file. Report it so line numbers make sense.
+            e.file_name = buffer_name;
+        }
+        e.line_number = line_number;
+        if (e.has_position) {
+            // We can find the column we were at within the line.
+            e.column_number = 1 + (e.position - line_buffer.begin());
+        }
+    };
+    
     // We call this to save a line either in the buffer or the collection of
     // unprocessed ranges, until all lines have been seen once.
     auto save_line_until_next_pass = [&]() {
@@ -942,6 +958,7 @@ void GFAParser::parse(istream& in) {
         }
         if (!stream_is_seekable && buffer_name.empty()) {
             // Warn that we are missing this node because it is the first missing node. The tests want us to.
+            #pragma omp critical (cerr)
             std::cerr << "warning:[GFAParser] Streaming GFA file references node " << missing_node_name << " before it is defined. "
                       << "GFA lines will be buffered in a temporary file." << std::endl;
         }
@@ -968,7 +985,11 @@ void GFAParser::parse(istream& in) {
     // buffer it if it can't. Return false if we are not ready for the line right
     // now and we saved it, and true otherwise.
     auto handle_line_if_ready = [&]() {
-        if (!line_buffer.empty()) {
+        if (line_buffer.empty()) {
+            // No line to handle.
+            return true;
+        }
+        try {
             switch(line_buffer[0]) {
             case 'H':
                 // Header lines need tags examoned
@@ -1190,6 +1211,23 @@ void GFAParser::parse(istream& in) {
                     cerr << "warning:[GFAParser] Ignoring unrecognized " << line_buffer[0] << " line type" << endl;
                 }
             }
+        } catch (GFADuplicatePathError& e) {
+            // We couldn't do what this line said because we already have this path.
+            if (stop_on_duplicate_paths) {
+                // That's bad. Stop parsing.
+                throw;
+            } else {
+                // We can tolerate this. Just move on to the next line.
+                
+                // Make sure the error is annotated with position info.
+                // TODO: Invent some cool kind of stack-based context?
+                annotate_error(e);
+                
+                // And report it as a warning.
+                #pragma omp critical (cerr)
+                std::cerr << "warning:[GFAParser] Skipping GFA " << line_buffer[0]
+                    << " line: " << e.what() << std::endl;
+            }
         }
         return true;
     };
@@ -1292,20 +1330,8 @@ void GFAParser::parse(istream& in) {
             }
         }
     } catch (GFAFormatError& e) {
-        // Inform the error of where exactly it is.
-        // We have line buffer in scope and positions are relative to the line buffer.
-        
-        e.pass_number = pass_number;
-        if (!stream_is_seekable && pass_number > 1) {
-            // We're working on this temp file. Report it so line numbers make sense.
-            e.file_name = buffer_name;
-        }
-        e.line_number = line_number;
-        if (e.has_position) {
-            // We can find the column we were at within the line.
-            e.column_number = 1 + (e.position - line_buffer.begin());
-        }
-        
+        // Tell the error where it happened
+        annotate_error(e);
         // Re-throw the new and improved error
         throw e;
     }
@@ -1358,6 +1384,14 @@ const char* GFAFormatError::what() const noexcept {
         message_buffer = ss.str();
     }
     return message_buffer.c_str();
+}
+
+GFADuplicatePathError::GFADuplicatePathError(const std::string& path_name) : GFAFormatError("Duplicate path " + path_name + " exists in graph") {
+    // Nothing to do!
+}
+
+GFADuplicatePathError::GFADuplicatePathError(const std::string& path_name, const GFAParser::cursor_t& position, const char* parsing_state) : GFAFormatError("Duplicate path " + path_name + " exists in graph", position, parsing_state) {
+    // Nothing to do!
 }
 
 
