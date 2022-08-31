@@ -1374,7 +1374,7 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
         current_distance_right = std::min(distance_end_left, distance_end_right);
 
         current_net = std::move(parent);
-        parent = distance_index.get_parent(current_net);
+        parent = distance_index.canonical(distance_index.get_parent(current_net));
     }
     if (current_distance_left <= min_distance) {
 #ifdef debug_subgraph
@@ -1639,15 +1639,15 @@ void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, c
     } else if (distance_index.is_chain(common_ancestor)) {
 
         //Get the ancestors of the nodes that are children of the common ancestor
-        net_handle_t ancestor1 = distance_index.get_parent(start_node);
+        net_handle_t ancestor1 = distance_index.canonical(distance_index.get_parent(start_node));
         while (ancestor1 != common_ancestor) {
             start_node = ancestor1;
-            ancestor1 = distance_index.get_parent(start_node);
+            ancestor1 = distance_index.canonical(distance_index.get_parent(start_node));
         }
-        net_handle_t ancestor2 = distance_index.get_parent(end_node);
+        net_handle_t ancestor2 = distance_index.canonical(distance_index.get_parent(end_node));
         while (ancestor2 != common_ancestor) {
             end_node = ancestor2;
-            ancestor2 = distance_index.get_parent(end_node);
+            ancestor2 = distance_index.canonical(distance_index.get_parent(end_node));
         }
         assert(ancestor1 == ancestor2);
 
