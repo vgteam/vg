@@ -830,7 +830,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "Cluster looping, multicomponent",
-                   "[cluster]" ) {
+                   "[cluster][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -861,6 +861,11 @@ namespace unittest {
         Edge* e14 = graph.create_edge(n9, n11);
         Edge* e15 = graph.create_edge(n10, n11);
 
+        ofstream out;
+        out.open("testGraph.hg");
+
+            graph.serialize(out);
+            out.close();
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
@@ -869,6 +874,35 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
+        SECTION( "Test distance values" ) {
+            net_handle_t node1 = dist_index.get_parent(dist_index.get_node_net_handle(n1->id()));
+            net_handle_t snarl82 = dist_index.get_parent(node1); 
+            cerr << dist_index.net_handle_as_string(snarl82) << endl;
+
+            cerr << dist_index.distance_to_parent_bound(snarl82, false, node1, false) << " " << 
+                dist_index.distance_to_parent_bound(snarl82, false, node1, true) << " " <<
+                dist_index.distance_to_parent_bound(snarl82, true, node1, false) << " " <<
+                dist_index.distance_to_parent_bound(snarl82, true, node1, true) << endl;
+
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1, false) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1, true) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1, false) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1, true) == std::numeric_limits<size_t>::max());
+
+            net_handle_t node3 = dist_index.get_parent(dist_index.get_node_net_handle(n3->id()));
+            net_handle_t snarl24 = dist_index.get_parent(node3); 
+            cerr << dist_index.net_handle_as_string(snarl24) << endl;
+
+            cerr << dist_index.distance_to_parent_bound(snarl24, false, node3, false) << " " << 
+                dist_index.distance_to_parent_bound(snarl24, false, node3, true) << " " <<
+                dist_index.distance_to_parent_bound(snarl24, true, node3, false) << " " <<
+                dist_index.distance_to_parent_bound(snarl24, true, node3, true) << endl;
+
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3, true) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3, false) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3, false) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3, true) == std::numeric_limits<size_t>::max());
+        }
         SECTION( "Two clusters" ) {
  
             vector<pos_t> positions;

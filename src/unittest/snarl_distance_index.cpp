@@ -704,7 +704,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can traverse multiple components in the root",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a node 1 and a chain 2-5 that are connected in the root
@@ -1024,10 +1024,10 @@ namespace vg {
                     //What the traceback should be
                     vector<tuple<net_handle_t, int32_t, int32_t>> traceback1;
                     net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
-                    net_handle_t chain27 = distance_index.get_parent(node2);
-                    net_handle_t snarl18 = distance_index.get_parent(chain27);
+                    net_handle_t chain27 = distance_index.canonical(distance_index.get_parent(node2));
+                    net_handle_t snarl18 = distance_index.canonical(distance_index.get_parent(chain27));
                     net_handle_t node8 = distance_index.get_node_net_handle(n8->id());
-                    net_handle_t chain18 = distance_index.get_parent(node8);
+                    net_handle_t chain18 = distance_index.canonical(distance_index.get_parent(node8));
 
                     traceback1.emplace_back(node2, std::numeric_limits<int32_t>::max(), 1);
                     if (distance_index.is_reversed_in_parent(node2)) {
@@ -1090,10 +1090,10 @@ namespace vg {
 
                     //What the traceback should be
                     net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
-                    net_handle_t chain18 = distance_index.get_parent(node1);
+                    net_handle_t chain18 = distance_index.canonical(distance_index.get_parent(node1));
                     net_handle_t node7 = distance_index.get_node_net_handle(n7->id());
-                    net_handle_t chain27 = distance_index.get_parent(node7);
-                    net_handle_t snarl18 = distance_index.get_parent(chain27);
+                    net_handle_t chain27 = distance_index.canonical(distance_index.get_parent(node7));
+                    net_handle_t snarl18 = distance_index.canonical(distance_index.get_parent(chain27));
 
 
                     vector<tuple<net_handle_t, int32_t, int32_t>> traceback1;
@@ -7153,52 +7153,52 @@ namespace vg {
                     cerr << "Find path from " << graph.get_id(handle1) << (graph.get_is_reverse(handle1) ? " rev" : " fd") << " TO " << graph.get_id(handle2) << (graph.get_is_reverse(handle2) ? " rev" : " fd") << endl;
 #endif
 
-                    distance_index.for_each_handle_in_shortest_path(node_id1, rev1, node_id2, rev2, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
+                    //distance_index.for_each_handle_in_shortest_path(node_id1, rev1, node_id2, rev2, &graph, [&](const handlegraph::handle_t handle, size_t distance) {
 #ifdef debug
-                        cerr << "Traversing node " << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev" : " fd") << " with distance " << distance << endl; 
-                        cerr << "\twith length " << graph.get_length(handle) << endl;
+                    //    cerr << "Traversing node " << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " rev" : " fd") << " with distance " << distance << endl; 
+                    //    cerr << "\twith length " << graph.get_length(handle) << endl;
 #endif
-                        path.emplace_back(handle, distance);
-                        return true;
-                    });
+                    //    path.emplace_back(handle, distance);
+                    //    return true;
+                    //});
 #ifdef debug
-                    cerr << "Distance path " << endl;
-                    for (auto x : path) {
-                        cerr << graph.get_id(x.first) << (graph.get_is_reverse(x.first) ? " rev" : " fd") << " with distance " << x.second << endl; 
+                    //cerr << "Distance path " << endl;
+                    //for (auto x : path) {
+                    //    cerr << graph.get_id(x.first) << (graph.get_is_reverse(x.first) ? " rev" : " fd") << " with distance " << x.second << endl; 
 
-                    }
+                    //}
 #endif
-                    if (path.size() == 0) {
-                        REQUIRE((minimum_distance == std::numeric_limits<size_t>::max() || node_id1 == node_id2 || minimum_distance == graph.get_length(handle1)));
-                    } else {
-                        REQUIRE(minimum_distance != std::numeric_limits<size_t>::max());
+                    //if (path.size() == 0) {
+                    //    REQUIRE((minimum_distance == std::numeric_limits<size_t>::max() || node_id1 == node_id2 || minimum_distance == graph.get_length(handle1)));
+                    //} else {
+                    //    REQUIRE(minimum_distance != std::numeric_limits<size_t>::max());
 
-                        size_t path_i = 0;
-                        handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
-                            if (path[path_i].first == reached) {
-                                REQUIRE(distance == path[path_i].second);
-                                if (path_i == path.size()-1) {
-                                    return false;
-                                }
-                                path_i++;
-                            }
-                            return true;
-                        });
-                        REQUIRE (path_i == path.size()-1);
-                        //TODO: This isn't actually true because there could be multiple minimum-distance paths but maybe I'll fix it if I need it later
-                        //path_i = 0;
-                        ////Compare against libhandlegraph::algorithms::for_each_handle_in_shortest_path
-                        //cerr << "Starting handlegraph traversal" << endl;
-                        //handlegraph::algorithms::for_each_handle_in_shortest_path(&graph, handle1, handle2, [&](const handle_t reached, size_t distance) {
-                        //    cerr << "At node " << graph.get_id(reached) << (graph.get_is_reverse(reached) ? " rev" : " fd") << " at distance " << distance << endl;
-                        //    REQUIRE(path_i < path.size());
-                        //    REQUIRE(path[path_i].first == reached);
-                        //    REQUIRE(path[path_i].second == distance);
-                        //    path_i++;
-                        //    return true;
-                        //});
-                        //REQUIRE(path_i == path.size());
-                    }
+                    //    size_t path_i = 0;
+                    //    handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                    //        if (path[path_i].first == reached) {
+                    //            REQUIRE(distance == path[path_i].second);
+                    //            if (path_i == path.size()-1) {
+                    //                return false;
+                    //            }
+                    //            path_i++;
+                    //        }
+                    //        return true;
+                    //    });
+                    //    REQUIRE (path_i == path.size()-1);
+                    //    //TODO: This isn't actually true because there could be multiple minimum-distance paths but maybe I'll fix it if I need it later
+                    //    //path_i = 0;
+                    //    ////Compare against libhandlegraph::algorithms::for_each_handle_in_shortest_path
+                    //    //cerr << "Starting handlegraph traversal" << endl;
+                    //    //handlegraph::algorithms::for_each_handle_in_shortest_path(&graph, handle1, handle2, [&](const handle_t reached, size_t distance) {
+                    //    //    cerr << "At node " << graph.get_id(reached) << (graph.get_is_reverse(reached) ? " rev" : " fd") << " at distance " << distance << endl;
+                    //    //    REQUIRE(path_i < path.size());
+                    //    //    REQUIRE(path[path_i].first == reached);
+                    //    //    REQUIRE(path[path_i].second == distance);
+                    //    //    path_i++;
+                    //    //    return true;
+                    //    //});
+                    //    //REQUIRE(path_i == path.size());
+                    //}
                 }
             }
         }
