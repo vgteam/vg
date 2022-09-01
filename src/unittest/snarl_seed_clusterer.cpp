@@ -877,12 +877,6 @@ namespace unittest {
         SECTION( "Test distance values" ) {
             net_handle_t node1 = dist_index.get_parent(dist_index.get_node_net_handle(n1->id()));
             net_handle_t snarl82 = dist_index.get_parent(node1); 
-            cerr << dist_index.net_handle_as_string(snarl82) << endl;
-
-            cerr << dist_index.distance_to_parent_bound(snarl82, false, node1, false) << " " << 
-                dist_index.distance_to_parent_bound(snarl82, false, node1, true) << " " <<
-                dist_index.distance_to_parent_bound(snarl82, true, node1, false) << " " <<
-                dist_index.distance_to_parent_bound(snarl82, true, node1, true) << endl;
 
             REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1, false) == 0);
             REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1, true) == std::numeric_limits<size_t>::max());
@@ -891,12 +885,6 @@ namespace unittest {
 
             net_handle_t node3 = dist_index.get_parent(dist_index.get_node_net_handle(n3->id()));
             net_handle_t snarl24 = dist_index.get_parent(node3); 
-            cerr << dist_index.net_handle_as_string(snarl24) << endl;
-
-            cerr << dist_index.distance_to_parent_bound(snarl24, false, node3, false) << " " << 
-                dist_index.distance_to_parent_bound(snarl24, false, node3, true) << " " <<
-                dist_index.distance_to_parent_bound(snarl24, true, node3, false) << " " <<
-                dist_index.distance_to_parent_bound(snarl24, true, node3, true) << endl;
 
             REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3, true) == 0);
             REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3, false) == std::numeric_limits<size_t>::max());
@@ -3181,7 +3169,7 @@ namespace unittest {
     TEST_CASE("Random graphs", "[cluster_random]"){
 
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));

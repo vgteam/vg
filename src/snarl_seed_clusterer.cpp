@@ -375,12 +375,12 @@ cerr << "Add all seeds to nodes: " << endl;
                                                            SnarlDistanceIndex::CHAIN_HANDLE);
                 }
             } else {
-                parent = distance_index.canonical(distance_index.get_parent(node_net_handle));
+                parent = distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle));
                 if (distance_index.is_trivial_chain(parent)){
                     net_handle_t grandparent = distance_index.get_parent(parent);
                     if (distance_index.is_root(grandparent)){
                         node_net_handle = parent;
-                        parent = distance_index.canonical(grandparent);
+                        parent = distance_index.start_end_traversal_of(grandparent);
                     }
                 }
             }
@@ -389,8 +389,8 @@ cerr << "Add all seeds to nodes: " << endl;
 cerr << cached_is_trivial_chain << " " << cached_parent_is_chain << " " << cached_parent_is_root << endl;
 cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << distance_index.net_handle_as_string(parent) << endl;
             if (!distance_index.is_root(parent)) {
-                cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.canonical(distance_index.get_parent(node_net_handle))) << endl; 
-                assert( distance_index.canonical(parent) == distance_index.canonical(distance_index.get_parent(node_net_handle)));
+                cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle))) << endl; 
+                assert( distance_index.start_end_traversal_of(parent) == distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle)));
             }
 #endif
             if (!distance_index.is_root(parent)) {
@@ -719,7 +719,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
 
             net_handle_t snarl_parent = snarl_clusters.has_parent_handle
                                       ? snarl_clusters.parent_net_handle
-                                      : distance_index.canonical(distance_index.get_parent(snarl_clusters.containing_net_handle));
+                                      : distance_index.start_end_traversal_of(distance_index.get_parent(snarl_clusters.containing_net_handle));
             size_t parent_index;
             if (tree_state.net_handle_to_index.count(snarl_parent) == 0) {
                 parent_index = tree_state.all_node_clusters.size();
@@ -794,7 +794,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 
             net_handle_t parent = tree_state.all_node_clusters[chain_range_start->parent_index].has_parent_handle
                                 ? tree_state.all_node_clusters[chain_range_start->parent_index].parent_net_handle
-                                : distance_index.canonical(distance_index.get_parent(chain_handle));
+                                : distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle));
             bool is_root = distance_index.is_root(parent);
             bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
 
@@ -845,7 +845,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                 //Remember the distances to the ends of the parent 
 
                 NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_range_start->parent_index];
-                bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
+                bool chain_handle_is_reversed = false;//distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
                 chain_clusters.distance_start_left = 
                         distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed,
                             std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
@@ -908,7 +908,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 
                 net_handle_t parent = tree_state.all_node_clusters[current_iterator->parent_index].has_parent_handle
                                     ? tree_state.all_node_clusters[current_iterator->parent_index].parent_net_handle
-                                    : distance_index.canonical(distance_index.get_parent(chain_handle));
+                                    : distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle));
                 bool is_root = distance_index.is_root(parent);
                 bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
                 bool is_top_level_chain = (depth == 1) && !is_root_snarl &&
@@ -947,7 +947,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                     //Remember the distances to the ends of the parent 
 
                     NodeClusters& chain_clusters = tree_state.all_node_clusters[current_iterator->parent_index];
-                    bool chain_handle_is_reversed = distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
+                    bool chain_handle_is_reversed = false;//distance_index.ends_at(chain_handle) == SnarlDistanceIndex::START;
                     chain_clusters.distance_start_left = 
                             distance_index.distance_to_parent_bound(parent, true, chain_handle, !chain_handle_is_reversed,
                             std::make_tuple(SnarlDistanceIndex::SNARL_HANDLE, 
