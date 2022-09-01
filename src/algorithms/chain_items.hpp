@@ -1579,6 +1579,23 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     // Make a VectorView over the items
     VectorView<Item> item_view {item_storage, sorted_item_indexes};
     
+    // Make a set of items we started with or have found so far
+    std::unordered_set<std::pair<size_t, pos_t>> seen_items;
+    for (auto& item : item_view) {
+        // Make sure none of the initial items are duplicates.
+        size_t read_start = space.read_start(item);
+        pos_t graph_start = space.graph_start(item);
+        auto key = std::make_pair(read_start, graph_start);
+        auto found = seen_items.find(key);
+        if (found != seen_items.end()) {
+            throw std::runtime_error("Duplicate initial mapping between read " + 
+                                     std::to_string(read_start) + 
+                                     " and graph " + std::to_string(graph_start));
+        }
+        seen_items.emplace_hint(found, std::move(key));
+    }
+    
+    // Find the first run of things starting at the same place in the read.
     size_t left_run_start = 0;
     size_t left_run_end = 1;
     while (left_run_end < item_view.size() && space.read_start(item_view[left_run_end]) == space.read_start(item_view[left_run_start])) {
@@ -1626,7 +1643,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                 }
             
                 if (closest_right != std::numeric_limits<size_t>::max()) {
-                    // We actually found somethign we think we can reach
+                    // We actually found something we think we can reach
         
 #ifdef debug_reseeding
                     cerr << "Reseeding between seeds " << item_view.backing_index(left)
@@ -1643,6 +1660,20 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                                                                   source_sort_inverse,
                                                                   for_each_pos_for_source_in_subgraph,
                                                                   max_fallow_search_distance);
+                    
+                    for (auto& item : new_items) {
+                        // Make sure none of the newly-found items are duplicates.
+                        size_t read_start = space.read_start(item);
+                        pos_t graph_start = space.graph_start(item);
+                        auto key = std::make_pair(read_start, graph_start);
+                        auto found = seen_items.find(key);
+                        if (found != seen_items.end()) {
+                            throw std::runtime_error("Duplicate reseeded mapping between read " + 
+                                                     std::to_string(read_start) + 
+                                                     " and graph " + std::to_string(graph_start));
+                        }
+                        seen_items.emplace_hint(found, std::move(key));
+                    }
                 
                     // Append the fill-in items onto the item storage vector. Safe to do
                     // even when we're using a view over it.
