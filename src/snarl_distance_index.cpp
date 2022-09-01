@@ -524,6 +524,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             temp_chain_record.chain_components[0] = temp_chain_record.chain_components.back();
 
         }
+
+        //For a multicomponent chain, the actual minimum length will always be infinite, but since we sometimes need
+        //the length of the last component, save that here
         temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id
                         ? temp_chain_record.prefix_sum.back()
                         : SnarlDistanceIndex::sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length});
@@ -677,7 +680,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         if (component_index.first == SnarlDistanceIndex::TEMP_SNARL) {
             SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(component_index.second);
             populate_snarl_index(temp_index, component_index, size_limit, distance_limit, graph);
-            temp_snarl_record.min_length = std::numeric_limits<size_t>::max();//TODO: This is true but might be better to store it as something else so we can bit compress later
+            temp_snarl_record.min_length = std::numeric_limits<size_t>::max();
         }
     }
     temp_index.root_structure_count = temp_index.components.size();
@@ -1023,10 +1026,18 @@ void populate_snarl_index(
                          || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id))) {
                         //If this isn't leaving the snarl, and the distance is either small enough to consider or came from a boundary node, 
                         //then add the next node to the queue, along with the distance to traverse it
-                        size_t next_node_len = next_index.first == SnarlDistanceIndex::TEMP_NODE ? graph->get_length(next_handle) :
+                        size_t next_node_length = next_index.first == SnarlDistanceIndex::TEMP_NODE ? graph->get_length(next_handle) :
                                         temp_index.temp_chain_records[next_index.second].min_length;
-                        queue.push(make_pair(current_distance + next_node_len, 
-                                       make_pair(next_index, next_rev)));
+                        if (next_index.first == SnarlDistanceIndex::TEMP_CHAIN &&
+                            temp_index.temp_chain_records[next_index.second].chain_components.back() != 0) {
+                            //If there are multiple components, then the chain is not start-end reachable so its length
+                            //is actually infinite
+                            next_node_length = std::numeric_limits<size_t>::max();
+                        }
+                        if (next_node_length != std::numeric_limits<size_t>::max()) {
+                            queue.push(make_pair(current_distance + next_node_length, 
+                                           make_pair(next_index, next_rev)));
+                        }
                     } else if (current_distance > distance_limit) {
                             temp_snarl_record.skipped_distances=true;
                             
