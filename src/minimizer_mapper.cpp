@@ -13,6 +13,7 @@
 #include "statistics.hpp"
 #include "algorithms/count_covered.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -241,6 +242,49 @@ string MinimizerMapper::log_bits(const std::vector<bool>& bits) {
         }
     }
     return ss.str();
+}
+
+template<typename SeedType>
+void MinimizerMapper::dump_chaining_problem(const algorithms::ChainingSpace<SeedType, Minimizer>& space, const std::vector<SeedType>& seeds, const std::vector<size_t>& cluster_seeds_sorted) {
+    ProblemDumpExplainer exp;
+    
+    // We need to keep track of all the points we want in our problem subgraph.
+    std::vector<pos_t> seed_positions;
+    seed_positions.reserve(cluster_seeds_sorted.size());
+    
+    exp.object_start();
+    
+    // Save all the items
+    exp.key("items");
+    exp.array_start();
+    for (auto& index : cluster_seeds_sorted) {
+        exp.object_start();
+        exp.key("read_start");
+        exp.value(space.read_start(seeds[index]));
+        exp.key("read_end");
+        exp.value(space.read_end(seeds[index]));
+        
+        if (space.graph) {
+            pos_t graph_start = space.graph_start(seeds[index]);
+            seed_positions.push_back(graph_start);
+            exp.key("graph_start");
+            exp.value(graph_start);
+            exp.key("graph_end");
+            exp.value(space.graph_end(seeds[index]));
+        }
+        exp.object_end();
+    }
+    exp.array_end();
+    
+    if (space.graph) {
+        // Get the subgraph for the cluster
+        HashGraph subgraph;
+        algorithms::extract_containing_graph(space.graph, &subgraph, seed_positions, 10000);
+        exp.key("subgraph");
+        exp.value(subgraph);
+    }
+    
+    exp.object_end();
 }
 
 void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence) {
@@ -686,6 +730,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
                         return space.read_start(seeds[a]) < space.read_start(seeds[b]);
                     });
+                    
+                    dump_chaining_problem(space, seeds, cluster_seeds_sorted);
                     
                     if (track_provenance) {
                         funnel.substage("reseed");

@@ -776,6 +776,10 @@ protected:
     /// Turn a list of bit flags into a compact representation.
     static string log_bits(const std::vector<bool>& bits);
     
+    /// Dump a whole chaining problem
+    template<typename SeedType>
+    static void dump_chaining_problem(const algorithms::ChainingSpace<SeedType, Minimizer>& space, const std::vector<SeedType>& seeds, const std::vector<size_t>& cluster_seeds_sorted);
+    
     /// Dump all the given minimizers, with optional subset restriction
     static void dump_debug_minimizers(const VectorView<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
     

@@ -11,19 +11,132 @@
 
 namespace vg {
 
-std::atomic<size_t> DiagramExplainer::next_explanation_number {0};
-const size_t DiagramExplainer::MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY {5};
+std::atomic<size_t> Explainer::next_explanation_number {0};
 
-DiagramExplainer::DiagramExplainer() : explanation_number(DiagramExplainer::next_explanation_number++) {
+Explainer::Explainer() : explanation_number(Explainer::next_explanation_number++) {
     // Nothing to do!
 }
 
-void DiagramExplainer::add_globals(const annotation_t& annotations) {
-    std::copy(annotations.begin(), annotations.end(), std::back_inserter(globals));
+Explainer::~Explainer() {
+    // Nothing to do!
+}
+
+ProblemDumpExplainer::ProblemDumpExplainer() : Explainer(), out("problem" + std::to_string(explanation_number) + ".json") {
+    // Nothing to do!
+}
+
+ProblemDumpExplainer::~ProblemDumpExplainer() {
+    // Nothing to do!
+}
+
+void ProblemDumpExplainer::object_start() {
+    out << "{";
+}
+
+void ProblemDumpExplainer::object_end() {
+    out << "}";
+}
+
+void ProblemDumpExplainer::array_start() {
+    out << "[";
+}
+
+void ProblemDumpExplainer::array_end() {
+    out << "]";
+}
+
+void ProblemDumpExplainer::key(const std::string& k) {
+    out << "\"" << k << "\":";
+}
+
+void ProblemDumpExplainer::value(const std::string& v) {
+    out << "\"" << v << "\",";
+}
+
+void ProblemDumpExplainer::value(double v) {
+    out << v << ",";
+}
+
+void ProblemDumpExplainer::value(size_t v) {
+    out << "\"" << v << "\",";
+}
+
+void ProblemDumpExplainer::value(int v) {
+    out << "\"" << v << "\",";
+}
+
+void ProblemDumpExplainer::value(bool v) {
+    out << (v ? "true" : "false") << ",";
+}
+
+void ProblemDumpExplainer::value(vg::id_t v) {
+    out << "\"" << v << "\",";
+}
+
+void ProblemDumpExplainer::value(const pos_t& v) {
+    object_start();
+    key("node_id");
+    value(id(v));
+    if (offset(v) != 0) {
+        key("offset");
+        value(offset(v));
+    }
+    if (is_rev(v)) {
+        key("is_reverse");
+        value(true);
+    }
+    object_end();
+}
+
+void ProblemDumpExplainer::value(const HandleGraph& v) {
+    object_start();
+    key("node");
+    array_start();
+    v.for_each_handle([&](const handle_t& h) {
+        // Put all the nodes in the node array
+        object_start();
+        key("id");
+        value(v.get_id(h));
+        key("sequence");
+        value(v.get_sequence(h));
+        object_end();
+    });
+    array_end();
+    key("edge");
+    array_start();
+    v.for_each_edge([&](const edge_t& e) {
+        // Put all the edges in the edge array
+        object_start();
+        key("from");
+        value(v.get_id(e.first));
+        if (v.get_is_reverse(e.first)) {
+            key("from_start");
+            value(true);
+        }
+        key("to");
+        value(v.get_id(e.second));
+        if (v.get_is_reverse(e.second)) {
+            key("to_end");
+            value(true);
+        }
+        object_end();
+    });
+    array_end();
+    object_end();
+}
+
+const size_t DiagramExplainer::MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY {5};
+
+DiagramExplainer::DiagramExplainer() : Explainer() {
+    // Nothing to do!
 }
 
 DiagramExplainer::~DiagramExplainer() {
     write_connected_components();
+}
+
+void DiagramExplainer::add_globals(const annotation_t& annotations) {
+    std::copy(annotations.begin(), annotations.end(), std::back_inserter(globals));
 }
 
 void DiagramExplainer::add_node(const std::string& id, const annotation_t& annotations) {

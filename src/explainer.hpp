@@ -20,19 +20,91 @@
 // For pair hash overload
 #include "hash_map.hpp"
 
+#include "types.hpp"
+#include "handle.hpp"
+
 namespace vg {
+
+/**
+ * Base explainer class. Handles making sure each explanation has a different unique number.
+ */
+class Explainer {
+public:
+    /// Construct an Explainer that will save to one or more files
+    Explainer();
+    
+    /// Close out the files being explained to
+    virtual ~Explainer();
+
+protected:
+    /// What number explanation are we? Distinguishes different objects.
+    size_t explanation_number;
+    
+    /// Counter used to give different explanations their own unique filenames.
+    static std::atomic<size_t> next_explanation_number;
+
+};
+
+/**
+ * Widget to serialize somewhat structured logs.
+ */
+class ProblemDumpExplainer : public Explainer {
+public:
+    /// Construct a ProblemDumpExplainer that will save a dump of a problem to a file.
+    ProblemDumpExplainer();
+    /// Close out the file being explained to
+    ~ProblemDumpExplainer();
+    
+    // We think in JSON, but with support for vg types.
+    
+    /// Begin an object in a value context.
+    void object_start();
+    /// End an object after its last value.
+    void object_end();
+    /// Begin an array in a value context.
+    void array_start();
+    /// End an array after its last value.
+    void array_end();
+    
+    /// Put the key for a value, inside an object
+    void key(const std::string& k);
+    
+    /// Put a value after a key or in an array.
+    /// Assumes the string is pre-escaped.
+    void value(const std::string& v);
+    /// Put a value after a key or in an array.
+    void value(double v);
+    /// Put a value after a key or in an array.
+    void value(size_t v);
+    /// Put a value after a key or in an array.
+    void value(int v);
+    /// Put a value after a key or in an array.
+    void value(bool v);
+    /// Put a value after a key or in an array.
+    void value(vg::id_t v);
+    /// Put a value after a key or in an array.
+    /// Represents the position as a vg Protobuf Position.
+    void value(const pos_t& v);
+    /// Put a value after a key or in an array.
+    /// Represents the graph as a single chunk vg Protobuf Graph.
+    void value(const HandleGraph& v);
+    
+protected:
+    /// Stream being written to
+    ofstream out;
+};
 
 /**
  * Widget to log statistics to a GraphViz file.
  */
-class DiagramExplainer {
+class DiagramExplainer : public Explainer {
 public:
     // We define a type for miscelaneous annotations, since we don't have kwargs
     using annotation_t = std::vector<std::pair<std::string, std::string>>;
 
-    /// Construct a DiagramExplainer that will save a diagram to a file
+    /// Construct a DiagramExplainer that will save a diagram to one or more files.
     DiagramExplainer();
-    /// Close out the file being explained to
+    /// Close out the files being explained to
     ~DiagramExplainer();
     
     /// Add global annotations (like rankdir)
@@ -59,9 +131,6 @@ public:
     void suggest_edge(const std::string& a_id, const std::string& b_id, const std::string& category, double importance, const annotation_t& annotations = {});
     
 protected:
-    /// What number explanation are we? Distinguishes different objects.
-    size_t explanation_number;
-    
     /// Collection of all global diagram key-value pairs (like rankdir)
     annotation_t globals;
 
@@ -80,10 +149,6 @@ protected:
     
     /// Top k most important edges for each suggested edge category
     std::unordered_map<std::string, std::vector<suggested_edge_t>> suggested_edges;
-    
-    
-    /// Counter used to give different explanations their own unique filenames.
-    static std::atomic<size_t> next_explanation_number;
     
     /// Limit on suggested edges
     static const size_t MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY;
