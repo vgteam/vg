@@ -30,47 +30,64 @@ ProblemDumpExplainer::~ProblemDumpExplainer() {
 }
 
 void ProblemDumpExplainer::object_start() {
+    comma();
     out << "{";
 }
 
 void ProblemDumpExplainer::object_end() {
     out << "}";
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::array_start() {
+    comma();
     out << "[";
 }
 
 void ProblemDumpExplainer::array_end() {
     out << "]";
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::key(const std::string& k) {
+    comma();
     out << "\"" << k << "\":";
 }
 
 void ProblemDumpExplainer::value(const std::string& v) {
-    out << "\"" << v << "\",";
+    comma();
+    out << "\"" << v << "\"";
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::value(double v) {
-    out << v << ",";
+    comma();
+    out << v;
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::value(size_t v) {
-    out << "\"" << v << "\",";
+    comma();
+    out << "\"" << v << "\"";
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::value(int v) {
-    out << "\"" << v << "\",";
+    comma();
+    out << "\"" << v << "\"";
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::value(bool v) {
-    out << (v ? "true" : "false") << ",";
+    comma();
+    out << (v ? "true" : "false");
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::value(vg::id_t v) {
-    out << "\"" << v << "\",";
+    comma();
+    out << "\"" << v << "\"";
+    need_comma = true;
 }
 
 void ProblemDumpExplainer::value(const pos_t& v) {

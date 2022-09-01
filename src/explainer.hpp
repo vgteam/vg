@@ -92,6 +92,16 @@ public:
 protected:
     /// Stream being written to
     ofstream out;
+    /// Whether we need a comma before the next key or value.
+    bool need_comma = false;
+    
+    /// Write a separating comma if needed.
+    inline void comma() {
+        if (need_comma) {
+            out << ",";
+            need_comma = false;
+        }
+    }
 };
 
 /**

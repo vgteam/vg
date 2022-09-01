@@ -720,9 +720,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
                     // Define a space to chain in.
                     // TODO: re-use!
+                    algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
                     algorithms::ChainingSpace<Seed, Minimizer> space(
                         minimizers,
-                        *get_regular_aligner(),
+                        scorer,
                         distance_index,
                         &gbwt_graph);
                         
@@ -762,9 +763,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
                     // Define a space to chain in.
                     // TODO: re-use!
+                    algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
                     algorithms::ChainingSpace<OldSeed, Minimizer> space(
                         minimizers,
-                        *get_regular_aligner(),
+                        scorer,
                         &gbwt_graph);
                         
                     // Sort seeds by read start of seeded region
@@ -993,9 +995,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     if (distance_index != nullptr) {
                         // Define a space to chain in.
                         // TODO: re-use!
+                        algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
                         algorithms::ChainingSpace<Seed, Minimizer> space(
                             minimizers,
-                            *get_regular_aligner(),
+                            scorer,
                             distance_index,
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
@@ -1003,9 +1006,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     } else {
                         // Define a space to chain in.
                         // TODO: re-use!
+                        algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
                         algorithms::ChainingSpace<OldSeed, Minimizer> space(
                             minimizers,
-                            *get_regular_aligner(),
+                            scorer,
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
                         best_alignments[0] = find_chain_alignment(aln, {old_seeds, cluster_seeds_sorted}, space, chain);

@@ -926,7 +926,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     }
     
     // We need an Aligner for scoring.
-    const Aligner& aligner = space.scoring;
+    const Aligner& aligner = *get_regular_aligner();
     
     // We need a WFAExtender to do tail and intervening alignments.
     // Note that the extender expects anchoring matches!!!
