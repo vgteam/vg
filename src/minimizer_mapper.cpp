@@ -733,6 +733,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     });
                     
                     dump_chaining_problem(space, seeds, cluster_seeds_sorted);
+                    return;
                     
                     if (track_provenance) {
                         funnel.substage("reseed");
