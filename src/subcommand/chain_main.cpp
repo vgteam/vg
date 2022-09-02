@@ -23,6 +23,7 @@ using namespace vg::subcommand;
 struct LiteralItem {
     size_t start;
     size_t length;
+    int score;
     pos_t pos;
     
     inline bool operator==(const LiteralItem& other) const {
@@ -60,6 +61,10 @@ struct ChainingSpace<LiteralItem, void> : public BaseChainingSpace<LiteralItem> 
     
     virtual size_t read_end(const Item& item) const {
         return item.start + item.length;
+    }
+    
+    virtual int score(const Item& item) const {
+        return item.score;
     }
     
     virtual size_t read_length(const Item& item) const {
@@ -265,6 +270,7 @@ int main_chain(int argc, char** argv) {
                 // Note that Jansson is C and can't use bool; it's "b" will decode an int.
                 const char* read_start = nullptr;
                 const char* read_end = nullptr;
+                const int score = 31;
                 json_t* graph_start = nullptr;
                 const char* graph_start_id = nullptr;
                 const char* graph_start_offset = "0"; 
@@ -273,9 +279,10 @@ int main_chain(int argc, char** argv) {
                 const char* graph_end_id = nullptr;
                 const char* graph_end_offset = "0";
                 int graph_end_is_reverse = 0;
-                if (json_unpack_ex(item_json, &json_error, 0, "{s:s, s:s, s:o, s:o}",
+                if (json_unpack_ex(item_json, &json_error, 0, "{s:s, s:s, s?i, s:o, s:o}",
                                    "read_start", &read_start, 
                                    "read_end", &read_end,
+                                   "score", &score,
                                    "graph_start", &graph_start,
                                    "graph_end", &graph_end) == 0 &&
                     json_unpack_ex(graph_start, &json_error, 0, "{s:s, s?s, s?b}",
@@ -297,7 +304,7 @@ int main_chain(int argc, char** argv) {
                     size_t length = vg::parse<size_t>(read_end) - start;
                     
                     // Pack up into an item
-                    items.emplace_back(LiteralItem {start, length, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset))});
+                    items.emplace_back(LiteralItem {start, length, score, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset))});
                 } else {
                     std::cerr << "warning:[vg chain] Unreadable item object at index " << i << ": " << json_error.text << std::endl;
                 }

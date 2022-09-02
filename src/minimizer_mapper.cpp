@@ -263,6 +263,8 @@ void MinimizerMapper::dump_chaining_problem(const algorithms::ChainingSpace<Seed
         exp.value(space.read_start(seeds[index]));
         exp.key("read_end");
         exp.value(space.read_end(seeds[index]));
+        exp.key("score");
+        exp.value(space.score(seeds[index]));
         
         if (space.graph) {
             pos_t graph_start = space.graph_start(seeds[index]);
