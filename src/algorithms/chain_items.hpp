@@ -539,6 +539,33 @@ struct BaseChainingSpace {
     virtual void validate(const Item& item, const std::string& full_read_sequence) const {
         // By default, do nothing
     }
+    
+    /**
+     * Turn an Item into something we can show to the user.
+     */
+    virtual std::string to_string(const Item& item) const {
+        std::stringstream s;
+        s << "{R" << this->read_start(item) << "->" << this->read_end(item);
+        if (this->graph) {
+            s << "=G" << this->graph_start(item);
+        }
+        s << "}";
+        return s.str();
+    }
+    
+    /**
+     * Turn a transition between Items into something we can show to the user.
+     * Describe just the transition, not the items.
+     */
+    virtual std::string to_string(const Item& a, const Item& b) const {
+        std::stringstream s;
+        s << "{Rdist: " << this->get_read_distance(a, b);
+        if (this->graph) {
+            s << " Gdist: " << this->get_graph_distance(a, b);
+        }
+        s << "}";
+        return s.str();
+    }
 };
 
 
@@ -1157,10 +1184,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         
 #ifdef debug_chaining
         cerr << "Look at transitions to item " << i
-            << " at " << space.read_start(here) << " to " << space.read_end(here);
-        if (space.graph) {
-            cerr << " = " << space.graph_start(here);
-        }
+            << " at " << space.to_string(here);
         cerr << endl;
 #endif
         
@@ -1181,17 +1205,10 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             lookback_items_tested++;
             
 #ifdef debug_chaining
-            cerr << "\tConsider transition from item " << *predecessor_index_it 
-            << " at " << space.read_start(source) << " to " << space.read_end(source); 
-            if (space.graph) {
-                cerr << " = " << space.graph_start(source);
-            }
-            cerr << " score " << best_chain_score[*predecessor_index_it]
-                << " with read distance " << space.get_read_distance(source, here);
-            if (space.graph) {
-                cerr << " and graph distance " << space.get_graph_distance(source, here);
-            }
-            cerr << endl;
+            cerr << "\tConsider transition from item " << *predecessor_index_it << ": " << space.to_string(source) << endl;
+            
+            cerr << "\t\tCome from score " << best_chain_score[*predecessor_index_it]
+                << " across " << space.to_string(source, here) << endl;
 #endif
 
             if (lookback_bases != 0 && space.get_read_distance(source, here) > lookback_bases) {
@@ -1270,7 +1287,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #endif
         
         std::stringstream label_stream;
-        label_stream << "#" << i << " (" << space.read_start(here) << "-" << space.read_end(here) << ") = " << item_points << "/" << ST::score(best_chain_score[i]);
+        label_stream << "#" << i << " " << space.to_string(here) << " = " << item_points << "/" << ST::score(best_chain_score[i]);
         diagram.add_node(here_gvnode, {
             {"label", label_stream.str()}
         });
@@ -1316,8 +1333,7 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
     size_t here = score_traits<Score>::source(best_past_ending_score_ever);
     if (here != score_traits<Score>::nowhere()) {
 #ifdef debug_chaining
-        cerr << "Chain ends at #" << here << " at " << space.read_start(to_chain[here])
-            << "-" << space.read_end(to_chain[here])
+        cerr << "Chain ends at #" << here << " " << space.to_string(to_chain[here])
             << " with score " << best_past_ending_score_ever << endl;
 #endif
         while(here != score_traits<Score>::nowhere()) {
@@ -1329,8 +1345,7 @@ vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
 #ifdef debug_chaining
             if (here != score_traits<Score>::nowhere()) {
                 cerr << "And comes after #" << here
-                << " at " << space.read_start(to_chain[here])
-                << "-" << space.read_end(to_chain[here]) << endl;
+                << " " << space.to_string(to_chain[here]) << endl;
             } else {
                 cerr << "And is first" << endl;
             }
@@ -1489,7 +1504,7 @@ vector<Item> reseed_fallow_region(const Item& left,
             forged_items.back().source = (*source_sort_inverse)[i];
             
 #ifdef debug_reseeding
-            cerr << "Found new seed for read-order source " << i << " of read@" << space.read_start(forged_items.back()) << " = graph@" << space.graph_start(forged_items.back()) << endl;
+            cerr << "Found new seed for read-order source " << i << " of " << space.to_string(forged_items.back()) << endl;
 #endif
             
         });
@@ -1546,9 +1561,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         auto key = std::make_pair(read_start, graph_start);
         auto found = seen_items.find(key);
         if (found != seen_items.end()) {
-            throw std::runtime_error("Duplicate initial mapping between read " + 
-                                     std::to_string(read_start) + 
-                                     " and graph " + std::to_string(graph_start));
+            throw std::runtime_error("Duplicate initial mapping " + space.to_string(item));
         }
         seen_items.emplace_hint(found, std::move(key));
     }
@@ -1604,10 +1617,10 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                     // We actually found something we think we can reach
         
 #ifdef debug_reseeding
-                    cerr << "Reseeding between seeds " << item_view.backing_index(left)
-                        << " at read index " << space.read_start(item_view[left])
-                        << " and " << item_view.backing_index(closest_right)
-                        << " at read index " << space.read_start(item_view[closest_right])
+                    cerr << "Reseeding between seeds #" << item_view.backing_index(left)
+                        << " " << space.to_string(item_view[left])
+                        << " and #" << item_view.backing_index(closest_right)
+                        << " " << space.to_string(item_view[closest_right])
                         << endl;
 #endif
             
@@ -1626,9 +1639,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                         auto key = std::make_pair(read_start, graph_start);
                         auto found = seen_items.find(key);
                         if (found != seen_items.end()) {
-                            throw std::runtime_error("Duplicate reseeded mapping between read " + 
-                                                     std::to_string(read_start) + 
-                                                     " and graph " + std::to_string(graph_start));
+                            throw std::runtime_error("Duplicate reseeded mapping " + space.to_string(item));
                         }
                         seen_items.emplace_hint(found, std::move(key));
                     }
