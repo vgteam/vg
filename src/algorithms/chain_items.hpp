@@ -1791,7 +1791,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         // Check read distance.
         size_t read_distance = space.get_read_distance(item_view[left_run_start], item_view[right_run_start]);
         
-        if (read_distance > fallow_region_size) {
+        if (read_distance != std::numeric_limits<size_t>::max() && read_distance > fallow_region_size) {
             
             // Now we know that the items between left_run_start and left_run_end form a fallow region with the items between right_run_start and right_run_end.
             
