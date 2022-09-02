@@ -1071,6 +1071,28 @@ public:
     };
 };
 
+/**
+ * Get rid of items that are shadowed or contained by (or are identical to) others.
+ * We assume that if the start and end positions put you on the same diagonals
+ * on the same nodes, where the middle of the path goes doesn't matter.
+ *
+ * Erases items that didn't survive from indexes, and sorts them by read start
+ * position.
+ */
+template<typename Item, typename Source = void>
+void sort_and_shadow(const std::vector<Item>& items, std::vector<size_t>& indexes, const ChainingSpace<Item, Source>& space);
+
+/**
+ * Get rid of items that are shadowed or contained by (or are identical to) others.
+ * We assume that if the start and end positions put you on the same diagonals
+ * on the same nodes, where the middle of the path goes doesn't matter.
+ *
+ * Erases items that didn't survive from items, and sorts them by read start
+ * position.
+ */
+template<typename Item, typename Source = void>
+void sort_and_shadow(std::vector<Item>& items, const ChainingSpace<Item, Source>& space);
+
 // These next functions all have to be templated on "Collection" if we want to
 // ever be able to call them with vectors. An implicit conversion to
 // VectorView doesn't count when type deduction is happening, so we can;t just
@@ -1147,7 +1169,7 @@ int score_best_chain(const Collection& to_chain,
  * subgraph, calls back with each pos_t in the subgraph that can correspond to
  * the source to form an Item.
  *
- * Returns new, forged items in an arbitrary order.
+ * Returns new, forged items in ascending order by read start position. 
  *
  * Forged items will not have all fields set. They will only have locations and
  * sources.
@@ -1199,6 +1221,84 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
 // --------------------------------------------------------------------------------
 
 // Template implementations
+
+template<typename Item, typename Source = void>
+void sort_and_shadow(const std::vector<Item>& items, std::vector<size_t>& indexes, const ChainingSpace<Item, Source>& space) {
+    
+    // Sort the indexes by read start ascending, and read end descending
+    std::sort(indexes.begin(), indexes.end(), [&](const size_t& a, const size_t& b) {
+        auto& a_item = items[a];
+        auto& b_item = items[b];
+        auto a_start = space.read_start(a_item);
+        auto b_start = space.read_start(b_item);
+        // a should be first if it starts earlier, or starts atthe same place and ends later.
+        return (a_start < b_start || (a_start == b_start && space.read_end(a_item) > space.read_end(b_item)));
+    });
+    
+    // Keep a collection of the diagonal pairs that are already represented,
+    // and the read end position of the latest-ending item on those pairs that
+    // we have taken. A diagonal is defined as a graph node ID, a graph strand,
+    // and the difference between the graph offset and the read position. So we
+    // can represent them with pos_t, and subtract the read position out of the
+    // stored offset to make them.
+    std::unordered_map<std::pair<pos_t, pos_t>, size_t> diagonal_progress;
+    
+    // Scan through and make a new collection of indexes, keeping the first on
+    // any pair of diagonals, which will thus be the one with the earliest
+    // start, and within those the latest end. Since we need to keep items
+    // which partially overlap but don't contain each other, we also keep an
+    // item if it is the new latest-ending thing we've seen for a pair of
+    // diagonals.
+    std::vector<size_t> kept_indexes;
+    kept_indexes.reserve(indexes.size());
+    for (auto i : indexes) {
+        // For each item we might keep
+        auto& item = items[i];
+        // Fetch out the read bounds so we can reuse them
+        auto item_read_start = space.read_start(item);
+        auto item_read_end = space.read_end(item);
+        
+        // Prepare the key of the diagonals it visits
+        std::pair<pos_t, pos_t> diagonal = std::make_pair(space.graph_start(item), space.graph_end(item));
+        // Make the offsets store a difference between graph and read offset so
+        // they really represent diagonals.
+        get_offset(diagonal.first) -= item_read_start;
+        get_offset(diagonal.second) -= item_read_end;
+        
+        auto& furthest_read_end = diagonal_progress[diagonal];
+        if (furthest_read_end < item_read_end) {
+            // This is the first, or latest-ending, item seen on this diagonal.
+            // If there was an earlier-ending item taken, we know it started before this one, because of iteration order.
+            // So take this item.
+            kept_indexes.push_back(i);
+            // And record that we got out this far
+            furthest_read_end = item_read_end;
+#ifdef debug_chaining
+            std::cerr << "Keep " << space.to_string(item) << " which gets us to R" << furthest_read_end << " on diagonal (" << diagonal.first << ", " << diagonal.second << ")"  << std::endl;
+#endif
+        } else {
+#ifdef debug_chaining
+            std::cerr << "Discard " << space.to_string(item) << " as shadowed because we already got to R" << furthest_read_end << " on diagonal (" << diagonal.first << ", " << diagonal.second << ")"  << std::endl;
+#endif
+        }
+    }
+    
+    // Replace the indexes with the sorted and deduplicated ones.
+    indexes = std::move(kept_indexes);
+}
+
+template<typename Item, typename Source = void>
+void sort_and_shadow(std::vector<Item>& items, const ChainingSpace<Item, Source>& space) {
+    // Use the index-based implementation and then apply those indexes
+    std::vector<size_t> indexes = range_vector(items.size());
+    sort_and_shadow(items, indexes, space);
+    std::vector<Item> kept_items;
+    kept_items.reserve(indexes.size());
+    for (auto& index : indexes) {
+        kept_items.emplace_back(std::move(items[index]));
+    }
+    items = std::move(kept_items);
+}
 
 template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,
@@ -1506,6 +1606,10 @@ vector<Item> reseed_fallow_region(const Item& left,
         return {};
     }
     
+    // Determine bounds in read we care about
+    size_t read_region_start = space.read_end(left);
+    size_t read_region_end = space.read_start(right);
+    
     // Query distance index to see if the items are actually plausibly reachable
     size_t graph_min_distance;
     if (space.distance_index) {
@@ -1567,13 +1671,6 @@ vector<Item> reseed_fallow_region(const Item& left,
             // So now we know pos corresponds to read base
             // m.value.offset, in the read's forward orientation.
             
-            if (seen.count(pos)) {
-                // This is a duplicate position for this source, so skip it.
-                // TODO: Why do these happen?
-                return;
-            }
-            seen.insert(pos);
-            
             // Forge an item.
             forged_items.emplace_back();
             forged_items.back().pos = pos;
@@ -1588,9 +1685,28 @@ vector<Item> reseed_fallow_region(const Item& left,
 #ifdef debug_reseeding
             cerr << "Found new seed for read-order source " << i << " of " << space.to_string(forged_items.back()) << endl;
 #endif
+
+            // Now make sure that we don't produce any redundant items, either
+            // with other ones we've produced, or with boundary items.
             
+            // So, drop the item if it's not strictly between the bounding
+            // items in the read, given what the space sees as its bounds.
+            
+            if (space.read_start(forged_items.back()) < read_region_start || space.read_end(forged_items.back()) > read_region_end) {
+                // We've gone outside the bounds of the region we are supposed
+                // to be working on, and might be shadowed by or shadow
+                // something out there.
+#ifdef debug_reseeding
+                cerr << "\tNew seed is out of reseeding range " << read_region_start << "-" << read_region_end << " in read; discarding." << endl;
+#endif
+                forged_items.pop_back();
+                return;
+            }
         });
     }
+    
+    // Now we just need to make sure that our forged items don't shadow/duplicate each other.
+    sort_and_shadow(forged_items, space);
 
     return forged_items;
 }
@@ -1719,29 +1835,36 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                                                                   for_each_pos_for_source_in_subgraph,
                                                                   max_fallow_search_distance);
                     
+                    // The newly-found items are not going to be duplicates of
+                    // each other, but because reseeding subgraphs can overlap,
+                    // we might get the same exact hits multiple times in
+                    // apparently different fallow regions. So we just drop
+                    // duplicates now.
+                    //
+                    // TODO: Make the reseeding subgraphs not overlap so we
+                    // stop wasting time???
+                    
                     for (auto& item : new_items) {
-                        // Make sure none of the newly-found items are duplicates.
+                        // Deduplicate the newly-found items with previous reseed queries.
+                        // TODO: We assume that identical bounds means identical items.
                         size_t read_start = space.read_start(item);
                         pos_t graph_start = space.graph_start(item);
                         size_t read_end = space.read_end(item);
                         pos_t graph_end = space.graph_end(item);
                         auto key = std::make_pair(std::make_pair(read_start, graph_start), std::make_pair(read_end, graph_end));
                         auto found = seen_items.find(key);
-                        if (found != seen_items.end()) {
-                            throw std::runtime_error("Duplicate reseeded mapping " + space.to_string(item));
+                        if (found == seen_items.end()) {
+                            // Append the fill-in items onto the item storage vector. Safe to do
+                            // even when we're using a view over it.
+                            item_storage.emplace_back(std::move(item));
+                            seen_items.emplace_hint(found, std::move(key));
                         }
-                        seen_items.emplace_hint(found, std::move(key));
                     }
-                
-                    // Append the fill-in items onto the item storage vector. Safe to do
-                    // even when we're using a view over it.
-                    item_storage.reserve(item_storage.size() + new_items.size());
-                    std::copy(new_items.begin(), new_items.end(), std::back_inserter(item_storage));
                 }
             }
         }
         
-        // Make the right nrun into the left run
+        // Make the right run into the left run
         left_run_start = right_run_start;
         left_run_end = right_run_end;
     }
@@ -1749,13 +1872,16 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     if (item_storage.size() != sorted_item_indexes.size()) {
         // After filling in all the fallow regions, if we actually got any new
         // items, extend and re-sort sorted_item_indexes.
-        // TODO: Can we just build this in order as we go left to right along the read actually?
+        // TODO: It would be nice to just do this as we go along and paste
+        // together the index arrays, but the overlapping-item-run code makes
+        // that fiddly because we don't just walk down the input index array.
+        // So we re-sort instead.
         sorted_item_indexes.reserve(item_storage.size());
         while(sorted_item_indexes.size() < item_storage.size()) {
             sorted_item_indexes.push_back(sorted_item_indexes.size());
         }
         
-        // TODO: De-duplicate sort with the initial sort
+        // TODO: De-duplicate sort code with the initial sort
         std::sort(sorted_item_indexes.begin(), sorted_item_indexes.end(), [&](const size_t& a, const size_t& b) -> bool {
             return space.read_start(item_storage[a]) < space.read_start(item_storage[b]);
         });

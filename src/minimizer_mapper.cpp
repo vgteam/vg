@@ -263,8 +263,6 @@ void MinimizerMapper::dump_chaining_problem(const algorithms::ChainingSpace<Seed
         exp.value(space.read_start(seeds[index]));
         exp.key("read_end");
         exp.value(space.read_end(seeds[index]));
-        exp.key("score");
-        exp.value(space.score(seeds[index]));
         
         if (space.graph) {
             pos_t graph_start = space.graph_start(seeds[index]);
@@ -729,10 +727,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         distance_index,
                         &gbwt_graph);
                         
-                    // Sort seeds by read start of seeded region
-                    std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
-                        return space.read_start(seeds[a]) < space.read_start(seeds[b]);
-                    });
+                    // Sort seeds by read start of seeded region, and remove indexes for seeds that are redundant
+                    algorithms::sort_and_shadow(seeds, cluster_seeds_sorted, space);
                     
                     if (track_provenance) {
                         funnel.substage("reseed");
@@ -772,10 +768,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         scorer,
                         &gbwt_graph);
                         
-                    // Sort seeds by read start of seeded region
-                    std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
-                        return space.read_start(old_seeds[a]) < space.read_start(old_seeds[b]);
-                    });
+                    // Sort seeds by read start of seeded region, and remove indexes for seeds that are redundant
+                    algorithms::sort_and_shadow(old_seeds, cluster_seeds_sorted, space);
                     
                     if (track_provenance) {
                         funnel.substage("reseed");

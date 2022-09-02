@@ -807,7 +807,7 @@ protected:
     const static size_t LONG_LIMIT = 256;
     
     /// Count at which we cut over to summary logging.
-    const static size_t MANY_LIMIT = 30;
+    const static size_t MANY_LIMIT = 30000;
 
     friend class TestMinimizerMapper;
 };
