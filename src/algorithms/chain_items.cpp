@@ -156,5 +156,42 @@ void FlatLimitLookbackStrategy::Problem::did_check(size_t item_a, size_t item_b,
     }
 }
 
+ExponentialLookbackStrategy::Problem::Problem(const ExponentialLookbackStrategy& parent) : strategy(parent) {
+    // Nothing to do!
+}
+
+void ExponentialLookbackStrategy::Problem::advance() {
+    // Reset the per-destination state.
+    this->limit = this->strategy.initial_search_bases;
+    this->good_score_found = false;
+}
+
+LookbackStrategy::verdict_t ExponentialLookbackStrategy::Problem::should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score) {
+    if (read_distance > this->strategy.lookback_bases) {
+        // This is further in the read than the real hard limit.
+        return LookbackStrategy::STOP;
+    } else if (read_distance > this->limit) {
+        // This is further than we wanted to look.
+        if (this->good_score_found) {
+            // And we have something good already, so impose the limit
+            return LookbackStrategy::STOP;
+        } else {
+            // But we still haven't found anything good, so raise the limit.
+            this->limit *= 2;
+            return LookbackStrategy::CHECK;
+        }
+    } else {
+        // We are close enough to not hit any limits
+        return LookbackStrategy::CHECK;
+    }
+}
+
+void ExponentialLookbackStrategy::Problem::did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score) {
+    if (achieved_score > 0 && transition_score >= 0) {
+        // We found a jump that looks plausible, so we can stop searching way past here.
+        this->good_score_found = true;
+    }
+}
+
 }
 }

@@ -1039,6 +1039,36 @@ public:
     };
 };
 
+/**
+ * Lookback strategy that progressively doubles the lookback distance until
+ * something with a positive overall score is found, or a hard limit is hit.
+ */
+class ExponentialLookbackStrategy : public LookbackStrategy {
+public:
+    /// How far back should we look before stopping, max?
+    size_t lookback_bases = 1000;
+    /// How far should our initial search go?
+    size_t initial_search_bases = 10;
+    
+    virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
+    
+    class Problem : public LookbackStrategy::Problem {
+    public:
+        Problem(const ExponentialLookbackStrategy& parent);
+    
+        virtual void advance();
+        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score);
+        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score);
+        
+        virtual ~Problem() = default;
+        
+    protected:
+        const ExponentialLookbackStrategy& strategy;
+        size_t limit;
+        bool good_score_found;
+    };
+};
+
 // These next functions all have to be templated on "Collection" if we want to
 // ever be able to call them with vectors. An implicit conversion to
 // VectorView doesn't count when type deduction is happening, so we can;t just
@@ -1065,7 +1095,7 @@ template<typename Score, typename Item, typename Source = void, typename Collect
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     const LookbackStrategy& loockack_strategy = FlatLimitLookbackStrategy(),
+                     const LookbackStrategy& loockack_strategy = ExponentialLookbackStrategy(),
                      int item_bonus = 0,
                      size_t max_indel_bases = 10000);
 
