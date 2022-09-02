@@ -1621,7 +1621,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     // TODO: To really make sure we are getting the correct participants on the
     // left side, we really need to look at the items sorted by read end
     // position, so we can get everything ending a tthe same point. Or, we need
-    // to get some latest-endiong item on the left side of the gap, and
+    // to get some latest-ending item on the left side of the gap, and
     // everything overlapping it.
     // For now we just group by read start position, which could mislead us
     // depending on where the graph node breaks are and how we define our
@@ -1634,13 +1634,18 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     // Make a VectorView over the items
     VectorView<Item> item_view {item_storage, sorted_item_indexes};
     
-    // Make a set of items we started with or have found so far
-    std::unordered_set<std::pair<size_t, pos_t>> seen_items;
+    // Make a set of items we started with or have found so far.
+    // We need to track start position and end position, because we can have
+    // reverse-strand minimizers produce hits that have different end
+    // positions, but get cut off at the same start position.
+    std::unordered_set<std::pair<std::pair<size_t, pos_t>, std::pair<size_t, pos_t>>> seen_items;
     for (auto& item : item_view) {
         // Make sure none of the initial items are duplicates.
         size_t read_start = space.read_start(item);
         pos_t graph_start = space.graph_start(item);
-        auto key = std::make_pair(read_start, graph_start);
+        size_t read_end = space.read_end(item);
+        pos_t graph_end = space.graph_end(item);
+        auto key = std::make_pair(std::make_pair(read_start, graph_start), std::make_pair(read_end, graph_end));
         auto found = seen_items.find(key);
         if (found != seen_items.end()) {
             throw std::runtime_error("Duplicate initial mapping " + space.to_string(item));
@@ -1718,7 +1723,9 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                         // Make sure none of the newly-found items are duplicates.
                         size_t read_start = space.read_start(item);
                         pos_t graph_start = space.graph_start(item);
-                        auto key = std::make_pair(read_start, graph_start);
+                        size_t read_end = space.read_end(item);
+                        pos_t graph_end = space.graph_end(item);
+                        auto key = std::make_pair(std::make_pair(read_start, graph_start), std::make_pair(read_end, graph_end));
                         auto found = seen_items.find(key);
                         if (found != seen_items.end()) {
                             throw std::runtime_error("Duplicate reseeded mapping " + space.to_string(item));
