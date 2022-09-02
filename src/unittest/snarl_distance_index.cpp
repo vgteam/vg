@@ -845,11 +845,12 @@ namespace vg {
                         distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<size_t>:: max());
             }
             SECTION("distance to parent bound is correct for a chain"){
-                REQUIRE(distance_index.distance_to_parent_bound(chain1, true, n1_fd, true) == 0);
-                REQUIRE(distance_index.distance_to_parent_bound(chain1, true, n1_fd, false) == std::numeric_limits<size_t>::max());
+                bool node1_is_start = !distance_index.is_reversed_in_parent(n1_fd);
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, node1_is_start, distance_index.flip(n1_fd)) == 0);
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, node1_is_start, n1_fd) == std::numeric_limits<size_t>::max());
                 net_handle_t n8_rev = distance_index.get_net(graph.get_handle(n8->id(), true), &graph);
-                REQUIRE(distance_index.distance_to_parent_bound(chain1, false, n8_rev, true) == std::numeric_limits<size_t>::max());
-                REQUIRE(distance_index.distance_to_parent_bound(chain1, false, n8_rev, false) == 0);
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, !node1_is_start, distance_index.flip(n8_rev)) == 0);
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, !node1_is_start, n8_rev) == std::numeric_limits<size_t>::max());
             }
 
             SECTION( "The top-level snarl has 3 nodes" ) {
@@ -6954,7 +6955,6 @@ namespace vg {
                                 } else if (std::get<2>(x) != std::numeric_limits<int32_t>::max() && std::get<2>(x) != std::numeric_limits<int32_t>::min()){
                                     traceback_distance += std::abs(std::get<2>(x));
                                 }
-                                cerr << distance_index.net_handle_as_string(std::get<0>(x)) << ": " << traceback_distance << endl;
                             }
                             for (size_t i = 0 ; i < traceback.second.size()-1 ; i++) {
                                 auto x = traceback.second[i];
@@ -6964,7 +6964,6 @@ namespace vg {
                                 } else if (std::get<2>(x) != std::numeric_limits<int32_t>::max() && std::get<2>(x) != std::numeric_limits<int32_t>::min()){
                                     traceback_distance += std::abs(std::get<2>(x));
                                 }
-                                cerr << distance_index.net_handle_as_string(std::get<0>(x)) << ": " << traceback_distance << endl;
                             }
                             REQUIRE(snarl_distance == traceback_distance);
                         } else {

@@ -1227,14 +1227,14 @@ cerr << "Start positon: "<< start_pos << endl;
 
 
         //Distances to get to the ends of the parent
-        size_t distance_start_left = SnarlDistanceIndex::sum({current_distance_left,
-                    distance_index.distance_to_parent_bound(parent, true, current_net, true)});
-        size_t distance_start_right = SnarlDistanceIndex::sum({current_distance_right,
-                     distance_index.distance_to_parent_bound(parent, true, current_net, false)});
-        size_t distance_end_left = SnarlDistanceIndex::sum({current_distance_left,
-                    distance_index.distance_to_parent_bound(parent, false, current_net, true)});
-        size_t distance_end_right = SnarlDistanceIndex::sum({current_distance_right,
-                     distance_index.distance_to_parent_bound(parent, false, current_net, false)});
+        size_t distance_start_left = SnarlDistanceIndex::sum(current_distance_left,
+                    distance_index.distance_to_parent_bound(parent, true, distance_index.flip(current_net)));
+        size_t distance_start_right = SnarlDistanceIndex::sum(current_distance_right,
+                     distance_index.distance_to_parent_bound(parent, true, current_net));
+        size_t distance_end_left = SnarlDistanceIndex::sum(current_distance_left,
+                    distance_index.distance_to_parent_bound(parent, false, distance_index.flip(current_net)));
+        size_t distance_end_right = SnarlDistanceIndex::sum(current_distance_right,
+                     distance_index.distance_to_parent_bound(parent, false, current_net));
 
         if ((current_distance_right != std::numeric_limits<size_t>::max() && current_distance_right >= min_distance)
             || (current_distance_left != std::numeric_limits<size_t>::max() && current_distance_left >= min_distance)

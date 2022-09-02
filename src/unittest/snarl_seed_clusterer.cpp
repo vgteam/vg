@@ -862,7 +862,7 @@ namespace unittest {
         Edge* e15 = graph.create_edge(n10, n11);
 
         ofstream out;
-        out.open("testGraph.hg");
+        out.open("test_graph.hg");
 
             graph.serialize(out);
             out.close();
@@ -878,18 +878,24 @@ namespace unittest {
             net_handle_t node1 = dist_index.get_parent(dist_index.get_node_net_handle(n1->id()));
             net_handle_t snarl82 = dist_index.get_parent(node1); 
 
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1, false) == 0);
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1, true) == std::numeric_limits<size_t>::max());
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1, false) == std::numeric_limits<size_t>::max());
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1, true) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
 
             net_handle_t node3 = dist_index.get_parent(dist_index.get_node_net_handle(n3->id()));
             net_handle_t snarl24 = dist_index.get_parent(node3); 
 
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3, true) == 0);
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3, false) == std::numeric_limits<size_t>::max());
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3, false) == 0);
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3, true) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, dist_index.flip(node3)) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, dist_index.flip(node3)) == std::numeric_limits<size_t>::max());
+
+            net_handle_t node6 = dist_index.get_node_net_handle(n6->id());
+            net_handle_t chain66 = dist_index.get_parent(node6);
+            net_handle_t node5 = dist_index.get_parent(dist_index.get_node_net_handle(n5->id()));
+            net_handle_t snarl46 = dist_index.get_parent(node5);
+            REQUIRE(dist_index.distance_in_parent(chain66, snarl46, dist_index.flip(node6)) == 0);
         }
         SECTION( "Two clusters" ) {
  
@@ -3122,54 +3128,56 @@ namespace unittest {
     //    REQUIRE(clusters.size() == 1);
     //}//end test case
 
-    //TEST_CASE("Failed graph", "[failed_cluster]"){
+    TEST_CASE("Failed graph", "[failed_cluster]"){
 
-    //    HashGraph graph;
-    //    graph.deserialize("testGraph.hg");
-    //    IntegratedSnarlFinder snarl_finder(graph);
-    //    SnarlDistanceIndex dist_index;
-    //    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-
-
-    //    dist_index.print_self();
-
-    //    NewSnarlSeedClusterer clusterer(dist_index, &graph);
+        HashGraph graph;
+        graph.deserialize("testGraph.hg");
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
+        dist_index.print_self();
 
-    //    vector<vector<pos_t>> pos_ts(2);
-    //    pos_ts[0].emplace_back(40, true, 0);
-    //    pos_ts[0].emplace_back(42, false, 0);
-    //    pos_ts[0].emplace_back(42, false, 0);
-    //    pos_ts[0].emplace_back(43, false, 0);
-    //    pos_ts[0].emplace_back(46, false, 0);
-    //    
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
-    //    for (bool use_minimizers : {true, false}) {
 
-    //        vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
-    //        for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
-    //                for (pos_t pos : pos_ts[read_num]) {
 
-    //                    if (use_minimizers) {
-    //                        auto chain_info = get_minimizer_distances(dist_index, pos);
-    //                        seeds[read_num].push_back({ pos, 0, chain_info});
-    //                    } else {
-    //                        seeds[read_num].push_back({ pos, 0});
-    //                    }
-    //                }
-    //        }
+        vector<vector<pos_t>> pos_ts(2);
+        pos_ts[0].emplace_back(30, false, 0);
+        pos_ts[0].emplace_back(22, false, 0);
+        pos_t pos1 = pos_ts[0][0];
+        pos_t pos2 = pos_ts[0][1];
+        net_handle_t node31 = dist_index.get_node_net_handle(30);
+        
+       size_t dist = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &graph);
+       cerr << "DISTANCE BETWEEN " << pos1 << " and " << pos2 << " = " << dist << endl;
 
-    //        vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+        //for (bool use_minimizers : {true, false}) {
 
-    //        REQUIRE(clusters.size() == 1);
-    //    }
-    //    REQUIRE(false);
-    //}
+        //    vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
+        //    for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
+        //            for (pos_t pos : pos_ts[read_num]) {
+
+        //                if (use_minimizers) {
+        //                    auto chain_info = get_minimizer_distances(dist_index, pos);
+        //                    seeds[read_num].push_back({ pos, 0, chain_info});
+        //                } else {
+        //                    seeds[read_num].push_back({ pos, 0});
+        //                }
+        //            }
+        //    }
+
+        //    vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+
+        //    REQUIRE(clusters.size() == 1);
+        //}
+        REQUIRE(false);
+    }
     TEST_CASE("Random graphs", "[cluster_random]"){
 
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 0; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));
@@ -3295,12 +3303,7 @@ namespace unittest {
                                         pos_t rev2 = make_pos_t(get_id(pos2), 
                                                              !is_rev(pos2),
                                                              len2 - get_offset(pos2)-1); 
-                                        size_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), false, &graph);
-                                        size_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
-                                        size_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), false, &graph);
-                                        size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
-                                        size_t dist = std::min(std::min(dist1, 
-                                                           dist2), std::min( dist3, dist4));
+                                        size_t dist = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &graph);
                                         if ( dist != -1 && dist <= read_lim) {
                                             new_clusters.union_groups(i1, i2);
                                         }
