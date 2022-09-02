@@ -480,59 +480,6 @@ struct BaseChainingSpace {
     }
     
     /**
-     * Get the score to make a transition from one item to another, or
-     * std::numeric_limits<int>::min() if the transition should be disallowed.
-     *
-     * Default implementation: highest score in points that the alignment of
-     * the region between two Items could possibly get. Should assume that any
-     * bases that might match actually match.
-     *
-     * If the items overlap in the read or the graph, returns
-     * std::numeric_limits<int>::min() because one side of the alignment would
-     * have negative length.
-     *
-     * If a required gap would be longer than max_gap_length, returns
-     * std::numeric_limits<int>::min() (because we're probably going the long
-     * way around an inversion or something.
-     */
-    virtual int transition_score(const Item& left,
-                                 const Item& right,
-                                 size_t max_gap_length = std::numeric_limits<size_t>::max()) const {
-        
-        size_t read_distance;
-        if (read_end(left) == read_start(right)) {
-            // They abut in the read.
-            read_distance = 0;
-        } else if (read_end(left) < read_start(right)) {
-            // There's a gap in the read
-            read_distance = get_read_distance(left, right);
-        } else {
-            // Unreachable in read
-            read_distance = std::numeric_limits<size_t>::max();
-        }
-        
-        if (graph) {
-            size_t graph_distance;
-            
-            size_t graph_overlap = get_graph_overlap(left, right);
-            if (graph_overlap > 0) {
-                // Assume unreachable
-                graph_distance = std::numeric_limits<size_t>::max();
-            } else {
-                // Check
-                graph_distance = get_graph_distance(left, right);
-            }
-            
-            // Score with a graph distance
-            return scorer.score_transition(read_distance, &graph_distance, max_gap_length);
-        } else {
-            // Score without a graph distance
-            return scorer.score_transition(read_distance, nullptr, max_gap_length);
-        }
-            
-    }
-    
-    /**
      * Run checks to make sure the item is self-consistent.
      * Graph must be set.
      */
@@ -985,6 +932,113 @@ struct score_traits<int> {
 /// Print operator
 ostream& operator<<(ostream& out, const traced_score_t& value);
 
+/**
+ * When making a chain, we need to be able to control how far back we look for
+ * previous items to connect to. For controling this, we have a lookback
+ * strategy.
+ *
+ * To control the strategy, you instantiate a subclass of this calss and configure its fields.
+ *
+ * To use the strategy, you call setup_problem() on it to get a
+ * LookbackStrategy::Problem, which is per-chaining-problem scratch. Then you
+ * use that lookback problem while solving your chaining problem, in a single
+ * thread, and then throw it away.
+ */
+class LookbackStrategy {
+public:
+    /// When asked about a transition, we can check that item, skip that item
+    /// and look at more before it, or stop looking.
+    enum verdict_t {
+        CHECK,
+        SKIP,
+        STOP
+    };
+    
+    /**
+     * Individual problem scratch that gets made from the strategy, like a factory.
+     * Strategy must always outlive its problems.
+     */
+    class Problem {
+    public:
+        /**
+         * Start working on a new destination. Destinations should be visited in
+         * increasing order of read start position.
+         *
+         * Must be called before should_check().
+         */
+        virtual void advance() = 0;
+        
+        /**
+         * Determine if we should consider a transition between two items, given
+         * their read distance and the predecessor's achieved score. Counts the
+         * transition as a possibility.
+         */
+        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score) = 0;
+        
+        /**
+         * Report that we considered a connection between two items, and found them
+         * to be at the given read distance, and the given graph distance, and that
+         * the transition had the given score. Distances should be
+         * std::numeric_limits<size_t>::max() for things that are unreachable, and
+         * the score should be std::numeric_limits<int>::min() if the transition is
+         * otherwise disallowed.
+         *
+         * For a given destination, should be called for each source in decreasing
+         * order of end position.
+         */
+        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score) = 0;
+        
+        // Since we will use a pointer to this base class to own derived
+        // classes, we need a virtual destructor. 
+        virtual ~Problem() = default;
+    };
+
+    /**
+     * Set up a new problem over the given number of items. Thread safe.
+     *
+     * We need to use a pointer here because the problem scratch for different
+     * lookback control strategies can be of different sizes.
+     */
+    virtual std::unique_ptr<Problem> setup_problem(size_t item_count) const = 0;
+};
+
+/**
+ * Lookback strategy that allows a certain number of total items, a certain
+ * base pair distance, and a certain number of "good" items.
+ */
+class FlatLimitLookbackStrategy : public LookbackStrategy {
+public:
+    /// How many items will we look at total?
+    size_t lookback_items = 500;
+    /// How many good items will we look at before stopping?
+    size_t lookback_good_items = 10;
+    /// How many reachable items will we look at before stopping?
+    size_t lookback_reachable_items = 500;
+    
+    /// How far back should we look before stopping.
+    size_t lookback_bases = 1000;
+    
+    virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
+    
+    class Problem : public LookbackStrategy::Problem {
+    public:
+        Problem(const FlatLimitLookbackStrategy& parent);
+    
+        virtual void advance();
+        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score);
+        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score);
+        
+        virtual ~Problem() = default;
+        
+    protected:
+        const FlatLimitLookbackStrategy& strategy;
+        size_t lookback_items_used = 0;
+        size_t lookback_good_items_used = 0;
+        size_t lookback_reachable_items_used = 0;
+        int best_achieved_score = 0;
+    };
+};
+
 // These next functions all have to be templated on "Collection" if we want to
 // ever be able to call them with vectors. An implicit conversion to
 // VectorView doesn't count when type deduction is happening, so we can;t just
@@ -1011,10 +1065,8 @@ template<typename Score, typename Item, typename Source = void, typename Collect
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
+                     const LookbackStrategy& loockack_strategy = FlatLimitLookbackStrategy(),
                      int item_bonus = 0,
-                     size_t lookback_items = 500,
-                     size_t lookback_bases = 1000,
-                     size_t lookback_good_items = 10,
                      size_t max_indel_bases = 10000);
 
 /**
@@ -1120,10 +1172,8 @@ template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
+                     const LookbackStrategy& lookback_strategy,
                      int item_bonus,
-                     size_t lookback_items,
-                     size_t lookback_bases,
-                     size_t lookback_good_items,
                      size_t max_indel_bases) {
     
     DiagramExplainer diagram;
@@ -1158,6 +1208,10 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     // What's the winner so far?
     Score best_score = ST::unset();
     
+    // Set up the lookback tracking so we know when to stop looking at
+    // predecessors.
+    std::unique_ptr<LookbackStrategy::Problem> lookback_problem = lookback_strategy.setup_problem(to_chain.size());
+    
     for (size_t i = 0; i < to_chain.size(); i++) {
         // For each item
         auto& here = to_chain[i];
@@ -1187,22 +1241,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
         cerr << "\tFirst item overlapping #" << i << " beginning at " << space.read_start(here) << " is #" << *first_overlapping_it << " past-ending at " << space.read_end(to_chain[*first_overlapping_it]) << " so start before there." << std::endl;
 #endif
-        
-        // Count how many good-looking predecessors hits we have. Once we have
-        // enough we will stop to save time. 
-        size_t good_items_found = 0;
-        // How many are merely reachable?
-        size_t reachable_items_found = 0;
-        // Count how many total source items were considered for reachability
-        size_t lookback_items_tested = 0;
+
+        // Start considering predecessors for this item.
+        lookback_problem->advance();
         auto predecessor_index_it = first_overlapping_it;
         while (predecessor_index_it != read_end_order.begin()) {
             --predecessor_index_it;
             // For each source that ended before here started, in reverse order by end position...
             auto& source = to_chain[*predecessor_index_it];
-            
-            // Say we are considering it
-            lookback_items_tested++;
             
 #ifdef debug_chaining
             cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << space.to_string(source) << endl;
@@ -1211,27 +1257,44 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                 << " across " << space.to_string(source, here) << endl;
 #endif
 
-            if (lookback_bases != 0 && space.get_read_distance(source, here) > lookback_bases) {
-                // This one is out of range in the read.
-                
+            // How far do we go in the read?
+            size_t read_distance = space.get_read_distance(source, here);
+
+            // See if this looks like a promising source.
+            LookbackStrategy::verdict_t verdict = lookback_problem->should_check(*predecessor_index_it, i, read_distance, ST::score(best_chain_score[*predecessor_index_it]));
+            if (verdict == LookbackStrategy::STOP) {
 #ifdef debug_chaining
-                cerr << "\t\tStop because the read distance is longer than the lookback threshold." << endl;
+                cerr << "\t\tStop because the lookback strategy says so." << endl;
 #endif
-                // Read distance is monotonic because we are going by right edge.
-                // So we can stop now.
                 break;
+            } else if (verdict == LookbackStrategy::SKIP) {
+#ifdef debug_chaining
+                cerr << "\t\tSkip because the lookback strategy says so." << endl;
+#endif
+            }
+            
+            // We will actually evaluate the source.
+            
+            // How far do we go in the graph?
+            // We use a pointer as an optional.
+            size_t graph_distance_storage;
+            size_t* graph_distance_ptr;
+            if (space.graph) {
+                graph_distance_storage = space.get_graph_distance(source, here);
+                graph_distance_ptr = &graph_distance_storage;
+            } else {
+                graph_distance_ptr = nullptr;
             }
             
             // How much does it pay (+) or cost (-) to make the jump from there
             // to here?
             // Don't allow the transition if it seems like we're going the long
             // way around an inversion and needing a huge indel.
-            int jump_points = space.transition_score(source, here, max_indel_bases);
+            int jump_points = space.scorer.score_transition(read_distance, graph_distance_ptr, max_indel_bases);
+            // And how much do we end up with overall coming from there.
+            int achieved_score;
             
             if (jump_points != numeric_limits<int>::min()) {
-                // The jump is possible
-                reachable_items_found++;
-            
                 // Get the score we are coming from
                 typename ST::Score source_score = ST::score_from(best_chain_score, *predecessor_index_it);
                 
@@ -1255,36 +1318,19 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                         {"label", std::to_string(jump_points)},
                         {"weight", std::to_string(std::max<int>(1, ST::score(from_source_score)))}
                     });
-                    
-                    // Now figure out if this looks like a good transition, or if we should keep digging.
-                    auto score_achieved = ST::score(from_source_score);
-                    
-                    if (score_achieved >= ST::score(best_score)) {
-                    
-                        good_items_found++;
-                        if (good_items_found == lookback_good_items) {
-#ifdef debug_chaining
-                            cerr << "\tExhausted good item limit" << endl;
-#endif
-                            break;
-                        }
-                    }
                 }
+                
+                achieved_score = ST::score(from_source_score);
             } else {
 #ifdef debug_chaining
                 cerr << "\t\tTransition is impossible." << endl;
 #endif
+                achieved_score = std::numeric_limits<size_t>::min();
             }
             
-            if (lookback_items_tested == lookback_items) {
-#ifdef debug_chaining
-                cerr << "\tExhausted item limit" << endl;
-#endif
-                break;
-            }
+            // Note that we checked out this transition and saw the observed scores and distances.
+            lookback_problem->did_check(*predecessor_index_it, i, read_distance, graph_distance_ptr, jump_points, achieved_score);
         }
-        
-
         
 #ifdef debug_chaining
         cerr << "\tBest way to reach #" << i << " is " << best_chain_score[i] << endl;
