@@ -1170,10 +1170,6 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             assert(first_overlapping_it != read_end_order.end());
         }
         
-#ifdef debug_chaining
-        cerr << "First item overlapping item " << i << " beginning at " << space.read_start(here) << " is item " << *first_overlapping_it << " past-ending at " << space.read_end(to_chain[*first_overlapping_it]) << std::endl;
-#endif
-        
         // How many points is it worth to collect?
         auto item_points = space.score(here) + item_bonus;
         
@@ -1183,9 +1179,13 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         best_chain_score[i] = std::max(best_chain_score[i], ST::annotate(item_points, ST::nowhere()));
         
 #ifdef debug_chaining
-        cerr << "Look at transitions to item " << i
+        cerr << "Look at transitions to #" << i
             << " at " << space.to_string(here);
         cerr << endl;
+#endif
+
+#ifdef debug_chaining
+        cerr << "\tFirst item overlapping #" << i << " beginning at " << space.read_start(here) << " is #" << *first_overlapping_it << " past-ending at " << space.read_end(to_chain[*first_overlapping_it]) << " so start before there." << std::endl;
 #endif
         
         // Count how many good-looking predecessors hits we have. Once we have
@@ -1205,7 +1205,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             lookback_items_tested++;
             
 #ifdef debug_chaining
-            cerr << "\tConsider transition from item " << *predecessor_index_it << ": " << space.to_string(source) << endl;
+            cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << space.to_string(source) << endl;
             
             cerr << "\t\tCome from score " << best_chain_score[*predecessor_index_it]
                 << " across " << space.to_string(source, here) << endl;
@@ -1243,7 +1243,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                                                from_source_score);
                                                
 #ifdef debug_chaining
-                cerr << "\t\tWe can reach " << i << " with " << from_source_score << " which is " << source_score << " and a transition of " << jump_points << " to collect " << item_points << endl;
+                cerr << "\t\tWe can reach #" << i << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
 #endif
                 if (ST::score(from_source_score) > 0) {
                     // Only explain edges that were actual candidates since we
@@ -1270,6 +1270,10 @@ Score chain_items_dp(vector<Score>& best_chain_score,
                         }
                     }
                 }
+            } else {
+#ifdef debug_chaining
+                cerr << "\t\tTransition is impossible." << endl;
+#endif
             }
             
             if (lookback_items_tested == lookback_items) {
@@ -1283,7 +1287,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 
         
 #ifdef debug_chaining
-        cerr << "\tBest way to reach " << i << " is " << best_chain_score[i] << endl;
+        cerr << "\tBest way to reach #" << i << " is " << best_chain_score[i] << endl;
 #endif
         
         std::stringstream label_stream;

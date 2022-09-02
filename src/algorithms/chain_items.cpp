@@ -15,7 +15,7 @@ ostream& operator<<(ostream& out, const traced_score_t& value) {
     if (score_traits<traced_score_t>::source(value) == score_traits<traced_score_t>::nowhere()) {
         return out << score_traits<traced_score_t>::score(value) << " from nowhere";
     }
-    return out << score_traits<traced_score_t>::score(value) << " from " << score_traits<traced_score_t>::source(value);
+    return out << score_traits<traced_score_t>::score(value) << " from #" << score_traits<traced_score_t>::source(value);
 }
 
 int MatchAssumingChainingScorer::score_transition(size_t read_distance,
