@@ -1049,6 +1049,8 @@ public:
     size_t lookback_bases = 1000;
     /// How far should our initial search go?
     size_t initial_search_bases = 10;
+    /// How many points can we lose on a transition per max distance and still have it be good?
+    double min_good_transition_score_per_base = -0.1;
     
     virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
     

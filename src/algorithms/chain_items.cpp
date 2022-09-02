@@ -156,6 +156,12 @@ void FlatLimitLookbackStrategy::Problem::did_check(size_t item_a, size_t item_b,
     }
 }
 
+std::unique_ptr<LookbackStrategy::Problem> ExponentialLookbackStrategy::setup_problem(size_t item_count) const {
+     std::unique_ptr<LookbackStrategy::Problem> to_return;
+     to_return.reset(new ExponentialLookbackStrategy::Problem(*this));
+     return std::move(to_return);
+}
+
 ExponentialLookbackStrategy::Problem::Problem(const ExponentialLookbackStrategy& parent) : strategy(parent) {
     // Nothing to do!
 }
@@ -187,7 +193,10 @@ LookbackStrategy::verdict_t ExponentialLookbackStrategy::Problem::should_check(s
 }
 
 void ExponentialLookbackStrategy::Problem::did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score) {
-    if (achieved_score > 0 && transition_score >= 0) {
+    if (!graph_distance) {
+        graph_distance = &read_distance;
+    }
+    if (achieved_score > 0 && transition_score >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
         // We found a jump that looks plausible, so we can stop searching way past here.
         this->good_score_found = true;
     }
