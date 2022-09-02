@@ -732,9 +732,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         return space.read_start(seeds[a]) < space.read_start(seeds[b]);
                     });
                     
-                    dump_chaining_problem(space, seeds, cluster_seeds_sorted);
-                    return false;
-                    
                     if (track_provenance) {
                         funnel.substage("reseed");
                     }
@@ -748,6 +745,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         reseed_distance,
                         fallow_region_size
                     );
+                    
+                    dump_chaining_problem(space, seeds, cluster_seeds_sorted);
+                    return false;
                     
                     if (track_provenance) {
                         funnel.substage("find_chain");
