@@ -169,6 +169,7 @@ ExponentialLookbackStrategy::Problem::Problem(const ExponentialLookbackStrategy&
 void ExponentialLookbackStrategy::Problem::advance() {
     // Reset the per-destination state.
     this->limit = this->strategy.initial_search_bases;
+    this->best_transition_found = std::numeric_limits<int>::min();
     this->good_score_found = false;
 }
 
@@ -183,7 +184,7 @@ LookbackStrategy::verdict_t ExponentialLookbackStrategy::Problem::should_check(s
             return LookbackStrategy::STOP;
         } else {
             // But we still haven't found anything good, so raise the limit.
-            this->limit *= 2;
+            this->limit *= this->strategy.scale_factor;
             return LookbackStrategy::CHECK;
         }
     } else {
@@ -196,8 +197,9 @@ void ExponentialLookbackStrategy::Problem::did_check(size_t item_a, size_t item_
     if (!graph_distance) {
         graph_distance = &read_distance;
     }
-    if (achieved_score > 0 && transition_score >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
-        // We found a jump that looks plausible, so we can stop searching way past here.
+    this->best_transition_found = std::max(this->best_transition_found, transition_score);
+    if (achieved_score > 0 && this->best_transition_found >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
+        // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
         this->good_score_found = true;
     }
 }
