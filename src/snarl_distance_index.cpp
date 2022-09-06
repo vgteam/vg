@@ -1823,4 +1823,7 @@ tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> ge
     
 
 
+constexpr MIPayload::payload_type MIPayload::NO_CODE; 
+constexpr size_t MIPayload::NO_VALUE;
 }
+

@@ -537,7 +537,7 @@ struct MIPayload {
     typedef std::pair<code_type, code_type> payload_type;
 
     constexpr static payload_type NO_CODE = std::make_pair(std::numeric_limits<code_type>::max(),
-                                                           std::numeric_limits<code_type>::max());
+                                                            std::numeric_limits<code_type>::max());
     constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
 
     constexpr static size_t NODE_LEN_OFFSET = 1;
