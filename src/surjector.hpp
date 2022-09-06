@@ -99,6 +99,9 @@ using namespace std;
         /// while downsampling, try to get down to this coverage on each base
         int64_t downsample_coverage = 16;
         
+        int64_t min_shift_for_prune = 32 * 1024;
+        int64_t shift_prune_diff = 16 * 1024;
+        
         /// And have we complained about hitting it?
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
@@ -118,10 +121,13 @@ using namespace std;
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
                            const path_handle_t& path_handle, bool rev_strand,
                            const vector<path_chunk_t>& path_chunks,
+                           const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                            pair<step_handle_t, step_handle_t>& path_range_out,
                            bool allow_negative_scores,
                            bool preserve_N_alignments = false,
-                           bool preserve_tail_indel_anchors = false) const;
+                           bool sinks_are_anchors = false,
+                           bool sources_are_anchors = false,
+                           vector<pair<step_handle_t, step_handle_t>>* all_path_ranges_out = nullptr) const;
         
         multipath_alignment_t
         spliced_surject(const PathPositionHandleGraph* path_position_graph,
@@ -152,7 +158,7 @@ using namespace std;
         
         /// remove any path chunks and corresponding ref chunks that are identical to a longer
         /// path chunk over the region where they overlap
-        void filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
+        void filter_redundant_path_chunks(bool path_rev, vector<path_chunk_t>& path_chunks,
                                           vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
@@ -161,7 +167,9 @@ using namespace std;
         /// end if there are no path chunks.
         pair<size_t, size_t>
         compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
-                              bool rev_strand, const vector<path_chunk_t>& path_chunks) const;
+                              bool rev_strand, const vector<path_chunk_t>& path_chunks,
+                              const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                              bool no_left_expansion, bool no_right_expansion) const;
         
         /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
         unordered_map<id_t, pair<id_t, bool>>

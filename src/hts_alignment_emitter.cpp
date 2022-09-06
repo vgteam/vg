@@ -94,6 +94,76 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     return emitter;
 }
 
+/// Run the given iteratee for each path that is either the path with the given
+/// name (if present), or a subrange of a path with the given name as the base
+/// name (otherwise).
+///
+/// If a path and subpaths both exist, only look at the full path.
+///
+/// If the name describes a subpath, look only at that subpath.
+///
+/// Iteratee returns false to stop.
+///
+/// Returns true if we reached the end, and false if asked to stop.
+static bool for_each_subpath_of(const PathPositionHandleGraph& graph, const string& path_name, const std::function<bool(const path_handle_t& path)>& iteratee) {
+    if (graph.has_path(path_name)) {
+        // Just look at the full path.
+        return iteratee(graph.get_path_handle(path_name));
+    }
+    
+    // Parse out the metadata of the thing we want subpaths of
+    PathSense sense;
+    string sample;
+    string locus;
+    size_t haplotype;
+    size_t phase_block;
+    subrange_t subrange;
+    PathMetadata::parse_path_name(path_name,
+                                  sense,
+                                  sample,
+                                  locus,
+                                  haplotype,
+                                  phase_block,
+                                  subrange);
+                                  
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        // The path name described a subpath, and we didn't find it.
+        // Don't call the iteratee.
+        return true;
+    }
+    
+    // Look at every subpath on it
+    return graph.for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+        // TODO: There's no way to search by haplotype and phase block, we have to scan
+        if (graph.get_haplotype(match) != haplotype) {
+            // Skip this haplotype
+            return true;
+        }
+        if (graph.get_phase_block(match) != phase_block) {
+            // Skip this phase block
+            return true;
+        }
+        // Don't need to check subrange, we know we don't have one and this candidate does.
+        return iteratee(match);    
+    });
+}
+
+/// Returns the base path name for this path (i.e. the path's name without any subrange).
+static string get_path_base_name(const PathPositionHandleGraph& graph, const path_handle_t& path) {
+    if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
+        // This is a full path
+        return graph.get_path_name(path);
+    } else {
+        // This is a subpath, so remember what it's a subpath of, and use that.
+        return PathMetadata::create_path_name(graph.get_sense(path),
+                                              graph.get_sample_name(path),
+                                              graph.get_locus_name(path),
+                                              graph.get_haplotype(path),
+                                              graph.get_phase_block(path),
+                                              PathMetadata::NO_SUBRANGE);
+    }
+}
+
 pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path_metadata(
     const vector<tuple<path_handle_t, size_t, size_t>>& paths,  const PathPositionHandleGraph& graph,
     bool subpath_support) {
@@ -105,28 +175,82 @@ pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path
     // Remember the actual path lengths (this is for coordinate transformations)        
     unordered_map<string, int64_t> subpath_to_length;
     for (const auto& path_info : paths) {
-        string base_path_name = subpath_support ? Paths::get_base_name(graph.get_path_name(get<0>(path_info))) : graph.get_path_name(get<0>(path_info));
+        auto& path = get<0>(path_info);
+        auto& own_length = get<1>(path_info);
+        auto& base_length = get<2>(path_info);
+        string base_path_name = subpath_support ? get_path_base_name(graph, path) : graph.get_path_name(path);
         if (!base_path_set.count(base_path_name)) {
-            path_names_and_lengths.push_back(make_pair(base_path_name, get<2>(path_info)));
+            path_names_and_lengths.push_back(make_pair(base_path_name, base_length));
             base_path_set.insert(base_path_name);
         }
-        subpath_to_length[graph.get_path_name(get<0>(path_info))] = get<1>(path_info);
+        subpath_to_length[graph.get_path_name(path)] = own_length;
     }
 
     return make_pair(path_names_and_lengths, subpath_to_length);
 }
 
-vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph) {
-    
-    // Hack in subpath support: map to paths from their base name
-    unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
-    graph.for_each_path_handle([&](path_handle_t path_handle) {
-            base_path_to_subpaths[Paths::get_base_name(graph.get_path_name(path_handle))].push_back(path_handle);
-        });
+vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const vector<string>& path_names, const PathPositionHandleGraph& graph) {
 
+    // TODO: We assume we're using the one true default path metadata <-> name mapping
+    
+    // Subpath support: map to paths from their base name without a subrange.
+    // Includes full-length paths if they exost, and subrange-bearing paths otherwise.
+    unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
+    
     // Parse the input into this list.  If length was unspecified (ie in regular text file with one column) then it will be -1
     // and filled in later
     vector<pair<string, int64_t>> input_names_lengths;
+    
+    // When we get a sequence and possibly its length (or -1 if no length is
+    // known), put it in the dictionary.
+    // Can optionally provide a file name for error reporting.
+    auto handle_sequence = [&](const std::string& sequence_name, int64_t length, const std::string* filename) {
+        if (graph.has_path(sequence_name)) {
+            // If the graph does have a path by this exact name, do a length check.
+            path_handle_t path = graph.get_path_handle(sequence_name);
+            size_t graph_path_length = graph.get_path_length(path);
+            if (length == -1) {
+                // We need to infer the length
+                length = graph_path_length;
+            } else if (graph_path_length != length) {
+                // Length was given but doesn't match
+                cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " of length " << graph_path_length
+                     << " but should have a length of " << length;
+                if (filename) {
+                    // Report the source file.
+                    cerr << " from sequence dictionary in " << *filename;
+                }
+                cerr << endl;
+                exit(1);
+            }
+            // Remember the path
+            base_path_to_subpaths[sequence_name].push_back(path);
+        } else {
+            // The graph doesn't have this exact path; does it have any subregions of a full path with this name?
+            // If so, remember and use those.
+            for_each_subpath_of(graph, sequence_name, [&](const path_handle_t& match) {
+                // We know this can't be an exact match, since we already checked for one. It must be a subrange.
+                // We found a subpath we're looking for.
+                base_path_to_subpaths[sequence_name].push_back(match);
+                // Keep looking for more.
+                return true;
+            });
+            if (!base_path_to_subpaths.count(sequence_name)) {
+                // We didn't find any subpaths for this path as a base path either.
+                cerr << "error:[vg::get_sequence_dictionary] Graph does not have a path named " << sequence_name;
+                if (filename) {
+                    // Report the source file.
+                    cerr << " which was indicated in " << filename;
+                }
+                cerr << endl;
+                exit(1);
+            }
+            // The length may still be missing.
+        } 
+
+        input_names_lengths.push_back(make_pair(sequence_name, length));
+    };
+    
     
     if (!filename.empty()) {
         // TODO: As of right now HTSLib doesn't really let you iterate the sequence dictionary when you use its parser. So we use our own parser.
@@ -186,25 +310,8 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                     exit(1);
                 }
                 
-                if (!base_path_to_subpaths.count(sequence_name)) {
-                    cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
-                    exit(1);
-                }
-
-                // Bypass length check for subpaths
-                if (graph.has_path(sequence_name)) {
-                    path_handle_t path = graph.get_path_handle(sequence_name);
-                    size_t graph_path_length = graph.get_path_length(path);
-                    if (graph_path_length != length) {
-                        // Length doesn't match
-                        cerr << "error:[vg mpmap] Graph contains a path " << sequence_name << " of length " << graph_path_length
-                             << " but sequence dictionary in " << filename << " indicates a length of " << length << endl;
-                        exit(1);
-                    }
-                }
-
-                input_names_lengths.push_back(make_pair(sequence_name, length));
-
+                // Now record that we want the sequence.
+                handle_sequence(sequence_name, length, &filename); 
             }
         });
         
@@ -213,48 +320,99 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             cerr << "error:[vg::get_sequence_dictionary] No sequence dictionary available in file: " << filename << endl;
             exit(1);
         }
-    } else {
+    } 
+    
+    for (auto& name : path_names) {
+        // Supplement with any names that were directly provided
+        handle_sequence(name, -1, nullptr);
+    }
+    
+    if (input_names_lengths.empty()) {
+        // We got no paths in so we need to guess them.
+        // We will deduplicate their base names, without subpath info.
         unordered_set<string> base_names;
-        graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-            string sequence_name = graph.get_path_name(path_handle);
-            if (!Paths::is_alt(sequence_name)) {
-                // This isn't an alt allele path, so we want it.
-                string base_name = Paths::get_base_name(sequence_name);
-                if (!base_names.count(base_name)) {
-                    input_names_lengths.push_back(make_pair(base_name, -1));
-                    base_names.insert(base_name);
-                }
+        
+        // When we find a path or subpath we want, we will keep it.
+        auto keep_path_or_subpath = [&](const path_handle_t& path) {
+            string base_name = get_path_base_name(graph, path);
+            int64_t base_length = -1;
+            if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
+                // This is a full path so we can determine base length now.
+                base_length = graph.get_path_length(path);
             }
-        });
+            if (!base_names.count(base_name)) {
+                // This is the first time we have seen something on this path.
+                // Remember we need a length for it.
+                // TODO: make this a map so we can just max in here instead of doing another pass.
+                input_names_lengths.push_back(make_pair(base_name, base_length));
+                // And remember we are using it.
+                base_names.insert(base_name);
+            }
+            // Remember this path as belonging to the right base name.
+            base_path_to_subpaths[base_name].push_back(path);
+        };
+        
+        // First look for reference sense paths and their subpaths
+        graph.for_each_path_of_sense(PathSense::REFERENCE, keep_path_or_subpath);
         
         if (input_names_lengths.empty()) {
-            cerr << "error:[vg::get_sequence_dictionary] No non-alt-allele paths available in the graph!" << endl;
+            // If none of those exist, try generic sense paths and their subpaths
+            cerr << "warning:[vg::get_sequence_dictionary] No reference-sense paths available in the graph; falling back to generic paths." << endl;
+            graph.for_each_path_of_sense(PathSense::GENERIC, [&](const path_handle_t& path) {
+                if (Paths::is_alt(graph.get_path_name(path))) {
+                    // Skip this path because it is a stored allele.
+                    return;
+                }
+                // Otherwise, keep it.
+                keep_path_or_subpath(path);
+            });
+        }
+        
+        if (input_names_lengths.empty()) {
+            // No non-alt generic paths either
+            cerr << "error:[vg::get_sequence_dictionary] No reference or non-alt-allele generic paths available in the graph!" << endl;
             exit(1);
         }
     }
-
-    // fill in the missing lengths using what we can find out from the graph
-    unordered_map<string, int64_t> base_to_len;
-    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-            string path_name = graph.get_path_name(path_handle);
-            auto subpath_info = Paths::parse_subpath_name(path_name);
-            if (get<0>(subpath_info)) {
-                path_name = get<1>(subpath_info);
-            }
-            base_to_len[path_name] = max((int64_t)base_to_len[path_name], (int64_t)(get<2>(subpath_info) + graph.get_path_length(path_handle)));
-        });
-
+    
     // We fill in the "dictionary" (which is what SAM calls it; it's not a mapping for us)
     // we also store the path length (from the graph) along with the base path length (from the user if specified, from paths otherwise)
     vector<tuple<path_handle_t, size_t, size_t>> dictionary;
 
-    for (auto& name_len : input_names_lengths) {
-        if (name_len.second == -1) {
-            name_len.second = base_to_len[name_len.first];
+    for (auto& base_name_and_length : input_names_lengths) {
+        // For every base path name we have stuff on
+        
+        if (base_name_and_length.second == -1) {
+            // We need the overall length of this base path still.
+            for_each_subpath_of(graph, base_name_and_length.first, [&](const path_handle_t& path) {
+                // So scan it and all its subpaths
+                
+                subrange_t subrange = graph.get_subrange(path);
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // Full path, use its length.
+                    // TODO: probably we should have seen the full path's length by now if it existed.
+                    base_name_and_length.second = graph.get_path_length(path);
+                } else {
+                    // Subpath, work out where it ends and max it in
+                    auto end_offset = subrange.second;
+                    if (end_offset == PathMetadata::NO_END_POSITION) {
+                        // If there was a stored end we would just trust it, but without it we have to compute it.
+                        end_offset = subrange.first + graph.get_path_length(path);
+                    }
+                    // max the end offset in against all the end offsets we have seen so far.
+                    base_name_and_length.second = std::max(base_name_and_length.second, (int64_t) end_offset);
+                }
+                // Keep going
+                return true;
+            });
         }
-
-        for (path_handle_t path_handle : base_path_to_subpaths[name_len.first]) {
-            dictionary.push_back(make_tuple(path_handle, graph.get_path_length(path_handle), (size_t)name_len.second));
+        
+        // Now we have the length, so we can fill in the dictionary.
+        for (auto& path : base_path_to_subpaths[base_name_and_length.first]) {
+            // For every subpath we found on the base path (possibly just
+            // itself), remember the subpath, the subpath's length, and the
+            // base path's length
+            dictionary.push_back(make_tuple(path, graph.get_path_length(path), (size_t)base_name_and_length.second));
         }
     }
 
@@ -876,7 +1034,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
         }
     }
     
-    consolidate_ID_runs(cigar);
+    simiplify_cigar(cigar);
     
     return cigar;
 }

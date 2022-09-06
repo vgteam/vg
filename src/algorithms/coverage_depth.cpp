@@ -13,7 +13,10 @@ void packed_depths(const Packer& packer, const string& path_name, size_t min_cov
     step_handle_t start_step = graph.path_begin(path_handle);
     step_handle_t end_step = graph.path_end(path_handle);
     Position cur_pos;
-    size_t path_offset = 1;
+    tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_name);
+    const string& base_name = get<0>(subpath_parse) ? get<1>(subpath_parse) : path_name;
+    size_t path_offset = 1 + get<2>(subpath_parse);
+
     for (step_handle_t cur_step = start_step; cur_step != end_step; cur_step = graph.get_next_step(cur_step)) {
         handle_t cur_handle = graph.get_handle_of_step(cur_step);
         nid_t cur_id = graph.get_id(cur_handle);
@@ -24,7 +27,7 @@ void packed_depths(const Packer& packer, const string& path_name, size_t min_cov
             cur_pos.set_offset(i);
             size_t pos_coverage = packer.coverage_at_position(packer.position_in_basis(cur_pos));
             if (pos_coverage >= min_coverage) {
-                out_stream << path_name << "\t" << path_offset << "\t" << pos_coverage << "\n";
+                out_stream << base_name << "\t" << path_offset << "\t" << pos_coverage << "\n";
             }
             ++path_offset;
         }
@@ -292,34 +295,43 @@ pair<double, double> sample_gam_depth(const HandleGraph& graph, const vector<Ali
     return combine_and_average_node_coverages(graph, node_coverages, min_coverage);
 }
 
-void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, ostream& out_stream) {
+void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, bool count_cycles, ostream& out_stream) {
     assert(graph.has_path(path_name));
 
     path_handle_t path_handle = graph.get_path_handle(path_name);
-    size_t offset = 0;
     // big speedup
     unordered_map<path_handle_t, string> path_to_name;
+
+    tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_name);
+    const string& base_name = get<0>(subpath_parse) ? get<1>(subpath_parse) : path_name;
+    size_t offset = 1 + get<2>(subpath_parse);
+
     graph.for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
             unordered_set<string> path_set;
+            size_t step_count = 0;            
             handle_t handle = graph.get_handle_of_step(step_handle);
             graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle_2) {
-                    path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle_2);
-                    auto it = path_to_name.find(step_path_handle);
-                    if (it == path_to_name.end()) {
-                        string step_path_name = graph.get_path_name(step_path_handle);
-                        // disregard subpath tags when counting
-                        auto subpath = Paths::parse_subpath_name(step_path_name);
-                        string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
-                        it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                    if (count_cycles) {
+                        ++step_count;
+                    } else {
+                        path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle_2);
+                        auto it = path_to_name.find(step_path_handle);
+                        if (it == path_to_name.end()) {
+                            string step_path_name = graph.get_path_name(step_path_handle);
+                            // disregard subpath tags when counting
+                            auto subpath = Paths::parse_subpath_name(step_path_name);
+                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
+                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                        }
+                        path_set.insert(it->second);
                     }
-                    path_set.insert(it->second);
                 });
-            size_t coverage = path_set.size() - 1;
+            size_t coverage = (count_cycles ? step_count : path_set.size()) - 1;
             size_t node_len = graph.get_length(handle);
             if (coverage >= min_coverage) {
                 for (size_t i = 0; i < node_len; ++i) {
                     if (coverage >= min_coverage) {
-                        out_stream << path_name << "\t" << (offset + i) << "\t" << coverage << "\n";
+                        out_stream << base_name << "\t" << (offset + i) << "\t" << coverage << "\n";
                     }
                 }
             }
@@ -329,23 +341,40 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
 
 pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
                                        step_handle_t start_step, step_handle_t end_plus_one_step,
-                                       size_t min_coverage) {
+                                       size_t min_coverage, bool count_cycles) {
 
     // compute the mean and variance of our base coverage across the bin
     size_t bin_length = 0;
     double mean = 0.0;
     double M2 = 0.0;
 
+    // big speedup
+    unordered_map<path_handle_t, string> path_to_name;
+
     for (step_handle_t cur_step = start_step; cur_step != end_plus_one_step; cur_step = graph.get_next_step(cur_step)) {
         handle_t cur_handle = graph.get_handle_of_step(cur_step);
         nid_t cur_id = graph.get_id(cur_handle);
         size_t cur_len = graph.get_length(cur_handle);
 
-        unordered_set<path_handle_t> path_set;
+        unordered_set<string> path_set;
+        size_t step_count = 0;
         graph.for_each_step_on_handle(cur_handle, [&](step_handle_t step_handle) {
-                path_set.insert(graph.get_path_handle_of_step(step_handle));
+                if (count_cycles) {
+                    ++step_count;
+                } else {
+                        path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle);
+                        auto it = path_to_name.find(step_path_handle);
+                        if (it == path_to_name.end()) {
+                            string step_path_name = graph.get_path_name(step_path_handle);
+                            // disregard subpath tags when counting
+                            auto subpath = Paths::parse_subpath_name(step_path_name);
+                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
+                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                        }
+                        path_set.insert(it->second);
+                }                    
             });
-        size_t coverage = path_set.size() - 1;
+        size_t coverage = (count_cycles ? step_count : path_set.size()) - 1;        
 
         if (coverage >= min_coverage) {
             // todo: iteration here copied from packer implementation, not necessary
@@ -360,7 +389,8 @@ pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
 vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandleGraph& graph,
                                                                 const string& path_name,
                                                                 size_t bin_size,
-                                                                size_t min_coverage) {
+                                                                size_t min_coverage,
+                                                                bool count_cycles) {
 
     path_handle_t path_handle = graph.get_path_handle(path_name);
     
@@ -388,7 +418,7 @@ vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandle
         step_handle_t bin_end_step = i < bins.size() - 1 ? bins[i+1].second : end_step;
         size_t bin_start = bins[i].first;
         size_t bin_end = i < bins.size() - 1 ? bins[i+1].first : offset;
-        pair<double, double> coverage = path_depth_of_bin(graph, bin_start_step, bin_end_step, min_coverage);
+        pair<double, double> coverage = path_depth_of_bin(graph, bin_start_step, bin_end_step, min_coverage, count_cycles);
         binned_depths[i] = make_tuple(bin_start, bin_end, coverage.first, coverage.second);
     }
 

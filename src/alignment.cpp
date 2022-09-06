@@ -970,7 +970,7 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
     return cigar;
 }
 
-void consolidate_ID_runs(vector<pair<int, char>>& cigar) {
+void simiplify_cigar(vector<pair<int, char>>& cigar) {
     
     size_t removed = 0;
     for (size_t i = 0, j = 0; i < cigar.size(); ++j) {
@@ -1000,6 +1000,21 @@ void consolidate_ID_runs(vector<pair<int, char>>& cigar) {
         }
         if (j < cigar.size()) {
             cigar[j - removed] = cigar[j];
+        }
+    }
+    cigar.resize(cigar.size() - removed);
+    // do a second pass removing empty operations and consolidating non I/D operations
+    removed = 0;
+    for (size_t i = 0; i < cigar.size(); ++i) {
+        if (cigar[i].first == 0) {
+            ++removed;
+        }
+        else if (i > removed && cigar[i].second == cigar[i - removed - 1].second) {
+            cigar[i - removed - 1].first += cigar[i].first;
+            ++removed;
+        }
+        else if (removed) {
+            cigar[i - removed] = cigar[i];
         }
     }
     cigar.resize(cigar.size() - removed);

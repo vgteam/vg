@@ -676,19 +676,34 @@ TEST_CASE("Duplicate path chunks can be detected", "[surject][multipath]") {
     e31->set_to_length(2);
     
     bdsg::HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAC");
+    handle_t h2 = graph.create_handle("GTGT");
+    handle_t h3 = graph.create_handle("GTAC");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h2, h1);
+    
+    path_handle_t p = graph.create_path_handle("path");
+    
+    step_handle_t s1 = graph.append_step(p, h1);
+    step_handle_t s2 = graph.append_step(p, h2);
+    step_handle_t s3 = graph.append_step(p, h1);
+    step_handle_t s4 = graph.append_step(p, h3);
+    
     bdsg::PositionOverlay pos_graph(&graph);
     TestSurjector surjector(&pos_graph);
     
     vector<Surjector::path_chunk_t> path_chunks{chunk1, chunk2, chunk3, chunk4};
     vector<pair<step_handle_t, step_handle_t>> ref_chunks;
-    ref_chunks.emplace_back();
-    ref_chunks.emplace_back();
-    ref_chunks.emplace_back();
-    ref_chunks.emplace_back();
+    ref_chunks.emplace_back(s1, s2);
+    ref_chunks.emplace_back(s1, s1);
+    ref_chunks.emplace_back(s2, s2);
+    ref_chunks.emplace_back(s3, s4);
     
     vector<tuple<size_t, size_t, int32_t>> connections;
     
-    surjector.filter_redundant_path_chunks(path_chunks, ref_chunks, connections);
+    surjector.filter_redundant_path_chunks(false, path_chunks, ref_chunks, connections);
     
     REQUIRE(ref_chunks.size() == path_chunks.size());
     REQUIRE(path_chunks.size() == 2);
