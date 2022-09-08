@@ -3354,7 +3354,7 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
 
     int64_t min_dist;
     if (distance_index != nullptr) {
-        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), false, &gbwt_graph);
+        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), false, &gbwt_graph);
     } else {
         min_dist = old_distance_index->min_distance(pos1, pos2);
     }
@@ -3365,7 +3365,7 @@ int64_t MinimizerMapper::unoriented_distance_between(pos_t pos1, pos_t pos2) con
 
     int64_t min_dist;
     if (distance_index != nullptr) {
-        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), true, &gbwt_graph);
+        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &gbwt_graph);
     } else {
         min_dist = old_distance_index->min_distance(pos1, pos2, true);
     }
