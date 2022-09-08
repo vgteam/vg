@@ -53,7 +53,7 @@ class MinimumDistanceIndex {
     /// Distance includes only one of the positions. The distance from a 
     /// position to itself would be 1
     ///If there is no path between the two positions then the distance is -1
-    int64_t min_distance( pos_t pos1, pos_t pos2) const;
+    int64_t min_distance( pos_t pos1, pos_t pos2, bool unoriented_distance = false) const;
 
     ///Get a maximum distance bound between the positions, ignoring direction
     ///Returns a positive value even if the two nodes are unreachable
@@ -465,7 +465,7 @@ class MinimumDistanceIndex {
     ///the direction of pos)
     
     tuple<int64_t, int64_t, pair<id_t, bool>> dist_to_common_ancestor(
-                pair<size_t, bool> common_ancestor, pos_t& pos, bool rev) const;
+                pair<size_t, bool> common_ancestor, pos_t& pos, bool rev, bool unoriented_distance = false) const;
 
 
     /// Get the index into chain_indexes/rank in chain of node i.

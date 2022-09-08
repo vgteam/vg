@@ -1218,7 +1218,7 @@ tuple<id_t, bool, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, boo
 int64_t MinimumDistanceIndex::node_length(id_t id) const {
     return snarl_indexes[get_primary_assignment(id)].node_length(get_primary_rank(id));
 }
-int64_t MinimumDistanceIndex::min_distance(pos_t pos1, pos_t pos2) const {
+int64_t MinimumDistanceIndex::min_distance(pos_t pos1, pos_t pos2, bool unoriented_distance) const {
     /*Minimum distance between positions not including the position itself*/
     
     int64_t shortest_distance = -1; 
@@ -1340,11 +1340,11 @@ int64_t MinimumDistanceIndex::min_distance(pos_t pos1, pos_t pos2) const {
 
     //Find distances from pos1 and pos2 to ends of child snarls of ancestor
     int64_t distL1; int64_t distR1; pair<id_t, bool> snarl_tree_node1;
-    tie (distL1, distR1, snarl_tree_node1) = dist_to_common_ancestor(ancestor, pos1, false);
+    tie (distL1, distR1, snarl_tree_node1) = dist_to_common_ancestor(ancestor, pos1, false, unoriented_distance);
 
      
     int64_t distL2; int64_t distR2; pair<id_t, bool> snarl_tree_node2;
-    tie (distL2, distR2, snarl_tree_node2) = dist_to_common_ancestor(ancestor, pos2, true);
+    tie (distL2, distR2, snarl_tree_node2) = dist_to_common_ancestor(ancestor, pos2, true, unoriented_distance);
 
     pair<id_t, bool> parent = common_ancestor;
     bool lowest_ancestor = true;
@@ -1565,7 +1565,7 @@ int64_t MinimumDistanceIndex::min_distance(pos_t pos1, pos_t pos2) const {
 };
 
 tuple<int64_t, int64_t, pair<id_t, bool>> MinimumDistanceIndex::dist_to_common_ancestor(
-          pair<size_t, bool> common_ancestor, pos_t& pos, bool rev) const {
+          pair<size_t, bool> common_ancestor, pos_t& pos, bool rev, bool unoriented_distance) const {
 
     /* Find the distance from pos to either end of a snarl tree node 
      * (snarl or chain) in common_ancestor snarl or chain
@@ -1600,12 +1600,14 @@ tuple<int64_t, int64_t, pair<id_t, bool>> MinimumDistanceIndex::dist_to_common_a
         distL = offset+1;
         distR = snarl_index.node_length(snarl_rank)-offset;
     }
-    //Make sure that the distance calculation will be directed - must traverse
-    //positions in the correct direction
-    if (rev == is_rev(pos)) {
-        distL = -1;
-    } else {
-        distR = -1;
+    if (!unoriented_distance) {
+        //Make sure that the distance calculation will be directed - must traverse
+        //positions in the correct direction
+        if (rev == is_rev(pos)) {
+            distL = -1;
+        } else {
+            distR = -1;
+        }
     }
 #ifdef debugDistance
 cerr << distL << " " << distR << endl;

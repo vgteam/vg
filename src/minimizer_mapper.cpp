@@ -31,6 +31,8 @@
 //#define debug_dump_graph
 // Dump fragment length distribution information
 //#define debug_fragment_distr
+//Do a brute force check that clusters are correct
+//#define debug_validate_clusters
 
 namespace vg {
 
@@ -380,6 +382,132 @@ void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t clust
         cerr << log_name() << "Minimizers in cluster " << cluster_number << "\t" << log_bits(presence) << endl;
     }
 }
+template<typename SeedType>
+bool MinimizerMapper::validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const {
+    vector<vector<pos_t>> fragment_clusters;
+    for (size_t read_num = 0 ; read_num < clusters.size() ; read_num ++) {
+        auto& one_read_clusters = clusters[read_num];
+        if (one_read_clusters.size() > 0) {
+            for (size_t cluster_num1 = 0; cluster_num1 < one_read_clusters.size(); cluster_num1++) {
+                // For each cluster -cluster this cluster to ensure that there is only one
+                vector<size_t> clust = one_read_clusters[cluster_num1].seeds;
+                size_t fragment_cluster = one_read_clusters[cluster_num1].fragment;
+                if (fragment_cluster >= fragment_clusters.size()) {
+                    fragment_clusters.resize(fragment_cluster+1);
+                }
+                
+                structures::UnionFind new_clusters (clust.size(), false);
+                for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
+                    pos_t pos1 = seeds[read_num][clust[i1]].pos;
+                    fragment_clusters[fragment_cluster].emplace_back(pos1);
+                    
+                    for (size_t cluster_num2 = 0 ; cluster_num2 < one_read_clusters.size() ; cluster_num2++) {
+                        if (cluster_num2 != cluster_num1) {
+                            //For each other cluster, make sure that the seeds in the other cluster are far away
+                            vector<size_t> clust2 = one_read_clusters[cluster_num2].seeds;
+                            for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
+                                //And each position in each other cluster,
+                                //make sure that this position is far away from i1
+                                pos_t pos2 = seeds[read_num][clust2[i2]].pos;;
+                                size_t distance_between = unoriented_distance_between(pos1, pos2);
+                                
+                                if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                                     distance_between <= read_limit) {
+                                    cerr << "These should have been in the same read cluster: " ;
+                                    cerr << pos1 << " and " << pos2 << " with distance between them " << distance_between << endl;
+                                    return false;
+                                }
+                    
+                            }
+                        }
+                    }
+                    for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
+                        //For each position in the same cluster, make sure it's close to something
+                        pos_t pos2 = seeds[read_num][clust[i2]].pos;
+                        size_t distance_between = unoriented_distance_between(pos1, pos2);
+                        if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                            distance_between <= read_limit) {
+                            new_clusters.union_groups(i1, i2);
+                        }
+                
+                    }
+                }
+                auto actual_clusters = new_clusters.all_groups();
+                if (actual_clusters.size() != 1) {
+                    cerr << "These should be different read clusters: " << endl;
+                    for (auto c : actual_clusters) {
+                        cerr << "cluster: " ;
+                        for (size_t i : c) {
+                            cerr << seeds[read_num][clust[i]].pos << " ";
+                        }
+                        cerr << endl;
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+    //Now check the fragment clusters
+    if (fragment_limit != 0) {
+        for (size_t cluster_num1 = 0; cluster_num1 < fragment_clusters.size(); cluster_num1++) {
+            // For each cluster -cluster this cluster to ensure that 
+            // there is only one
+            vector<pos_t> clust = fragment_clusters[cluster_num1];
+        
+            structures::UnionFind new_clusters (clust.size(), false);
+        
+            for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
+                pos_t pos1 = clust[i1];
+        
+                for (size_t cluster_num2 = 0 ; cluster_num2 < fragment_clusters.size() ; cluster_num2++) {
+                    if (cluster_num2 != cluster_num1) {
+                        //For each other cluster
+                        vector<pos_t> clust2 = fragment_clusters[cluster_num2];
+                        for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
+                            //And each position in each other cluster,
+                            //make sure that this position is far away from i1
+                            pos_t pos2 = clust2[i2];
+                            int64_t distance_between = unoriented_distance_between(pos1, pos2);
+                            if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                                distance_between <= fragment_limit) {
+                                cerr << "These should have been in the same fragment cluster: " ;
+                                cerr << pos1 << " and " << pos2 << " with distance between " << distance_between << " and distance limit " << fragment_limit << endl;
+                                return false;
+                                
+                            }
+                
+                        }
+                    }
+                }
+                for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
+                    //For each position in the same cluster
+                    pos_t pos2 = clust[i2];
+                    int64_t distance_between = unoriented_distance_between(pos1, pos2);
+                    if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                        distance_between <= fragment_limit) {
+                        new_clusters.union_groups(i1, i2);
+                    }
+            
+                }
+            }
+            auto actual_clusters = new_clusters.all_groups();
+            if (actual_clusters.size() != 1) {
+                cerr << "These should be different fragment clusters with distance limit " << fragment_limit << endl;
+                for (auto c : actual_clusters) {
+                    cerr << "cluster: " ;
+                    for (size_t i1 : c) {
+                        cerr << clust[i1] << " ";
+                    }
+                    cerr << endl;
+                }
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
 
 template<typename SeedType>
 void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds) {
@@ -495,6 +623,20 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
         clusters = old_clusterer.cluster_seeds(old_seeds, get_distance_limit(aln.sequence().size()));
     }
+#ifdef debug_validate_clusters
+    vector<vector<Cluster>> all_clusters;
+    all_clusters.emplace_back(clusters);
+    if (distance_index == nullptr) {
+        vector<vector<OldSeed>> all_seeds;
+        all_seeds.emplace_back(old_seeds);
+        validate_clusters(all_clusters, all_seeds, get_distance_limit(aln.sequence().size()), 0);
+    } else {
+        vector<vector<Seed>> all_seeds;
+        all_seeds.emplace_back(seeds);
+        validate_clusters(all_clusters, all_seeds, get_distance_limit(aln.sequence().size()), 0);
+    }
+
+#endif
 
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
@@ -1419,6 +1561,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     } else {
         all_clusters = old_clusterer.cluster_seeds(old_seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
     }
+#ifdef debug_validate_clusters
+    if (distance_index == nullptr) {
+        validate_clusters(all_clusters, old_seeds_by_read , get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+    } else {
+        validate_clusters(all_clusters, seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+    }
+
+#endif
 
 
     //Keep track of which fragment clusters (clusters of clusters) have read clusters from each end
@@ -3207,6 +3357,17 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
         min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), false, &gbwt_graph);
     } else {
         min_dist = old_distance_index->min_distance(pos1, pos2);
+    }
+    return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+}
+
+int64_t MinimizerMapper::unoriented_distance_between(pos_t pos1, pos_t pos2) const {
+
+    int64_t min_dist;
+    if (distance_index != nullptr) {
+        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), true, &gbwt_graph);
+    } else {
+        min_dist = old_distance_index->min_distance(pos1, pos2, true);
     }
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }

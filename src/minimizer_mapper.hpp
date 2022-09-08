@@ -448,6 +448,11 @@ protected:
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 
     /**
+     * Get the unoriented distance between a pair of positions
+     */
+    int64_t unoriented_distance_between(pos_t pos1, pos_t pos2) const;
+
+    /**
      * Convert the GaplessExtension into an alignment. This assumes that the
      * extension is a full-length alignment and that the sequence field of the
      * alignment has been set.
@@ -763,6 +768,10 @@ protected:
     /// Print the seed content of a cluster.
     template<typename SeedType>
     static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
+
+    /// Do a brute check of the clusters. Print errors to stderr
+    template<typename SeedType>
+    bool validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const;
     
     /// Print information about a selected set of seeds.
     template<typename SeedType>
@@ -779,6 +788,7 @@ protected:
     
     /// Count at which we cut over to summary logging.
     const static size_t MANY_LIMIT = 30;
+
 
     friend class TestMinimizerMapper;
 };
