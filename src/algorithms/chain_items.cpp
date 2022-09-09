@@ -189,7 +189,7 @@ LookbackStrategy::verdict_t ExponentialLookbackStrategy::Problem::should_check(s
             // But we still haven't found anything good, so raise the limit.
             this->limit *= this->strategy.scale_factor;
 #ifdef debug_lookback
-            std::cerr << "\tIncreased lookback limit to " << this->limit << " bp because best transition is " << this->best_transition_found << " so we now allow " << (this->strategy.min_good_transition_score_per_base * this->limit) << std::endl;
+            std::cerr << "\t\tIncreased lookback limit to " << this->limit << " bp because best transition is " << this->best_transition_found << " so we now allow " << (this->strategy.min_good_transition_score_per_base * this->limit) << std::endl;
 #endif
             return LookbackStrategy::CHECK;
         }
