@@ -100,6 +100,10 @@ int IndelOnlyChainingScorer::score_transition(size_t read_distance,
     return score;
 }
 
+void LookbackStrategy::Problem::place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph) {
+    // Default implementation: no-op.
+}
+
 std::unique_ptr<LookbackStrategy::Problem> FlatLimitLookbackStrategy::setup_problem(size_t item_count) const {
      std::unique_ptr<LookbackStrategy::Problem> to_return;
      to_return.reset(new FlatLimitLookbackStrategy::Problem(*this));
@@ -200,6 +204,99 @@ LookbackStrategy::verdict_t ExponentialLookbackStrategy::Problem::should_check(s
 }
 
 void ExponentialLookbackStrategy::Problem::did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score) {
+    if (!graph_distance) {
+        graph_distance = &read_distance;
+    }
+    this->best_transition_found = std::max(this->best_transition_found, transition_score);
+    this->best_achieved_score = std::max(this->best_achieved_score, achieved_score);
+    if (achieved_score > 0 && this->best_transition_found >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
+        // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
+        this->good_score_found = true;
+    }
+}
+
+
+std::unique_ptr<LookbackStrategy::Problem> BucketLookbackStrategy::setup_problem(size_t item_count) const {
+     std::unique_ptr<LookbackStrategy::Problem> to_return;
+     to_return.reset(new BucketLookbackStrategy::Problem(*this));
+     return std::move(to_return);
+}
+
+BucketLookbackStrategy::Problem::Problem(const BucketLookbackStrategy& parent) : strategy(parent) {
+    // Nothing to do!
+}
+
+void BucketLookbackStrategy::Problem::advance() {
+    // Reset the per-destination state.
+    this->limit = this->strategy.initial_search_bases;
+    this->best_transition_found = std::numeric_limits<int>::min();
+    this->best_achieved_score = std::numeric_limits<int>::min();
+    this->good_score_found = false;
+}
+
+void BucketLookbackStrategy::Problem::place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph) {
+    // We need to assign this item to a bucket
+    for (size_t bucket = 0; bucket < bucket_heads.size(); bucket++) {
+        auto& head = bucket_heads[bucket];
+        size_t distance = distance_index.minimum_distance(
+            id(head), is_rev(head), offset(head),
+            id(graph_pos), is_rev(graph_pos), offset(graph_pos),
+            false, &graph);
+        if (distance != std::numeric_limits<size_t>::max() && distance < this->strategy.bucket_limit) {
+            // This is the right bucket!
+            bucket_sizes[bucket]++;
+#ifdef debug_lookback
+            std::cerr << "\t\tItem " << item << " is " << distance << " away from the head of bucket " << bucket << " so put it there to get size " << bucket_sizes[bucket] << std::endl;
+#endif
+            item_to_head.emplace(item, bucket);
+            return;
+        }
+    }
+    // If it's not reachable from the head of any existing bucket, give it a new bucket
+#ifdef debug_lookback
+    std::cerr << "\t\tItem " << item << " must start a new bucket " << bucket_heads.size() << std::endl;
+#endif
+    item_to_head.emplace(item, bucket_heads.size());
+    bucket_heads.emplace_back(graph_pos);
+    bucket_sizes.emplace_back(1);
+}
+
+LookbackStrategy::verdict_t BucketLookbackStrategy::Problem::should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score) {
+    if (read_distance > this->strategy.lookback_bases) {
+        // This is too far in the read. Everything else will be further, so stop.
+        return LookbackStrategy::STOP;
+    } else if (read_distance > this->limit) {
+        // This is further than we wanted to look.
+        if (this->good_score_found) {
+            // And we have something good already, so impose the limit
+            return LookbackStrategy::STOP;
+        } else {
+            // But we still haven't found anything good, so raise the limit.
+            this->limit *= this->strategy.scale_factor;
+#ifdef debug_lookback
+            std::cerr << "\t\tIncreased lookback limit to " << this->limit << " bp because best transition is " << this->best_transition_found << " so we now allow " << (this->strategy.min_good_transition_score_per_base * this->limit) << std::endl;
+#endif
+        }
+    }
+    // We might fall through after increasing the limit
+    if (!bucket_heads.empty() && item_to_head.at(item_a) != item_to_head.at(item_b)) {
+        // These items are in different buckets.
+#ifdef debug_lookback
+        std::cerr << "\t\tItem " << item_a << " is in bucket " << item_to_head.at(item_a) << " size " << bucket_sizes.at(item_to_head.at(item_a)) << " but item " << item_b << " is in bucket " << item_to_head.at(item_b) << " size " << bucket_sizes.at(item_to_head.at(item_b)) << std::endl;
+#endif
+        return LookbackStrategy::SKIP;
+    } else {
+        if (!bucket_heads.empty()) {
+#ifdef debug_lookback
+            std::cerr << "\t\tBoth items are in bucket " << item_to_head.at(item_a) << " size " << bucket_sizes.at(item_to_head.at(item_a)) << std::endl;
+#endif
+        }
+        // Otherwise they are in range and in the same bucket
+        return LookbackStrategy::CHECK;
+    }
+}
+
+void BucketLookbackStrategy::Problem::did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score) {
     if (!graph_distance) {
         graph_distance = &read_distance;
     }

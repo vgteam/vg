@@ -969,6 +969,12 @@ public:
         virtual void advance() = 0;
         
         /**
+         * Tell the problem that the given item is at the given graph position.
+         * Lets the problem remember this and do a bit of its own clustering.
+         */
+        virtual void place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
+        
+        /**
          * Determine if we should consider a transition between two items, given
          * their read distance and the predecessor's achieved score. Counts the
          * transition as a possibility.
@@ -1076,6 +1082,48 @@ public:
 };
 
 /**
+ * Lookback strategy that uses exponential limits and buckets items by graph reachability.
+ */
+class BucketLookbackStrategy : public LookbackStrategy {
+public:
+    /// How far back should we look before stopping, max?
+    size_t lookback_bases = 200;
+    /// How far should our initial search go?
+    size_t initial_search_bases = 10;
+    /// How much should we increase by?
+    double scale_factor = 2.0;
+    /// How many points can we lose on a transition per max distance and still have it be good?
+    double min_good_transition_score_per_base = -0.1;
+    /// How far apart should things need to be to be different buckets?
+    /// TODO: What if the point at which we tick over this happens to divide the true chain?
+    size_t bucket_limit = 50000;
+    
+    virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
+    
+    class Problem : public LookbackStrategy::Problem {
+    public:
+        Problem(const BucketLookbackStrategy& parent);
+    
+        virtual void advance();
+        virtual void place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
+        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score);
+        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score);
+        
+        virtual ~Problem() = default;
+        
+    protected:
+        const BucketLookbackStrategy& strategy;
+        size_t limit;
+        int best_transition_found;
+        int best_achieved_score;
+        bool good_score_found;
+        std::vector<pos_t> bucket_heads;
+        std::vector<size_t> bucket_sizes;
+        std::unordered_map<size_t, size_t> item_to_head;
+    };
+};
+
+/**
  * Get rid of items that are shadowed or contained by (or are identical to) others.
  * We assume that if the start and end positions put you on the same diagonals
  * on the same nodes, where the middle of the path goes doesn't matter.
@@ -1123,7 +1171,7 @@ template<typename Score, typename Item, typename Source = void, typename Collect
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     const LookbackStrategy& loockack_strategy = ExponentialLookbackStrategy(),
+                     const LookbackStrategy& lookback_strategy = BucketLookbackStrategy(),
                      int item_bonus = 0,
                      size_t max_indel_bases = 10000);
 
@@ -1406,6 +1454,13 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
         cerr << "\tFirst item overlapping #" << i << " beginning at " << space.read_start(here) << " is #" << *first_overlapping_it << " past-ending at " << space.read_end(to_chain[*first_overlapping_it]) << " so start before there." << std::endl;
 #endif
+        
+        assert(space.graph);
+        assert(space.distance_index);
+        if (space.graph && space.distance_index) {
+            // Tell the lookback problem where we are in the graph.
+            lookback_problem->place_in_graph(i, space.graph_start(here), *space.distance_index, *space.graph);
+        }
 
         // Start considering predecessors for this item.
         lookback_problem->advance();
@@ -1417,9 +1472,6 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             
 #ifdef debug_chaining
             cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << space.to_string(source) << endl;
-            
-            cerr << "\t\tCome from score " << best_chain_score[*predecessor_index_it]
-                << " across " << space.to_string(source, here) << endl;
 #endif
 
             // How far do we go in the read?
@@ -1436,7 +1488,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
                 cerr << "\t\tSkip because the lookback strategy says so." << endl;
 #endif
+                continue;
             }
+            
+            // Now it's safe to make a distance query
+#ifdef debug_chaining
+            cerr << "\t\tCome from score " << best_chain_score[*predecessor_index_it]
+                << " across " << space.to_string(source, here) << endl;
+#endif
             
             // We will actually evaluate the source.
             
