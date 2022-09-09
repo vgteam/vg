@@ -1046,7 +1046,7 @@ public:
 class ExponentialLookbackStrategy : public LookbackStrategy {
 public:
     /// How far back should we look before stopping, max?
-    size_t lookback_bases = 1000;
+    size_t lookback_bases = 200;
     /// How far should our initial search go?
     size_t initial_search_bases = 10;
     /// How much should we increase by?

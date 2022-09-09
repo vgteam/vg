@@ -205,7 +205,7 @@ void ExponentialLookbackStrategy::Problem::did_check(size_t item_a, size_t item_
     }
     this->best_transition_found = std::max(this->best_transition_found, transition_score);
     this->best_achieved_score = std::max(this->best_achieved_score, achieved_score);
-    if (this->best_achieved_score > 0 && this->best_transition_found >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
+    if (achieved_score > 0 && this->best_transition_found >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
         // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
         this->good_score_found = true;
     }
