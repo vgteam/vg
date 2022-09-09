@@ -11,6 +11,8 @@ namespace algorithms {
 
 using namespace std;
 
+#define debug_lookback
+
 ostream& operator<<(ostream& out, const traced_score_t& value) {
     if (score_traits<traced_score_t>::source(value) == score_traits<traced_score_t>::nowhere()) {
         return out << score_traits<traced_score_t>::score(value) << " from nowhere";
@@ -170,6 +172,7 @@ void ExponentialLookbackStrategy::Problem::advance() {
     // Reset the per-destination state.
     this->limit = this->strategy.initial_search_bases;
     this->best_transition_found = std::numeric_limits<int>::min();
+    this->best_achieved_score = std::numeric_limits<int>::min();
     this->good_score_found = false;
 }
 
@@ -185,6 +188,9 @@ LookbackStrategy::verdict_t ExponentialLookbackStrategy::Problem::should_check(s
         } else {
             // But we still haven't found anything good, so raise the limit.
             this->limit *= this->strategy.scale_factor;
+#ifdef debug_lookback
+            std::cerr << "\tIncreased lookback limit to " << this->limit << " bp because best transition is " << this->best_transition_found << " so we now allow " << (this->strategy.min_good_transition_score_per_base * this->limit) << std::endl;
+#endif
             return LookbackStrategy::CHECK;
         }
     } else {
@@ -198,7 +204,8 @@ void ExponentialLookbackStrategy::Problem::did_check(size_t item_a, size_t item_
         graph_distance = &read_distance;
     }
     this->best_transition_found = std::max(this->best_transition_found, transition_score);
-    if (achieved_score > 0 && this->best_transition_found >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
+    this->best_achieved_score = std::max(this->best_achieved_score, achieved_score);
+    if (this->best_achieved_score > 0 && this->best_transition_found >= this->strategy.min_good_transition_score_per_base * std::max(read_distance, *graph_distance)) {
         // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
         this->good_score_found = true;
     }

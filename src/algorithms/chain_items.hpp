@@ -1070,6 +1070,7 @@ public:
         const ExponentialLookbackStrategy& strategy;
         size_t limit;
         int best_transition_found;
+        int best_achieved_score;
         bool good_score_found;
     };
 };
