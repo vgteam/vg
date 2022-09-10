@@ -1097,6 +1097,10 @@ public:
     /// How far apart should things need to be to be different buckets?
     /// TODO: What if the point at which we tick over this happens to divide the true chain?
     size_t bucket_limit = 50000;
+    /// How far must an indel go in bucket coordinates to prohibit crossing it? Item lengths can count against this.
+    size_t max_inferred_indel = 1100;
+    /// How much should the bucket coordinates of two things differ before we decide not to check for a path between them, even when we can't actually lower-bound the distance?
+    size_t max_suspicious_bucket_coordinate_difference = 10000;
     
     virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
     
@@ -1120,6 +1124,7 @@ public:
         std::vector<pos_t> bucket_heads;
         std::vector<size_t> bucket_sizes;
         std::unordered_map<size_t, size_t> item_to_head;
+        std::unordered_map<size_t, size_t> item_to_coordinate;
     };
 };
 
@@ -1455,8 +1460,6 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         cerr << "\tFirst item overlapping #" << i << " beginning at " << space.read_start(here) << " is #" << *first_overlapping_it << " past-ending at " << space.read_end(to_chain[*first_overlapping_it]) << " so start before there." << std::endl;
 #endif
         
-        assert(space.graph);
-        assert(space.distance_index);
         if (space.graph && space.distance_index) {
             // Tell the lookback problem where we are in the graph.
             lookback_problem->place_in_graph(i, space.graph_start(here), *space.distance_index, *space.graph);
