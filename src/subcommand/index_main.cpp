@@ -80,7 +80,7 @@ void help_index(char** argv) {
          << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "        --new-distance-index build the new version of the distance index" << endl
+         << "        --old-distance-index build the old version of the distance index" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE (snarls must include trivial snarls)" << endl
          << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes" << endl
          << "    -w  --distance-limit N cap beyond which the minimum distance is no longer accurate (default 5000)" << endl;
@@ -102,12 +102,12 @@ int main_index(int argc, char** argv) {
     #define OPT_BUILD_VGI_INDEX  1000
     #define OPT_RENAME_VARIANTS  1001
     #define OPT_DISTANCE_SNARL_LIMIT 1002
-    #define OPT_NEW_DISTANCE_INDEX 1003
+    #define OPT_OLD_DISTANCE_INDEX 1003
 
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, build_gcsa = false, build_dist = false;
     //If we are building a distance index, is it a new distance index
-    bool build_new_distance_index = false;
+    bool build_old_distance_index = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
@@ -195,7 +195,7 @@ int main_index(int argc, char** argv) {
 
             //Snarl distance index
             {"snarl-name", required_argument, 0, 's'},
-            {"new-distance-index", no_argument, 0, OPT_NEW_DISTANCE_INDEX},
+            {"old-distance-index", no_argument, 0, OPT_OLD_DISTANCE_INDEX},
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
             {"max-dist", required_argument, 0, 'w'},
@@ -383,8 +383,8 @@ int main_index(int argc, char** argv) {
         case OPT_DISTANCE_SNARL_LIMIT:
             snarl_limit = parse<int>(optarg);
             break;
-        case OPT_NEW_DISTANCE_INDEX:
-            build_new_distance_index = true;
+        case OPT_OLD_DISTANCE_INDEX:
+            build_old_distance_index = true;
             break;
         case 's':
             snarl_name = optarg;
@@ -707,13 +707,8 @@ int main_index(int argc, char** argv) {
         } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
             return 1;
-        //TODO: Assumes that we don't have a snarl index, but if we do we might want to just load it
-        //} else if (!build_new_distance_index && snarl_name.empty()) {
-        //    //If we're building the old index, then we need snarls
-        //    cerr << "error: [vg index] distance index requires a snarl file" << endl;
-        //    return 1;
             
-        } else if (build_new_distance_index) {
+        } else if (!build_old_distance_index) {
             //Get graph and build dist index
 
             if (file_names.empty() && !xg_name.empty()) {
