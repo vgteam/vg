@@ -156,6 +156,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a8862622f6f711cc6a797b26990c9f195"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8862622f6f711cc6a797b26990c9f195">max_unique_min</a> = 500</td></tr>
 <tr class="memdesc:a8862622f6f711cc6a797b26990c9f195"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of distinct minimizers to take.  <a href="classvg_1_1MinimizerMapper.html#a8862622f6f711cc6a797b26990c9f195">More...</a><br /></td></tr>
 <tr class="separator:a8862622f6f711cc6a797b26990c9f195"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af96dfe389dbee27c52f253bb473d94de"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af96dfe389dbee27c52f253bb473d94de">num_bp_per_min</a> = 1000</td></tr>
+<tr class="memdesc:af96dfe389dbee27c52f253bb473d94de"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of minimzers to select based on read_len/num_min_per_bp.  <a href="classvg_1_1MinimizerMapper.html#af96dfe389dbee27c52f253bb473d94de">More...</a><br /></td></tr>
+<tr class="separator:af96dfe389dbee27c52f253bb473d94de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca75c152e0c37e2ed5592400d3eb5fa7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aca75c152e0c37e2ed5592400d3eb5fa7">exclude_overlapping_min</a> = false</td></tr>
 <tr class="memdesc:aca75c152e0c37e2ed5592400d3eb5fa7"><td class="mdescLeft">&#160;</td><td class="mdescRight">If set, exclude overlapping minimizers.  <a href="classvg_1_1MinimizerMapper.html#aca75c152e0c37e2ed5592400d3eb5fa7">More...</a><br /></td></tr>
 <tr class="separator:aca75c152e0c37e2ed5592400d3eb5fa7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3663,6 +3666,22 @@ template&lt;typename SeedType &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Take minimizers between hit_cap and hard_hit_cap hits until this fraction of total score </p>
+
+</div>
+</div>
+<a id="af96dfe389dbee27c52f253bb473d94de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af96dfe389dbee27c52f253bb473d94de">&#9670;&nbsp;</a></span>num_bp_per_min</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::num_bp_per_min = 1000</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Number of minimzers to select based on read_len/num_min_per_bp. </p>
 
 </div>
 </div>
