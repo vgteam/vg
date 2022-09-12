@@ -118,8 +118,7 @@ void register_loader_saver_gfa() {
             } else {
                 cerr << "stream";
             }
-            cerr << " is corrupt and cannot be loaded." << endl;
-            cerr << e.what() << endl;
+            cerr << " cannot be loaded: " << e.what() << endl;
             exit(1);
         }
         

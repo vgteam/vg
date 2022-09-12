@@ -289,7 +289,7 @@ S	1	GATTACA)";
 
 }
 
-TEST_CASE("Can reject graphs that have duplicate paths", "[gfa]") {
+TEST_CASE("Can accept graphs that have duplicate paths by default", "[gfa]") {
 
     const string graph_gfa = R"(H	VN:Z:1.0
 P	x	1+,3+	8M,1M
@@ -302,8 +302,9 @@ L	1	+	3	+	0M)";
 
     bdsg::HashGraph graph;
     stringstream in(graph_gfa);
-    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
-
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+    REQUIRE(graph.has_path("x"));
+    // TODO: Expose the flag to require no duplicate paths
 }
 
 TEST_CASE("Can reject graphs that have conflicting paths and walks", "[gfa]") {

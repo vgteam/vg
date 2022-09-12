@@ -1,0 +1,27 @@
+H	VN:Z:1.1
+S	11	G	SN:Z:GRCh38.chr1	SO:i:0	SR:i:0
+S	12	A	SN:Z:GRCh38.chr1	SO:i:1	SR:i:0
+S	13	T
+S	14	T	SN:Z:GRCh38.chr1	SO:i:2	SR:i:0
+S	15	A	SN:Z:GRCh38.chr1	SO:i:3	SR:i:0
+S	16	C
+S	17	A	SN:Z:GRCh38.chr1	SO:i:4	SR:i:0
+S	21	G
+S	22	A
+S	23	T
+S	24	T
+S	25	A
+L	11	+	12	+	*
+L	11	+	13	+	*
+L	12	+	14	+	*
+L	13	+	14	+	*
+L	14	+	15	+	*
+L	14	+	16	+	*
+L	15	+	17	+	*
+L	16	+	17	+	*
+L	21	+	22	+	*
+L	21	+	23	+	*
+L	22	+	24	+	*
+L	23	+	24	-	*
+L	24	+	25	+	*
+P	GRCh38.chr1	11+,12+,14+,15+,17+	*
