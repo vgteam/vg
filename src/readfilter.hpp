@@ -443,6 +443,7 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
     if ((keep || verbose) && only_proper_pairs) {
         if (!is_proper_pair(read)) {
             ++counts.counts[Counts::FilterName::proper_pair];
+            keep = false;
         }
     }
     if ((keep || verbose) && !excluded_refpos_contigs.empty()) {
