@@ -3323,6 +3323,7 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
     // bit vector length of read to check for overlaps
     size_t num_minimizers = 0;
     size_t read_len = aln.sequence().size();
+    size_t num_min_by_read_len = read_len / this->num_bp_per_min;
     std::vector<bool> read_bit_vector (read_len, false);
 
     // Select the minimizers we use for seeds.
@@ -3372,10 +3373,11 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
                 funnel.fail("any-hits", i);
             }
         } else if (  // passes reads
+              // cap minimizer at max of specified minimizers and minimizers calculated by read length
               ((minimizer.hits <= this->hit_cap) ||
               (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
               (took_last && i > start)) &&
-              (num_minimizers < this->max_unique_min) &&
+              (num_minimizers < ( max(this->max_unique_min, num_min_by_read_len) )) &&
               (overlapping == false)
             ) {
             
