@@ -151,10 +151,13 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ae5841a4a832376b2894cbbb956c89569"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#ae5841a4a832376b2894cbbb956c89569">max_rgfa_rank</a> = -1</td></tr>
 <tr class="memdesc:ae5841a4a832376b2894cbbb956c89569"><td class="mdescLeft">&#160;</td><td class="mdescRight">Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.  <a href="classvg_1_1algorithms_1_1GFAParser.html#ae5841a4a832376b2894cbbb956c89569">More...</a><br /></td></tr>
 <tr class="separator:ae5841a4a832376b2894cbbb956c89569"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe8f148f7941fc1fbc449687b9623c21"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#abe8f148f7941fc1fbc449687b9623c21">stop_on_duplicate_paths</a> = false</td></tr>
+<tr class="separator:abe8f148f7941fc1fbc449687b9623c21"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Lower-level tools for parsing GFA elements.</p>
-<p>Parsing functions return the fields as strings, and don't support overlaps. Optional tags get read as strings in the vectors. </p>
+<p>Parsing functions return the fields as strings, and don't support overlaps. Optional tags get read as strings in the vectors.</p>
+<p>Allows you to register "listeners" for different kinds of GFA file items, by adding functions to the various *_listeners vectors. These listeners can raise <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> or its subclasses if they do not like what the GFA is saying. Some types of <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> can be caught internally and processing of the file will continue with the next line, but <em>not</em> with the next listener for that line, so the user is responsible for worring about what happens if some but not all listeners for something end up getting called because one failed. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a807577028c5739ceb08abac94fe28054"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a807577028c5739ceb08abac94fe28054">&#9670;&nbsp;</a></span>chars_t</h2>
@@ -849,6 +852,21 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>These listeners will be called with each visit of an rGFA path to a node, after the node listeners for the involved node, but in an unspecified order with respect to listeners for headers. They will be called in order along each path. The listener is responsible for detecting any gaps in the offset space and producing multiple subpaths if necessary. Listeners are protected from duplicate paths with the same name and different ranks, but not from overlaps of nodes in path offset space. </p>
+
+</div>
+</div>
+<a id="abe8f148f7941fc1fbc449687b9623c21"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abe8f148f7941fc1fbc449687b9623c21">&#9670;&nbsp;</a></span>stop_on_duplicate_paths</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::algorithms::GFAParser::stop_on_duplicate_paths = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Set to true to treat duplicate paths as errors. Otherwise, they will be treated as warnings and the duplicated will be discarded. Some GFA files, like the first HPRC graph releases, include duplicate paths. </p>
 
 </div>
 </div>
