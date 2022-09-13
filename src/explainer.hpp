@@ -42,6 +42,9 @@ protected:
     
     /// Counter used to give different explanations their own unique filenames.
     static std::atomic<size_t> next_explanation_number;
+    
+    /// Determine if explanations should be generated.
+    static bool save_explanations;
 
 };
 

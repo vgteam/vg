@@ -13,6 +13,8 @@ namespace vg {
 
 std::atomic<size_t> Explainer::next_explanation_number {0};
 
+bool Explainer::save_explanations = false;
+
 Explainer::Explainer() : explanation_number(Explainer::next_explanation_number++) {
     // Nothing to do!
 }
@@ -21,8 +23,11 @@ Explainer::~Explainer() {
     // Nothing to do!
 }
 
-ProblemDumpExplainer::ProblemDumpExplainer() : Explainer(), out("problem" + std::to_string(explanation_number) + ".json") {
-    // Nothing to do!
+ProblemDumpExplainer::ProblemDumpExplainer() : Explainer() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    out.open("problem" + std::to_string(explanation_number) + ".json");
 }
 
 ProblemDumpExplainer::~ProblemDumpExplainer() {
@@ -30,67 +35,103 @@ ProblemDumpExplainer::~ProblemDumpExplainer() {
 }
 
 void ProblemDumpExplainer::object_start() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "{";
 }
 
 void ProblemDumpExplainer::object_end() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     out << "}";
     need_comma = true;
 }
 
 void ProblemDumpExplainer::array_start() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "[";
 }
 
 void ProblemDumpExplainer::array_end() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     out << "]";
     need_comma = true;
 }
 
 void ProblemDumpExplainer::key(const std::string& k) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "\"" << k << "\":";
 }
 
 void ProblemDumpExplainer::value(const std::string& v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "\"" << v << "\"";
     need_comma = true;
 }
 
 void ProblemDumpExplainer::value(double v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << v;
     need_comma = true;
 }
 
 void ProblemDumpExplainer::value(size_t v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "\"" << v << "\"";
     need_comma = true;
 }
 
 void ProblemDumpExplainer::value(int v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "\"" << v << "\"";
     need_comma = true;
 }
 
 void ProblemDumpExplainer::value(bool v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << (v ? "true" : "false");
     need_comma = true;
 }
 
 void ProblemDumpExplainer::value(vg::id_t v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     comma();
     out << "\"" << v << "\"";
     need_comma = true;
 }
 
 void ProblemDumpExplainer::value(const pos_t& v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     object_start();
     key("node_id");
     value(id(v));
@@ -106,6 +147,9 @@ void ProblemDumpExplainer::value(const pos_t& v) {
 }
 
 void ProblemDumpExplainer::value(const HandleGraph& v) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     object_start();
     key("node");
     array_start();
@@ -149,18 +193,30 @@ DiagramExplainer::DiagramExplainer() : Explainer() {
 }
 
 DiagramExplainer::~DiagramExplainer() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     write_connected_components();
 }
 
 void DiagramExplainer::add_globals(const annotation_t& annotations) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     std::copy(annotations.begin(), annotations.end(), std::back_inserter(globals));
 }
 
 void DiagramExplainer::add_node(const std::string& id, const annotation_t& annotations) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     nodes.emplace(id, annotations);
 }
 
 void DiagramExplainer::ensure_node(const std::string& id, const annotation_t& annotations) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     auto found = nodes.find(id);
     if (found == nodes.end()) {
         nodes.emplace_hint(found, id, annotations);
@@ -168,10 +224,16 @@ void DiagramExplainer::ensure_node(const std::string& id, const annotation_t& an
 }
 
 void DiagramExplainer::add_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     edges.emplace(std::make_pair(a_id, b_id), annotations);
 }
 
 void DiagramExplainer::ensure_edge(const std::string& a_id, const std::string& b_id, const annotation_t& annotations) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
     auto key = std::make_pair(a_id, b_id);
     auto found = edges.find(key);
     if (found == edges.end()) {
@@ -180,6 +242,10 @@ void DiagramExplainer::ensure_edge(const std::string& a_id, const std::string& b
 }
 
 void DiagramExplainer::suggest_edge(const std::string& a_id, const std::string& b_id, const std::string& category, double importance, const annotation_t& annotations) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+
     // Find the heap it goes in
     auto& heap = suggested_edges[category];
     
