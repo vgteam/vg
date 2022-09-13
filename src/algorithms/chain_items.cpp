@@ -11,7 +11,7 @@ namespace algorithms {
 
 using namespace std;
 
-#define debug_lookback
+//#define debug_lookback
 
 ostream& operator<<(ostream& out, const traced_score_t& value) {
     if (score_traits<traced_score_t>::source(value) == score_traits<traced_score_t>::nowhere()) {
