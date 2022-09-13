@@ -96,7 +96,16 @@ void gfa_to_path_handle_graph(istream& in,
  * Lower-level tools for parsing GFA elements.
  *
  * Parsing functions return the fields as strings, and don't support overlaps.
- * Optional tags get read as strings in the vectors. 
+ * Optional tags get read as strings in the vectors.
+ *
+ * Allows you to register "listeners" for different kinds of GFA file items, by
+ * adding functions to the various *_listeners vectors. These listeners can
+ * raise GFAFormatError or its subclasses if they do not like what the GFA is
+ * saying. Some types of GFAFormatError can be caught internally and
+ * processing of the file will continue with the next line, but *not* with the
+ * next listener for that line, so the user is responsible for worring about
+ * what happens if some but not all listeners for something end up getting
+ * called because one failed.
  */
 class GFAParser {
 public:
@@ -261,6 +270,11 @@ public:
     /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.
     int64_t max_rgfa_rank = -1;
     
+    /// Set to true to treat duplicate paths as errors. Otherwise, they will be
+    /// treated as warnings and the duplicated will be discarded. Some GFA
+    /// files, like the first HPRC graph releases, include duplicate paths.
+    bool stop_on_duplicate_paths = false;
+    
     /**
      * Parse GFA from the given stream.
      */
@@ -269,7 +283,7 @@ public:
 };
 
 /// This exception will be thrown if the GFA data is not acceptable.
-struct GFAFormatError : std::runtime_error {
+struct GFAFormatError : public std::runtime_error {
     /// We can make one from a message
     GFAFormatError(const string& message);
     /// We can also make one with a position and a possibly null parsing state
@@ -293,6 +307,15 @@ struct GFAFormatError : std::runtime_error {
     /// Return a pointer to a string describing this exception.
     /// Not thread safe.
     virtual const char* what() const noexcept;
+};
+
+/// This exception will be thrown if the GFA data includes multiple copies of
+/// what we take to be the same path. We need to be able to tolerate this
+/// situation at least in some cases because it is true of the HPRC first
+/// release graphs, which duplicate paths across P lines and rGFA tags. 
+struct GFADuplicatePathError : public GFAFormatError {
+    GFADuplicatePathError(const std::string& path_name);
+    GFADuplicatePathError(const std::string& path_name, const GFAParser::cursor_t& position, const char* parsing_state = nullptr);
 };
 
 }

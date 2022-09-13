@@ -201,8 +201,10 @@ int32_t determine_flag(const Alignment& alignment,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
 
-/// Merge runs of successive I/D operations into a single I and D
-void consolidate_ID_runs(vector<pair<int, char>>& cigar);
+/// Merge runs of successive I/D operations into a single I and D, remove 0-length
+/// operations, and merge adjacent operations of the same type
+void simiplify_cigar(vector<pair<int, char>>& cigar);
+
 
 /// Translate the CIGAR in the given BAM record into mappings in the given
 /// Alignment against the given path in the given graph.

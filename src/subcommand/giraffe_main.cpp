@@ -350,6 +350,7 @@ void help_giraffe(char** argv) {
     << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.3]" << endl
     << "  -U, --max-min INT             use at most INT minimizers [500]" << endl
+    << "  --num-bp-per-min INT          use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [1000]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
@@ -396,10 +397,11 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_NAMED_COORDINATES 1012
     #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
     #define OPT_ALIGN_FROM_CHAINS 1014
-    #define OPT_FALLOW_REGION_SIZE 1015
-    #define OPT_RESEED_DISTANCE 1016
-    #define OPT_MAX_CHAIN_CONNECTION 1017
-    #define OPT_MAX_TAIL_LENGTH 1018
+    #define OPT_NUM_BP_PER_MIN 1015
+    #define OPT_FALLOW_REGION_SIZE 1016
+    #define OPT_RESEED_DISTANCE 1017
+    #define OPT_MAX_CHAIN_CONNECTION 1018
+    #define OPT_MAX_TAIL_LENGTH 1019
     
 
     // initialize parameters with their default options
@@ -413,6 +415,8 @@ int main_giraffe(int argc, char** argv) {
     Range<size_t> hit_cap = 10, hard_hit_cap = 500;
     Range<double> minimizer_score_fraction = 0.9;
     Range<size_t> max_unique_min = 500;
+    // number minimizers calculated by READ_LENGTH / INT
+    size_t num_bp_per_min = 1000;
     bool show_progress = false;
     // Should we exclude overlapping minimizers
     bool exclude_overlapping_min = false;
@@ -576,6 +580,7 @@ int main_giraffe(int argc, char** argv) {
             {"pad-cluster-score", required_argument, 0, 'S'},
             {"cluster-coverage", required_argument, 0, 'u'},
             {"max-min", required_argument, 0, 'U'},
+            {"num-bp-per-min", required_argument, 0, OPT_NUM_BP_PER_MIN},
             {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
             {"extension-score", required_argument, 0, 'v'},
             {"extension-set", required_argument, 0, 'w'},
@@ -981,6 +986,10 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
+            case OPT_NUM_BP_PER_MIN:
+                num_bp_per_min = parse<size_t>(optarg);;
+                break;
+
             case OPT_EXCLUDE_OVERLAPPING_MIN:
                 exclude_overlapping_min = true;
                 break;
@@ -1346,6 +1355,11 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--max-min " << max_unique_min << endl;
         }
         minimizer_mapper.max_unique_min = max_unique_min;
+
+        if (show_progress) {
+            cerr << "--num-bp-per-min " << num_bp_per_min << endl;
+        }
+        minimizer_mapper.num_bp_per_min = num_bp_per_min;
 
         if (show_progress) {
             cerr << "--exclude-overlapping-min " << endl;

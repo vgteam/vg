@@ -142,6 +142,8 @@ int main_autoindex(int argc, char** argv) {
     bool force_phased = false;
     int64_t target_mem_usage = IndexRegistry::get_system_memory() / 2;
     
+    string gfa_name;
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -215,12 +217,7 @@ int main_autoindex(int argc, char** argv) {
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
-                if (IndexRegistry::gfa_has_haplotypes(optarg)) {
-                    registry.provide("Reference GFA w/ Haplotypes", optarg);
-                }
-                else {
-                    registry.provide("Reference GFA", optarg);
-                }
+                gfa_name = optarg;
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);
@@ -310,6 +307,15 @@ int main_autoindex(int argc, char** argv) {
             else {
                 registry.provide("VCF", vcf_name);
             }
+        }
+    }
+    
+    if (!gfa_name.empty()) {
+        if (IndexRegistry::gfa_has_haplotypes(gfa_name)) {
+            registry.provide("Reference GFA w/ Haplotypes", gfa_name);
+        }
+        else {
+            registry.provide("Reference GFA", gfa_name);
         }
     }
 

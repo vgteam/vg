@@ -15,7 +15,7 @@ on:
 jobs:
   testmac:
     name: Test on Mac
-    runs-on: macos-10.15
+    runs-on: macos-12
 
     steps:
       - name: Use cache
@@ -26,14 +26,14 @@ jobs:
             lib
             include
             bin
-          key: ${{ runner.os }}-${{ github.ref }}
+          key: ${{ runner.os }}-12-${{ github.ref }}
           # Restore keys are a "list", but really only a multiline string is
           # accepted. Also we match by prefix. And the most recent cache is
           # used, not the most specific.
           # See: https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows#matching-a-cache-key
           restore-keys: |
-            ${{ runner.os }}-${{ github.base_ref }}
-            ${{ runner.os }}
+            ${{ runner.os }}-12-${{ github.base_ref }}
+            ${{ runner.os }}-12
           
       - name: Checkout code without submodules
         uses: actions/checkout@v2
@@ -46,9 +46,10 @@ jobs:
         # We uninstall everything we don't need in order to prevent linking
         # conflicts with existing/outdated packages, which we can't resolve
         # because there's no way to tell Homebrew to force-link when installing
-        # from a Brewfile.
+        # from a Brewfile. We also update Protobuf to make sure we have 3.21.3+
+        # to avoid problems with ABI changes with/without -DNDEBUG.
         # We pre-install a pinned txm to work around https://github.com/anko/txm/issues/8
-        run: brew bundle cleanup --force && brew bundle install && npm install -g txm@7.4.5
+        run: brew bundle cleanup --force && brew bundle install && brew update && brew install protobuf && npm install -g txm@7.4.5
 
       - name: Run build and test
         run: |

@@ -241,7 +241,7 @@ TEST_CASE("Target to alignment extraction", "[target-to-aln]") {
     
 }
 
-TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "[alignment][surject]") {
+TEST_CASE("simiplify_cigar merges runs of adjacent I's and D's in cigars", "[alignment][surject]") {
     
     vector<pair<int, char>> cigar{
         make_pair(2, 'D'),
@@ -253,7 +253,7 @@ TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "
         make_pair(1, 'I')
     };
 
-    consolidate_ID_runs(cigar);
+    simiplify_cigar(cigar);
     REQUIRE(cigar.size() == 5);
     bool consolidated_1 = ((cigar[0] == make_pair(6, 'D') && cigar[1] == make_pair(1, 'I'))
                            || (cigar[0] == make_pair(1, 'I') && cigar[1] == make_pair(6, 'D')));
@@ -262,6 +262,25 @@ TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "
     
     REQUIRE(consolidated_1);
     REQUIRE(consolidated_2);
+}
+
+TEST_CASE("simiplify_cigar merges runs of adjacent operations and removes empty operations", "[alignment][surject]") {
+    
+    vector<pair<int, char>> cigar{
+        make_pair(2, 'S'),
+        make_pair(1, 'M'),
+        make_pair(1, 'M'),
+        make_pair(0, 'D'),
+        make_pair(1, 'I'),
+        make_pair(1, 'M')
+    };
+    
+    simiplify_cigar(cigar);
+    REQUIRE(cigar.size() == 4);
+    REQUIRE(cigar[0] == make_pair(2, 'S'));
+    REQUIRE(cigar[1] == make_pair(2, 'M'));
+    REQUIRE(cigar[2] == make_pair(1, 'I'));
+    REQUIRE(cigar[3] == make_pair(1, 'M'));
 }
 
 TEST_CASE("Inter-alignment distance computation for HTS output formats matches BWA", "[alignment]") {

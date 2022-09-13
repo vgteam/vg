@@ -45,7 +45,7 @@ include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
-PKG_CONFIG_DEPS := cairo jansson 
+PKG_CONFIG_DEPS := cairo jansson libzstd
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
 PKG_CONFIG_STATIC_DEPS := protobuf 
 
