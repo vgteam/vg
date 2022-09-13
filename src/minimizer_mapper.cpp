@@ -874,8 +874,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             }
         });
     
-    exit(1);
-    
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> cluster_alignment_score_estimates;
     if (align_from_chains) {
