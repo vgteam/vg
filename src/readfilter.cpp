@@ -9,7 +9,8 @@ ostream& operator<<(ostream& os, const Counts& counts) {
     os << "Total Filtered:                " << counts.counts[Counts::FilterName::filtered] << " / "
        << counts.counts[Counts::FilterName::read] << endl
        << "Read Name Filter:              " << counts.counts[Counts::FilterName::wrong_name] << endl
-       << "Subsequence Filter:              " << counts.counts[Counts::FilterName::subsequence] << endl
+       << "Subsequence Filter:            " << counts.counts[Counts::FilterName::subsequence] << endl
+       << "Proper Pair Filter:            " << counts.counts[Counts::FilterName::proper_pair] << endl
        << "refpos Contig Filter:          " << counts.counts[Counts::FilterName::wrong_refpos] << endl
        << "Feature Filter:                " << counts.counts[Counts::FilterName::excluded_feature] << endl
        << "Min Identity Filter:           " << counts.counts[Counts::FilterName::min_score] << endl

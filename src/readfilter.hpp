@@ -77,6 +77,9 @@ public:
     /// Limit defray recursion to visit this many nodes
     int defray_count = 99999;
     
+    /// Filter to proper pairs
+    bool only_proper_pairs = true;
+    
     /// Number of threads from omp
     int threads = -1;
     /// GAM output buffer size
@@ -224,6 +227,11 @@ private:
     bool get_is_paired(const Read& read) const;
     
     /**
+     * Is the read in a proper-mapped pair?
+     */
+    bool is_proper_pair(const Read& read) const;
+    
+    /**
      * Does the read contain at least one of the indicated sequences
      */
     bool contains_subsequence(const Read& read) const;
@@ -251,7 +259,7 @@ private:
 struct Counts {
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
         min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        last};
+        proper_pair, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -432,6 +440,12 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
             keep = false;
         }
     }
+    if ((keep || verbose) && only_proper_pairs) {
+        if (!is_proper_pair(read)) {
+            ++counts.counts[Counts::FilterName::proper_pair];
+            keep = false;
+        }
+    }
     if ((keep || verbose) && !excluded_refpos_contigs.empty()) {
         if (has_excluded_refpos(read)) {
             ++counts.counts[Counts::FilterName::wrong_refpos];
@@ -507,6 +521,7 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
             keep = false;
         }
     }
+    
     if (!keep) {
         ++counts.counts[Counts::FilterName::filtered];
     }
@@ -1235,7 +1250,14 @@ template<>
 inline bool ReadFilter<MultipathAlignment>::get_is_paired(const MultipathAlignment& mp_aln) const {
     return !mp_aln.paired_read_name().empty();
 }
-    
+
+template<typename Read>
+bool ReadFilter<Read>::is_proper_pair(const Read& read) const {
+    if (!has_annotation(read, "proper_pair")) {
+        return false;
+    }
+    return get_annotation<bool>(read, "proper_pair");
+}
     
 template<typename Read>
 bool ReadFilter<Read>::contains_subsequence(const Read& read) const {
