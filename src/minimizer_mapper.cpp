@@ -744,9 +744,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         fallow_region_size
                     );
                     
-                    dump_chaining_problem(space, seeds, cluster_seeds_sorted);
-                    return false;
-                    
                     if (track_provenance) {
                         funnel.substage("find_chain");
                     }    
