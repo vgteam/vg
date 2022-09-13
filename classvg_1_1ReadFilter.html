@@ -144,6 +144,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:aef4ec3c75ed003564641757d0d78b6ea"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aef4ec3c75ed003564641757d0d78b6ea">defray_count</a> = 99999</td></tr>
 <tr class="memdesc:aef4ec3c75ed003564641757d0d78b6ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Limit defray recursion to visit this many nodes.  <a href="classvg_1_1ReadFilter.html#aef4ec3c75ed003564641757d0d78b6ea">More...</a><br /></td></tr>
 <tr class="separator:aef4ec3c75ed003564641757d0d78b6ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac41003be9ee710a1003288e2a6ba9c7d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ac41003be9ee710a1003288e2a6ba9c7d">only_proper_pairs</a> = true</td></tr>
+<tr class="memdesc:ac41003be9ee710a1003288e2a6ba9c7d"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1Filter.html">Filter</a> to proper pairs.  <a href="classvg_1_1ReadFilter.html#ac41003be9ee710a1003288e2a6ba9c7d">More...</a><br /></td></tr>
+<tr class="separator:ac41003be9ee710a1003288e2a6ba9c7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a41808c4d5db46d1405ac906a01bbf794"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a41808c4d5db46d1405ac906a01bbf794">threads</a> = -1</td></tr>
 <tr class="memdesc:a41808c4d5db46d1405ac906a01bbf794"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of threads from omp.  <a href="classvg_1_1ReadFilter.html#a41808c4d5db46d1405ac906a01bbf794">More...</a><br /></td></tr>
 <tr class="separator:a41808c4d5db46d1405ac906a01bbf794"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -201,6 +204,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:ad2ca26c062585494f69520f9997d34eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8b78c03c1379b1ed5576db5c6772adb3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a8b78c03c1379b1ed5576db5c6772adb3">get_is_paired</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:a8b78c03c1379b1ed5576db5c6772adb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5ebb80a71eaf7c765f33b306ab230d8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad5ebb80a71eaf7c765f33b306ab230d8">is_proper_pair</a> (const Read &amp;read) const</td></tr>
+<tr class="separator:ad5ebb80a71eaf7c765f33b306ab230d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a553af1f5f52e24334fb2dd22928ac86a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a553af1f5f52e24334fb2dd22928ac86a">contains_subsequence</a> (const Read &amp;read) const</td></tr>
 <tr class="separator:a553af1f5f52e24334fb2dd22928ac86a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50fce1e4c1159834e6371156040c6cbe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a50fce1e4c1159834e6371156040c6cbe">emit</a> (Read &amp;read)</td></tr>
@@ -1191,6 +1196,35 @@ template&lt;typename Read &gt; </div>
 
 </div>
 </div>
+<a id="ad5ebb80a71eaf7c765f33b306ab230d8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad5ebb80a71eaf7c765f33b306ab230d8">&#9670;&nbsp;</a></span>is_proper_pair()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::is_proper_pair </td>
+          <td>(</td>
+          <td class="paramtype">const Read &amp;&#160;</td>
+          <td class="paramname"><em>read</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Is the read in a proper-mapped pair? </p>
+
+</div>
+</div>
 <a id="ab4ae201744c8abc543d60afb24b294eb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab4ae201744c8abc543d60afb24b294eb">&#9670;&nbsp;</a></span>is_secondary() <span class="overload">[1/3]</span></h2>
 
@@ -1991,6 +2025,24 @@ template&lt;typename Read &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Read name must have one of these prefixes, if any are present. TODO: This should be a trie but I don't have one handy. Must be sorted for vaguely efficient search. </p>
+
+</div>
+</div>
+<a id="ac41003be9ee710a1003288e2a6ba9c7d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac41003be9ee710a1003288e2a6ba9c7d">&#9670;&nbsp;</a></span>only_proper_pairs</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Read &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a>&lt; Read &gt;::only_proper_pairs = true</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p><a class="el" href="classvg_1_1Filter.html">Filter</a> to proper pairs. </p>
 
 </div>
 </div>
