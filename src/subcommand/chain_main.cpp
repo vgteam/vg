@@ -14,6 +14,11 @@
 #include "../algorithms/chain_items.hpp"
 #include "../integrated_snarl_finder.hpp"
 
+#define USE_CALLGRIND
+
+#ifdef USE_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
 
 using namespace std;
 using namespace vg;
@@ -322,6 +327,11 @@ int main_chain(int argc, char** argv) {
     // Now we have parsed the JSON, so throw it out.
     json_decref(problem_json);
     problem_json = nullptr;
+    
+#ifdef USE_CALLGRIND
+    // We want to profile the chaining, not the loading.
+    CALLGRIND_START_INSTRUMENTATION;
+#endif
     
     // Do the chaining. We assume items is already sorted right.
     std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, space);
