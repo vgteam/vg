@@ -8,6 +8,7 @@
 #include "hash_map.hpp"
 
 #include "bdsg/hash_graph.hpp"
+#include <gbwtgraph/minimizer.h>
 
 using namespace sdsl;
 namespace vg { 
@@ -534,10 +535,10 @@ is_node is true if it is a top-level chain node, false if it is a simple bubble
 
 struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
-    typedef std::pair<code_type, code_type> payload_type;
+    //typedef std::pair<code_type, code_type> payload_type;
 
-    constexpr static payload_type NO_CODE = std::make_pair(std::numeric_limits<code_type>::max(),
-                                                            std::numeric_limits<code_type>::max());
+    constexpr static gbwtgraph::payload_type NO_CODE = {std::numeric_limits<code_type>::max(),
+                                             std::numeric_limits<code_type>::max()};
     constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
 
     constexpr static size_t NODE_LEN_OFFSET = 1;
@@ -559,7 +560,7 @@ struct MIPayload {
     constexpr static size_t OFFSET_WIDTH = 32;
     constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << OFFSET_WIDTH) - 1;
 
-    static payload_type encode(std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_pos) {
+    static gbwtgraph::payload_type encode(std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_pos) {
         bool is_top_level_node; size_t component; size_t offset; //Values for a top level chain
         bool is_top_level_snarl; size_t snarl_rank; size_t node_length; size_t start_length; size_t end_length; bool is_rev;//values for a bubble
         std::tie(is_top_level_node, component, offset, is_top_level_snarl, snarl_rank, start_length, end_length, node_length, is_rev) = chain_pos;
@@ -577,8 +578,8 @@ struct MIPayload {
                 return NO_CODE;
             }
 
-            return std::make_pair((component << ID_OFFSET) | (offset << 1) | static_cast<code_type>(true),
-                                  std::numeric_limits<size_t>::max());
+            return {(component << ID_OFFSET) | (offset << 1) | static_cast<code_type>(true),
+                    std::numeric_limits<size_t>::max()};
 
         } else {
             //Top level simple bubble
@@ -591,14 +592,15 @@ struct MIPayload {
                 return NO_CODE;
             }
 
-            return std::make_pair((static_cast<code_type>(is_rev) << REV_OFFSET) | (snarl_rank << RANK_OFFSET) | (start_length << START_LEN_OFFSET) | (end_length << END_LEN_OFFSET) | (node_length << NODE_LEN_OFFSET),
-                                  std::numeric_limits<size_t>::max()) ;
+            return {(static_cast<code_type>(is_rev) << REV_OFFSET) | (snarl_rank << RANK_OFFSET) | (start_length << START_LEN_OFFSET) | (end_length << END_LEN_OFFSET) | (node_length << NODE_LEN_OFFSET),
+                                  std::numeric_limits<size_t>::max()} ;
         }
     }
 
-    static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> decode(payload_type code) {
+    static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> decode(gbwtgraph::payload_type code) {
         if (code == NO_CODE) {
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(
+                        false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
         } else if ((code.first & (static_cast<code_type>(1))) == (static_cast<code_type>(1))) {
             //This is a top-level chain
             return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>

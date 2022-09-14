@@ -5,6 +5,7 @@
 #include "snarls.hpp"
 #include <structures/union_find.hpp>
 #include "hash_map.hpp"
+#include <gbwtgraph/minimizer.h>
 
 
 namespace vg { 
@@ -116,11 +117,11 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 
 struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
-    typedef std::pair<code_type, code_type> payload_type;
+    //typedef std::pair<code_type, code_type> payload_type;
 
     
-    constexpr static payload_type NO_CODE = std::make_pair(std::numeric_limits<code_type>::max(),
-                                                           std::numeric_limits<code_type>::max());
+    constexpr static gbwtgraph::payload_type NO_CODE = {std::numeric_limits<code_type>::max(),
+                                                        std::numeric_limits<code_type>::max()};
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
 
@@ -157,7 +158,7 @@ struct MIPayload {
 
     //Encode and decode from the following values:
     //record offset of node, record offset of parent, node record offset, node length, is_reversed, parent is chain, prefix sum, chain_component 
-    static payload_type encode(tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> info) {
+    static gbwtgraph::payload_type encode(tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> info) {
 
         size_t node_record = std::get<0>(info);
         size_t parent_record = std::get<1>(info);
@@ -177,8 +178,8 @@ struct MIPayload {
              || prefix_sum > PREFIX_SUM_MASK
              || chain_component > CHAIN_COMPONENT_MASK) {
             //If there aren't enough bits to represent one of the values
-            return std::make_pair(std::numeric_limits<code_type>::max(),
-                                  std::numeric_limits<code_type>::max());
+            return {std::numeric_limits<code_type>::max(),
+                    std::numeric_limits<code_type>::max()};
         }
 
         code_type encoded1 = (static_cast<code_type>(node_record)        << NODE_RECORD_OFFSET)
@@ -193,15 +194,15 @@ struct MIPayload {
                            | (static_cast<code_type>(prefix_sum)         << PREFIX_SUM_OFFSET)
                            | (static_cast<code_type>(chain_component)    << CHAIN_COMPONENT_OFFSET);
 
-        return std::make_pair(encoded1, encoded2);
+        return {encoded1, encoded2};
 
      }
 
     
 
-    static tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> decode(payload_type code) {
-        if (code == std::make_pair(std::numeric_limits<code_type>::max(),
-                                                           std::numeric_limits<code_type>::max())) {
+    static tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> decode(gbwtgraph::payload_type code) {
+        if (code.first == std::numeric_limits<code_type>::max() &&
+            code.second == std::numeric_limits<code_type>::max()) {
             return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false, false, false, false, NO_VALUE, NO_VALUE);
         } else {
             return std::tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> (
