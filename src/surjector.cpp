@@ -4,6 +4,7 @@
  */
 
 #include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/prune_to_connecting_graph.hpp"
 #include "algorithms/component.hpp"
 
 #include "surjector.hpp"
@@ -1204,6 +1205,25 @@ using namespace std;
 
 #ifdef debug_constrictions
                             cerr << "connecting graph after pruning to the path and orienting:" << endl;
+                            connecting.for_each_handle([&](const handle_t& handle) {
+                                cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
+                                connecting.follow_edges(handle, true, [&](const handle_t& prev) {
+                                    cerr << "\t" << connecting.get_id(prev) << " <-" << endl;
+                                });
+                                connecting.follow_edges(handle, false, [&](const handle_t& next) {
+                                    cerr << "\t-> " << connecting.get_id(next) << endl;
+                                });
+                            });
+#endif
+                            
+                            // make sure everything is still reachable after pruning
+                            // TODO: might be cheaper to not do the work for strict max length in extraction since
+                            // we duplicate it here, but also this code path is rare, so whatever
+                            algorithms::prune_to_connecting_graph(connecting, connecting.get_handle(id(left_pos)),
+                                                                  connecting.get_handle(id(right_pos)));
+                            
+#ifdef debug_constrictions
+                            cerr << "connecting graph after pruning for reachability:" << endl;
                             connecting.for_each_handle([&](const handle_t& handle) {
                                 cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
                                 connecting.follow_edges(handle, true, [&](const handle_t& prev) {
