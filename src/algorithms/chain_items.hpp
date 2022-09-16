@@ -1966,12 +1966,11 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                 seen_items.emplace_hint(found, std::move(key));
             }
         }
-    }
+    };
     
     // Find the first run of things starting at the same place in the read.
     size_t left_run_start = 0;
     size_t left_run_end = 1;
-    size_t left_run_read_start = std::numeric_limits<size_t>::max();
     while (left_run_end < item_view.size() && space.read_start(item_view[left_run_end]) == space.read_start(item_view[left_run_start])) {
         // Scan until we find the next thing that starts after us.
         ++left_run_end;
