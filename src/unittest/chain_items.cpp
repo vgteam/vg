@@ -930,6 +930,7 @@ TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_f
             reseeded_indexes,
             space,
             source_sort_inverse,
+            100,
             for_each_pos_for_source_in_subgraph,
             100,
             100
@@ -950,6 +951,7 @@ TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_f
             reseeded_indexes,
             space,
             source_sort_inverse,
+            100,
             for_each_pos_for_source_in_subgraph,
             100,
             45
@@ -966,6 +968,7 @@ TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_f
             reseeded_indexes,
             space,
             source_sort_inverse,
+            100,
             for_each_pos_for_source_in_subgraph,
             100,
             10
@@ -994,6 +997,7 @@ TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_f
             reseeded_indexes,
             space,
             source_sort_inverse,
+            100,
             for_each_pos_for_source_in_subgraph,
             100,
             10
@@ -1068,6 +1072,7 @@ TEST_CASE("Reseeding works when hits collide and are over-clustered", "[chain_it
         reseeded_indexes,
         space,
         source_sort_inverse,
+        100,
         for_each_pos_for_source_in_subgraph,
         100,
         10
@@ -1184,6 +1189,7 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
             reseeded_indexes,
             space,
             source_sort_inverse,
+            100,
             for_each_pos_for_source_in_subgraph,
             100,
             10

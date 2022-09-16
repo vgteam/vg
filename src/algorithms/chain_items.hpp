@@ -1213,10 +1213,9 @@ int score_best_chain(const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space);
                      
 /**
- * Look at the sources which occur between the given items in the read,
- * and locate their hits that occur in the part of the graph around the given
- * items in the graph, if any. Graph search is limited by
- * max_fallow_search_distance. 
+ * Look at the sources which occur between the given items in the read, and
+ * locate their hits that occur in the part of the graph around the given items
+ * in the graph, if any. Graph search is limited by max_fallow_search_distance. 
  *
  * Takes a lazy place to put an inverse of the source score
  * order sort (which is the space they are numbered in for item
@@ -1234,8 +1233,8 @@ int score_best_chain(const Collection& to_chain,
  * TODO: Use a different kind of item type to avoid this forgery!
  */
 template<typename Item, typename Source>
-vector<Item> reseed_fallow_region(const Item& left,
-                                  const Item& right,
+vector<Item> reseed_fallow_region(const Item* left,
+                                  const Item* right,
                                   const ChainingSpace<Item, Source>& space,
                                   std::unique_ptr<VectorViewInverse>& source_sort_inverse,
                                   const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
@@ -1245,7 +1244,10 @@ vector<Item> reseed_fallow_region(const Item& left,
  * Look at the sources which occur between the given collections of items in
  * the read, and locate their hits that occur in the part of the graph around
  * the given items in the graph, if any. Graph search is limited by
- * max_fallow_search_distance. 
+ * max_fallow_search_distance.
+ *
+ * If either collection is empty, searcches between the read start/end and the
+ * items in the other collection.
  *
  * Takes a lazy place to put an inverse of the source score
  * order sort (which is the space they are numbered in for item
@@ -1272,9 +1274,9 @@ vector<Item> reseed_fallow_region(const Collection& left_items,
 
 /**
  * Reseed all fallow regions (regions in the read where the distance
- * between items is at least fallow_region_size) by locating hits of the
- * given sources that occur in the part of the graph between existing
- * items.
+ * between items, or an item and the end of the read, is at least
+ * fallow_region_size) by locating hits of the given sources that occur in the
+ * part of the graph between existing items.
  *
  * Takes a lazy place to put an inverse of the source score
  * order sort (which is the space they are numbered in for item
@@ -1300,6 +1302,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                                            vector<size_t>& sorted_item_indexes,
                                            const ChainingSpace<Item, Source>& space,
                                            std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                           size_t read_length,
                                            const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                            size_t max_fallow_search_distance = 10000,
                                            size_t fallow_region_size = 200);
@@ -1685,10 +1688,15 @@ vector<Item> reseed_fallow_region(const Item& left,
                                   const Item& right,
                                   const algorithms::ChainingSpace<Item, Source>& space,
                                   std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                  size_t read_length,
                                   const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                   size_t max_fallow_search_distance) {
                                   
-    return reseed_fallow_region<Item, Source, std::vector<Item>>({left}, {right}, space, source_sort_inverse, for_each_pos_for_source_in_subgraph, max_fallow_search_distance);
+    // We can just decide the pointers are really to std::array<const Item, 1>.
+    std::array<const Item, 1>* left_items(&left);
+    std::array<const Item, 1>* right_items(&right);
+    
+    return reseed_fallow_region<Item, Source, std::vector<Item>>(left_items, right_items, space, source_sort_inverse, read_length, for_each_pos_for_source_in_subgraph, max_fallow_search_distance);
 }
 
 template<typename Item, typename Source, typename Collection>
@@ -1696,19 +1704,24 @@ vector<Item> reseed_fallow_region(const Collection& left_items,
                                   const Collection& right_items,
                                   const algorithms::ChainingSpace<Item, Source>& space,
                                   std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                  size_t read_length,
                                   const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                   size_t max_fallow_search_distance) {
+    
+    // Make sure we aren't being given no seeds
+    assert(!left_items.empty() || !right_items.empty());
+    
     // We have two seeds here, so there aren't no sources.
     // We know there must be a collection of sources in read order, so grab that.
     const vector<Source>& sources_in_read_order = *space.sources.items;
     
     // Find the range of indexes in read order for the source hits between
     // those of the bounding items.
-    size_t range_begin = std::numeric_limits<size_t>::max();
+    size_t range_begin = left_items.empty() ? 0 : std::numeric_limits<size_t>::max();
     for (auto& left : left_items) {
         range_begin = std::min(range_begin, space.sources.backing_index(left.source) + 1);
     }
-    size_t range_end = 0;
+    size_t range_end = right_items.empty() ? sources_in_read_order.size() : 0;
     for (auto& right : right_items) {
         range_end = std::max(range_end, space.sources.backing_index(right.source));
     }
@@ -1719,11 +1732,11 @@ vector<Item> reseed_fallow_region(const Collection& left_items,
     }
     
     // Determine bounds in read we care about
-    size_t read_region_start = std::numeric_limits<size_t>::max();
+    size_t read_region_start = left_items.empty() ? 0 : std::numeric_limits<size_t>::max();
     for (auto& left : left_items) {
         read_region_start = std::min(read_region_start, space.read_end(left));
     }
-    size_t read_region_end = 0;
+    size_t read_region_end =  right_items.empty() ? read_length : 0;
     for (auto& right : right_items) {
         read_region_end = std::max(read_region_end, space.read_start(right));
     }
@@ -1829,6 +1842,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                                            vector<size_t>& sorted_item_indexes,
                                            const algorithms::ChainingSpace<Item, Source>& space,
                                            std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                           size_t read_length,
                                            const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                            size_t max_fallow_search_distance,
                                            size_t fallow_region_size) {
@@ -1880,12 +1894,95 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         seen_items.emplace_hint(found, std::move(key));
     }
     
+    // Use a function to reseed across a distance between two possibly-empty runs bounding a fallow region.
+    auto reseed = [&](size_t read_distance, size_t left_run_start, size_t left_run_end, size_t right_run_start, size_t right_run_end) {
+        // Count it
+        fallow_region_count++;
+        longest_fallow_region_length = std::max(longest_fallow_region_length, read_distance);
+        
+        // Find all the indexes of left items
+        std::vector<size_t> left_indexes;
+        left_indexes.reserve(left_run_end - left_run_start);
+        for (size_t i = left_run_start; i != left_run_end; i++) {
+            left_indexes.push_back(item_view.backing_index(i));
+        }
+        
+        // And all the indexes of right items
+        std::vector<size_t> right_indexes;
+        right_indexes.reserve(right_run_end - right_run_start);
+        for (size_t i = right_run_start; i != right_run_end; i++) {
+            right_indexes.push_back(item_view.backing_index(i));
+        }
+    
+#ifdef debug_reseeding
+        cerr << "Reseeding between " 
+        if (!left_indexes.empty()) {
+            cerr << left_indexes.size() << " seeds near #" << item_view.backing_index(left_run_start)
+                 << " " << space.to_string(item_view[left_run_start]);
+        } else {
+            cerr << "left read end";
+        }
+        cerr << " and ";
+        if (!right_indexes.empty()) {
+            cerr << right_indexes.size() << " seeds near #" << item_view.backing_index(right_run_start)
+                << " " << space.to_string(item_view[right_run_start]);
+        } else {
+            cerr << "right read end";
+        }
+        cerr << endl;
+#endif
+
+        // Forge some fill-in items
+        vector<Item> new_items = reseed_fallow_region({item_storage, left_indexes},
+                                                      {item_storage, right_indexes},
+                                                      space,
+                                                      source_sort_inverse,
+                                                      read_length,
+                                                      for_each_pos_for_source_in_subgraph,
+                                                      max_fallow_search_distance);
+        
+        // The newly-found items are not going to be duplicates of
+        // each other, but because reseeding subgraphs can overlap,
+        // we might get the same exact hits multiple times in
+        // apparently different fallow regions. So we just drop
+        // duplicates now.
+        //
+        // TODO: Make the reseeding subgraphs not overlap so we
+        // stop wasting time???
+        
+        for (auto& item : new_items) {
+            // Deduplicate the newly-found items with previous reseed queries.
+            // TODO: We assume that identical bounds means identical items.
+            size_t read_start = space.read_start(item);
+            pos_t graph_start = space.graph_start(item);
+            size_t read_end = space.read_end(item);
+            pos_t graph_end = space.graph_end(item);
+            auto key = std::make_pair(std::make_pair(read_start, graph_start), std::make_pair(read_end, graph_end));
+            auto found = seen_items.find(key);
+            if (found == seen_items.end()) {
+                // Append the fill-in items onto the item storage vector. Safe to do
+                // even when we're using a view over it.
+                item_storage.emplace_back(std::move(item));
+                seen_items.emplace_hint(found, std::move(key));
+            }
+        }
+    }
+    
     // Find the first run of things starting at the same place in the read.
     size_t left_run_start = 0;
     size_t left_run_end = 1;
+    size_t left_run_read_start = std::numeric_limits<size_t>::max();
     while (left_run_end < item_view.size() && space.read_start(item_view[left_run_end]) == space.read_start(item_view[left_run_start])) {
         // Scan until we find the next thing that starts after us.
         ++left_run_end;
+    }
+    
+    if (space.read_start(item_view[left_run_start]) > fallow_region_size) {
+        // Start to first run is fallow.
+        // Note that all items in the run start at the same base.
+        
+        // Find all the indexes of left items. Treat them as "right"
+        reseed(space.read_start(item_view[left_run_start]), 0, 0, left_run_start, left_run_end);
     }
     
     while (left_run_end < item_view.size()) {
@@ -1905,71 +2002,22 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         if (read_distance != std::numeric_limits<size_t>::max() && read_distance > fallow_region_size) {
             
             // Now we know that the items between left_run_start and left_run_end form a fallow region with the items between right_run_start and right_run_end.
-            
-            // Count it
-            fallow_region_count++;
-            longest_fallow_region_length = std::max(longest_fallow_region_length, read_distance);
-            
-            // Find all the indexes of left items
-            std::vector<size_t> left_indexes;
-            left_indexes.reserve(left_run_end - left_run_start);
-            for (size_t i = left_run_start; i != left_run_end; i++) {
-                left_indexes.push_back(item_view.backing_index(i));
-            }
-            
-            // And all the indexes of right items
-            std::vector<size_t> right_indexes;
-            right_indexes.reserve(right_run_end - right_run_start);
-            for (size_t i = right_run_start; i != right_run_end; i++) {
-                right_indexes.push_back(item_view.backing_index(i));
-            }
-        
-#ifdef debug_reseeding
-            cerr << "Reseeding between " << left_indexes.size() << " seeds near #" << item_view.backing_index(left_run_start)
-                << " " << space.to_string(item_view[left_run_start])
-                << " and " << right_indexes.size() << " seeds near #" << item_view.backing_index(right_run_start)
-                << " " << space.to_string(item_view[right_run_start])
-                << endl;
-#endif
-    
-            // Forge some fill-in items
-            vector<Item> new_items = reseed_fallow_region({item_storage, left_indexes},
-                                                          {item_storage, right_indexes},
-                                                          space,
-                                                          source_sort_inverse,
-                                                          for_each_pos_for_source_in_subgraph,
-                                                          max_fallow_search_distance);
-            
-            // The newly-found items are not going to be duplicates of
-            // each other, but because reseeding subgraphs can overlap,
-            // we might get the same exact hits multiple times in
-            // apparently different fallow regions. So we just drop
-            // duplicates now.
-            //
-            // TODO: Make the reseeding subgraphs not overlap so we
-            // stop wasting time???
-            
-            for (auto& item : new_items) {
-                // Deduplicate the newly-found items with previous reseed queries.
-                // TODO: We assume that identical bounds means identical items.
-                size_t read_start = space.read_start(item);
-                pos_t graph_start = space.graph_start(item);
-                size_t read_end = space.read_end(item);
-                pos_t graph_end = space.graph_end(item);
-                auto key = std::make_pair(std::make_pair(read_start, graph_start), std::make_pair(read_end, graph_end));
-                auto found = seen_items.find(key);
-                if (found == seen_items.end()) {
-                    // Append the fill-in items onto the item storage vector. Safe to do
-                    // even when we're using a view over it.
-                    item_storage.emplace_back(std::move(item));
-                    seen_items.emplace_hint(found, std::move(key));
-                }
-            }
+            reseed(read_distance, left_run_start, left_run_end, right_run_start, right_run_end);
         }
         
         // Make the right run into the left run
         left_run_start = right_run_start;
         left_run_end = right_run_end;
+    }
+    
+    // Find where the last seed ends in the read
+    size_t right_run_read_end = 0;
+    for (size_t i = right_run_start; i < right_run_end; i++) {
+        right_run_read_end = std::max(right_run_read_end, space.read_end(item_view[i]));
+    }
+    if (read_length - right_run_read_end > fallow_region_size) {
+        // Last run to end is fallow
+        reseed(read_length - right_run_read_end, right_run_start, right_run_end, 0, 0);
     }
     
     if (item_storage.size() != sorted_item_indexes.size()) {

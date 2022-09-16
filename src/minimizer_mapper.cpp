@@ -739,6 +739,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         cluster_seeds_sorted,
                         space,
                         minimizer_score_sort_inverse,
+                        aln.sequence().size(),
                         find_minimizer_hit_positions, 
                         reseed_distance,
                         fallow_region_size
@@ -778,6 +779,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         cluster_seeds_sorted,
                         space,
                         minimizer_score_sort_inverse,
+                        aln.sequence().size(),
                         find_minimizer_hit_positions, 
                         reseed_distance,
                         fallow_region_size
