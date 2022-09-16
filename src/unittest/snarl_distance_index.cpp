@@ -285,6 +285,16 @@ namespace vg {
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == 4);
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n9->id(), true), &graph)) == 4);
             }
+            SECTION("into_which_snarl") {
+                REQUIRE((distance_index.into_which_snarl(n3->id(), false) == std::make_tuple(3, false, false) ||
+                         distance_index.into_which_snarl(n3->id(), false) == std::make_tuple(5, true, false)));
+                REQUIRE((distance_index.into_which_snarl(n5->id(), true) == std::make_tuple(3, false, false) ||
+                         distance_index.into_which_snarl(n5->id(), true) == std::make_tuple(5, true, false)));
+                REQUIRE(distance_index.into_which_snarl(n3->id(), false) == 
+                         distance_index.into_which_snarl(n5->id(), true));
+                REQUIRE(distance_index.into_which_snarl(n3->id(), true) == std::make_tuple(0, false, false));
+                REQUIRE(distance_index.into_which_snarl(n5->id(), false) == std::make_tuple(0, false, false));
+            }
             SECTION("Root has three children") {
                 net_handle_t root = distance_index.get_root();
                 size_t child_count = 0;
@@ -699,6 +709,16 @@ namespace vg {
                     found++;
                 });
                 REQUIRE(found == 2);
+            }
+            SECTION("into_which_snarl") {
+                REQUIRE((distance_index.into_which_snarl(n4->id(), false) == std::make_tuple(4, false, true) ||
+                        distance_index.into_which_snarl(n4->id(), false) == std::make_tuple(5, true, true)));
+                REQUIRE((distance_index.into_which_snarl(n5->id(), true) == std::make_tuple(4, false, true) ||
+                        distance_index.into_which_snarl(n5->id(), true) == std::make_tuple(5, true, true)));
+                REQUIRE(distance_index.into_which_snarl(n4->id(), false) == 
+                        distance_index.into_which_snarl(n5->id(), true));
+                REQUIRE((distance_index.into_which_snarl(n4->id(), true) == std::make_tuple(4, true, false) ||
+                        distance_index.into_which_snarl(n4->id(), true) == std::make_tuple(2, false, false)));
             }
         }
 
