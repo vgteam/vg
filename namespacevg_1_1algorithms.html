@@ -333,6 +333,9 @@ Functions</h2></td></tr>
 <tr class="separator:a83e87cf3f8a5ca4362776cf1a3050242"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96020f05a81255adfca3821f538c02b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a96020f05a81255adfca3821f538c02b9">remove_high_degree_nodes</a> (<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;g, int max_degree)</td></tr>
 <tr class="separator:a96020f05a81255adfca3821f538c02b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d74c519ccaa204e7735d5bd26c5095a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3d74c519ccaa204e7735d5bd26c5095a">prune_to_connecting_graph</a> (<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;from, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to)</td></tr>
+<tr class="memdesc:a3d74c519ccaa204e7735d5bd26c5095a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove all parts of the graph that are not on some path between the two handles.  <a href="namespacevg_1_1algorithms.html#a3d74c519ccaa204e7735d5bd26c5095a">More...</a><br /></td></tr>
+<tr class="separator:a3d74c519ccaa204e7735d5bd26c5095a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa5e4dc632e98b58b67a99af6749d9e05">ref_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_2, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;ref_paths, int64_t max_search_dist)</td></tr>
 <tr class="separator:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af51e5eafc2c18f33dd6a120c753247a3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af51e5eafc2c18f33dd6a120c753247a3">bellman_ford_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;layout, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;handle_index, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;feedback_edges)</td></tr>
@@ -2161,10 +2164,8 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that contain the two positions will be 'cut' at the position and will be tips in the returned graph. By default, the algorithm provides only one guarantee:</p><ul>
-<li>'into' contains all walks between pos_1 and pos_2 under the maximum length except walks that include a cycle involving either position Cutting the nodes containing the two positions breaks cycles containing those nodes, so these nodes may optinally be duplicated so that cycles involving the two positions are maintained. No other nodes will be duplicated. The algorithm optionally provides additional guarantees at the expense of increased computational cost, but no increase in asymptotic complexity (the guarantees are described below). If no walk between the two positions under the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when passed to function.</li>
-</ul>
-<p>Args: source graph to extract subgraph from into graph to extract into max_len guarantee finding walks along which pos_1 and pos_2 are this distance apart pos_1 start position, subgraph walks begin from here in same orientation pos_2 end position, subgraph walks end here in the same orientation strict_max_len only extract nodes and edges if they fall on some walk between pos_1 and pos_2 that is under the maximum length (implies only_walks = true) </p>
+<p>Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that contain the two positions will be 'cut' at the position and will be tips in the returned graph. The algorithm guarantees that 'into' contains all walks between pos_1 and pos_2 under the maximum length except walks that include a cycle involving either position If no walk between the two positions under the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when passed to function.</p>
+<p>Args: source graph to extract subgraph from into graph to extract into max_len guarantee finding walks along which pos_1 and pos_2 are this distance apart pos_1 start position, subgraph walks begin from here in same orientation pos_2 end position, subgraph walks end here in the same orientation strict_max_len only extract nodes and edges if they fall on some walk between pos_1 and pos_2 that is under the maximum length </p>
 
 </div>
 </div>
@@ -3910,6 +3911,42 @@ template&lt;typename Item , typename Source  = void, typename Collection  = Vect
       </table>
 </div><div class="memdoc">
 <p>Remove any weakly connected components that have total sequence length under the minimum size. Returns the number of nodes removed. </p>
+
+</div>
+</div>
+<a id="a3d74c519ccaa204e7735d5bd26c5095a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3d74c519ccaa204e7735d5bd26c5095a">&#9670;&nbsp;</a></span>prune_to_connecting_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::prune_to_connecting_graph </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Remove all parts of the graph that are not on some path between the two handles. </p>
 
 </div>
 </div>

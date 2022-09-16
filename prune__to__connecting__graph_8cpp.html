@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/surjector.cpp File Reference</title>
+<title>vg: src/algorithms/prune_to_connecting_graph.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,29 +62,35 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">surjector.cpp File Reference</div>  </div>
+<div class="title">prune_to_connecting_graph.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="extract__connecting__graph_8hpp.html">algorithms/extract_connecting_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="prune__to__connecting__graph_8hpp.html">algorithms/prune_to_connecting_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="component_8hpp.html">algorithms/component.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="surjector_8hpp.html">surjector.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="prune__to__connecting__graph_8hpp.html">algorithms/prune_to_connecting_graph.hpp</a>&quot;</code><br />
+<code>#include &lt;unordered_set&gt;</code><br />
+<code>#include &lt;queue&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a3d74c519ccaa204e7735d5bd26c5095a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3d74c519ccaa204e7735d5bd26c5095a">vg::algorithms::prune_to_connecting_graph</a> (DeletableHandleGraph &amp;graph, const handle_t &amp;from, const handle_t &amp;to)</td></tr>
+<tr class="memdesc:a3d74c519ccaa204e7735d5bd26c5095a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove all parts of the graph that are not on some path between the two handles.  <a href="namespacevg_1_1algorithms.html#a3d74c519ccaa204e7735d5bd26c5095a">More...</a><br /></td></tr>
+<tr class="separator:a3d74c519ccaa204e7735d5bd26c5095a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p><a class="el" href="surjector_8cpp.html">surjector.cpp</a>: implements a class that surjects alignments onto paths </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
