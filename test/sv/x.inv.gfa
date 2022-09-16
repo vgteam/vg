@@ -1,8 +1,8 @@
 H	VN:Z:1.1
-L	1	+	2	+	*
-L	1	+	2	-	*
-L	2	+	3	+	*
-L	2	-	3	+	*
+L	1	+	2	+	0M
+L	1	+	2	-	0M
+L	2	+	3	+	0M
+L	2	-	3	+	0M
 P	x	1+,2+,3+	*
 S	1	CAAATAAGG
 S	2	CTTGGAAATTTTCTGGAGTT
