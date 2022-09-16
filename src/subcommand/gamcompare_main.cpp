@@ -12,6 +12,7 @@
 
 #include "../alignment.hpp"
 #include "../min_distance.hpp"
+#include "../snarl_distance_index.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -215,9 +216,18 @@ int main_gamcompare(int argc, char** argv) {
     }
 
     // Load the distance index.
-    std::unique_ptr<MinimumDistanceIndex> distance_index;
+    std::unique_ptr<MinimumDistanceIndex> old_distance_index;
+    SnarlDistanceIndex distance_index;
+    bool use_new_distance_index = false;
     if (!distance_name.empty()) {
-        distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+        ifstream infile_dist;
+        infile_dist.open(distance_name);
+        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
+            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+        } else {
+            distance_index.deserialize(distance_name);
+            use_new_distance_index = true;
+        }
     }
 
     // We have a buffered emitter for annotated alignments, if we're not outputting text
@@ -265,13 +275,15 @@ int main_gamcompare(int argc, char** argv) {
     // This function annotates every read with distance and correctness, and batch-outputs them.
     function<void(Alignment&)> annotate_test = [&](Alignment& aln) {
         bool found = false;
-        if (distance_index == nullptr) {
+        if (distance_name.empty()) {
+            //If the distance index isn't used
             auto iter = true_path_positions.find(aln.name());
             if (iter != true_path_positions.end()) {
                 alignment_set_distance_to_correct(aln, iter->second);
                 found = true;
             }
         } else {
+            //If the distance index gets used
             auto iter = true_graph_positions.find(aln.name());
             if (iter != true_graph_positions.end() && aln.path().mapping_size() > 0) {
                 std::vector<MappingRun> read_mappings = base_mappings(aln);
@@ -288,11 +300,13 @@ int main_gamcompare(int argc, char** argv) {
                     if (start < limit) {
                         pos_t read_pos = read_iter->pos_at(start);
                         pos_t truth_pos = truth_iter->pos_at(start);
-                        int64_t forward = distance_index->min_distance(read_pos, truth_pos);
+                        int64_t forward = use_new_distance_index ? minimum_distance(distance_index, read_pos, truth_pos)
+                                                                 : old_distance_index->min_distance(read_pos, truth_pos);
                         if (forward != -1) {
                             distance = std::min(forward, distance);
                         }
-                        int64_t reverse = distance_index->min_distance(truth_pos, read_pos);
+                        int64_t reverse = use_new_distance_index ? minimum_distance(distance_index, truth_pos, read_pos)
+                                                                 : old_distance_index->min_distance(truth_pos, read_pos);
                         if (reverse != -1) {
                             distance = std::min(reverse, distance);
                         }

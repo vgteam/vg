@@ -13,6 +13,11 @@ namespace vg {
 using namespace sdsl;
 using namespace handlegraph;
 using namespace bdsg;
+
+//Minimum distance taking a pos instead of id/orientation/offset
+size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
+                        bool unoriented_distance = false, const HandleGraph* graph=nullptr); 
+
 //Fill in the index
 //size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
 //distance_limit is a limit on the length of a path after which the index won't continue to traverse a snarl looking for distances

@@ -47,52 +47,9 @@ namespace vg {
         TEST_CASE( "Load",
                   "[load]" ) {
             SnarlDistanceIndex distance_index;
-            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist.test");
+            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hgsvc_v2/HGSVC_hs38d1.dist");
             //HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
-
-            net_handle_t node = distance_index.get_node_net_handle(46150413);
-            net_handle_t parent = distance_index.flip(distance_index.get_parent(node));
-            net_handle_t grandparent = distance_index.get_parent(parent);
-            net_handle_t greatgrandparent = distance_index.get_parent(grandparent);
-            net_handle_t greatgreatgrandparent = distance_index.get_parent(greatgrandparent);
-            net_handle_t greatgreatgreatgrandparent = distance_index.get_parent(greatgreatgrandparent);
-            net_handle_t greatgreatgreatgreatgrandparent = distance_index.get_parent(greatgreatgreatgrandparent);
-
-            cerr << distance_index.net_handle_as_string(node) << endl;
-            cerr << distance_index.net_handle_as_string(parent) << endl;
-            cerr << distance_index.net_handle_as_string(grandparent) << endl;
-            cerr << distance_index.net_handle_as_string(greatgrandparent) << endl;
-            cerr << distance_index.net_handle_as_string(greatgreatgrandparent) << endl;
-            cerr << distance_index.net_handle_as_string(greatgreatgreatgrandparent) << endl;
-            cerr << distance_index.net_handle_as_string(greatgreatgreatgreatgrandparent) << endl;
-
-            cerr << "Distance: from " << distance_index.net_handle_as_string(parent) << " to " << distance_index.net_handle_as_string(distance_index.get_bound(grandparent, true, true)) << ": " << distance_index.distance_in_parent(grandparent, parent, distance_index.get_bound(grandparent, true, true)) << endl; 
-            cerr << "Node lengths " << distance_index.minimum_length(distance_index.get_bound(parent, false, true)) << " " 
-                 << distance_index.minimum_length(distance_index.get_bound(parent, true, true))<< endl;
-            net_handle_t next1 = distance_index.get_parent(distance_index.get_node_net_handle(46150414));
-            cerr << "Distance: from " << distance_index.net_handle_as_string(next1) << " to " << distance_index.net_handle_as_string(distance_index.get_bound(grandparent, true, true)) << ": " << distance_index.distance_in_parent(grandparent, next1, distance_index.get_bound(grandparent, true, true)) << endl; 
-            cerr << "Distance: from " << distance_index.net_handle_as_string(next1) << " to " << distance_index.net_handle_as_string(distance_index.get_bound(grandparent, false, true)) << ": " << distance_index.distance_in_parent(grandparent, next1, distance_index.get_bound(grandparent, false, true)) << endl; 
-            cerr << "Loop distance from " << distance_index.net_handle_as_string(distance_index.get_bound(next1, false, true)) << ": " 
-                 << distance_index.distance_in_parent(next1, distance_index.get_bound(next1, false, true), distance_index.get_bound(next1, false, true)) << endl;
-            cerr << "Loop distance from " << distance_index.net_handle_as_string(distance_index.get_bound(next1, true, true)) << ": " 
-                 << distance_index.distance_in_parent(next1, distance_index.get_bound(next1, true, true), distance_index.get_bound(next1, true, true)) << endl;
-            cerr << "with length " << distance_index.minimum_length(next1) << endl;
-
-            net_handle_t next2 = distance_index.flip(distance_index.get_parent(distance_index.get_node_net_handle(46212855)));
-            cerr << "Distance: from " << distance_index.net_handle_as_string(next2) << " to " << distance_index.net_handle_as_string(distance_index.get_bound(grandparent, false, true)) << ": " << distance_index.distance_in_parent(grandparent, next2, distance_index.get_bound(grandparent, false, true)) << endl; 
-            cerr << "Distance: from " << distance_index.net_handle_as_string(next2) << " to " << distance_index.net_handle_as_string(distance_index.get_bound(grandparent, true, true)) << ": " << distance_index.distance_in_parent(grandparent, next2, distance_index.get_bound(grandparent, true, true)) << endl; 
-            cerr << "with length " << distance_index.minimum_length(next2) << endl;
-
-//            cerr << "Graph has node range " << graph->min_node_id() << " to " << graph->max_node_id() << endl;
-//            cerr << "graph has node 1: " << graph->has_node((id_t)1) << endl;
-//            cerr << "graph has node 46150413: " << graph->has_node((id_t)46150413) << endl;
-//            cerr << "graph has node 46261556: " << graph->has_node((id_t)46261556) << endl;
-//            handle_t handle1 = graph->get_handle((id_t)46150413, false);
-//            handle_t handle2 = graph->get_handle((id_t)46261556, false);
-//            handlegraph::algorithms::for_each_handle_in_shortest_path(graph, handle1, handle2, [&](const handle_t reached, size_t distance) {
-//                cerr << "At node " << graph->get_id(reached) << (graph->get_is_reverse(reached) ? " rev" : " fd") << " at distance " << distance << endl;
-//                return true;
-//            });
+            cerr << "Distance: " << distance_index.minimum_distance(77136065, false, 24, 77136058, true, 28, true) << endl;
 //
             
         }
@@ -267,7 +224,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -305,6 +262,7 @@ namespace vg {
             Edge* e13 = graph.create_edge(n10, n11);
             Edge* e14 = graph.create_edge(n11, n12);
             Edge* e15 = graph.create_edge(n11, n12, false, true);
+                                graph.serialize_to_file("test_graph.hg");
 
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle,graph.get_handle(n2->id(), false)); 

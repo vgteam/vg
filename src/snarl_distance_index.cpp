@@ -9,6 +9,12 @@ using namespace std;
 using namespace handlegraph;
 namespace vg {
 
+size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
+                        bool unoriented_distance, const HandleGraph* graph) {
+    return distance_index.minimum_distance( get_id(pos1), get_is_rev(pos1), get_offset(pos1),
+                                            get_id(pos2), get_is_rev(pos2), get_offset(pos2),
+                                            unoriented_distance, graph, nullptr); 
+ }
 
 void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit) {
     distance_index->set_snarl_size_limit(size_limit);
@@ -1675,7 +1681,6 @@ void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, c
 
         add_descendants_to_subgraph(distance_index, current_child, subgraph);
         while (current_child != end_child) {
-            cerr << "From " << distance_index.net_handle_as_string(current_child) << " reach " << distance_index.net_handle_as_string(end_child) << endl;
             distance_index.follow_net_edges(current_child, graph, false, [&](const net_handle_t& next) {
                 add_descendants_to_subgraph(distance_index, next, subgraph);
                 current_child = next;

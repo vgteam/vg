@@ -830,7 +830,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "Cluster looping, multicomponent",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -3128,6 +3128,7 @@ namespace unittest {
     //    REQUIRE(clusters.size() == 1);
     //}//end test case
 
+    /*
     TEST_CASE("Failed graph", "[failed_cluster]"){
 
         HashGraph graph;
@@ -3174,6 +3175,7 @@ namespace unittest {
         //}
         REQUIRE(false);
     }
+    */
     TEST_CASE("Random graphs", "[cluster_random]"){
 
 
