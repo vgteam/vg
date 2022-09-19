@@ -1233,10 +1233,11 @@ int score_best_chain(const Collection& to_chain,
  * TODO: Use a different kind of item type to avoid this forgery!
  */
 template<typename Item, typename Source>
-vector<Item> reseed_fallow_region(const Item* left,
-                                  const Item* right,
+vector<Item> reseed_fallow_region(const Item& left,
+                                  const Item& right,
                                   const ChainingSpace<Item, Source>& space,
                                   std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                  size_t read_length,
                                   const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                   size_t max_fallow_search_distance = 10000);
                                   
@@ -1269,6 +1270,7 @@ vector<Item> reseed_fallow_region(const Collection& left_items,
                                   const Collection& right_items,
                                   const ChainingSpace<Item, Source>& space,
                                   std::unique_ptr<VectorViewInverse>& source_sort_inverse,
+                                  size_t read_length, 
                                   const std::function<void(const Source&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
                                   size_t max_fallow_search_distance = 10000);
 
@@ -1969,54 +1971,54 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     };
     
     // Find the first run of things starting at the same place in the read.
-    size_t left_run_start = 0;
-    size_t left_run_end = 1;
-    while (left_run_end < item_view.size() && space.read_start(item_view[left_run_end]) == space.read_start(item_view[left_run_start])) {
+    size_t current_run_start = 0;
+    size_t current_run_end = 1;
+    while (current_run_end < item_view.size() && space.read_start(item_view[current_run_end]) == space.read_start(item_view[current_run_start])) {
         // Scan until we find the next thing that starts after us.
-        ++left_run_end;
+        ++current_run_end;
     }
     
-    if (space.read_start(item_view[left_run_start]) > fallow_region_size) {
+    if (space.read_start(item_view[current_run_start]) > fallow_region_size) {
         // Start to first run is fallow.
         // Note that all items in the run start at the same base.
         
-        // Find all the indexes of left items. Treat them as "right"
-        reseed(space.read_start(item_view[left_run_start]), 0, 0, left_run_start, left_run_end);
+        // Find all the indexes of current run items. Treat them as "right"
+        reseed(space.read_start(item_view[current_run_start]), 0, 0, current_run_start, current_run_end);
     }
     
-    while (left_run_end < item_view.size()) {
+    while (current_run_end < item_view.size()) {
         // For each run of items sharing a start position and having something after them
         
-        // Find all the right run items
-        size_t right_run_start = left_run_end;
-        size_t right_run_end = right_run_start + 1;
-        while (right_run_end < item_view.size() && space.read_start(item_view[right_run_end]) == space.read_start(item_view[right_run_start])) {
+        // Find all the next run items
+        size_t next_run_start = current_run_end;
+        size_t next_run_end = next_run_start + 1;
+        while (next_run_end < item_view.size() && space.read_start(item_view[next_run_end]) == space.read_start(item_view[next_run_start])) {
             // Scan until we find the next thing that starts after us.
-            ++right_run_end;
+            ++next_run_end;
         }
         
         // Check read distance. TODO: Could vary depending on where the head item ends. Did we guarantee a sort by both ends?
-        size_t read_distance = space.get_read_distance(item_view[left_run_start], item_view[right_run_start]);
+        size_t read_distance = space.get_read_distance(item_view[current_run_start], item_view[next_run_start]);
         
         if (read_distance != std::numeric_limits<size_t>::max() && read_distance > fallow_region_size) {
             
-            // Now we know that the items between left_run_start and left_run_end form a fallow region with the items between right_run_start and right_run_end.
-            reseed(read_distance, left_run_start, left_run_end, right_run_start, right_run_end);
+            // Now we know that the items between current_run_start and current_run_end form a fallow region with the items between next_run_start and next_run_end.
+            reseed(read_distance, current_run_start, current_run_end, next_run_start, next_run_end);
         }
         
-        // Make the right run into the left run
-        left_run_start = right_run_start;
-        left_run_end = right_run_end;
+        // Make the next run into the current run
+        current_run_start = next_run_start;
+        current_run_end = next_run_end;
     }
     
     // Find where the last seed ends in the read
-    size_t right_run_read_end = 0;
-    for (size_t i = right_run_start; i < right_run_end; i++) {
-        right_run_read_end = std::max(right_run_read_end, space.read_end(item_view[i]));
+    size_t current_run_read_end = 0;
+    for (size_t i = current_run_start; i < current_run_end; i++) {
+        current_run_read_end = std::max(current_run_read_end, space.read_end(item_view[i]));
     }
-    if (read_length - right_run_read_end > fallow_region_size) {
+    if (read_length - current_run_read_end > fallow_region_size) {
         // Last run to end is fallow
-        reseed(read_length - right_run_read_end, right_run_start, right_run_end, 0, 0);
+        reseed(read_length - current_run_read_end, current_run_start, current_run_end, 0, 0);
     }
     
     if (item_storage.size() != sorted_item_indexes.size()) {
