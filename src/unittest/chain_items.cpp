@@ -1171,6 +1171,7 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
             items[4],
             space,
             source_sort_inverse,
+            100,
             for_each_pos_for_source_in_subgraph
         );
                                                                      

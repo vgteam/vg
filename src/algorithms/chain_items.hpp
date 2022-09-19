@@ -1695,10 +1695,10 @@ vector<Item> reseed_fallow_region(const Item& left,
                                   size_t max_fallow_search_distance) {
                                   
     // We can just decide the pointers are really to std::array<const Item, 1>.
-    std::array<const Item, 1>* left_items(&left);
-    std::array<const Item, 1>* right_items(&right);
+    const std::array<const Item, 1>* left_items((const std::array<const Item, 1>*)&left);
+    const std::array<const Item, 1>* right_items((const std::array<const Item, 1>*)&right);
     
-    return reseed_fallow_region<Item, Source, std::vector<Item>>(left_items, right_items, space, source_sort_inverse, read_length, for_each_pos_for_source_in_subgraph, max_fallow_search_distance);
+    return reseed_fallow_region<Item, Source, std::array<const Item, 1>>(*left_items, *right_items, space, source_sort_inverse, read_length, for_each_pos_for_source_in_subgraph, max_fallow_search_distance);
 }
 
 template<typename Item, typename Source, typename Collection>
