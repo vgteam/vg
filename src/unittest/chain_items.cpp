@@ -733,6 +733,7 @@ TEST_CASE("A forward-strand fallow region with one missing seed can be filled in
         items[1],
         space,
         source_sort_inverse,
+        100,
         for_each_pos_for_source_in_subgraph
     );
                                                                  
@@ -828,6 +829,7 @@ TEST_CASE("A fallow region with several seeds can be filled in", "[chain_items][
         items.back(),
         space,
         source_sort_inverse,
+        100,
         for_each_pos_for_source_in_subgraph
     );
                                                                  
@@ -876,6 +878,7 @@ TEST_CASE("Seeds not in the region are not found", "[chain_items][reseed_fallow_
         items.at(2),
         space,
         source_sort_inverse,
+        100,
         for_each_pos_for_source_in_subgraph
     );
                                                                  
