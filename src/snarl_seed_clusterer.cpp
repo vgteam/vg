@@ -13,6 +13,14 @@ NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex* distance
                                         distance_index(*distance_index),
                                         graph(graph){
 };
+NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index) :
+                                        distance_index(distance_index),
+                                        graph(nullptr){
+};
+NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex* distance_index) :
+                                        distance_index(*distance_index),
+                                        graph(nullptr){
+};
 
 vector<NewSnarlSeedClusterer::Cluster> NewSnarlSeedClusterer::cluster_seeds (vector<Seed>& seeds, size_t read_distance_limit) const {
     //Wrapper for single ended

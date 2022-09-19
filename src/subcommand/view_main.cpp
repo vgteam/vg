@@ -15,7 +15,7 @@
 
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
-#include "../min_distance.hpp"
+#include "../snarl_distance_index.hpp"
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
@@ -868,7 +868,7 @@ int main_view(int argc, char** argv) {
     } else if (input_type == "distance") {
         if (output_type == "json") {
             get_input_file(file_name, [&](istream& in) {
-                auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
+                auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(in);
                 distance_index->write_snarls_to_json();
             });
         } else {

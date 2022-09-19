@@ -38,7 +38,7 @@ public:
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         MinimumDistanceIndex* old_distance_index, SnarlDistanceIndex* distance_index,
+         SnarlDistanceIndex* distance_index,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -292,7 +292,6 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// The information we store for each seed.
-    typedef SnarlSeedClusterer::Seed OldSeed;
     typedef NewSnarlSeedClusterer::Seed Seed;
 
     /// The information we store for each cluster.
@@ -302,7 +301,6 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
-    MinimumDistanceIndex* old_distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -310,7 +308,6 @@ protected:
     GaplessExtender extender;
     
     /// We have a clusterer
-    SnarlSeedClusterer old_clusterer;
     NewSnarlSeedClusterer clusterer;
 
     

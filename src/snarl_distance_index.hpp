@@ -17,6 +17,8 @@ using namespace bdsg;
 //Minimum distance taking a pos instead of id/orientation/offset
 size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2,
                         bool unoriented_distance = false, const HandleGraph* graph=nullptr); 
+//Maximum distance taking a pos instead of id/orientation/offset
+size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2); 
 
 //Fill in the index
 //size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances

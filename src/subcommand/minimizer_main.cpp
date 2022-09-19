@@ -35,7 +35,6 @@
 #include "../utility.hpp"
 #include "../handle.hpp"
 #include "../snarl_distance_index.hpp"
-#include "../min_distance.hpp"
 
 #include <gbwtgraph/index.h>
 
@@ -241,26 +240,14 @@ int main_minimizer(int argc, char** argv) {
 
     // Distance index.
     SnarlDistanceIndex distance_index;
-    std::unique_ptr<MinimumDistanceIndex> old_distance_index;
     bool use_new_distance_index = true;
     if (!distance_name.empty()) {
         ifstream instream (distance_name);
-        if (vg::io::MessageIterator::sniff_tag(instream) == "DISTANCE") {
-            //old distance index
-            use_new_distance_index = false;
-            if (progress) {
-                std::cerr << "Loading MinimumDistanceIndex from " << distance_name << std::endl;
-            }
-
-            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
-
-        } else {
-            // new distance index
-            if (progress) {
-                std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
-            }
-            distance_index.deserialize(distance_name);
+        // new distance index
+        if (progress) {
+            std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
         }
+        distance_index.deserialize(distance_name);
     }
 
     // Build the index.
@@ -278,15 +265,9 @@ int main_minimizer(int argc, char** argv) {
             return MIPayload::NO_CODE;
         });
     } else {
-        if (use_new_distance_index) {
-            gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-                return MIPayload::encode(get_minimizer_distances(distance_index,pos));
-            });
-        } else {
-            gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-                return MinimumDistanceIndex::MIPayload::encode(old_distance_index->get_minimizer_distances(pos));
-            });
-        }
+        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+            return MIPayload::encode(get_minimizer_distances(distance_index,pos));
+        });
     }
 
     // Index statistics.

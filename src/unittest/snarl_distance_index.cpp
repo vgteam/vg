@@ -103,6 +103,7 @@ namespace vg {
                 REQUIRE(distance_index.minimum_length(distance_index.get_node_net_handle(1)) == 11);
                 REQUIRE(distance_index.maximum_length(distance_index.get_node_net_handle(1)) == 11);
                 REQUIRE(distance_index.minimum_distance(1, false, 0, 1, false, 5) == 5);
+                REQUIRE(distance_index.maximum_distance(1, false, 0, 1, false, 5) == 5);
                 REQUIRE(distance_index.minimum_distance(1, true, 0, 1, true, 5) == 5);
             }
             SECTION("Traceback") {
@@ -990,6 +991,38 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(
                          n5->id(), true, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
+                         n5->id(), false, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
+            }
+            SECTION("Maximum distances are correct") {
+                REQUIRE(distance_index.maximum_distance(
+                         n1->id(), false, 0, n2->id(), false, 0) >= 3);
+                REQUIRE(distance_index.maximum_distance(
+                         n1->id(), false, 0, n8->id(), false, 0) == 13);
+                REQUIRE(distance_index.maximum_distance(
+                         n1->id(), false, 0, n7->id(), false, 0) >= 12);
+                REQUIRE(distance_index.maximum_distance(
+                         n3->id(), false, 0, n7->id(), false, 0) >= 4);
+                REQUIRE(distance_index.maximum_distance(
+                         n7->id(), true, 0, n3->id(), true, 0) >= 4);
+                REQUIRE(distance_index.maximum_distance(
+                         n2->id(), false, 0, n5->id(), false, 0) >= 2);
+                REQUIRE(distance_index.maximum_distance(
+                         n6->id(), false, 0, n8->id(), false, 1) >= 3);
+                REQUIRE(distance_index.maximum_distance(
+                         n2->id(), false, 0, n6->id(), false, 0) >= 1);
+                REQUIRE(distance_index.maximum_distance(
+                         n7->id(), true, 0, n4->id(), true, 0) >= 4);
+                REQUIRE(distance_index.maximum_distance(
+                         n5->id(), true, 0, n2->id(), true, 0) >= 4);
+                REQUIRE(distance_index.maximum_distance(
+                         n5->id(), true, 0, n2->id(), false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.maximum_distance(
+                         n6->id(), false, 0, n5->id(), false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.maximum_distance(
+                         n5->id(), false, 0, n6->id(), false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.maximum_distance(
+                         n5->id(), true, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.maximum_distance(
                          n5->id(), false, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
             }
             SECTION("Find shortest path") {
@@ -6848,7 +6881,7 @@ namespace vg {
                 uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
                 size_t variant_count = variant_count_dist(generator);
 
-                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
+                uniform_int_distribution<size_t> snarl_size_limit_dist(500, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
                 size_t distance_limit = snarl_size_limit_dist(generator);
                         
@@ -6911,10 +6944,19 @@ namespace vg {
     
                         pair<vector<tuple<net_handle_t, int32_t, int32_t>>,vector<tuple<net_handle_t, int32_t, int32_t>>> traceback;
                         size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph, &traceback);
+                        size_t max_distance = distance_index.maximum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
+                            cerr << "serializing graph to test_graph.vg" << endl;
+                            graph.serialize_to_file("test_graph.vg");
+                            REQUIRE(false);
+                        }
+                        if (max_distance < snarl_distance){
+                            cerr << "Failed random test" << endl;
+                            cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
+                            cerr << "minimum: " << snarl_distance << " maximum: " << max_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
                             graph.serialize_to_file("test_graph.vg");
                             REQUIRE(false);

@@ -3,7 +3,6 @@
 
 #include "snarls.hpp"
 #include "snarl_distance_index.hpp"
-#include "seed_clusterer.hpp"
 #include "hash_map.hpp"
 #include "small_bitset.hpp"
 #include <structures/union_find.hpp>
@@ -72,17 +71,18 @@ class NewSnarlSeedClusterer {
         };
 
         /// Cluster information used in Giraffe.
-        //struct Cluster {
-        //    std::vector<size_t> seeds; // Seed ids.
-        //    size_t fragment; // Fragment id.
-        //    double score; // Sum of scores of distinct source minimizers of the seeds.
-        //    double coverage; // Fraction of read covered by the seeds.
-        //    SmallBitset present; // Minimizers that are present in the cluster.
-        //};
-        typedef SnarlSeedClusterer::Cluster Cluster;
+        struct Cluster {
+            std::vector<size_t> seeds; // Seed ids.
+            size_t fragment; // Fragment id.
+            double score; // Sum of scores of distinct source minimizers of the seeds.
+            double coverage; // Fraction of read covered by the seeds.
+            SmallBitset present; // Minimizers that are present in the cluster.
+        };
 
         NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index, const HandleGraph* graph);
         NewSnarlSeedClusterer(const SnarlDistanceIndex* distance_index, const HandleGraph* graph);
+        NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index);
+        NewSnarlSeedClusterer(const SnarlDistanceIndex* distance_index);
 
 
         /*Given a vector of seeds and a distance limit, 

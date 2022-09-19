@@ -9,8 +9,9 @@
 #include "catch.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../cluster.hpp"
-#include "../min_distance.hpp"
+#include "../snarl_distance_index.hpp"
 #include "../genotypekit.hpp"
 #include "random_graph.hpp"
 #include <fstream>
@@ -54,7 +55,9 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        MinimumDistanceIndex di (&graph, &snarl_manager, 20);
+        SnarlDistanceIndex di;
+        IntegratedSnarlFinder snarl_finder(graph);
+        fill_in_distance_index (&di, &graph, &snarl_finder);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -135,7 +138,9 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        MinimumDistanceIndex di (&graph, &snarl_manager, 50);
+        SnarlDistanceIndex di;
+        IntegratedSnarlFinder snarl_finder(graph);
+        fill_in_distance_index (&di, &graph, &snarl_finder);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -193,7 +198,9 @@ namespace unittest {
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-        MinimumDistanceIndex di (&graph, &snarl_manager, 50);
+        SnarlDistanceIndex di;
+        IntegratedSnarlFinder snarl_finder(graph);
+        fill_in_distance_index (&di, &graph, &snarl_finder);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -229,7 +236,9 @@ namespace unittest {
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
          
-            MinimumDistanceIndex di (&graph, &snarl_manager, 20);
+            SnarlDistanceIndex di;
+            IntegratedSnarlFinder snarl_finder(graph);
+            fill_in_distance_index (&di, &graph, &snarl_finder);
             TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di));    
 
@@ -270,8 +279,8 @@ namespace unittest {
                 pos_t pos2 = make_pos_t(nodeID2, 
                   uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
  
-                int64_t minDist = di.min_distance(pos1, pos2);
-                int64_t maxDist = di.max_distance(pos1, pos2);
+                int64_t minDist = minimum_distance(di, pos1, pos2);
+                int64_t maxDist = maximum_distance(di, pos1, pos2);
                 if (minDist != -1 && maxDist != 20 && minDist <= maxDist) {
 
                     REQUIRE(tvs.tv_path(pos1, pos2, minDist-10, 11).size() !=0);

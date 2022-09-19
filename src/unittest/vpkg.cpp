@@ -12,7 +12,7 @@
 #include <bdsg/packed_graph.hpp>
 #include "xg.hpp"
 #include "../vg.hpp"
-#include "../seed_clusterer.hpp"
+#include "../snarl_seed_clusterer.hpp"
 #include "vg/io/json2pb.h"
 #include <gcsa/gcsa.h>
 #include <sstream>
@@ -124,12 +124,12 @@ TEST_CASE("We cannot read a HandleGraph from an empty file", "[vpkg][handlegraph
     REQUIRE(loaded.get() == nullptr);
 }
 
-TEST_CASE("We cannot read a SnarlSeedClusterer from an empty file", "[vpkg][snarlseedclusterer][empty]") {
+TEST_CASE("We cannot read a NewSnarlSeedClusterer from an empty file", "[vpkg][snarlseedclusterer][empty]") {
     stringstream ss;
-    unique_ptr<SnarlSeedClusterer> loaded = vg::io::VPKG::try_load_one<SnarlSeedClusterer>(ss);
+    unique_ptr<NewSnarlSeedClusterer> loaded = vg::io::VPKG::try_load_one<NewSnarlSeedClusterer>(ss);
     
     // It should be null because this type is not default constructible
-    REQUIRE(!std::is_default_constructible<SnarlSeedClusterer>::value);
+    REQUIRE(!std::is_default_constructible<NewSnarlSeedClusterer>::value);
     REQUIRE(loaded.get() == nullptr);
 }
 

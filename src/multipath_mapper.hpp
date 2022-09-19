@@ -20,7 +20,7 @@
 #include "multipath_alignment.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
-#include "min_distance.hpp"
+#include "snarl_distance_index.hpp"
 #include "path_component_index.hpp"
 #include "splicing.hpp"
 #include "memoizing_graph.hpp"
@@ -44,7 +44,7 @@ namespace vg {
     
         MultipathMapper(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
-                        MinimumDistanceIndex* distance_index = nullptr);
+                        SnarlDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
         
         /// Map read in alignment to graph and make multipath alignments.
@@ -678,7 +678,7 @@ namespace vg {
         DinucleotideMachine dinuc_machine;
         SpliceStats splice_stats;
         SnarlManager* snarl_manager;
-        MinimumDistanceIndex* distance_index;
+        SnarlDistanceIndex* distance_index;
         unique_ptr<PathComponentIndex> path_component_index;
         
         static const size_t RESCUED;

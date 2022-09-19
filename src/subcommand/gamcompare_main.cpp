@@ -11,7 +11,6 @@
 #include "subcommand.hpp"
 
 #include "../alignment.hpp"
-#include "../min_distance.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
@@ -216,18 +215,9 @@ int main_gamcompare(int argc, char** argv) {
     }
 
     // Load the distance index.
-    std::unique_ptr<MinimumDistanceIndex> old_distance_index;
     SnarlDistanceIndex distance_index;
-    bool use_new_distance_index = false;
     if (!distance_name.empty()) {
-        ifstream infile_dist;
-        infile_dist.open(distance_name);
-        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
-            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
-        } else {
-            distance_index.deserialize(distance_name);
-            use_new_distance_index = true;
-        }
+        distance_index.deserialize(distance_name);
     }
 
     // We have a buffered emitter for annotated alignments, if we're not outputting text
@@ -300,15 +290,13 @@ int main_gamcompare(int argc, char** argv) {
                     if (start < limit) {
                         pos_t read_pos = read_iter->pos_at(start);
                         pos_t truth_pos = truth_iter->pos_at(start);
-                        int64_t forward = use_new_distance_index ? minimum_distance(distance_index, read_pos, truth_pos)
-                                                                 : old_distance_index->min_distance(read_pos, truth_pos);
-                        if (forward != -1) {
-                            distance = std::min(forward, distance);
+                        size_t forward = minimum_distance(distance_index, read_pos, truth_pos);
+                        if (forward != std::numeric_limits<size_t>::max()) {
+                            distance = std::min((int64_t)forward, distance);
                         }
-                        int64_t reverse = use_new_distance_index ? minimum_distance(distance_index, truth_pos, read_pos)
-                                                                 : old_distance_index->min_distance(truth_pos, read_pos);
-                        if (reverse != -1) {
-                            distance = std::min(reverse, distance);
+                        size_t reverse = minimum_distance(distance_index, truth_pos, read_pos);
+                        if (reverse != std::numeric_limits<size_t>::max()) {
+                            distance = std::min((int64_t)reverse, distance);
                         }
                     }
                     if (read_iter->limit() <= limit) {

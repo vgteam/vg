@@ -14,7 +14,11 @@ size_t minimum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
     return distance_index.minimum_distance( get_id(pos1), get_is_rev(pos1), get_offset(pos1),
                                             get_id(pos2), get_is_rev(pos2), get_offset(pos2),
                                             unoriented_distance, graph, nullptr); 
- }
+}
+size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2) {
+    return distance_index.maximum_distance( get_id(pos1), get_is_rev(pos1), get_offset(pos1),
+                                            get_id(pos2), get_is_rev(pos2), get_offset(pos2)); 
+}
 
 void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit) {
     distance_index->set_snarl_size_limit(size_limit);
@@ -429,6 +433,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         //Add the first values for the prefix sum and backwards loop vectors
         temp_chain_record.prefix_sum.emplace_back(0);
+        temp_chain_record.max_prefix_sum.emplace_back(0);
         temp_chain_record.backward_loops.emplace_back(std::numeric_limits<size_t>::max());
         temp_chain_record.chain_components.emplace_back(0);
 
@@ -468,15 +473,18 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     //tracking the distance vectors here
 
                     //Update the maximum distance
-                    temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
+                    temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.max_prefix_sum.back());
 
                     temp_chain_record.prefix_sum.emplace_back(0);
+                    temp_chain_record.max_prefix_sum.emplace_back(0);
                     temp_chain_record.backward_loops.emplace_back(temp_snarl_record.distance_end_end);
                     //If the chain is disconnected, the max length is infinite
                     temp_chain_record.max_length =  std::numeric_limits<size_t>::max();
                 } else {
                     temp_chain_record.prefix_sum.emplace_back(SnarlDistanceIndex::sum({temp_chain_record.prefix_sum.back(),
                         temp_snarl_record.min_length, temp_snarl_record.start_node_length}));
+                    temp_chain_record.max_prefix_sum.emplace_back(SnarlDistanceIndex::sum({temp_chain_record.max_prefix_sum.back(),
+                        temp_snarl_record.max_length, temp_snarl_record.start_node_length}));
                     temp_chain_record.backward_loops.emplace_back(std::min(temp_snarl_record.distance_end_end,
                         SnarlDistanceIndex::sum({temp_chain_record.backward_loops.back()
                         , 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)})));
@@ -507,6 +515,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     });
 
                     temp_chain_record.prefix_sum.emplace_back(SnarlDistanceIndex::sum({temp_chain_record.prefix_sum.back(), last_node_length}));
+                    temp_chain_record.max_prefix_sum.emplace_back(SnarlDistanceIndex::sum({temp_chain_record.max_prefix_sum.back(), last_node_length}));
                     temp_chain_record.backward_loops.emplace_back(std::min(backward_loop,
                         SnarlDistanceIndex::sum({temp_chain_record.backward_loops.back(), 2 * last_node_length})));
 
@@ -673,7 +682,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             }
         }
 
-        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
+        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.max_prefix_sum.back());
         temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
         temp_index.max_distance = temp_chain_record.backward_loops.front() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
 

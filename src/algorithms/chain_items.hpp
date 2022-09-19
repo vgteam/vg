@@ -25,7 +25,7 @@
 
 #include "../gbwt_extender.hpp"
 #include "../snarl_seed_clusterer.hpp"
-#include "../seed_clusterer.hpp"
+#include "../snarl_seed_clusterer.hpp"
 #include "../handle.hpp"
 
 namespace vg {
@@ -779,21 +779,6 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSour
     
     
 };
-
-/// This is how you chain up old seeds
-template<typename Source>
-struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<SnarlSeedClusterer::Seed, Source> {
-    using Item = SnarlSeedClusterer::Seed;
-    
-    ChainingSpace(const vector<Source>& sources,
-                  const Aligner& scoring,
-                  const HandleGraph* graph) :
-        MinimizerSourceChainingSpace<Item, Source>(sources, scoring, nullptr, graph) {
-        
-        // Nothing to do!
-    }
-};
-
 // For doing scores with backtracing, we use this type, which is a
 // score and a number for the place we came from to get it.
 // It can be maxed with std::max() as long as the destinations are all filled in right.
