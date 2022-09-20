@@ -2445,7 +2445,7 @@ using namespace std;
                 section_path_ranges.emplace_back(all_path_ranges[j]);
                 original_copy.push_back(i);
             }
-            copy_range[i + 1] = copy_range[i] + all_path_ranges.size();
+            copy_range[i + 1] = copy_range[i] + max<size_t>(all_path_ranges.size(), 1);
             
 #ifdef debug_spliced_surject
             cerr << "found " << all_path_ranges.size() << " path locations, recording in section copy interval " << copy_range[i] << ":" << copy_range[i + 1] << endl;
@@ -2516,9 +2516,17 @@ using namespace std;
         for (auto i : copy_range) {
             cerr << "\t" << i << endl;
         }
+        cerr << "original copy array:" << endl;
+        for (auto i : original_copy) {
+            cerr << "\t" << i << endl;
+        }
         cerr << "graph structure:" << endl;
         for (size_t i = 0; i < sections.size(); ++i) {
-            cerr << i << " (original " << original_copy[i] << " at " << graph->get_position_of_step(section_path_ranges[i].first) << " - " << graph->get_position_of_step(section_path_ranges[i].second) <<  "):" << endl;
+            cerr << i << " (original " << original_copy[i];
+            if (sections[i].path().mapping_size() != 0) {
+                cerr << " at " << graph->get_position_of_step(section_path_ranges[i].first) << " - " << graph->get_position_of_step(section_path_ranges[i].second);
+            }
+            cerr << "):" << endl;
             
             for (auto& edge : comp_group_edges[original_copy[i]]) {
                 
