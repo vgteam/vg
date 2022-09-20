@@ -215,9 +215,9 @@ int main_gamcompare(int argc, char** argv) {
     }
 
     // Load the distance index.
-    SnarlDistanceIndex distance_index;
+    unique_ptr<SnarlDistanceIndex> distance_index;
     if (!distance_name.empty()) {
-        distance_index.deserialize(distance_name);
+        distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
     }
 
     // We have a buffered emitter for annotated alignments, if we're not outputting text
@@ -290,11 +290,11 @@ int main_gamcompare(int argc, char** argv) {
                     if (start < limit) {
                         pos_t read_pos = read_iter->pos_at(start);
                         pos_t truth_pos = truth_iter->pos_at(start);
-                        size_t forward = minimum_distance(distance_index, read_pos, truth_pos);
+                        size_t forward = minimum_distance(*distance_index, read_pos, truth_pos);
                         if (forward != std::numeric_limits<size_t>::max()) {
                             distance = std::min((int64_t)forward, distance);
                         }
-                        size_t reverse = minimum_distance(distance_index, truth_pos, read_pos);
+                        size_t reverse = minimum_distance(*distance_index, truth_pos, read_pos);
                         if (reverse != std::numeric_limits<size_t>::max()) {
                             distance = std::min((int64_t)reverse, distance);
                         }

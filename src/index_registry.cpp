@@ -3356,9 +3356,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         SnarlDistanceIndex distance_index;
         IntegratedSnarlFinder snarl_finder(graph);
-        distance_index.serialize(output_name);
-        distance_index.deserialize(output_name);
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        vg::io::VPKG::save(distance_index, output_name);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -3612,8 +3611,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         ifstream infile_dist;
         init_in(infile_dist, dist_filename);
-        SnarlDistanceIndex new_distance_index;
-        new_distance_index.deserialize(dist_filename);
+        auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?
                                                         IndexingParameters::minimizer_s :
@@ -3621,7 +3619,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(get_minimizer_distances(new_distance_index, pos));
+            return MIPayload::encode(get_minimizer_distances(*distance_index, pos));
         });
         
         string output_name = plan->output_filepath(minimizer_output);

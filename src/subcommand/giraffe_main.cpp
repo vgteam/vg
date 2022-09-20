@@ -1159,15 +1159,10 @@ int main_giraffe(int argc, char** argv) {
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    SnarlDistanceIndex distance_index;
-    SnarlDistanceIndex* distance_index_ptr = nullptr;
-    string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
-    ifstream infile_dist (distance_index_file_name);
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     if (show_progress) {
         cerr << "Loading Distance Index v2" << endl;
     }
-    distance_index.deserialize(distance_index_file_name);
-    distance_index_ptr = &distance_index;
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
@@ -1194,7 +1189,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, distance_index_ptr, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }

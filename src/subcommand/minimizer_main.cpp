@@ -239,15 +239,13 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Distance index.
-    SnarlDistanceIndex distance_index;
-    bool use_new_distance_index = true;
+    std::unique_ptr<SnarlDistanceIndex> distance_index;
     if (!distance_name.empty()) {
-        ifstream instream (distance_name);
         // new distance index
         if (progress) {
             std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
         }
-        distance_index.deserialize(distance_name);
+        distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
     }
 
     // Build the index.
@@ -266,7 +264,7 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(get_minimizer_distances(distance_index,pos));
+            return MIPayload::encode(get_minimizer_distances(*distance_index,pos));
         });
     }
 

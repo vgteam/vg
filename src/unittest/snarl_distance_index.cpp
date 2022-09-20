@@ -263,7 +263,6 @@ namespace vg {
             Edge* e13 = graph.create_edge(n10, n11);
             Edge* e14 = graph.create_edge(n11, n12);
             Edge* e15 = graph.create_edge(n11, n12, false, true);
-                                graph.serialize_to_file("test_graph.hg");
 
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle,graph.get_handle(n2->id(), false)); 
@@ -5380,7 +5379,7 @@ namespace vg {
             }
         }//end test case
 
-        TEST_CASE("Distance index can save and load", "[snarl_distance]") {
+        TEST_CASE("Distance index can save and load", "[snarl_distance][save]") {
             VG graph;
         
             Node* n1 = graph.create_node("GCA");
@@ -5411,11 +5410,13 @@ namespace vg {
             Edge* e15 = graph.create_edge(n9, n10);
         
             IntegratedSnarlFinder snarl_finder(graph); 
-        
-            SECTION("Create distance index") {
+         
+            SECTION("Save distance index as a string") {
                 SnarlDistanceIndex distance_index;
 
+                string file = "test_graph.dist"; 
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                distance_index.serialize(file);
 
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
@@ -5426,22 +5427,84 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
                 REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
-                SECTION("Save and load index") {
-                    string file = "test_graph.dist.new"; 
-                    distance_index.serialize(file);
+                SECTION("Load index") {
+                    SnarlDistanceIndex new_distance_index;
+                    new_distance_index.deserialize(file);
 
 
-                    distance_index.deserialize(file);
-                    
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                    REQUIRE(new_distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                    REQUIRE(new_distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                    REQUIRE(new_distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                    REQUIRE(new_distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
+        
+                }
+            }
+            SECTION("Save distance index as a file stream") {
+                SnarlDistanceIndex distance_index;
 
-                    REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
-                    REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
-                    REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
-                    REQUIRE(distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
-                    REQUIRE(distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
-                    REQUIRE(distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
-                    REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
-                    REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
+                string file = "test_graph.dist"; 
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                ofstream out (file);
+                distance_index.serialize(out);
+
+                REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
+        
+                SECTION("Load index") {
+                    SnarlDistanceIndex new_distance_index;
+                    ifstream in ( file);
+                    new_distance_index.deserialize(in);
+
+
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                    REQUIRE(new_distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                    REQUIRE(new_distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                    REQUIRE(new_distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                    REQUIRE(new_distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                    REQUIRE(new_distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
+        
+                }
+            }
+            SECTION("Save distance index with vpkg") {
+                SnarlDistanceIndex distance_index;
+
+                string file = "test_graph.dist"; 
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                vg::io::VPKG::save(distance_index, file);
+
+                REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
+        
+                SECTION("Load index") {
+                    auto new_distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(file);
+
+
+                    REQUIRE(new_distance_index->minimum_distance(1, false, 0,7, false, 0) == 8);
+                    REQUIRE(new_distance_index->minimum_distance(1, false, 0,8, false, 0) == 9);
+                    REQUIRE(new_distance_index->minimum_distance(1, false, 0,8, true, 0) == 9);
+                    REQUIRE(new_distance_index->minimum_distance(1, false, 0,5, false, 0) == 8);
+                    REQUIRE(new_distance_index->minimum_distance(8, false, 0,5, true, 0) == 5);
+                    REQUIRE(new_distance_index->minimum_distance(3, false, 0,6, false, 0) == 5);
+                    REQUIRE(new_distance_index->minimum_distance(3, false, 0,10, false, 0) == 11);
+                    REQUIRE(new_distance_index->minimum_distance(7, false, 0,1, true, 0) == 11);
         
                 }
             }

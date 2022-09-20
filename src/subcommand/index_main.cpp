@@ -705,12 +705,11 @@ int main_index(int argc, char** argv) {
                 IntegratedSnarlFinder snarl_finder(*xg.get());
                 // Create the SnarlDistanceIndex
                 SnarlDistanceIndex distance_index;
-                // Save the incomplete DistanceIndex
-                distance_index.serialize(dist_name);
-                //Load it
-                distance_index.deserialize(dist_name);
-                //And then fill it in
+
+                //Fill it in
                 fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, distance_limit);
+                // Save it
+                vg::io::VPKG::save(distance_index, dist_name);
             } else {
                 // May be GBZ or a HandleGraph.
                 auto options = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, handlegraph::HandleGraph>(file_names.at(0));
@@ -721,24 +720,24 @@ int main_index(int argc, char** argv) {
                     
                     // Create the SnarlDistanceIndex
                     IntegratedSnarlFinder snarl_finder(gbz->graph);
+
+                    //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    // Save the incomplete DistanceIndex
-                    distance_index.serialize(dist_name);
-                    //Load it
-                    distance_index.deserialize(dist_name);
                     fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, distance_limit);
+                    // Save it
+                    vg::io::VPKG::save(distance_index, dist_name);
                 } else if (get<1>(options)) {
                     // We were given a graph generically
                     auto& graph = get<1>(options);
                     
                     // Create the SnarlDistanceIndex
                     IntegratedSnarlFinder snarl_finder(*graph.get());
+
+                    //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    // Save the incomplete DistanceIndex
-                    distance_index.serialize(dist_name);
-                    //Load it
-                    distance_index.deserialize(dist_name);
                     fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, distance_limit);
+                    // Save it
+                    vg::io::VPKG::save(distance_index, dist_name);
                 } else {
                     cerr << "error: [vg index] input is not a graph or GBZ" << endl;
                     return 1;
