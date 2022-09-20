@@ -293,39 +293,44 @@ LookbackStrategy::verdict_t BucketLookbackStrategy::Problem::should_check(size_t
             std::cerr << "\t\tBoth items are in bucket " << item_to_head.at(item_a) << " size " << bucket_sizes.at(item_to_head.at(item_a)) << std::endl;
 #endif
         }
-        // Otherwise they are in the same bucket
+        // Otherwise they are not in different buckets
         
-        auto& coordinate_a = item_to_coordinate.at(item_a);
-        auto& coordinate_b = item_to_coordinate.at(item_b);
+        if (!item_to_coordinate.empty()) {
+            // We have coordinates we can compare
         
+            auto& coordinate_a = item_to_coordinate.at(item_a);
+            auto& coordinate_b = item_to_coordinate.at(item_b);
+            
+    #ifdef debug_lookback
+            std::cerr << "\t\tBucket coordinates: " << coordinate_a << " vs " << coordinate_b << std::endl;
+    #endif
+            
+            if (coordinate_b > coordinate_a) {
+                // We can infer a minimum minimum distance from the distances to the head.
+                size_t min_min_distance = coordinate_b - coordinate_a;
+                if (min_min_distance > read_distance) {
+                    // And since they must be further apart in the graph than the read, we can check how much further
+                    size_t inferred_indel = min_min_distance - read_distance;
 #ifdef debug_lookback
-        std::cerr << "\t\tBucket coordinates: " << coordinate_a << " vs " << coordinate_b << std::endl;
+                    std::cerr << "\t\tItems must be at least " << inferred_indel << " further apart in graph than in read" << std::endl;
 #endif
-        
-        if (coordinate_b > coordinate_a) {
-            // We can infer a minimum minimum distance from the distances to the head.
-            size_t min_min_distance = coordinate_b - coordinate_a;
-            if (min_min_distance > read_distance) {
-                // And since they must be further apart in the graph than the read, we can check how much further
-                size_t inferred_indel = min_min_distance - read_distance;
+                    if (inferred_indel > this->strategy.max_inferred_indel) {
+                        return LookbackStrategy::SKIP;
+                    }
+                }
+            } else {
+                // We can still look at the difference in bucket space but it doesn't really mean anything.
+                size_t bucket_coordinate_difference = coordinate_a - coordinate_b;
+                if (bucket_coordinate_difference > this->strategy.max_suspicious_bucket_coordinate_difference) {
 #ifdef debug_lookback
-                std::cerr << "\t\tItems must be at least " << inferred_indel << " further apart in graph than in read" << std::endl;
+                    std::cerr << "\t\tItems seem suspiciously different distances from bucket head" << std::endl;
 #endif
-                if (inferred_indel > this->strategy.max_inferred_indel) {
                     return LookbackStrategy::SKIP;
                 }
             }
-        } else {
-            // We can still look at the difference in bucket space but it doesn't really mean anything.
-            size_t bucket_coordinate_difference = coordinate_a - coordinate_b;
-            if (bucket_coordinate_difference > this->strategy.max_suspicious_bucket_coordinate_difference) {
-#ifdef debug_lookback
-                std::cerr << "\t\tItems seem suspiciously different distances from bucket head" << std::endl;
-#endif
-                return LookbackStrategy::SKIP;
-            }
         }
         
+        // If they aren't too far apart by coordinates, we have to check them.
         return LookbackStrategy::CHECK;
     }
 }

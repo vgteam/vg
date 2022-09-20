@@ -526,51 +526,6 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     REQUIRE(result.second == std::vector<size_t>{0, 1, 2});
 }
 
-TEST_CASE("find_best_chain refuses to let the score go negative", "[chain_items][find_best_chain]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(10, 1);
-    auto h = get_handles(graph);
-    
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
-    
-    // Set up extensions
-    auto to_score = fake_extensions({{1, 2, {h[1]}, 0, 1}, // First one on main diagonal
-                                     {5, 6, {h[4]}, 0, 1}, // Middle one that is further in the read than the graph
-                                     {10, 11, {h[10]}, 0, 1}}); // Last one on main diagonal
-    
-    // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, space);
-    // We'd have to let the score go negative to take either of the indels, so we just stay with the first best hit.
-    REQUIRE(result.second == std::vector<size_t>{0});
-}
-
-TEST_CASE("find_best_chain is willing to keep indels split if the items suggest it", "[chain_items][find_best_chain]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(10, 10);
-    auto h = get_handles(graph);
-    
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
-    
-    // Set up extensions
-    auto to_score = fake_extensions({{10, 20, {h[1]}, 0, 10}, // First one on main diagonal
-                                     {41, 51, {h[4]}, 0, 10}, // Middle one that is further in the read than the graph
-                                     {89, 99, {h[9]}, 0, 10}, // Middle one that is further in the graph than the read
-                                     {100, 110, {h[10]}, 0, 10}}); // Last one on main diagonal
-    
-    // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, space);
-    // We should take all of the items in order and not be scared off by the indels.
-    REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
-}
-
 // Define a test chaining space for within-node-only matchings.
 
 struct TestItem {

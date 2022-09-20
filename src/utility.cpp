@@ -519,6 +519,15 @@ vector<size_t> range_vector(size_t begin, size_t end) {
     return range;
 }
 
+std::vector<size_t> stack_permutations(const std::vector<size_t>& bottom, const std::vector<size_t>& top) {
+    std::vector<size_t> result;
+    result.reserve(top.size());
+    for (auto& index : top) {
+        result.push_back(bottom[index]);
+    }
+    return result;
+}
+
 bool have_input_file(int& optind, int argc, char** argv) {
 
     if (optind >= argc) {

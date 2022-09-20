@@ -161,6 +161,10 @@ public:
     /// distance in bp.
     size_t reseed_distance = 2000;
     
+    /// When re-clustering after reseeding, over how large a distance should we
+    /// connect local clusters?
+    size_t recluster_distance = 500;
+    
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
@@ -354,6 +358,22 @@ protected:
     std::vector<SeedType> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
+     * Produce clusters using the appropriate clusterer for the seed type.
+     *
+     * TODO: Can't be const because clusterers don't have const clustering methods.
+     */
+    template<typename SeedType>
+    std::vector<Cluster> find_clusters(std::vector<SeedType>& seeds, size_t range);
+    
+    /**
+     * Produce paired-end clusters using the appropriate clusterer for the seed type.
+     *
+     * TODO: Can't be const because clusterers don't have const clustering methods.
+     */
+    template<typename SeedType>
+    std::vector<std::vector<Cluster>> find_clusters(std::vector<std::vector<SeedType>>& seeds, size_t read_range, size_t fragment_range);
+
+    /**
      * Determine cluster score, read coverage, and a vector of flags for the
      * minimizers present in the cluster. Score is the sum of the scores of
      * distinct minimizers in the cluster, while read coverage is the fraction
@@ -402,6 +422,17 @@ protected:
      * with annotating read numbers, which are ignored.
      */
     std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    
+    /**
+     * Assign seeds to clusters.
+     *
+     * Takes a collection of seeds, and returns, for each seed in order, the
+     * cluster number it gets assigned to.
+     *
+     * Can't be const because clusterers don't have a const cluster.
+     */
+    template<typename SeedType>
+    std::vector<size_t> assign_to_clusters(const std::vector<SeedType>& seeds, size_t range);
     
     /**
      * Turn a chain into an Alignment.
@@ -904,6 +935,20 @@ void MinimizerMapper::process_until_threshold_c(size_t items, const function<Sco
             }
         }
     }
+}
+
+template<typename SeedType>
+std::vector<size_t> MinimizerMapper::assign_to_clusters(const std::vector<SeedType>& seeds, size_t range) {
+    std::vector<size_t> assignments;
+    assignments.resize(seeds.size());
+    auto clusters = this->find_clusters(seeds, range);
+    for (size_t i = 0; i < clusters.size(); i++) {
+        for (auto& seed_index : clusters[i].seeds) {
+            // Assign this seed to this cluster
+            assignments[seed_index] = i;
+        }
+    }
+    return assignments;
 }
 
 template<typename Item, typename Source>

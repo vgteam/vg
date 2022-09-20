@@ -1917,7 +1917,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         }
     
 #ifdef debug_reseeding
-        cerr << "Reseeding between " 
+        cerr << "Reseeding between ";
         if (!left_indexes.empty()) {
             cerr << left_indexes.size() << " seeds near #" << item_view.backing_index(left_run_start)
                  << " " << space.to_string(item_view[left_run_start]);

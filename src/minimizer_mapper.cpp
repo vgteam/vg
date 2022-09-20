@@ -479,6 +479,27 @@ void MinimizerMapper::dump_debug_query(const Alignment& aln1, const Alignment& a
     cerr << endl;
 }
 
+//-----------------------------------------------------------------------------
+
+template<>
+std::vector<NewSnarlSeedClusterer::Cluster> MinimizerMapper::find_clusters<NewSnarlSeedClusterer::Seed>(std::vector<NewSnarlSeedClusterer::Seed>& seeds, size_t range) {
+    return clusterer.cluster_seeds(seeds, range);
+}
+
+template<>
+std::vector<NewSnarlSeedClusterer::Cluster> MinimizerMapper::find_clusters<SnarlSeedClusterer::Seed>(std::vector<SnarlSeedClusterer::Seed>& seeds, size_t range) {
+    return old_clusterer.cluster_seeds(seeds, range);
+}
+
+template<>
+std::vector<std::vector<NewSnarlSeedClusterer::Cluster>> MinimizerMapper::find_clusters<NewSnarlSeedClusterer::Seed>(std::vector<std::vector<NewSnarlSeedClusterer::Seed>>& seeds, size_t read_range, size_t fragment_range) {
+    return clusterer.cluster_seeds(seeds, read_range, fragment_range);
+}
+
+template<>
+std::vector<std::vector<NewSnarlSeedClusterer::Cluster>> MinimizerMapper::find_clusters<SnarlSeedClusterer::Seed>(std::vector<std::vector<SnarlSeedClusterer::Seed>>& seeds, size_t read_range, size_t fragment_range) {
+    return old_clusterer.cluster_seeds(seeds, read_range, fragment_range);
+}
 
 //-----------------------------------------------------------------------------
 
@@ -531,7 +552,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             funnel.stage("cluster");
         }
 
-        clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
+        clusters = this->find_clusters(seeds, get_distance_limit(aln.sequence().size()));
     } else {
         //Old version of the distance index
         assert(old_distance_index != nullptr);
@@ -544,7 +565,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             funnel.stage("cluster");
         }
 
-        clusters = old_clusterer.cluster_seeds(old_seeds, get_distance_limit(aln.sequence().size()));
+        clusters = this->find_clusters(old_seeds, get_distance_limit(aln.sequence().size()));
     }
 
     // Determine the scores and read coverages for each cluster.
@@ -613,13 +634,16 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     size_t kept_cluster_count = 0;
     
-    // What cluster seeds, in start position order, went into each processed cluster result?
-    vector<vector<size_t>> processed_cluster_sorted_seeds;
+    // What cluster seeds define the space for clusters' chosen chains?
+    vector<vector<size_t>> cluster_chain_seeds;
     
     // Over all clusters, we track some reseed statistics.
     size_t total_fallow_regions = 0;
     size_t longest_fallow_region = 0;
     size_t reseed_seed_count = 0;
+    // And some statistics for subclusters after reseeding within each cluster.
+    size_t total_subcluster_count = 0;
+    size_t biggest_subcluster_count = 0;
     
     //Process clusters sorted by both score and read coverage
     process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
@@ -746,10 +770,47 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     );
                     
                     if (track_provenance) {
+                        funnel.substage("recluster");
+                    }
+                    // For every subcluster, what are its seeds in sorted order? These index into seeds.
+                    std::vector<std::vector<size_t>> subcluster_seeds_sorted;
+                    
+                    VectorView<Seed> cluster_view {seeds, cluster_seeds_sorted};
+                    cluster_view.with_vector([&](std::vector<Seed>& v) {
+                        // Get all the subclusters with the recovered seeds
+                        // included. These will index into cluster_seeds_sorted
+                        // space.
+                        // TODO: Let clustering work through a subset/permutation.
+                        std::vector<Cluster> subclusters = this->find_clusters(v, recluster_distance);
+                        
+                        for (auto& subcluster : subclusters) {
+                            // Sort each subcluster. Index is into cluster_seeds_sorted so sort order is read order.
+                            std::sort(subcluster.seeds.begin(), subcluster.seeds.end());
+                            // Put each subcluster into seeds space and keep it.
+                            subcluster_seeds_sorted.push_back(stack_permutations(cluster_seeds_sorted, subcluster.seeds));
+                        }
+                    });
+                    total_subcluster_count += subcluster_seeds_sorted.size();
+                    biggest_subcluster_count = std::max(biggest_subcluster_count, subcluster_seeds_sorted.size());
+
+                    if (track_provenance) {
                         funnel.substage("find_chain");
-                    }    
+                    }
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain({seeds, cluster_seeds_sorted}, space));
+                    cluster_chains.emplace_back();
+                    cluster_chains.back().first = std::numeric_limits<int>::min();
+                    cluster_chain_seeds.emplace_back();
+                    
+                    for (auto& subcluster : subcluster_seeds_sorted) {
+                        // Find a chain from this subcluster
+                        auto candidate_chain = algorithms::find_best_chain({seeds, subcluster}, space);
+                        if (candidate_chain.first > cluster_chains.back().first) {
+                            // Keep it if it is better
+                            cluster_chains.back() = std::move(candidate_chain);
+                            cluster_chain_seeds.back() = std::move(subcluster);
+                        }
+                    }
+                    
                     if (track_provenance) {
                         funnel.substage_stop();
                     }
@@ -784,11 +845,48 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         reseed_distance,
                         fallow_region_size
                     );
+                    
+                    if (track_provenance) {
+                        funnel.substage("recluster");
+                    }
+                    // For every subcluster, what are its seeds in sorted order? These index into seeds.
+                    std::vector<std::vector<size_t>> subcluster_seeds_sorted;
+                    
+                    VectorView<OldSeed> cluster_view {old_seeds, cluster_seeds_sorted};
+                    cluster_view.with_vector([&](std::vector<OldSeed>& v) {
+                        // Get all the subclusters with the recovered seeds
+                        // included. These will index into cluster_seeds_sorted
+                        // space.
+                        // TODO: Let clustering work through a subset/permutation.
+                        std::vector<Cluster> subclusters = this->find_clusters(v, recluster_distance);
+                        
+                        for (auto& subcluster : subclusters) {
+                            // Sort each subcluster. Index is into cluster_seeds_sorted so sort order is read order.
+                            std::sort(subcluster.seeds.begin(), subcluster.seeds.end());
+                            // Put each subcluster into seeds space and keep it.
+                            subcluster_seeds_sorted.push_back(stack_permutations(cluster_seeds_sorted, subcluster.seeds));
+                        }
+                    });
+                    total_subcluster_count += subcluster_seeds_sorted.size();
+                    biggest_subcluster_count = std::max(biggest_subcluster_count, subcluster_seeds_sorted.size());
+
                     if (track_provenance) {
                         funnel.substage("find_chain");
-                    }    
+                    }
                     // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain({old_seeds, cluster_seeds_sorted}, space));
+                    cluster_chains.emplace_back();
+                    cluster_chains.back().first = std::numeric_limits<int>::min();
+                    cluster_chain_seeds.emplace_back();
+                    
+                    for (auto& subcluster : subcluster_seeds_sorted) {
+                        // Find a chain from this subcluster
+                        auto candidate_chain = algorithms::find_best_chain({old_seeds, subcluster}, space);
+                        if (candidate_chain.first > cluster_chains.back().first) {
+                            // Keep it if it is better
+                            cluster_chains.back() = std::move(candidate_chain);
+                            cluster_chain_seeds.back() = std::move(subcluster);
+                        }
+                    }
                     if (track_provenance) {
                         funnel.substage_stop();
                     }
@@ -799,9 +897,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 longest_fallow_region = std::max(longest_fallow_region, reseed_statistics.second);
                 reseed_seed_count += cluster_seeds_sorted.size() - clustered_seed_count;
                 // TODO: Go back and introduce these to the funnel somehow?
-                
-                // Remember which sorted seeds go with which chains, so we can interpret the chains.
-                processed_cluster_sorted_seeds.emplace_back(std::move(cluster_seeds_sorted));
                 
                 if (track_provenance) {
                     // Record with the funnel that the previous group became a single item.
@@ -984,7 +1079,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     }
                     
                     // We currently just have the one best score and chain per cluster
-                    auto& cluster_seeds_sorted = processed_cluster_sorted_seeds[processed_num];
+                    auto& eligible_seeds = cluster_chain_seeds[processed_num];
                     auto& score_and_chain = cluster_chains[processed_num]; 
                     vector<size_t>& chain = score_and_chain.second;
                     
@@ -998,7 +1093,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                             distance_index,
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                        best_alignments[0] = find_chain_alignment(aln, {seeds, cluster_seeds_sorted}, space, chain);
+                        best_alignments[0] = find_chain_alignment(aln, {seeds, eligible_seeds}, space, chain);
                     } else {
                         // Define a space to chain in.
                         // TODO: re-use!
@@ -1008,7 +1103,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                             scorer,
                             &gbwt_graph);
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                        best_alignments[0] = find_chain_alignment(aln, {old_seeds, cluster_seeds_sorted}, space, chain);
+                        best_alignments[0] = find_chain_alignment(aln, {old_seeds, eligible_seeds}, space, chain);
                     }
                     
                     // TODO: Come up with a good secondary for the cluster somehow.
@@ -1308,6 +1403,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     set_annotation(mappings[0], "total_fallow_regions", (double) total_fallow_regions);
     set_annotation(mappings[0], "longest_fallow_region", (double) longest_fallow_region);
     set_annotation(mappings[0], "reseed_seed_count", (double) reseed_seed_count);
+    set_annotation(mappings[0], "total_subcluster_count", (double) total_subcluster_count);
+    set_annotation(mappings[0], "biggest_subcluster_count", (double) biggest_subcluster_count);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
@@ -1613,9 +1710,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
     std::vector<std::vector<Cluster>> all_clusters;
     if (distance_index != nullptr) {
-        all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+        all_clusters = this->find_clusters(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
     } else {
-        all_clusters = old_clusterer.cluster_seeds(old_seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+        all_clusters = this->find_clusters(old_seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
     }
 
 

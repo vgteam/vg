@@ -360,6 +360,34 @@ struct VectorView {
         }
     }
     
+    /**
+     * Call the given callback with a dense and properly ordered vector of the
+     * items, which can be modified. Modification will not be visible in
+     * the backing storage.
+     *
+     * TODO: will this be called even when the const version could be more
+     * efficiently used?
+     */
+    void with_vector(const std::function<void(vector<Item>&)>& callback) {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back((*items)[i]);
+            }
+            callback(reordered);
+        } else if (items) {
+            // We need a copy
+            std::vector<Item> clone(*items);
+            callback(clone);
+        } else {
+            // We have no items at all.
+            vector<Item> empty;
+            return callback(empty);
+        }
+    }
+    
     /// Random access iterator.
     struct const_iterator {
         using iterator_category = std::random_access_iterator_tag;
@@ -551,6 +579,9 @@ std::vector<size_t> sort_permutation(const Iterator& begin, const Iterator& end)
         return a < b;
     });
 }
+
+/// Apply one permutation on top of another. Retutn the combined permutation.
+std::vector<size_t> stack_permutations(const std::vector<size_t>& bottom, const std::vector<size_t>& top);
 
 struct IncrementIter {
 public:
