@@ -50,6 +50,7 @@ void help_surject(char** argv) {
          << "    -N, --sample NAME       set this sample name for all reads" << endl
          << "    -R, --read-group NAME   set this read group for all reads" << endl
          << "    -f, --max-frag-len N    reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
+         << "    -L, --list-all-paths    annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl;
 }
 
@@ -75,6 +76,7 @@ int main_surject(int argc, char** argv) {
     bool subpath_global = true; // force full length alignments in mpmap resolution
     bool qual_adj = false;
     bool prune_anchors = false;
+    bool annotate_with_all_path_scores = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -100,12 +102,13 @@ int main_surject(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"max-frag-len", required_argument, 0, 'f'},
+            {"list-all-paths", no_argument, 0, 'L'},
             {"compress", required_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPA",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPAL",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -187,6 +190,10 @@ int main_surject(int argc, char** argv) {
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
+                
+        case 'L':
+            annotate_with_all_path_scores = true;
+            break;
 
         case 'h':
         case '?':
@@ -248,6 +255,7 @@ int main_surject(int argc, char** argv) {
     else {
         surjector.min_splice_length = numeric_limits<int64_t>::max();
     }
+    surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
     
     // Count our threads
     int thread_count = vg::get_thread_count();

@@ -8,19 +8,15 @@
 
 #include <set>
 #include <atomic>
+#include <sstream>
+#include <algorithm>
+#include <functional>
 
-#include "alignment.hpp"
 #include "aligner.hpp"
-#include "vg.hpp"
-#include "translator.hpp"
-#include "utility.hpp"
+#include "handle.hpp"
 #include <vg/vg.pb.h>
-#include "multipath_alignment_graph.hpp"
-#include "memoizing_graph.hpp"
-#include "split_strand_graph.hpp"
-#include "sequence_complexity.hpp"
+#include "multipath_alignment.hpp"
 
-#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 
@@ -109,6 +105,8 @@ using namespace std;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
         
+        bool annotate_with_all_path_scores = false;
+        
     protected:
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
@@ -182,6 +180,9 @@ using namespace std;
                                const step_handle_t& range_begin, const step_handle_t& range_end,
                                bool rev_strand, string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
+        template<class AlnType>
+        string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const;
+        
         ///////////////////////
         // Support methods for the spliced surject algorithm
         ///////////////////////
@@ -240,9 +241,36 @@ using namespace std;
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
                                                             const string& src_quality);
         
+        template<class AlnType>
+        static int32_t get_score(const AlnType& aln);
+        
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
+
+
+    template<class AlnType>
+    string Surjector::path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const {
+        
+        vector<tuple<int32_t, string, bool>> paths;
+        for (const auto& surjection : surjections) {
+            paths.emplace_back(get_score(surjection.second.first), graph->get_path_name(surjection.first.first), surjection.first.second);
+        }
+        sort(paths.begin(), paths.end(), greater<tuple<int32_t, string, bool>>());
+        
+        stringstream sstrm;
+        
+        for (size_t i = 0; i < paths.size(); ++i) {
+            if (i != 0) {
+                sstrm << ',';
+            }
+            sstrm << get<1>(paths[i]);
+            sstrm << (get<2>(paths[i]) ? '-' : '+');
+            sstrm << get<0>(paths[i]);
+        }
+        
+        return sstrm.str();
+    }
 }
 
 #endif

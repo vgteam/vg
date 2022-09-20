@@ -3,11 +3,21 @@
  * surjector.cpp: implements a class that surjects alignments onto paths
  */
 
+
+#include "surjector.hpp"
+
+#include "sequence_complexity.hpp"
+#include "alignment.hpp"
+#include "utility.hpp"
+#include "memoizing_graph.hpp"
+#include "multipath_alignment_graph.hpp"
+#include "split_strand_graph.hpp"
+
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
 #include "algorithms/component.hpp"
 
-#include "surjector.hpp"
+#include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
 //#define debug_anchored_surject
@@ -322,6 +332,16 @@ using namespace std;
                 best_path_strand = surjection.first;
             }
         }
+        
+        string annotation_string;
+        if (annotate_with_all_path_scores) {
+            if (aln_out) {
+                annotation_string = path_score_annotations(aln_surjections);
+            }
+            else {
+                annotation_string = path_score_annotations(mp_aln_surjections);
+            }
+        }
                 
         // find the position along the path
         
@@ -335,6 +355,10 @@ using namespace std;
             final_pos = final_position(surjection.first.path());
             path_range = surjection.second;
             *aln_out = move(surjection.first);
+            
+            if (annotate_with_all_path_scores) {
+                set_annotation(aln_out, "all_scores", annotation_string);
+            }
         }
         else {
             auto& surjection = mp_aln_surjections[best_path_strand];
@@ -342,6 +366,10 @@ using namespace std;
             final_pos = final_position(surjection.first.subpath().back().path());
             path_range = surjection.second;
             *mp_aln_out = move(surjection.first);
+            
+            if (annotate_with_all_path_scores) {
+                mp_aln_out->set_annotation("all_scores", annotation_string);
+            }
         }
         
         // use this info to set the path position
@@ -3980,6 +4008,16 @@ using namespace std;
         null.set_sequence(src_sequence);
         null.set_quality(src_quality);
         return null;
+    }
+
+
+    template<>
+    int32_t Surjector::get_score(const Alignment& aln) {
+        return aln.score();
+    }
+    template<>
+    int32_t Surjector::get_score(const multipath_alignment_t& mp_aln) {
+        return optimal_alignment_score(mp_aln);
     }
 }
 
