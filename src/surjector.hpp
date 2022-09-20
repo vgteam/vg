@@ -265,7 +265,7 @@ using namespace std;
                 sstrm << ',';
             }
             sstrm << get<1>(paths[i]);
-            sstrm << (get<2>(paths[i]) ? '-' : '+') << ':';
+            sstrm << (get<2>(paths[i]) ? '-' : '+');
             sstrm << get<0>(paths[i]);
         }
         
