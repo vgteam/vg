@@ -163,7 +163,7 @@ public:
     
     /// When re-clustering after reseeding, over how large a distance should we
     /// connect local clusters?
-    size_t recluster_distance = 500;
+    size_t recluster_distance = 5000;
     
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -987,6 +987,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     const Item* here = &to_chain[*here_it];
     
+#ifdef debug_chaining
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -999,6 +1000,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 << " (" << space.get_graph_sequence(*here) << ")" << endl;
         }
     }
+#endif
     
     space.validate(*here, aln.sequence());
     
@@ -1049,13 +1051,15 @@ Alignment MinimizerMapper::find_chain_alignment(
             throw std::runtime_error(ss.str());
         }
         // Since the tail starts at offset 0, the alignment is already in full read space.
-        
+
+#ifdef debug_chaining
         if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Start with left tail of " << aligned.length << " with score of " << aligned.score << endl;
             }
         }
+#endif
         aligned.check_lengths(gbwt_graph);
     } else {
         // No left tail to start with.
@@ -1063,6 +1067,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         aligned = WFAAlignment::make_empty();
     }
     
+    size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
         
@@ -1081,12 +1086,14 @@ Alignment MinimizerMapper::find_chain_alignment(
             
             if (space.get_read_overlap(*here, *next) > 0) {
                 // There's overlap between these items. Keep here and skip next.
+#ifdef debug_chaining
                 if (show_work) {
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
                     }
                 }
+#endif
             
                 ++next_it;
                 continue;
@@ -1118,6 +1125,8 @@ Alignment MinimizerMapper::find_chain_alignment(
             get_offset(left_anchor)--;
             link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
             
+            longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
+            
             if (link_alignment) {
                 // We found something that can be reached.
                 break;
@@ -1139,17 +1148,20 @@ Alignment MinimizerMapper::find_chain_alignment(
             break;
         }
         
+#ifdef debug_chaining
         if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Add current item " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
             }
         }
+#endif
         
         // Make an alignment for the bases used in this GaplessExtension, and
         // concatenate it in.
         aligned.join(space.to_wfa_alignment(*here));
         
+#ifdef debug_chaining
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -1162,6 +1174,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                     << " (" << space.get_graph_sequence(*next) << ")" << endl;
             }
         }
+#endif
         
         if (link_alignment.length != linking_bases.size()) {
             // We didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
@@ -1173,12 +1186,14 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Put the alignment back into full read space
         link_alignment.seq_offset += space.read_end(*here);
         
+#ifdef debug_chaining
         if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
             }
         }
+#endif
         
         link_alignment.check_lengths(gbwt_graph);
         
@@ -1191,12 +1206,14 @@ Alignment MinimizerMapper::find_chain_alignment(
         here = next;
     }
     
+#ifdef debug_chaining
     if (show_work) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Add last extension " << *here_it << " of length " << space.read_length(*here) << " with score of " << space.score(*here) << endl;
         }
     }
+#endif
     
     WFAAlignment here_alignment = space.to_wfa_alignment(*here);
     
@@ -1246,12 +1263,14 @@ Alignment MinimizerMapper::find_chain_alignment(
             throw std::runtime_error(ss.str());
         }
         
+#ifdef debug_chaining
         if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
             }
         }
+#endif
         
         right_alignment.check_lengths(gbwt_graph);
         
@@ -1261,8 +1280,8 @@ Alignment MinimizerMapper::find_chain_alignment(
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Final alignment is length " << aligned.length << " with score of " << aligned.score << endl;
-            cerr << log_name() << "Final alignment: ";
+            cerr << log_name() << "Composed alignment is length " << aligned.length << " with score of " << aligned.score << endl;
+            cerr << log_name() << "Composed alignment: ";
             aligned.print(cerr);
             cerr << endl;
         }
@@ -1273,6 +1292,10 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Convert to a vg Alignment.
     Alignment result(aln);
     wfa_alignment_to_alignment(aligned, result);
+    
+    set_annotation(result, "left_tail_length", (double) left_tail_length);
+    set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
+    set_annotation(result, "right_tail_length", (double) right_tail_length); 
     
     return result;
 }

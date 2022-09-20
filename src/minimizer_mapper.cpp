@@ -769,6 +769,17 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         fallow_region_size
                     );
                     
+                    if (show_work && !cluster_seeds_sorted.empty()) {
+                        #pragma omp critical (cerr)
+                        {
+                            
+                            cerr << log_name() << "Cluster " << cluster_num << " now covers read "
+                                << space.read_start(seeds[cluster_seeds_sorted.front()])
+                                << " to " << space.read_end(seeds[cluster_seeds_sorted.back()])
+                                << " of " << aln.sequence().size() << std::endl;
+                        }
+                    }
+                    
                     if (track_provenance) {
                         funnel.substage("recluster");
                     }
@@ -782,6 +793,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         // space.
                         // TODO: Let clustering work through a subset/permutation.
                         std::vector<Cluster> subclusters = this->find_clusters(v, recluster_distance);
+                        
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                
+                                cerr << log_name() << "Cluster " << cluster_num << " becomes " << subclusters.size() << " subclusters." << std::endl;
+                            }
+                        }
                         
                         for (auto& subcluster : subclusters) {
                             // Sort each subcluster. Index is into cluster_seeds_sorted so sort order is read order.
@@ -801,9 +820,23 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     cluster_chains.back().first = std::numeric_limits<int>::min();
                     cluster_chain_seeds.emplace_back();
                     
-                    for (auto& subcluster : subcluster_seeds_sorted) {
+                    for (size_t subcluster_num = 0; subcluster_num < subcluster_seeds_sorted.size(); subcluster_num++) {
+                        auto& subcluster = subcluster_seeds_sorted[subcluster_num];
+                        VectorView<Seed> subcluster_view {seeds, subcluster};
                         // Find a chain from this subcluster
-                        auto candidate_chain = algorithms::find_best_chain({seeds, subcluster}, space);
+                        auto candidate_chain = algorithms::find_best_chain(subcluster_view, space);
+                        if (show_work && !candidate_chain.second.empty()) {
+                            #pragma omp critical (cerr)
+                            {
+                                
+                                cerr << log_name() << "Cluster " << cluster_num << " subcluster " << subcluster_num
+                                    << " running " << space.to_string(seeds[subcluster.front()]) << " to " << space.to_string(seeds[subcluster.back()])
+                                    << " has chain with score " << candidate_chain.first
+                                    << " and length " << candidate_chain.second.size()
+                                    << "running R" << space.read_start(subcluster_view[candidate_chain.second.front()])
+                                    << " to R" << space.read_end(subcluster_view[candidate_chain.second.back()]) << std::endl;
+                            }
+                        }
                         if (candidate_chain.first > cluster_chains.back().first) {
                             // Keep it if it is better
                             cluster_chains.back() = std::move(candidate_chain);
@@ -860,6 +893,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         // TODO: Let clustering work through a subset/permutation.
                         std::vector<Cluster> subclusters = this->find_clusters(v, recluster_distance);
                         
+                        if (show_work) {
+                            #pragma omp critical (cerr)
+                            {
+                                
+                                cerr << log_name() << "Cluster " << cluster_num << " becomes " << subclusters.size() << " subclusters." << std::endl;
+                            }
+                        }
+                        
                         for (auto& subcluster : subclusters) {
                             // Sort each subcluster. Index is into cluster_seeds_sorted so sort order is read order.
                             std::sort(subcluster.seeds.begin(), subcluster.seeds.end());
@@ -878,11 +919,23 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     cluster_chains.back().first = std::numeric_limits<int>::min();
                     cluster_chain_seeds.emplace_back();
                     
-                    for (auto& subcluster : subcluster_seeds_sorted) {
+                    for (size_t subcluster_num = 0; subcluster_num < subcluster_seeds_sorted.size(); subcluster_num++) {
+                        auto& subcluster = subcluster_seeds_sorted[subcluster_num];
                         // Find a chain from this subcluster
                         auto candidate_chain = algorithms::find_best_chain({old_seeds, subcluster}, space);
                         if (candidate_chain.first > cluster_chains.back().first) {
                             // Keep it if it is better
+                            
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    
+                                    cerr << log_name() << "Cluster " << cluster_num << " subcluster " << subcluster_num
+                                        << " has new best chain with score " << candidate_chain.first
+                                        << " and length " << candidate_chain.second.size() << std::endl;
+                                }
+                            }
+                            
                             cluster_chains.back() = std::move(candidate_chain);
                             cluster_chain_seeds.back() = std::move(subcluster);
                         }

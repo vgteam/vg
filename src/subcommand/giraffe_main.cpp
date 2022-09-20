@@ -357,6 +357,7 @@ void help_giraffe(char** argv) {
     << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
     << "  --fallow-region-size INT      distance between seeds in the read required to consider a region fallow [1000]" << endl
     << "  --reseed-distance INT         distance to search in the graph when reseeding a fallow region [2000]" << endl
+    << "  --recluster-distance INT      distance to allow between seeds when reclustering after reseeding [5000]" << endl
     << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [5000]" << endl
     << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [5000]" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
@@ -400,8 +401,9 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_NUM_BP_PER_MIN 1015
     #define OPT_FALLOW_REGION_SIZE 1016
     #define OPT_RESEED_DISTANCE 1017
-    #define OPT_MAX_CHAIN_CONNECTION 1018
-    #define OPT_MAX_TAIL_LENGTH 1019
+    #define OPT_RECLUSTER_DISTANCE 1018
+    #define OPT_MAX_CHAIN_CONNECTION 1019
+    #define OPT_MAX_TAIL_LENGTH 1020
     
 
     // initialize parameters with their default options
@@ -429,6 +431,8 @@ int main_giraffe(int argc, char** argv) {
     Range<size_t> fallow_region_size = 1000;
     // How far in the graph should we go to find the subgraph we use to reseed hits for minimizers in fallow regions?
     Range<size_t> reseed_distance = 2000;
+    // How far should we look when re-clustering after reseeding?
+    Range<size_t> recluster_distance = 5000;
     // How far apart can seeds be and still be chained together?
     Range<size_t> max_chain_connection = 5000;
     // How long of a tail are we willing to align in a chain before forcing a softclip?
@@ -506,6 +510,7 @@ int main_giraffe(int argc, char** argv) {
         .chain(max_unique_min)
         .chain(fallow_region_size)
         .chain(reseed_distance)
+        .chain(recluster_distance)
         .chain(max_chain_connection)
         .chain(max_tail_length)
         .chain(max_multimaps)
@@ -589,6 +594,7 @@ int main_giraffe(int argc, char** argv) {
             {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
             {"fallow-region-size", required_argument, 0, OPT_FALLOW_REGION_SIZE},
             {"reseed-distance", required_argument, 0, OPT_RESEED_DISTANCE},
+            {"recluster-distance", required_argument, 0, OPT_RECLUSTER_DISTANCE},
             {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
             {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
             {"rescue-attempts", required_argument, 0, 'r'},
@@ -950,6 +956,10 @@ int main_giraffe(int argc, char** argv) {
 
             case OPT_RESEED_DISTANCE:
                 reseed_distance = parse<Range<size_t>>(optarg);
+                break;
+                
+            case OPT_RECLUSTER_DISTANCE:
+                recluster_distance = parse<Range<size_t>>(optarg);
                 break;
 
             case OPT_MAX_CHAIN_CONNECTION:
@@ -1415,6 +1425,10 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--reseed-distance " << reseed_distance << endl;
         }
         minimizer_mapper.reseed_distance = reseed_distance;
+        if (show_progress) {
+            cerr << "--recluster-distance " << recluster_distance << endl;
+        }
+        minimizer_mapper.recluster_distance = recluster_distance;
 
         if (show_progress) {
             cerr << "--max-chain-connection " << max_chain_connection << endl;

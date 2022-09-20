@@ -44,7 +44,7 @@ using namespace std;
 using vg::operator<<;
 
 //#define debug_chaining
-//#define debug_reseeding
+#define debug_reseeding
 
 
 /// We support chaining different kinds of things, so we have a type that
@@ -1176,7 +1176,7 @@ template<typename Score, typename Item, typename Source = void, typename Collect
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     const LookbackStrategy& lookback_strategy = BucketLookbackStrategy(),
+                     const LookbackStrategy& lookback_strategy = ExponentialLookbackStrategy(),
                      int item_bonus = 0,
                      size_t max_indel_bases = 10000);
 
@@ -1942,7 +1942,7 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                                                       read_length,
                                                       for_each_pos_for_source_in_subgraph,
                                                       max_fallow_search_distance);
-        
+                                                      
         // The newly-found items are not going to be duplicates of
         // each other, but because reseeding subgraphs can overlap,
         // we might get the same exact hits multiple times in
@@ -1951,7 +1951,8 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         //
         // TODO: Make the reseeding subgraphs not overlap so we
         // stop wasting time???
-        
+       
+        size_t kept = 0;
         for (auto& item : new_items) {
             // Deduplicate the newly-found items with previous reseed queries.
             // TODO: We assume that identical bounds means identical items.
@@ -1966,8 +1967,12 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
                 // even when we're using a view over it.
                 item_storage.emplace_back(std::move(item));
                 seen_items.emplace_hint(found, std::move(key));
+                kept++;
             }
         }
+#ifdef debug_reseeding
+        std::cerr << "Kept " << kept << " new seeds" << std::endl;
+#endif
     };
     
     // Find the first run of things starting at the same place in the read.
@@ -2019,6 +2024,13 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
     if (read_length - current_run_read_end > fallow_region_size) {
         // Last run to end is fallow
         reseed(read_length - current_run_read_end, current_run_start, current_run_end, 0, 0);
+    } else {
+#ifdef debug_reseeding
+        std::cerr << "No need to reseed to end of read at " << read_length
+                  << " because run near #" << item_view.backing_index(current_run_start)
+                  << " " << space.to_string(item_view[current_run_start]) << " that ends at "
+                  << current_run_read_end << " is within " << fallow_region_size << " of read end" << std::endl;
+#endif
     }
     
     if (item_storage.size() != sorted_item_indexes.size()) {
@@ -2035,7 +2047,9 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         
         // TODO: De-duplicate sort code with the initial sort
         std::sort(sorted_item_indexes.begin(), sorted_item_indexes.end(), [&](const size_t& a, const size_t& b) -> bool {
-            return space.read_start(item_storage[a]) < space.read_start(item_storage[b]);
+            auto a_start = space.read_start(item_storage[a]);
+            auto b_start = space.read_start(item_storage[b]);
+            return a_start < b_start || (a_start == b_start && space.read_end(item_storage[a]) < space.read_end(item_storage[b]));
         });
     }
     
