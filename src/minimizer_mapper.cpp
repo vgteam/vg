@@ -833,7 +833,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                                     << " running " << space.to_string(seeds[subcluster.front()]) << " to " << space.to_string(seeds[subcluster.back()])
                                     << " has chain with score " << candidate_chain.first
                                     << " and length " << candidate_chain.second.size()
-                                    << "running R" << space.read_start(subcluster_view[candidate_chain.second.front()])
+                                    << " running R" << space.read_start(subcluster_view[candidate_chain.second.front()])
                                     << " to R" << space.read_end(subcluster_view[candidate_chain.second.back()]) << std::endl;
                             }
                         }
