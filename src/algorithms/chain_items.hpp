@@ -130,6 +130,65 @@ struct IndelOnlyChainingScorer : public ChainingScorer {
                                  size_t max_gap_length = std::numeric_limits<size_t>::max()) const;
 };
 
+/**
+ * Source for distances between positions in the graph. May do caching.
+ */
+class DistanceSource {
+public:
+
+    virtual ~DistanceSource() = default;
+
+    /**
+     * Query the distance between two positions. Not const, because caches may
+     * need to be updated.
+     *
+     * Returns std::numeric_limits<size_t>::max() if unreachable.
+     */
+    virtual size_t get_distance(const pos_t& left, const pos_t& right) = 0;
+};
+
+/**
+ * Distance source that pulls straight from a SnarlDistanceIndex.
+ */
+class DistanceIndexDistanceSource : public DistanceSource {
+public:
+
+    DistanceIndexDistanceSource(const SnarlDistanceIndex* distance_index, const HandleGraph* graph);
+    virtual ~DistanceIndexDistanceSource() = default;
+
+    virtual size_t get_distance(const pos_t& left, const pos_t& right);
+   
+protected:
+    const SnarlDistanceIndex* distance_index;
+    const HandleGraph* graph;
+};
+
+/**
+ * Distance source that pulls from a pre-computed graph of oriented distances
+ * between immediate neighbors. Answers queries by doing an algorithmically bad
+ * but in practice probably fast enough Dijkstra every time.
+ */
+class DistanceNetDistanceSource : public DistanceSource {
+public:
+    /**
+     * Make a distance source by exploring the given graph around the given
+     * relevant positions. Only queries between the given positions are
+     * guaranteed to be accepted. The same position may appear multiple times.
+     *
+     * Distances larger than the given max distance between adjacent positions
+     * may not be recorded.
+     */
+    DistanceNetDistanceSource(const HandleGraph* graph, const vector<pos_t>& relevant_positions, size_t max_step_distance = 200);
+    
+    virtual ~DistanceNetDistanceSource() = default;
+
+    virtual size_t get_distance(const pos_t& left, const pos_t& right);
+    
+protected:
+    std::unordered_map<std::pair<nid_t, bool>, std::unordered_map<std::pair<nid_t, bool>, size_t>> immediate_distances;
+    std::unordered_map<nid_t, size_t> node_lengths;
+};
+
 /// Base class of specialized ChainingSpace classes. Defines the ChainingSpace interface.
 template<typename Item>
 struct BaseChainingSpace {
@@ -139,14 +198,31 @@ struct BaseChainingSpace {
     const SnarlDistanceIndex* distance_index;
     const HandleGraph* graph;
     
+    mutable DistanceSource* distance_source;
+    unique_ptr<DistanceSource> distance_source_storage;
+    
     BaseChainingSpace(const ChainingScorer& scorer,
                       const SnarlDistanceIndex* distance_index = nullptr,
-                      const HandleGraph* graph = nullptr) :
+                      const HandleGraph* graph = nullptr,
+                      DistanceSource* distance_source = nullptr) :
         scorer(scorer),
         distance_index(distance_index),
         graph(graph) {
         
-        // Nothing to do!
+        if (distance_source == nullptr && distance_index != nullptr && graph != nullptr) {
+            // Default the distance source
+            distance_source_storage.reset(new DistanceIndexDistanceSource(distance_index, graph));
+            this->distance_source = distance_source_storage.get();
+        } else {
+            this->distance_source = distance_source;
+        }
+    }
+    
+    /// Replace our current distance source with this new one, which we take
+    /// ownership of.
+    virtual void give_distance_source(DistanceSource* new_distance_source) {
+        distance_source_storage.reset(new_distance_source);
+        distance_source = new_distance_source;
     }
     
     /// Get the score collected by visiting the item. Should be an alignment score.
@@ -448,7 +524,7 @@ struct BaseChainingSpace {
     virtual size_t get_graph_distance(const Item& left,
                                       const Item& right) const {
     
-        if (!distance_index || !graph) {
+        if (!distance_source) {
             return numeric_limits<size_t>::max();
         }
         
@@ -456,13 +532,9 @@ struct BaseChainingSpace {
         pos_t left_past_end = graph_end(left);
         // Find where the right one starts
         pos_t right_start = graph_start(right);
-        // Get the oriented minimum distance from the index
-        size_t distance = distance_index->minimum_distance(
-            id(left_past_end), is_rev(left_past_end), offset(left_past_end),
-            id(right_start), is_rev(right_start), offset(right_start),
-            false, graph);
-        // And return it
-        return distance;
+        
+        // Ask the distance source about it
+        return distance_source->get_distance(left_past_end, right_start);
     }
     
     /**
@@ -586,8 +658,9 @@ struct SourceChainingSpace: public BaseChainingSpace<Item> {
     SourceChainingSpace(const VectorView<Source>& sources,
                         const ChainingScorer& scorer,
                         const SnarlDistanceIndex* distance_index,
-                        const HandleGraph* graph) :
-        BaseChainingSpace<Item>(scorer, distance_index, graph), sources(sources) {
+                        const HandleGraph* graph,
+                        DistanceSource* distance_source = nullptr) :
+        BaseChainingSpace<Item>(scorer, distance_index, graph, distance_source), sources(sources) {
         
         // Nothing to do!
     }
@@ -626,8 +699,9 @@ struct MinimizerSourceChainingSpace : public SourceChainingSpace<Item, Source> {
     MinimizerSourceChainingSpace(const VectorView<Source>& sources,
                   const ChainingScorer& scorer,
                   const SnarlDistanceIndex* distance_index,
-                  const HandleGraph* graph) :
-        SourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph) {
+                  const HandleGraph* graph,
+                  DistanceSource* distance_source = nullptr) :
+        SourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph, distance_source) {
         
         // Nothing to do!
     }
@@ -774,8 +848,9 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSour
     ChainingSpace(const VectorView<Source>& sources,
                   const ChainingScorer& scorer,
                   const SnarlDistanceIndex* distance_index,
-                  const HandleGraph* graph) :
-        MinimizerSourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph) {
+                  const HandleGraph* graph,
+                  DistanceSource* distance_source = nullptr) :
+        MinimizerSourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph, distance_source) {
         
         // Nothing to do!
     }

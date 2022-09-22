@@ -1160,6 +1160,58 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
     
 }
 
+
+TEST_CASE("DistanceNetDistanceSource agrees with DistanceIndexDistanceSource", "[chain_items][find_best_chain]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    algorithms::DistanceIndexDistanceSource index_source(&distance_index, &graph);
+    
+    std::vector<pos_t> positions {
+        make_pos_t(1, false, 0),
+        make_pos_t(1, false, 1),
+        make_pos_t(2, false, 0),
+        make_pos_t(2, false, 3),
+        make_pos_t(3, true, 0),
+        make_pos_t(3, true, 3),
+        make_pos_t(4, false, 3)
+    };
+    
+    algorithms::DistanceNetDistanceSource net_source(&graph, positions);
+    
+    auto check = [&](const pos_t& pos_a, const pos_t& pos_b) {
+        size_t index_distance = index_source.get_distance(pos_a, pos_b);
+        size_t net_distance = net_source.get_distance(pos_a, pos_b);
+        REQUIRE(index_distance == net_distance);
+    };
+    
+    
+    SECTION("distances match within a forward strand node") {
+        check(positions[0], positions[1]);
+    }
+    
+    SECTION("distances match within a reverse strand node") {
+        check(positions[4], positions[5]);
+    }
+    
+    SECTION("distances match across forward strand nodes") {
+        check(positions[0], positions[2]);
+    }
+    
+    SECTION("distances match when unreachable") {
+        check(positions[1], positions[0]);
+    }
+    
+    SECTION("distances match when positions are equal") {
+        check(positions[0], positions[0]);
+    }
+}
+
 }
 
 }
