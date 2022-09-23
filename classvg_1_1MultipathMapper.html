@@ -561,8 +561,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a05dd8b61205954b988bb996479883989"><td class="memItemLeft" align="right" valign="top">vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a05dd8b61205954b988bb996479883989">pair_mapping_likelihoods</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs, const vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs) const</td></tr>
 <tr class="memdesc:a05dd8b61205954b988bb996479883989"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a vector of log-likelihoods for each pair mapping.  <a href="classvg_1_1MultipathMapper.html#a05dd8b61205954b988bb996479883989">More...</a><br /></td></tr>
 <tr class="separator:a05dd8b61205954b988bb996479883989"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab013a5c0c2558d345bc003b7f9888a8b"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ab013a5c0c2558d345bc003b7f9888a8b">compute_raw_mapping_quality_from_scores</a> (const vector&lt; double &gt; &amp;scores, bool have_qualities, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:ab013a5c0c2558d345bc003b7f9888a8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a114346585956311ff3db920e34573501"><td class="memItemLeft" align="right" valign="top">vector&lt; int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a114346585956311ff3db920e34573501">compute_raw_mapping_qualities_from_scores</a> (const vector&lt; double &gt; &amp;scores, bool have_qualities, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:a114346585956311ff3db920e34573501"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2994778198719e960d1a2875fa0815e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a2994778198719e960d1a2875fa0815e8">sort_and_compute_mapping_quality</a> (vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns, vector&lt; size_t &gt; *cluster_idxs=nullptr, vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
 <tr class="separator:a2994778198719e960d1a2875fa0815e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afcc5ceaad2a3f21c4c38beb05c59f474"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afcc5ceaad2a3f21c4c38beb05c59f474">sort_and_compute_mapping_quality</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; size_t, size_t &gt;&gt; *duplicate_pairs_out=nullptr, vector&lt; double &gt; *pair_multiplicities=nullptr) const</td></tr>
@@ -1669,8 +1669,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ab013a5c0c2558d345bc003b7f9888a8b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab013a5c0c2558d345bc003b7f9888a8b">&#9670;&nbsp;</a></span>compute_raw_mapping_quality_from_scores()</h2>
+<a id="a114346585956311ff3db920e34573501"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a114346585956311ff3db920e34573501">&#9670;&nbsp;</a></span>compute_raw_mapping_qualities_from_scores()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1679,7 +1679,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t vg::MultipathMapper::compute_raw_mapping_quality_from_scores </td>
+          <td class="memname">vector&lt; int32_t &gt; vg::MultipathMapper::compute_raw_mapping_qualities_from_scores </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
           <td class="paramname"><em>scores</em>, </td>
@@ -1708,7 +1708,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Compute a mapping quality from a list of scores, using the selected method. Optionally considers non-present duplicates of the scores encoded as multiplicities </p>
+<p>Compute a mapping quality from a list of scores, using the selected method. Optionally considers non-present duplicates of the scores encoded as multiplicities Depending on settings, may only return mapping qualities for a prefix of the scores </p>
 
 </div>
 </div>
