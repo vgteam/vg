@@ -119,8 +119,8 @@ namespace vg {
         double alignment_score_partition_function(double lambda, const int8_t* score_matrix,
                                                   const double* nt_freqs) const;
         
-        // TODO: this algorithm has numerical problems, just removing it for now
-        //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
+        vector<double> all_mapping_qualities_exact(const vector<double>& scaled_scores,
+                                                   const vector<double>* multiplicities = nullptr) const;
         
     public:
 
@@ -228,21 +228,28 @@ namespace vg {
         
         /// Computes mapping quality for the first score in a vector of scores.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
-        /// the first mapping quality is always calculated as if it multiplicity is 1.
+        /// only 1 count can apply toward the mapping quality.
         int32_t compute_first_mapping_quality(const vector<double>& scores, bool fast_approximation,
                                               const vector<double>* multiplicities = nullptr) const;
         
         /// Computes mapping quality for the optimal score in a vector of scores.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
-        /// the mapping quality is always calculated as if it multiplicity is 1.
+        /// only 1 count can apply toward the mapping quality.
         int32_t compute_max_mapping_quality(const vector<double>& scores, bool fast_approximation,
                                             const vector<double>* multiplicities = nullptr) const;
         
+        
         /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes).
         /// Optionally includes a vector of implicit counts >= 1 for the score, but the mapping quality is always
-        /// calculated as if each member of the group has multiplicity is 1.
+        /// calculated as if each member of the group has a count of 1.
         int32_t compute_group_mapping_quality(const vector<double>& scores, const vector<size_t>& group,
                                               const vector<double>* multiplicities = nullptr) const;
+        
+        /// Computes mapping quality for all of a vector of scores.
+        /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+        /// only 1 count can apply toward the mapping quality.
+        vector<int32_t> compute_all_mapping_qualities(const vector<double>& scores,
+                                                      const vector<double>* multiplicities = nullptr) const;
         
         /// Returns the  difference between an optimal and second-best alignment scores that would
         /// result in this mapping quality using the fast mapping quality approximation

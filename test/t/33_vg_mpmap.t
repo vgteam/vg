@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 21
 
 
 # Exercise the GBWT
@@ -18,9 +18,9 @@ vg index -x xy2.xg -g xy2.gcsa -v small/xy2.vcf.gz --gbwt-name xy2.gbwt -k 16 xy
 # This read is part ref and part alt which matches a haplotype on X, but is possible on Y as well.
 is "$(vg mpmap --suppress-mismapping -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "MAPQ is 50% without haplotype info"
 is "$(vg mpmap --suppress-mismapping -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "4" "haplotype match can disambiguate"
+is "$(vg mpmap --suppress-mismapping -B -M 2 -n rna -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq | vg view -Kj - | jq .mapping_quality | awk '($1 != 0) {count++} END {print count}')" "2" "MAPQs are computed for all multimappings"
 
 # For paired end, don't do any fragment length estimation
-
 is "$(vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -F GAM -t 1 | vg view -aj - | head -n1 | jq '.mapping_quality')" "3" "MAPQ is 50% when paired without haplotype info"
 vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -F GAM -t 1 > gbwt.gam
 is "$(vg view -aj gbwt.gam | head -n1 | jq '.mapping_quality')" "4" "haplotype match can disambiguate paired"
