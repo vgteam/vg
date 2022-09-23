@@ -500,40 +500,55 @@ double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_s
     return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
 }
 
-// TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
-// time complexity: adding the probability of the maximum likelihood tends to erase the contribution
-// of the other terms so that when you subtract them off you get scores of 0 or infinity
+vector<double> GSSWAligner::all_mapping_qualities_exact(const vector<double>& scaled_scores,
+                                                        const vector<double>* multiplicities) const {
 
-//vector<double> Aligner::all_mapping_qualities_exact(vector<double>& scaled_scores) {
-//
-//    double max_score = *max_element(scaled_scores.begin(), scaled_scores.end());
-//    size_t size = scaled_scores.size();
-//
-//    vector<double> mapping_qualities(size);
-//
-//    if (max_score * size < exp_overflow_limit) {
-//        // no risk of double overflow, sum exp directly (half as many transcendental function evals)
-//        vector<double> exp_scaled_scores(size);
-//        for (size_t i = 0; i < size; i++) {
-//            exp_scaled_scores[i] = exp(scaled_scores[i]);
-//        }
-//        double denom = std::accumulate(exp_scaled_scores.begin(), exp_scaled_scores.end(), 0.0);
-//        for (size_t i = 0; i < size; i++) {
-//            mapping_qualities[i] = -10.0 * log10((denom - exp_scaled_scores[i]) / denom);
-//        }
-//    }
-//    else {
-//        // work in log transformed valued to avoid risk of overflow
-//        double log_sum_exp = scaled_scores[0];
-//        for (size_t i = 1; i < size; i++) {
-//            log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
-//        }
-//        for (size_t i = 0; i < size; i++) {
-//            mapping_qualities[i] = -10.0 * log10(1.0 - exp(scaled_scores[i] - log_sum_exp));
-//        }
-//    }
-//    return mapping_qualities;
-//}
+    double max_score = *max_element(scaled_scores.begin(), scaled_scores.end());
+    vector<double> mapping_qualities(scaled_scores.size());
+
+    if (max_score * scaled_scores.size() < exp_overflow_limit) {
+        // no risk of double overflow, sum exp directly (half as many transcendental function evals)
+        vector<double> exp_scaled_scores(scaled_scores.size());
+        // iterate backwards for improved numerical performance in sorted scores
+        double denom = 0.0;
+        for (int64_t i = scaled_scores.size() - 1; i >= 0; --i) {
+            exp_scaled_scores[i] = exp(scaled_scores[i]);
+            denom += (multiplicities ? (*multiplicities)[i] : 1.0) * exp_scaled_scores[i];
+        }
+        for (size_t i = 0; i < scaled_scores.size(); i++) {
+            double log_prob_error = log10((denom - exp_scaled_scores[i]) / denom);
+            if (isnormal(log_prob_error) || log_prob_error == 0.0) {
+                mapping_qualities[i] = -10.0 * log_prob_error;
+            }
+            else {
+                mapping_qualities[i] = (double) numeric_limits<int32_t>::max();
+            }
+        }
+    }
+    else {
+        // work in log transformed valued to avoid risk of overflow
+        
+        // iterate backwards for improved numerical performance in sorted scores
+        double log_denom = 0.0;
+        for (int64_t i = scaled_scores.size() - 1; i >= 0; --i) {
+            double score = scaled_scores[i];
+            if (multiplicities && (*multiplicities)[i] != 1.0) {
+                score += log((*multiplicities)[i]);
+            }
+            log_denom = add_log(log_denom, score);
+        }
+        for (size_t i = 0; i < scaled_scores.size(); i++) {
+            double log_prob_error = log10(1.0 - exp(scaled_scores[i] - log_denom));
+            if (isnormal(log_prob_error) || log_prob_error == 0.0) {
+                mapping_qualities[i] = -10.0 * log_prob_error;
+            }
+            else {
+                mapping_qualities[i] = (double) numeric_limits<int32_t>::max();
+            }
+        }
+    }
+    return mapping_qualities;
+}
 
 double GSSWAligner::maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                    const vector<double>* multiplicities) {
@@ -767,6 +782,20 @@ int32_t GSSWAligner::compute_group_mapping_quality(const vector<double>& scores,
         scaled_scores[i] = log_base * scores[i];
     }
     return group_mapping_quality_exact(scaled_scores, *grp_ptr, multiplicities);
+}
+
+vector<int32_t> GSSWAligner::compute_all_mapping_qualities(const vector<double>& scores,
+                                                           const vector<double>* multiplicities) const {
+    vector<double> scaled_scores(scores.size(), 0.0);
+    for (size_t i = 0; i < scores.size(); i++) {
+        scaled_scores[i] = log_base * scores[i];
+    }
+    vector<double> double_mapqs = all_mapping_qualities_exact(scaled_scores, multiplicities);
+    vector<int32_t> to_return(double_mapqs.size(), 0);
+    for (size_t i = 0; i < to_return.size(); ++i) {
+        to_return[i] = double_mapqs[i];
+    }
+    return to_return;
 }
 
 void GSSWAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,

@@ -565,8 +565,9 @@ namespace vg {
         
         /// Compute a mapping quality from a list of scores, using the selected method.
         /// Optionally considers non-present duplicates of the scores encoded as multiplicities
-        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores,
-                                                        bool have_qualities, const vector<double>* multiplicities = nullptr) const;
+        /// Depending on settings, may only return mapping qualities for a prefix of the scores
+        vector<int32_t> compute_raw_mapping_qualities_from_scores(const vector<double>& scores, bool have_qualities,
+                                                                  const vector<double>* multiplicities = nullptr) const;
         
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the multipath_alignment_t object
