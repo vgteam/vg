@@ -637,6 +637,38 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // What cluster seeds define the space for clusters' chosen chains?
     vector<vector<size_t>> cluster_chain_seeds;
     
+    // For chaining, we might need a chaining space. We lazily initialize it
+    // and keep it here. We cast it to the right type when we actually need it.
+    std::unique_ptr<algorithms::UnknownItemChainingSpace> space_storage;
+    // And the space might need a scorer
+    std::unique_ptr<algorithms::ChainingScorer> scorer;
+    
+    if (align_from_chains) {
+        // Set up the initial chaining space
+        scorer.reset(new algorithms::IndelOnlyChainingScorer(*get_regular_aligner()));
+        
+        if (distance_index != nullptr) {
+            // We're using the new seed type
+            space_storage.reset(
+                new algorithms::ChainingSpace<Seed, Minimizer>(
+                    minimizers,
+                    *scorer,
+                    distance_index,
+                    &gbwt_graph
+                )
+            );
+        } else {
+            // We're using the old seed type
+            space_storage.reset(
+                new algorithms::ChainingSpace<OldSeed, Minimizer>(
+                    minimizers,
+                    *scorer,
+                    &gbwt_graph
+                )
+            );
+        }
+    }
+    
     // Over all clusters, we track some reseed statistics.
     size_t total_fallow_regions = 0;
     size_t longest_fallow_region = 0;
@@ -742,14 +774,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         dump_debug_seeds(minimizers, seeds, cluster.seeds);
                     }
                 
-                    // Define a space to chain in.
-                    // TODO: re-use!
-                    algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
-                    algorithms::ChainingSpace<Seed, Minimizer> space(
-                        minimizers,
-                        scorer,
-                        distance_index,
-                        &gbwt_graph);
+                    // Go get the space we are chaining in and cast to the right type.
+                    auto& space = *(algorithms::ChainingSpace<Seed, Minimizer>*)(space_storage.get());
                         
                     // Sort seeds by read start of seeded region, and remove indexes for seeds that are redundant
                     algorithms::sort_and_shadow(seeds, cluster_seeds_sorted, space);
@@ -815,6 +841,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     if (track_provenance) {
                         funnel.substage("find_chain");
                     }
+                    
                     // Compute the best chain
                     cluster_chains.emplace_back();
                     cluster_chains.back().first = std::numeric_limits<int>::min();
@@ -823,6 +850,40 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     for (size_t subcluster_num = 0; subcluster_num < subcluster_seeds_sorted.size(); subcluster_num++) {
                         auto& subcluster = subcluster_seeds_sorted[subcluster_num];
                         VectorView<Seed> subcluster_view {seeds, subcluster};
+                        
+                        if (use_distance_net) {
+                            // Replace the graph distance setup with one
+                            // precomputed just for this subcluster.
+                            
+                            // TODO: This creates a bunch of imperative long-range
+                            // dependencies! We rely on nobody doing any
+                            // get_graph_distance() calls except in the chaining,
+                            // which happens right after this!
+                            
+                            // Collect all the graph points we care about distances between
+                            std::vector<pos_t> relevant_positions;
+                            for (auto& item : subcluster_view) {
+                                relevant_positions.push_back(space.graph_start(item));
+                                relevant_positions.push_back(space.graph_end(item));
+                            }
+                            
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    
+                                    cerr << log_name() << "Precomputing distance net over " << relevant_positions.size() << " relevant positions" << std::endl;
+                                }
+                            }
+                            
+                            // Precompute and apply the net, with distances out
+                            // to our max connection
+                            space.give_distance_source(
+                                new algorithms::DistanceNetDistanceSource(
+                                    &gbwt_graph, relevant_positions, max_chain_connection
+                                )
+                            );
+                        }
+                            
                         // Find a chain from this subcluster
                         auto candidate_chain = algorithms::find_best_chain(subcluster_view, space);
                         if (show_work && !candidate_chain.second.empty()) {
@@ -852,13 +913,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                         dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
                     }
                 
-                    // Define a space to chain in.
-                    // TODO: re-use!
-                    algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
-                    algorithms::ChainingSpace<OldSeed, Minimizer> space(
-                        minimizers,
-                        scorer,
-                        &gbwt_graph);
+                    // Go get the space we are chaining in and cast to the right type.
+                    auto& space = *(algorithms::ChainingSpace<OldSeed, Minimizer>*)(space_storage.get());
                         
                     // Sort seeds by read start of seeded region, and remove indexes for seeds that are redundant
                     algorithms::sort_and_shadow(old_seeds, cluster_seeds_sorted, space);
@@ -921,8 +977,43 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     
                     for (size_t subcluster_num = 0; subcluster_num < subcluster_seeds_sorted.size(); subcluster_num++) {
                         auto& subcluster = subcluster_seeds_sorted[subcluster_num];
+                        VectorView<OldSeed> subcluster_view {old_seeds, subcluster};
+                        
+                        if (use_distance_net) {
+                            // Replace the graph distance setup with one
+                            // precomputed just for this subcluster.
+                            
+                            // TODO: This creates a bunch of imperative long-range
+                            // dependencies! We rely on nobody doing any
+                            // get_graph_distance() calls except in the chaining,
+                            // which happens right after this!
+                            
+                            // Collect all the graph points we care about distances between
+                            std::vector<pos_t> relevant_positions;
+                            for (auto& item : subcluster_view) {
+                                relevant_positions.push_back(space.graph_start(item));
+                                relevant_positions.push_back(space.graph_end(item));
+                            }
+                            
+                            if (show_work) {
+                                #pragma omp critical (cerr)
+                                {
+                                    
+                                    cerr << log_name() << "Precomputing distance net over " << relevant_positions.size() << " relevant positions" << std::endl;
+                                }
+                            }
+                            
+                            // Precompute and apply the net, with distances out
+                            // to our max connection
+                            space.give_distance_source(
+                                new algorithms::DistanceNetDistanceSource(
+                                    &gbwt_graph, relevant_positions, max_chain_connection
+                                )
+                            );
+                        }
+                        
                         // Find a chain from this subcluster
-                        auto candidate_chain = algorithms::find_best_chain({old_seeds, subcluster}, space);
+                        auto candidate_chain = algorithms::find_best_chain(subcluster_view, space);
                         if (candidate_chain.first > cluster_chains.back().first) {
                             // Keep it if it is better
                             
@@ -1137,24 +1228,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     vector<size_t>& chain = score_and_chain.second;
                     
                     if (distance_index != nullptr) {
-                        // Define a space to chain in.
-                        // TODO: re-use!
-                        algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
-                        algorithms::ChainingSpace<Seed, Minimizer> space(
-                            minimizers,
-                            scorer,
-                            distance_index,
-                            &gbwt_graph);
+                        // Go get the space we are chaining in and cast to the right type.
+                        auto& space = *(algorithms::ChainingSpace<Seed, Minimizer>*)(space_storage.get());
+                        
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
                         best_alignments[0] = find_chain_alignment(aln, {seeds, eligible_seeds}, space, chain);
                     } else {
-                        // Define a space to chain in.
-                        // TODO: re-use!
-                        algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
-                        algorithms::ChainingSpace<OldSeed, Minimizer> space(
-                            minimizers,
-                            scorer,
-                            &gbwt_graph);
+                        // Go get the space we are chaining in and cast to the right type.
+                        auto& space = *(algorithms::ChainingSpace<OldSeed, Minimizer>*)(space_storage.get());
                         // Do the DP between the items in the cluster as specified by the chain we got for it. 
                         best_alignments[0] = find_chain_alignment(aln, {old_seeds, eligible_seeds}, space, chain);
                     }

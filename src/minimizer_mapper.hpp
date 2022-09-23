@@ -172,6 +172,9 @@ public:
     size_t max_chain_connection = 5000;
     /// Similarly, what is the maximum tail length we will try to align?
     size_t max_tail_length = 5000;
+    /// Should we use a precomputed distance net for our chaining space,
+    /// instead of querying the distance index?
+    bool use_distance_net = false;
     
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
@@ -327,7 +330,6 @@ protected:
     /// We have a clusterer
     SnarlSeedClusterer old_clusterer;
     NewSnarlSeedClusterer clusterer;
-
     
     /// We have a distribution for read fragment lengths that takes care of
     /// knowing when we've observed enough good ones to learn a good

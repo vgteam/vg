@@ -44,7 +44,7 @@ using namespace std;
 using vg::operator<<;
 
 //#define debug_chaining
-#define debug_reseeding
+//#define debug_reseeding
 
 
 /// We support chaining different kinds of things, so we have a type that
@@ -63,17 +63,15 @@ struct ChainingSpace {
  * items.
  */
 struct ChainingScorer {
-    int match;
-    int mismatch;
-    int gap_open;
-    int gap_extension;
-    
+
     /**
      * Make a ChainingScorer off of an Aligner.
      */
     inline ChainingScorer(const Aligner& scores = Aligner()) : match(scores.match), mismatch(scores.mismatch), gap_open(scores.gap_open), gap_extension(scores.gap_extension) {
         // Nothing to do!
     }
+    
+    virtual ~ChainingScorer() = default;
     
     /**
      * Score a transition between two items, based on read and graph distance.
@@ -86,7 +84,14 @@ struct ChainingScorer {
     virtual int score_transition(size_t read_distance,
                                  const size_t* graph_distance,
                                  size_t max_gap_length = std::numeric_limits<size_t>::max()) const = 0;
-    
+
+
+
+    int match;
+    int mismatch;
+    int gap_open;
+    int gap_extension;
+
 };
 
 /**
@@ -95,6 +100,8 @@ struct ChainingScorer {
 struct MatchAssumingChainingScorer : public ChainingScorer {
 
     using ChainingScorer::ChainingScorer;
+    
+    virtual ~MatchAssumingChainingScorer() = default;
     
     /**
      * Score a transition between two items, based on read and graph distance.
@@ -116,6 +123,8 @@ struct MatchAssumingChainingScorer : public ChainingScorer {
 struct IndelOnlyChainingScorer : public ChainingScorer {
 
     using ChainingScorer::ChainingScorer;
+    
+    virtual ~IndelOnlyChainingScorer() = default;
 
     /**
      * Score a transition between two items, based on read and graph distance.
@@ -189,9 +198,15 @@ protected:
     std::unordered_map<nid_t, size_t> node_lengths;
 };
 
+/// Baser base class to let you hold chaining spaces over anything, and destroy
+/// them without knowing what they are over
+struct UnknownItemChainingSpace {
+    virtual ~UnknownItemChainingSpace() = default;
+};
+
 /// Base class of specialized ChainingSpace classes. Defines the ChainingSpace interface.
 template<typename Item>
-struct BaseChainingSpace {
+struct BaseChainingSpace : public UnknownItemChainingSpace {
     
     const ChainingScorer& scorer;
     
@@ -218,6 +233,8 @@ struct BaseChainingSpace {
         }
     }
     
+    virtual ~BaseChainingSpace() = default;
+    
     /// Replace our current distance source with this new one, which we take
     /// ownership of.
     virtual void give_distance_source(DistanceSource* new_distance_source) {
@@ -225,8 +242,15 @@ struct BaseChainingSpace {
         distance_source = new_distance_source;
     }
     
-    /// Get the score collected by visiting the item. Should be an alignment score.
+    /// Get the score collected by visiting the item.
     virtual int score(const Item& item) const {
+        // Default implementation assumes a perfect match
+        return scorer.match * read_length(item);
+    }
+    
+    /// Get the alignment score for the alignment represented by an item. May
+    /// be different han the score used in chaining.
+    virtual int alignment_score(const Item& item) const {
         // Default implementation assumes a perfect match
         return scorer.match * read_length(item);
     }
@@ -271,7 +295,7 @@ struct BaseChainingSpace {
             (uint32_t)graph_path_offset(item),
             (uint32_t)read_start(item),
             (uint32_t)read_length(item),
-            score(item),
+            alignment_score(item),
             true
         };
     }
@@ -596,6 +620,8 @@ struct ChainingSpace<GaplessExtension, void>: public BaseChainingSpace<GaplessEx
     // Keep the constructor
     using BaseChainingSpace<Item>::BaseChainingSpace;
     
+    virtual ~ChainingSpace() = default;
+    
     int score(const Item& item) const {
         return item.score;
     }
@@ -665,6 +691,8 @@ struct SourceChainingSpace: public BaseChainingSpace<Item> {
         // Nothing to do!
     }
     
+    virtual ~SourceChainingSpace() = default;
+    
     // API for sources
     
     virtual size_t source_read_start(const Source& source) const = 0;
@@ -705,6 +733,8 @@ struct MinimizerSourceChainingSpace : public SourceChainingSpace<Item, Source> {
         
         // Nothing to do!
     }
+    
+    virtual ~MinimizerSourceChainingSpace() = default;
     
     /// Score items flat by minimizer length
     virtual int score(const Item& item) const {
@@ -855,6 +885,8 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSour
         // Nothing to do!
     }
     
+    virtual ~ChainingSpace() = default;
+    
     
 };
 
@@ -870,6 +902,8 @@ struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public MinimizerSourceC
         
         // Nothing to do!
     }
+    
+    virtual ~ChainingSpace() = default;
 };
 
 // For doing scores with backtracing, we use this type, which is a
@@ -2064,6 +2098,13 @@ pair<size_t, size_t> reseed_fallow_regions(vector<Item>& item_storage,
         
         // Find all the indexes of current run items. Treat them as "right"
         reseed(space.read_start(item_view[current_run_start]), 0, 0, current_run_start, current_run_end);
+    } else {
+#ifdef debug_reseeding
+        std::cerr << "No need to reseed from start of read at 0"
+                  << " because run near #" << item_view.backing_index(current_run_start)
+                  << " " << space.to_string(item_view[current_run_start]) 
+                  << " is within " << fallow_region_size << " of read start" << std::endl;
+#endif
     }
     
     while (current_run_end < item_view.size()) {

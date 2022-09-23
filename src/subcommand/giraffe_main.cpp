@@ -360,6 +360,7 @@ void help_giraffe(char** argv) {
     << "  --recluster-distance INT      distance to allow between seeds when reclustering after reseeding [5000]" << endl
     << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [5000]" << endl
     << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [5000]" << endl
+    << "  --use-distance-net            use a precomputed distance net for chaining instead of distance index queries" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
@@ -404,6 +405,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_RECLUSTER_DISTANCE 1018
     #define OPT_MAX_CHAIN_CONNECTION 1019
     #define OPT_MAX_TAIL_LENGTH 1020
+    #define OPT_USE_DISTANCE_NET 1021
     
 
     // initialize parameters with their default options
@@ -437,6 +439,8 @@ int main_giraffe(int argc, char** argv) {
     Range<size_t> max_chain_connection = 5000;
     // How long of a tail are we willing to align in a chain before forcing a softclip?
     Range<size_t> max_tail_length = 5000;
+    // Should we use the distance net distance computation method?
+    bool use_distance_net = false;
     
     // What GAM should we realign?
     string gam_filename;
@@ -597,6 +601,7 @@ int main_giraffe(int argc, char** argv) {
             {"recluster-distance", required_argument, 0, OPT_RECLUSTER_DISTANCE},
             {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
             {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
+            {"use-distance-net", no_argument, 0, OPT_USE_DISTANCE_NET},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
@@ -968,6 +973,10 @@ int main_giraffe(int argc, char** argv) {
 
             case OPT_MAX_TAIL_LENGTH:
                 max_tail_length = parse<Range<size_t>>(optarg);
+                break;
+                
+            case OPT_USE_DISTANCE_NET:
+                use_distance_net = true;
                 break;
                 
             case 'r':
@@ -1439,6 +1448,11 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--max-tail-length " << max_tail_length << endl;
         }
         minimizer_mapper.max_tail_length = max_tail_length;
+        
+        if (show_progress && use_distance_net) {
+            cerr << "--use-distance-net" << endl;
+        }
+        minimizer_mapper.use_distance_net = use_distance_net;
 
         if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;
