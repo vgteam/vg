@@ -4517,9 +4517,6 @@ void MinimizerMapper::dfs_gbwt(handle_t from_handle, size_t from_offset, size_t 
 void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
     const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const {
     
-    // Holds the gbwt::SearchState we are at, and the distance we have consumed
-    using traversal_state_t = pair<gbwt::SearchState, size_t>;
-    
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Stop.
         return;
@@ -4534,60 +4531,81 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
     // the node. Our start position is a cut *between* bases, and we take everything after it.
     // If the cut is at the offset of the whole length of the node, we take 0 bases.
     // If it is at 0, we take all the bases in the node.
-    size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;
+    size_t remaining_root = gbwt_graph.get_length(from_handle) - from_offset;
     
 #ifdef debug
     cerr << "DFS starting at offset " << from_offset << " on node "
         << gbwt_graph.get_id(from_handle) << " " << gbwt_graph.get_is_reverse(from_handle) << " of length "
-        << gbwt_graph.get_length(from_handle) << " leaving " << distance_to_node_end << " bp" << endl;
+        << gbwt_graph.get_length(from_handle) << " leaving " << remaining_root << " bp" << endl;
 #endif
-
-
-    // Have a recursive function that does the DFS. We fire the enter and exit
-    // callbacks, and the user can keep their own stack.
-    function<void(const gbwt::SearchState&, size_t, bool, bool)> recursive_dfs = [&](const gbwt::SearchState& here_state,
-        size_t used_distance, bool hide_root, bool root_measured_already) {
+    
+    // We would do a recursive formulation, but if attempted on long reads that can run out of stack.
+    // See <https://github.com/vgteam/vg/issues/3733>.
+    // So we go the iterative route. Which means we need a stack frame for our simulated stack.
+    struct Frame {
+        gbwt::SearchState here_state;
+        size_t used_distance;
+        bool visit;
+    };
+    std::stack<Frame> stack;
+    
+    // Start the DFS with our stating node, consuming the distance from our
+    // offset to its end. Don't show the root state to the user if we don't
+    // actually visit any bases on that node.
+    // Make sure we don't count the length of the root node inside the DFS,
+    // since we are already feeding it in.
+    stack.push({start_state, 0, 0});
+    
+    while (!stack.empty()) {
+        auto& frame = stack.top();
         
-        handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
+        handle_t here_handle = gbwt_graph.node_to_handle(frame.here_state.node);
         
-        if (!hide_root) {
-            // Enter this handle if there are any bases on it to visit
+        // If we're at the root node we don't measure it the same way
+        bool is_root = (stack.size() == 1);
+        // If we're at the root node but there's no bases on it left, we don't show it.
+        bool is_hidden_root = (is_root && remaining_root == 0);
+        
+        if (frame.visit == 0) {
+            // First visit
+            frame.visit++;
             
+            if (!is_hidden_root) {
+                // Enter this handle if there are any bases on it to visit
 #ifdef debug
-            cerr << "Enter handle " << gbwt_graph.get_id(here_handle) << " " << gbwt_graph.get_is_reverse(here_handle) << endl;
+                cerr << "Enter handle " << gbwt_graph.get_id(here_handle) << " " << gbwt_graph.get_is_reverse(here_handle) << endl;
 #endif
+                enter_handle(here_handle);
+            }
             
-            enter_handle(here_handle);
-        }
-        
-        if (!root_measured_already) {
-            // Up the used distance with our length
-            used_distance += gbwt_graph.get_length(here_handle);
-
+            // Use the length of the node, or the remaining root if we're the root.
+            size_t node_length = is_root ? remaining_root : gbwt_graph.get_length(here_handle);
+            frame.used_distance += node_length;
 #ifdef debug
-            cerr << "Node was " << gbwt_graph.get_length(here_handle) << " bp; Used " << used_distance << "/" << walk_distance << " bp distance" << endl;
+            cerr << "Node was " << node_length << " bp; Used " << frame.used_distance << "/" << walk_distance << " bp distance" << endl;
 #endif
-        } else {
-#ifdef debug
-            cerr << "Node was already measured; Used " << used_distance << "/" << walk_distance << " bp distance" << endl;
-#endif
-        }
-        
-        if (used_distance < walk_distance) {
-            // If we haven't used up all our distance yet
-            
-            gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
-                // For each next state
+            if (frame.used_distance < walk_distance) {
+                // If we haven't used up all our distance yet
                 
-                // Otherwise, do it with the new distance value.
-                // Don't hide the root on any child subtrees; only the top root can need hiding.
-                recursive_dfs(there_state, used_distance, false, false);
+                // Stack up all the paths onto the stack to be processed.
+                gbwt_graph.follow_paths(frame.here_state, [&](const gbwt::SearchState& there_state) -> bool {
+                    // For each next state
+                    
+                    // Do it with the new distance value.
+                    stack.push({there_state, frame.used_distance, 0});
+                    
+                    return true;
+                });
                 
-                return true;
-            });
+                // Jump to handling the new top of the stack. When we come back
+                // to us, we'll take the second visit branch.
+                continue;
+            }
         }
-            
-        if (!hide_root) {
+        
+        // Second visit, or first visit didn't expand the stack.
+        
+        if (!is_hidden_root) {
             // Exit this handle if we entered it
             
 #ifdef debug
@@ -4596,15 +4614,10 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
             
             exit_handle();
         }
-    };
-    
-    // Start the DFS with our stating node, consuming the distance from our
-    // offset to its end. Don't show the root state to the user if we don't
-    // actually visit any bases on that node.
-    // Make sure we don't count the length of the root node inside the DFS,
-    // since we are already feeding it in.
-    recursive_dfs(start_state, distance_to_node_end, distance_to_node_end == 0, true);
-
+        
+        // Remove ourselves from the stack.
+        stack.pop();
+    }
 }
 
 //-----------------------------------------------------------------------------
