@@ -39,31 +39,6 @@ public:
     }
 };
 
-//TODO: This is outdated
-//Given a position, return distances that can be stored by a minimizer
-//
-//If the position is on a boundary node of a top level chain, then return true, and 
-//a unique identifier for the connected component that the node is on and
-//the offset of the position in the root chain - the minimum distance from the beginning of the chain to 
-//the position
-//The second bool will be false and the remaining size_t's will be 0
-//
-//If the position is on a child node of a top-level simple bubble (bubble has no children and nodes connect only to boundaries)
-//return false, 0, 0, true, and the rank of the bubble in its chain, the length of the start
-//node of the snarl, the length of the end node (relative to a fd traversal of the chain), and
-//the length of the node
-//
-//If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
-//false and MIPayload::NO_VALUE for all values
-//
-
-
-//Given a position, return the distances that can be stored by a minimizer
-//record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, prefix sum, chain_component 
-tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
-
-
-
 //Given an alignment to a graph and a range, find the set of nodes in the
 //graph for which the minimum distance from the position to any position
 //in the node is within the given distance range
@@ -102,6 +77,34 @@ void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, c
 void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const net_handle_t& parent, std::unordered_set<nid_t>& subgraph);
 
 
+
+//The distance values that get stored in an MIPayload
+struct MIPayloadValues{
+
+    //The record offset of the node
+    size_t record_offset; 
+
+    //The record offset of the parent
+    size_t parent_record_offset; 
+
+    //The node record offset of the node (eg, which node in a trivial snarl)
+    size_t node_record_offset;
+
+    size_t node_length;
+
+    //Is the node reversed in its parent
+    bool is_reversed;
+
+    bool is_trivial_chain;
+
+    bool parent_is_chain;
+
+    bool parent_is_root; 
+
+    size_t prefix_sum;
+
+    size_t chain_component;
+};
 
 ///
 // The encoding of distances for positions in top-level chains
@@ -165,41 +168,30 @@ struct MIPayload {
 
     //Encode and decode from the following values:
     //record offset of node, record offset of parent, node record offset, node length, is_reversed, parent is chain, prefix sum, chain_component 
-    static gbwtgraph::payload_type encode(tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> info) {
+    static gbwtgraph::payload_type encode(MIPayloadValues info) {
 
-        size_t node_record = std::get<0>(info);
-        size_t parent_record = std::get<1>(info);
-        size_t node_record_offset = std::get<2>(info);
-        size_t node_length = std::get<3>(info);
-        bool is_reversed = std::get<4>(info);
-        bool is_trivial_chain = std::get<5>(info);
-        bool parent_is_chain = std::get<6>(info);
-        bool parent_is_root = std::get<7>(info);
-        size_t prefix_sum = std::get<8>(info);
-        size_t chain_component = std::get<9>(info);
-
-        if ( node_record > NODE_RECORD_MASK 
-             || parent_record > PARENT_RECORD_MASK
-             || node_record_offset > NODE_RECORD_OFFSET_MASK
-             || node_length > NODE_LENGTH_MASK
-             || prefix_sum > PREFIX_SUM_MASK
-             || chain_component > CHAIN_COMPONENT_MASK) {
+        if ( info.record_offset > NODE_RECORD_MASK 
+             || info.parent_record_offset > PARENT_RECORD_MASK
+             || info.node_record_offset > NODE_RECORD_OFFSET_MASK
+             || info.node_length > NODE_LENGTH_MASK
+             || info.prefix_sum > PREFIX_SUM_MASK
+             || info.chain_component > CHAIN_COMPONENT_MASK) {
             //If there aren't enough bits to represent one of the values
             return {std::numeric_limits<code_type>::max(),
                     std::numeric_limits<code_type>::max()};
         }
 
-        code_type encoded1 = (static_cast<code_type>(node_record)        << NODE_RECORD_OFFSET)
-                           | (static_cast<code_type>(parent_record)      << PARENT_RECORD_OFFSET);
+        code_type encoded1 = (static_cast<code_type>(info.record_offset)           << NODE_RECORD_OFFSET)
+                           | (static_cast<code_type>(info.parent_record_offset)  << PARENT_RECORD_OFFSET);
 
-        code_type encoded2 = (static_cast<code_type>(node_record_offset) << NODE_RECORD_OFFSET_OFFSET)
-                           | (static_cast<code_type>(node_length)        << NODE_LENGTH_OFFSET)
-                           | (static_cast<code_type>(is_reversed)        << IS_REVERSED_OFFSET)
-                           | (static_cast<code_type>(is_trivial_chain)   << IS_TRIVIAL_CHAIN_OFFSET)
-                           | (static_cast<code_type>(parent_is_chain)    << PARENT_IS_CHAIN_OFFSET)
-                           | (static_cast<code_type>(parent_is_root)    << PARENT_IS_ROOT_OFFSET)
-                           | (static_cast<code_type>(prefix_sum)         << PREFIX_SUM_OFFSET)
-                           | (static_cast<code_type>(chain_component)    << CHAIN_COMPONENT_OFFSET);
+        code_type encoded2 = (static_cast<code_type>(info.node_record_offset) << NODE_RECORD_OFFSET_OFFSET)
+                           | (static_cast<code_type>(info.node_length)        << NODE_LENGTH_OFFSET)
+                           | (static_cast<code_type>(info.is_reversed)        << IS_REVERSED_OFFSET)
+                           | (static_cast<code_type>(info.is_trivial_chain)   << IS_TRIVIAL_CHAIN_OFFSET)
+                           | (static_cast<code_type>(info.parent_is_chain)    << PARENT_IS_CHAIN_OFFSET)
+                           | (static_cast<code_type>(info.parent_is_root)    << PARENT_IS_ROOT_OFFSET)
+                           | (static_cast<code_type>(info.prefix_sum)         << PREFIX_SUM_OFFSET)
+                           | (static_cast<code_type>(info.chain_component)    << CHAIN_COMPONENT_OFFSET);
 
         return {encoded1, encoded2};
 
@@ -207,28 +199,52 @@ struct MIPayload {
 
     
 
-    static tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> decode(gbwtgraph::payload_type code) {
+    static MIPayloadValues decode(gbwtgraph::payload_type code) {
         if (code.first == std::numeric_limits<code_type>::max() &&
             code.second == std::numeric_limits<code_type>::max()) {
-            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false, false, false, false, NO_VALUE, NO_VALUE);
+            return {NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false, false, false, false, NO_VALUE, NO_VALUE};
         } else {
-            return std::tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> (
-                code.first  >> NODE_RECORD_OFFSET        & NODE_RECORD_MASK,
-                code.first  >> PARENT_RECORD_OFFSET      & PARENT_RECORD_MASK,
+            return {
+                (size_t) (code.first  >> NODE_RECORD_OFFSET        & NODE_RECORD_MASK),
+                (size_t) (code.first  >> PARENT_RECORD_OFFSET      & PARENT_RECORD_MASK),
 
-                code.second >> NODE_RECORD_OFFSET_OFFSET & NODE_RECORD_OFFSET_MASK,
-                code.second >> NODE_LENGTH_OFFSET        & NODE_LENGTH_MASK,
-                code.second >> IS_REVERSED_OFFSET        & 1,
-                code.second >> IS_TRIVIAL_CHAIN_OFFSET   & 1,
-                code.second >> PARENT_IS_CHAIN_OFFSET    & 1,
-                code.second >> PARENT_IS_ROOT_OFFSET     & 1,
-                code.second >> PREFIX_SUM_OFFSET         & PREFIX_SUM_MASK,
-                code.second >> CHAIN_COMPONENT_OFFSET    & CHAIN_COMPONENT_MASK);
+                (size_t) (code.second >> NODE_RECORD_OFFSET_OFFSET & NODE_RECORD_OFFSET_MASK),
+                (size_t) (code.second >> NODE_LENGTH_OFFSET        & NODE_LENGTH_MASK),
+                (bool) (code.second >> IS_REVERSED_OFFSET        & 1),
+                (bool) (code.second >> IS_TRIVIAL_CHAIN_OFFSET   & 1),
+                (bool) (code.second >> PARENT_IS_CHAIN_OFFSET    & 1),
+                (bool) (code.second >> PARENT_IS_ROOT_OFFSET     & 1),
+                (size_t) (code.second >> PREFIX_SUM_OFFSET         & PREFIX_SUM_MASK),
+                (size_t) (code.second >> CHAIN_COMPONENT_OFFSET    & CHAIN_COMPONENT_MASK)};
 
 
         }
     }
 };
+
+//Given a position, return distances that can be stored by a minimizer
+//
+//If the position is on a boundary node of a top level chain, then return true, and 
+//a unique identifier for the connected component that the node is on and
+//the offset of the position in the root chain - the minimum distance from the beginning of the chain to 
+//the position
+//The second bool will be false and the remaining size_t's will be 0
+//
+//If the position is on a child node of a top-level simple bubble (bubble has no children and nodes connect only to boundaries)
+//return false, 0, 0, true, and the rank of the bubble in its chain, the length of the start
+//node of the snarl, the length of the end node (relative to a fd traversal of the chain), and
+//the length of the node
+//
+//If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
+//false and MIPayload::NO_VALUE for all values
+//
+
+
+//Given a position, return the distances that can be stored by a minimizer
+//record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, prefix sum, chain_component 
+MIPayloadValues get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+
+
 
 }
 

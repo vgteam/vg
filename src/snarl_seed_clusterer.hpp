@@ -60,8 +60,8 @@ class NewSnarlSeedClusterer {
             //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
             // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
 
-            tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> minimizer_cache  = 
-                make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+            MIPayloadValues minimizer_cache  = 
+                {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE};
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -105,6 +105,13 @@ class NewSnarlSeedClusterer {
 
         vector<vector<Cluster>> cluster_seeds ( 
                 vector<vector<Seed>>& all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const;
+
+
+        /**
+         * Find the minimum distance between two seeds. This will use the minimizer payload when possible,
+         * and also update the seeds payload if it is missing
+         */
+        size_t distance_between_seeds(Seed& seed1, Seed& seed2, bool stop_at_lowest_common_ancestor) const;
 
     private:
 

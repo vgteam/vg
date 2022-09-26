@@ -1739,7 +1739,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
  */
 
 
-tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
+MIPayloadValues get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
 
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
@@ -1822,16 +1822,16 @@ tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t> ge
         component = distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle)
                                                                           : 0;
     }
-    return std::make_tuple( record_offset,
-                            parent_record_offset,
-                            node_record_offset,
-                            node_length,
-                            is_reversed_in_parent,
-                            is_trivial_chain,
-                            parent_is_chain,
-                            parent_is_root,
-                            prefix_sum,
-                            component);
+    return { record_offset,
+             parent_record_offset,
+             node_record_offset,
+             node_length,
+             is_reversed_in_parent,
+             is_trivial_chain,
+             parent_is_chain,
+             parent_is_root,
+             prefix_sum,
+             component};
 
 }
     

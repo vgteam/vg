@@ -84,7 +84,7 @@ struct seed_traits<NewSnarlSeedClusterer::Seed> {
     /// What minimizer index payload type should we use for decoding minimizer index payloads?
     using MIPayload = vg::MIPayload;
     /// What chain info should we keep around during clustering?
-    using chain_info_t = tuple<size_t, size_t, size_t, size_t, bool, bool, bool, bool, size_t, size_t>;
+    using chain_info_t = vg::MIPayloadValues;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static chain_info_t no_chain_info() {
