@@ -349,12 +349,12 @@ int main_surject(int argc, char** argv) {
                     }
                     for (size_t i = 0; i < surjected2.size(); ++i) {
                         const auto& pos = surjected2[i].refpos(0);
-                        strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
+                        strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
                     }
                     
                     for (size_t i = 0; i < surjected1.size(); ++i) {
                         const auto& pos = surjected1[i].refpos(0);
-                        auto it = strand_idx2.find(make_pair(pos.name(), pos.is_reverse()));
+                        auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
                         if (it != strand_idx2.end()) {
                             // the alignments are paired on this strand
                             alignment_emitter->emit_pair(move(surjected1[i]), move(surjected2[it->second]), max_frag_len);
@@ -366,7 +366,7 @@ int main_surject(int argc, char** argv) {
                     }
                     for (size_t i = 0; i < surjected2.size(); ++i) {
                         const auto& pos = surjected2[i].refpos(0);
-                        if (!strand_idx1.count(make_pair(pos.name(), pos.is_reverse()))) {
+                        if (!strand_idx1.count(make_pair(pos.name(), !pos.is_reverse()))) {
                             // this strand's surjection is unpaired
                             alignment_emitter->emit_single(move(surjected2[i]));
                         }
@@ -480,7 +480,6 @@ int main_surject(int argc, char** argv) {
                         vector<tuple<string, int64_t, bool>> positions1, positions2;
                         auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced);
                         auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced);
-                        
                         // we have to pair these up manually
                         unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
                         for (size_t i = 0; i < surjected1.size(); ++i) {
@@ -491,7 +490,7 @@ int main_surject(int argc, char** argv) {
                         }
                                                 
                         for (size_t i = 0; i < surjected1.size(); ++i) {
-                            auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), get<2>(positions1[i])));
+                            auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), !get<2>(positions1[i])));
                             if (it != strand_idx2.end()) {
                                 // the alignments are paired on this strand
                                 size_t j = it->second;
@@ -499,10 +498,10 @@ int main_surject(int argc, char** argv) {
                                 
                                 // reorder the positions to deal with the mismatch in the interfaces
                                 positions.emplace_back();
-                                get<0>(positions.back().first) = move(get<0>(positions1[i]));
+                                get<0>(positions.back().first) = get<0>(positions1[i]);
                                 get<1>(positions.back().first) = get<2>(positions1[i]);
                                 get<2>(positions.back().first) = get<1>(positions1[i]);
-                                get<0>(positions.back().second) = move(get<0>(positions2[i]));
+                                get<0>(positions.back().second) = get<0>(positions2[i]);
                                 get<1>(positions.back().second) = get<2>(positions2[i]);
                                 get<2>(positions.back().second) = get<1>(positions2[i]);
                             }
@@ -518,7 +517,7 @@ int main_surject(int argc, char** argv) {
                             }
                         }
                         for (size_t i = 0; i < surjected2.size(); ++i) {
-                            if (!strand_idx1.count(make_pair(get<0>(positions2[i]), get<2>(positions2[i])))) {
+                            if (!strand_idx1.count(make_pair(get<0>(positions2[i]), !get<2>(positions2[i])))) {
                                 // this strand's surjection is unpaired
                                 surjected_unpaired2.emplace_back(move(surjected2[i]));
                                 
@@ -541,7 +540,7 @@ int main_surject(int argc, char** argv) {
                                                                  get<2>(positions.front().second), get<1>(positions.front().second),
                                                                  subpath_global, spliced));
                     }
-                    
+                                        
                     // write to output
                     mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
                     mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
