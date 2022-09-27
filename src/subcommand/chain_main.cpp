@@ -3,6 +3,8 @@
  * Defines the "vg chain" subcommand, which runs a serialized hit chaining problem.
  */
 
+#include <jansson.h>
+
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>

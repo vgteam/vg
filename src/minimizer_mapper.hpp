@@ -38,7 +38,7 @@ public:
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         MinimumDistanceIndex* old_distance_index, SnarlDistanceIndex* distance_index,
+         SnarlDistanceIndex* distance_index,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -310,7 +310,6 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// The information we store for each seed.
-    typedef SnarlSeedClusterer::Seed OldSeed;
     typedef NewSnarlSeedClusterer::Seed Seed;
 
     /// The information we store for each cluster.
@@ -320,7 +319,6 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
-    MinimumDistanceIndex* old_distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -328,7 +326,6 @@ protected:
     GaplessExtender extender;
     
     /// We have a clusterer
-    SnarlSeedClusterer old_clusterer;
     NewSnarlSeedClusterer clusterer;
     
     /// We have a distribution for read fragment lengths that takes care of
@@ -507,6 +504,11 @@ protected:
      * Get the distance between a pair of read alignments, or std::numeric_limits<int64_t>::max() if unreachable.
      */
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+
+    /**
+     * Get the unoriented distance between a pair of positions
+     */
+    int64_t unoriented_distance_between(const pos_t& pos1, const pos_t& pos2) const;
 
     /**
      * Convert the GaplessExtension into an alignment. This assumes that the
@@ -828,6 +830,10 @@ protected:
     /// Print the seed content of a cluster.
     template<typename SeedType>
     static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const VectorView<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
+
+    /// Do a brute check of the clusters. Print errors to stderr
+    template<typename SeedType>
+    bool validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const;
     
     /// Print information about a selected set of seeds.
     template<typename SeedType>
@@ -844,6 +850,7 @@ protected:
     
     /// Count at which we cut over to summary logging.
     const static size_t MANY_LIMIT = 20;
+
 
     friend class TestMinimizerMapper;
 };

@@ -5,6 +5,7 @@
 #include <iostream>
 #include "../algorithms/chain_items.hpp"
 #include "../integrated_snarl_finder.hpp"
+#include "bdsg/hash_graph.hpp"
 #include "catch.hpp"
 
 namespace vg {

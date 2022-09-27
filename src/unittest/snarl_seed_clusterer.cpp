@@ -488,6 +488,209 @@ namespace unittest {
 
         }
     }
+
+    TEST_CASE("Use path through big snarl", "[cluster]") {
+        //Chain: 1 - (snarl 2-7) - 8
+        
+        VG graph;
+        
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("C");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("AGTA");
+        Node* n9 = graph.create_node("AGTAAGTA");
+        Node* n10 = graph.create_node("A");
+        Node* n11 = graph.create_node("AGTAAAA");
+        Node* n12 = graph.create_node("AG");
+        Node* n13 = graph.create_node("AGT");
+        Node* n14 = graph.create_node("AG");
+        Node* n15 = graph.create_node("AGTA");
+        
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n2, false, true);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n8);
+        Edge* e11 = graph.create_edge(n4, n9);
+        Edge* e12 = graph.create_edge(n9, n7);
+        Edge* e13 = graph.create_edge(n8, n11);
+        Edge* e14 = graph.create_edge(n8, n10);
+        Edge* e15 = graph.create_edge(n10, n12);
+        Edge* e16 = graph.create_edge(n10, n13);
+        Edge* e17 = graph.create_edge(n11, n12);
+        Edge* e18 = graph.create_edge(n11, n15);
+        Edge* e19 = graph.create_edge(n12, n14);
+        Edge* e20 = graph.create_edge(n14, n15);
+        Edge* e21 = graph.create_edge(n11, n14);
+        
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        NewSnarlSeedClusterer clusterer(distance_index, &graph);
+        SECTION("one cluster in same snarl") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 1));
+            //all are in the same cluster
+            for (bool use_minimizers : {false, true} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+        SECTION("two clusters in same snarl") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 1));
+            //all are in the same cluster
+            for (bool use_minimizers : {false, true} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 1); 
+                REQUIRE(clusters.size() == 2); 
+            }
+        }
+        SECTION("one cluster in same snarl separated by one node") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(14, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {false, true} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+        SECTION("two clusters in same snarl separated by one node") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(14, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {false, true} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+                REQUIRE(clusters.size() == 2); 
+            }
+        }
+        SECTION("two clusters using path in different snarl") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(5, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {false, true} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 9); 
+                REQUIRE(clusters.size() == 2); 
+            }
+        }
+        SECTION("one cluster using path in different snarl") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(5, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {false, true} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+        SECTION("one cluster") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(4, false, 0));
+            positions.emplace_back(make_pos_t(9, true, 2));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+        SECTION("two clusters") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(12, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 4); 
+                REQUIRE(clusters.size() == 2); 
+            }
+        }
+    }
+
     TEST_CASE( "Weird loop with three components of the root",
                    "[cluster]" ) {
         //THis is a symmetrical graph with two weird loopy things on the ends of a chain from 4 to 15
@@ -658,6 +861,11 @@ namespace unittest {
         Edge* e14 = graph.create_edge(n9, n11);
         Edge* e15 = graph.create_edge(n10, n11);
 
+        ofstream out;
+        out.open("test_graph.hg");
+
+            graph.serialize(out);
+            out.close();
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
@@ -666,6 +874,29 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
+        SECTION( "Test distance values" ) {
+            net_handle_t node1 = dist_index.get_parent(dist_index.get_node_net_handle(n1->id()));
+            net_handle_t snarl82 = dist_index.get_parent(node1); 
+
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+
+            net_handle_t node3 = dist_index.get_parent(dist_index.get_node_net_handle(n3->id()));
+            net_handle_t snarl24 = dist_index.get_parent(node3); 
+
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, dist_index.flip(node3)) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3) == std::numeric_limits<size_t>::max());
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3) == 0);
+            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, dist_index.flip(node3)) == std::numeric_limits<size_t>::max());
+
+            net_handle_t node6 = dist_index.get_node_net_handle(n6->id());
+            net_handle_t chain66 = dist_index.get_parent(node6);
+            net_handle_t node5 = dist_index.get_parent(dist_index.get_node_net_handle(n5->id()));
+            net_handle_t snarl46 = dist_index.get_parent(node5);
+            REQUIRE(dist_index.distance_in_parent(chain66, snarl46, dist_index.flip(node6)) == 0);
+        }
         SECTION( "Two clusters" ) {
  
             vector<pos_t> positions;
@@ -1273,7 +1504,7 @@ namespace unittest {
         }
     }//End test case
 
-    TEST_CASE( "Revese in chain right","[cluster]" ) {
+    TEST_CASE( "Reverse in chain right","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1685,7 +1916,7 @@ namespace unittest {
                          ( cluster_sets[1].count(0) == 1 &&
                            cluster_sets[1].count(1) == 1 &&
                            cluster_sets[1].count(2) == 1 &&
-                           cluster_sets[0].count(3) == 1 &&
+                           cluster_sets[1].count(3) == 1 &&
                            cluster_sets[0].count(4) == 1 &&
                            cluster_sets[0].count(5) == 1 &&
                            cluster_sets[0].count(6) == 1  )));
@@ -2262,7 +2493,7 @@ namespace unittest {
 
         }
     }
-    TEST_CASE("Simple nested chain", "[cluster][bug]") {
+    TEST_CASE("Simple nested chain", "[cluster]") {
         VG graph;
  
         Node* n1 = graph.create_node("GAC");
@@ -2685,7 +2916,6 @@ namespace unittest {
 
         NewSnarlSeedClusterer clusterer(dist_index, &graph);
         net_handle_t snarl = dist_index.get_parent(dist_index.get_parent(dist_index.get_node_net_handle(n1->id())));
-        cerr << dist_index.net_handle_as_string(snarl) << endl;
         REQUIRE(!dist_index.is_simple_snarl(snarl));
 
         SECTION( "One cluster" ) {
@@ -2898,50 +3128,54 @@ namespace unittest {
     //    REQUIRE(clusters.size() == 1);
     //}//end test case
 
-    //TEST_CASE("Failed graph", "[failed_cluster]"){
+    /*
+    TEST_CASE("Failed graph", "[failed_cluster]"){
 
-    //    HashGraph graph;
-    //    graph.deserialize("testGraph.hg");
-    //    IntegratedSnarlFinder snarl_finder(graph);
-    //    SnarlDistanceIndex dist_index;
-    //    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-
-
-    //    dist_index.print_self();
-
-    //    NewSnarlSeedClusterer clusterer(dist_index, &graph);
+        HashGraph graph;
+        graph.deserialize("testGraph.hg");
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
+        dist_index.print_self();
 
-    //    vector<vector<pos_t>> pos_ts(2);
-    //    pos_ts[0].emplace_back(40, true, 0);
-    //    pos_ts[0].emplace_back(42, false, 0);
-    //    pos_ts[0].emplace_back(42, false, 0);
-    //    pos_ts[0].emplace_back(43, false, 0);
-    //    pos_ts[0].emplace_back(46, false, 0);
-    //    
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
-    //    for (bool use_minimizers : {true, false}) {
 
-    //        vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
-    //        for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
-    //                for (pos_t pos : pos_ts[read_num]) {
 
-    //                    if (use_minimizers) {
-    //                        auto chain_info = get_minimizer_distances(dist_index, pos);
-    //                        seeds[read_num].push_back({ pos, 0, chain_info});
-    //                    } else {
-    //                        seeds[read_num].push_back({ pos, 0});
-    //                    }
-    //                }
-    //        }
+        vector<vector<pos_t>> pos_ts(2);
+        pos_ts[0].emplace_back(30, false, 0);
+        pos_ts[0].emplace_back(22, false, 0);
+        pos_t pos1 = pos_ts[0][0];
+        pos_t pos2 = pos_ts[0][1];
+        net_handle_t node31 = dist_index.get_node_net_handle(30);
+        
+       size_t dist = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &graph);
+       cerr << "DISTANCE BETWEEN " << pos1 << " and " << pos2 << " = " << dist << endl;
 
-    //        vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+        //for (bool use_minimizers : {true, false}) {
 
-    //        REQUIRE(clusters.size() == 1);
-    //    }
-    //    REQUIRE(false);
-    //}
+        //    vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
+        //    for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
+        //            for (pos_t pos : pos_ts[read_num]) {
+
+        //                if (use_minimizers) {
+        //                    auto chain_info = get_minimizer_distances(dist_index, pos);
+        //                    seeds[read_num].push_back({ pos, 0, chain_info});
+        //                } else {
+        //                    seeds[read_num].push_back({ pos, 0});
+        //                }
+        //            }
+        //    }
+
+        //    vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+
+        //    REQUIRE(clusters.size() == 1);
+        //}
+        REQUIRE(false);
+    }
+    */
     TEST_CASE("Random graphs", "[cluster_random]"){
 
 
@@ -2949,7 +3183,7 @@ namespace unittest {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(10, 70);
+            uniform_int_distribution<int> variant_count(1, 70);
             uniform_int_distribution<int> chrom_len(10, 200);
 
             //Make a random graph with three chromosomes of random lengths
@@ -3071,12 +3305,7 @@ namespace unittest {
                                         pos_t rev2 = make_pos_t(get_id(pos2), 
                                                              !is_rev(pos2),
                                                              len2 - get_offset(pos2)-1); 
-                                        size_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), false, &graph);
-                                        size_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
-                                        size_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), false, &graph);
-                                        size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
-                                        size_t dist = std::min(std::min(dist1, 
-                                                           dist2), std::min( dist3, dist4));
+                                        size_t dist = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &graph);
                                         if ( dist != -1 && dist <= read_lim) {
                                             new_clusters.union_groups(i1, i2);
                                         }

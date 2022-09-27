@@ -23,7 +23,7 @@ public:
         gbwtgraph::DefaultMinimizerIndex minimizer_index,
         SnarlDistanceIndex* distance_index,
         PathPositionHandleGraph* handle_graph) 
-        : MinimizerMapper(gbwt_graph, minimizer_index, nullptr, distance_index, handle_graph){};
+        : MinimizerMapper(gbwt_graph, minimizer_index, distance_index, handle_graph){};
     using MinimizerMapper::MinimizerMapper;
     using MinimizerMapper::Minimizer;
     using MinimizerMapper::fragment_length_distr;

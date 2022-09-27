@@ -23,7 +23,7 @@ using namespace std;
 class MultipathMapperSpliceTest : public MultipathMapper {
 public:
     MultipathMapperSpliceTest(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index,
-                              gcsa::LCPArray* lcp_array, MinimumDistanceIndex* distance_index)
+                              gcsa::LCPArray* lcp_array, SnarlDistanceIndex* distance_index)
         : MultipathMapper(graph, gcsa_index, lcp_array, nullptr, nullptr, distance_index)
     {
         // nothing to do
@@ -1663,7 +1663,8 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     SnarlManager snarl_manager = snarl_finder.find_snarls_parallel();
     
     // Build the distance index
-    MinimumDistanceIndex distance_index(&xg_index, &snarl_manager);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &xg_index, &snarl_finder);
     
     MultipathMapperSpliceTest mapper(&xg_index, gcsaidx, lcpidx, &distance_index);
     // slack this up a bit so it doesn't filter out good candidates in the small graph

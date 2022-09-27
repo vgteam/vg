@@ -30,10 +30,12 @@
 
 #include "../gbwt_extender.hpp"
 #include "../snarl_seed_clusterer.hpp"
-#include "../seed_clusterer.hpp"
+#include "../snarl_seed_clusterer.hpp"
 #include "../handle.hpp"
 #include "../explainer.hpp"
 #include "../utility.hpp"
+
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace algorithms {
@@ -888,22 +890,6 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSour
     virtual ~ChainingSpace() = default;
     
     
-};
-
-/// This is how you chain up old seeds
-template<typename Source>
-struct ChainingSpace<SnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<SnarlSeedClusterer::Seed, Source> {
-    using Item = SnarlSeedClusterer::Seed;
-    
-    ChainingSpace(const VectorView<Source>& sources,
-                  const ChainingScorer& scorer,
-                  const HandleGraph* graph) :
-        MinimizerSourceChainingSpace<Item, Source>(sources, scorer, nullptr, graph) {
-        
-        // Nothing to do!
-    }
-    
-    virtual ~ChainingSpace() = default;
 };
 
 // For doing scores with backtracing, we use this type, which is a
@@ -1881,7 +1867,7 @@ vector<Item> reseed_fallow_region(const Collection& left_items,
     // Because we are not cutting any nodes, node IDs don't change.
     vector<nid_t> sorted_ids;
     {
-        HashGraph subgraph;
+        bdsg::HashGraph subgraph;
         algorithms::extract_containing_graph(space.graph, &subgraph, seed_positions, graph_distance);
         sorted_ids.reserve(subgraph.get_node_count());
         subgraph.for_each_handle([&](const handle_t& h) {
