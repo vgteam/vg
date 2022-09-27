@@ -86,6 +86,9 @@ using namespace std;
         vector<tuple<string, int64_t, bool>> position;
         surject_internal(&source, nullptr, &surjected, nullptr, paths, position,
                          false, allow_negative_scores, preserve_deletions);
+        path_name_out = get<0>(position.front());
+        path_pos_out = get<1>(position.front());
+        path_rev_out = get<2>(position.front());
         return move(surjected.front());
     }
 
