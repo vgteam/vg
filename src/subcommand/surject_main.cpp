@@ -431,8 +431,6 @@ int main_surject(int argc, char** argv) {
         // TODO: largely repetitive with GAM
         get_input_file(file_name, [&](istream& in) {
             if (interleaved) {
-                // we can reuse this
-                vector<int64_t> tlen_limits(1, max_frag_len);
                 
                 // GAMP input is paired, and for HTS output reads need to know their pair partners' mapping locations.
                 // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
@@ -542,6 +540,7 @@ int main_surject(int argc, char** argv) {
                     }
                                         
                     // write to output
+                    vector<int64_t> tlen_limits(surjected.size(), max_frag_len);
                     mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
                     mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
                     mp_alignment_emitter.emit_singles(src2.name(), move(surjected_unpaired2), &positions_unpaired2);

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 44
+plan tests 46
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -189,8 +189,10 @@ vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAMP -
 
 is "$(vg surject -x x.xg -s -t 1 mapped.gam | grep -v '@' | wc -l)" 40 "GAM surject can return only primaries"
 is "$(vg surject -x x.xg -M -s -t 1 mapped.gam | grep -v '@' | wc -l)" 80 "GAM surject can return multimappings"
+is "$(vg surject -x x.xg -M -i -s -t 1 mapped.gam | grep -v '@' | wc -l)" 80 "GAM surject can return paired multimappings"
 is "$(vg surject -x x.xg -s -m -t 1 mapped.gamp | grep -v '@' | wc -l)" 40 "GAMP surject can return only primaries"
 is "$(vg surject -x x.xg -M -m -s -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
+is "$(vg surject -x x.xg -M -m -s -i -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
 
-rm x.vg rm x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp
+rm x.vg x.pathdup.vg x.xg x.gcsa x.gcsa.lcp x.gam mapped.gam mapped.gamp
 
