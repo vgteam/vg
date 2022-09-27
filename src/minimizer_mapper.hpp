@@ -1013,7 +1013,11 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     space.validate(*here, aln.sequence());
     
-    WFAAlignment aligned;
+    // We compose into a Path, since sometimes we may have to drop back to
+    // aligners that aren't the WFAAligner and don't make WFAAlignments.
+    Path composed_path;
+    // We also track the total score of all the pieces.
+    int composed_score;
     
     // Do the left tail, if any.
     size_t left_tail_length = space.read_start(*here);
@@ -1034,29 +1038,29 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
         
         // We align the left tail with prefix(), which creates a prefix of the alignment.
-        aligned = extender.prefix(left_tail, space.graph_start(*here));
+        WFAAlignment left_alignment = extender.prefix(left_tail, space.graph_start(*here));
         // Account for if we had to shorten the left tail
-        aligned.seq_offset += left_tail_additional_offset;
+        left_alignment.seq_offset += left_tail_additional_offset;
         
-        if (!aligned) {
+        if (!left_alignment) {
             // Left tail did not align. Make a softclip for it.
-            aligned = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
+            left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
         }
-        if (aligned.seq_offset != 0) {
+        if (left_alignment.seq_offset != 0) {
             // We didn't get all the way to the left end of the read without
             // running out of score, or we had to shorten the left tail to a
             // manageable size to align.
             // Prepend a softclip.
             // TODO: Can we let the aligner know it can softclip for free?
-            WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, aligned.seq_offset, 0);
-            prepend.join(aligned);
-            aligned = std::move(prepend);
+            WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, left_alignment.seq_offset, 0);
+            prepend.join(left_alignment);
+            left_alignment = std::move(prepend);
         }
-        if (aligned.length != space.read_start(*here)) {
+        if (left_alignment.length != space.read_start(*here)) {
             // We didn't get the alignment we expected.
             stringstream ss;
             ss << "Aligning left tail " << left_tail << " from " << space.graph_start(*here) << " produced wrong-length alignment ";
-            aligned.print(ss);
+            left_alignment.print(ss);
             throw std::runtime_error(ss.str());
         }
         // Since the tail starts at offset 0, the alignment is already in full read space.
@@ -1065,16 +1069,19 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Start with left tail of " << aligned.length << " with score of " << aligned.score << endl;
+                cerr << log_name() << "Start with left tail of " << left_alignment.length << " with score of " << left_alignment.score << endl;
             }
         }
 #endif
-        aligned.check_lengths(gbwt_graph);
+        left_alignment.check_lengths(gbwt_graph);
     } else {
         // No left tail to start with.
         // Just use an empty starting alignment, which is OK.
-        aligned = WFAAlignment::make_empty();
+        left_alignment = WFAAlignment::make_empty();
     }
+    
+    composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
+    composed_score = left_alignment.score;
     
     size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
@@ -1105,57 +1112,18 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
             
                 ++next_it;
-                continue;
-            }
-            
-            space.validate(*next, aln.sequence());
-            
-            // See if we can actually get an alignment for the connection
-            size_t link_length = space.read_start(*next) - space.read_end(*here);
-            if (link_length > max_chain_connection) {
-                // We can't actually do this alignment, we'd have to align too
-                // long of a sequence to find a connecting path.
-                #pragma omp critical (cerr)
-                {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Skipping alignment of " << link_length << " bp connection between chain items in " << aln.name() << endl;
-                }
-                // Just jump right to right tail, which we also can't do but we
-                // can fake.
-                next_it = chain.end();
-                break;
-            }
-            
-            // Pull out the intervening string, if any.
-            linking_bases = aln.sequence().substr(space.read_end(*here), link_length);
-        
-            // And align it (even if empty)
-            // Make sure to walk back the left anchor so it is outside of the region to be aligned.
-            left_anchor = space.graph_end(*here);
-            get_offset(left_anchor)--;
-            link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
-            
-            longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
-            
-            if (link_alignment) {
-                // We found something that can be reached.
-                break;
             } else {
-                // Try skipping this next item
-                ++next_it;
-                continue;
-                // TODO: This is just going to be O(n^2) pulling out of
-                // possible linking sequences, because if we can't reach one we
-                // probably can't reach past it either. Find a way to get a
-                // path through the graph that backs up the reachability result
-                // from the distance index, and do a slow alignment against
-                // that? Or just jump straight to the last tail at the first
-                // unreachable thing? Or just softclip?
+                // No overlap, so try it.
+                break;
             }
         }
         
         if (next_it == chain.end()) {
+            // We couldn't find anything to connect to
             break;
         }
+            
+        space.validate(*next, aln.sequence());
         
 #ifdef debug_chaining
         if (show_work) {
@@ -1168,7 +1136,9 @@ Alignment MinimizerMapper::find_chain_alignment(
         
         // Make an alignment for the bases used in this GaplessExtension, and
         // concatenate it in.
-        aligned.join(space.to_wfa_alignment(*here));
+        WFAAlignment here_alignment = space.to_wfa_alignment(*here);
+        concat_paths(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        composed_score += here_alignment.score;
         
 #ifdef debug_chaining
         if (show_work) {
@@ -1185,29 +1155,100 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
 #endif
         
-        if (link_alignment.length != linking_bases.size()) {
-            // We didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
-            stringstream ss;
-            ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
-            link_alignment.print(ss);
-            throw std::runtime_error(ss.str());
-        }
-        // Put the alignment back into full read space
-        link_alignment.seq_offset += space.read_end(*here);
-        
-#ifdef debug_chaining
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
+        // Pull out the intervening string to the next, if any.
+        size_t link_length = space.read_start(*next) - space.read_end(*here);
+        linking_bases = aln.sequence().substr(space.read_end(*here), link_length);
+           
+        if (link_length <= max_chain_connection) {
+            // And align it (even if empty)
+            // Make sure to walk back the left anchor so it is outside of the region to be aligned.
+            left_anchor = space.graph_end(*here);
+            get_offset(left_anchor)--;
+            link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
+            
+            longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
+            
+            if (link_alignment.length != linking_bases.size()) {
+                // We didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
+                stringstream ss;
+                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
+                link_alignment.print(ss);
+                throw std::runtime_error(ss.str());
             }
+            // Put the alignment back into full read space
+            link_alignment.seq_offset += space.read_end(*here);
         }
+        
+        if (link_alignment) {
+            // We found a link alignment
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
+                }
+            }
 #endif
         
-        link_alignment.check_lengths(gbwt_graph);
+            link_alignment.check_lengths(gbwt_graph);
+            
+            // Then the link (possibly empty)
+            concat_paths(composed_path, link_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            composed_score += link_alignment.score;
+        } else {
+            // The sequence to the next thing is too long, or we couldn't reach it doing connect().
+            // Fall back to another alignment method
+            
+            // We can't actually do this alignment, we'd have to align too
+            // long of a sequence to find a connecting path.
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items in " << aln.name() << endl;
+            }
+            
+            pos_t right_anchor = space.graph_start(*next);
+            
+            // How long can we use in the reference?
+            // TODO: use longest_detectable_gap here!
+            size_t ref_length = link_length * 3; 
+            
+            // We need to get the connecting graph to align to.
+            bdsg::HashGraph connecting_graph;
+            auto connecting_to_base = algorithms::extract_connecting_graph(
+                this->gbwt_graph,
+                connecting_graph,
+                ref_length,
+                left_anchor, right_anchor
+            );
+            
+            // And make sure it's a DAG
+            bdsg::HashGraph dagified_graph;
+            auto dagified_to_connecting = handlegraph::algorithms::dagify(&connecting_graph, &dagified_graph, ref_length);
+            
+            // And trim off any unwanted tips
+            std::vector<handle_t> tip_handles = find_tips(&dagified_graph);
+            while (tip_handles.size() > 2) {
+                // There are too many
+                for (auto& h : tip_handles) {
+                    nid_t tip_id = connecting_to_base[dagified_to_connecting[dagified_graph.get_id(h)]];
+                    if (tip_id != id(left_anchor) && tip_id != id(right_anchor)) {
+                        dagified_graph.delete_handle(h);
+                        // TODO: we assume no extraneous nodes that are tips in both orientations
+                    }
+                }
+            }
+            
+            // Then align the linking bases
+            
+            // And translate back into original graph space
+            
+            // Then tack that path and score on
+            
+        }
+            
+
         
-        // Then the link (possibly empty)
-        aligned.join(link_alignment);
         
         // Advance here to next and start considering the next after it
         here_it = next_it;
@@ -1229,8 +1270,9 @@ Alignment MinimizerMapper::find_chain_alignment(
     here_alignment.check_lengths(gbwt_graph);
     
     // Do the final GaplessExtension itself (may be the first)
-    aligned.join(here_alignment);
-    
+    concat_paths(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+    composed_score += here_alignment.score;
+   
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - space.read_end(*here);
     if (right_tail_length > 0) {
@@ -1283,24 +1325,27 @@ Alignment MinimizerMapper::find_chain_alignment(
         
         right_alignment.check_lengths(gbwt_graph);
         
-        aligned.join(right_alignment);
+        concat_paths(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        composed_score += right_alignment.score;
     }
     
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Composed alignment is length " << aligned.length << " with score of " << aligned.score << endl;
+            cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << composed_score << endl;
             cerr << log_name() << "Composed alignment: ";
             aligned.print(cerr);
             cerr << endl;
         }
     }
     
-    aligned.check_lengths(gbwt_graph);
-    
     // Convert to a vg Alignment.
     Alignment result(aln);
-    wfa_alignment_to_alignment(aligned, result);
+    *result.mutable_path() = std::move(composed_path);
+    result.set_score(composed_score);
+    if (!result.sequence().empty()) {
+        result.set_identity(identity(result.path()));
+    }
     
     set_annotation(result, "left_tail_length", (double) left_tail_length);
     set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
