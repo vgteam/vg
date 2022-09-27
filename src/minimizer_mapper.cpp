@@ -14,6 +14,7 @@
 #include "algorithms/count_covered.hpp"
 #include "algorithms/intersect_path_offsets.hpp"
 #include "algorithms/extract_containing_graph.hpp"
+#include "algorithms/extract_connecting_graph.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -3427,6 +3428,98 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     if (!alignment.sequence().empty()) {
         alignment.set_identity(identity(alignment.path()));
     }
+}
+
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, Alignment& alignment) const {
+
+    // How long can we use in the reference?
+    // TODO: use longest_detectable_gap here!
+    size_t ref_length = alignment.sequence().size() * 3; 
+    
+    // We need to get the connecting graph to align to.
+    bdsg::HashGraph connecting_graph;
+    auto connecting_to_base = algorithms::extract_connecting_graph(
+        &this->gbwt_graph,
+        &connecting_graph,
+        ref_length,
+        left_anchor, right_anchor
+    );
+    
+    // And make sure it's a DAG
+    bdsg::HashGraph dagified_graph;
+    auto dagified_to_connecting = handlegraph::algorithms::dagify(&connecting_graph, &dagified_graph, ref_length);
+    
+    // And trim off any unwanted tips
+    std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+    while (tip_handles.size() > 2) {
+        // There are too many
+        for (auto& h : tip_handles) {
+            nid_t tip_id = connecting_to_base.at(dagified_to_connecting.at(dagified_graph.get_id(h)));
+            if (tip_id != id(left_anchor) && tip_id != id(right_anchor)) {
+                dagified_graph.destroy_handle(h);
+                // We assume no extraneous nodes that are tips in both
+                // orientations.
+            }
+        }
+        // TODO: This is going to be O(slow) if we actually have to
+        // prune back a dangling run. We should look at what is
+        // connected to the tip and the tip only, and make that the new
+        // tip. Or keep some kind of online tip info. Or use an
+        // algorithm function that we make actually good.
+        tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+    }
+    
+    // Then fix the orientations of the bounding nodes so that the left
+    // end of the sequence goes to a source and the right end goes to a
+    // sink.
+    bool flipped_left = false;
+    bool flipped_right = false;
+    if (id(left_anchor) != id(right_anchor)) {
+        for (auto& h : tip_handles) {
+            if (dagified_graph.get_id(h) == id(left_anchor) && dagified_graph.get_is_reverse(h)) {
+                // Left tip is backward
+                h = dagified_graph.flip(h);
+                flipped_left = true;
+            }
+            if (dagified_graph.get_id(h) == id(right_anchor) && !dagified_graph.get_is_reverse(h)) {
+                // Right tip is backward
+                h = dagified_graph.flip(h);
+                flipped_right = true;
+            }
+        }
+    }
+    
+    // Then align the linking bases, with global alignment so they have
+    // to go from a source to a sink.
+    this->get_aligner()->align_global_banded(alignment, dagified_graph);
+    
+    // And translate back into original graph space
+    if (alignment.path().mapping_size() > 0) {
+        // Get the positions of the outermost mappings
+        Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
+        Position* right_pos = alignment.mutable_path()->mutable_mapping(alignment.path().mapping_size() - 1)->mutable_position();
+        
+        // Fix their orientations if they changed
+        if (flipped_left) {
+            left_pos->set_is_reverse(!left_pos->is_reverse());
+        }
+        if (flipped_right) {
+            right_pos->set_is_reverse(!right_pos->is_reverse());
+        }
+        
+        if (offset(left_anchor) != 0) {
+            // Add on the offset for the missing piece of the left anchor node
+            left_pos->set_offset(left_pos->offset() + offset(left_anchor));
+        }
+        // Offsets on the right anchor node are already correct
+    }
+    for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
+        Mapping* m = alignment.mutable_path()->mutable_mapping(i);
+        // Run all the node IDs through two levels of translation
+        m->mutable_position()->set_node_id(connecting_to_base.at(dagified_to_connecting.at(m->position().node_id())));
+    }
+    
+    // Now the alignment is filled in!
 }
 
 //-----------------------------------------------------------------------------

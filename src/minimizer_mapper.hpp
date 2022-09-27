@@ -525,6 +525,13 @@ protected:
     void wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const;
     
     /**
+     * Clip out the part of the graph between the given positions and
+     * global-align the sequence of the given Alignment to it. Populate the
+     * Alignment's path and score.
+     */
+    void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, Alignment& alignment) const;
+    
+    /**
      * Set pair partner references for paired mapping results.
      */
     void pair_all(std::array<vector<Alignment>, 2>& mappings) const;
@@ -1021,7 +1028,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Do the left tail, if any.
     size_t left_tail_length = space.read_start(*here);
-    
+    WFAAlignment left_alignment;
     if (left_tail_length > 0) {
     
         // Anchor position will not be covered. 
@@ -1038,7 +1045,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         }
         
         // We align the left tail with prefix(), which creates a prefix of the alignment.
-        WFAAlignment left_alignment = extender.prefix(left_tail, space.graph_start(*here));
+        left_alignment = extender.prefix(left_tail, space.graph_start(*here));
         // Account for if we had to shorten the left tail
         left_alignment.seq_offset += left_tail_additional_offset;
         
@@ -1156,8 +1163,9 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
         
         // Pull out the intervening string to the next, if any.
-        size_t link_length = space.read_start(*next) - space.read_end(*here);
-        linking_bases = aln.sequence().substr(space.read_end(*here), link_length);
+        size_t link_start = space.read_end(*here);
+        size_t link_length = space.read_start(*next) - link_start;
+        linking_bases = aln.sequence().substr(link_start, link_length);
            
         if (link_length <= max_chain_connection) {
             // And align it (even if empty)
@@ -1207,48 +1215,26 @@ Alignment MinimizerMapper::find_chain_alignment(
                 cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items in " << aln.name() << endl;
             }
             
-            pos_t right_anchor = space.graph_start(*next);
+            Alignment link_aln;
+            link_aln.set_sequence(linking_bases);
+            if (!aln.quality().empty()) {
+                link_aln.set_quality(aln.quality().substr(link_start, link_length));
+            }
+            this->align_sequence_between(left_anchor, space.graph_start(*next), link_aln);
             
-            // How long can we use in the reference?
-            // TODO: use longest_detectable_gap here!
-            size_t ref_length = link_length * 3; 
-            
-            // We need to get the connecting graph to align to.
-            bdsg::HashGraph connecting_graph;
-            auto connecting_to_base = algorithms::extract_connecting_graph(
-                this->gbwt_graph,
-                connecting_graph,
-                ref_length,
-                left_anchor, right_anchor
-            );
-            
-            // And make sure it's a DAG
-            bdsg::HashGraph dagified_graph;
-            auto dagified_to_connecting = handlegraph::algorithms::dagify(&connecting_graph, &dagified_graph, ref_length);
-            
-            // And trim off any unwanted tips
-            std::vector<handle_t> tip_handles = find_tips(&dagified_graph);
-            while (tip_handles.size() > 2) {
-                // There are too many
-                for (auto& h : tip_handles) {
-                    nid_t tip_id = connecting_to_base[dagified_to_connecting[dagified_graph.get_id(h)]];
-                    if (tip_id != id(left_anchor) && tip_id != id(right_anchor)) {
-                        dagified_graph.delete_handle(h);
-                        // TODO: we assume no extraneous nodes that are tips in both orientations
-                    }
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add link of length " << path_to_length(link_aln.path()) << " with score of " << link_aln.score() << endl;
                 }
             }
-            
-            // Then align the linking bases
-            
-            // And translate back into original graph space
+#endif
             
             // Then tack that path and score on
-            
+            concat_paths(composed_path, link_aln.path());
+            composed_score += link_aln.score();
         }
-            
-
-        
         
         // Advance here to next and start considering the next after it
         here_it = next_it;
@@ -1333,9 +1319,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << composed_score << endl;
-            cerr << log_name() << "Composed alignment: ";
-            aligned.print(cerr);
-            cerr << endl;
+            cerr << log_name() << "Composed alignment: " << pb2json(composed_path) << endl;
         }
     }
     
