@@ -59,12 +59,45 @@ using namespace std;
         return surjected;
     }
 
+    vector<Alignment> Surjector::multi_surject(const Alignment& source,
+                                               const unordered_set<path_handle_t>& paths,
+                                               bool allow_negative_scores,
+                                               bool preserve_deletions) const {
+        vector<Alignment> surjected;
+        vector<tuple<string, int64_t, bool>> positions;
+        surject_internal(&source, nullptr, &surjected, nullptr, paths, positions,
+                         true, allow_negative_scores, preserve_deletions);
+        
+        for (size_t i = 0; i < surjected.size(); ++i) {
+            surjected[i].clear_refpos();
+            auto* pos = surjected[i].add_refpos();
+            pos->set_name(get<0>(positions[i]));
+            pos->set_offset(get<1>(positions[i]));
+            pos->set_is_reverse(get<2>(positions[i]));
+        }
+        
+        return surjected;
+    }
+
     Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths, string& path_name_out,
                                  int64_t& path_pos_out, bool& path_rev_out, bool allow_negative_scores,
                                  bool preserve_deletions) const {
-        Alignment surjected;
-        surject_internal(&source, nullptr, &surjected, nullptr, paths, path_name_out, path_pos_out,
-                         path_rev_out, allow_negative_scores, preserve_deletions);
+        vector<Alignment> surjected;
+        vector<tuple<string, int64_t, bool>> position;
+        surject_internal(&source, nullptr, &surjected, nullptr, paths, position,
+                         false, allow_negative_scores, preserve_deletions);
+        return move(surjected.front());
+    }
+
+    vector<Alignment> Surjector::multi_surject(const Alignment& source,
+                                               const unordered_set<path_handle_t>& paths,
+                                               vector<tuple<string, int64_t, bool>>& positions_out,
+                                               bool allow_negative_scores,
+                                               bool preserve_deletions) const {
+        vector<Alignment> surjected;
+        surject_internal(&source, nullptr, &surjected, nullptr, paths, positions_out,
+                         true, allow_negative_scores, preserve_deletions);
+        
         return surjected;
     }
 
@@ -72,22 +105,40 @@ using namespace std;
                                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                              bool allow_negative_scores, bool preserve_deletions) const {
 
-        multipath_alignment_t surjected;
-        surject_internal(nullptr, &source, nullptr, &surjected, paths, path_name_out, path_pos_out,
-                         path_rev_out, allow_negative_scores, preserve_deletions);
+        vector<multipath_alignment_t> surjected;
+        vector<tuple<string, int64_t, bool>> position;
+        surject_internal(nullptr, &source, nullptr, &surjected, paths, position,
+                         false, allow_negative_scores, preserve_deletions);
+        
+        path_name_out = move(get<0>(position.front()));
+        path_pos_out = get<1>(position.front());
+        path_rev_out = get<2>(position.front());
+        
+        return move(surjected.front());
+    }
+
+    vector<multipath_alignment_t> Surjector::multi_surject(const multipath_alignment_t& source,
+                                                           const unordered_set<path_handle_t>& paths,
+                                                           vector<tuple<string, int64_t, bool>>& positions_out,
+                                                           bool allow_negative_scores,
+                                                           bool preserve_deletions) const {
+        vector<multipath_alignment_t> surjected;
+        surject_internal(nullptr, &source, nullptr, &surjected, paths, positions_out,
+                         true, allow_negative_scores, preserve_deletions);
+        
         return surjected;
     }
     
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
-                                     Alignment* aln_out, multipath_alignment_t* mp_aln_out,
+                                     vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                                      const unordered_set<path_handle_t>& paths,
-                                     string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
+                                     vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
         
         // we need one and only one data type: Alignment or multipath_alignment_t
         assert(!(source_aln && source_mp_aln));
-        assert((source_aln && aln_out) || (source_mp_aln && mp_aln_out));
+        assert((source_aln && alns_out) || (source_mp_aln && mp_alns_out));
                 
 #ifdef debug_anchored_surject
         cerr << "surjecting alignment: ";
@@ -294,92 +345,128 @@ using namespace std;
         // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
         if (aln_surjections.empty() && mp_aln_surjections.empty()) {
             // this surjection didn't get aligned
-            path_name_out = "";
-            path_rev_out = false;
-            path_pos_out = -1;
+            positions_out.emplace_back("", -1, false);
             if (source_mp_aln) {
-                *mp_aln_out = make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality());
+                mp_alns_out->emplace_back(make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality()));
                 // copy over annotations
                 // TODO: also redundantly copies over sequence and quality
-                transfer_read_metadata(*source_mp_aln, *mp_aln_out);
+                transfer_read_metadata(*source_mp_aln, mp_alns_out->back());
             }
             else {
-                *aln_out = make_null_alignment(*source_aln);
+                alns_out->emplace_back(make_null_alignment(*source_aln));
             }
             return;
-        }
-    
-        // choose which path surjection was best
-        pair<path_handle_t, bool> best_path_strand;
-        int32_t score = numeric_limits<int32_t>::min();
-        for (const auto& surjection : aln_surjections) {
-            if (surjection.second.first.score() >= score) {
-#ifdef debug_anchored_surject
-                cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " achieves highest score of " << surjection.second.first.score() << ": " << pb2json(surjection.second.first) << endl;
-#endif
-                score = surjection.second.first.score();
-                best_path_strand = surjection.first;
-            }
-        }
-        for (const auto& surjection : mp_aln_surjections) {
-
-            int32_t surj_score = optimal_alignment_score(surjection.second.first, allow_negative_scores);
-            if (surj_score >= score) {
-#ifdef debug_anchored_surject
-                cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " achieves highest score of " << surj_score << ": " << debug_string(surjection.second.first) << endl;
-#endif
-                score = surj_score;
-                best_path_strand = surjection.first;
-            }
         }
         
         string annotation_string;
         if (annotate_with_all_path_scores) {
-            if (aln_out) {
+            if (source_aln) {
                 annotation_string = path_score_annotations(aln_surjections);
             }
             else {
                 annotation_string = path_score_annotations(mp_aln_surjections);
             }
         }
-                
-        // find the position along the path
         
-        // retrieve the first/last positions of the best alignment and the corresponding
-        // path range
-        pair<step_handle_t, step_handle_t> path_range;
-        pos_t initial_pos, final_pos;
-        if (aln_out) {
-            auto& surjection = aln_surjections[best_path_strand];
-            initial_pos = initial_position(surjection.first.path());
-            final_pos = final_position(surjection.first.path());
-            path_range = surjection.second;
-            *aln_out = move(surjection.first);
-            
-            if (annotate_with_all_path_scores) {
-                set_annotation(aln_out, "all_scores", annotation_string);
+        // choose which path strands we will output
+        vector<pair<path_handle_t, bool>> strands_to_output;
+        if (all_paths) {
+            vector<tuple<int32_t, path_handle_t, bool>> path_strands;
+            if (source_aln) {
+                for (const auto& surjection : aln_surjections) {
+                    path_strands.emplace_back(surjection.second.first.score(),
+                                              surjection.first.first, surjection.first.second);
+                }
+            }
+            else {
+                for (const auto& surjection : mp_aln_surjections) {
+                    path_strands.emplace_back(optimal_alignment_score(surjection.second.first, allow_negative_scores),
+                                              surjection.first.first, surjection.first.second);
+                }
+            }
+            sort(path_strands.begin(), path_strands.end());
+            for (const auto& path_strand : path_strands) {
+                strands_to_output.emplace_back(get<1>(path_strand), get<2>(path_strand));
             }
         }
         else {
-            auto& surjection = mp_aln_surjections[best_path_strand];
-            initial_pos = initial_position(surjection.first.subpath().front().path());
-            final_pos = final_position(surjection.first.subpath().back().path());
-            path_range = surjection.second;
-            *mp_aln_out = move(surjection.first);
-            
-            if (annotate_with_all_path_scores) {
-                mp_aln_out->set_annotation("all_scores", annotation_string);
+            // choose which path surjection was best
+            pair<path_handle_t, bool> best_path_strand;
+            int32_t score = numeric_limits<int32_t>::min();
+            for (const auto& surjection : aln_surjections) {
+                if (surjection.second.first.score() >= score) {
+#ifdef debug_anchored_surject
+                    cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " achieves highest score of " << surjection.second.first.score() << ": " << pb2json(surjection.second.first) << endl;
+#endif
+                    score = surjection.second.first.score();
+                    best_path_strand = surjection.first;
+                }
             }
+            for (const auto& surjection : mp_aln_surjections) {
+                
+                int32_t surj_score = optimal_alignment_score(surjection.second.first, allow_negative_scores);
+                if (surj_score >= score) {
+#ifdef debug_anchored_surject
+                    cerr << "surjection against path " << graph->get_path_name(surjection.first.first) << " strand " << surjection.first.second << " achieves highest score of " << surj_score << ": " << debug_string(surjection.second.first) << endl;
+#endif
+                    score = surj_score;
+                    best_path_strand = surjection.first;
+                }
+            }
+            strands_to_output.emplace_back(best_path_strand);
         }
         
-        // use this info to set the path position
-        set_path_position(&memoizing_graph, initial_pos, final_pos, path_range.first, path_range.second,
-                          best_path_strand.second, path_name_out, path_pos_out, path_rev_out);
-        
-        
+        for (size_t i = 0; i < strands_to_output.size(); ++i) {
+            const auto& path_strand = strands_to_output[i];
+            
+            // find the position along the path
+            
+            // retrieve the first/last positions of the best alignment and the corresponding
+            // path range
+            pair<step_handle_t, step_handle_t> path_range;
+            pos_t initial_pos, final_pos;
+            if (source_aln) {
+                auto& surjection = aln_surjections[path_strand];
+                initial_pos = initial_position(surjection.first.path());
+                final_pos = final_position(surjection.first.path());
+                path_range = surjection.second;
+                alns_out->emplace_back(move(surjection.first));
+                
+                if (i != 0) {
+                    alns_out->back().set_is_secondary(true);
+                }
+                
+                if (annotate_with_all_path_scores) {
+                    set_annotation(alns_out->back(), "all_scores", annotation_string);
+                }
+            }
+            else {
+                auto& surjection = mp_aln_surjections[path_strand];
+                initial_pos = initial_position(surjection.first.subpath().front().path());
+                final_pos = final_position(surjection.first.subpath().back().path());
+                path_range = surjection.second;
+                mp_alns_out->emplace_back(move(surjection.first));
+                
+                if (i != 0) {
+                    mp_alns_out->back().set_annotation("secondary", true);
+                }
+                
+                if (annotate_with_all_path_scores) {
+                    mp_alns_out->back().set_annotation("all_scores", annotation_string);
+                }
+            }
+            
+            // use this info to set the path position
+            positions_out.emplace_back();
+            set_path_position(&memoizing_graph, initial_pos, final_pos, path_range.first, path_range.second,
+                              path_strand.second, get<0>(positions_out.back()), get<1>(positions_out.back()),
+                              get<2>(positions_out.back()));
+            
+            
 #ifdef debug_anchored_surject
-        cerr << "chose path " << path_name_out << " at position " << path_pos_out << (path_rev_out ? "-" : "+") << endl;
+            cerr << "chose path " << get<0>(positions_out.back()) << " at position " << get<1>(positions_out.back()) << (get<2>(positions_out.back()) ? "-" : "+") << endl;
 #endif
+        }
         
     }
 

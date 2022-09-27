@@ -45,6 +45,13 @@ using namespace std;
                           bool& path_rev_out,
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
+        
+        /// Same as above, but include alignments to all paths instead of only the optimal one
+        vector<Alignment> multi_surject(const Alignment& source,
+                                        const unordered_set<path_handle_t>& paths,
+                                        vector<tuple<string, int64_t, bool>>& positions_out,
+                                        bool allow_negative_scores = false,
+                                        bool preserve_deletions = false) const;
                           
         /// Extract the portions of an alignment that are on a chosen set of
         /// paths and try to align realign the portions that are off of the
@@ -65,6 +72,12 @@ using namespace std;
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
         
+        /// Same as above, but include alignments to all paths instead of only the optimal one
+        vector<Alignment> multi_surject(const Alignment& source,
+                                        const unordered_set<path_handle_t>& paths,
+                                        bool allow_negative_scores = false,
+                                        bool preserve_deletions = false) const;
+        
         /// Same semantics as with alignments except that connections are always
         /// preserved as splices. The output consists of a multipath alignment with
         /// a single path, separated by splices (either from large deletions or from
@@ -75,6 +88,13 @@ using namespace std;
                                       bool& path_rev_out,
                                       bool allow_negative_scores = false,
                                       bool preserve_deletions = false) const;
+        
+        /// Same as above, but include alignments to all paths instead of only the optimal one
+        vector<multipath_alignment_t> multi_surject(const multipath_alignment_t& source,
+                                                    const unordered_set<path_handle_t>& paths,
+                                                    vector<tuple<string, int64_t, bool>>& positions_out,
+                                                    bool allow_negative_scores = false,
+                                                    bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
@@ -110,9 +130,9 @@ using namespace std;
     protected:
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
-                              Alignment* aln_out, multipath_alignment_t* mp_aln_out,
+                              vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                               const unordered_set<path_handle_t>& paths,
-                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
+                              vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
                               bool allow_negative_scores, bool preserve_deletions) const;
         
         Alignment
