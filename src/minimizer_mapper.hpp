@@ -1174,7 +1174,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Need to align graph from " << left_anchor << " to " << space.graph_start(*next)
+                cerr << log_name() << "Need to align graph from " << space.graph_end(*here) << " to " << space.graph_start(*next)
                     << " separated by " << graph_length << " bp and sequence \"" << linking_bases << "\"" << endl;
             }
         }
