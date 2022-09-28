@@ -24,6 +24,8 @@
 
 namespace vg {
 
+#define debug_chaining
+
 using namespace std;
 using namespace vg::io;
 
@@ -529,7 +531,7 @@ protected:
      * global-align the sequence of the given Alignment to it. Populate the
      * Alignment's path and score.
      */
-    void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, Alignment& alignment) const;
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment);
     
     /**
      * Set pair partner references for paired mapping results.
@@ -1172,19 +1174,38 @@ Alignment MinimizerMapper::find_chain_alignment(
             // Make sure to walk back the left anchor so it is outside of the region to be aligned.
             left_anchor = space.graph_end(*here);
             get_offset(left_anchor)--;
+            
+#ifdef debug_chaining
+            cerr << "Align graph from " << left_anchor << " to " << space.graph_start(*next) << " and sequence " << linking_bases << endl;
+#endif
             link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
             
             longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
             
-            if (link_alignment.length != linking_bases.size()) {
-                // We didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
+            if (!link_alignment) {
+                // We couldn't align.
+                if (space.get_graph_distance(*here, *next) == 0) {
+                    if (link_length == 0) {
+                        // Try falling back to a zero-length connection.
+                        // TODO: We can be leaving the GBWT's space here!
+                        link_alignment = WFAAlignment::make_empty();
+                    } else {
+                        // Try falling back to a pure insertion.
+                        // TODO: We can be leaving the GBWT's space here!
+                        link_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), link_length, -space.scorer.gap_open - (link_length - 1) * space.scorer.gap_extension);
+                    }
+                }
+            } else if (link_alignment.length != linking_bases.size()) {
+                // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
                 stringstream ss;
                 ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
                 link_alignment.print(ss);
                 throw std::runtime_error(ss.str());
+            } else {
+                // We got the right alignment.
+                // Put the alignment back into full read space
+                link_alignment.seq_offset += space.read_end(*here);
             }
-            // Put the alignment back into full read space
-            link_alignment.seq_offset += space.read_end(*here);
         }
         
         if (link_alignment) {
@@ -1220,7 +1241,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (!aln.quality().empty()) {
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
-            this->align_sequence_between(left_anchor, space.graph_start(*next), link_aln);
+            MinimizerMapper::align_sequence_between(left_anchor, space.graph_start(*next), &this->gbwt_graph, this->get_aligner(), link_aln);
             
 #ifdef debug_chaining
             if (show_work) {

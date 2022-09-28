@@ -942,8 +942,8 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
     if (this->unlocalized_insertion()) {
         // Special handling for pure insertions with no position: make a Path
         // that has no position.
-        Mapping* m = result.add_mapping();
-        Edit* e = m->add_edit();
+        vg::Mapping* m = result.add_mapping();
+        vg::Edit* e = m->add_edit();
         e->set_to_length(this->edits.front().second);
         e->set_sequence(sequence.substr(this->seq_offset, this->edits.front().second));
         return result;
