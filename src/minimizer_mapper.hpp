@@ -1168,37 +1168,66 @@ Alignment MinimizerMapper::find_chain_alignment(
         size_t link_start = space.read_end(*here);
         size_t link_length = space.read_start(*next) - link_start;
         linking_bases = aln.sequence().substr(link_start, link_length);
-           
-        if (link_length <= max_chain_connection) {
-            // And align it (even if empty)
+        size_t graph_length = space.get_graph_distance(*here, *next);
+        
+#ifdef debug_chaining
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Need to align graph from " << left_anchor << " to " << space.graph_start(*next)
+                    << " separated by " << graph_length << " bp and sequence \"" << linking_bases << "\"" << endl;
+            }
+        }
+#endif
+        
+        if (link_length == 0 && graph_length == 0) {
+            // These items abut in the read and the graph, so we assume we can just connect them.
+            // GBWTExtender::connect() can't handle an empty read sequence, and
+            // our fallback method to align just against the graph can't handle
+            // an empty graph region.
+            // TODO: We can be leaving the GBWT's space here!
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Treat as empty link" << endl;
+                }
+            }
+#endif
+            
+            link_alignment = WFAAlignment::make_empty();
+        } else if (link_length > 0 && link_length <= max_chain_connection) {
+            // If it's not empty and is a reasonable size, align it.
             // Make sure to walk back the left anchor so it is outside of the region to be aligned.
             left_anchor = space.graph_end(*here);
             get_offset(left_anchor)--;
             
-#ifdef debug_chaining
-            cerr << "Align graph from " << left_anchor << " to " << space.graph_start(*next) << " and sequence " << linking_bases << endl;
-#endif
             link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
             
             longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
             
             if (!link_alignment) {
                 // We couldn't align.
-                if (space.get_graph_distance(*here, *next) == 0) {
-                    if (link_length == 0) {
-                        // Try falling back to a zero-length connection.
-                        // TODO: We can be leaving the GBWT's space here!
-                        link_alignment = WFAAlignment::make_empty();
-                    } else {
-                        // Try falling back to a pure insertion.
-                        // TODO: We can be leaving the GBWT's space here!
-                        link_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), link_length, -space.scorer.gap_open - (link_length - 1) * space.scorer.gap_extension);
+                if (graph_length == 0) {
+                    // We had read sequence but no graph sequence.
+                    // Try falling back to a pure insertion.
+                    // TODO: We can be leaving the GBWT's space here!
+                    // TODO: What if this is forcing an insertion that could also be in the graph already?
+#ifdef debug_chaining
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "connect() failed; treat as insertion" << endl;
+                        }
                     }
+#endif
+                    link_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), link_length, -space.scorer.gap_open - (link_length - 1) * space.scorer.gap_extension);
                 }
             } else if (link_alignment.length != linking_bases.size()) {
                 // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
                 stringstream ss;
-                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << space.graph_start(*next) << " against graph distance " << space.get_graph_distance(*here, *next) << " produced wrong-length alignment ";
+                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << space.graph_start(*next) << " against graph distance " << graph_length << " produced wrong-length alignment ";
                 link_alignment.print(ss);
                 throw std::runtime_error(ss.str());
             } else {
@@ -1233,7 +1262,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << graph_length << " apart in " << aln.name() << endl;
             }
             
             Alignment link_aln;
@@ -1241,6 +1270,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (!aln.quality().empty()) {
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
+            assert(graph_length != 0); // TODO: Can't handle abutting graph positions yet
             MinimizerMapper::align_sequence_between(left_anchor, space.graph_start(*next), &this->gbwt_graph, this->get_aligner(), link_aln);
             
 #ifdef debug_chaining
