@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['snarltype_12146',['SnarlType',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97',1,'vg']]],
-  ['splicestrand_12147',['SpliceStrand',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd',1,'vg::MultipathMapper']]]
+  ['snarltype_12148',['SnarlType',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97',1,'vg']]],
+  ['splicestrand_12149',['SpliceStrand',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd',1,'vg::MultipathMapper']]]
 ];

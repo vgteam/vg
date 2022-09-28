@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['jointrecipefunc_12060',['JointRecipeFunc',['../namespacevg.html#a2e8213eb4ee29eaabeea43f27356f073',1,'vg']]]
+  ['jointrecipefunc_12062',['JointRecipeFunc',['../namespacevg.html#a2e8213eb4ee29eaabeea43f27356f073',1,'vg']]]
 ];
