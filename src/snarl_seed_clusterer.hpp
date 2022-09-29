@@ -108,8 +108,7 @@ class NewSnarlSeedClusterer {
 
 
         /**
-         * Find the minimum distance between two seeds. This will use the minimizer payload when possible,
-         * and also update the seeds payload if it is missing
+         * Find the minimum distance between two seeds. This will use the minimizer payload when possible
          */
         size_t distance_between_seeds(Seed& seed1, Seed& seed2, bool stop_at_lowest_common_ancestor) const;
 
