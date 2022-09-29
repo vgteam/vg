@@ -3,6 +3,7 @@
 #include <algorithm>
 
 //#define DEBUG_CLUSTER
+//#define debug_distances
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -3390,4 +3391,451 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
     return;
 }
 
+size_t NewSnarlSeedClusterer::distance_between_seeds(Seed& seed1, Seed& seed2, bool stop_at_lowest_common_ancestor) const {
+
+    /*Helper function to walk up the snarl tree
+     * Given a net handle, its parent,  and the distances to the start and end of the handle, 
+     * update the distances to reach the ends of the parent and update the handle and its parent
+     * If the parent is a chain, then the new distances include the boundary nodes of the chain.
+     * If it is a snarl, it does not*/
+    auto update_distances = [&](net_handle_t& net, net_handle_t& parent, size_t& dist_start, size_t& dist_end) {
+#ifdef debug_distances
+        cerr << "     Updating distance from node " << distance_index.net_handle_as_string(net) << " at parent " << distance_index.net_handle_as_string(parent) << " from " << dist_start << " " << dist_end << endl;
+#endif
+
+        if (distance_index.is_trivial_chain(parent)) {
+            //Don't update distances for the trivial chain
+            return;
+        } else if (distance_index.is_simple_snarl(parent)) {
+            //If it's a simple snarl just check if they should be reversed
+            if (distance_index.is_reversed_in_parent (net)) {
+                size_t tmp = dist_start;
+                dist_start = dist_end;
+                dist_end = tmp;
+            }
+            return;
+        }
+
+        net_handle_t start_bound = distance_index.get_bound(parent, false, true);
+        net_handle_t end_bound = distance_index.get_bound(parent, true, true);
+
+        //The lengths of the start and end nodes of net
+        //This is only needed if net is a snarl, since the boundary nodes are not technically part of the snarl
+        size_t start_length = distance_index.is_chain(parent) ? distance_index.node_length(start_bound) : 0;
+        size_t end_length = distance_index.is_chain(parent) ? distance_index.node_length(end_bound) : 0;
+
+        //Get the distances from the bounds of the parent to the node we're looking at
+        size_t distance_start_start = start_bound == net ? 0
+                : SnarlDistanceIndex::sum(start_length, distance_index.distance_in_parent(parent, start_bound, distance_index.flip(net), graph));
+        size_t distance_start_end = start_bound == distance_index.flip(net) ? 0
+                : SnarlDistanceIndex::sum(start_length, distance_index.distance_in_parent(parent, start_bound, net, graph));
+        size_t distance_end_start = end_bound == net ? 0
+                : SnarlDistanceIndex::sum(end_length, distance_index.distance_in_parent(parent, end_bound, distance_index.flip(net), graph));
+        size_t distance_end_end = end_bound == distance_index.flip(net) ? 0
+                : SnarlDistanceIndex::sum(end_length, distance_index.distance_in_parent(parent, end_bound, net, graph));
+
+        size_t distance_start = dist_start;
+        size_t distance_end = dist_end;
+
+        dist_start = std::min(SnarlDistanceIndex::sum(distance_start_start, distance_start),
+                              SnarlDistanceIndex::sum(distance_start_end , distance_end));
+        dist_end = std::min(SnarlDistanceIndex::sum(distance_end_start , distance_start),
+                            SnarlDistanceIndex::sum(distance_end_end , distance_end));
+#ifdef debug_distances
+        cerr << "        ...new distances to start and end: " << dist_start << " " << dist_end << endl;
+#endif
+        return;
+    };
+
+    /*
+     * Get net handles for the two nodes and the distances from each position to the ends of the handles
+     */
+
+    bool has_cached_values1 = seed1.minimizer_cache.record_offset != MIPayload::NO_VALUE;
+    bool has_cached_values2 = seed2.minimizer_cache.record_offset != MIPayload::NO_VALUE;
+    net_handle_t net1 = has_cached_values1 ? distance_index.get_net_handle_from_values(seed1.minimizer_cache.record_offset, 
+                                                             SnarlDistanceIndex::START_END, 
+                                                             SnarlDistanceIndex::NODE_HANDLE, 
+                                                             seed1.minimizer_cache.node_record_offset)
+                                           : distance_index.get_node_net_handle(get_id(seed1.pos));
+    net_handle_t net2 = has_cached_values2 ? distance_index.get_net_handle_from_values(seed2.minimizer_cache.record_offset, 
+                                                             SnarlDistanceIndex::START_END, 
+                                                             SnarlDistanceIndex::NODE_HANDLE, 
+                                                             seed2.minimizer_cache.node_record_offset)
+                                           : distance_index.get_node_net_handle(get_id(seed2.pos));
+
+    size_t minimum_distance = std::numeric_limits<size_t>::max();
+    if (net1 == net2) {
+        //If the two positions are on the same node, get the distance between them
+        size_t node_length = has_cached_values1 ? seed1.minimizer_cache.node_length 
+                                                 : distance_index.node_length(net1);
+        size_t distance_to_start1 = is_rev(seed1.pos) ? node_length - get_offset(seed1.pos) : get_offset(seed1.pos) + 1;
+        size_t distance_to_end1 =   is_rev(seed1.pos) ? get_offset(seed1.pos) + 1 : node_length - get_offset(seed1.pos);
+        size_t distance_to_start2 = is_rev(seed2.pos) ? node_length - get_offset(seed2.pos) : get_offset(seed2.pos) + 1;
+        size_t distance_to_end2 =   is_rev(seed2.pos) ? get_offset(seed2.pos) + 1 : node_length - get_offset(seed2.pos);
+        cerr << "Same node, distances : " << distance_to_start1 << " " << distance_to_end1 << " " << distance_to_start2 << " " << distance_to_end2 << " and node length " << node_length << endl;
+
+        if (distance_to_start1 < distance_to_start2) {
+            //IF 1 comes before 2
+            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2), node_length);
+        } else 
+            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end2 , distance_to_start1), node_length);{
+        }
+        if (stop_at_lowest_common_ancestor) {
+            //If we only care about the lowest common ancestor, then return
+            return minimum_distance;
+        }
+        
+    }
+
+    /*
+     * Since we want to use the minimizer payload, go up one level of the snarl tree here, before using the
+     * distance index.
+     * Find the parent and the distances to the ends of the parent using the payload
+     */
+
+    //Get the parents of the nodes
+    net_handle_t parent1;
+    //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
+    //because they will be clustered here and added to the root instead of being added to the 
+    //snarl tree to be clustered
+    if (has_cached_values1) {
+        if (seed1.minimizer_cache.is_trivial_chain) {
+            //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
+            parent1 = distance_index.get_net_handle_from_values (distance_index.get_record_offset(net1),
+                                                    SnarlDistanceIndex::START_END,
+                                                    SnarlDistanceIndex::CHAIN_HANDLE,
+                                                    seed1.minimizer_cache.node_record_offset);
+            if (seed1.minimizer_cache.parent_record_offset == 0) {
+                //If the parent offset stored in the cache is the root, then this is a trivial chain
+                //child of the root not in a root snarl, so remember the root as the parent and the 
+                //trivial chain as th enode
+                net1 = parent1;
+                parent1 = distance_index.get_root();
+            } else if (seed1.minimizer_cache.parent_is_root && !seed1.minimizer_cache.parent_is_chain) {
+                //If the parent is a root snarl, then the node becomes the trivial chain 
+                //and we get the parent root snarl from the cache
+                net1 = parent1;
+                parent1 = distance_index.get_net_handle_from_values(seed1.minimizer_cache.parent_record_offset,
+                                                                   SnarlDistanceIndex::START_END,
+                                                                   SnarlDistanceIndex::ROOT_HANDLE);
+            }
+        } else if (seed1.minimizer_cache.parent_record_offset == 0) {
+            //The parent is just the root
+            parent1 = distance_index.get_root();
+        } else if (seed1.minimizer_cache.parent_is_root && !seed1.minimizer_cache.parent_is_chain) {
+            //If the parent is a root snarl
+            parent1 = distance_index.get_net_handle_from_values(seed1.minimizer_cache.parent_record_offset,
+                                                   SnarlDistanceIndex::START_END,
+                                                   SnarlDistanceIndex::ROOT_HANDLE);
+        } else {
+            //Otherwise the parent is an actual chain and we use the value from the cache
+            parent1 = distance_index.get_net_handle_from_values(seed1.minimizer_cache.parent_record_offset,
+                                                   SnarlDistanceIndex::START_END,
+                                                   SnarlDistanceIndex::CHAIN_HANDLE);
+        }
+    } else {
+        parent1 = distance_index.start_end_traversal_of(distance_index.get_parent(net1));
+        if (distance_index.is_trivial_chain(parent1)){
+            net_handle_t grandparent = distance_index.get_parent(parent1);
+            if (distance_index.is_root(grandparent)){
+                net1 = parent1;
+                parent1 = distance_index.start_end_traversal_of(grandparent);
+            }
+        }
+    }
+
+    net_handle_t parent2;
+    //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
+    //because they will be clustered here and added to the root instead of being added to the 
+    //snarl tree to be clustered
+    if (has_cached_values2) {
+        if (seed2.minimizer_cache.is_trivial_chain) {
+            //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
+            parent2 = distance_index.get_net_handle_from_values (distance_index.get_record_offset(net2),
+                                                    SnarlDistanceIndex::START_END,
+                                                    SnarlDistanceIndex::CHAIN_HANDLE,
+                                                    seed2.minimizer_cache.node_record_offset);
+            if (seed2.minimizer_cache.parent_record_offset == 0) {
+                //If the parent offset stored in the cache is the root, then this is a trivial chain
+                //child of the root not in a root snarl, so remember the root as the parent and the 
+                //trivial chain as th enode
+                net2 = parent2;
+                parent2 = distance_index.get_root();
+            } else if (seed2.minimizer_cache.parent_is_root && !seed2.minimizer_cache.parent_is_chain) {
+                //If the parent is a root snarl, then the node becomes the trivial chain 
+                //and we get the parent root snarl from the cache
+                net2 = parent2;
+                parent2 = distance_index.get_net_handle_from_values(seed2.minimizer_cache.parent_record_offset,
+                                                                   SnarlDistanceIndex::START_END,
+                                                                   SnarlDistanceIndex::ROOT_HANDLE);
+            }
+        } else if (seed2.minimizer_cache.parent_record_offset == 0) {
+            //The parent is just the root
+            parent2 = distance_index.get_root();
+        } else if (seed2.minimizer_cache.parent_is_root && !seed2.minimizer_cache.parent_is_chain) {
+            //If the parent is a root snarl
+            parent2 = distance_index.get_net_handle_from_values(seed2.minimizer_cache.parent_record_offset,
+                                                   SnarlDistanceIndex::START_END,
+                                                   SnarlDistanceIndex::ROOT_HANDLE);
+        } else {
+            //Otherwise the parent is an actual chain and we use the value from the cache
+            parent2 = distance_index.get_net_handle_from_values(seed2.minimizer_cache.parent_record_offset,
+                                                   SnarlDistanceIndex::START_END,
+                                                   SnarlDistanceIndex::CHAIN_HANDLE);
+        }
+    } else {
+        parent2 = distance_index.start_end_traversal_of(distance_index.get_parent(net2));
+        if (distance_index.is_trivial_chain(parent2)){
+            net_handle_t grandparent = distance_index.get_parent(parent2);
+            if (distance_index.is_root(grandparent)){
+                net2 = parent2;
+                parent2 = distance_index.start_end_traversal_of(grandparent);
+            }
+        }
+    }
+
+
+
+#ifdef debug_distances
+        cerr << "Found parents "  << distance_index.net_handle_as_string(parent1) << " and " << distance_index.net_handle_as_string(parent2) << endl;
+#endif
+
+    pair<net_handle_t, bool> lowest_ancestor = distance_index.lowest_common_ancestor(parent1, parent2);
+    //The lowest common ancestor of the two positions
+    net_handle_t common_ancestor = distance_index.start_end_traversal_of(lowest_ancestor.first);
+
+#ifdef debug_distances
+        cerr << "Found the lowest common ancestor " << distance_index.net_handle_as_string(common_ancestor) << endl;
+#endif
+
+    //These are the distances to the ends of the node, including the position
+    size_t node_length1 = has_cached_values1 ? seed1.minimizer_cache.node_length 
+                                             : distance_index.minimum_length(net1);
+    size_t node_length2 = has_cached_values2 ? seed2.minimizer_cache.node_length 
+                                             : distance_index.minimum_length(net2);
+    size_t distance_to_start1 = is_rev(seed1.pos) ? node_length1 - get_offset(seed1.pos) : get_offset(seed1.pos) + 1;
+    size_t distance_to_end1 =   is_rev(seed1.pos) ? get_offset(seed1.pos) + 1 : node_length1 - get_offset(seed1.pos);
+    size_t distance_to_start2 = is_rev(seed2.pos) ? node_length2 - get_offset(seed2.pos) : get_offset(seed2.pos) + 1;
+    size_t distance_to_end2 =   is_rev(seed2.pos) ? get_offset(seed2.pos) + 1 : node_length2 - get_offset(seed2.pos);
+
+#ifdef debug_distances
+        cerr << "Reached node " << distance_index.net_handle_as_string(net1) << " for position 1" << endl;
+        cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
+        cerr << "Reached node " << distance_index.net_handle_as_string(net2) << " for position 2" << endl;
+        cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
+#endif
+    /* get the distance from the ends of the nodes to the ends of the parent, and update the nodes to their parent*/
+
+    if (distance_index.start_end_traversal_of(parent1) == distance_index.start_end_traversal_of(parent2)) {
+        //If the parents are the same, then just find the distance between the nodes and return
+        //Find the minimum distance between the two children (net1 and net2)
+        if ( has_cached_values1 && seed1.minimizer_cache.parent_is_chain) {
+            if (seed1.minimizer_cache.prefix_sum < seed2.minimizer_cache.prefix_sum) {
+                //If seed1 comes before seed2
+                size_t distance_between = SnarlDistanceIndex::minus( SnarlDistanceIndex::minus(seed2.minimizer_cache.prefix_sum,
+                                                                                               seed1.minimizer_cache.prefix_sum),
+                                                                    seed1.minimizer_cache.node_length);
+                minimum_distance = SnarlDistanceIndex::sum(distance_between, 
+                            SnarlDistanceIndex::sum(seed1.minimizer_cache.is_reversed ? distance_to_start1 : distance_to_end1,
+                                               seed2.minimizer_cache.is_reversed ? distance_to_end2 : distance_to_start2));
+            } else {
+                size_t distance_between = SnarlDistanceIndex::minus( SnarlDistanceIndex::minus(seed1.minimizer_cache.prefix_sum,
+                                                                                               seed2.minimizer_cache.prefix_sum),
+                                                                    seed2.minimizer_cache.node_length);
+                minimum_distance = SnarlDistanceIndex::sum(distance_between, 
+                            SnarlDistanceIndex::sum(seed2.minimizer_cache.is_reversed ? distance_to_start2 : distance_to_end2,
+                                               seed1.minimizer_cache.is_reversed ? distance_to_end1 : distance_to_start1));
+            }
+        } else { 
+            //Otherwise, the parent is a snarl and the distances are found with the index
+            size_t distance_start_start = distance_index.distance_in_parent(parent1, distance_index.flip(net1), distance_index.flip(net2), graph);
+            size_t distance_start_end = distance_index.distance_in_parent(parent1, distance_index.flip(net1), net2, graph);
+            size_t distance_end_start = distance_index.distance_in_parent(parent1, net1, distance_index.flip(net2), graph);
+            size_t distance_end_end = distance_index.distance_in_parent(parent1, net1, net2, graph);
+
+            //And add those to the distances we've found to get the minimum distance between the positions
+            minimum_distance = std::min(SnarlDistanceIndex::sum({distance_start_start , distance_to_start1 , distance_to_start2}),
+                   std::min(SnarlDistanceIndex::sum({distance_start_end , distance_to_start1 , distance_to_end2}),
+                   std::min(SnarlDistanceIndex::sum({distance_end_start , distance_to_end1 , distance_to_start2}),
+                            SnarlDistanceIndex::sum({distance_end_end , distance_to_end1 , distance_to_end2})))); 
+        }
+        if (stop_at_lowest_common_ancestor) {
+            return minimum_distance == std::numeric_limits<size_t>::max() ? std::numeric_limits<size_t>::max() 
+                                                                        : minimum_distance - 1;
+        }
+    }
+
+    //Otherwise, find the distances to the ends of the parents, update them, and continue
+    //only if the parent isn't the common ancestor
+    if (parent1 != common_ancestor && !distance_index.is_root(parent1)) {
+        if (has_cached_values1 && seed1.minimizer_cache.parent_is_chain && !seed1.minimizer_cache.is_trivial_chain) {
+            size_t distance_to_chain_start = seed1.minimizer_cache.prefix_sum;
+            size_t distance_to_chain_end = SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(distance_index.minimum_length(parent1),
+                                                                seed1.minimizer_cache.prefix_sum), seed1.minimizer_cache.node_length);
+            size_t old_distance_to_start = distance_to_start1;
+            size_t old_distance_to_end = distance_to_end1;
+#ifdef debug_distances
+            cerr << "\tUsing cache to update to ends of chain1 using distances " << distance_to_chain_start << " and " << distance_to_chain_end << endl;
+#endif
+
+            distance_to_start1 = SnarlDistanceIndex::sum(distance_to_chain_start, 
+                                        seed1.minimizer_cache.is_reversed ? old_distance_to_end : old_distance_to_start);
+            distance_to_end1 = SnarlDistanceIndex::sum(distance_to_chain_end, 
+                                        seed1.minimizer_cache.is_reversed ? old_distance_to_start : old_distance_to_end);
+        } else {
+            update_distances(net1, parent1, distance_to_start1, distance_to_end1);
+        }
+        net1 = std::move(parent1);
+    }
+    if (parent2 != common_ancestor && !distance_index.is_root(parent2)) {
+        if (has_cached_values2 && seed2.minimizer_cache.parent_is_chain && !seed2.minimizer_cache.is_trivial_chain) {
+            size_t distance_to_chain_start = seed2.minimizer_cache.prefix_sum;
+            size_t distance_to_chain_end = SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(distance_index.minimum_length(parent2),
+                                                                seed2.minimizer_cache.prefix_sum), seed2.minimizer_cache.node_length);
+            size_t old_distance_to_start = distance_to_start2;
+            size_t old_distance_to_end = distance_to_end2;
+#ifdef debug_distances
+            cerr << "\tUsing cache to update to ends of chain2 using distances " << distance_to_chain_start << " and " << distance_to_chain_end << endl;
+#endif
+
+            distance_to_start2 = SnarlDistanceIndex::sum(distance_to_chain_start, 
+                                        seed2.minimizer_cache.is_reversed ? old_distance_to_end : old_distance_to_start);
+            distance_to_end2 = SnarlDistanceIndex::sum(distance_to_chain_end, 
+                                        seed2.minimizer_cache.is_reversed ? old_distance_to_start : old_distance_to_end);
+
+        } else {
+            update_distances(net2, parent2, distance_to_start2, distance_to_end2);
+        }
+        net2 = std::move(parent2);
+    }
+
+
+
+#ifdef debug_distances
+        cerr << "Updated to parents" << endl;
+        cerr << "Reached node " << distance_index.net_handle_as_string(net1) << " for position 1" << endl;
+        cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
+        cerr << "Reached node " << distance_index.net_handle_as_string(net2) << " for position 2" << endl;
+        cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
+#endif
+
+
+
+    if (!lowest_ancestor.second) {
+        //If these are not in the same connected component
+#ifdef debug_distances
+        cerr << "These are in different connected components" << endl;
+#endif
+        return std::numeric_limits<size_t>::max();
+    }
+
+    /*
+     * Walk up the snarl tree until net1 and net2 are children of the lowest common ancestor
+     * Keep track of the distances to the ends of the net handles as we go
+     */
+
+    if (distance_index.start_end_traversal_of(net1) == distance_index.start_end_traversal_of(net2)){
+        if (SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2) > distance_index.minimum_length(net1) &&
+            SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2) != std::numeric_limits<size_t>::max()) {
+            //If the positions are on the same node and are pointing towards each other, then
+            //check the distance between them in the node
+            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2), 
+                                                         distance_index.minimum_length(net1));
+        }
+        if (SnarlDistanceIndex::sum({distance_to_start1 , distance_to_end2}) > distance_index.minimum_length(net1) &&
+            SnarlDistanceIndex::sum({distance_to_start1 , distance_to_end2}) != std::numeric_limits<size_t>::max()) {
+            minimum_distance = std::min(SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_start1 , distance_to_end2), 
+                                                                  distance_index.minimum_length(net1)), 
+                                        minimum_distance);
+        }
+        if (!stop_at_lowest_common_ancestor) {
+            common_ancestor = distance_index.start_end_traversal_of(distance_index.get_parent(net1));
+        }
+
+
+    } else {
+
+        //Get the distance from position 1 up to the ends of a child of the common ancestor
+#ifdef debug_distances
+        cerr << "Reaching the children of the lowest common ancestor for first position..." << endl;
+#endif
+        while (distance_index.start_end_traversal_of(distance_index.get_parent(net1)) != common_ancestor && !distance_index.is_root(distance_index.get_parent(net1))) {
+            net_handle_t parent = distance_index.start_end_traversal_of(distance_index.get_parent(net1));
+            update_distances(net1, parent, distance_to_start1, distance_to_end1);
+            net1 = parent;
+        }
+#ifdef debug_distances
+        cerr << "Reached node " << distance_index.net_handle_as_string(net1) << " for position 1" << endl;
+        cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
+        cerr << "Reaching the children of the lowest common ancestor for position 2..." << endl;
+#endif
+        //And the same for position 2
+        while (distance_index.start_end_traversal_of(distance_index.get_parent(net2)) != distance_index.start_end_traversal_of(common_ancestor) && !distance_index.is_root(distance_index.get_parent(net2))) {
+            net_handle_t parent = distance_index.start_end_traversal_of(distance_index.get_parent(net2));
+            update_distances(net2, parent, distance_to_start2, distance_to_end2);
+            net2 = parent;
+        }
+#ifdef debug_distances
+        cerr << "Reached node " << distance_index.net_handle_as_string(net2) << " for position 2" << endl;
+        cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
+#endif
+    }
+    if (stop_at_lowest_common_ancestor) {
+        
+        return minimum_distance == std::numeric_limits<size_t>::max() ? std::numeric_limits<size_t>::max() : minimum_distance-1;    
+    }
+
+    /* 
+     * common_ancestor is now the lowest common ancestor of both net handles, and 
+     * net1 and net2 are both children of common_ancestor
+     * Walk up to the root and check for distances between the positions within each
+     * ancestor
+     */
+
+    while (!distance_index.is_root(net1)){
+#ifdef debug_distances
+            cerr << "At common ancestor " << distance_index.net_handle_as_string(common_ancestor) <<  endl;
+            cerr << "  with distances for child 1 (" << distance_index.net_handle_as_string(net1) << "): " << distance_to_start1 << " "  << distance_to_end1 << endl;
+            cerr << "                     child 2 (" << distance_index.net_handle_as_string(net2) << "): " << distance_to_start2 << " " <<  distance_to_end2 << endl;
+#endif
+
+        //Find the minimum distance between the two children (net1 and net2)
+        size_t distance_start_start = distance_index.distance_in_parent(common_ancestor, distance_index.flip(net1), distance_index.flip(net2), graph);
+        size_t distance_start_end = distance_index.distance_in_parent(common_ancestor, distance_index.flip(net1), net2, graph);
+        size_t distance_end_start = distance_index.distance_in_parent(common_ancestor, net1, distance_index.flip(net2), graph);
+        size_t distance_end_end = distance_index.distance_in_parent(common_ancestor, net1, net2, graph);
+
+        //And add those to the distances we've found to get the minimum distance between the positions
+        minimum_distance = std::min(minimum_distance,
+                           std::min(SnarlDistanceIndex::sum({distance_start_start , distance_to_start1 , distance_to_start2}),
+                           std::min(SnarlDistanceIndex::sum({distance_start_end , distance_to_start1 , distance_to_end2}),
+                           std::min(SnarlDistanceIndex::sum({distance_end_start , distance_to_end1 , distance_to_start2}),
+                                    SnarlDistanceIndex::sum({distance_end_end , distance_to_end1 , distance_to_end2})))));
+
+#ifdef debug_distances
+            cerr << "    Found distances between nodes: " << distance_start_start << " " << distance_start_end << " " << distance_end_start << " "      << distance_end_end << endl;
+            cerr << "  best distance is " << minimum_distance << endl;
+#endif
+        if (!distance_index.is_root(common_ancestor)) {
+            //Update the distances to reach the ends of the common ancestor
+            update_distances(net1, common_ancestor, distance_to_start1, distance_to_end1);
+            update_distances(net2, common_ancestor, distance_to_start2, distance_to_end2);
+
+            //Update which net handles we're looking at
+            net1 = common_ancestor;
+            net2 = common_ancestor;
+            common_ancestor = distance_index.start_end_traversal_of(distance_index.get_parent(common_ancestor));
+        } else {
+            //Just update this one to break out of the loop
+            net1 = common_ancestor;
+        }
+    }
+
+    //minimum distance currently includes both positions
+    return minimum_distance == std::numeric_limits<size_t>::max() ? std::numeric_limits<size_t>::max() : minimum_distance-1;
 }
+
+
+}
+
