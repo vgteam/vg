@@ -3430,18 +3430,13 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     }
 }
 
-void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
-
-    // How long can we use in the reference?
-    // TODO: use longest_detectable_gap here!
-    size_t ref_length = alignment.sequence().size() * 3; 
-    
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
     // We need to get the connecting graph to align to.
     bdsg::HashGraph connecting_graph;
     auto connecting_to_base = algorithms::extract_connecting_graph(
         graph,
         &connecting_graph,
-        ref_length,
+        max_path_length,
         left_anchor, right_anchor
     );
     
@@ -3450,7 +3445,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     
     // And make sure it's a DAG
     bdsg::HashGraph dagified_graph;
-    auto dagified_to_split = handlegraph::algorithms::dagify(&split_graph, &dagified_graph, ref_length);
+    auto dagified_to_split = handlegraph::algorithms::dagify(&split_graph, &dagified_graph, max_path_length);
     
     // Make an accessor for getting back to the base graph space
     auto dagified_handle_to_base = [&](const handle_t& h) -> pair<nid_t, bool> {

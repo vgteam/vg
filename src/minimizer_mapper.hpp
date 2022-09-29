@@ -530,8 +530,10 @@ protected:
      * Clip out the part of the graph between the given positions and
      * global-align the sequence of the given Alignment to it. Populate the
      * Alignment's path and score.
+     *
+     * Finds an alignment against a graph path if it is <= max_path_length.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment);
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment);
     
     /**
      * Set pair partner references for paired mapping results.
@@ -1271,7 +1273,9 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
             assert(graph_length != 0); // TODO: Can't handle abutting graph positions yet
-            MinimizerMapper::align_sequence_between(left_anchor, space.graph_start(*next), &this->gbwt_graph, this->get_aligner(), link_aln);
+            // Guess how long of a graph path we ought to allow in the alignment.
+            size_t path_length = std::max(graph_length, link_length) + this->get_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
+            MinimizerMapper::align_sequence_between(left_anchor, space.graph_start(*next), path_length, &this->gbwt_graph, this->get_aligner(), link_aln);
             
 #ifdef debug_chaining
             if (show_work) {

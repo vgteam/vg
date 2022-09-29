@@ -188,7 +188,7 @@ TEST_CASE("MinimizerMapper can map against subgraphs between points", "[giraffe]
         // Right anchor should be past end
         pos_t right_anchor {graph.get_id(h3), true, 2};
         
-        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, &graph, &aligner, aln);
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, &graph, &aligner, aln);
         
         // Make sure we get the right alignment
         REQUIRE(aln.path().mapping_size() == 3);
@@ -237,7 +237,7 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
         pos_t left_anchor {55511921, false, 5}; // This is on the final base of the node
         pos_t right_anchor {55511925, false, 6};
         
-        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, &graph, &aligner, aln);
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, &graph, &aligner, aln);
         
         // Make sure we get the right alignment. We should see the last base of '21 and go '21 to '24 to '25 and delete everything
         REQUIRE(aln.path().mapping_size() == 3);
