@@ -24,7 +24,7 @@
 
 namespace vg {
 
-#define debug_chaining
+//#define debug_chaining
 
 using namespace std;
 using namespace vg::io;
