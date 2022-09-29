@@ -435,7 +435,7 @@ using namespace std;
                 path_range = surjection.second;
                 alns_out->emplace_back(move(surjection.first));
                 
-                if (i != 0) {
+                if (i != 0 || source_aln->is_secondary()) {
                     alns_out->back().set_is_secondary(true);
                 }
                 
@@ -452,6 +452,11 @@ using namespace std;
                 
                 if (i != 0) {
                     mp_alns_out->back().set_annotation("secondary", true);
+                }
+                else if (i == 0 && source_mp_aln->has_annotation("secondary")) {
+                    auto annotation = source_mp_aln->get_annotation("secondary");
+                    assert(annotation.first == multipath_alignment_t::Bool);
+                    mp_alns_out->back().set_annotation("secondary", *((bool*) annotation.second));
                 }
                 
                 if (annotate_with_all_path_scores) {

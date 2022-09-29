@@ -478,6 +478,7 @@ int main_surject(int argc, char** argv) {
                         vector<tuple<string, int64_t, bool>> positions1, positions2;
                         auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced);
                         auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced);
+                        
                         // we have to pair these up manually
                         unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
                         for (size_t i = 0; i < surjected1.size(); ++i) {
@@ -499,9 +500,9 @@ int main_surject(int argc, char** argv) {
                                 get<0>(positions.back().first) = get<0>(positions1[i]);
                                 get<1>(positions.back().first) = get<2>(positions1[i]);
                                 get<2>(positions.back().first) = get<1>(positions1[i]);
-                                get<0>(positions.back().second) = get<0>(positions2[i]);
-                                get<1>(positions.back().second) = get<2>(positions2[i]);
-                                get<2>(positions.back().second) = get<1>(positions2[i]);
+                                get<0>(positions.back().second) = get<0>(positions2[j]);
+                                get<1>(positions.back().second) = get<2>(positions2[j]);
+                                get<2>(positions.back().second) = get<1>(positions2[j]);
                             }
                             else {
                                 // this strand's surjection is unpaired
