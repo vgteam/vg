@@ -1660,11 +1660,10 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     
     // Get snarls
     IntegratedSnarlFinder snarl_finder(graph);
-    SnarlManager snarl_manager = snarl_finder.find_snarls_parallel();
     
     // Build the distance index
     SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &xg_index, &snarl_finder);
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     
     MultipathMapperSpliceTest mapper(&xg_index, gcsaidx, lcpidx, &distance_index);
     // slack this up a bit so it doesn't filter out good candidates in the small graph
