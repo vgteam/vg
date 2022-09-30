@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 96
+plan tests 98
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -404,8 +404,14 @@ vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt
 is "${?}" "0" "rGFA -> HashGraph -> GBZ -> GFA conversion preserves path metadata"
 
+# We should be able to handle GFA where the P lines and rGFA tags are redundant
+# and cover the same paths, like in HPRC release graphs.
+vg convert -a graphs/components_paths_rgfa.gfa > components_paths_rgfa.hg
+is "${?}" "0" "GFA -> HashGraph conversion works with redundant paths"
+is "$(vg paths --list -x components_paths_rgfa.hg | wc -l)" "1" "GFA -> HashGraph conversion with redundant paths keeps one copy of the redundant path"
+
 rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt paths.hg.txt
-rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg rgfa_with_reference.hg extracted.gfa
+rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg components_paths_rgfa.hg rgfa_with_reference.hg extracted.gfa 
 
 #####
 # GFA Streaming

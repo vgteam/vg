@@ -99,6 +99,9 @@ public:
     /// Maximum number of distinct minimizers to take
     size_t max_unique_min = 500;
     
+    /// Number of minimzers to select based on read_len/num_min_per_bp
+    size_t num_bp_per_min = 1000;
+
     /// If set, exclude overlapping minimizers
     bool exclude_overlapping_min = false;
 

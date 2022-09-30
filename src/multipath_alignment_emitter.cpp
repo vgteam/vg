@@ -338,7 +338,13 @@ void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const 
     // hacky way to inform the conversion code that the read is mapped
     if (mapped) {
         shim.mutable_path()->add_mapping();
-    } 
+    }
+    // this tag comes from surject and is used in both
+    if (mp_aln.has_annotation("all_scores")) {
+        auto anno = mp_aln.get_annotation("all_scores");
+        assert(anno.first == multipath_alignment_t::String);
+        set_annotation(&shim, "all_scores", *((const string*) anno.second));
+    }
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,

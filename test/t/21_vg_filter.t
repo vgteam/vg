@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 10
+plan tests 12
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -64,6 +64,16 @@ is "$(vg filter -X "[w-z]" paired.annotated.gam | vg view -aj - | wc -l)" "0" "r
 is "$(vg filter -U x.gam | vg view -aj - | wc -l)" "0" "negating a non-filter results in no reads"
 
 is "$(cat <(vg filter -U -d 123.5 -t 10 paired.gam | vg view -aj -) <(vg filter -d 123.5 -t 10 paired.gam | vg view -aj -)  | wc -l)" "$(vg view -aj paired.gam | wc -l)" "a filter and its complement should form the entire file"
+
+vg index -x g.xg -g g.gcsa -k 16 graphs/refonly-lrc_kir.vg
+vg mpmap -x g.xg -g g.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 10 -D 50 -F GAM -t 1 > g.proper.gam
+vg mpmap -x g.xg -g g.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 10 -D 1 -F GAM -t 1 > g.improper.gam
+
+is "$(vg filter -p g.proper.gam | vg view -aj - | wc -l)" 2 "properly paired read passes proper filter"
+is "$(vg filter -p g.improper.gam | vg view -aj - | wc -l)" 0 "improperly paired read fails proper filter"
+
+rm g.xg g.gcsa g.gcsa.lcp g.proper.gam g.improper.gam
+
 
 is "$(echo '{"sequence": "GATTACA", "name": "read1", "annotation": {"features": ["test"]}, "fragment_next": {"name": "read2"}}{"sequence": "CATTAG", "name": "read2", "fragment_prev":{"name": "read1"}}' | vg view -JGa - | vg filter -F "test" -i - | vg view -aj - | wc -l)" "0" "read pairs can be tropped by feature"
 is "$(echo '{"sequence": "GATTACA", "name": "read1", "annotation": {"features": ["test"]}, "fragment_next": {"name": "read2"}}{"sequence": "CATTAG", "name": "read2", "fragment_prev":{"name": "read1"}}' | vg view -JGa - | vg filter -F "test" -I - | vg view -aj - | wc -l)" "2" "read pairs can be kept if only one read fails"

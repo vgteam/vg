@@ -1,14 +1,14 @@
 H	VN:Z:1.1
-L	20	+	21	+	*
-L	20	+	22	+	*
-L	21	+	22	+	*
-L	22	+	25	+	*
-L	22	+	38	+	*
-L	25	+	26	+	*
-L	25	+	27	+	*
-L	26	+	41	+	*
-L	27	+	41	+	*
-L	38	+	25	+	*
+L	20	+	21	+	0M
+L	20	+	22	+	0M
+L	21	+	22	+	0M
+L	22	+	25	+	0M
+L	22	+	38	+	0M
+L	25	+	26	+	0M
+L	25	+	27	+	0M
+L	26	+	41	+	0M
+L	27	+	41	+	0M
+L	38	+	25	+	0M
 S	20	CGAGGGTTTCTCCCTGGTTTCTCAGACAGCTCCTGGGCCAAGACTC
 S	21	A
 S	22	GG

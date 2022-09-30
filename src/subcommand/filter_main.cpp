@@ -33,6 +33,7 @@ void help_filter(char** argv) {
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
          << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
          << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
+         << "    -p, --proper-pairs         keep reads that are annotated as being properly paired" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
@@ -101,6 +102,7 @@ int main_filter(int argc, char** argv) {
     int min_base_quality;
     double min_base_quality_fraction;
     bool complement_filter = false;
+    bool only_proper_pairs = false;
 
     // What XG index, if any, should we load to support the other options?
     string xg_name;
@@ -115,6 +117,7 @@ int main_filter(int argc, char** argv) {
                 {"name-prefixes", required_argument, 0, 'N'},
                 {"subsequence", required_argument, 0, 'a'},
                 {"subsequences", required_argument, 0, 'A'},
+                {"proper-pairs", no_argument, 0, 'p'},
                 {"exclude-contig", required_argument, 0, 'X'},
                 {"exclude-feature", required_argument, 0, 'F'},
                 {"min-secondary", required_argument, 0, 's'},
@@ -141,7 +144,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:a:A:X:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
+        c = getopt_long (argc, argv, "Mn:N:a:A:pX:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -184,6 +187,9 @@ int main_filter(int argc, char** argv) {
                     subsequences.push_back(line);
                 }
             });
+            break;
+        case 'p':
+            only_proper_pairs = true;
             break;
         case 'X':
             excluded_refpos_contigs.push_back(parse<std::regex>(optarg));
@@ -383,6 +389,7 @@ int main_filter(int argc, char** argv) {
                 filter.downsample_seed_mask = rand();
             }
         }
+        filter.only_proper_pairs = only_proper_pairs;
         filter.interleaved = interleaved;
         filter.filter_on_all = filter_on_all;
         if (set_min_base_quality) {
