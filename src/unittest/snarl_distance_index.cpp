@@ -670,6 +670,12 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second[1]) == std::numeric_limits<int32_t>::min());
 
             }
+            SECTION("Max distance") {
+                REQUIRE(distance_index.maximum_distance(n3->id(), false, 0, n5->id(), false, 0) == 5);
+                REQUIRE(distance_index.maximum_distance(n2->id(), false, 0, n7->id(), false, 0) == 9);
+                REQUIRE(distance_index.maximum_distance(n1->id(), false, 0, n8->id(), false, 0) == 13);
+                REQUIRE(distance_index.maximum_distance(n2->id(), false, 0, n5->id(), false, 0) == 6);
+            }
         }
         TEST_CASE( "Snarl decomposition can traverse multiple components in the root",
                   "[snarl_distance]" ) {

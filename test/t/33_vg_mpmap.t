@@ -95,7 +95,7 @@ rm t.vg t.xg t.gcsa t.gcsa.lcp t.fq
 vg construct -m 32 -r small/x.fa -v small/x.vcf.gz > s.vg
 vg snarls -T s.vg > s.snarls
 vg index s.vg -x s.xg -g s.gcsa
-vg index s.vg -j s.dist -s s.snarls --old-distance-index
+vg index s.vg -j s.dist 
 
 echo "@read
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATGA
@@ -138,7 +138,7 @@ vg sim -a -p 200 -v 10 -l 50 -n 1000 -s 12345 -x x.vg >x.gam
 vg construct -r small/xy.fa >xy.vg
 vg snarls -T xy.vg > xy.snarls
 vg index xy.vg -x xy.xg -g xy.gcsa
-vg index xy.vg -j xy.dist -s xy.snarls --old-distance-index
+vg index xy.vg -j xy.dist 
 
 vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -i --frag-mean 50 --frag-stddev 10 -M 1 >xy.sam
 X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"

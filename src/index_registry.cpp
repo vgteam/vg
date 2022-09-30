@@ -3384,7 +3384,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return make_distance_index(gbz->graph, plan, constructing);
     });
     
-    registry.register_recipe({"Spliced Distance Index"}, {"Spliced Snarls", "Spliced XG"},
+    registry.register_recipe({"Spliced Distance Index"}, {"Spliced XG"},
                              [make_distance_index](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,

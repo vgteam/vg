@@ -49,7 +49,7 @@ is $(md5sum x.mi | cut -f 1 -d\ ) 24d7b6cf578766edb397c68f18a8682a "construction
 # Store payload in the index
 vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist x.gg
 is $? 0 "construction with payload"
-is $(md5sum x.mi | cut -f 1 -d\ ) 5f693dd6d06bf627f75cc0a5a8d7cb60 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 6d377fdd427c7173e16e92516bf72b7b "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.gg x.gbz
 

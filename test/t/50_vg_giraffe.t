@@ -14,7 +14,7 @@ vg gbwt -o x-paths.gbwt -x x.vg --index-paths
 vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
 vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg snarls --include-trivial x.vg > x.snarls
-vg index -s x.snarls -j x.dist x.vg
+vg index -j x.dist x.vg
 vg minimizer -k 29 -w 11 -g x.gbwt -o x.min x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
