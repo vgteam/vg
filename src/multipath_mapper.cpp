@@ -4443,7 +4443,7 @@ namespace vg {
     }
 
     void MultipathMapper::agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
-                                                 vector<double>* multiplicities) const {
+                                                 vector<double>* multiplicities) {
         
         if (multipath_alns_out.empty()) {
             return;
@@ -4459,7 +4459,7 @@ namespace vg {
         unordered_set<pos_t> agg_start_positions, agg_end_positions;
         for (i = 0; i < multipath_alns_out.size(); ++i) {
             // is the score good enough to agglomerate?
-            if (scores[i] < min_score) {
+            if (scores[i] < min_score || likely_mismapping(multipath_alns_out[i])) {
                 // none of the following will be either
                 break;
             }
@@ -4490,7 +4490,7 @@ namespace vg {
 
     void MultipathMapper::agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                      vector<double>& multiplicities) const {
+                                                      vector<double>& multiplicities) {
 
         if (multipath_aln_pairs_out.empty()) {
             return;
@@ -4507,7 +4507,8 @@ namespace vg {
         unordered_set<pos_t> agg_start_positions_1, agg_end_positions_1, agg_start_positions_2, agg_end_positions_2;
         for (i = 0; i < multipath_aln_pairs_out.size(); ++i) {
             // is the score good enough to agglomerate?
-            if (scores[i] < min_score) {
+            if (scores[i] < min_score ||
+                (likely_mismapping(multipath_aln_pairs_out[i].first) && likely_mismapping(multipath_aln_pairs_out[i].second))) {
                 // none of the following will be either
                 break;
             }
