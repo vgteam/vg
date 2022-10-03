@@ -53,7 +53,7 @@ pos_t make_pos_t(gcsa::node_type node);
 /// Convert a pos_t to a Position.
 Position make_position(const pos_t& pos);
 /// Create a Position from a Node ID, an orientation flag, and an offset along that strand of the node.
-Position make_position(id_t id, bool is_rev, off_t off);
+Position make_position(id_t id, bool is_rev, vg::off_t off);
 /// Make a Position from a gcsa node
 Position make_position(gcsa::node_type node);
 /// Find the min distance in the path offsets where the path orientation is the same and different
