@@ -408,13 +408,13 @@ namespace vg {
         /// Combine all of the significant alignments into one. Requires alignments to be sorted by
         /// significance already
         void agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
-                                    vector<double>* multiplicities = nullptr) const;
+                                    vector<double>* multiplicities = nullptr);
         
         /// Combine all of the significant alignments into one pair. Requires alignments to be sorted by
         /// significance already
         void agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                         vector<double>& multiplicities) const;
+                                         vector<double>& multiplicities);
         
         /// Before returning, remove alignments that are likely noise and add a placeholder
         /// for an unmapped read if necessary
