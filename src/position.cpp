@@ -22,7 +22,7 @@ Position make_position(const pos_t& pos) {
     return p;
 }
 
-Position make_position(id_t id, bool is_rev, vg::off_t off) {
+Position make_position(id_t id, bool is_rev, offset_t off) {
     Position p;
     p.set_node_id(id);
     p.set_is_reverse(is_rev);

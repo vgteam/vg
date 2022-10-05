@@ -272,8 +272,8 @@ namespace unittest {
                 handle_t node1 = graph.get_handle(nodeID1);
                 handle_t node2 = graph.get_handle(nodeID2);
  
-                vg::off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
-                vg::off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(node2) - 1)(generator);
+                offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
+                offset_t offset2 = uniform_int_distribution<int>(0,graph.get_length(node2) - 1)(generator);
 
                 pos_t pos1 = make_pos_t(nodeID1, 
                   uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );

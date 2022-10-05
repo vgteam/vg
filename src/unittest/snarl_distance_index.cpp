@@ -6996,8 +6996,8 @@ namespace vg {
                     REQUIRE(graph.has_node(node_id2));
 
                     
-                    vg::off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
-                    vg::off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
+                    offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
+                    offset_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
                     bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
                     bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
                     

@@ -3296,7 +3296,7 @@ namespace unittest {
                             id_t nodeID1 = all_nodes[randPosIndex(generator)];
                             handle_t node1 = graph.get_handle(nodeID1);
  
-                            vg::off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
+                            offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
 
                             pos_t pos = make_pos_t(nodeID1,
                                 uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
