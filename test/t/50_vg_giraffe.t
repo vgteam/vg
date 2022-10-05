@@ -183,7 +183,7 @@ rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 
 # Try long read alignment with Distance Index 2
 vg construct -S -a -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >1mb1kgp.vg 2>/dev/null
-vg index -j 1mb1kgp.dist --new-distance-index 1mb1kgp.vg
+vg index -j 1mb1kgp.dist  1mb1kgp.vg
 vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraffe Distance Index:1mb1kgp.dist" -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz
 vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains
 # This is an 8001 bp read with 1 insert and 1 substitution
