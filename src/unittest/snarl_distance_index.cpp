@@ -5451,11 +5451,12 @@ namespace vg {
             }
             SECTION("Save distance index as a file stream") {
                 SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 string file = "test_graph.dist"; 
-                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 ofstream out (file);
                 distance_index.serialize(out);
+                out.close();
 
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
@@ -5467,9 +5468,10 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
                 SECTION("Load index") {
-                    SnarlDistanceIndex new_distance_index;
                     ifstream in ( file);
+                    SnarlDistanceIndex new_distance_index;
                     new_distance_index.deserialize(in);
+                    in.close();
 
 
                     REQUIRE(new_distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
