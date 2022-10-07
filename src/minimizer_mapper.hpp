@@ -985,9 +985,14 @@ Alignment MinimizerMapper::find_chain_alignment(
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Align chain of:";
-            for (auto item_number : chain) {
-                cerr << " " << item_number;
+            cerr << log_name() << "Align chain of";
+            if (chain.size() < MANY_LIMIT) {
+                cerr << ": ";
+                for (auto item_number : chain) {
+                    cerr << " " << item_number;
+                }
+            } else {
+                cerr << " " << chain.size() << " items";
             }
             cerr << " in " << to_chain.size() << " items" << endl;
         }
@@ -1370,7 +1375,10 @@ Alignment MinimizerMapper::find_chain_alignment(
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << composed_score << endl;
-            cerr << log_name() << "Composed alignment: " << pb2json(composed_path) << endl;
+            if (composed_path.mapping_size() > 0) {
+                cerr << log_name() << "Composed alignment starts with: " << pb2json(composed_path.mapping(0)) << endl;
+                cerr << log_name() << "Composed alignment ends with: " << pb2json(composed_path.mapping(composed_path.mapping_size() - 1)) << endl;
+            }
         }
     }
     

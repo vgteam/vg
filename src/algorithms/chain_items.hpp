@@ -549,7 +549,6 @@ struct BaseChainingSpace : public UnknownItemChainingSpace {
      */
     virtual size_t get_graph_distance(const Item& left,
                                       const Item& right) const {
-    
         if (!distance_source) {
             return numeric_limits<size_t>::max();
         }
@@ -888,6 +887,71 @@ struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSour
     }
     
     virtual ~ChainingSpace() = default;
+    
+    virtual size_t get_graph_distance(const Item& left,
+                                      const Item& right) const {
+    
+        if (this->distance_index && this->graph) {
+            // Ignore the distance source and ask the clusterer so we cna use its cache
+            NewSnarlSeedClusterer clusterer(this->distance_index, this->graph);
+            // We need to copy the seeds because the query mutates them.
+            // TODO: avoid this
+            Item left_copy(left);
+            Item right_copy(right);
+            // Get the distance, stopping at the lowest common ancestor so we don't go outside and come back like a read doesn't.
+            size_t distance = clusterer.distance_between_seeds(left_copy, right_copy, true);
+            if (distance == std::numeric_limits<size_t>::max()) {
+                // Sometimes the cached data can say things are unreachable when the positions we would use would say they aren't.
+                // Just leave them unreachable.
+                return distance;
+            }
+            std::cerr << "Distance between item starting at " << this->graph_start(left) << " and " << this->graph_start(right) << " starts as " << distance << std::endl;
+            // The distance is between the actual minimizer-occurs-at bases, so
+            // we need to compensate for minimizer orientation to work out if
+            // it is the start or end of the alignment we see the item as, and
+            // then adjust the distance by removing one or both itme lengths.
+            
+            if (!this->sources[left.source].value.is_reverse) {
+                // We measured from the start of the left item but we want it from the exclusive end.
+                distance -= this->graph_length(left);
+                std::cerr << "After removing left item length it is " << distance << std::endl;
+            } else {
+                distance -= 1;
+                std::cerr << "After bumping out past left item it is " << distance << std::endl;
+            }
+            
+            if (this->sources[right.source].value.is_reverse) {
+                // We measured to the inclusive end of the right item but we want it to the start.
+                distance -= (this->graph_length(right) - 1);
+                std::cerr << "After removing right item length it is " << distance << std::endl;
+            }
+            
+            pos_t left_past_end = this->graph_end(left);
+            pos_t right_start = this->graph_start(right);
+            size_t distance2 = this->distance_source->get_distance(left_past_end, right_start);
+            
+            if (distance != distance2) {
+                std::cerr << "Direct query says " << distance2 << " but cache says " << distance << std::endl;
+                assert(distance == distance2);
+            }
+            
+            return distance;
+        }
+        
+        if (!this->distance_source) {
+            return numeric_limits<size_t>::max();
+        }
+        
+        // Find where the left extension past-ends
+        pos_t left_past_end = this->graph_end(left);
+        // Find where the right one starts
+        pos_t right_start = this->graph_start(right);
+        
+        
+        
+        // Ask the distance source about it
+        return this->distance_source->get_distance(left_past_end, right_start);
+    }
     
     
 };
