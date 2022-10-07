@@ -3473,7 +3473,6 @@ size_t NewSnarlSeedClusterer::distance_between_seeds(Seed& seed1, Seed& seed2, b
         size_t distance_to_end1 =   is_rev(seed1.pos) ? get_offset(seed1.pos) + 1 : node_length - get_offset(seed1.pos);
         size_t distance_to_start2 = is_rev(seed2.pos) ? node_length - get_offset(seed2.pos) : get_offset(seed2.pos) + 1;
         size_t distance_to_end2 =   is_rev(seed2.pos) ? get_offset(seed2.pos) + 1 : node_length - get_offset(seed2.pos);
-        cerr << "Same node, distances : " << distance_to_start1 << " " << distance_to_end1 << " " << distance_to_start2 << " " << distance_to_end2 << " and node length " << node_length << endl;
 
         if (distance_to_start1 < distance_to_start2) {
             //IF 1 comes before 2
