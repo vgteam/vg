@@ -1145,6 +1145,11 @@ int main_mpmap(int argc, char** argv) {
     // we can usually ignore them
     int hard_hit_max = hard_hit_max_muliplier * hit_max;
     
+    // don't report secondaries if we're agglomerating
+    if (agglomerate_multipath_alns && max_num_mappings != 1) {
+        max_num_mappings = 1;
+    }
+    
     // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {

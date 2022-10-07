@@ -1,5 +1,6 @@
 #include "alignment.hpp"
 #include "vg/io/gafkluge.hpp"
+#include "annotation.hpp"
 
 #include <sstream>
 
@@ -748,6 +749,13 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     if (!alignment.read_group().empty()) {
         bam_aux_append(bam, "RG", 'Z', alignment.read_group().size() + 1, (uint8_t*) alignment.read_group().c_str());
     }
+    
+    // this annotation comes from surject and should be retained in the BAM
+    if (has_annotation(alignment, "all_scores")) {
+        string all_scores = get_annotation<string>(alignment, "all_scores");
+        bam_aux_append(bam, "SS", 'Z', all_scores.size() + 1, (uint8_t*) all_scores.c_str());
+    }
+    
     // TODO: this does not seem to be a standardized field (https://samtools.github.io/hts-specs/SAMtags.pdf)
 //    if (!alignment.sample_name()) {
 //

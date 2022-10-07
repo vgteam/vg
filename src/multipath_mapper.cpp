@@ -2281,10 +2281,10 @@ namespace vg {
 #endif
        
         // Now compute the MAPQ for the best alignment
-        auto placement_mapq = compute_raw_mapping_quality_from_scores(scores,
-                                                                      !multipath_aln.quality().empty());
+        auto placement_mapqs = compute_raw_mapping_qualities_from_scores(scores,
+                                                                         !multipath_aln.quality().empty());
         // And min it in with what;s there already.
-        alns_out[0].set_mapping_quality(min(alns_out[0].mapping_quality(), placement_mapq));
+        alns_out[0].set_mapping_quality(min(alns_out[0].mapping_quality(), placement_mapqs.front()));
         for (size_t i = 1; i < alns_out.size(); i++) {
             // And zero all the others
             alns_out[i].set_mapping_quality(0);
@@ -4445,7 +4445,7 @@ namespace vg {
     }
 
     void MultipathMapper::agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
-                                                 vector<double>* multiplicities) const {
+                                                 vector<double>* multiplicities) {
         
         if (multipath_alns_out.empty()) {
             return;
@@ -4461,7 +4461,7 @@ namespace vg {
         unordered_set<pos_t> agg_start_positions, agg_end_positions;
         for (i = 0; i < multipath_alns_out.size(); ++i) {
             // is the score good enough to agglomerate?
-            if (scores[i] < min_score) {
+            if (scores[i] < min_score || likely_mismapping(multipath_alns_out[i])) {
                 // none of the following will be either
                 break;
             }
@@ -4492,7 +4492,7 @@ namespace vg {
 
     void MultipathMapper::agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                      vector<double>& multiplicities) const {
+                                                      vector<double>& multiplicities) {
 
         if (multipath_aln_pairs_out.empty()) {
             return;
@@ -4509,7 +4509,8 @@ namespace vg {
         unordered_set<pos_t> agg_start_positions_1, agg_end_positions_1, agg_start_positions_2, agg_end_positions_2;
         for (i = 0; i < multipath_aln_pairs_out.size(); ++i) {
             // is the score good enough to agglomerate?
-            if (scores[i] < min_score) {
+            if (scores[i] < min_score ||
+                (likely_mismapping(multipath_aln_pairs_out[i].first) && likely_mismapping(multipath_aln_pairs_out[i].second))) {
                 // none of the following will be either
                 break;
             }
@@ -6912,28 +6913,40 @@ namespace vg {
         return scores;
     }
     
-    int32_t MultipathMapper::compute_raw_mapping_quality_from_scores(const vector<double>& scores,
-                                                                     bool have_qualities, const vector<double>* multiplicities) const {
+    vector<int32_t> MultipathMapper::compute_raw_mapping_qualities_from_scores(const vector<double>& scores, bool have_qualities,
+                                                                               const vector<double>* multiplicities) const {
    
         auto aligner = get_aligner(have_qualities);
         
-        bool use_exact = (mapping_quality_method == Exact);
-        if (!use_exact && scores.size() >= 2
-            && (scores[1] > scores[0] ||
-                (mapping_quality_method == Adaptive && scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)))) {
-            use_exact = true;
+        vector<int32_t> raw_mapqs;
+        
+        if (scores.size() > 1 && max_alt_mappings > 1) {
+            // we want MAPQs for all of the multi-mapped reads, so we need the exact algorithm
+            raw_mapqs = aligner->compute_all_mapping_qualities(scores, multiplicities);
+        }
+        else {
+            // we only need a MAPQ for the primary
+            
+            bool use_exact = (mapping_quality_method == Exact);
+            if (!use_exact && scores.size() >= 2
+                && (scores[1] > scores[0] ||
+                    (mapping_quality_method == Adaptive && scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)))) {
+                use_exact = true;
+            }
+            
+            raw_mapqs.push_back(aligner->compute_first_mapping_quality(scores, !use_exact, multiplicities));
         }
         
-        int32_t raw_mapq = aligner->compute_first_mapping_quality(scores, !use_exact, multiplicities);
-        
         // arbitrary scaling, seems to help performance
-        raw_mapq *= mapq_scaling_factor;
-        
+        for (auto& raw_mapq : raw_mapqs) {
+            raw_mapq *= mapq_scaling_factor;
+            
 #ifdef debug_multipath_mapper
-        cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
+            cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
+        }
 
-        return raw_mapq;
+        return raw_mapqs;
 
     }
     
@@ -7030,9 +7043,11 @@ namespace vg {
 #endif
         
         // Compute and set the mapping quality
-        int32_t uncapped_mapq = compute_raw_mapping_quality_from_scores(scores, !multipath_alns.front().quality().empty(),
-                                                                        multiplicities);
-        multipath_alns.front().set_mapping_quality(min<int32_t>(uncapped_mapq, max_mapping_quality));
+        vector<int32_t> uncapped_mapqs = compute_raw_mapping_qualities_from_scores(scores, !multipath_alns.front().quality().empty(),
+                                                                                   multiplicities);
+        for (size_t i = 0; i < uncapped_mapqs.size(); ++i) {
+            multipath_alns[i].set_mapping_quality(min<int32_t>(uncapped_mapqs[i], max_mapping_quality));
+        }
         
         if (report_allelic_mapq) {
             // figure out what the mapping quality would be for the lowest-scoring combination of
@@ -7040,10 +7055,11 @@ namespace vg {
             int32_t allelic_diff = optimal_alignment_score(multipath_alns.front()) - worst_alignment_score(multipath_alns.front());
             if (allelic_diff != 0) {
                 scores[0] -= allelic_diff;
-                int32_t uncapped_allelic_mapq = compute_raw_mapping_quality_from_scores(scores,
-                                                                                        !multipath_alns.front().quality().empty(),
-                                                                                        multiplicities);
-                int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
+                vector<int32_t> uncapped_allelic_mapqs = compute_raw_mapping_qualities_from_scores(scores,
+                                                                                                   !multipath_alns.front().quality().empty(),
+                                                                                                   multiplicities);
+                auto uncapped_allelic_mapq = uncapped_allelic_mapqs.front();
+                int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapqs.front(), max_mapping_quality);
                 if (allelic_mapq != multipath_alns.front().mapping_quality()) {
                     // other alleles do not place this read as confidently
                     multipath_alns.front().set_annotation("allelic_mapq", (double) allelic_mapq);
@@ -7053,6 +7069,8 @@ namespace vg {
         }
         
         if (report_group_mapq) {
+            // TODO: this can include alignments that are later removed as being insigificant, but they shouldn't
+            // affect the sum much at all
             size_t num_reporting = min(multipath_alns.size(), max_alt_mappings);
             vector<size_t> reporting_idxs(num_reporting, 0);
             for (size_t i = 1; i < num_reporting; ++i) {
@@ -7167,14 +7185,17 @@ namespace vg {
 #endif
         
         // Compute the raw mapping quality
-        int32_t uncapped_mapq = compute_raw_mapping_quality_from_scores(scores,
-                                                                        !multipath_aln_pairs.front().first.quality().empty() &&
-                                                                        !multipath_aln_pairs.front().second.quality().empty(),
-                                                                        multiplicities);
+        vector<int32_t> uncapped_mapqs = compute_raw_mapping_qualities_from_scores(scores,
+                                                                                   !multipath_aln_pairs.front().first.quality().empty() &&
+                                                                                   !multipath_aln_pairs.front().second.quality().empty(),
+                                                                                   multiplicities);
         // Limit it to the max.
-        int32_t mapq = min<int32_t>(uncapped_mapq, max_mapping_quality);
-        multipath_aln_pairs.front().first.set_mapping_quality(mapq);
-        multipath_aln_pairs.front().second.set_mapping_quality(mapq);
+        for (size_t i = 0; i < uncapped_mapqs.size(); ++i) {
+            int32_t mapq = min<int32_t>(uncapped_mapqs[i], max_mapping_quality);
+            multipath_aln_pairs[i].first.set_mapping_quality(mapq);
+            multipath_aln_pairs[i].second.set_mapping_quality(mapq);
+        }
+        
         
         int32_t allelic_diff_1 = 0, allelic_diff_2 = 0;
         if (report_allelic_mapq) {
@@ -7185,12 +7206,14 @@ namespace vg {
                               - worst_alignment_score(multipath_aln_pairs.front().second));
             if (allelic_diff_1 != 0 || allelic_diff_2 != 0) {
                 scores[0] -= allelic_diff_1 + allelic_diff_2;
-                int32_t uncapped_allelic_mapq = compute_raw_mapping_quality_from_scores(scores,
-                                                                                        !multipath_aln_pairs.front().first.quality().empty() &&
-                                                                                        !multipath_aln_pairs.front().second.quality().empty(),
-                                                                                        multiplicities);
+                vector<int32_t> uncapped_allelic_mapqs = compute_raw_mapping_qualities_from_scores(scores,
+                                                                                                   !multipath_aln_pairs.front().first.quality().empty() &&
+                                                                                                   !multipath_aln_pairs.front().second.quality().empty(),
+                                                                                                   multiplicities);
+                auto uncapped_allelic_mapq = uncapped_allelic_mapqs.front();
                 int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
-                if (allelic_mapq != mapq) {
+                if (allelic_mapq != multipath_aln_pairs.front().first.mapping_quality() ||
+                    allelic_mapq != multipath_aln_pairs.front().second.mapping_quality()) {
                     // other alleles might not place this read as confidently
                     multipath_aln_pairs.front().first.set_annotation("allelic_mapq", (double) allelic_mapq);
                     multipath_aln_pairs.front().second.set_annotation("allelic_mapq", (double) allelic_mapq);
@@ -7199,7 +7222,11 @@ namespace vg {
             }
         }
         
+        
         if (multipath_aln_pairs.size() > 1) {
+            // TODO: it would be nice to also look for duplicates with other pairs, but i don't love
+            // the quadratic work that this would require...
+            
             // find the duplicates of the optimal pair (initially mark with only the pair itself)
             vector<size_t> duplicates_1(1, 0);
             vector<size_t> duplicates_2(1, 0);
@@ -7331,6 +7358,8 @@ namespace vg {
         }
         
         if (report_group_mapq) {
+            // TODO: this can include alignments that are later removed as being insigificant, but they shouldn't
+            // affect the sum much at all
             size_t num_reporting = min(multipath_aln_pairs.size(), max_alt_mappings);
             vector<size_t> reporting_idxs(num_reporting, 0);
             for (size_t i = 1; i < num_reporting; ++i) {

@@ -8,19 +8,15 @@
 
 #include <set>
 #include <atomic>
+#include <sstream>
+#include <algorithm>
+#include <functional>
 
-#include "alignment.hpp"
 #include "aligner.hpp"
-#include "vg.hpp"
-#include "translator.hpp"
-#include "utility.hpp"
+#include "handle.hpp"
 #include <vg/vg.pb.h>
-#include "multipath_alignment_graph.hpp"
-#include "memoizing_graph.hpp"
-#include "split_strand_graph.hpp"
-#include "sequence_complexity.hpp"
+#include "multipath_alignment.hpp"
 
-#include "bdsg/hash_graph.hpp"
 
 namespace vg {
 
@@ -49,6 +45,13 @@ using namespace std;
                           bool& path_rev_out,
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
+        
+        /// Same as above, but include alignments to all paths instead of only the optimal one
+        vector<Alignment> multi_surject(const Alignment& source,
+                                        const unordered_set<path_handle_t>& paths,
+                                        vector<tuple<string, int64_t, bool>>& positions_out,
+                                        bool allow_negative_scores = false,
+                                        bool preserve_deletions = false) const;
                           
         /// Extract the portions of an alignment that are on a chosen set of
         /// paths and try to align realign the portions that are off of the
@@ -69,6 +72,12 @@ using namespace std;
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
         
+        /// Same as above, but include alignments to all paths instead of only the optimal one
+        vector<Alignment> multi_surject(const Alignment& source,
+                                        const unordered_set<path_handle_t>& paths,
+                                        bool allow_negative_scores = false,
+                                        bool preserve_deletions = false) const;
+        
         /// Same semantics as with alignments except that connections are always
         /// preserved as splices. The output consists of a multipath alignment with
         /// a single path, separated by splices (either from large deletions or from
@@ -79,6 +88,13 @@ using namespace std;
                                       bool& path_rev_out,
                                       bool allow_negative_scores = false,
                                       bool preserve_deletions = false) const;
+        
+        /// Same as above, but include alignments to all paths instead of only the optimal one
+        vector<multipath_alignment_t> multi_surject(const multipath_alignment_t& source,
+                                                    const unordered_set<path_handle_t>& paths,
+                                                    vector<tuple<string, int64_t, bool>>& positions_out,
+                                                    bool allow_negative_scores = false,
+                                                    bool preserve_deletions = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
@@ -109,12 +125,14 @@ using namespace std;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
         
+        bool annotate_with_all_path_scores = false;
+        
     protected:
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
-                              Alignment* aln_out, multipath_alignment_t* mp_aln_out,
+                              vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                               const unordered_set<path_handle_t>& paths,
-                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
+                              vector<tuple<string, int64_t, bool>>& positions_out, bool all_paths,
                               bool allow_negative_scores, bool preserve_deletions) const;
         
         Alignment
@@ -182,6 +200,9 @@ using namespace std;
                                const step_handle_t& range_begin, const step_handle_t& range_end,
                                bool rev_strand, string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
+        template<class AlnType>
+        string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const;
+        
         ///////////////////////
         // Support methods for the spliced surject algorithm
         ///////////////////////
@@ -240,9 +261,36 @@ using namespace std;
         static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
                                                             const string& src_quality);
         
+        template<class AlnType>
+        static int32_t get_score(const AlnType& aln);
+        
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
+
+
+    template<class AlnType>
+    string Surjector::path_score_annotations(const unordered_map<pair<path_handle_t, bool>, pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections) const {
+        
+        vector<tuple<int32_t, string, bool>> paths;
+        for (const auto& surjection : surjections) {
+            paths.emplace_back(get_score(surjection.second.first), graph->get_path_name(surjection.first.first), surjection.first.second);
+        }
+        sort(paths.begin(), paths.end(), greater<tuple<int32_t, string, bool>>());
+        
+        stringstream sstrm;
+        
+        for (size_t i = 0; i < paths.size(); ++i) {
+            if (i != 0) {
+                sstrm << ',';
+            }
+            sstrm << get<1>(paths[i]);
+            sstrm << (get<2>(paths[i]) ? '-' : '+');
+            sstrm << get<0>(paths[i]);
+        }
+        
+        return sstrm.str();
+    }
 }
 
 #endif

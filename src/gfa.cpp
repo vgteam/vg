@@ -171,7 +171,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         }
         
         out << "L\t" << from_id << "\t" << (from_is_reverse ? '-' : '+')
-            << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t*\n"; // Writing `std::endl` would flush the buffer.
+            << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t0M\n"; // Writing `std::endl` would flush the buffer.
         return true;
     }, false);
 }
