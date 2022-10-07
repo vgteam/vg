@@ -21,16 +21,16 @@ typedef handlegraph::nid_t id_t;
 
 /// Represents an offset along the sequence of a Node.
 /// Offsets are size_t.
-typedef size_t off_t;
+typedef size_t offset_t;
 
 /// Represents an oriented position on a Node.
 /// Position type: id, direction, offset.
 /// Offset is counted as for as prorobuf Position, from the node's first base
 /// on the forward strand, and from its last base on the reverse strand.
-typedef std::tuple<id_t, bool, off_t> pos_t;
+typedef std::tuple<id_t, bool, offset_t> pos_t;
 
 /// Create a pos_t from a Node ID, an orientation flag, and an offset along that strand of the node.
-inline pos_t make_pos_t(id_t id, bool is_rev, off_t off) {
+inline pos_t make_pos_t(id_t id, bool is_rev, offset_t off) {
     return std::make_tuple(id, is_rev, off);
 }
 
@@ -45,7 +45,7 @@ inline bool is_rev(const pos_t& pos) {
 }
 
 /// Get the offset along the selected strand of the node from a pos_t.
-inline off_t offset(const pos_t& pos) {
+inline offset_t offset(const pos_t& pos) {
     return std::get<2>(pos);
 }
 
@@ -60,7 +60,7 @@ inline bool& get_is_rev(pos_t& pos) {
 }
 
 /// Get a reference to the offset field of a pos_t, which counts along the selected strand of the node.
-inline off_t& get_offset(pos_t& pos) {
+inline offset_t& get_offset(pos_t& pos) {
     return std::get<2>(pos);
 }
 

@@ -670,6 +670,12 @@ namespace vg {
                 REQUIRE(std::get<2>(traceback.second[1]) == std::numeric_limits<int32_t>::min());
 
             }
+            SECTION("Max distance") {
+                REQUIRE(distance_index.maximum_distance(n3->id(), false, 0, n5->id(), false, 0) == 5);
+                REQUIRE(distance_index.maximum_distance(n2->id(), false, 0, n7->id(), false, 0) == 9);
+                REQUIRE(distance_index.maximum_distance(n1->id(), false, 0, n8->id(), false, 0) == 13);
+                REQUIRE(distance_index.maximum_distance(n2->id(), false, 0, n5->id(), false, 0) == 6);
+            }
         }
         TEST_CASE( "Snarl decomposition can traverse multiple components in the root",
                   "[snarl_distance]" ) {
@@ -5445,11 +5451,12 @@ namespace vg {
             }
             SECTION("Save distance index as a file stream") {
                 SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 string file = "test_graph.dist"; 
-                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 ofstream out (file);
                 distance_index.serialize(out);
+                out.close();
 
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
@@ -5461,9 +5468,10 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
                 SECTION("Load index") {
-                    SnarlDistanceIndex new_distance_index;
                     ifstream in ( file);
+                    SnarlDistanceIndex new_distance_index;
                     new_distance_index.deserialize(in);
+                    in.close();
 
 
                     REQUIRE(new_distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
@@ -6990,8 +6998,8 @@ namespace vg {
                     REQUIRE(graph.has_node(node_id2));
 
                     
-                    off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
-                    off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
+                    offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
+                    offset_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
                     bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
                     bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
                     
