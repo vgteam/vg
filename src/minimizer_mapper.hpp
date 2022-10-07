@@ -1144,7 +1144,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Make an alignment for the bases used in this GaplessExtension, and
         // concatenate it in.
         WFAAlignment here_alignment = space.to_wfa_alignment(*here);
-        concat_paths(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
         composed_score += here_alignment.score;
         
 #ifdef debug_chaining
@@ -1250,7 +1250,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             link_alignment.check_lengths(gbwt_graph);
             
             // Then the link (possibly empty)
-            concat_paths(composed_path, link_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            append_path(composed_path, link_alignment.to_path(this->gbwt_graph, aln.sequence()));
             composed_score += link_alignment.score;
         } else {
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
@@ -1283,7 +1283,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
             
             // Then tack that path and score on
-            concat_paths(composed_path, link_aln.path());
+            append_path(composed_path, link_aln.path());
             composed_score += link_aln.score();
         }
         
@@ -1307,7 +1307,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     here_alignment.check_lengths(gbwt_graph);
     
     // Do the final GaplessExtension itself (may be the first)
-    concat_paths(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+    append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
     composed_score += here_alignment.score;
    
     // Do the right tail, if any. Do as much of it as we can afford to do.
@@ -1362,7 +1362,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         
         right_alignment.check_lengths(gbwt_graph);
         
-        concat_paths(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
         composed_score += right_alignment.score;
     }
     
@@ -1376,7 +1376,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     // Convert to a vg Alignment.
     Alignment result(aln);
-    *result.mutable_path() = std::move(composed_path);
+    *result.mutable_path() = std::move(simplify(composed_path));
     result.set_score(composed_score);
     if (!result.sequence().empty()) {
         result.set_identity(identity(result.path()));
