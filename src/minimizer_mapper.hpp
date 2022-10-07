@@ -1100,10 +1100,6 @@ Alignment MinimizerMapper::find_chain_alignment(
         
         // We have to find the next item we can actually connect to
         const Item* next;
-        // And the connecting read sequence, for debugging
-        string linking_bases;
-        // And the left anchor point, for debugging
-        pos_t left_anchor;
         // And the actual connecting alignment to it
         WFAAlignment link_alignment;
         
@@ -1169,7 +1165,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Pull out the intervening string to the next, if any.
         size_t link_start = space.read_end(*here);
         size_t link_length = space.read_start(*next) - link_start;
-        linking_bases = aln.sequence().substr(link_start, link_length);
+        string linking_bases = aln.sequence().substr(link_start, link_length);
         size_t graph_length = space.get_graph_distance(*here, *next);
         
 #ifdef debug_chaining
@@ -1202,7 +1198,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         } else if (link_length > 0 && link_length <= max_chain_connection) {
             // If it's not empty and is a reasonable size, align it.
             // Make sure to walk back the left anchor so it is outside of the region to be aligned.
-            left_anchor = space.graph_end(*here);
+            pos_t left_anchor = space.graph_end(*here);
             get_offset(left_anchor)--;
             
             link_alignment = extender.connect(linking_bases, left_anchor, space.graph_start(*next));
@@ -1275,7 +1271,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             assert(graph_length != 0); // TODO: Can't handle abutting graph positions yet
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t path_length = std::max(graph_length, link_length) + this->get_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
-            MinimizerMapper::align_sequence_between(left_anchor, space.graph_start(*next), path_length, &this->gbwt_graph, this->get_aligner(), link_aln);
+            MinimizerMapper::align_sequence_between(space.graph_end(*here), space.graph_start(*next), path_length, &this->gbwt_graph, this->get_aligner(), link_aln);
             
 #ifdef debug_chaining
             if (show_work) {
