@@ -867,6 +867,10 @@ bool parse(const string& arg, double& dest);
 template<>
 bool parse(const string& arg, std::regex& dest);
 
+// And one for positions. Parses ID{+/-}Offset.
+template<>
+bool parse(const string& arg, pos_t& dest);
+
 // Implement the first version in terms of the second, for any type
 template<typename Result>
 Result parse(const string& arg) {

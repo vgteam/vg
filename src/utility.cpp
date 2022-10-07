@@ -843,4 +843,38 @@ bool parse(const string& arg, std::regex& dest) {
     return true;
 }
 
+template<>
+bool parse(const string& arg, pos_t& dest) {
+    const char* cursor = arg.c_str();
+    // The STL cheats and breaks constness here.
+    char* next = nullptr;
+    // Read the node ID
+    get_id(dest) = std::strtoull(cursor, &next, 10);
+    if (next == nullptr || *next == '\0' || id(dest) == 0) {
+        // Out of parts or didn't get an ID
+        return false;
+    }
+    if (*next == '+') {
+        get_is_rev(dest) = false;
+    } else if (*next == '-') {
+        get_is_rev(dest) = true;
+    } else {
+        // No separator character
+        return false;
+    }
+    cursor = next;
+    ++cursor;
+    if (*cursor == '\0') {
+        // No offset
+        return false;
+    }
+    // Parse the offset
+    get_offset(dest) = std::strtoull(cursor, &next, 10);
+    if (next == nullptr || *next != '\0') {
+        // We didn't consume the rest of the string
+        return false;
+    }
+    return true;
+}
+
 }
