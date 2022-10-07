@@ -765,7 +765,12 @@ namespace vg {
                         // Expand bounds for the variable region of the chunk as a whole
                         first_edit_start = min(first_edit_start, bounds.first);
                         last_edit_end = max(last_edit_end, bounds.second);
-                    }
+                    } else {
+                        // There's no variation in this variant.
+                        #pragma omp critical (cerr)
+                        cerr << "warning:[vg::Constructor] Skipping variant with no sequence changes at "
+                            << variant->sequenceName << ":" << variant->position << endl;
+                        skipped.insert(variant);}
                 }
                 
                 if (skipped.size() == clump.size()) {
@@ -778,8 +783,19 @@ namespace vg {
 
                 // Otherwise, we have to have some non-ref material in the
                 // clump, even if it occupies 0 reference space.
-                assert(last_edit_end != -1);
-                assert(first_edit_start != numeric_limits<int64_t>::max());
+                if (first_edit_start == numeric_limits<int64_t>::max() || last_edit_end == -1) {
+                    // Sometimes we still see this, so make a report of the offending variants.
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << "error:[vg::Constructor] got improperly bounded region " << first_edit_start << " to " << last_edit_end << " for edits of clump of " << clump.size() << " variants, of which " << skipped.size() << " were skipped." << endl;
+                        for (vcflib::Variant* v : clump) {
+                            if (!skipped.count(v)) {
+                                cerr << "Unskipped variant: " << *v << endl;
+                            }
+                        }
+                    }
+                    exit(1);
+                }
 
                 #ifdef debug
                 cerr << "edits run between " << first_edit_start << " and " << last_edit_end << endl;
