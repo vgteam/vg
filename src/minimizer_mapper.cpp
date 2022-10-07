@@ -3431,6 +3431,11 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
 }
 
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
+    
+    // Make sure the positions are actually set.
+    assert(id(left_anchor) != 0);
+    assert(id(right_anchor) != 0);
+    
     // We need to get the connecting graph to align to.
     bdsg::HashGraph connecting_graph;
     auto connecting_to_base = algorithms::extract_connecting_graph(
