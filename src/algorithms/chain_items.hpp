@@ -765,8 +765,8 @@ struct MinimizerSourceChainingSpace : public BaseChainingSpace<Item> {
 
 /// This is how you chain up new seeds
 template<typename Source>
-struct ChainingSpace<NewSnarlSeedClusterer::Seed, Source> : public MinimizerSourceChainingSpace<NewSnarlSeedClusterer::Seed, Source> {
-    using Item = NewSnarlSeedClusterer::Seed;
+struct ChainingSpace<SnarlDistanceIndexClusterer::Seed, Source> : public MinimizerSourceChainingSpace<SnarlDistanceIndexClusterer::Seed, Source> {
+    using Item = SnarlDistanceIndexClusterer::Seed;
     
     ChainingSpace(const vector<Source>& sources,
                   const Aligner& scoring,

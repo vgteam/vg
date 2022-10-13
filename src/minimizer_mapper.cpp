@@ -73,13 +73,13 @@ struct seed_traits {
  * Traits for the new seed type.
  *
  * Defines what MinimizerMapper algorithms have to know about
- * NewSnarlSeedClusterer seeds to work with them.
+ * SnarlDistanceIndexClusterer seeds to work with them.
  */
 template<>
-struct seed_traits<NewSnarlSeedClusterer::Seed> {
+struct seed_traits<SnarlDistanceIndexClusterer::Seed> {
     /// Get SeedType to use later, because it makes more sense to use that in
     /// the function signatures than the type we're specialized on.
-    using SeedType = NewSnarlSeedClusterer::Seed;
+    using SeedType = SnarlDistanceIndexClusterer::Seed;
     
     /// What minimizer index payload type should we use for decoding minimizer index payloads?
     using MIPayload = vg::MIPayload;

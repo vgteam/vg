@@ -6,24 +6,24 @@
 //#define debug_distances
 namespace vg {
 
-NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
+SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
                                         distance_index(distance_index),
                                         graph(graph){
 };
-NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex* distance_index, const HandleGraph* graph) :
+SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceIndex* distance_index, const HandleGraph* graph) :
                                         distance_index(*distance_index),
                                         graph(graph){
 };
-NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index) :
+SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceIndex& distance_index) :
                                         distance_index(distance_index),
                                         graph(nullptr){
 };
-NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex* distance_index) :
+SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceIndex* distance_index) :
                                         distance_index(*distance_index),
                                         graph(nullptr){
 };
 
-vector<NewSnarlSeedClusterer::Cluster> NewSnarlSeedClusterer::cluster_seeds (vector<Seed>& seeds, size_t read_distance_limit) const {
+vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluster_seeds (vector<Seed>& seeds, size_t read_distance_limit) const {
     //Wrapper for single ended
 
     vector<vector<Seed>*> all_seeds;
@@ -45,7 +45,7 @@ vector<NewSnarlSeedClusterer::Cluster> NewSnarlSeedClusterer::cluster_seeds (vec
     return result;
 };
 
-vector<vector<NewSnarlSeedClusterer::Cluster>> NewSnarlSeedClusterer::cluster_seeds (
+vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer::cluster_seeds (
               vector<vector<Seed>>& all_seeds, size_t read_distance_limit,
               size_t fragment_distance_limit) const {
     //Wrapper for paired end
@@ -103,7 +103,7 @@ vector<vector<NewSnarlSeedClusterer::Cluster>> NewSnarlSeedClusterer::cluster_se
 }
 
 
-tuple<vector<structures::UnionFind>, structures::UnionFind> NewSnarlSeedClusterer::cluster_seeds_internal (
+tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlDistanceIndexClusterer::cluster_seeds_internal (
               vector<vector<Seed>*>& all_seeds, size_t read_distance_limit,
               size_t fragment_distance_limit) const {
     /* Given a vector of seeds and a limit, find a clustering of seeds where
@@ -282,7 +282,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
 //chain to chain_to_children_by_level
 //If a node is a child of the root or of a root snarl, then add cluster it and
 //remember to cluster the root snarl 
-void NewSnarlSeedClusterer::get_nodes( TreeState& tree_state, vector<ParentToChildMap>& chain_to_children_by_level) const {
+void SnarlDistanceIndexClusterer::get_nodes( TreeState& tree_state, vector<ParentToChildMap>& chain_to_children_by_level) const {
 #ifdef DEBUG_CLUSTER
 cerr << "Add all seeds to nodes: " << endl;
 #endif
@@ -684,7 +684,7 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 
 //Cluster all of the snarls in tree_state from the same depth
 //Assumes that all the children of the snarls have been clustered already and are present in tree_state.snarls_to_children
-void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
+void SnarlDistanceIndexClusterer::cluster_snarl_level(TreeState& tree_state) const {
 
     
     //An iterator into snarl_to_children (which is a multimap from snarl to children, each as indices into all_node_clusters)
@@ -768,7 +768,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
 }
 
 
-void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t depth) const {
+void SnarlDistanceIndexClusterer::cluster_chain_level(TreeState& tree_state, size_t depth) const {
 
     //Go through chain_to_children, which is a vector of chain, child pairs. Start by sorting by parent chain
     tree_state.chain_to_children->sort(distance_index);
@@ -1022,7 +1022,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 }
 
 
-void NewSnarlSeedClusterer::cluster_one_node(
+void SnarlDistanceIndexClusterer::cluster_one_node(
                    TreeState& tree_state, NodeClusters& node_clusters, 
                    const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_start,
                    const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_end) const {
@@ -1103,7 +1103,7 @@ void NewSnarlSeedClusterer::cluster_one_node(
 //
 //If this is the first time we see the first child, then also update the best distances to the ends of the 
 //parent for the parent clusters
-void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
+void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
     NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
     const vector<pair<size_t, size_t>> & child_distances, bool is_root, bool first_child) const {
 #ifdef DEBUG_CLUSTER
@@ -1576,7 +1576,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 //#endif
 }
 
-void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& tree_state, NodeClusters& child_clusters) const {
+void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_one_child(TreeState& tree_state, NodeClusters& child_clusters) const {
 #ifdef DEBUG_CLUSTER
     cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters.containing_net_handle) 
          << " to itself in the root" << endl;
@@ -1718,7 +1718,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& 
 }
 
 
-void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, 
+void SnarlDistanceIndexClusterer::cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, 
         std::multimap<size_t, size_t>::iterator child_range_start, std::multimap<size_t, size_t>::iterator child_range_end) const { 
     //Get the clusters on this snarl, assumes that all of the snarls children have been clustered already.
     
@@ -1878,7 +1878,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
 
 
 
-void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, 
+void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, 
         const std::vector<ParentToChildMap::ParentChildValues>::iterator& chain_range_start,
         const std::vector<ParentToChildMap::ParentChildValues>::iterator& chain_range_end,
         bool only_seeds, bool is_top_level_chain) const {
@@ -2242,7 +2242,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     }
 #endif
 }
-void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
+void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                 ParentToChildMap::ParentChildValues& last_child,
                                 size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
                                 vector<ClusterIndices>& cluster_heads_to_add_again,
@@ -2560,7 +2560,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
 
 }
 
-void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
+void SnarlDistanceIndexClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                 ParentToChildMap::ParentChildValues& last_child, 
                                 size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
                                 vector<ClusterIndices>& cluster_heads_to_add_again,
@@ -3111,7 +3111,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 //Cluster the root
 //all children of the root will be in tree_state.root_children
 //This is basically cluster_one_snarl except the snarl is the root, which has no boundary nodes
-void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const { 
+void SnarlDistanceIndexClusterer::cluster_root(TreeState& tree_state) const { 
 #ifdef DEBUG_CLUSTER
     cerr << "Finding clusters on the root with " << tree_state.root_children.size() << " children" << endl;
 #endif
@@ -3206,7 +3206,7 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 //Seeds are assumed to be sorted
 //Since the seeds can be linearly arranged, they can be clustered just by walking along an ordered list of seeds
 template<typename SeedIndex>
-void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_state, NodeClusters& node_clusters, 
+void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(TreeState& tree_state, NodeClusters& node_clusters, 
     const typename vector<SeedIndex>::iterator& range_start, const typename vector<SeedIndex>::iterator& range_end,
     size_t structure_length, std::function<tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index, 
     bool skip_distances_to_ends) const{
@@ -3391,7 +3391,7 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
     return;
 }
 
-size_t NewSnarlSeedClusterer::distance_between_seeds(Seed& seed1, Seed& seed2, bool stop_at_lowest_common_ancestor) const {
+size_t SnarlDistanceIndexClusterer::distance_between_seeds(Seed& seed1, Seed& seed2, bool stop_at_lowest_common_ancestor) const {
 
     /*Helper function to walk up the snarl tree
      * Given a net handle, its parent,  and the distances to the start and end of the handle, 

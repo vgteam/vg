@@ -295,10 +295,10 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// The information we store for each seed.
-    typedef NewSnarlSeedClusterer::Seed Seed;
+    typedef SnarlDistanceIndexClusterer::Seed Seed;
 
     /// The information we store for each cluster.
-    typedef NewSnarlSeedClusterer::Cluster Cluster;
+    typedef SnarlDistanceIndexClusterer::Cluster Cluster;
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
@@ -311,7 +311,7 @@ protected:
     GaplessExtender extender;
     
     /// We have a clusterer
-    NewSnarlSeedClusterer clusterer;
+    SnarlDistanceIndexClusterer clusterer;
 
     
     /// We have a distribution for read fragment lengths that takes care of

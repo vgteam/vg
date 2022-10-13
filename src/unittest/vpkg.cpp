@@ -124,12 +124,12 @@ TEST_CASE("We cannot read a HandleGraph from an empty file", "[vpkg][handlegraph
     REQUIRE(loaded.get() == nullptr);
 }
 
-TEST_CASE("We cannot read a NewSnarlSeedClusterer from an empty file", "[vpkg][snarlseedclusterer][empty]") {
+TEST_CASE("We cannot read a SnarlDistanceIndexClusterer from an empty file", "[vpkg][snarlseedclusterer][empty]") {
     stringstream ss;
-    unique_ptr<NewSnarlSeedClusterer> loaded = vg::io::VPKG::try_load_one<NewSnarlSeedClusterer>(ss);
+    unique_ptr<SnarlDistanceIndexClusterer> loaded = vg::io::VPKG::try_load_one<SnarlDistanceIndexClusterer>(ss);
     
     // It should be null because this type is not default constructible
-    REQUIRE(!std::is_default_constructible<NewSnarlSeedClusterer>::value);
+    REQUIRE(!std::is_default_constructible<SnarlDistanceIndexClusterer>::value);
     REQUIRE(loaded.get() == nullptr);
 }
 

@@ -12,7 +12,7 @@ namespace vg{
 
 
 /**
- * NewSnarlSeedClusterer is used for clustering seeds (positions on the graph)
+ * SnarlDistanceIndexClusterer is used for clustering seeds (positions on the graph)
  * A "cluster" is a partition of seeds that is based on the minimum distance between them in the graph
  * Consider a graph where each seed is a node and two seeds are connected if the minimum distance
  * between them is smaller than a given distance limit. Each connected component of this graph is a cluster 
@@ -44,7 +44,7 @@ namespace vg{
  * 
  *
  */
-class NewSnarlSeedClusterer {
+class SnarlDistanceIndexClusterer {
 
 
 
@@ -79,10 +79,10 @@ class NewSnarlSeedClusterer {
             SmallBitset present; // Minimizers that are present in the cluster.
         };
 
-        NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index, const HandleGraph* graph);
-        NewSnarlSeedClusterer(const SnarlDistanceIndex* distance_index, const HandleGraph* graph);
-        NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index);
-        NewSnarlSeedClusterer(const SnarlDistanceIndex* distance_index);
+        SnarlDistanceIndexClusterer(const SnarlDistanceIndex& distance_index, const HandleGraph* graph);
+        SnarlDistanceIndexClusterer(const SnarlDistanceIndex* distance_index, const HandleGraph* graph);
+        SnarlDistanceIndexClusterer(const SnarlDistanceIndex& distance_index);
+        SnarlDistanceIndexClusterer(const SnarlDistanceIndex* distance_index);
 
 
         /*Given a vector of seeds and a distance limit, 
@@ -263,7 +263,7 @@ class NewSnarlSeedClusterer {
                 //The containing net handle of the child
                 net_handle_t child_handle;
 
-                //Indices of the child. If it is a snarl, one index into all_clusters and inf. 
+                //Indices of the child. If it is a snarl, one index into all_clusters and std::numeric_limits<size_t>::max(). 
                 //If it is a seed, the two indices into all_seeds
                 size_t child_index1;
                 size_t child_index2;

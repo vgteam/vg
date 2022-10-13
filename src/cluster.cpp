@@ -3659,13 +3659,13 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
-    vector<NewSnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
+    vector<SnarlDistanceIndexClusterer::Seed> positions(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
         positions[i].pos = hit_graph.nodes[i].start_pos;
     }
  
-    typedef NewSnarlSeedClusterer::Cluster Cluster;
-    NewSnarlSeedClusterer seed_clusterer(*distance_index);
+    typedef SnarlDistanceIndexClusterer::Cluster Cluster;
+    SnarlDistanceIndexClusterer seed_clusterer(*distance_index);
     // TODO: magic number, want enough space for the max gap and the inter-seed distance but how to do this in
     // a principled way?
     std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, 2 * max_gap);
