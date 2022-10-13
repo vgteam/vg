@@ -129,7 +129,7 @@ double lognormal_pdf(double x, double mu, double sigma) {
     double density;
     if (x > 0.0) {
         double z = (log(x) - mu) / sigma;
-        density = exp(-z * z / 2.0) / (sigma * x);
+        density = exp(-z * z / 2.0) / (sigma * x * root_2pi);
     }
     else {
         density = 0.0;
