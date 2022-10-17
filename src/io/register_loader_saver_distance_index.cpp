@@ -19,7 +19,9 @@ void register_loader_saver_distance_index() {
     // The distance index header is just a text string. We need to make sure
     // this looks like a bare distance index file if we are going to load it
     // without type-tagged message deserialization.
-    Registry::register_bare_loader_saver_with_magic<SnarlDistanceIndex>("DISTANCE2", "distance index", [](istream& input) -> void* {
+
+    bdsg::SnarlDistanceIndex empty;
+    Registry::register_bare_loader_saver_with_magic<SnarlDistanceIndex>("DISTANCE2", empty.get_prefix(), [](istream& input) -> void* {
         // Allocate an index and hand it the stream
         SnarlDistanceIndex* index = new SnarlDistanceIndex();
         index->deserialize(input);
