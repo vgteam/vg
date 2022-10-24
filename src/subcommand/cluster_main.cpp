@@ -254,16 +254,18 @@ int main_cluster(int argc, char** argv) {
                 
             }
             vector<SnarlDistanceIndexClusterer::Seed> seed_clusters;
+            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
             for (pos_t pos : seeds) {
                 seed_clusters.emplace_back();
                 seed_clusters.back().pos = pos;
+                seed_caches.emplace_back();
             }
 
             
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seed_clusters, distance_limit);
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seed_clusters, seed_caches, distance_limit);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             

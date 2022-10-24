@@ -54,6 +54,12 @@ class SnarlDistanceIndexClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
+        };
+
+        /// Seed information used for clustering
+        // Corresponds to one seed and stores the minimizer payload and distance information 
+        // that gets updated during clustering
+        struct SeedCache{
 
 
             //Cached values from the minimizer
@@ -91,7 +97,7 @@ class SnarlDistanceIndexClusterer {
          *the distance limit are in the same cluster
          *This produces a vector of clusters
          */
-        vector<Cluster> cluster_seeds ( vector<Seed>& seeds, size_t read_distance_limit) const;
+        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, vector<SeedCache>& seed_caches, size_t read_distance_limit) const;
         
         /* The same thing, but for paired end reads.
          * Given seeds from multiple reads of a fragment, cluster each read
@@ -104,13 +110,15 @@ class SnarlDistanceIndexClusterer {
          */
 
         vector<vector<Cluster>> cluster_seeds ( 
-                vector<vector<Seed>>& all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const;
+                const vector<vector<Seed>>& all_seeds, vector<vector<SeedCache>>& all_seed_caches, 
+                size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
 
         /**
          * Find the minimum distance between two seeds. This will use the minimizer payload when possible
          */
-        size_t distance_between_seeds(Seed& seed1, Seed& seed2, bool stop_at_lowest_common_ancestor) const;
+        size_t distance_between_seeds(const Seed& seed1, SeedCache& seed_cache1, const Seed& seed2, SeedCache& seed_cache2,
+            bool stop_at_lowest_common_ancestor) const;
 
     private:
 
@@ -118,7 +126,7 @@ class SnarlDistanceIndexClusterer {
         //Actual clustering function that takes a vector of pointers to seeds
         //fragment_distance_limit defaults to 0, meaning that we don't cluster by fragment
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
-                vector<vector<Seed>*>& all_seeds,
+                const vector<const vector<Seed>*>& all_seeds, vector<vector<SeedCache>*>& all_seed_caches,
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
         const SnarlDistanceIndex& distance_index;
@@ -369,7 +377,8 @@ class SnarlDistanceIndexClusterer {
         struct TreeState {
 
             //Vector of all the seeds for each read
-            vector<vector<Seed>*>* all_seeds; 
+            const vector<const vector<Seed>*>* all_seeds; 
+            vector<vector<SeedCache>*>* all_seed_caches; 
 
             //prefix sum vector of the number of seeds per read
             //Used to get the index of a seed for the fragment clusters
@@ -437,9 +446,10 @@ class SnarlDistanceIndexClusterer {
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
-            TreeState (vector<vector<Seed>*>* all_seeds, size_t read_distance_limit, 
-                       size_t fragment_distance_limit, size_t seed_count) :
+            TreeState (const vector<const vector<Seed>*>* all_seeds, vector<vector<SeedCache>*>* all_seed_caches, 
+                       size_t read_distance_limit, size_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
+                all_seed_caches(all_seed_caches),
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit),
                 fragment_union_find (seed_count, false),

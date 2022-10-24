@@ -3660,6 +3660,8 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
     vector<SnarlDistanceIndexClusterer::Seed> positions(hit_graph.nodes.size());
+    //Make a matching vector of empty minimizer payloads
+    vector<SnarlDistanceIndexClusterer::SeedCache> position_caches(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
         positions[i].pos = hit_graph.nodes[i].start_pos;
     }
@@ -3668,7 +3670,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     SnarlDistanceIndexClusterer seed_clusterer(*distance_index);
     // TODO: magic number, want enough space for the max gap and the inter-seed distance but how to do this in
     // a principled way?
-    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, 2 * max_gap);
+    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, position_caches, 2 * max_gap);
     
     // these components are returned by the structures::UnionFind::all_groups() method, which
     // always returns them in sorted order, so we can assume that they are still lexicographically
