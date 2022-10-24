@@ -45,10 +45,11 @@ include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 # What pkg-config-controlled system dependencies should we use compile and link flags from?
 # Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
-PKG_CONFIG_DEPS := cairo jansson libzstd
+PKG_CONFIG_DEPS := cairo libzstd
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
 # Note that we then must *always* link anything *else* that uses them statically.
-PKG_CONFIG_STATIC_DEPS := protobuf 
+# Jansson has to be in here because it has to come after libvgio, which is in the static deps.
+PKG_CONFIG_STATIC_DEPS := protobuf jansson
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 # We don't ask for automatic Make dependency file (*.d) generation here because
