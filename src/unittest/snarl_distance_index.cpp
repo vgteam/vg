@@ -5490,7 +5490,7 @@ namespace vg {
 
                 string file = "test_graph.dist"; 
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-                vg::io::VPKG::save(distance_index, file);
+                distance_index.serialize(file);
 
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
