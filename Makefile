@@ -47,6 +47,7 @@ include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 # We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
 PKG_CONFIG_DEPS := cairo jansson libzstd
 # These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
+# Note that we then must *always* link anything *else* that uses them statically.
 PKG_CONFIG_STATIC_DEPS := protobuf 
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
@@ -66,12 +67,12 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SR
 
 # Define libraries to link against.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvgio -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
+LD_LIB_FLAGS := -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
-LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libtabixpp.a $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
+LD_STATIC_LIB_FLAGS := -lvgio $(CWD)/$(LIB_DIR)/libtabixpp.a $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
 # Some of our static libraries depend on libraries that may not always be avilable in static form.
 LD_STATIC_LIB_DEPS := -lpthread -lm
 # Use pkg-config to find dependencies.
@@ -418,7 +419,7 @@ $(LIB_DIR)/libvg.$(SHARED_SUFFIX): $(LIBVG_SHARED_DEPS)
 	rm -f $@
 	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ)
 
-# Each test set can have its own binary
+# Each test set can have its own binary, and not link everything static
 $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) 
 	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) 
 
