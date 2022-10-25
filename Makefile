@@ -88,7 +88,9 @@ ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic 
     LD_LIB_FLAGS += -latomic
 endif
 
+COMPILER_ID=$(strip $(shell $(CXX) --version 2>&1 | head -n1))
 ifeq ($(shell uname -s),Darwin)
+    $(info OS is Mac)
     # Don't try and set an rpath on any dependency utilities because that's not
     # a thing and install names will work.
     LD_UTIL_RPATH_FLAGS=""
@@ -133,8 +135,9 @@ ifeq ($(shell uname -s),Darwin)
     endif
 
     # Our compiler might be Apple clang, which doesn't have -fopenmp.
-    ifeq ($(strip $(shell $(CXX) -v 2>&1 | head -n1 | grep clang | wc -l)), 1)
+    ifeq ($(strip $(shell echo "$(COMPILER_ID)" | grep -i clang | wc -l)), 1)
         # This is Clang.
+        $(info Compiler $(COMPILER_ID) is Clang)
 
         # We need to use the hard way of getting OpenMP not bundled with the compiler.
         # The compiler only needs to do the preprocessing
@@ -142,17 +145,22 @@ ifeq ($(shell uname -s),Darwin)
 
         # If HOMEBREW_PREFIX is specified, libomp probably cannot be found automatically.
         ifdef HOMEBREW_PREFIX
+            $(info OMP source is Homebrew)
             CXXFLAGS += -I$(HOMEBREW_PREFIX)/include
             LD_LIB_DIR_FLAGS += -L$(HOMEBREW_PREFIX)/lib
         # Macports installs libomp to /opt/local/lib/libomp
         else ifeq ($(shell if [ -d /opt/local/lib/libomp ]; then echo 1; else echo 0; fi), 1)
+            $(info OMP source Macports)
             CXXFLAGS += -I/opt/local/include/libomp
             LD_LIB_DIR_FLAGS += -L/opt/local/lib/libomp
+        else
+            $(error OMP is not available from either Homebrew or Macports)
         endif
 
         # We also need to link it
         LD_LIB_FLAGS += -lomp
     else
+        $(info Compiler $(COMPILER_ID) is GCC)
         # The compiler is (probably?) GNU GCC
         # On Mac, we need to make sure to configure it to use libc++ like
         # Clang, and not GNU libstdc++.
@@ -161,8 +169,6 @@ ifeq ($(shell uname -s),Darwin)
 
         # See https://stackoverflow.com/q/22228208
 
-        # TODO: ID compiler more reliably instead of depending on it not having OpenMP...
-	
         CXXFLAGS += -fopenmp
 
         # Find includes using Clang
@@ -190,6 +196,8 @@ ifeq ($(shell uname -s),Darwin)
     END_STATIC =
 else
     # We are not running on OS X
+    $(info OS is Linux)
+    $(info Compiler $(COMPILER_ID) is GCC)
     
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
@@ -221,11 +229,11 @@ endif
 
 # Propagate CXXFLAGS to child makes and other build processes
 export CXXFLAGS
+$(info CXXFLAGS are $(CXXFLAGS))
 
 OMP_MISSING=$(strip $(shell echo \\\#include \<omp.h\> | $(CXX) $(CXXFLAGS) -x c++ -E /dev/stdin -o /dev/null 2>&1 | head -n1 | grep error | wc -l))
 ifeq ($(OMP_MISSING), 1)
     $(warning OpenMP header omp.h is not available! vg will not be able to build!)
-    $(warning Find result = $(shell find / -name omp.h 2>/dev/null))
 endif
 
 # Actually set the Boost library option, with the determined suffix
