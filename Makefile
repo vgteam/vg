@@ -145,9 +145,20 @@ ifeq ($(shell uname -s),Darwin)
 
         # If HOMEBREW_PREFIX is specified, libomp probably cannot be found automatically.
         ifdef HOMEBREW_PREFIX
-            $(info OMP source is Homebrew)
+            # If we have homebrew, use Homebrew
             CXXFLAGS += -I$(HOMEBREW_PREFIX)/include
             LD_LIB_DIR_FLAGS += -L$(HOMEBREW_PREFIX)/lib
+            ifeq ($(shell if [ -e $(HOMEBREW_PREFIX)/include/omp.h ]; then echo 1; else echo 0; fi), 1)
+                # libomp used to be globally installed in Homebrew
+                $(info OMP source is Homebrew libomp global install)
+            else ifeq ($(shell if [ -d $(HOMEBREW_PREFIX)/opt/libomp/include ]; then echo 1; else echo 0; fi), 1)
+                # libomp moved to these directories, recently, because it is now keg-only to not fight GCC
+                $(info OMP source is Homebrew libomop keg)
+                CXXFLAGS += -I$(HOMEBREW_PREFIX)/opt/libomp/include
+                LD_LIB_DIR_FLAGS += -L$(HOMEBREW_PREFIX)/opt/libomp/lib
+            else
+                $(error OMP is not available from Homebrew)
+            endif
         # Macports installs libomp to /opt/local/lib/libomp
         else ifeq ($(shell if [ -d /opt/local/lib/libomp ]; then echo 1; else echo 0; fi), 1)
             $(info OMP source Macports)
