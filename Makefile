@@ -143,7 +143,15 @@ ifeq ($(shell uname -s),Darwin)
         # The compiler only needs to do the preprocessing
         CXXFLAGS += -Xpreprocessor -fopenmp
 
-        # If HOMEBREW_PREFIX is specified, libomp probably cannot be found automatically.
+        ifndef HOMEBREW_PREFIX
+            BREW_PATH=$(shell which brew 2>/dev/null)
+            $(info Homebrew would be $(BREW_PATH))
+            ifneq ($(BREW_PATH),)
+                # Get prefix from Homebrew instead of environment
+                HOMEBREW_PREFIX=$(shell brew --prefix)
+            endif
+        endif
+
         ifdef HOMEBREW_PREFIX
             # If we have homebrew, use Homebrew
             CXXFLAGS += -I$(HOMEBREW_PREFIX)/include
