@@ -87,6 +87,38 @@ TEST_CASE("Dijkstra search handles early stopping correctly", "[dijkstra][algori
         REQUIRE(seen.at(snp2) == 2);
         
     }
+    SECTION("Shortest path across snarl is correct") {
+        size_t i = 0;
+        handlealgs::for_each_handle_in_shortest_path(&graph, start, end, [&](handle_t next, size_t distance) {
+            cerr << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+            if (i == 0) {
+                REQUIRE(next == middle);
+                REQUIRE(distance == 0);
+            } else if (i == 1) {
+                REQUIRE((next == snp1 || next == snp2));
+                REQUIRE(distance == 2);
+            } else {
+                REQUIRE(false);
+            }
+            i++;
+            return true;
+        });
+        REQUIRE( i == 2);
+    }
+    SECTION("Shortest path from within snarl is correct") {
+        size_t i = 0;
+        handlealgs::for_each_handle_in_shortest_path(&graph, middle, end, [&](handle_t next, size_t distance) {
+            if (i == 0) {
+                REQUIRE((next == snp1 || next == snp2));
+                REQUIRE(distance == 0);
+            } else {
+                REQUIRE(false);
+            }
+            i++;
+            return true;
+        });
+        REQUIRE( i == 1);
+    }
     
 }
 
@@ -117,6 +149,84 @@ TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][alg
     REQUIRE(seen.size() == graph.get_node_count());
         
 }
+TEST_CASE( "Shortest path through chain with loop", "[dijkstra][algorithms]" ) {
+        
+    VG graph;
+
+    handle_t n1 = graph.create_handle("GCA");
+    handle_t n2 = graph.create_handle("T");
+    handle_t n3 = graph.create_handle("GGCTGACTGA");
+    handle_t n4 = graph.create_handle("CTGA");
+    handle_t n5 = graph.create_handle("GCA");
+    handle_t n6 = graph.create_handle("T");
+    handle_t n7 = graph.create_handle("G");
+    handle_t n8 = graph.create_handle("CTGA");
+    handle_t n9 = graph.create_handle("GCA");
+    handle_t n10 = graph.create_handle("T");
+    handle_t n11 = graph.create_handle("G");
+    handle_t n12 = graph.create_handle("CTGA");
+    handle_t n13 = graph.create_handle("GCA");
+ 
+    
+    graph.create_edge(n1, n2);
+    graph.create_edge(graph.flip(n2), n2);
+    graph.create_edge(n2, n3);
+    graph.create_edge(n2, n4);
+    graph.create_edge(graph.flip(n3), n3);
+    graph.create_edge(n3, n4);
+    graph.create_edge(n4, n5);
+    graph.create_edge(n5, n6);
+    graph.create_edge(n5, n7);
+    graph.create_edge(n6, n12);
+    graph.create_edge(n7, n10);
+    graph.create_edge(n7, n8);
+    graph.create_edge(n7, graph.flip(n8));
+    graph.create_edge(n7, n9);
+    graph.create_edge(n9, n10);
+    graph.create_edge(n10, n11);
+    graph.create_edge(n11, n12);
+    graph.create_edge(n12, n13);
+    
+    SECTION("Shortest path across chain is correct") {
+        vector<pair<handle_t, size_t>> actual_path;
+        actual_path.emplace_back(n4, 0);
+        actual_path.emplace_back(n5, 4);
+        actual_path.emplace_back(n7, 7);
+        actual_path.emplace_back(n10, 8);
+        size_t i = 0;
+        handlealgs::for_each_handle_in_shortest_path(&graph, n2, n11, [&](handle_t next, size_t distance) {
+            REQUIRE( i < 5);
+            REQUIRE(next == actual_path[i].first);
+            REQUIRE(distance == actual_path[i].second);
+            i++;
+            return true;
+        });
+        REQUIRE( i == 4);
+    }
+    SECTION("Shortest path taking loop is correct") {
+        vector<pair<handle_t, size_t>> actual_path;
+        actual_path.emplace_back(n4, 0);
+        actual_path.emplace_back(n5, 4);
+        actual_path.emplace_back(n7, 7);
+        actual_path.emplace_back(n8, 8);
+        actual_path.emplace_back(graph.flip(n7), 12);
+        size_t i = 0;
+        handlealgs::for_each_handle_in_shortest_path(&graph, n2, graph.flip(n5), [&](handle_t next, size_t distance) {
+            cerr << "iterated on " << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+            REQUIRE( i < 5);
+            if (i == 3) {
+                REQUIRE((next == actual_path[i].first || graph.flip(next) == actual_path[i].first));
+            } else {
+                REQUIRE(next == actual_path[i].first);
+            }
+            REQUIRE(distance == actual_path[i].second);
+            i++;
+            return true;
+        });
+        REQUIRE( i == 5);
+    }
+ }
+
     
 
    

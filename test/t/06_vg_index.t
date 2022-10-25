@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 55
+plan tests 54
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -248,27 +248,24 @@ vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg snarls -T x.vg > snarls.pb
 is $? 0 "snarl finding with trivial snarls"
 
-vg index -s snarls.pb -j distIndex -w 100 x.vg
+vg index -j distIndex x.vg
 is $? 0 "building a distance index of a graph"
 
-vg convert -v x.vg | vg index -s snarls.pb -j distIndex -w 100 -
+vg convert -v x.vg | vg index -j distIndex  -
 is $? 0 "building a distance index of a piped vg graph"
 
-vg convert -p x.vg | vg index -s snarls.pb -j distIndex -w 100 -
+vg convert -p x.vg | vg index -j distIndex -
 is $? 0 "building a distance index of a piped PackedGraph"
-
-vg index -s snarls.pb -j distIndex x.vg
-is $? 0 "building a distance index of a graph without maximum index"
 
 rm -f x.vg distIndex snarls.pb
 
 # Test distance index with GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
 vg snarls -T graph.gbz > graph.snarls
-vg index -s graph.snarls -j graph.dist graph.gbz
+vg index -j graph.dist graph.gbz
 is $? 0 "distance index construction from GBZ"
 
-cat graph.gbz | vg index -s graph.snarls -j graph.dist -
+cat graph.gbz | vg index -j graph.dist -
 is $? 0 "distance index construction from piped GBZ"
 
 rm -f graph.gbz graph.snarls graph.dist

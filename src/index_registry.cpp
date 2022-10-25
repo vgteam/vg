@@ -48,7 +48,6 @@
 #include "kmer.hpp"
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
-#include "min_distance.hpp"
 #include "snarl_distance_index.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
@@ -433,7 +432,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Haplotype-Transcript GBWT", "haplotx.gbwt");
     registry.register_index("Giraffe GBWT", "giraffe.gbwt");
     
-    registry.register_index("Giraffe Snarls", "snarls"); // snarls that may reflect the GFA->GBZ node IDs
     registry.register_index("Spliced Snarls", "spliced.snarls");
     
     registry.register_index("Giraffe Distance Index", "dist");
@@ -3300,25 +3298,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return all_outputs;
     };
 
-    registry.register_recipe({"Giraffe Snarls"}, {"Giraffe GBZ"},
-                             [find_snarls](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Finding snarls in graph." << endl;
-        }
-        assert(inputs.size() == 1);
-        auto gbz_filenames = inputs[0]->get_filenames();
-        assert(gbz_filenames.size() == 1);
-        auto gbz_filename = gbz_filenames.front();
-        
-        ifstream infile;
-        init_in(infile, gbz_filename);
-        unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile);
-        
-        return find_snarls(gbz->graph, plan, constructing);
-    });
     
     // TODO: disabling so that we can distinguish giraffe graphs that may have
     // different node IDs from the GFA import
@@ -3362,36 +3341,29 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // meta-recipe to make distance index
     auto make_distance_index = [](const HandleGraph& graph,
-                                  const IndexFile* snarl_input,
                                   const IndexingPlan* plan,
                                   const IndexGroup& constructing) {
         
-        auto snarls_filenames = snarl_input->get_filenames();
-        assert(snarls_filenames.size() == 1);
-        auto snarls_filename = snarls_filenames.front();
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
         auto dist_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_snarls;
-        init_in(infile_snarls, snarls_filename);
         string output_name = plan->output_filepath(dist_output);
         ofstream outfile;
         init_out(outfile, output_name);
         
-        unique_ptr<SnarlManager> snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(infile_snarls));
-        
-        MinimumDistanceIndex distance_index(&graph, snarl_manager.get());
-        
-        vg::io::VPKG::save(distance_index, output_name);
+        SnarlDistanceIndex distance_index;
+        IntegratedSnarlFinder snarl_finder(graph);
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        distance_index.serialize(output_name);
         
         output_names.push_back(output_name);
         return all_outputs;
     };
     
-    registry.register_recipe({"Giraffe Distance Index"}, {"Giraffe GBZ", "Giraffe Snarls"},
+    registry.register_recipe({"Giraffe Distance Index"}, {"Giraffe GBZ"},
                              [make_distance_index](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3400,7 +3372,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing distance index for Giraffe." << endl;
         }
         
-        assert(inputs.size() == 2);
+        assert(inputs.size() == 1);
         auto& gbz_filenames = inputs[0]->get_filenames();
         assert(gbz_filenames.size() == 1);
         auto gbz_filename = gbz_filenames.front();
@@ -3409,10 +3381,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_in(infile_gbz, gbz_filename);
         unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
         
-        return make_distance_index(gbz->graph, inputs[1], plan, constructing);
+        return make_distance_index(gbz->graph, plan, constructing);
     });
     
-    registry.register_recipe({"Spliced Distance Index"}, {"Spliced Snarls", "Spliced XG"},
+    registry.register_recipe({"Spliced Distance Index"}, {"Spliced XG"},
                              [make_distance_index](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3421,8 +3393,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing distance index for a spliced graph." << endl;
         }
         
-        assert(inputs.size() == 2);
-        auto& graph_filenames = inputs[1]->get_filenames();
+        assert(inputs.size() == 1);
+        auto& graph_filenames = inputs[0]->get_filenames();
         assert(graph_filenames.size() == 1);
         auto graph_filename = graph_filenames.front();
         
@@ -3431,7 +3403,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>(infile_graph);
         
-        return make_distance_index(*graph, inputs[0], plan, constructing);
+        return make_distance_index(*graph, plan, constructing);
     });
     
     ////////////////////////////////////
@@ -3639,15 +3611,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         ifstream infile_dist;
         init_in(infile_dist, dist_filename);
-        SnarlDistanceIndex new_distance_index;
-        std::unique_ptr<MinimumDistanceIndex> old_distance_index;
-        bool use_new_distance_index = false;
-        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
-            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
-        } else {
-            new_distance_index.deserialize(dist_filename);
-            use_new_distance_index = true;
-        }
+        auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(dist_filename);
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?
                                                         IndexingParameters::minimizer_s :
@@ -3655,11 +3619,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            if (use_new_distance_index) {
-                return MIPayload::encode(get_minimizer_distances(new_distance_index, pos));
-            } else {
-                return MinimumDistanceIndex::MIPayload::encode(old_distance_index->get_minimizer_distances(pos));
-            }
+            return MIPayload::encode(get_minimizer_distances(*distance_index, pos));
         });
         
         string output_name = plan->output_filepath(minimizer_output);

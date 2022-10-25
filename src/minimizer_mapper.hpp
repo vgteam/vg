@@ -34,11 +34,10 @@ public:
      * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
-     //TODO: This can be given an old and/old new distance index. At least one is needed, new one will be used if both are given. The minimizer cache must match the distance index or it will just crash
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         MinimumDistanceIndex* old_distance_index, SnarlDistanceIndex* distance_index,
+         SnarlDistanceIndex* distance_index,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -295,17 +294,16 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// The information we store for each seed.
-    typedef SnarlSeedClusterer::Seed OldSeed;
-    typedef NewSnarlSeedClusterer::Seed Seed;
+    typedef SnarlDistanceIndexClusterer::Seed Seed;
+    typedef SnarlDistanceIndexClusterer::SeedCache SeedCache;
 
     /// The information we store for each cluster.
-    typedef NewSnarlSeedClusterer::Cluster Cluster;
+    typedef SnarlDistanceIndexClusterer::Cluster Cluster;
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
-    MinimumDistanceIndex* old_distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -313,8 +311,7 @@ protected:
     GaplessExtender extender;
     
     /// We have a clusterer
-    SnarlSeedClusterer old_clusterer;
-    NewSnarlSeedClusterer clusterer;
+    SnarlDistanceIndexClusterer clusterer;
 
     
     /// We have a distribution for read fragment lengths that takes care of
@@ -337,8 +334,8 @@ protected:
     /**
      * Find seeds for all minimizers passing the filters.
      */
-    template<typename SeedType>
-    std::vector<SeedType> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    template<typename SeedType, typename SeedCacheType>
+    std::pair<std::vector<SeedType>, std::vector<SeedCacheType>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
@@ -449,6 +446,11 @@ protected:
      * Get the distance between a pair of read alignments
      */
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+
+    /**
+     * Get the unoriented distance between a pair of positions
+     */
+    int64_t unoriented_distance_between(pos_t pos1, pos_t pos2) const;
 
     /**
      * Convert the GaplessExtension into an alignment. This assumes that the
@@ -766,6 +768,10 @@ protected:
     /// Print the seed content of a cluster.
     template<typename SeedType>
     static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
+
+    /// Do a brute check of the clusters. Print errors to stderr
+    template<typename SeedType>
+    bool validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const;
     
     /// Print information about a selected set of seeds.
     template<typename SeedType>
@@ -782,6 +788,7 @@ protected:
     
     /// Count at which we cut over to summary logging.
     const static size_t MANY_LIMIT = 30;
+
 
     friend class TestMinimizerMapper;
 };

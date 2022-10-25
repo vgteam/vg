@@ -6,7 +6,7 @@
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_distance_index.hpp"
 
-#include "../min_distance.hpp"
+#include "../snarl_distance_index.hpp"
 
 namespace vg {
 
@@ -19,16 +19,27 @@ void register_loader_saver_distance_index() {
     // The distance index header is just a text string. We need to make sure
     // this looks like a bare distance index file if we are going to load it
     // without type-tagged message deserialization.
-    Registry::register_bare_loader_saver_with_magic<MinimumDistanceIndex>("DISTANCE", "distance index", [](istream& input) -> void* {
+
+    bdsg::SnarlDistanceIndex empty;
+    Registry::register_bare_loader_saver_with_magic_and_filename<SnarlDistanceIndex>("DISTANCE2", empty.get_prefix(), 
+    [](istream& input, const string& filename) -> void* {
         // Allocate an index and hand it the stream
-        MinimumDistanceIndex* index = new MinimumDistanceIndex(input);
+        SnarlDistanceIndex* index = new SnarlDistanceIndex();
+        if (!filename.empty()) {
+            index->deserialize(filename);
+        } else {
+            index->deserialize(input);
+        }
         
         // Return it so the caller owns it.
         return (void*) index;
-    }, [](const void* index_void, ostream& output) {
-        // Cast to MinimumDistanceIndex and serialize to the stream.
+    }, 
+    [](const void* index_void, ostream& output) {
+        // Cast to SnarlDistanceIndex and serialize to the stream.
         assert(index_void != nullptr);
-        ((const MinimumDistanceIndex*) index_void)->serialize(output);
+        throw std::runtime_error( "warning [vpkg::save<DistanceIndex>]: save the distance index directly with serialize() instead of with vpkg");
+
+        //((const SnarlDistanceIndex*) index_void)->serialize(output);
     });
 }
 
