@@ -132,10 +132,10 @@ ifeq ($(shell uname -s),Darwin)
 		BOOST_SUFFIX="-mt"
     endif
 
-    # Our compiler might be clang that lacks -fopenmp support.
-    # Sniff that
-    ifeq ($(strip $(shell $(CXX) -fopenmp /dev/null -o/dev/null 2>&1 | grep fopenmp | wc -l)), 1)
-        # The compiler complained about fopenmp instead of its nonsense input file.
+    # Our compiler might be Apple clang, which doesn't have -fopenmp.
+    ifeq ($(strip $(shell $(CXX) -v 2>&1 | head -n1 | grep clang | wc -l)), 1)
+        # This is Clang.
+
         # We need to use the hard way of getting OpenMP not bundled with the compiler.
         # The compiler only needs to do the preprocessing
         CXXFLAGS += -Xpreprocessor -fopenmp
@@ -221,6 +221,12 @@ endif
 
 # Propagate CXXFLAGS to child makes and other build processes
 export CXXFLAGS
+
+OMP_MISSING=$(strip $(shell echo \\\#include \<omp.h\> | $(CXX) $(CXXFLAGS) -x c++ -E /dev/stdin -o /dev/null 2>&1 | head -n1 | grep error | wc -l))
+ifeq ($(OMP_MISSING), 1)
+    $(warning OpenMP header omp.h is not available! vg will not be able to build!)
+    $(warning Find result = $(shell find / -name omp.h 2>/dev/null))
+endif
 
 # Actually set the Boost library option, with the determined suffix
 LD_LIB_FLAGS += "-lboost_program_options$(BOOST_SUFFIX)"
