@@ -21,17 +21,25 @@ void register_loader_saver_distance_index() {
     // without type-tagged message deserialization.
 
     bdsg::SnarlDistanceIndex empty;
-    Registry::register_bare_loader_saver_with_magic<SnarlDistanceIndex>("DISTANCE2", empty.get_prefix(), [](istream& input) -> void* {
+    Registry::register_bare_loader_saver_with_magic_and_filename<SnarlDistanceIndex>("DISTANCE2", empty.get_prefix(), 
+    [](istream& input, const string& filename) -> void* {
         // Allocate an index and hand it the stream
         SnarlDistanceIndex* index = new SnarlDistanceIndex();
-        index->deserialize(input);
+        if (!filename.empty()) {
+            index->deserialize(filename);
+        } else {
+            index->deserialize(input);
+        }
         
         // Return it so the caller owns it.
         return (void*) index;
-    }, [](const void* index_void, ostream& output) {
+    }, 
+    [](const void* index_void, ostream& output) {
         // Cast to SnarlDistanceIndex and serialize to the stream.
         assert(index_void != nullptr);
-        ((const SnarlDistanceIndex*) index_void)->serialize(output);
+        throw std::runtime_error( "warning [vpkg::save<DistanceIndex>]: save the distance index directly with serialize() instead of with vpkg");
+
+        //((const SnarlDistanceIndex*) index_void)->serialize(output);
     });
 }
 

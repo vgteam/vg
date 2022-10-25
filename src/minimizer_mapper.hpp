@@ -34,7 +34,6 @@ public:
      * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
-     //TODO: This can be given an old and/old new distance index. At least one is needed, new one will be used if both are given. The minimizer cache must match the distance index or it will just crash
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
@@ -296,6 +295,7 @@ protected:
     
     /// The information we store for each seed.
     typedef SnarlDistanceIndexClusterer::Seed Seed;
+    typedef SnarlDistanceIndexClusterer::SeedCache SeedCache;
 
     /// The information we store for each cluster.
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;
@@ -334,8 +334,8 @@ protected:
     /**
      * Find seeds for all minimizers passing the filters.
      */
-    template<typename SeedType>
-    std::vector<SeedType> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    template<typename SeedType, typename SeedCacheType>
+    std::pair<std::vector<SeedType>, std::vector<SeedCacheType>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
