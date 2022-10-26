@@ -172,11 +172,11 @@ using namespace std;
             }
         }
         
+        
         // do we need to simplify a complicated multipath alignment?
         multipath_alignment_t simplified_source_mp_aln;
         // TODO: magic number
-        size_t max_subpaths = 8 * source_mp_aln->sequence().size();
-        if (source_mp_aln && source_mp_aln->subpath_size() >= max_subpaths) {
+        if (source_mp_aln && source_mp_aln->subpath_size() > 8 * source_mp_aln->sequence().size()) {
             // the multipath alignment seems to have a very complex topology, we'll simplify it before
             // generating a whole bunch of low-quality anchors
             
@@ -193,7 +193,7 @@ using namespace std;
                 cerr << "simplified complicated multipath alignment from " << source_mp_aln->subpath_size() << " to " << simplified_source_mp_aln.subpath_size() << " subpaths using score diff " << diff << endl;
 #endif
                 
-            } while (diff > 1 && simplified_source_mp_aln.subpath_size() > max_subpaths);
+            } while (diff > 1 && simplified_source_mp_aln.subpath_size() > 8 * source_mp_aln->sequence().size());
             
             source_mp_aln = &simplified_source_mp_aln;
         }
