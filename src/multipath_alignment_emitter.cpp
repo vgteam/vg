@@ -309,31 +309,12 @@ void MultipathAlignmentEmitter::convert_to_alignment(const multipath_alignment_t
     // at one point vg call needed these, maybe it doesn't anymore though
     aln.set_identity(identity(aln.path()));
     
-    // transfer over annotations
+    // transfer over annotation that has a special field in GAM
     if (mp_aln.has_annotation("secondary")) {
         auto anno = mp_aln.get_annotation("secondary");
         assert(anno.first == multipath_alignment_t::Bool);
         bool secondary = *((bool*) anno.second);
         aln.set_is_secondary(secondary);
-    }
-    if (mp_aln.has_annotation("proper_pair")) {
-        auto anno = mp_aln.get_annotation("proper_pair");
-        assert(anno.first == multipath_alignment_t::Bool);
-        bool proper_pair = *((bool*) anno.second);
-        set_annotation<bool>(aln, "proper_pair", proper_pair);
-        aln.set_read_paired(true);
-    }
-    if (mp_aln.has_annotation("group_mapq")) {
-        auto anno = mp_aln.get_annotation("group_mapq");
-        assert(anno.first == multipath_alignment_t::Double);
-        double group_mapq = *((double*) anno.second);
-        set_annotation<double>(aln, "group_mapq", group_mapq);
-    }
-    if (mp_aln.has_annotation("allelic_mapq")) {
-        auto anno = mp_aln.get_annotation("allelic_mapq");
-        assert(anno.first == multipath_alignment_t::Double);
-        double allelic_mapq = *((double*) anno.second);
-        set_annotation<double>(aln, "allelic_mapq", allelic_mapq);
     }
 }
 
