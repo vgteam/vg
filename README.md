@@ -26,7 +26,7 @@ Paths provide stable coordinates for graphs built in different ways from the sam
 
 ## Support 
 
-We maintain a support forum on biostars: https://www.biostars.org/t/vg/
+We maintain a support forum on biostars: https://www.biostars.org/tag/vg/
 
 ## Installation
 
