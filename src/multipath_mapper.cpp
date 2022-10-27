@@ -1889,6 +1889,7 @@ namespace vg {
                                                vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer) {
 
+        //cerr << (to_string(omp_get_thread_num()) + " " + alignment1.name() + "\n");
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
@@ -5083,8 +5084,12 @@ namespace vg {
             
 #ifdef debug_multipath_mapper
             cerr << "finding connected components for mapping:" << endl;
+#endif
+#ifdef debug_multipath_mapper_alignment
             view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].first);
             view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].second);
+#endif
+#ifdef debug_multipath_mapper
             cerr << "read 1 connected components:" << endl;
             for (vector<int64_t>& comp : connected_components_1) {
                 cerr << "\t";

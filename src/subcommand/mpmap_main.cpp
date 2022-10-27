@@ -1855,6 +1855,10 @@ int main_mpmap(int argc, char** argv) {
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
+        if (transcriptomic) {
+            // FIXME: replicating the behavior in surject_main
+            surjector->max_subgraph_bases = 16 * 1024 * 1024;
+        }
         
         if (!ref_paths_name.empty()) {
             log_progress("Choosing reference paths from " + ref_paths_name);
