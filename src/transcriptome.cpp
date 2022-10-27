@@ -326,7 +326,7 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
 
     assert(_haplotype_transcript_paths.size() >= pre_num_haplotype_transcript_paths);
 
-    cerr << "\tConstructed " << _haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths << " haplotype-specific transcript paths" << endl;
+    cerr << "\tProjected " << _haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths << " haplotype-specific transcript paths" << endl;
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;

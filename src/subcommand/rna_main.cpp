@@ -40,7 +40,7 @@ void help_rna(char** argv) {
 
          << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences (disables projection)" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
-         << "    -c, --do-not-collapse      do not collapse transcript paths that are identical across references or haplotypes" << endl
+         << "    -c, --collapse TYPE        collapse identical transcripts beteween references or haplotypes (disable|transcript|all) [transcript]" << endl
          << "    -k, --max-node-length      chop nodes longer than maximum node length (0 disables chopping) [0]" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes all paths in the graph)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact the graph" << endl
@@ -72,7 +72,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     string haplotypes_filename;
     bool use_hap_ref = false;
     bool proj_emded_paths = false;
-    bool collapse_transcript_paths = true;
+    string collapse_type = "transcript";
     uint32_t max_node_length = 0;
     bool remove_non_transcribed_nodes = false;
     bool sort_collapse_graph = true;
@@ -155,7 +155,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
 
         case 'c':
-            collapse_transcript_paths = false;
+            collapse_type = optarg;
             break;
 
         case 'k':
@@ -233,6 +233,12 @@ int32_t main_rna(int32_t argc, char** argv) {
         cerr << "[vg rna] WARNING: Reference paths are deleted when removing intergenic and intronic regions. Consider adding transcripts as embedded paths using --add-ref-paths and/or --add-hap-paths." << endl;
     }
 
+    if (collapse_type != "disable" && collapse_type != "transcript" && collapse_type != "all") {
+
+        cerr << "[vg rna] ERROR: Collapse type provided (--collapse) not supported. Options: disable, transcript or all." << endl;
+        return 1;
+    }
+
     double time_parsing_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
 
@@ -269,7 +275,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.num_threads = num_threads;
     transcriptome.feature_type = feature_type;
     transcriptome.transcript_tag = transcript_tag;
-    transcriptome.collapse_transcript_paths = collapse_transcript_paths;
+    transcriptome.collapse_type = collapse_type;
 
     if (show_progress) { cerr << "[vg rna] Graph " << ((!haplotype_index->empty()) ? "and GBWT index " : "") << "parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
