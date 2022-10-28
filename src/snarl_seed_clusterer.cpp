@@ -23,18 +23,18 @@ SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceInd
                                         graph(nullptr){
 };
 
-vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluster_seeds (const vector<Seed>& seeds, vector<gbwtgraph::payload_type>& payloads, size_t read_distance_limit) const {
+vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluster_seeds (const vector<Seed>& seeds, size_t read_distance_limit) const {
     //Wrapper for single ended
 
-    vector<const vector<Seed>*> all_seeds = {&seeds};
-    vector<SeedCache> seed_caches(payloads.size());
-    for (size_t i = 0 ; i < payloads.size() ; i++) {
-        seed_caches[i].minimizer_cache = payloads[i];
+    vector<SeedCache> seed_caches(seeds.size());
+    for (size_t i = 0 ; i < seeds.size() ; i++) {
+        seed_caches[i].pos = seeds[i].pos;
+        seed_caches[i].minimizer_cache = seeds[i].minimizer_cache;
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
 
     std::vector<std::vector<size_t>> all_clusters =
-        std::get<0>(cluster_seeds_internal(all_seeds, all_seed_caches, read_distance_limit, 0))[0].all_groups();
+        std::get<0>(cluster_seeds_internal(all_seed_caches, read_distance_limit, 0))[0].all_groups();
 
     std::vector<Cluster> result;
     result.reserve(all_clusters.size());
@@ -51,7 +51,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
 };
 
 vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer::cluster_seeds (
-              const vector<vector<Seed>>& all_seeds, vector<vector<gbwtgraph::payload_type>>& all_payloads, 
+              const vector<vector<Seed>>& all_seeds, 
               size_t read_distance_limit, size_t fragment_distance_limit) const {
     //Wrapper for paired end
 
@@ -61,25 +61,23 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
 
     //Make a vector of SeedCache that contains all the payloads
     vector<vector<SeedCache>> all_seed_caches;
-    all_seed_caches.reserve(all_payloads.size());
+    all_seed_caches.reserve(all_seeds.size());
 
-    for (size_t read_num = 0 ; read_num < all_payloads.size() ; read_num++) {
-        all_seed_caches.emplace_back(all_payloads[read_num].size());
-        for (size_t i = 0 ; i < all_payloads[read_num].size() ; i++) {
-            all_seed_caches[read_num][i].minimizer_cache = all_payloads[read_num][i];
+    for (size_t read_num = 0 ; read_num < all_seeds.size() ; read_num++) {
+        all_seed_caches.emplace_back(all_seeds[read_num].size());
+        for (size_t i = 0 ; i < all_seeds[read_num].size() ; i++) {
+            all_seed_caches[read_num][i].pos = all_seeds[read_num][i].pos;
+            all_seed_caches[read_num][i].minimizer_cache = all_seeds[read_num][i].minimizer_cache;
         }
     }
-    vector<const vector<Seed>*> seed_pointers;
     vector<vector<SeedCache>*> seed_cache_pointers;
 
-    seed_pointers.reserve(all_seeds.size());
     seed_cache_pointers.reserve(all_seed_caches.size());
 
-    for (const vector<Seed>& v : all_seeds) seed_pointers.push_back(&v);
     for (vector<SeedCache>& v : all_seed_caches) seed_cache_pointers.push_back(&v);
 
     //Actually cluster the seeds
-    auto union_finds = cluster_seeds_internal(seed_pointers, seed_cache_pointers, read_distance_limit, fragment_distance_limit);
+    auto union_finds = cluster_seeds_internal(seed_cache_pointers, read_distance_limit, fragment_distance_limit);
 
     vector<structures::UnionFind>* read_union_finds = &std::get<0>(union_finds);
     structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
@@ -125,7 +123,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
 
 
 tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlDistanceIndexClusterer::cluster_seeds_internal (
-              const vector<const vector<Seed>*>& all_seeds, vector<vector<SeedCache>*>& all_seed_caches, 
+              vector<vector<SeedCache>*>& all_seeds, 
               size_t read_distance_limit, size_t fragment_distance_limit) const {
     /* Given a vector of seeds and a limit, find a clustering of seeds where
      * seeds that are closer than the limit cluster together.
@@ -154,7 +152,7 @@ cerr << "\tread distance limit: " << read_distance_limit << " and fragment dista
     //It also keeps track of the parents of the current level
     size_t seed_count = 0;
     for (auto v : all_seeds) seed_count+= v->size();
-    TreeState tree_state (&all_seeds, &all_seed_caches, read_distance_limit, fragment_distance_limit, seed_count);
+    TreeState tree_state (&all_seeds, read_distance_limit, fragment_distance_limit, seed_count);
 
 
     //Initialize chain_to_children_by_level with all the seeds on chains
@@ -326,11 +324,9 @@ cerr << "Add all seeds to nodes: " << endl;
     seen_nodes.reserve(tree_state.seed_count_prefix_sum.back());
 
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
-        const vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
-        vector<SeedCache>* seed_caches = tree_state.all_seed_caches->at(read_num);
+        vector<SeedCache>* seeds = tree_state.all_seeds->at(read_num);
         for (size_t i = 0; i < seeds->size(); i++) {
-            const Seed& seed = seeds->at(i);
-            SeedCache& seed_cache = seed_caches->at(i);
+            SeedCache& seed = seeds->at(i);
             pos_t pos = seed.pos;
             id_t id = get_id(pos);
             
@@ -349,7 +345,7 @@ cerr << "Add all seeds to nodes: " << endl;
             //cached values are:
             //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
             // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
-            gbwtgraph::payload_type old_cache = seed_cache.minimizer_cache;
+            gbwtgraph::payload_type old_cache = seed.minimizer_cache;
 
             //TODO: For now, we're either storing all values or none
             bool has_cached_values = old_cache != MIPayload::NO_CODE;
@@ -463,22 +459,22 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                     //prefix sum
                     prefix_sum = is_trivial_chain ? std::numeric_limits<size_t>::max() 
                                                   : distance_index.get_prefix_sum_value(node_net_handle);
-                    MIPayload::set_prefix_sum(seed_cache.minimizer_cache, prefix_sum);
+                    MIPayload::set_prefix_sum(seed.minimizer_cache, prefix_sum);
 
                     //component
-                    MIPayload::set_chain_component(seed_cache.minimizer_cache, 
+                    MIPayload::set_chain_component(seed.minimizer_cache, 
                             distance_index.is_multicomponent_chain(parent) 
                                 ? distance_index.get_chain_component(node_net_handle)
                                 : 0);
 
                     //node length
                     node_length = distance_index.minimum_length(node_net_handle);
-                    MIPayload::set_node_length(seed_cache.minimizer_cache, node_length);
+                    MIPayload::set_node_length(seed.minimizer_cache, node_length);
 
                     //is_reversed_in_parent
                     is_reversed_in_parent = is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
                                                              : distance_index.is_reversed_in_parent(node_net_handle);
-                    MIPayload::set_is_reversed(seed_cache.minimizer_cache, is_reversed_in_parent);
+                    MIPayload::set_is_reversed(seed.minimizer_cache, is_reversed_in_parent);
 
                 }
 #ifdef DEBUG_CLUSTER
@@ -548,14 +544,14 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 }
 
                 //Make sure the seed's distances are relative to the orientation in the parent
-                seed_cache.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) 
+                seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) 
                                                                           : get_offset(pos) + 1;
-                seed_cache.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 
+                seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 
                                                                            : node_length- get_offset(pos);
                 //Add this seed to its parent cluster
                 chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, 
-                              MIPayload::chain_component(seed_cache.minimizer_cache),  //component
-                              is_trivial_chain ? seed_cache.distance_left : SnarlDistanceIndex::sum(prefix_sum, seed_cache.distance_left));
+                              MIPayload::chain_component(seed.minimizer_cache),  //component
+                              is_trivial_chain ? seed.distance_left : SnarlDistanceIndex::sum(prefix_sum, seed.distance_left));
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
@@ -623,16 +619,16 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 
                 //Remember this seed as a child of the node
                 node_to_seeds.emplace_back(node_index, read_num, i);
-                seed_cache.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
-                seed_cache.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
+                seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
+                seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
             }
         }
     }
     //Sort node_to_seeds by the node and the seeds by their offset
     std::sort(node_to_seeds.begin(), node_to_seeds.end(), [&](const auto& a, const auto b) -> bool {
         if (std::get<0>(a) == std::get<0>(b) ) { 
-            return  tree_state.all_seed_caches->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
-                    tree_state.all_seed_caches->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
+            return  tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
+                    tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
         } else {
             return std::get<0>(a) < std::get<0>(b);
        } 
@@ -1080,7 +1076,7 @@ void SnarlDistanceIndexClusterer::cluster_one_node(
         [&](const std::tuple<size_t, size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
             return std::make_tuple(std::get<1>(seed_index), std::get<2>(seed_index),
-                    tree_state.all_seed_caches->at(std::get<1>(seed_index))->at(std::get<2>(seed_index)).distance_left); 
+                    tree_state.all_seeds->at(std::get<1>(seed_index))->at(std::get<2>(seed_index)).distance_left); 
     };
     cluster_seeds_on_linear_structure(tree_state, node_clusters, seed_range_start, seed_range_end, 
                                       node_length, get_offset_from_indices, false);
@@ -1097,7 +1093,7 @@ void SnarlDistanceIndexClusterer::cluster_one_node(
         bool got_read_right = false;
         for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
             if (c.first == read_num) {
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(c.first)->at(c.second).distance_left, tree_state.all_seed_caches->at(c.first)->at(c.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(c.first)->at(c.second).distance_left, tree_state.all_seeds->at(c.first)->at(c.second).distance_right);
                 cerr << "\t\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
@@ -1249,8 +1245,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
                 //Remember these distances because we might need to check them later
                 old_distances = make_pair(new_best_left, new_best_right);
-                tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left = new_best_left;
-                tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right = new_best_right;
+                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left = new_best_left;
+                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right = new_best_right;
             }
             //Remember to erase this cluster head
             to_erase.emplace_back(read_num, cluster_num);
@@ -1328,8 +1324,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
             //If this is already in the parent, take the minimum of the parent distances
             if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
                 distances_to_parent = make_pair(
-                    std::min(new_dist_left, tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left),
-                    std::min(new_dist_right, tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right));
+                    std::min(new_dist_left, tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left),
+                    std::min(new_dist_right, tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right));
             }
                 
 
@@ -1369,8 +1365,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
             //If this cluster wasn't combined and hasn't been seen before and its reachable from other clusters, add it to the parent
             if (first_child && !combined && (reachable_left || reachable_right)) {
                 parent_clusters.read_cluster_heads.emplace(read_num, cluster_num);
-                tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left = distances_to_parent.first;
-                tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right = distances_to_parent.second;
+                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left = distances_to_parent.first;
+                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right = distances_to_parent.second;
             }
             combined_anything |= combined;
         }
@@ -1406,8 +1402,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
                 if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
                     distances_to_parent = make_pair(
-                        std::min(new_dist_left, tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left),
-                        std::min(new_dist_right, tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right));
+                        std::min(new_dist_left, tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left),
+                        std::min(new_dist_right, tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right));
                 }
 
                 //Check if the left of 1 can connect with the left of 2
@@ -1462,8 +1458,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
                     pair<size_t, size_t> old_distances = 
                                                 parent_clusters.read_cluster_heads.count(make_pair(new_cluster_left_left.read_num, new_cluster_left_left.cluster_num)) == 0
                                                 ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
-                                                : make_pair(tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_left.cluster_num).distance_left,
-                                                            tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_left.cluster_num).distance_right);
+                                                : make_pair(tree_state.all_seeds->at(read_num)->at(new_cluster_left_left.cluster_num).distance_left,
+                                                            tree_state.all_seeds->at(read_num)->at(new_cluster_left_left.cluster_num).distance_right);
                      //Is the distance small enough that we can cluster it with something else?
                      size_t best_left = std::min(new_cluster_left_left.distance_left, old_distances.first);
                      size_t best_right = std::min(new_cluster_left_left.distance_right, old_distances.second);
@@ -1473,8 +1469,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
                                             (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
                     if ((reachable_left || reachable_right)) {
                         parent_clusters.read_cluster_heads.emplace(new_cluster_left_left.read_num, new_cluster_left_left.cluster_num);
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_left.cluster_num).distance_left = best_left;
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_left.cluster_num).distance_right = best_right;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_left_left.cluster_num).distance_left = best_left;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_left_left.cluster_num).distance_right = best_right;
                     } else {
                         parent_clusters.read_cluster_heads.erase(std::make_pair( new_cluster_left_left.read_num, new_cluster_left_left.cluster_num ));
                     }
@@ -1485,8 +1481,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
                     pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(make_pair(new_cluster_right_right.read_num, new_cluster_right_right.cluster_num)) == 0
                         ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
-                        : make_pair(tree_state.all_seed_caches->at(read_num)->at( new_cluster_right_right.cluster_num).distance_left,
-                                     tree_state.all_seed_caches->at(read_num)->at( new_cluster_right_right.cluster_num).distance_right);
+                        : make_pair(tree_state.all_seeds->at(read_num)->at( new_cluster_right_right.cluster_num).distance_left,
+                                     tree_state.all_seeds->at(read_num)->at( new_cluster_right_right.cluster_num).distance_right);
                     size_t best_left =  std::min(new_cluster_right_right.distance_left, 
                                                  old_distances.first);
                     size_t best_right = std::min( new_cluster_right_right.distance_right, 
@@ -1499,8 +1495,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
                     if ((reachable_left || reachable_right)){
                         parent_clusters.read_cluster_heads.emplace( new_cluster_right_right.read_num, new_cluster_right_right.cluster_num);
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_right_right.cluster_num).distance_left = best_left;
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_right_right.cluster_num).distance_right = best_right;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_right_right.cluster_num).distance_left = best_left;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_right_right.cluster_num).distance_right = best_right;
                     } else {
                         parent_clusters.read_cluster_heads.erase(make_pair(new_cluster_right_right.read_num, new_cluster_right_right.cluster_num));
                     }
@@ -1511,8 +1507,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
                     pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(
                                 make_pair(new_cluster_left_right.read_num, new_cluster_left_right.cluster_num)) == 0
                            ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
-                           : make_pair(tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_right.cluster_num).distance_left,
-                    tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_right.cluster_num).distance_right);
+                           : make_pair(tree_state.all_seeds->at(read_num)->at(new_cluster_left_right.cluster_num).distance_left,
+                    tree_state.all_seeds->at(read_num)->at(new_cluster_left_right.cluster_num).distance_right);
 
                     size_t best_left =  std::min(new_cluster_left_right.distance_left, old_distances.first);
                     size_t best_right = std::min( new_cluster_left_right.distance_right, old_distances.second);
@@ -1525,8 +1521,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
                     if ((reachable_left || reachable_right) ){
 
                         parent_clusters.read_cluster_heads.emplace(  new_cluster_left_right.read_num, new_cluster_left_right.cluster_num);
-                        tree_state.all_seed_caches->at(read_num)->at( new_cluster_left_right.cluster_num).distance_left = best_left;
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_left_right.cluster_num).distance_right = best_right;
+                        tree_state.all_seeds->at(read_num)->at( new_cluster_left_right.cluster_num).distance_left = best_left;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_left_right.cluster_num).distance_right = best_right;
                     } else {
                         parent_clusters.read_cluster_heads.erase(make_pair(new_cluster_left_right.read_num, new_cluster_left_right.cluster_num));
                     }
@@ -1536,8 +1532,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
                     pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(make_pair(new_cluster_right_left.read_num, new_cluster_right_left.cluster_num)) == 0
                         ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
-                        : make_pair(tree_state.all_seed_caches->at(read_num)->at(new_cluster_right_left.cluster_num).distance_left,
-                                    tree_state.all_seed_caches->at(read_num)->at(new_cluster_right_left.cluster_num).distance_right);
+                        : make_pair(tree_state.all_seeds->at(read_num)->at(new_cluster_right_left.cluster_num).distance_left,
+                                    tree_state.all_seeds->at(read_num)->at(new_cluster_right_left.cluster_num).distance_right);
                     size_t best_left = std::min(new_cluster_right_left.distance_left, old_distances.first);
                     size_t best_right = std::min(new_cluster_right_left.distance_right, old_distances.second);
 
@@ -1548,8 +1544,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
                     if ((reachable_left || reachable_right)) { 
                         parent_clusters.read_cluster_heads.emplace(new_cluster_right_left.read_num, new_cluster_right_left.cluster_num);
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_right_left.cluster_num).distance_left = best_left;
-                        tree_state.all_seed_caches->at(read_num)->at(new_cluster_right_left.cluster_num).distance_right = best_right;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_right_left.cluster_num).distance_left = best_left;
+                        tree_state.all_seeds->at(read_num)->at(new_cluster_right_left.cluster_num).distance_right = best_right;
                     } else {
                         parent_clusters.read_cluster_heads.erase(make_pair(new_cluster_right_left.read_num, new_cluster_right_left.cluster_num));
                     }
@@ -1723,8 +1719,8 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_one_child(TreeS
                                                                 : new_cluster_right_right_by_read.second;
 
         //Distances to the ends of the child
-        pair<size_t, size_t> distances (tree_state.all_seed_caches->at(read_num)->at(child_cluster_head.second).distance_left,
-                                        tree_state.all_seed_caches->at(read_num)->at(child_cluster_head.second).distance_right);
+        pair<size_t, size_t> distances (tree_state.all_seeds->at(read_num)->at(child_cluster_head.second).distance_left,
+                                        tree_state.all_seeds->at(read_num)->at(child_cluster_head.second).distance_right);
             
 
         //Check if this can be combined left-left
@@ -1797,8 +1793,8 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(TreeState& tree_state, size_
             //Remember the distances for this child since they will get overwritten
             for (const pair<size_t, size_t>& head : child_clusters.read_cluster_heads) {
                 child_distances[head.second + tree_state.seed_count_prefix_sum[head.first]] = 
-                        make_pair(tree_state.all_seed_caches->at(head.first)->at(head.second).distance_left,
-                                 tree_state.all_seed_caches->at(head.first)->at(head.second).distance_right);
+                        make_pair(tree_state.all_seeds->at(head.first)->at(head.second).distance_left,
+                                 tree_state.all_seeds->at(head.first)->at(head.second).distance_right);
             }
 
             for (auto inner_iter = child_range_start ; inner_iter != std::next(iter) ; ++inner_iter){
@@ -1879,8 +1875,8 @@ void SnarlDistanceIndexClusterer::cluster_one_snarl(TreeState& tree_state, size_
         for (pair<size_t,size_t> c : snarl_clusters.read_cluster_heads) {
             if (c.first == read_num) {
                 any_clusters = true;
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(c.first)->at(c.second).distance_left, 
-                                            tree_state.all_seed_caches->at(c.first)->at(c.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(c.first)->at(c.second).distance_left, 
+                                            tree_state.all_seeds->at(c.first)->at(c.second).distance_right);
                 cerr << "\t\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
@@ -1975,8 +1971,8 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
         for (pair<size_t,size_t> c : chain_clusters.read_cluster_heads) {
             if (c.first == read_num) {
                 any_clusters = true;
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(c.first)->at(c.second).distance_left,
-                                            tree_state.all_seed_caches->at(c.first)->at(c.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(c.first)->at(c.second).distance_left,
+                                            tree_state.all_seeds->at(c.first)->at(c.second).distance_right);
                 cerr << "\t\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
@@ -2048,7 +2044,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
     size_t last_prefix_sum = last_child.child_offset;
     size_t last_length = last_child.child_index2 == std::numeric_limits<size_t>::max() 
                                           ? tree_state.all_node_clusters[last_child.child_index1].node_length
-                                          : MIPayload::node_length(tree_state.all_seed_caches->at(last_child.child_index1)->at(last_child.child_index2).minimizer_cache);
+                                          : MIPayload::node_length(tree_state.all_seeds->at(last_child.child_index1)->at(last_child.child_index2).minimizer_cache);
     size_t last_chain_component_end = last_child.child_index2 == std::numeric_limits<size_t>::max() 
                                           ? tree_state.all_node_clusters[last_child.child_index1].chain_component_end
                                           : last_child.child_chain_component;
@@ -2099,8 +2095,8 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
         for (pair<size_t,size_t> c : chain_clusters.read_cluster_heads) {
             if (c.first == read_num) {
                 any_clusters = true;
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(c.first)->at(c.second).distance_left,
-                                           tree_state.all_seed_caches->at(c.first)->at(c.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(c.first)->at(c.second).distance_left,
+                                           tree_state.all_seeds->at(c.first)->at(c.second).distance_right);
                 cerr << "\t\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
@@ -2112,7 +2108,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
             }
         }
     }
-    vector<Seed> ordered_seeds;
+    vector<SeedCache> ordered_seeds;
     for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
         const auto v = tree_state.all_seeds->at(i);
         for ( auto x : *v) {
@@ -2132,8 +2128,8 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
     //Add back clusters we skipped
     for (auto& cluster_head : cluster_heads_to_add_again) {
         chain_clusters.read_cluster_heads.emplace(cluster_head.read_num, cluster_head.cluster_num);
-        tree_state.all_seed_caches->at(cluster_head.read_num)->at(cluster_head.cluster_num).distance_left = cluster_head.distance_left;
-        tree_state.all_seed_caches->at(cluster_head.read_num)->at(cluster_head.cluster_num).distance_right = cluster_head.distance_right;
+        tree_state.all_seeds->at(cluster_head.read_num)->at(cluster_head.cluster_num).distance_left = cluster_head.distance_left;
+        tree_state.all_seeds->at(cluster_head.read_num)->at(cluster_head.cluster_num).distance_right = cluster_head.distance_right;
         chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, cluster_head.distance_left);
         if (cluster_head.read_num == 0) {
             chain_clusters.read_best_left.first = std::min(chain_clusters.read_best_left.first, cluster_head.distance_left);
@@ -2162,8 +2158,8 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
         for (pair<size_t,size_t> c : chain_clusters.read_cluster_heads) {
             if (c.first == read_num) {
                 any_clusters = true;
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(c.first)->at(c.second).distance_left,
-                                            tree_state.all_seed_caches->at(c.first)->at(c.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(c.first)->at(c.second).distance_left,
+                                            tree_state.all_seeds->at(c.first)->at(c.second).distance_right);
                 cerr << "\t\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
@@ -2199,8 +2195,8 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
         for (auto& cluster_head : chain_clusters.read_cluster_heads) {
             size_t read_num = cluster_head.first;
             size_t cluster_num=cluster_head.second;
-            size_t dist_left = tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left;
-            size_t dist_right = tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right;
+            size_t dist_left = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left;
+            size_t dist_right = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right;
 
             size_t distance_between_left_right =SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(dist_left, (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second)), 1); 
             size_t distance_between_right_left = SnarlDistanceIndex::minus( SnarlDistanceIndex::sum(dist_right, (read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second)), 1);
@@ -2246,8 +2242,8 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
         for (pair<size_t,size_t> c : chain_clusters.read_cluster_heads) {
             if (c.first == read_num) {
                 any_clusters = true;
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(c.first)->at(c.second).distance_left,
-                                            tree_state.all_seed_caches->at(c.first)->at(c.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(c.first)->at(c.second).distance_left,
+                                            tree_state.all_seeds->at(c.first)->at(c.second).distance_right);
                 cerr << "\t\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                 bool has_seeds = false;
                 for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
@@ -2289,8 +2285,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
     size_t read_num = current_child.child_index1;
     size_t cluster_num = current_child.child_index2;
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
-    //Seed& current_child_seed = tree_state.all_seeds->at(read_num)->at(cluster_num);
-    SeedCache& current_child_seed_cache = tree_state.all_seed_caches->at(read_num)->at(cluster_num);
+    SeedCache& current_child_seed = tree_state.all_seeds->at(read_num)->at(cluster_num);
     /*
     Get a bunch of distances from the current child that will be used to calculate distance
     from the last child
@@ -2304,17 +2299,17 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
         if (last_child.child_handle == current_child.child_handle) {
             //This can happen if the last thing was also a seed on the same node
             distance_from_last_child_to_current_child = 0; 
-        } else if ( last_chain_component_end == MIPayload::chain_component(current_child_seed_cache.minimizer_cache)) {
+        } else if ( last_chain_component_end == MIPayload::chain_component(current_child_seed.minimizer_cache)) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max()) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                distance_from_last_child_to_current_child = MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache);
+                distance_from_last_child_to_current_child = MIPayload::prefix_sum(current_child_seed.minimizer_cache);
             } else {
                 size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum(last_prefix_sum,last_length);
     
                 //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
-                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache), 
+                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(MIPayload::prefix_sum(current_child_seed.minimizer_cache), 
                                                 distance_from_chain_start_to_last_node); 
             }
         }
@@ -2333,27 +2328,27 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
         distance_from_current_end_to_end_of_chain = 0;
     } else if (SnarlDistanceIndex::get_record_offset(current_child.child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
         //If this is the last node in the chain
-        if (chain_clusters.chain_component_end != MIPayload::chain_component(current_child_seed_cache.minimizer_cache)) { 
+        if (chain_clusters.chain_component_end != MIPayload::chain_component(current_child_seed.minimizer_cache)) { 
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
             distance_from_current_end_to_end_of_chain = 0;
         }
-    } else if (chain_clusters.chain_component_end != MIPayload::chain_component(current_child_seed_cache.minimizer_cache)) { 
+    } else if (chain_clusters.chain_component_end != MIPayload::chain_component(current_child_seed.minimizer_cache)) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
     
         //Length of the chain - (prefix sum + node length of the current node)
         distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                    SnarlDistanceIndex::sum(MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache), 
-                                            MIPayload::node_length(current_child_seed_cache.minimizer_cache)));
+                    SnarlDistanceIndex::sum(MIPayload::prefix_sum(current_child_seed.minimizer_cache), 
+                                            MIPayload::node_length(current_child_seed.minimizer_cache)));
     
     }
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-    cerr << "\tDistance from start of chain to the left side of this one: " << (MIPayload::chain_component(current_child_seed_cache.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache)) << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (MIPayload::chain_component(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : MIPayload::prefix_sum(current_child_seed.minimizer_cache)) << endl;
     cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
 #endif
 
@@ -2368,8 +2363,8 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
         if (!skip_distances_to_ends) {
             for (auto& cluster_head : chain_clusters.read_cluster_heads) {
                 //For each of the chain clusters, remember the ones that are still reachable from the left side of the chain
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_left,
-                                            tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left,
+                                            tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right);
                 if (dists.first <= (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
                     //If this cluster can be clustered outside of the chain, remember to add it back
                     cluster_heads_to_add_again.emplace_back();
@@ -2389,15 +2384,15 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
         //The distance left and right of the seed are currently oriented relative to the chain
     
         //The current left distance is infinite if it is not in the first component of a multicomponent chain
-        if (MIPayload::chain_component(current_child_seed_cache.minimizer_cache) != 0) {
+        if (MIPayload::chain_component(current_child_seed.minimizer_cache) != 0) {
             //If this node isn't in the first component of the chain
-            current_child_seed_cache.distance_left = std::numeric_limits<size_t>::max();
+            current_child_seed.distance_left = std::numeric_limits<size_t>::max();
         } else {
             //Prefix sum + offset of the seed in the node
-            current_child_seed_cache.distance_left = SnarlDistanceIndex::sum(current_child_seed_cache.distance_left, 
-                                                                       MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache));
+            current_child_seed.distance_left = SnarlDistanceIndex::sum(current_child_seed.distance_left, 
+                                                                       MIPayload::prefix_sum(current_child_seed.minimizer_cache));
         }
-        current_child_seed_cache.distance_right = SnarlDistanceIndex::sum(current_child_seed_cache.distance_right, 
+        current_child_seed.distance_right = SnarlDistanceIndex::sum(current_child_seed.distance_right, 
                                                        distance_from_current_end_to_end_of_chain);
     
         //Add the cluster to the chain
@@ -2405,14 +2400,14 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
     
         //Update the best distances on the chain
         if (!found_first_node) {
-            chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, current_child_seed_cache.distance_left);
+            chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, current_child_seed.distance_left);
         }
         if (! (read_num == 0 ? found_first_node_by_read.first : found_first_node_by_read.second)) {
-            (read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second) = std::min((read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second), current_child_seed_cache.distance_left);
+            (read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second) = std::min((read_num == 0 ? chain_clusters.read_best_left.first : chain_clusters.read_best_left.second), current_child_seed.distance_left);
         }
         //Since this child is a seed on a node, it's right distance will be the best one for the chain so far
-        chain_clusters.fragment_best_right = current_child_seed_cache.distance_right;
-        (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second) = current_child_seed_cache.distance_right;
+        chain_clusters.fragment_best_right = current_child_seed.distance_right;
+        (read_num == 0 ? chain_clusters.read_best_right.first : chain_clusters.read_best_right.second) = current_child_seed.distance_right;
     
         //Also update the best right distances to the end of this node for the other read
         //Since it was too far away from this node, it will be too far away from anything else and it can just be infinite
@@ -2440,17 +2435,17 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
                 distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                         ? std::numeric_limits<size_t>::max() : 
                 (last_child.child_handle == current_child.child_handle ? 0 
-                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, MIPayload::node_length(current_child_seed_cache.minimizer_cache)));
+                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, MIPayload::node_length(current_child_seed.minimizer_cache)));
     
         //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
         //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
         //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
         // (or 0 if it isn't the last thing in the chain)
         pair<size_t, size_t> new_distances = make_pair(
-                SnarlDistanceIndex::sum(current_child_seed_cache.distance_left, 
-                        MIPayload::chain_component(current_child_seed_cache.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
-                                                                             : MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache)),
-                SnarlDistanceIndex::sum(current_child_seed_cache.distance_right, distance_from_current_end_to_end_of_chain)); 
+                SnarlDistanceIndex::sum(current_child_seed.distance_left, 
+                        MIPayload::chain_component(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
+                                                                             : MIPayload::prefix_sum(current_child_seed.minimizer_cache)),
+                SnarlDistanceIndex::sum(current_child_seed.distance_right, distance_from_current_end_to_end_of_chain)); 
     
     
         //Cluster heads to remove because they got combined with the current seed
@@ -2469,21 +2464,21 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
             const size_t chain_cluster_cluster_num = chain_cluster_head.second;
     
             //The distances of the chain cluster
-            pair<size_t, size_t> chain_cluster_distances (tree_state.all_seed_caches->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_left,
-                                        tree_state.all_seed_caches->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right);
+            pair<size_t, size_t> chain_cluster_distances (tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_left,
+                                        tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right);
     
     
             //The distance between the current seed and the current chain cluster
             size_t distance_between = SnarlDistanceIndex::minus(
                     SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(chain_cluster_distances.second, 
                                              distance_from_last_child_to_current_child), 
-                                             current_child_seed_cache.distance_left),
+                                             current_child_seed.distance_left),
                     1);
             if (!is_first_child && last_child.child_handle == current_child.child_handle) {
                 //If the last child was the same as this child (seeds on the same node), 
                 //then the distances right are including the current node, so subtract
                 //the length of this node
-                distance_between -= MIPayload::node_length(current_child_seed_cache.minimizer_cache);
+                distance_between -= MIPayload::node_length(current_child_seed.minimizer_cache);
             }
 
 #ifdef DEBUG_CLUSTER
@@ -2516,7 +2511,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
                 tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
                             chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
 
-                tree_state.all_seed_caches->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = 
+                tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = 
                         SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(chain_cluster_distances.second, 
                                                  distance_from_last_child_to_current_end),
                                                  distance_from_current_end_to_end_of_chain);
@@ -2528,7 +2523,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
                         (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)
                     && !skip_distances_to_ends) { 
                     //If the current chain cluster can still be reached from the left
-                    tree_state.all_seed_caches->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = std::numeric_limits<size_t>::max();
+                    tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = std::numeric_limits<size_t>::max();
                     cluster_heads_to_add_again.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num,
                                                        chain_cluster_distances.first, std::numeric_limits<size_t>::max());
                 }
@@ -2544,8 +2539,8 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
     
         //Add the cluster of the current seed which may or may not have been combined
         chain_clusters.read_cluster_heads.emplace(new_cluster.read_num, new_cluster.cluster_num);
-        tree_state.all_seed_caches->at(new_cluster.read_num)->at(new_cluster.cluster_num).distance_left = new_cluster.distance_left;
-        tree_state.all_seed_caches->at(new_cluster.read_num)->at(new_cluster.cluster_num).distance_right = new_cluster.distance_right;
+        tree_state.all_seeds->at(new_cluster.read_num)->at(new_cluster.cluster_num).distance_left = new_cluster.distance_left;
+        tree_state.all_seeds->at(new_cluster.read_num)->at(new_cluster.cluster_num).distance_right = new_cluster.distance_right;
     
     
         //Update the best distances
@@ -2592,9 +2587,9 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
     
     //Update the last node we saw to this one
     last_child = current_child;
-    last_prefix_sum = MIPayload::prefix_sum(current_child_seed_cache.minimizer_cache);
-    last_length = MIPayload::node_length(current_child_seed_cache.minimizer_cache);
-    last_chain_component_end = MIPayload::chain_component(current_child_seed_cache.minimizer_cache);
+    last_prefix_sum = MIPayload::prefix_sum(current_child_seed.minimizer_cache);
+    last_length = MIPayload::node_length(current_child_seed.minimizer_cache);
+    last_chain_component_end = MIPayload::chain_component(current_child_seed.minimizer_cache);
 
 }
 
@@ -2629,8 +2624,8 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_clusters(TreeState& tree_st
             //Go through each of the clusters on this child
             size_t read_num = child_cluster_head.first;
             size_t cluster_num = child_cluster_head.second;
-            size_t old_left =  tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left;
-            size_t old_right = tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right;
+            size_t old_left =  tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left;
+            size_t old_right = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right;
             //Get the new best distances for the cluster considering chain loops
             size_t updated_left = std::min(old_left, SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_right, child_clusters.loop_right), child_clusters.node_length));
             size_t updated_right = std::min(old_right, SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(old_left, child_clusters.loop_left), child_clusters.node_length));
@@ -2639,8 +2634,8 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_clusters(TreeState& tree_st
 
             if (updated_left < old_left || updated_right < old_right ) {
                 //Update the distances
-                tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left = updated_left;
-                tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right = updated_right;
+                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left = updated_left;
+                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right = updated_right;
                 
                 child_clusters.fragment_best_left = std::min(child_clusters.fragment_best_left,
                                                              updated_left);
@@ -2735,15 +2730,15 @@ void SnarlDistanceIndexClusterer::add_snarl_to_chain_clusters(TreeState& tree_st
         for (pair<pair<size_t, size_t>,pair<size_t, size_t>>& cluster : combined_left) {
             if (cluster.first.first != std::numeric_limits<size_t>::max()){
                 child_clusters.read_cluster_heads.emplace(cluster.first);
-                tree_state.all_seed_caches->at(cluster.first.first)->at(cluster.first.second).distance_left = cluster.second.first;
-                tree_state.all_seed_caches->at(cluster.first.first)->at(cluster.first.second).distance_right = cluster.second.second;
+                tree_state.all_seeds->at(cluster.first.first)->at(cluster.first.second).distance_left = cluster.second.first;
+                tree_state.all_seeds->at(cluster.first.first)->at(cluster.first.second).distance_right = cluster.second.second;
             }
         }
         for (pair<pair<size_t, size_t>, pair<size_t, size_t>>& cluster : combined_right) {
             if (cluster.first.first != std::numeric_limits<size_t>::max()){
                 child_clusters.read_cluster_heads.emplace(cluster.first);
-                tree_state.all_seed_caches->at(cluster.first.first)->at(cluster.first.second).distance_left = cluster.second.first;
-                tree_state.all_seed_caches->at(cluster.first.first)->at(cluster.first.second).distance_right = cluster.second.second;
+                tree_state.all_seeds->at(cluster.first.first)->at(cluster.first.second).distance_left = cluster.second.first;
+                tree_state.all_seeds->at(cluster.first.first)->at(cluster.first.second).distance_right = cluster.second.second;
             }
         }
     };
@@ -2882,8 +2877,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             //left side of the chain
             for (auto& cluster_head : chain_clusters.read_cluster_heads) {
                 //For each of the chain clusters
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_left,
-                                            tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left,
+                                            tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right);
                 if (dists.first <= (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
                     //If this cluster can be clustered outside of the chain, remember to add it back
                     cluster_heads_to_add_again.emplace_back(cluster_head.first, cluster_head.second, 
@@ -2900,8 +2895,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             for (auto& cluster_head : child_clusters.read_cluster_heads) {
                 //Add the clusters from this child to the chain
                 size_t read_num = cluster_head.first;
-                pair<size_t, size_t> dists (tree_state.all_seed_caches->at(read_num)->at(cluster_head.second).distance_left,
-                                           tree_state.all_seed_caches->at(read_num)->at(cluster_head.second).distance_right);
+                pair<size_t, size_t> dists (tree_state.all_seeds->at(read_num)->at(cluster_head.second).distance_left,
+                                           tree_state.all_seeds->at(read_num)->at(cluster_head.second).distance_right);
                 size_t dist_left = child_clusters.is_reversed_in_parent ? dists.second : dists.first;
                 size_t dist_right = child_clusters.is_reversed_in_parent ? dists.first : dists.second;
     
@@ -2915,8 +2910,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
     
                 //Add this to the chain
                 chain_clusters.read_cluster_heads.emplace(cluster_head); 
-                tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_left = new_distances.first;
-                tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_right = new_distances.second;
+                tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left = new_distances.first;
+                tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right = new_distances.second;
                 //And update the best distances
                 if (!found_first_node) {
                     chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, new_distances.first);
@@ -2945,8 +2940,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             const size_t read_num = child_cluster_head.first;
             const size_t cluster_num = child_cluster_head.second;
             ClusterIndices& new_cluster = read_num == 0 ?  new_cluster_by_read.first : new_cluster_by_read.second;
-            pair<size_t, size_t> dists (tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left,
-                                       tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right);
+            pair<size_t, size_t> dists (tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left,
+                                       tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right);
             const size_t distance_left = child_is_reversed ? dists.second : dists.first;
             const size_t distance_right = child_is_reversed ? dists.first : dists.second;
             //Distance between this cluster and a cluster on the same read from the previous child
@@ -3033,8 +3028,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             ClusterIndices& new_cluster = read_num == 0 ?  new_cluster_by_read.first : new_cluster_by_read.second;
 
             //The distances for the chain cluster
-            pair<size_t, size_t> chain_cluster_distances (tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_left,
-                                        tree_state.all_seed_caches->at(read_num)->at(cluster_num).distance_right);
+            pair<size_t, size_t> chain_cluster_distances (tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left,
+                                        tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right);
         
             //Best distance to the left side (relative to the chain) of the current child
             const size_t current_distance_left =  (read_num == 0 ? child_clusters.read_best_left.first : child_clusters.read_best_left.second);
@@ -3101,19 +3096,19 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         //Add new clusters that weren't combined
         for (pair<pair<size_t, size_t>, pair<size_t, size_t>>& cluster : to_add) {
             chain_clusters.read_cluster_heads.emplace(cluster.first);
-            tree_state.all_seed_caches->at(cluster.first.first)->at(cluster.first.second).distance_left = cluster.second.first;
-            tree_state.all_seed_caches->at(cluster.first.first)->at(cluster.first.second).distance_right = cluster.second.second;
+            tree_state.all_seeds->at(cluster.first.first)->at(cluster.first.second).distance_left = cluster.second.first;
+            tree_state.all_seeds->at(cluster.first.first)->at(cluster.first.second).distance_right = cluster.second.second;
         }
         //Add new clusters that were combined
         if (new_cluster_by_read.first.read_num != std::numeric_limits<size_t>::max()){
             chain_clusters.read_cluster_heads.emplace(new_cluster_by_read.first.read_num, new_cluster_by_read.first.cluster_num);
-            tree_state.all_seed_caches->at(new_cluster_by_read.first.read_num)->at(new_cluster_by_read.first.cluster_num).distance_left = new_cluster_by_read.first.distance_left;
-            tree_state.all_seed_caches->at(new_cluster_by_read.first.read_num)->at(new_cluster_by_read.first.cluster_num).distance_right = new_cluster_by_read.first.distance_right;
+            tree_state.all_seeds->at(new_cluster_by_read.first.read_num)->at(new_cluster_by_read.first.cluster_num).distance_left = new_cluster_by_read.first.distance_left;
+            tree_state.all_seeds->at(new_cluster_by_read.first.read_num)->at(new_cluster_by_read.first.cluster_num).distance_right = new_cluster_by_read.first.distance_right;
         }
         if (new_cluster_by_read.second.read_num != std::numeric_limits<size_t>::max()){
             chain_clusters.read_cluster_heads.emplace(new_cluster_by_read.second.read_num, new_cluster_by_read.second.cluster_num);
-            tree_state.all_seed_caches->at(new_cluster_by_read.second.read_num)->at(new_cluster_by_read.second.cluster_num).distance_left = new_cluster_by_read.second.distance_left;
-            tree_state.all_seed_caches->at(new_cluster_by_read.second.read_num)->at(new_cluster_by_read.second.cluster_num).distance_right = new_cluster_by_read.second.distance_right;
+            tree_state.all_seeds->at(new_cluster_by_read.second.read_num)->at(new_cluster_by_read.second.cluster_num).distance_left = new_cluster_by_read.second.distance_left;
+            tree_state.all_seeds->at(new_cluster_by_read.second.read_num)->at(new_cluster_by_read.second.cluster_num).distance_right = new_cluster_by_read.second.distance_right;
         }
     } else {
 #ifdef DEBUG_CLUSTER
@@ -3131,8 +3126,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                                                                   distance_from_last_child_to_current_end),
                                                                   distance_from_current_end_to_end_of_chain);
         for (pair<size_t, size_t> cluster_head : chain_clusters.read_cluster_heads) {
-            tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_right = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
-                                                        tree_state.all_seed_caches->at(cluster_head.first)->at(cluster_head.second).distance_right,
+            tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                        tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right,
                                                         distance_from_last_child_to_current_end),
                                                         distance_from_current_end_to_end_of_chain);
         }
@@ -3192,8 +3187,8 @@ void SnarlDistanceIndexClusterer::cluster_root(TreeState& tree_state) const {
                     NodeClusters& child_clusters = tree_state.all_node_clusters[children[i]];
                     for (const pair<size_t, size_t>& head : child_clusters.read_cluster_heads) {
                         child_distances[head.second + tree_state.seed_count_prefix_sum[head.first]] = 
-                            make_pair(tree_state.all_seed_caches->at(head.first)->at(head.second).distance_left,
-                                     tree_state.all_seed_caches->at(head.first)->at(head.second).distance_right);
+                            make_pair(tree_state.all_seeds->at(head.first)->at(head.second).distance_left,
+                                     tree_state.all_seeds->at(head.first)->at(head.second).distance_right);
                     }
 
                     for (size_t j = 0 ; j <= i ; j++){
@@ -3314,8 +3309,8 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(TreeState& t
                 if ((read_num == 0 ? group_ids.first : group_ids.second) != std::numeric_limits<size_t>::max()) {
                     size_t group_id = (read_num == 0 ? group_ids.first : group_ids.second);
                     node_clusters.read_cluster_heads.emplace(read_num, group_id);
-                    tree_state.all_seed_caches->at(read_num)->at(group_id).distance_left = (read_num == 0 ? node_clusters.read_best_left.first : node_clusters.read_best_left.second);
-                    tree_state.all_seed_caches->at(read_num)->at(group_id).distance_right = (read_num == 0 ? node_clusters.read_best_right.first : node_clusters.read_best_right.second);
+                    tree_state.all_seeds->at(read_num)->at(group_id).distance_left = (read_num == 0 ? node_clusters.read_best_left.first : node_clusters.read_best_left.second);
+                    tree_state.all_seeds->at(read_num)->at(group_id).distance_right = (read_num == 0 ? node_clusters.read_best_right.first : node_clusters.read_best_right.second);
                 }
 
             }
@@ -3386,8 +3381,8 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(TreeState& t
             if (!skip_distances_to_ends && last_cluster != std::numeric_limits<size_t>::max()) {
                 //Record the previous cluster
                 node_clusters.read_cluster_heads.emplace(read_num, last_cluster);
-                tree_state.all_seed_caches->at(read_num)->at(last_cluster).distance_left = first_offset;
-                tree_state.all_seed_caches->at(read_num)->at(last_cluster).distance_right =  structure_length - last_offset + 1;
+                tree_state.all_seeds->at(read_num)->at(last_cluster).distance_left = first_offset;
+                tree_state.all_seeds->at(read_num)->at(last_cluster).distance_right =  structure_length - last_offset + 1;
             }
             last_cluster = seed_num;
             first_offset = offset;
@@ -3411,8 +3406,8 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(TreeState& t
         for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
             if ((i == 0 ? read_last_cluster.first : read_last_cluster.second) != std::numeric_limits<size_t>::max()) {
                 node_clusters.read_cluster_heads.emplace(i, (i == 0 ? read_last_cluster.first : read_last_cluster.second));
-                tree_state.all_seed_caches->at(i)->at((i == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_left = (i == 0 ? read_first_offset.first : read_first_offset.second);
-                tree_state.all_seed_caches->at(i)->at((i == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_right = structure_length-(i == 0 ? read_last_offset.first : read_last_offset.second)+1;
+                tree_state.all_seeds->at(i)->at((i == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_left = (i == 0 ? read_first_offset.first : read_first_offset.second);
+                tree_state.all_seeds->at(i)->at((i == 0 ? read_last_cluster.first : read_last_cluster.second)).distance_right = structure_length-(i == 0 ? read_last_offset.first : read_last_offset.second)+1;
 
                 if (i == 0) {
                     node_clusters.read_best_right.first = structure_length-(i == 0 ? read_last_offset.first : read_last_offset.second) +1;
@@ -3429,7 +3424,7 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(TreeState& t
     return;
 }
 
-size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, gbwtgraph::payload_type& payload1, const Seed& seed2, gbwtgraph::payload_type& payload2, bool stop_at_lowest_common_ancestor) const {
+size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, const Seed& seed2, bool stop_at_lowest_common_ancestor) const {
 
     /*Helper function to walk up the snarl tree
      * Given a net handle, its parent,  and the distances to the start and end of the handle, 
@@ -3490,9 +3485,11 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, gb
      */
     pos_t pos1 = seed1.pos;
     pos_t pos2 = seed2.pos;
+    gbwtgraph::payload_type payload1 = seed1.minimizer_cache;
+    gbwtgraph::payload_type payload2 = seed2.minimizer_cache;
 
-    bool has_cached_values1 = MIPayload::record_offset(payload1) != MIPayload::NO_VALUE;
-    bool has_cached_values2 = MIPayload::record_offset(payload2) != MIPayload::NO_VALUE;
+    bool has_cached_values1 = payload1 != MIPayload::NO_CODE;
+    bool has_cached_values2 = payload2 != MIPayload::NO_CODE;
     net_handle_t net1 = has_cached_values1 ? distance_index.get_net_handle_from_values(MIPayload::record_offset(payload1), 
                                                              SnarlDistanceIndex::START_END, 
                                                              SnarlDistanceIndex::NODE_HANDLE, 
@@ -3513,7 +3510,6 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, gb
         size_t distance_to_end1 =   is_rev(pos1) ? get_offset(pos1) + 1 : node_length - get_offset(pos1);
         size_t distance_to_start2 = is_rev(pos2) ? node_length - get_offset(pos2) : get_offset(pos2) + 1;
         size_t distance_to_end2 =   is_rev(pos2) ? get_offset(pos2) + 1 : node_length - get_offset(pos2);
-        cerr << "Same node, distances : " << distance_to_start1 << " " << distance_to_end1 << " " << distance_to_start2 << " " << distance_to_end2 << " and node length " << node_length << endl;
 
         if (distance_to_start1 < distance_to_start2) {
             //IF 1 comes before 2
