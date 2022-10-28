@@ -3661,7 +3661,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     // shim the hit graph nodes into the seed clusterer algorithm interface
     vector<SnarlDistanceIndexClusterer::Seed> positions(hit_graph.nodes.size());
     //Make a matching vector of empty minimizer payloads
-    vector<SnarlDistanceIndexClusterer::SeedCache> position_caches(hit_graph.nodes.size());
+    vector<gbwtgraph::payload_type> position_caches(hit_graph.nodes.size(), MIPayload::NO_CODE);
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
         positions[i].pos = hit_graph.nodes[i].start_pos;
     }

@@ -63,11 +63,8 @@ class SnarlDistanceIndexClusterer {
 
 
             //Cached values from the minimizer
-            //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
-            // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
-
-            MIPayloadValues minimizer_cache  = 
-                {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE};
+            //Use MIPayload::node_record_offset(minimizer_cache), etc to get values
+            gbwtgraph::payload_type minimizer_cache;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -97,7 +94,7 @@ class SnarlDistanceIndexClusterer {
          *the distance limit are in the same cluster
          *This produces a vector of clusters
          */
-        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, vector<SeedCache>& seed_caches, size_t read_distance_limit) const;
+        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, vector<gbwtgraph::payload_type>& payloads, size_t read_distance_limit) const;
         
         /* The same thing, but for paired end reads.
          * Given seeds from multiple reads of a fragment, cluster each read
@@ -110,14 +107,14 @@ class SnarlDistanceIndexClusterer {
          */
 
         vector<vector<Cluster>> cluster_seeds ( 
-                const vector<vector<Seed>>& all_seeds, vector<vector<SeedCache>>& all_seed_caches, 
+                const vector<vector<Seed>>& all_seeds, vector<vector<gbwtgraph::payload_type>>& all_payloads, 
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
 
         /**
          * Find the minimum distance between two seeds. This will use the minimizer payload when possible
          */
-        size_t distance_between_seeds(const Seed& seed1, SeedCache& seed_cache1, const Seed& seed2, SeedCache& seed_cache2,
+        size_t distance_between_seeds(const Seed& seed1, gbwtgraph::payload_type& payload1, const Seed& seed2, gbwtgraph::payload_type& payload2,
             bool stop_at_lowest_common_ancestor) const;
 
     private:
@@ -168,11 +165,11 @@ class SnarlDistanceIndexClusterer {
 
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
-            //THe parent and grandparent of containing_net_handle, which might or might not be set
+            //The parent and grandparent of containing_net_handle, which might or might not be set
             //This is just to store information from the minimizer cache
             net_handle_t parent_net_handle;
             net_handle_t grandparent_net_handle;
-            //THe boundary node of containing_net_handle, for a snarl or chain
+            //The boundary node of containing_net_handle, for a snarl or chain
             //if it is a snarl, then this is the actual node, not the sentinel 
             net_handle_t end_in;
 
@@ -305,7 +302,7 @@ class SnarlDistanceIndexClusterer {
             // node length of the start node
             // The vector gets unsorted after adding a child
             void add_child(size_t& parent_index, net_handle_t& handle, size_t& child_index, size_t child_index2, 
-                           size_t& component, size_t offset) {
+                           size_t component, size_t offset) {
                 parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, component, offset);
                 is_sorted=false;
             }

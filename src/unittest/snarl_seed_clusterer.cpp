@@ -40,14 +40,14 @@ namespace unittest {
             id_t seed_nodes[] = {1, 1};
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (bool use_minimizers : {true, false} ) {
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -92,12 +92,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (auto& pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -134,12 +134,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (auto& pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -190,12 +190,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -213,13 +213,13 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -237,13 +237,13 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -260,7 +260,7 @@ namespace unittest {
             id_t seed_nodes[] = {2, 4};
             //all are in the same cluster
             vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds (2);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> seed_caches (2);
+            vector<vector<gbwtgraph::payload_type>> seed_caches (2);
 
             pos_t pos = make_pos_t(2, false, 0);
             seeds[0].push_back({ pos, 0});
@@ -283,7 +283,7 @@ namespace unittest {
  
             //all are in the same cluster
             vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds (2);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> seed_caches (2);
+            vector<vector<gbwtgraph::payload_type>> seed_caches (2);
 
             pos_t pos = make_pos_t(5, false, 0);
             seeds[0].push_back({ pos, 0});
@@ -312,12 +312,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({ chain_info});
+                        seed_caches.push_back( chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -377,12 +377,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -400,13 +400,13 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -424,13 +424,13 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -447,7 +447,7 @@ namespace unittest {
             id_t seed_nodes[] = {2, 4};
             //all are in the same cluster
             vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds (2);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> seed_caches (2);
+            vector<vector<gbwtgraph::payload_type>> seed_caches (2);
 
             pos_t pos = make_pos_t(2, false, 0);
             seeds[0].push_back({ pos, 0});
@@ -470,7 +470,7 @@ namespace unittest {
  
             //all are in the same cluster
             vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds (2);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> seed_caches (2);
+            vector<vector<gbwtgraph::payload_type>> seed_caches (2);
 
             pos_t pos = make_pos_t(5, false, 0);
             seeds[0].push_back({ pos, 0});
@@ -526,12 +526,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -552,12 +552,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -624,12 +624,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -646,12 +646,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -668,12 +668,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -690,12 +690,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -712,12 +712,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -734,12 +734,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -758,12 +758,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -780,12 +780,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -804,12 +804,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -886,12 +886,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -919,12 +919,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -948,12 +948,12 @@ namespace unittest {
             //all are in the same cluster
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1034,13 +1034,13 @@ namespace unittest {
             positions.emplace_back(make_pos_t(10, false, 0));
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (bool use_minimizers : {true, false} ) {
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1059,13 +1059,13 @@ namespace unittest {
             positions.emplace_back(make_pos_t(8, false, 0));
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (bool use_minimizers : {true, false} ) {
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1084,14 +1084,14 @@ namespace unittest {
             positions.emplace_back(make_pos_t(7, false, 0));
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (bool use_minimizers : {true, false} ) {
                 seeds.clear();
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1109,14 +1109,14 @@ namespace unittest {
             positions.emplace_back(make_pos_t(11, false, 0));
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (bool use_minimizers : {true, false} ) {
                 seeds.clear();
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1134,14 +1134,14 @@ namespace unittest {
             positions.emplace_back(make_pos_t(11, false, 0));
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (bool use_minimizers : {true, false} ) {
                 seeds.clear();
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1188,13 +1188,13 @@ namespace unittest {
                 id_t seed_nodes[] = {1, 4};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1212,13 +1212,13 @@ namespace unittest {
                 id_t seed_nodes[] = {2, 4};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1235,7 +1235,7 @@ namespace unittest {
             id_t seed_nodes[] = {2, 4};
             //all are in the same cluster
             vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds (2);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> seed_caches (2);
+            vector<vector<gbwtgraph::payload_type>> seed_caches (2);
 
             pos_t pos = make_pos_t(2, false, 0);
             seeds[0].push_back({ pos, 0});
@@ -1256,13 +1256,13 @@ namespace unittest {
                 id_t seed_nodes[] = {3, 4};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1315,13 +1315,13 @@ namespace unittest {
                 id_t seed_nodes[] = {4, 5};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1339,13 +1339,13 @@ namespace unittest {
                 id_t seed_nodes[] = {4, 5, 3};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1362,13 +1362,13 @@ namespace unittest {
                 id_t seed_nodes[] = {4, 5, 6};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1386,13 +1386,13 @@ namespace unittest {
                 id_t seed_nodes[] = {4, 5, 1};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1455,13 +1455,13 @@ namespace unittest {
                 id_t seed_nodes[] = {2, 3, 4, 7, 8, 9, 11};
                 //all are in the same cluster
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1479,13 +1479,13 @@ namespace unittest {
                 //Clusters should be {2, 3, 4}, {7, 8, 10, 11}
                 //Distance from pos on 4 to pos on 7 is 8, including one position
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -1531,26 +1531,26 @@ namespace unittest {
             //
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds ;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches ;
+                vector<gbwtgraph::payload_type> seed_caches ;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
                     }
                 }
                 vector<SnarlDistanceIndexClusterer::Seed> seeds1;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1;
+                vector<gbwtgraph::payload_type> seed_caches1;
                 for (id_t n : seed_nodes1) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds1.push_back({ pos, 0});
-                        seed_caches1.push_back({chain_info});
+                        seed_caches1.push_back(chain_info);
                     } else {
                         seeds1.push_back({ pos, 0});
                         seed_caches1.emplace_back();
@@ -1559,7 +1559,7 @@ namespace unittest {
                 vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
                 all_seeds.push_back(seeds);
                 all_seeds.push_back(seeds1);
-                vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+                vector<vector<gbwtgraph::payload_type>> all_seed_caches;
                 all_seed_caches.push_back(seed_caches);
                 all_seed_caches.push_back(seed_caches1);
 
@@ -1582,26 +1582,26 @@ namespace unittest {
                 //One fragment cluster
                 //Distance from pos on 4 to pos on 7 is 8, including one position
                 vector<SnarlDistanceIndexClusterer::Seed> seeds ;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches ;
+                vector<gbwtgraph::payload_type> seed_caches ;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({chain_info});
+                        seed_caches.push_back(chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
                     }
                 }
                 vector<SnarlDistanceIndexClusterer::Seed> seeds1;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1;
+                vector<gbwtgraph::payload_type> seed_caches1;
                 for (id_t n : seed_nodes1) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds1.push_back({ pos, 0});
-                        seed_caches1.push_back({chain_info});
+                        seed_caches1.push_back(chain_info);
                     } else {
                         seeds1.push_back({ pos, 0});
                         seed_caches1.emplace_back();
@@ -1610,7 +1610,7 @@ namespace unittest {
                 vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
                 all_seeds.push_back(seeds);
                 all_seeds.push_back(seeds1);
-                vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+                vector<vector<gbwtgraph::payload_type>> all_seed_caches;
                 all_seed_caches.push_back(seed_caches);
                 all_seed_caches.push_back(seed_caches1);
 
@@ -1632,25 +1632,25 @@ namespace unittest {
             //Fragment clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //Distance from pos on 4 to pos on 7 is 8, including one position
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
-                seed_caches.push_back({chain_info});
+                seed_caches.push_back(chain_info);
             }
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1;
+            vector<gbwtgraph::payload_type> seed_caches1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds1.push_back({ pos, 0});
-                seed_caches1.push_back({chain_info});
+                seed_caches1.push_back(chain_info);
             }
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
             all_seeds.push_back(seeds1);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
             all_seed_caches.push_back(seed_caches);
             all_seed_caches.push_back(seed_caches1);
 
@@ -1673,25 +1673,25 @@ namespace unittest {
             //Fragment clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //Distance from pos on 4 to pos on 7 is 8, including one position
             vector<SnarlDistanceIndexClusterer::Seed> seeds ;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches ;
+            vector<gbwtgraph::payload_type> seed_caches ;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1;
+            vector<gbwtgraph::payload_type> seed_caches1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds1.push_back({ pos, 0});
                 seed_caches1.push_back({ chain_info});
             }
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
             all_seeds.push_back(seeds1);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
             all_seed_caches.push_back(seed_caches);
             all_seed_caches.push_back(seed_caches1);
 
@@ -1750,10 +1750,10 @@ namespace unittest {
         SECTION( "Same snarl" ) {
             vector<id_t> seed_nodes ({3, 4});
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -1765,7 +1765,7 @@ namespace unittest {
         }
         SECTION( "Different snarl" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
 
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(3, false, 0);
@@ -1823,7 +1823,7 @@ namespace unittest {
         SECTION( "One cluster" ) {
             vector<id_t> seed_nodes ({7, 7, 6});
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
@@ -1838,10 +1838,10 @@ namespace unittest {
         SECTION( "two clusters" ) {
             vector<id_t> seed_nodes ({2, 6});
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -1853,10 +1853,10 @@ namespace unittest {
         SECTION( "different snarl" ) {
             vector<id_t> seed_nodes ({8, 6});
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -1897,14 +1897,14 @@ namespace unittest {
 
         SECTION( "One cluster taking node loop" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(5, false, 0);
             pos_ts.emplace_back(5, true, 0);
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({  chain_info});
             }
@@ -1946,14 +1946,14 @@ namespace unittest {
 
         SECTION( "One cluster across top-level snarl" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(1, false, 0);
             pos_ts.emplace_back(4, true, 0);
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -1963,14 +1963,14 @@ namespace unittest {
         }
         SECTION( "Two clusters across top-level snarl" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(1, false, 0);
             pos_ts.emplace_back(4, true, 0);
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -2008,14 +2008,14 @@ namespace unittest {
 
         SECTION( "One cluster across top-level snarl" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(2, false, 0);
             pos_ts.emplace_back(6, true, 0);
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -2025,14 +2025,14 @@ namespace unittest {
         }
         SECTION( "Two clusters across top-level snarl" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(2, false, 0);
             pos_ts.emplace_back(6, true, 0);
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0});
                 seed_caches.push_back({ chain_info});
             }
@@ -2109,11 +2109,11 @@ namespace unittest {
 
             for (bool use_minimizers : {true, false}) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : pos_ts){
 
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0});
                         seed_caches.push_back({ chain_info});
                     } else {
@@ -2152,7 +2152,7 @@ namespace unittest {
         }
         SECTION( "Four clusters" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(3, false, 0);
             pos_ts.emplace_back(5, false, 0);
@@ -2176,7 +2176,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 4);
 
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
 
             all_seeds.push_back(seeds);
             all_seed_caches.push_back(seed_caches);
@@ -2196,8 +2196,8 @@ namespace unittest {
         } SECTION ("Four fragment clusters") {
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t>pos_ts;
             pos_ts.emplace_back(3, false, 0);
             pos_ts.emplace_back(5, false, 0);
@@ -2254,7 +2254,7 @@ namespace unittest {
         }
         SECTION( "Same node, same cluster" ) {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(5, false, 0);
             pos_ts.emplace_back(5, false, 11);
@@ -2294,7 +2294,7 @@ namespace unittest {
 
         SECTION("One cluster") {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(2, false, 0);
             pos_ts.emplace_back(1, false, 7);
@@ -2357,7 +2357,7 @@ namespace unittest {
         SECTION("Top level cluster") {
             vector<id_t> ids({1, 2, 7});
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
@@ -2371,7 +2371,7 @@ namespace unittest {
         }
         SECTION("One cluster") {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(1, false, 0);
             pos_ts.emplace_back(2, false, 0);
@@ -2389,7 +2389,7 @@ namespace unittest {
         }
         SECTION("One cluster") {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(2, false, 0);
             pos_ts.emplace_back(4, false, 0);
@@ -2406,7 +2406,7 @@ namespace unittest {
         }
         SECTION("Two clusters") {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(2, false, 0);
             pos_ts.emplace_back(4, false, 1);
@@ -2423,7 +2423,7 @@ namespace unittest {
         }
         SECTION("No clusters") {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
 
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
@@ -2485,7 +2485,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
 
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
@@ -2501,7 +2501,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
 
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
@@ -2518,7 +2518,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 4); 
 
 
@@ -2533,19 +2533,19 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<id_t> ids1({8, 12});
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : ids1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1 (seeds1.size());
+            vector<gbwtgraph::payload_type> seed_caches1 (seeds1.size());
 
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.emplace_back(seeds);
             all_seeds.emplace_back(seeds1);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
             all_seed_caches.emplace_back(seed_caches);
             all_seed_caches.emplace_back(seed_caches1);
 
@@ -2567,7 +2567,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
 
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 9); 
 
@@ -2584,7 +2584,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 6); 
 
             REQUIRE( clusters.size() == 1);
@@ -2647,7 +2647,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -2663,7 +2663,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -2679,7 +2679,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -2694,21 +2694,21 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<id_t> ids1({5, 13});
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : ids1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1 (seeds1.size());
+            vector<gbwtgraph::payload_type> seed_caches1 (seeds1.size());
             //Clusters are 
             //Read 1: {1, 3} in a fragment cluster with Read 2: {5}
             //Read 1: {11} in a fragment cluster with Read 2: {13}
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.emplace_back(seeds);
             all_seeds.emplace_back(seeds1);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
             all_seed_caches.emplace_back(seed_caches);
             all_seed_caches.emplace_back(seed_caches1);
 
@@ -2735,14 +2735,14 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<id_t> ids1({5, 13});
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : ids1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches1 (seeds1.size());
+            vector<gbwtgraph::payload_type> seed_caches1 (seeds1.size());
             //Clusters are 
             //Read 1: {1, 3} in a fragment cluster with Read 2: {5}
             //Read 1: {11} in a fragment cluster with Read 2: {13}
@@ -2750,7 +2750,7 @@ namespace unittest {
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.emplace_back(seeds);
             all_seeds.emplace_back(seeds1);
-            vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches;
+            vector<vector<gbwtgraph::payload_type>> all_seed_caches;
             all_seed_caches.emplace_back(seed_caches);
             all_seed_caches.emplace_back(seed_caches1);
 
@@ -2814,7 +2814,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 7); 
 
 
@@ -2831,7 +2831,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 4); 
 
 
@@ -2850,7 +2850,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 4); 
 
 
@@ -2871,11 +2871,11 @@ namespace unittest {
 
             for (bool use_minimizers : {true, false}) {
                 vector<vector<SnarlDistanceIndexClusterer::Seed>> seeds(2);
-                vector<vector<SnarlDistanceIndexClusterer::SeedCache>> seed_caches(2);
+                vector<vector<gbwtgraph::payload_type>> seed_caches(2);
                 for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num ++) {
                     for (pos_t pos : pos_ts[read_num]){
                         if (use_minimizers) {
-                            auto chain_info = get_minimizer_distances(dist_index, pos);
+                            auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                             seeds[read_num].push_back({ pos, 0});
                             seed_caches[read_num].push_back({ chain_info});
                         } else {
@@ -2907,12 +2907,12 @@ namespace unittest {
 
             for (bool use_minimizers : {true, false}) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+                vector<gbwtgraph::payload_type> seed_caches;
                 for (pos_t pos : pos_ts){
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0});
-                        seed_caches.push_back({ chain_info});
+                        seed_caches.push_back( chain_info);
                     } else {
                         seeds.push_back({ pos, 0});
                         seed_caches.emplace_back();
@@ -2978,7 +2978,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 3); 
 
 
@@ -2995,7 +2995,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 6); 
 
 
@@ -3010,7 +3010,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 3); 
 
 
@@ -3063,7 +3063,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 10); 
 
 
@@ -3077,7 +3077,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 10); 
 
 
@@ -3091,7 +3091,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 3); 
 
 
@@ -3106,7 +3106,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 15); 
 
 
@@ -3144,7 +3144,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 3); 
 
 
@@ -3188,7 +3188,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -3203,7 +3203,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 10); 
 
 
@@ -3218,7 +3218,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 18); 
 
 
@@ -3253,7 +3253,7 @@ namespace unittest {
                 seeds.push_back({pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 10); 
 
 
@@ -3296,7 +3296,7 @@ namespace unittest {
                 seeds.push_back({  pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -3311,7 +3311,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -3325,7 +3325,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -3339,7 +3339,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 7); 
 
 
@@ -3379,7 +3379,7 @@ namespace unittest {
                 seeds.push_back({  pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -3394,7 +3394,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 7); 
 
 
@@ -3408,7 +3408,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 5); 
 
 
@@ -3422,7 +3422,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0});
             }
 
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches (seeds.size());
+            vector<gbwtgraph::payload_type> seed_caches (seeds.size());
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, seed_caches, 7); 
 
 
@@ -3456,7 +3456,7 @@ namespace unittest {
     //    pos_ts.emplace_back(9, false, 0);
 
     //    for (pos_t pos : pos_ts) {
-    //        auto chain_info = get_minimizer_distances(dist_index, pos);
+    //        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
     //        seeds.push_back({ pos, 0, chain_info});
     //    }
     //    vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, read_lim); 
@@ -3496,7 +3496,7 @@ namespace unittest {
         //            for (pos_t pos : pos_ts[read_num]) {
 
         //                if (use_minimizers) {
-        //                    auto chain_info = get_minimizer_distances(dist_index, pos);
+        //                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
         //                    seeds[read_num].push_back({ pos, 0, chain_info});
         //                } else {
         //                    seeds[read_num].push_back({ pos, 0});
@@ -3550,7 +3550,7 @@ namespace unittest {
                 for (size_t k = 0; k < 10 ; k++) {
 
                     vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds(2);
-                    vector<vector<SnarlDistanceIndexClusterer::SeedCache>> all_seed_caches(2);
+                    vector<vector<gbwtgraph::payload_type>> all_seed_caches(2);
                     size_t read_lim = 15;// Distance between read clusters
                     size_t fragment_lim = 35;// Distance between fragment clusters
                     for (size_t read = 0 ; read < 2 ; read ++) {
@@ -3569,9 +3569,9 @@ namespace unittest {
 
                         
                         if (use_minimizers) {
-                            auto chain_info = get_minimizer_distances(dist_index, pos);
+                            auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                             all_seeds[read].push_back({ pos, 0});
-                            all_seed_caches[read].push_back({ chain_info});
+                            all_seed_caches[read].push_back( chain_info);
                         } else {
                             all_seeds[read].push_back({ pos, 0});
                             all_seed_caches[read].emplace_back();

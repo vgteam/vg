@@ -254,7 +254,7 @@ int main_cluster(int argc, char** argv) {
                 
             }
             vector<SnarlDistanceIndexClusterer::Seed> seed_clusters;
-            vector<SnarlDistanceIndexClusterer::SeedCache> seed_caches;
+            vector<gbwtgraph::payload_type> seed_caches;
             for (pos_t pos : seeds) {
                 seed_clusters.emplace_back();
                 seed_clusters.back().pos = pos;

@@ -80,26 +80,23 @@ struct seed_traits<SnarlDistanceIndexClusterer::Seed> {
     /// Get SeedType to use later, because it makes more sense to use that in
     /// the function signatures than the type we're specialized on.
     using SeedType = SnarlDistanceIndexClusterer::Seed;
-    using SeedCacheType = SnarlDistanceIndexClusterer::SeedCache;
     
     /// What minimizer index payload type should we use for decoding minimizer index payloads?
     using MIPayload = vg::MIPayload;
     /// What chain info should we keep around during clustering?
-    using chain_info_t = vg::MIPayloadValues;
+    using chain_info_t = gbwtgraph::payload_type;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static chain_info_t no_chain_info() {
-        return {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false,
-                false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE };
+        return MIPayload::NO_CODE;
     } 
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
     //TODO: I don like having the clustering info here
-    inline static std::pair<SeedType, SeedCacheType> chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
+    inline static std::pair<SeedType, chain_info_t> chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
         SeedType seed = { hit, minimizer};
-        SeedCacheType seed_cache = {chain_info, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max() };
-        return std::make_pair(seed, seed_cache);
+        return std::make_pair(seed, chain_info);
     }
 };
 
@@ -569,15 +566,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     std::vector<Cluster> clusters;
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds; vector<SeedCache> seed_caches;
-    std::tie(seeds, seed_caches) = this->find_seeds<Seed, SeedCache>(minimizers, aln, funnel);
+    vector<Seed> seeds; vector<gbwtgraph::payload_type> seed_payloads;
+    std::tie(seeds, seed_payloads) = this->find_seeds<Seed, gbwtgraph::payload_type>(minimizers, aln, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
     }
 
-    clusters = clusterer.cluster_seeds(seeds, seed_caches, get_distance_limit(aln.sequence().size()));
+    clusters = clusterer.cluster_seeds(seeds, seed_payloads, get_distance_limit(aln.sequence().size()));
     
 #ifdef debug_validate_clusters
     vector<vector<Cluster>> all_clusters;
@@ -1435,9 +1432,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     // Seeds for both reads, stored in separate vectors.
     std::vector<std::vector<Seed>> seeds_by_read(2);
-    std::vector<std::vector<SeedCache>> seed_caches_by_read(2);
-    std::tie(seeds_by_read[0], seed_caches_by_read[0]) = this->find_seeds<Seed, SeedCache>(minimizers_by_read[0], aln1, funnels[0]);
-    std::tie(seeds_by_read[1], seed_caches_by_read[1]) = this->find_seeds<Seed, SeedCache>(minimizers_by_read[1], aln2, funnels[1]);
+    std::vector<std::vector<gbwtgraph::payload_type>> seed_caches_by_read(2);
+    std::tie(seeds_by_read[0], seed_caches_by_read[0]) = this->find_seeds<Seed, gbwtgraph::payload_type>(minimizers_by_read[0], aln1, funnels[0]);
+    std::tie(seeds_by_read[1], seed_caches_by_read[1]) = this->find_seeds<Seed, gbwtgraph::payload_type>(minimizers_by_read[1], aln2, funnels[1]);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -3290,8 +3287,8 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     return result;
 }
 
-template<typename SeedType, typename SeedCacheType>
-std::pair<std::vector<SeedType>, std::vector<SeedCacheType>> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+template<typename SeedType, typename MIPayloadValueType>
+std::pair<std::vector<SeedType>, std::vector<MIPayloadValueType>> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
     // Get the traits that we use to do things with seeds.
     using ST = seed_traits<SeedType>;
@@ -3335,7 +3332,7 @@ std::pair<std::vector<SeedType>, std::vector<SeedCacheType>> MinimizerMapper::fi
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     std::vector<SeedType> seeds;
-    std::vector<SeedCacheType> seed_caches;
+    std::vector<MIPayloadValueType> seed_payloads;
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
     // they would have to be created in the read no matter where we say it came
@@ -3413,10 +3410,10 @@ std::pair<std::vector<SeedType>, std::vector<SeedCacheType>> MinimizerMapper::fi
                 // TODO: Don't use the seed payload anymore
                 typename ST::chain_info_t chain_info = ST::no_chain_info();
                 if (minimizer.occs[j].payload != ST::MIPayload::NO_CODE) {
-                    chain_info = ST::MIPayload::decode(minimizer.occs[j].payload);
+                    chain_info = minimizer.occs[j].payload;
                 }
                 seeds.push_back(ST::chain_info_to_seed(hit, i, chain_info).first);
-                seed_caches.push_back(ST::chain_info_to_seed(hit, i, chain_info).second);
+                seed_payloads.push_back(ST::chain_info_to_seed(hit, i, chain_info).second);
             }
 
             // Remember that we took this minimizer
@@ -3493,7 +3490,7 @@ std::pair<std::vector<SeedType>, std::vector<SeedCacheType>> MinimizerMapper::fi
         }
     }
 
-    return std::make_pair(seeds, seed_caches);
+    return std::make_pair(seeds, seed_payloads);
 }
 
 template<typename SeedType>
