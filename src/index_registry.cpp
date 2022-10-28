@@ -3753,6 +3753,8 @@ set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
     
     for (const auto& step : steps) {
                 
+        // TODO: should this behavior change if some of the inputs were provided directly?
+        
         // collect inputs and outputs
         const auto& outputs = step.first;
         IndexGroup involved = registry->get_recipe(step).input_group();
@@ -3852,6 +3854,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
             const auto& rewinding_indexes = ex.get_indexes();
             set<RecipeName> dependent_recipes;
             for (const auto& index_name : rewinding_indexes) {
+                assert(index_registry.count(index_name));
                 for (const auto& recipe : plan.dependents(index_name)) {
                     dependent_recipes.insert(recipe);
                 }
@@ -3862,13 +3865,10 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 auto here = it;
                 ++it;
                 if (dependent_recipes.count(*here)) {
-                    dependent_recipes.erase(*here);
-                    steps_remaining.push_front(move(*here));
+                    steps_remaining.emplace_front(move(*here));
                     steps_completed.erase(here.base());
                 }
             }
-            // make sure we rewound to all of them
-            assert(dependent_recipes.empty());
         }
         // the recipe executed successfully
         assert(recipe_results.size() == step.first.size());
@@ -3879,6 +3879,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
             auto index = get_index(*it);
             // don't overwrite directly-provided inputs
             if (!index->was_provided_directly()) {
+                // and assign the new (or first) ones
                 index->assign_constructed(results);
             }
             ++it;
@@ -5163,13 +5164,13 @@ vector<pair<IndexName, vector<IndexName>>> AliasGraph::non_intermediate_aliases(
 }
 
 InsufficientInputException::InsufficientInputException(const IndexName& target,
-                                                       const IndexRegistry& registry) :
+                                                       const IndexRegistry& registry) noexcept :
     runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes())
 {
     // nothing else to do
 }
 
-const char* InsufficientInputException::what() const throw () {
+const char* InsufficientInputException::what() const noexcept {
     stringstream ss;
     ss << "Inputs" << endl;
     for (const auto& input : inputs) {
@@ -5181,15 +5182,15 @@ const char* InsufficientInputException::what() const throw () {
 }
 
 
-RewindPlanException::RewindPlanException(const string& msg, const IndexGroup& rewind_to) : msg(msg), indexes(rewind_to) {
+RewindPlanException::RewindPlanException(const string& msg, const IndexGroup& rewind_to) noexcept : msg(msg), indexes(rewind_to) {
     // nothing else to do
 }
 
-const char* RewindPlanException::what() const throw() {
+const char* RewindPlanException::what() const noexcept {
     return msg.c_str();
 }
 
-const IndexGroup& RewindPlanException::get_indexes() const {
+const IndexGroup& RewindPlanException::get_indexes() const noexcept {
     return indexes;
 }
 

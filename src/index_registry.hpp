@@ -434,12 +434,12 @@ private:
  * Exception that is thrown to indicate the input data is insufficient
  * to create some index(es)
  */
-class InsufficientInputException : public std::runtime_error {
+class InsufficientInputException : public runtime_error {
 public:
     InsufficientInputException() = delete;
     InsufficientInputException(const IndexName& target,
-                               const IndexRegistry& registry);
-    const char* what() const throw ();
+                               const IndexRegistry& registry) noexcept;
+    const char* what() const noexcept;
 private:
     IndexName target;
     vector<IndexName> inputs;
@@ -453,11 +453,11 @@ class RewindPlanException : public std::exception {
 public:
     
     RewindPlanException() = delete;
-    RewindPlanException(const string& msg, const IndexGroup& rewind_to);
-    ~RewindPlanException() throw() = default;
+    RewindPlanException(const string& msg, const IndexGroup& rewind_to) noexcept;
+    ~RewindPlanException() noexcept = default;
     
-    const char* what() const throw();
-    const IndexGroup& get_indexes() const;
+    const char* what() const noexcept;
+    const IndexGroup& get_indexes() const noexcept;
     
 private:
     

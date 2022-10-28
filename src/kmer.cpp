@@ -2,6 +2,13 @@
 
 namespace vg {
 
+
+const string SizeLimitExceededException::msg = "error: exceeded limit of size on disk";
+
+const char* SizeLimitExceededException::what() const throw() {
+    return msg.c_str();
+}
+
 void for_each_kmer(const HandleGraph& graph, size_t k,
                    const function<void(const kmer_t&)>& lambda,
                    id_t head_id, id_t tail_id) {
@@ -205,7 +212,7 @@ void kmer_to_gcsa_kmers(const kmer_t& kmer, const gcsa::Alphabet& alpha, const f
     if (offset(kmer.begin) >= 1024) {
 #pragma omp critical (error)
         {
-            cerr << "Found kmer with offset >= 1024. GCSA2 cannot handle nodes greater than 1024 bases long. "
+            cerr << "error: Found kmer with offset >= 1024. GCSA2 cannot handle nodes greater than 1024 bases long. "
                  << "To enable indexing, modify your graph using `vg mod -X 256 x.vg >y.vg`. "
                  << kmer << endl;
             exit(1);
@@ -279,7 +286,14 @@ string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, size
     string tmpfile = temp_file::create(base_file_name);
     ofstream out(tmpfile);
     // write the kmers to the temporary file
-    write_gcsa_kmers(graph, kmer_size, out, size_limit, head_id, tail_id);
+    try {
+        write_gcsa_kmers(graph, kmer_size, out, size_limit, head_id, tail_id);
+    }
+    catch (SizeLimitExceededException& ex) {
+        out.close();
+        temp_file::remove(tmpfile);
+        throw ex;
+    }
     out.close();
     return tmpfile;
 }

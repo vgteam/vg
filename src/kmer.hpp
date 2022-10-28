@@ -40,6 +40,21 @@ struct kmer_t {
     vector<char> next_char;
 };
 
+/**
+ * Exception that indicates that a limit on disk size has been exceeded
+ */
+class SizeLimitExceededException : public std::exception {
+public:
+    
+    SizeLimitExceededException() noexcept = default;
+    ~SizeLimitExceededException() noexcept = default;
+    
+    const char* what() const noexcept;
+private:
+    
+    static const string msg;
+};
+
 /// Iterate over all the kmers in the graph, running lambda on each
 void for_each_kmer(const HandleGraph& graph, size_t k,
                    const function<void(const kmer_t&)>& lambda,
@@ -62,7 +77,8 @@ gcsa::byte_type encode_chars(const vector<char>& chars, const gcsa::Alphabet& al
 void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, size_t& size_limit, id_t head_id, id_t tail_id);
 
 /// Open a tempfile and write the kmers to it. The calling context should remove it
-/// with temp_file::remove().
+/// with temp_file::remove(). In the case that the size limit is exceeded, throws a
+/// SizeLimitExceededException and deletes the temp file.
 string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, size_t& size_limit, id_t head_id, id_t tail_id,
                                    const string& base_file_name = "vg-kmers-tmp-");
 
