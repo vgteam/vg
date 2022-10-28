@@ -92,6 +92,8 @@ int IndexingParameters::pruning_max_node_degree = 128;
 int IndexingParameters::pruning_walk_length = 24;
 int IndexingParameters::pruning_max_edge_count = 3;
 int IndexingParameters::pruning_min_component_size = 33;
+double IndexingParameters::pruning_walk_length_increase_factor = 1.5;
+double IndexingParameters::pruning_max_node_degree_decrease_factor = 0.75;
 int IndexingParameters::gcsa_initial_kmer_length = gcsa::Key::MAX_LENGTH;
 int IndexingParameters::gcsa_doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
 int IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
@@ -3185,34 +3187,70 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "\t" << name << endl;
         }
 #endif
-        
+        // if indexing fails, we'll rewind to whichever of these we used
+        IndexGroup pruned_graphs{"Pruned VG", "Pruned Spliced VG", "Haplotype-Pruned VG", "Haplotype-Pruned Spliced VG"};
+
         VGset graph_set(graph_filenames);
         size_t kmer_bytes = params.getLimitBytes();
-        vector<string> dbg_names = graph_set.write_gcsa_kmers_binary(IndexingParameters::gcsa_initial_kmer_length,
-                                                                     kmer_bytes);
+        vector<string> dbg_names;
+        try {
+            dbg_names = graph_set.write_gcsa_kmers_binary(IndexingParameters::gcsa_initial_kmer_length, kmer_bytes);
+        }
+        catch (SizeLimitExceededException& ex) {
+            // update pruning params
+            IndexingParameters::pruning_walk_length *= IndexingParameters::pruning_walk_length_increase_factor;
+            IndexingParameters::pruning_max_node_degree *= IndexingParameters::pruning_max_node_degree_decrease_factor;
+            string msg = "[IndexRegistry]: Exceeded disk use limit while generating k-mers. "
+                         "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
+            throw RewindPlanException(msg, pruned_graphs);
+        }
         
 #ifdef debug_index_registry_recipes
         cerr << "making GCSA2" << endl;
 #endif
         
-        // construct the indexes (giving empty mapping name is sufficient to make
-        // indexing skip the unfolded code path)
-        gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(),
-                                     mapping_filename);
-        gcsa::GCSA gcsa_index(input_graph, params);
-        gcsa::LCPArray lcp_array(input_graph, params);
+        pid_t pid = fork();
+        if (pid == 0) {
+            // this is the child process that will actually make the indexes
+            
+            // construct the indexes (giving empty mapping name is sufficient to make
+            // indexing skip the unfolded code path)
+            gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(),
+                                         mapping_filename);
+            gcsa::GCSA gcsa_index(input_graph, params);
+            gcsa::LCPArray lcp_array(input_graph, params);
+            
+#ifdef debug_index_registry_recipes
+            cerr << "saving GCSA/LCP pair" << endl;
+#endif
+            
+            save_gcsa(gcsa_index, gcsa_output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+            save_lcp(lcp_array, lcp_output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+            
+            // end the child process successfully
+            exit(0);
+        }
+        
+        // allow the child to finish
+        int child_stat;
+        wait(&child_stat);
+        assert(WIFEXITED(child_stat));
         
         // clean up the k-mer files
         for (auto dbg_name : dbg_names) {
             temp_file::remove(dbg_name);
         }
         
-#ifdef debug_index_registry_recipes
-        cerr << "saving GCSA/LCP pair" << endl;
-#endif
-        
-        save_gcsa(gcsa_index, gcsa_output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
-        save_lcp(lcp_array, lcp_output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        if (WEXITSTATUS(child_stat) != 0) {
+            // the indexing was not successful, presumably because of exponential disk explosion
+            
+            // update pruning params
+            IndexingParameters::pruning_walk_length *= IndexingParameters::pruning_walk_length_increase_factor;
+            IndexingParameters::pruning_max_node_degree *= IndexingParameters::pruning_max_node_degree_decrease_factor;
+            string msg = "[IndexRegistry]: Exceeded disk use limit while performing k-mer doubling steps. "
+                         "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
+            throw RewindPlanException(msg, pruned_graphs);
+        }
         
         gcsa_names.push_back(gcsa_output_name);
         lcp_names.push_back(lcp_output_name);

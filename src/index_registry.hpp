@@ -79,6 +79,10 @@ struct IndexingParameters {
     static int pruning_max_edge_count;
     // during pruning, remove any isolated components with at less than this total seq length [33]
     static int pruning_min_component_size;
+    // the factor by which the pruning walk length is increased if GCSA2 indexing fails [1.5]
+    static double pruning_walk_length_increase_factor;
+    // the factor by which the max degree is increased if GCSA2 indexing fails [0.75]
+    static double pruning_max_node_degree_decrease_factor;
     // length of the k-mers indexed in GCSA2 before any doubling steps [16]
     static int gcsa_initial_kmer_length;
     // number of k-mer length doubling steps in GCSA2 [4]
