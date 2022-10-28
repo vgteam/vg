@@ -3722,10 +3722,12 @@ string IndexingPlan::output_filepath(const IndexName& identifier) const {
 string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, size_t num_chunks) const {
     
     string filepath;
-    if (registry->keep_intermediates || !is_intermediate(identifier)) {
+    if (registry->keep_intermediates ||
+        (!is_intermediate(identifier) && !registry->get_index(identifier)->was_provided_directly())) {
         // we're saving this file, put it at the output prefix
         filepath = registry->output_prefix;
-    } else {
+    }
+    else {
         // we're not saving this file, make it temporary
         filepath = registry->get_work_dir() + "/" + sha1sum(identifier);
     }
@@ -3740,6 +3742,33 @@ string IndexingPlan::output_filepath(const IndexName& identifier, size_t chunk, 
  
 const vector<RecipeName>& IndexingPlan::get_steps() const {
     return steps;
+}
+
+set<RecipeName> IndexingPlan::dependents(const IndexName& identifier) const {
+    
+    set<RecipeName> dependent_steps;
+    
+    // seed the successors with the query
+    IndexGroup successor_indexes{identifier};
+    
+    for (const auto& step : steps) {
+                
+        // collect inputs and outputs
+        const auto& outputs = step.first;
+        IndexGroup involved = registry->get_recipe(step).input_group();
+        involved.insert(outputs.begin(), outputs.end());
+        
+        for (const auto& index : involved) {
+            if (successor_indexes.count(index)) {
+                // this is a step when a successor was either created or used
+                dependent_steps.insert(step);
+                // outputs are also successors
+                successor_indexes.insert(outputs.begin(), outputs.end());
+                break;
+            }
+        }
+    }
+    return dependent_steps;
 }
 
 IndexRegistry::~IndexRegistry() {
@@ -3794,25 +3823,67 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
     IndexGroup identifier_group(identifiers.begin(), identifiers.end());
     auto plan = make_plan(identifier_group);
     
-    // to store the results of indexes we create
-    map<IndexGroup, vector<vector<string>>> indexing_results;
-    
     // to keep track of which indexes are aliases of others
     AliasGraph alias_graph;
     
+    list<RecipeName> steps_remaining(plan.get_steps().begin(), plan.get_steps().end());
+    list<RecipeName> steps_completed;
+    
     // execute the plan
-    for (const auto& step : plan.steps) {
-        indexing_results[step.first] = execute_recipe(step, &plan, alias_graph);
-        assert(indexing_results[step.first].size() == step.first.size());
+    while (!steps_remaining.empty()) {
+        // get the next step
+        auto step = move(steps_remaining.front());
+        steps_remaining.pop_front();
+        steps_completed.push_back(step);
+        
+        // do the recipe
+        vector<vector<string>> recipe_results;
+        try {
+            recipe_results = execute_recipe(step, &plan, alias_graph);
+        }
+        catch (RewindPlanException& ex) {
+            // the recipe failed, but we can rewind and retry following the recipe with
+            // modified parameters (which should have been set by the exception-throwing code)
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                cerr << ex.what() << endl;
+            }
+            
+            // gather the recipes we're going to need to re-attempt
+            const auto& rewinding_indexes = ex.get_indexes();
+            set<RecipeName> dependent_recipes;
+            for (const auto& index_name : rewinding_indexes) {
+                for (const auto& recipe : plan.dependents(index_name)) {
+                    dependent_recipes.insert(recipe);
+                }
+            }
+            
+            // move rewound steps back onto the queue
+            for (auto it = steps_completed.rbegin(); it != steps_completed.rend(); ) {
+                auto here = it;
+                ++it;
+                if (dependent_recipes.count(*here)) {
+                    dependent_recipes.erase(*here);
+                    steps_remaining.push_front(move(*here));
+                    steps_completed.erase(here.base());
+                }
+            }
+            // make sure we rewound to all of them
+            assert(dependent_recipes.empty());
+        }
+        // the recipe executed successfully
+        assert(recipe_results.size() == step.first.size());
+        
+        // record the results
         auto it = step.first.begin();
-        for (const auto& results : indexing_results[step.first]) {
+        for (const auto& results : recipe_results) {
             auto index = get_index(*it);
-            if (!index->is_finished()) {
-                // the index wasn't already provided directly
+            // don't overwrite directly-provided inputs
+            if (!index->was_provided_directly()) {
                 index->assign_constructed(results);
             }
             ++it;
         }
+        
     }
 #ifdef debug_index_registry
     cerr << "finished executing recipes, resolving aliases" << endl;
@@ -3843,7 +3914,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         
         const auto& aliasee_filenames = get_index(aliasee)->get_filenames();
         
-        // copy aliases for any that we need to
+        // copy aliases for any that we need to (start past index 0 if we can move it)
         for (size_t i = can_move; i < aliasors.size(); ++i) {
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
                 
@@ -4826,11 +4897,15 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
     return plan;
 }
 
-vector<vector<string>> IndexRegistry::execute_recipe(const RecipeName& recipe_name, const IndexingPlan* plan,
-                                                     AliasGraph& alias_graph) {
+const IndexRecipe& IndexRegistry::get_recipe(const RecipeName& recipe_name) const {
     const auto& recipes = recipe_registry.at(recipe_name.first);
     assert(recipe_name.second < recipes.size());
-    const auto& index_recipe = recipes.at(recipe_name.second);
+    return recipes.at(recipe_name.second);
+}
+
+vector<vector<string>> IndexRegistry::execute_recipe(const RecipeName& recipe_name, const IndexingPlan* plan,
+                                                     AliasGraph& alias_graph) {
+    const auto& index_recipe = get_recipe(recipe_name);
     if (recipe_name.first.size() > 1 || !index_recipe.input_group().count(*recipe_name.first.begin())) {
         // we're not in an unboxing recipe (in which case not all of the indexes might have been
         // unboxed yet, in which case they appear unfinished)
@@ -5103,6 +5178,19 @@ const char* InsufficientInputException::what() const throw () {
     ss << "are insufficient to create target index " << target << endl;
     string msg = ss.str();
     return msg.c_str();
+}
+
+
+RewindPlanException::RewindPlanException(const string& msg, const IndexGroup& rewind_to) : msg(msg), indexes(rewind_to) {
+    // nothing else to do
+}
+
+const char* RewindPlanException::what() const throw() {
+    return msg.c_str();
+}
+
+const IndexGroup& RewindPlanException::get_indexes() const {
+    return indexes;
 }
 
 }

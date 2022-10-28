@@ -160,6 +160,10 @@ public:
     /// TODO: is this where this function wants to live?
     int64_t target_memory_usage() const;
     
+    /// Returns the recipes in the plan that depend on this index, including the one in which
+    /// it was created (if any)
+    set<RecipeName> dependents(const IndexName& identifier) const;
+    
 protected:
     
     /// The steps to be invoked in the plan. May be empty before the plan is
@@ -174,6 +178,7 @@ protected:
     /// create the work directory.
     IndexRegistry* registry;
 };
+
 
 /**
  * An object that can record methods to produce indexes and design
@@ -290,6 +295,9 @@ protected:
     
     /// generate a plan to create the indexes
     IndexingPlan make_plan(const IndexGroup& end_products) const;
+    
+    /// use a recipe identifier to get the recipe
+    const IndexRecipe& get_recipe(const RecipeName& recipe_name) const;
     
     /// Build the index using the recipe with the provided priority.
     /// Expose the plan so that the recipe knows where it is supposed to go.
@@ -426,7 +434,7 @@ private:
  * Exception that is thrown to indicate the input data is insufficient
  * to create some index(es)
  */
-class InsufficientInputException : public runtime_error {
+class InsufficientInputException : public std::runtime_error {
 public:
     InsufficientInputException() = delete;
     InsufficientInputException(const IndexName& target,
@@ -435,6 +443,27 @@ public:
 private:
     IndexName target;
     vector<IndexName> inputs;
+};
+
+
+/**
+ * An exception that indicates that we must rewind the plan to re-create some indexes
+ */
+class RewindPlanException : public std::exception {
+public:
+    
+    RewindPlanException() = delete;
+    RewindPlanException(const string& msg, const IndexGroup& rewind_to);
+    ~RewindPlanException() throw() = default;
+    
+    const char* what() const throw();
+    const IndexGroup& get_indexes() const;
+    
+private:
+    
+    const string msg;
+    IndexGroup indexes;
+    
 };
 
 }
