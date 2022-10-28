@@ -1209,7 +1209,7 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
     //Returns true if this cluster got combined
     auto compare_and_combine_clusters = [&] (const size_t& read_num, const size_t& cluster_num, const size_t& distance_between_reads, 
             const size_t& distance_between_fragments, pair<size_t, size_t>& old_distances, 
-            ClusterIndices& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
+            ClusterHead& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
         if ((read_num == new_cluster_head_and_distances.read_num 
                 && cluster_num ==  new_cluster_head_and_distances.cluster_num) || 
            ( distance_between_fragments == std::numeric_limits<size_t>::max())) {
@@ -1288,10 +1288,10 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
         //These will be the cluster heads and distances of everything combined by taking the indicated path
         //one cluster head per read
         //The default value will be ((inf, 0), (0,0)). Only the inf gets checked to see if it's a real value so I filled it in with 0 so I wouldn't have to type out inf 
-        pair<ClusterIndices, ClusterIndices> new_cluster_left_left_by_read;
-        pair<ClusterIndices, ClusterIndices> new_cluster_left_right_by_read;
-        pair<ClusterIndices, ClusterIndices> new_cluster_right_right_by_read;
-        pair<ClusterIndices, ClusterIndices> new_cluster_right_left_by_read;
+        pair<ClusterHead, ClusterHead> new_cluster_left_left_by_read;
+        pair<ClusterHead, ClusterHead> new_cluster_left_right_by_read;
+        pair<ClusterHead, ClusterHead> new_cluster_right_right_by_read;
+        pair<ClusterHead, ClusterHead> new_cluster_right_left_by_read;
 
         //And the new cluster heads for the fragment
         //These are the values of the cluster heads in the union finds, which include the values from read_index_offset
@@ -1305,10 +1305,10 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
             bool combined = false;
             size_t read_num = child_cluster_head.first;
-            ClusterIndices& new_cluster_left_left = (read_num == 0 ? new_cluster_left_left_by_read.first : new_cluster_left_left_by_read.second);
-            ClusterIndices& new_cluster_left_right = (read_num == 0 ? new_cluster_left_right_by_read.first : new_cluster_left_right_by_read.second);
-            ClusterIndices& new_cluster_right_right = (read_num == 0 ? new_cluster_right_right_by_read.first : new_cluster_right_right_by_read.second);
-            ClusterIndices& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first : new_cluster_right_left_by_read.second);
+            ClusterHead& new_cluster_left_left = (read_num == 0 ? new_cluster_left_left_by_read.first : new_cluster_left_left_by_read.second);
+            ClusterHead& new_cluster_left_right = (read_num == 0 ? new_cluster_left_right_by_read.first : new_cluster_left_right_by_read.second);
+            ClusterHead& new_cluster_right_right = (read_num == 0 ? new_cluster_right_right_by_read.first : new_cluster_right_right_by_read.second);
+            ClusterHead& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first : new_cluster_right_left_by_read.second);
             size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
 
             //Distances to the ends of the child
@@ -1383,13 +1383,13 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
                 size_t read_num = child_cluster_head.first;
                 size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
 
-                ClusterIndices& new_cluster_left_left = (read_num == 0 ? new_cluster_left_left_by_read.first 
+                ClusterHead& new_cluster_left_left = (read_num == 0 ? new_cluster_left_left_by_read.first 
                                                                        : new_cluster_left_left_by_read.second);
-                ClusterIndices& new_cluster_left_right = (read_num == 0 ? new_cluster_left_right_by_read.first 
+                ClusterHead& new_cluster_left_right = (read_num == 0 ? new_cluster_left_right_by_read.first 
                                                                         : new_cluster_left_right_by_read.second);
-                ClusterIndices& new_cluster_right_right = (read_num == 0 ? new_cluster_right_right_by_read.first 
+                ClusterHead& new_cluster_right_right = (read_num == 0 ? new_cluster_right_right_by_read.first 
                                                                          : new_cluster_right_right_by_read.second);
-                ClusterIndices& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first 
+                ClusterHead& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first 
                                                                         : new_cluster_right_left_by_read.second);
 
                 pair<size_t, size_t> distances = child_distances[child_cluster_head.second 
@@ -1441,13 +1441,13 @@ void SnarlDistanceIndexClusterer::compare_and_combine_cluster_on_child_structure
 
             //And add back in the new cluster heads
             for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-                ClusterIndices& new_cluster_left_left = (read_num == 0 ? new_cluster_left_left_by_read.first 
+                ClusterHead& new_cluster_left_left = (read_num == 0 ? new_cluster_left_left_by_read.first 
                                                                        : new_cluster_left_left_by_read.second);
-                ClusterIndices& new_cluster_left_right = (read_num == 0 ? new_cluster_left_right_by_read.first 
+                ClusterHead& new_cluster_left_right = (read_num == 0 ? new_cluster_left_right_by_read.first 
                                                                         : new_cluster_left_right_by_read.second);
-                ClusterIndices& new_cluster_right_right = (read_num == 0 ? new_cluster_right_right_by_read.first 
+                ClusterHead& new_cluster_right_right = (read_num == 0 ? new_cluster_right_right_by_read.first 
                                                                          : new_cluster_right_right_by_read.second);
-                ClusterIndices& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first 
+                ClusterHead& new_cluster_right_left = (read_num == 0 ? new_cluster_right_left_by_read.first 
                                                                         : new_cluster_right_left_by_read.second);
 
                 //If the new cluster is clusterable, then add the new cluster_left_left
@@ -2051,7 +2051,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
 
     //These are clusters that we don't want to consider as we walk through the chain but that 
     //we want to remember after we're done with the chain because the left distance is small
-    vector<ClusterIndices> cluster_heads_to_add_again;
+    vector<ClusterHead> cluster_heads_to_add_again;
 
     //For remembering the best left distances of the chain, we only need to check for the smallest chain distance left
     //for the children up to the first node
@@ -2278,7 +2278,7 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(TreeState& tree_state, size_
 void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                 ParentToChildMap::ParentChildValues& last_child,
                                 size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
-                                vector<ClusterIndices>& cluster_heads_to_add_again,
+                                vector<ClusterHead>& cluster_heads_to_add_again,
                                 bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                 const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, 
                                 bool is_last_child, bool skip_distances_to_ends) const {
@@ -2451,7 +2451,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
         //Cluster heads to remove because they got combined with the current seed
         vector<pair<size_t, size_t>> to_remove;
         //And the new cluster containing the current seed, and possibly anything that gets combined with it
-        ClusterIndices new_cluster (read_num, cluster_num, new_distances.first, new_distances.second);
+        ClusterHead new_cluster = {read_num, cluster_num, new_distances.first, new_distances.second};
     
         /**Go through the clusters on the chain up to this point and see if anything can
         be combined with the clusters on the child
@@ -2596,7 +2596,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_clusters(TreeState& tree_sta
 void SnarlDistanceIndexClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                 ParentToChildMap::ParentChildValues& last_child, 
                                 size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
-                                vector<ClusterIndices>& cluster_heads_to_add_again,
+                                vector<ClusterHead>& cluster_heads_to_add_again,
                                 bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                 const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, 
                                 bool is_last_child, bool skip_distances_to_ends) const {
@@ -2853,7 +2853,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> to_add;
     
     //There is at most one new cluster per read
-    pair<ClusterIndices, ClusterIndices> new_cluster_by_read;
+    pair<ClusterHead, ClusterHead> new_cluster_by_read;
     //And one new fragment cluster
     size_t new_cluster_head_fragment = std::numeric_limits<size_t>::max();
     
@@ -2939,7 +2939,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             //Go through all clusters of the current child and see if they can be combined with anything on the chain
             const size_t read_num = child_cluster_head.first;
             const size_t cluster_num = child_cluster_head.second;
-            ClusterIndices& new_cluster = read_num == 0 ?  new_cluster_by_read.first : new_cluster_by_read.second;
+            ClusterHead& new_cluster = read_num == 0 ?  new_cluster_by_read.first : new_cluster_by_read.second;
             pair<size_t, size_t> dists (tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left,
                                        tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right);
             const size_t distance_left = child_is_reversed ? dists.second : dists.first;
@@ -3025,7 +3025,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             const size_t read_num = chain_cluster_head.first;
             const size_t cluster_num = chain_cluster_head.second;
 
-            ClusterIndices& new_cluster = read_num == 0 ?  new_cluster_by_read.first : new_cluster_by_read.second;
+            ClusterHead& new_cluster = read_num == 0 ?  new_cluster_by_read.first : new_cluster_by_read.second;
 
             //The distances for the chain cluster
             pair<size_t, size_t> chain_cluster_distances (tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left,

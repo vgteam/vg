@@ -352,14 +352,14 @@ class SnarlDistanceIndexClusterer {
         };
 
         //These will be the cluster heads and distances for a cluster
-        struct ClusterIndices {
+        struct ClusterHead {
             size_t read_num = std::numeric_limits<size_t>::max();
             size_t cluster_num = 0;
             size_t distance_left = 0;
             size_t distance_right = 0;
 
-            ClusterIndices() {}
-            ClusterIndices(const size_t& read_num, const size_t& cluster_num, 
+            inline ClusterHead() {}
+            inline ClusterHead(const size_t& read_num, const size_t& cluster_num, 
                            const size_t& distance_left, const size_t& distance_right) :
                 read_num(read_num), cluster_num(cluster_num), 
                 distance_left(distance_left), distance_right(distance_right) {} 
@@ -516,7 +516,7 @@ class SnarlDistanceIndexClusterer {
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         ParentToChildMap::ParentChildValues& last_child,
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
-                                        vector<ClusterIndices>& cluster_heads_to_add_again,
+                                        vector<ClusterHead>& cluster_heads_to_add_again,
                                         bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                         const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, bool is_last_child,
                                         bool skip_distances_to_ends) const;
@@ -525,7 +525,7 @@ class SnarlDistanceIndexClusterer {
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         ParentToChildMap::ParentChildValues& last_child, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
-                                        vector<ClusterIndices>& cluster_heads_to_add_again,
+                                        vector<ClusterHead>& cluster_heads_to_add_again,
                                         bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
                                         const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, bool is_last_child, 
                                         bool skip_distances_to_ends) const;
