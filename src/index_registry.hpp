@@ -79,9 +79,9 @@ struct IndexingParameters {
     static int pruning_max_edge_count;
     // during pruning, remove any isolated components with at less than this total seq length [33]
     static int pruning_min_component_size;
-    // the factor by which the pruning walk length is increased if GCSA2 indexing fails [1.5]
+    // factor by which the pruning walk length is increased if GCSA2 indexing fails [1.5]
     static double pruning_walk_length_increase_factor;
-    // the factor by which the max degree is increased if GCSA2 indexing fails [0.75]
+    // factor by which the max degree is decreased if GCSA2 indexing fails [0.75]
     static double pruning_max_node_degree_decrease_factor;
     // length of the k-mers indexed in GCSA2 before any doubling steps [16]
     static int gcsa_initial_kmer_length;
@@ -89,6 +89,8 @@ struct IndexingParameters {
     static int gcsa_doubling_steps;
     // number of gbwt nodes inserted at a time in dynamic gbwt [100M]
     static int gbwt_insert_batch_size;
+    // factor by which the batch size is increased if construction fails [10]
+    static int gbwt_insert_batch_size_increase_factor;
     // the sampling interval in the GBWT suffix array [1024]
     static int gbwt_sampling_interval;
     // should the haplotype-transcript GBWT be made bidirectional [false]

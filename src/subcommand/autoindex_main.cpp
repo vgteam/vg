@@ -113,8 +113,9 @@ void help_autoindex(char** argv) {
     << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
     << "    -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
     << "                           (default: 1/2 of available)" << endl
-    << "    --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
-    << "                           increased for graphs with long haplotypes (default: " << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << ")" << endl
+// TODO: hiding this now that we have rewinding options, since detailed args aren't really in the spirit of this subcommand
+//    << "    --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
+//    << "                           increased for graphs with long haplotypes (default: " << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << ")" << endl
     << "    -t, --threads NUM      number of threads (default: all available)" << endl
     << "    -V, --verbosity NUM    log to stderr (0 = none, 1 = basic, 2 = debug; default " << (int) IndexingParameters::verbosity << ")" << endl
     //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
