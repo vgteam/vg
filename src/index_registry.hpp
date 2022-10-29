@@ -447,6 +447,7 @@ public:
                                const IndexRegistry& registry) noexcept;
     const char* what() const noexcept;
 private:
+    string msg;
     IndexName target;
     vector<IndexName> inputs;
 };

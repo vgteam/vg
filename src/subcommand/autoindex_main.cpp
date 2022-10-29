@@ -276,7 +276,7 @@ int main_autoindex(int argc, char** argv) {
                 help_autoindex(argv);
                 return 0;
             default:
-                abort ();
+                return 1;
         }
     }
     

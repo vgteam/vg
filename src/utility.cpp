@@ -449,6 +449,8 @@ void remove(const string& filename) {
 }
 
 void forget() {
+    lock_guard<recursive_mutex> lock(monitor);
+    
     handler.filenames.clear();
     handler.dirnames.clear();
     handler.parent_directory.clear();

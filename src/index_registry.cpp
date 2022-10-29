@@ -14,8 +14,10 @@
 #include <cctype>
 #include <cstdio>
 #include <cerrno>
+#include <cstdlib>
 #include <omp.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -394,6 +396,7 @@ static bool execute_in_fork(const function<void(void)>& exec) {
         
         // we want the pre-existing temp files to live beyond when this process exits
         temp_file::forget();
+        xg::temp_file::forget();
         
         exec();
         
@@ -5265,16 +5268,16 @@ InsufficientInputException::InsufficientInputException(const IndexName& target,
     runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes())
 {
     // nothing else to do
-}
-
-const char* InsufficientInputException::what() const noexcept {
     stringstream ss;
     ss << "Inputs" << endl;
     for (const auto& input : inputs) {
         ss << "\t" << input << endl;
     }
     ss << "are insufficient to create target index " << target << endl;
-    string msg = ss.str();
+    msg = ss.str();
+}
+
+const char* InsufficientInputException::what() const noexcept {
     return msg.c_str();
 }
 
