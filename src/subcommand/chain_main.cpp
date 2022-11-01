@@ -108,13 +108,11 @@ struct ChainingSpace<LiteralItem, void> : public BaseChainingSpace<LiteralItem> 
 void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
-         << "    -d, --distance-source-type [index|net]         get distances from the given provider" << endl
          << "    -p, --progress                                 show progress" << endl;
 }
 
 int main_chain(int argc, char** argv) {
 
-    string distance_source_type = "index";
     bool show_progress = false;
     
     
@@ -124,14 +122,13 @@ int main_chain(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"distance-source-type", required_argument, 0, 'd'},
                 {"progress", no_argument, 0, 'p'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:ph?",
+        c = getopt_long (argc, argv, "ph?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -141,10 +138,6 @@ int main_chain(int argc, char** argv) {
         switch (c)
         {
         
-        case 'd':
-            distance_source_type = optarg;
-            break;
-
         case 'p':
             show_progress = true;
             break;
@@ -346,31 +339,8 @@ int main_chain(int argc, char** argv) {
     CALLGRIND_START_INSTRUMENTATION;
 #endif
 
-    // Decide how to get distances
-    if (distance_source_type == "index") {
-        // Make sure to use the distance index directly
-        space.give_distance_source(new vg::algorithms::DistanceIndexDistanceSource(&distance_index, &graph));
-        if (show_progress) {
-            std::cerr << "Applied DistanceIndexDistanceSource" << std::endl;
-        }
-    } else if (distance_source_type == "net") {
-        // Precompute a distance net over all the items. Which means we need to grab all their positions in the graph.
-        std::vector<pos_t> relevant_positions;
-        for (auto& item : items) {
-            relevant_positions.push_back(space.graph_start(item));
-            relevant_positions.push_back(space.graph_end(item));
-        }
-        space.give_distance_source(new vg::algorithms::DistanceNetDistanceSource(&graph, relevant_positions));
-        if (show_progress) {
-            std::cerr << "Applied DistanceNetDistanceSource" << std::endl;
-        }
-    } else if (distance_source_type.empty()) {
-        // Just leave the default distance source. Nothing to do!
-    } else {
-        // Not a kind of distance source we know how to make.
-        std::cerr << "error:[vg chain] Cannot make distance source \"" << distance_source_type << "\"" << std::endl;
-        exit(1);
-    }
+    // Make sure to use the distance index directly
+    space.give_distance_source(new vg::algorithms::DistanceIndexDistanceSource(&distance_index, &graph));
     
     // Do the chaining. We assume items is already sorted right.
     std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, space);

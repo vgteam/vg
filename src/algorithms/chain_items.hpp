@@ -174,32 +174,6 @@ protected:
     const HandleGraph* graph;
 };
 
-/**
- * Distance source that pulls from a pre-computed graph of oriented distances
- * between immediate neighbors. Answers queries by doing an algorithmically bad
- * but in practice probably fast enough Dijkstra every time.
- */
-class DistanceNetDistanceSource : public DistanceSource {
-public:
-    /**
-     * Make a distance source by exploring the given graph around the given
-     * relevant positions. Only queries between the given positions are
-     * guaranteed to be accepted. The same position may appear multiple times.
-     *
-     * Distances larger than the given max distance between adjacent positions
-     * may not be recorded.
-     */
-    DistanceNetDistanceSource(const HandleGraph* graph, const vector<pos_t>& relevant_positions, size_t max_step_distance = 200);
-    
-    virtual ~DistanceNetDistanceSource() = default;
-
-    virtual size_t get_distance(const pos_t& left, const pos_t& right);
-    
-protected:
-    std::unordered_map<std::pair<nid_t, bool>, std::unordered_map<std::pair<nid_t, bool>, size_t>> immediate_distances;
-    std::unordered_map<nid_t, size_t> node_lengths;
-};
-
 /// Baser base class to let you hold chaining spaces over anything, and destroy
 /// them without knowing what they are over
 struct UnknownItemChainingSpace {

@@ -1414,39 +1414,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 auto& subcluster = subcluster_seeds_sorted[subcluster_num];
                 VectorView<Seed> subcluster_view {seeds, subcluster};
                 
-                if (use_distance_net) {
-                    // Replace the graph distance setup with one
-                    // precomputed just for this subcluster.
-                    
-                    // TODO: This creates a bunch of imperative long-range
-                    // dependencies! We rely on nobody doing any
-                    // get_graph_distance() calls except in the chaining,
-                    // which happens right after this!
-                    
-                    // Collect all the graph points we care about distances between
-                    std::vector<pos_t> relevant_positions;
-                    for (auto& item : subcluster_view) {
-                        relevant_positions.push_back(space.graph_start(item));
-                        relevant_positions.push_back(space.graph_end(item));
-                    }
-                    
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            
-                            cerr << log_name() << "Precomputing distance net over " << relevant_positions.size() << " relevant positions" << std::endl;
-                        }
-                    }
-                    
-                    // Precompute and apply the net, with distances out
-                    // to our max connection
-                    space.give_distance_source(
-                        new algorithms::DistanceNetDistanceSource(
-                            &gbwt_graph, relevant_positions, max_chain_connection
-                        )
-                    );
-                }
-                    
                 // Find a chain from this subcluster
                 auto candidate_chain = algorithms::find_best_chain(subcluster_view, space);
                 if (show_work && !candidate_chain.second.empty()) {
@@ -5384,19 +5351,6 @@ double MinimizerMapper::distance_to_annotation(int64_t distance) const {
     static_assert(DBL_MANT_DIG <= 64, "We assume doubles have <64 bits of mantissa");
     double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
     return max(min((double) distance, max_int_double), -max_int_double);
-}
-
-std::vector<size_t> MinimizerMapper::assign_to_clusters(std::vector<Seed>& seeds, size_t range) {
-    std::vector<size_t> assignments;
-    assignments.resize(seeds.size());
-    auto clusters = clusterer.cluster_seeds(seeds, range);
-    for (size_t i = 0; i < clusters.size(); i++) {
-        for (auto& seed_index : clusters[i].seeds) {
-            // Assign this seed to this cluster
-            assignments[seed_index] = i;
-        }
-    }
-    return assignments;
 }
 
 }
