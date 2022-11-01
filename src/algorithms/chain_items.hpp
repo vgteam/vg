@@ -11,13 +11,13 @@
  * Items need to be interpreted in the context of some source object (like a
  * seed hit needs to be interpreted in the context of its source minimizer).
  *
- * Then, make a dynamic programming table: vector<int> or vector<traced_score_t>.
+ * Then, make a dynamic programming table: vector<TracedScore>.
  *
  * Then, call chain_items_dp() to fill in the dynamic programming table and get
  * the score of the best chain.
  *
- * If you used traced_score_t, you can use chain_items_traceback() to get a
- * traceback of the chain's items in order.
+ * You can use chain_items_traceback() to get a traceback of the chain's items
+ * in order.
  *
  * Helper entry points are find_best_chain() and score_best_chain() which set
  * up the DP for you and do the traceback if appropriate.
@@ -776,21 +776,8 @@ struct ChainingSpace<SnarlDistanceIndexClusterer::Seed, Source> : public Minimiz
 
 // For doing scores with backtracing, we use this type, which is a
 // score and a number for the place we came from to get it.
-// It can be maxed with std::max() as long as the destinations are all filled in right.
-using traced_score_t = pair<int, size_t>;
-
-/// Accessors for attributes of a type when used as a (possibly provenance-traced) DP table score.
-template<typename Score>
-struct score_traits {
-    // We don't actually define the interface here, because templates don't do any sort of inheritance.
-};
-
-/// This is how to use a traced_score_t as a DP score, and all the operations
-/// you can do with it.
-template<>
-struct score_traits<traced_score_t> {
-    using Score = traced_score_t;
-    
+class TracedScore {
+public:
     /// What is the sentinel for an empty provenance?
     /// Use a function instead of a constant because that's easier when we're just a header.
     inline static size_t nowhere() {
@@ -799,115 +786,92 @@ struct score_traits<traced_score_t> {
     
     /// What's the default value for an empty table cell?
     /// Use a function instead of a constant because that's easier when we're just a header.
-    inline static Score unset() {
+    inline static TracedScore unset() {
         return {0, nowhere()};
     }
     
     /// Pack a score together with its provenance
-    static Score annotate(int points, size_t from) {
+    inline static TracedScore annotate(int points, size_t from) {
         return {points, from};
     }
 
     /// Accessor to get the score
-    static int& score(Score& s) {
+    inline static int& score(TracedScore& s) {
         return s.first;
     }
     
     /// Accessor to get the score, when const
-    static const int& score(const Score& s) {
+    inline static const int& score(const TracedScore& s) {
         return s.first;
     }
     
     /// Accessor to get the source
-    static size_t& source(Score& s) {
+    inline static size_t& source(TracedScore& s) {
         return s.second;
     }
     
     /// Accessor to get the source, when const
-    static const size_t& source(const Score& s) {
+    inline static const size_t& source(const TracedScore& s) {
         return s.second;
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
-    static void max_in(Score& dest, const vector<Score>& options, size_t option_number) {
-        auto& option = options[option_number];
-        if (score(option) > score(dest) || source(dest) == nowhere()) {
-            // This is the new winner.
-            score(dest) = score(option);
-            source(dest) = option_number;
-        }
-    }
+    static void max_in(TracedScore& dest, const vector<TracedScore>& options, size_t option_number);
     
     /// Get a score from a table and record provenance in it.
-    static Score score_from(const vector<Score>& options, size_t option_number) {
-        traced_score_t got = options[option_number];
-        source(got) = option_number;
-        return got;
-    }
+    static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
-    static Score add_points(const Score& s, int adjustment) {
-        return annotate(score(s) + adjustment, source(s));
+    static TracedScore add_points(const TracedScore& s, int adjustment);
+    
+    /// Compare for equality
+    inline bool operator==(const TracedScore& other) const {
+        return first == other.first && second == other.second;
     }
+    
+    /// Compare for inequality
+    inline bool operator!=(const TracedScore& other) const {
+        return !(*this == other);
+    }
+    
+    /// Compare for less-than
+    inline bool operator<(const TracedScore& other) const {
+        return first < other.first || (first == other.first && second < other.second);
+    }
+    
+    /// Compare for greater-than
+    inline bool operator>(const TracedScore& other) const {
+        return first > other.first || (first == other.first && second > other.second);
+    }
+    
+    // Number of points
+    int first;
+    // Index of source score among possibilities/traceback pointer
+    size_t second;
 };
 
-/// This is how to use an int as a DP score, and all the operations you can do
-/// with it.
-template<>
-struct score_traits<int> {
-    using Score = int;
-    
-    /// What is the sentinel for an empty provenance?
-    /// Use a function instead of a constant because that's easier when we're just a header.
-    inline static size_t nowhere() {
-        return numeric_limits<size_t>::max();
-    }
-    
-    /// What's the default value for an empty table cell?
-    /// Use a function instead of a constant because that's easier when we're just a header.
-    inline static Score unset() {
-        return 0;
-    }
+}
 
-    /// Pack a score together with its provenance
-    static Score annotate(int points, size_t from) {
-        return points;
-    }
+}
 
-    /// Accessor to get the score.
-    static Score& score(int& s) {
-        return s;
+namespace std {
+    /// Allow maxing TracedScore
+    inline vg::algorithms::TracedScore max(const vg::algorithms::TracedScore& a, const vg::algorithms::TracedScore& b) {
+        return a > b ? a : b;
     }
-    
-    /// Accessor to get the score, when const.
-    static const Score& score(const int& s) {
-        return s;
-    }
-    
-    /// Accessor to get the source, when const (always nowhere)
-    static size_t source(const int& s) {
-        return nowhere();
-    }
-    // Note that source can't be set.
-    
-    /// Max in a score from a DP table. If it wins, record provenance.
-    static void max_in(Score& dest, const vector<Score>& options, size_t option_number) {
-        dest = std::max(dest, options[option_number]);
-    }
-    
-    /// Get a score from a table.
-    static Score score_from(const vector<Score>& options, size_t option_number) {
-        return options[option_number];
-    }
-    
-    /// Add (or remove) points along a route to somewhere. Return a modified copy.
-    static Score add_points(const Score& s, int adjustment) {
-        return s + adjustment;
-    }
-};
+}
+
+namespace vg {
+
+namespace algorithms {
+
+using namespace std;
+
+// Make sure all of vg's print operators are available.
+using vg::operator<<;
 
 /// Print operator
-ostream& operator<<(ostream& out, const traced_score_t& value);
+ostream& operator<<(ostream& out, const TracedScore& value);
 
 /**
  * Get rid of items that are shadowed or contained by (or are identical to) others.
@@ -953,8 +917,8 @@ void sort_and_shadow(std::vector<Item>& items, const ChainingSpace<Item, Source>
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
-Score chain_items_dp(vector<Score>& best_chain_score,
+template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
+TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
                      size_t max_lookback_bases = 200,
@@ -967,10 +931,10 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 /**
  * Trace back through in the given DP table from the best chain score.
  */
-template<typename Score, typename Item, typename Source = void, typename Collection = VectorView<Item>>
-vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
+template<typename Item, typename Source = void, typename Collection = VectorView<Item>>
+vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score,
                                      const Collection& to_chain,
-                                     const Score& best_past_ending_score_ever,
+                                     const TracedScore& best_past_ending_score_ever,
                                      const ChainingSpace<Item, Source>& space);
 
 /**
@@ -1175,23 +1139,20 @@ void sort_and_shadow(std::vector<Item>& items, const ChainingSpace<Item, Source>
     items = std::move(kept_items);
 }
 
-template<typename Score, typename Item, typename Source, typename Collection>
-Score chain_items_dp(vector<Score>& best_chain_score,
-                     const Collection& to_chain,
-                     const ChainingSpace<Item, Source>& space,
-                     size_t max_lookback_bases,
-                     size_t initial_lookback_threshold,
-                     double lookback_scale_factor,
-                     double min_good_transition_score_per_base,
-                     int item_bonus,
-                     size_t max_indel_bases) {
+template<typename Item, typename Source, typename Collection>
+TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
+                           const Collection& to_chain,
+                           const ChainingSpace<Item, Source>& space,
+                           size_t max_lookback_bases,
+                           size_t initial_lookback_threshold,
+                           double lookback_scale_factor,
+                           double min_good_transition_score_per_base,
+                           int item_bonus,
+                           size_t max_indel_bases) {
     
     DiagramExplainer diagram;
     diagram.add_globals({{"rankdir", "LR"}});
     
-    // Grab the traits into a short name so we can use the accessors concisely.
-    using ST = score_traits<Score>;
-
 #ifdef debug_chaining
     cerr << "Chaining group of " << to_chain.size() << " items" << endl;
 #endif
@@ -1213,10 +1174,10 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     auto first_overlapping_it = read_end_order.begin();
     
     // Make our DP table big enough
-    best_chain_score.resize(to_chain.size(), ST::unset());
+    best_chain_score.resize(to_chain.size(), TracedScore::unset());
     
     // What's the winner so far?
-    Score best_score = ST::unset();
+    TracedScore best_score = TracedScore::unset();
     
     for (size_t i = 0; i < to_chain.size(); i++) {
         // For each item
@@ -1236,7 +1197,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         std::string here_gvnode = "i" + std::to_string(i);
         
         // If we come from nowhere, we get those points.
-        best_chain_score[i] = std::max(best_chain_score[i], ST::annotate(item_points, ST::nowhere()));
+        best_chain_score[i] = std::max(best_chain_score[i], TracedScore::annotate(item_points, TracedScore::nowhere()));
         
 #ifdef debug_chaining
         cerr << "Look at transitions to #" << i
@@ -1339,10 +1300,10 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             
             if (jump_points != numeric_limits<int>::min()) {
                 // Get the score we are coming from
-                typename ST::Score source_score = ST::score_from(best_chain_score, *predecessor_index_it);
+                TracedScore source_score = TracedScore::score_from(best_chain_score, *predecessor_index_it);
                 
                 // And the score with the transition and the points from the item
-                typename ST::Score from_source_score = ST::add_points(source_score, jump_points + item_points);
+                TracedScore from_source_score = TracedScore::add_points(source_score, jump_points + item_points);
                 
                 // Remember that we could make this jump
                 best_chain_score[i] = std::max(best_chain_score[i],
@@ -1351,19 +1312,19 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #ifdef debug_chaining
                 cerr << "\t\tWe can reach #" << i << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
 #endif
-                if (ST::score(from_source_score) > 0) {
+                if (TracedScore::score(from_source_score) > 0) {
                     // Only explain edges that were actual candidates since we
                     // won't let local score go negative
                     
                     std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
                     // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, ST::score(from_source_score), {
+                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, TracedScore::score(from_source_score), {
                         {"label", std::to_string(jump_points)},
-                        {"weight", std::to_string(std::max<int>(1, ST::score(from_source_score)))}
+                        {"weight", std::to_string(std::max<int>(1, TracedScore::score(from_source_score)))}
                     });
                 }
                 
-                achieved_score = ST::score(from_source_score);
+                achieved_score = TracedScore::score(from_source_score);
             } else {
 #ifdef debug_chaining
                 cerr << "\t\tTransition is impossible." << endl;
@@ -1384,7 +1345,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
 #endif
         
         std::stringstream label_stream;
-        label_stream << "#" << i << " " << space.to_string(here) << " = " << item_points << "/" << ST::score(best_chain_score[i]);
+        label_stream << "#" << i << " " << space.to_string(here) << " = " << item_points << "/" << TracedScore::score(best_chain_score[i]);
         diagram.add_node(here_gvnode, {
             {"label", label_stream.str()}
         });
@@ -1408,7 +1369,7 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         }
         
         // See if this is the best overall
-        ST::max_in(best_score, best_chain_score, i);
+        TracedScore::max_in(best_score, best_chain_score, i);
         
 #ifdef debug_chaining
         cerr << "\tBest chain end so far: " << best_score << endl;
@@ -1419,28 +1380,28 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     return best_score;
 }
 
-template<typename Score, typename Item, typename Source, typename Collection>
-vector<size_t> chain_items_traceback(const vector<Score>& best_chain_score,
-                               const Collection& to_chain,
-                               const Score& best_past_ending_score_ever,
-                               const ChainingSpace<Item, Source>& space) {
+template<typename Item, typename Source, typename Collection>
+vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score,
+                                     const Collection& to_chain,
+                                     const TracedScore& best_past_ending_score_ever,
+                                     const ChainingSpace<Item, Source>& space) {
     
     // Now we need to trace back.
     vector<size_t> traceback;
-    size_t here = score_traits<Score>::source(best_past_ending_score_ever);
-    if (here != score_traits<Score>::nowhere()) {
+    size_t here = TracedScore::source(best_past_ending_score_ever);
+    if (here != TracedScore::nowhere()) {
 #ifdef debug_chaining
         cerr << "Chain ends at #" << here << " " << space.to_string(to_chain[here])
             << " with score " << best_past_ending_score_ever << endl;
 #endif
-        while(here != score_traits<Score>::nowhere()) {
+        while(here != TracedScore::nowhere()) {
             traceback.push_back(here);
 #ifdef debug_chaining
             cerr << "Which gets score " << best_chain_score[here] << endl;
 #endif
-            here = score_traits<Score>::source(best_chain_score[here]);
+            here = TracedScore::source(best_chain_score[here]);
 #ifdef debug_chaining
-            if (here != score_traits<Score>::nowhere()) {
+            if (here != TracedScore::nowhere()) {
                 cerr << "And comes after #" << here
                 << " " << space.to_string(to_chain[here]) << endl;
             } else {
@@ -1471,13 +1432,13 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
     } else {
         
         // We actually need to do DP
-        vector<traced_score_t> best_chain_score;
-        traced_score_t best_past_ending_score_ever = chain_items_dp(best_chain_score,
+        vector<TracedScore> best_chain_score;
+        TracedScore best_past_ending_score_ever = chain_items_dp(best_chain_score,
                                                                     to_chain,
                                                                     space);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
-            score_traits<traced_score_t>::score(best_past_ending_score_ever),
+            TracedScore::score(best_past_ending_score_ever),
             chain_items_traceback(best_chain_score, to_chain, best_past_ending_score_ever, space));
     }
 }
@@ -1493,10 +1454,8 @@ int score_best_chain(const Collection& to_chain,
         return space.score(to_chain[0]);
     } else {
         // Do the DP but without the traceback.
-        vector<int> best_chain_score;
-        return algorithms::chain_items_dp(best_chain_score,
-                                          to_chain,
-                                          space);
+        vector<TracedScore> best_chain_score;
+        return TracedScore::score(algorithms::chain_items_dp(best_chain_score, to_chain, space));
     }
 }
 
