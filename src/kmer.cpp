@@ -1,5 +1,7 @@
 #include "kmer.hpp"
 
+//#define debug
+
 namespace vg {
 
 
@@ -255,7 +257,7 @@ void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, siz
             {
                 if (total_bytes + bytes_required > size_limit) {
                     cerr << "error: [write_gcsa_kmers()] size limit exceeded" << endl;
-                    exit(EXIT_FAILURE);
+                    throw SizeLimitExceededException();
                 }
                 gcsa::writeBinary(out, kmers, kmer_size);
                 total_bytes += bytes_required;

@@ -385,6 +385,10 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
 // REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK INSIDE THE LAMBDA!!
 static bool execute_in_fork(const function<void(void)>& exec) {
     
+    // we have to clear out the pool of waiting OMP threads (if any) so that they won't
+    // be copied with the fork and create deadlocks/races
+    omp_pause_resource_all(omp_pause_hard);
+    
     pid_t pid = fork();
     
     if (pid == -1) {
@@ -396,9 +400,6 @@ static bool execute_in_fork(const function<void(void)>& exec) {
         
         // we want the pre-existing temp files to live beyond when this process exits
         temp_file::forget();
-        xg::temp_file::forget();
-        gbwt::TempFile::forget();
-        gcsa::TempFile::forget();
         
         exec();
         

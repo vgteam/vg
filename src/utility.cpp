@@ -451,6 +451,11 @@ void remove(const string& filename) {
 void forget() {
     lock_guard<recursive_mutex> lock(monitor);
     
+    // forget in our submodules as well
+    xg::temp_file::forget();
+    gbwt::TempFile::forget();
+    gcsa::TempFile::forget();
+    
     handler.filenames.clear();
     handler.dirnames.clear();
     handler.parent_directory.clear();
