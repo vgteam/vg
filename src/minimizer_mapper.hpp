@@ -52,6 +52,16 @@ public:
      */
     vector<Alignment> map(Alignment& aln);
     
+    /**
+     * Map the given read using chaining of seeds. Return a vector of alignments that it maps to, winner first.
+     */
+    vector<Alignment> map_from_chains(Alignment& aln);
+    
+    /**
+     * Map the given read using gapless extensions. Return a vector of alignments that it maps to, winner first.
+     */
+    vector<Alignment> map_from_extensions(Alignment& aln);
+    
     // The idea here is that the subcommand feeds all the reads to the version
     // of map_paired that takes a buffer, and then empties the buffer by
     // iterating over it in parallel with the version that doesn't.
@@ -369,7 +379,6 @@ protected:
         const std::vector<SeedType>& seeds,
         const string& sequence,
         vector<vector<size_t>>& minimizer_kept_cluster_count,
-        size_t& kept_cluster_count,
         Funnel& funnel) const;
     
     /**
