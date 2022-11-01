@@ -397,6 +397,8 @@ static bool execute_in_fork(const function<void(void)>& exec) {
         // we want the pre-existing temp files to live beyond when this process exits
         temp_file::forget();
         xg::temp_file::forget();
+        gbwt::TempFile::forget();
+        gcsa::TempFile::forget();
         
         exec();
         
@@ -3269,11 +3271,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             throw RewindPlanException(msg, pruned_graphs);
         }
         
-#ifdef debug_index_registry_recipes
-        cerr << "making GCSA2" << endl;
-#endif
-        
         bool success = execute_in_fork([&]() {
+#ifdef debug_index_registry_recipes
+            cerr << "making GCSA2 at " << gcsa_output_name << " and " << lcp_output_name << " after writing de Bruijn graph files to:" << endl;
+            for (auto dbg_name : dbg_names) {
+                cerr << "\t" << dbg_name << endl;
+            }
+#endif
+            
             // construct the indexes (giving empty mapping name is sufficient to make
             // indexing skip the unfolded code path)
             gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(),

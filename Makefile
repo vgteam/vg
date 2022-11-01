@@ -535,9 +535,9 @@ $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) libgcsa2.a $(FILTER) && mv libgcsa2.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && make directories && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) lib/libgcsa2.a $(FILTER) && mv lib/libgcsa2.a $(CWD)/$(LIB_DIR)
 else
-	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && $(MAKE) libgcsa2.a $(FILTER) && mv libgcsa2.a $(CWD)/$(LIB_DIR)
+	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && make directories && $(MAKE) lib/libgcsa2.a $(FILTER) && mv lib/libgcsa2.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/gbwt/dynamic_gbwt.h: $(LIB_DIR)/libgbwt.a
