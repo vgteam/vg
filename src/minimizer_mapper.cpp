@@ -287,8 +287,7 @@ void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimi
     }
 }
 
-template<typename SeedType>
-void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds) {
+void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds) {
     if (cluster.seeds.size() < MANY_LIMIT) {
         // There are a few seeds so describe them individually.
         for (auto hit_index : cluster.seeds) {
@@ -303,8 +302,7 @@ void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t clust
         cerr << log_name() << "Minimizers in cluster " << cluster_number << "\t" << log_bits(presence) << endl;
     }
 }
-template<typename SeedType>
-bool MinimizerMapper::validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const {
+bool MinimizerMapper::validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<Seed>>& seeds, size_t read_limit, size_t fragment_limit) const {
     vector<vector<pos_t>> fragment_clusters;
     for (size_t read_num = 0 ; read_num < clusters.size() ; read_num ++) {
         auto& one_read_clusters = clusters[read_num];
@@ -430,12 +428,11 @@ bool MinimizerMapper::validate_clusters(const std::vector<std::vector<Cluster>>&
 
 
 
-template<typename SeedType>
-void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds) {
+void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& selected_seeds) {
     if (selected_seeds.size() < MANY_LIMIT) {
         // There are a few seeds so describe them individually.
         for (auto seed_index : selected_seeds) {
-            const SeedType& seed = seeds[seed_index];
+            const Seed& seed = seeds[seed_index];
             const Minimizer& minimizer = minimizers[seed.source];
             cerr << log_name() << "Seed read:" << minimizer.value.offset << (minimizer.value.is_reverse ? '-' : '+') << " = " << seed.pos
                 << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
@@ -448,7 +445,7 @@ void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers,
         size_t max_hits = 0;
         for (auto seed_index : selected_seeds) {
             // Compute statistics over all the seeds
-            const SeedType& seed = seeds[seed_index];
+            const Seed& seed = seeds[seed_index];
             const Minimizer& minimizer = minimizers[seed.source];
             min_read_pos = std::min(min_read_pos, (size_t)minimizer.value.offset);
             max_read_pos = std::max(max_read_pos, (size_t)minimizer.value.offset);
@@ -521,7 +518,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds<Seed>(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -676,7 +673,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             });
                 
             // Compute the best chain
-            cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
+            cluster_chains.emplace_back(algorithms::find_best_chain({seeds, cluster_seeds_sorted}, space));
             
             
             // Remember which sorted seeds go with which chains, so we can interpret the chains.
@@ -1123,7 +1120,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds<Seed>(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1874,8 +1871,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     // Seeds for both reads, stored in separate vectors.
     std::vector<std::vector<Seed>> seeds_by_read(2);
-    seeds_by_read[0] = this->find_seeds<Seed>(minimizers_by_read[0], aln1, funnels[0]);
-    seeds_by_read[1] = this->find_seeds<Seed>(minimizers_by_read[1], aln2, funnels[1]);
+    seeds_by_read[0] = this->find_seeds(minimizers_by_read[0], aln1, funnels[0]);
+    seeds_by_read[1] = this->find_seeds(minimizers_by_read[1], aln2, funnels[1]);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -3729,8 +3726,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     return result;
 }
 
-template<typename SeedType>
-std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+std::vector<Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -3770,7 +3766,7 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
 
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
-    std::vector<SeedType> seeds;
+    std::vector<Seed> seeds;
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
     // they would have to be created in the read no matter where we say it came
@@ -3930,8 +3926,7 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
     return seeds;
 }
 
-template<typename SeedType>
-void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const Funnel& funnel) const {
+void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const {
     // Annotate with fraction covered by correct (and necessarily located) seed hits.
     
     // First make the set of minimizers that got correct seeds
@@ -3965,8 +3960,7 @@ void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, cons
 
 //-----------------------------------------------------------------------------
 
-template<typename SeedType>
-void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, size_t seq_length, Funnel& funnel) const {
+void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Say we're making it
@@ -4017,11 +4011,10 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
 
 //-----------------------------------------------------------------------------
 
-template<typename SeedType>
 vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
     size_t cluster_num,
     const vector<Minimizer>& minimizers,
-    const std::vector<SeedType>& seeds,
+    const std::vector<Seed>& seeds,
     const string& sequence,
     vector<vector<size_t>>& minimizer_kept_cluster_count,
     Funnel& funnel) const {

@@ -356,8 +356,7 @@ protected:
     /**
      * Find seeds for all minimizers passing the filters.
      */
-    template<typename SeedType>
-    std::vector<SeedType> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
@@ -365,18 +364,16 @@ protected:
      * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
      */
-    template<typename SeedType>
-    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, size_t seq_length, Funnel& funnel) const;
+    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
      */
-    template<typename SeedType>
     vector<GaplessExtension> extend_cluster(
         const Cluster& cluster,
         size_t cluster_num,
         const vector<Minimizer>& minimizers,
-        const std::vector<SeedType>& seeds,
+        const std::vector<Seed>& seeds,
         const string& sequence,
         vector<vector<size_t>>& minimizer_kept_cluster_count,
         Funnel& funnel) const;
@@ -495,8 +492,7 @@ protected:
     /**
      * Add annotations to an Alignment with statistics about the minimizers.
      */
-    template<typename SeedType>
-    void annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const Funnel& funnel) const;
+    void annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 
@@ -787,16 +783,13 @@ protected:
     static void dump_debug_sequence(ostream& out, const string& sequence);
     
     /// Print the seed content of a cluster.
-    template<typename SeedType>
-    static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds);
+    static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds);
 
     /// Do a brute check of the clusters. Print errors to stderr
-    template<typename SeedType>
-    bool validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const;
+    bool validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<Seed>>& seeds, size_t read_limit, size_t fragment_limit) const;
     
     /// Print information about a selected set of seeds.
-    template<typename SeedType>
-    static void dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds);
+    static void dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& selected_seeds);
     
     /// Print information about a read to be aligned
     static void dump_debug_query(const Alignment& aln);
