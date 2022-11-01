@@ -15,6 +15,7 @@
 #include "algorithms/intersect_path_offsets.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/chain_items.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -169,7 +170,7 @@ string MinimizerMapper::log_bits(const std::vector<bool>& bits) {
     return ss.str();
 }
 
-void MinimizerMapper::dump_chaining_problem(const algorithms::ChainingSpace<Seed, Minimizer>& space, const std::vector<Seed>& seeds, const std::vector<size_t>& cluster_seeds_sorted) {
+void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted) {
     ProblemDumpExplainer exp;
     
     // We need to keep track of all the points we want in our problem subgraph.
@@ -184,29 +185,26 @@ void MinimizerMapper::dump_chaining_problem(const algorithms::ChainingSpace<Seed
     for (auto& index : cluster_seeds_sorted) {
         exp.object_start();
         exp.key("read_start");
-        exp.value(space.read_start(seeds[index]));
+        exp.value(anchors[index].read_start());
         exp.key("read_end");
-        exp.value(space.read_end(seeds[index]));
+        exp.value(anchors[index].read_end());
         
-        if (space.graph) {
-            pos_t graph_start = space.graph_start(seeds[index]);
-            seed_positions.push_back(graph_start);
-            exp.key("graph_start");
-            exp.value(graph_start);
-            exp.key("graph_end");
-            exp.value(space.graph_end(seeds[index]));
-        }
+        pos_t graph_start = anchors[index].graph_start();
+        seed_positions.push_back(graph_start);
+        exp.key("graph_start");
+        exp.value(graph_start);
+        exp.key("graph_end");
+        exp.value(anchors[index].graph_end());
+        
         exp.object_end();
     }
     exp.array_end();
     
-    if (space.graph) {
-        // Get the subgraph for the cluster
-        HashGraph subgraph;
-        algorithms::extract_containing_graph(space.graph, &subgraph, seed_positions, 10000);
-        exp.key("subgraph");
-        exp.value(subgraph);
-    }
+    // Get the subgraph for the cluster
+    HashGraph subgraph;
+    algorithms::extract_containing_graph(gbwt_graph, &subgraph, seed_positions, 10000);
+    exp.key("subgraph");
+    exp.value(subgraph);
     
     exp.object_end();
 }
@@ -1163,6 +1161,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    
+    // Convert the seeds into chainable anchors in the same order
+    vector<algorithms::Anchor> seed_anchors = this->to_anchors(minimizers, seeds);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1234,22 +1235,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // What cluster seeds define the space for clusters' chosen chains?
     vector<vector<size_t>> cluster_chain_seeds;
     
-    // For chaining, we might need a chaining space.
-    algorithms::ChainingSpace<Seed, Minimizer> space(
-        minimizers,
-        *get_regular_aligner(),
-        distance_index,
-        &gbwt_graph
-    );
-    
-    // Over all clusters, we track some reseed statistics.
-    size_t total_fallow_regions = 0;
-    size_t longest_fallow_region = 0;
-    size_t reseed_seed_count = 0;
-    // And some statistics for subclusters after reseeding within each cluster.
-    size_t total_subcluster_count = 0;
-    size_t biggest_subcluster_count = 0;
-    
     //Process clusters sorted by both score and read coverage
     process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
             return clusters[i].coverage;
@@ -1320,7 +1305,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
             
             // Sort seeds by read start of seeded region, and remove indexes for seeds that are redundant
-            algorithms::sort_and_shadow(seeds, cluster_seeds_sorted, space);
+            algorithms::sort_and_shadow(seed_anchors, cluster_seeds_sorted);
             
             // We are going to need a widget for finding minimizer hit
             // positions in a subgraph, in the right orientation.
@@ -1336,112 +1321,39 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 });
             };
             
-            // We track statistics for reseeding. Get set up for that
-            // outside the terrible duplicating if.
-            size_t clustered_seed_count = cluster_seeds_sorted.size();
-            pair<size_t, size_t> reseed_statistics;
-            
-            if (track_provenance) {
-                funnel.substage("reseed");
-            }
-            // Fill in fallow gaps between seeds, if possible.
-            reseed_statistics = algorithms::reseed_fallow_regions<Seed, Minimizer>(
-                seeds,
-                cluster_seeds_sorted,
-                space,
-                minimizer_score_sort_inverse,
-                aln.sequence().size(),
-                find_minimizer_hit_positions, 
-                reseed_distance,
-                fallow_region_size
-            );
-            
-            if (show_work && !cluster_seeds_sorted.empty()) {
-                    #pragma omp critical (cerr)
-                    {
-                        
-                        cerr << log_name() << "Cluster " << cluster_num << " now covers read "
-                            << space.read_start(seeds[cluster_seeds_sorted.front()])
-                            << " to " << space.read_end(seeds[cluster_seeds_sorted.back()])
-                            << " of " << aln.sequence().size() << std::endl;
-                    }
-                }
-                
-                if (track_provenance) {
-                    funnel.substage("recluster");
-                }
-                // For every subcluster, what are its seeds in sorted order? These index into seeds.
-                std::vector<std::vector<size_t>> subcluster_seeds_sorted;
-                
-                VectorView<Seed> cluster_view {seeds, cluster_seeds_sorted};
-                cluster_view.with_vector([&](std::vector<Seed>& v) {
-                    // Get all the subclusters with the recovered seeds
-                    // included. These will index into cluster_seeds_sorted
-                    // space.
-                    // TODO: Let clustering work through a subset/permutation.
-                    std::vector<Cluster> subclusters = clusterer.cluster_seeds(v, recluster_distance);
-                    
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            
-                            cerr << log_name() << "Cluster " << cluster_num << " becomes " << subclusters.size() << " subclusters." << std::endl;
-                        }
-                    }
-                    
-                    for (auto& subcluster : subclusters) {
-                        // Sort each subcluster. Index is into cluster_seeds_sorted so sort order is read order.
-                        std::sort(subcluster.seeds.begin(), subcluster.seeds.end());
-                        // Put each subcluster into seeds space and keep it.
-                        subcluster_seeds_sorted.push_back(stack_permutations(cluster_seeds_sorted, subcluster.seeds));
-                    }
-                });
-                total_subcluster_count += subcluster_seeds_sorted.size();
-                biggest_subcluster_count = std::max(biggest_subcluster_count, subcluster_seeds_sorted.size());
 
-                if (track_provenance) {
-                    funnel.substage("find_chain");
-                }
+            if (track_provenance) {
+                funnel.substage("find_chain");
+            }
             
             // Compute the best chain
             cluster_chains.emplace_back();
             cluster_chains.back().first = std::numeric_limits<int>::min();
             cluster_chain_seeds.emplace_back();
-            
-            for (size_t subcluster_num = 0; subcluster_num < subcluster_seeds_sorted.size(); subcluster_num++) {
-                auto& subcluster = subcluster_seeds_sorted[subcluster_num];
-                VectorView<Seed> subcluster_view {seeds, subcluster};
                 
-                // Find a chain from this subcluster
-                auto candidate_chain = algorithms::find_best_chain(subcluster_view, space);
-                if (show_work && !candidate_chain.second.empty()) {
-                    #pragma omp critical (cerr)
-                    {
-                        
-                        cerr << log_name() << "Cluster " << cluster_num << " subcluster " << subcluster_num
-                            << " running " << space.to_string(seeds[subcluster.front()]) << " to " << space.to_string(seeds[subcluster.back()])
-                            << " has chain with score " << candidate_chain.first
-                            << " and length " << candidate_chain.second.size()
-                            << " running R" << space.read_start(subcluster_view[candidate_chain.second.front()])
-                            << " to R" << space.read_end(subcluster_view[candidate_chain.second.back()]) << std::endl;
-                    }
+            // Find a chain from this cluster
+            VectorView<Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
+            auto candidate_chain = algorithms::find_best_chain(cluster_view, *distance_index, gbwt_graph);
+            if (show_work && !candidate_chain.second.empty()) {
+                #pragma omp critical (cerr)
+                {
+                    
+                    cerr << log_name() << "Cluster " << cluster_num << " running " << seeds[cluster_seeds_sorted.front()] << " to " << seeds[cluster_seeds_sorted.back()]
+                        << " has chain with score " << candidate_chain.first
+                        << " and length " << candidate_chain.second.size()
+                        << " running R" << cluster_view[candidate_chain.second.front()].read_start()
+                        << " to R" << cluster_view[candidate_chain.second.back()].read_end() << std::endl;
                 }
-                if (candidate_chain.first > cluster_chains.back().first) {
-                    // Keep it if it is better
-                    cluster_chains.back() = std::move(candidate_chain);
-                    cluster_chain_seeds.back() = std::move(subcluster);
-                }
+            }
+            if (candidate_chain.first > cluster_chains.back().first) {
+                // Keep it if it is better
+                cluster_chains.back() = std::move(candidate_chain);
+                cluster_chain_seeds.back() = cluster_seeds_sorted;
             }
             
             if (track_provenance) {
                 funnel.substage_stop();
             }
-            
-            // Remember the reseeding statistics
-            total_fallow_regions += reseed_statistics.first;
-            longest_fallow_region = std::max(longest_fallow_region, reseed_statistics.second);
-            reseed_seed_count += cluster_seeds_sorted.size() - clustered_seed_count;
-            // TODO: Go back and introduce these to the funnel somehow?
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a single item.
@@ -1592,7 +1504,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 vector<size_t>& chain = score_and_chain.second;
                 
                 // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                best_alignments[0] = find_chain_alignment(aln, {seeds, eligible_seeds}, space, chain);
+                best_alignments[0] = find_chain_alignment(aln, {anchors, eligible_seeds}, chain);
                     
                 // TODO: Come up with a good secondary for the cluster somehow.
                 // Traceback over the remaining extensions?
@@ -1812,13 +1724,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
-    // Annotate with statistics about the mapping process.
-    // TODO: Control this with a flag?
-    set_annotation(mappings[0], "total_fallow_regions", (double) total_fallow_regions);
-    set_annotation(mappings[0], "longest_fallow_region", (double) longest_fallow_region);
-    set_annotation(mappings[0], "reseed_seed_count", (double) reseed_seed_count);
-    set_annotation(mappings[0], "total_subcluster_count", (double) total_subcluster_count);
-    set_annotation(mappings[0], "biggest_subcluster_count", (double) biggest_subcluster_count);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
@@ -5326,7 +5231,7 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
     //Score a pair of alignments
 
     double dev = fragment_distance - fragment_length_distr.mean();
-    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_aligner()->log_base;
+    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_regular_aligner()->log_base;
     double score = aln1.score() + aln2.score() +fragment_length_log_likelihood ;
 
     //Don't let the fragment length log likelihood bring score down below the score of the best alignment
@@ -5349,6 +5254,481 @@ double MinimizerMapper::distance_to_annotation(int64_t distance) const {
     static_assert(DBL_MANT_DIG <= 64, "We assume doubles have <64 bits of mantissa");
     double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
     return max(min((double) distance, max_int_double), -max_int_double);
+}
+
+std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const std::VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
+    std::vector<algorithms::Anchor> to_return;
+    to_return.reserve(seeds.size());
+    for (auto& seed : seeds) {
+        to_return.push_back(this->to_anchor(aln, minimizers, seed));
+    }
+}
+
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const std::VectorView<Minimizer>& minimizers, const Seed& seed) const {
+    // Turn each seed into the part of its match on the node where the
+    // anchoring end (start for forward-strand minimizers, ane for
+    // reverse-strand minimizers) falls.
+    auto& source = minimizers.at(seed.source);
+    size_t length;
+    pos_t graph_start;
+    size_t read_start;
+    if (source.value.is_reverse) {
+        // Seed stores the final base of the match in the graph.
+        // So get the past-end position.
+        pos_t graph_end = make_pos_t(id(item.pos), is_rev(item.pos), offset(item.pos) + 1);
+        
+        // Work out how much of the node it could use before there.
+        length = std::min((size_t) source.length, offset(graph_end));
+        // And derive the graph start
+        graph_start = make_pos_t(id(graph_end), is_rev(graph_end), offset(graph_end) - length);
+        // And the read start
+        read_start = source.value.offset + 1 - length;
+    } else {
+        // Seed stores the first base of the match in the graph
+        graph_start = item.pos;
+        
+        // Get the handle to the node it's on.
+        handle_t start_handle = graph->get_handle(id(graph_start), is_rev(graph_start));
+        // Work out how much of the node it could use before there.
+        length = std::min((size_t) source.length, graph->get_length(start_handle) - offset(graph_start));
+        
+        // And we store the read start position already in the item
+        read_start = source.value.offset;
+    }
+    // Work out how many points the anchor is
+    // TODO: Always make sequence and quality available for scoring!
+    int score = get_regular_aligner()->score_exact_match(aln, read_start, length)
+    return algorithms::Anchor(read_start, graph_start, length, score); 
+}
+
+WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {
+    return {
+        {graph->get_handle(id(anchor.graph_start()), is_rev(anchor.graph_start()))},
+        {{WFAAlignment::match, (uint32_t)anchor.length()}},
+        (uint32_t)offset(anchor.graph_start()),
+        (uint32_t)anchor.read_start(),
+        (uint32_t)anchor.length(),
+        anchor.score(),
+        true
+    };
+}
+
+Alignment MinimizerMapper::find_chain_alignment(
+    const Alignment& aln,
+    const VectorView<Anchor>& to_chain,
+    const std::vector<size_t>& chain) const {
+    
+    if (chain.empty()) {
+        throw std::logic_error("Cannot find an alignment for an empty chain!");
+    }
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Align chain of";
+            if (chain.size() < MANY_LIMIT) {
+                cerr << ": ";
+                for (auto item_number : chain) {
+                    cerr << " " << item_number;
+                }
+            } else {
+                cerr << " " << chain.size() << " items";
+            }
+            cerr << " in " << to_chain.size() << " items" << endl;
+        }
+    }
+    
+    // We need an Aligner for scoring.
+    const Aligner& aligner = *get_regular_aligner();
+    
+    // We need a WFAExtender to do tail and intervening alignments.
+    // Note that the extender expects anchoring matches!!!
+    WFAExtender extender(gbwt_graph, aligner); 
+    
+    // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
+    auto here_it = chain.begin();
+    auto next_it = here_it;
+    ++next_it;
+    
+    const Anchor* here = &to_chain[*here_it];
+    
+#ifdef debug_chaining
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "First item " << *here_it
+                << " with overall index " << to_chain.backing_index(*here_it)
+                << " aligns source " << here->source
+                << " at " << (*here).read_start() << "-" << (*here).read_end()
+                << " with " << (*here).graph_start() << "-" << (*here).graph_end()
+                << endl;
+        }
+    }
+#endif
+    
+    // We compose into a Path, since sometimes we may have to drop back to
+    // aligners that aren't the WFAAligner and don't make WFAAlignments.
+    Path composed_path;
+    // We also track the total score of all the pieces.
+    int composed_score;
+    
+    // Do the left tail, if any.
+    size_t left_tail_length = (*here).read_start();
+    WFAAlignment left_alignment;
+    if (left_tail_length > 0) {
+    
+        // Anchor position will not be covered. 
+        string left_tail = aln.sequence().substr(0, left_tail_length);
+        size_t left_tail_additional_offset = 0;
+        if (left_tail.size() > max_tail_length) {
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << left_tail.size() << " bp left tail in " << aln.name() << endl;
+            }
+            // Keep only the right part of the left tail
+            left_tail_additional_offset = left_tail.size() - max_tail_length;
+            left_tail = left_tail.substr(left_tail_additional_offset);
+        }
+        
+        // We align the left tail with prefix(), which creates a prefix of the alignment.
+        left_alignment = extender.prefix(left_tail, (*here).graph_start());
+        // Account for if we had to shorten the left tail
+        left_alignment.seq_offset += left_tail_additional_offset;
+        
+        if (!left_alignment) {
+            // Left tail did not align. Make a softclip for it.
+            left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
+        }
+        if (left_alignment.seq_offset != 0) {
+            // We didn't get all the way to the left end of the read without
+            // running out of score, or we had to shorten the left tail to a
+            // manageable size to align.
+            // Prepend a softclip.
+            // TODO: Can we let the aligner know it can softclip for free?
+            WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, left_alignment.seq_offset, 0);
+            prepend.join(left_alignment);
+            left_alignment = std::move(prepend);
+        }
+        if (left_alignment.length != (*here).read_start()) {
+            // We didn't get the alignment we expected.
+            stringstream ss;
+            ss << "Aligning left tail " << left_tail << " from " << (*here).graph_start() << " produced wrong-length alignment ";
+            left_alignment.print(ss);
+            throw std::runtime_error(ss.str());
+        }
+        // Since the tail starts at offset 0, the alignment is already in full read space.
+
+#ifdef debug_chaining
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Start with left tail of " << left_alignment.length << " with score of " << left_alignment.score << endl;
+            }
+        }
+#endif
+        left_alignment.check_lengths(gbwt_graph);
+    } else {
+        // No left tail to start with.
+        // Just use an empty starting alignment, which is OK.
+        left_alignment = WFAAlignment::make_empty();
+    }
+    
+    composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
+    composed_score = left_alignment.score;
+    
+    size_t longest_attempted_connection = 0;
+    while(next_it != chain.end()) {
+        // Do each region between successive gapless extensions
+        
+        // We have to find the next item we can actually connect to
+        const Anchor* next;
+        // And the actual connecting alignment to it
+        WFAAlignment link_alignment;
+        
+        while (next_it != chain.end()) {
+            next = &to_chain[*next_it];
+            // Try and find a next thing to connect to
+            
+            if (algorithms::get_read_distance(*here, *next) == std::numeric_limits<size_t>::max()) {
+                // There's overlap between these items. Keep here and skip next.
+#ifdef debug_chaining
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Don't try and connect " << *here_it << " to " << *next_it << " because they overlap" << endl;
+                    }
+                }
+#endif
+            
+                ++next_it;
+            } else {
+                // No overlap, so try it.
+                break;
+            }
+        }
+        
+        if (next_it == chain.end()) {
+            // We couldn't find anything to connect to
+            break;
+        }
+            
+#ifdef debug_chaining
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add current item " << *here_it << " of length " << (*here).length() << " with score of " << (*here).score() << endl;
+            }
+        }
+#endif
+        
+        // Make an alignment for the bases used in this item, and
+        // concatenate it in.
+        WFAAlignment here_alignment = this->to_wfa_alignment(*here);
+        append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        composed_score += here_alignment.score;
+        
+#ifdef debug_chaining
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Next connectable item " << *next_it
+                    << " with overall index " << to_chain.backing_index(*next_it)
+                    << " aligns source " << next->source
+                    << " at " << (*next).read_start() << "-" << (*next).read_end()
+                    << " with " << (*next).graph_start() << "-" << (*next).graph_end()
+                    << endl;
+            }
+        }
+#endif
+        
+        // Pull out the intervening string to the next, if any.
+        size_t link_start = (*here).read_end();
+        size_t link_length = (*next).read_start() - link_start;
+        string linking_bases = aln.sequence().substr(link_start, link_length);
+        size_t graph_length = algorithms::get_graph_distance(*here, *next, *distance_index, gbwt_graph);
+        
+#ifdef debug_chaining
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Need to align graph from " << (*here).graph_end() << " to " << (*next).graph_start()
+                    << " separated by " << graph_length << " bp and sequence \"" << linking_bases << "\"" << endl;
+            }
+        }
+#endif
+        
+        if (link_length == 0 && graph_length == 0) {
+            // These items abut in the read and the graph, so we assume we can just connect them.
+            // GBWTExtender::connect() can't handle an empty read sequence, and
+            // our fallback method to align just against the graph can't handle
+            // an empty graph region.
+            // TODO: We can be leaving the GBWT's space here!
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Treat as empty link" << endl;
+                }
+            }
+#endif
+            
+            link_alignment = WFAAlignment::make_empty();
+        } else if (link_length > 0 && link_length <= max_chain_connection) {
+            // If it's not empty and is a reasonable size, align it.
+            // Make sure to walk back the left anchor so it is outside of the region to be aligned.
+            pos_t left_anchor = (*here).graph_end();
+            get_offset(left_anchor)--;
+            
+            link_alignment = extender.connect(linking_bases, left_anchor, (*next).graph_start());
+            
+            longest_attempted_connection = std::max(longest_attempted_connection, linking_bases.size());
+            
+            if (!link_alignment) {
+                // We couldn't align.
+                if (graph_length == 0) {
+                    // We had read sequence but no graph sequence.
+                    // Try falling back to a pure insertion.
+                    // TODO: We can be leaving the GBWT's space here!
+                    // TODO: What if this is forcing an insertion that could also be in the graph already?
+#ifdef debug_chaining
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "connect() failed; treat as insertion" << endl;
+                        }
+                    }
+#endif
+                    link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner->score_gap(link_length));
+                }
+            } else if (link_alignment.length != linking_bases.size()) {
+                // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
+                stringstream ss;
+                ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << (*next).graph_start() << " against graph distance " << graph_length << " produced wrong-length alignment ";
+                link_alignment.print(ss);
+                throw std::runtime_error(ss.str());
+            } else {
+                // We got the right alignment.
+                // Put the alignment back into full read space
+                link_alignment.seq_offset += (*here).read_end();
+            }
+        }
+        
+        if (link_alignment) {
+            // We found a link alignment
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add link of length " << link_alignment.length << " with score of " << link_alignment.score << endl;
+                }
+            }
+#endif
+        
+            link_alignment.check_lengths(gbwt_graph);
+            
+            // Then the link (possibly empty)
+            append_path(composed_path, link_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            composed_score += link_alignment.score;
+        } else {
+            // The sequence to the next thing is too long, or we couldn't reach it doing connect().
+            // Fall back to another alignment method
+            
+            // We can't actually do this alignment, we'd have to align too
+            // long of a sequence to find a connecting path.
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << graph_length << " apart in " << aln.name() << endl;
+            }
+            
+            Alignment link_aln;
+            link_aln.set_sequence(linking_bases);
+            if (!aln.quality().empty()) {
+                link_aln.set_quality(aln.quality().substr(link_start, link_length));
+            }
+            assert(graph_length != 0); // TODO: Can't handle abutting graph positions yet
+            // Guess how long of a graph path we ought to allow in the alignment.
+            size_t path_length = std::max(graph_length, link_length) + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
+            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln);
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add link of length " << path_to_length(link_aln.path()) << " with score of " << link_aln.score() << endl;
+                }
+            }
+#endif
+            
+            // Then tack that path and score on
+            append_path(composed_path, link_aln.path());
+            composed_score += link_aln.score();
+        }
+        
+        // Advance here to next and start considering the next after it
+        here_it = next_it;
+        ++next_it;
+        here = next;
+    }
+    
+#ifdef debug_chaining
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Add last extension " << *here_it << " of length " << (*here).length() << " with score of " << (*here).score() << endl;
+        }
+    }
+#endif
+    
+    WFAAlignment here_alignment = this->to_wfa_alignment(*here);
+    
+    here_alignment.check_lengths(gbwt_graph);
+    
+    // Do the final GaplessExtension itself (may be the first)
+    append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
+    composed_score += here_alignment.score;
+   
+    // Do the right tail, if any. Do as much of it as we can afford to do.
+    size_t right_tail_length = aln.sequence().size() - (*here).read_end();
+    if (right_tail_length > 0) {
+        if (right_tail_length > max_tail_length) {
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << right_tail_length << " bp right tail in " << aln.name() << endl;
+            }
+        }
+        string right_tail = aln.sequence().substr((*here).read_end(), max_tail_length);
+        // We align the right tail with suffix(), which creates a suffix of the alignment.
+        // Make sure to walk back the anchor so it is outside of the region to be aligned.
+        pos_t left_anchor = (*here).graph_end();
+        get_offset(left_anchor)--;
+        WFAAlignment right_alignment = extender.suffix(right_tail, left_anchor);
+        
+        if (!right_alignment) {
+            // Right tail did not align. Make a softclip for it.
+            right_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), aln.sequence().size() - (*here).read_end(), 0);
+        } else {
+            // Right tail did align. Put the alignment back into full read space.
+            right_alignment.seq_offset += (*here).read_end();
+        }
+        if (right_alignment.seq_offset + right_alignment.length != aln.sequence().size()) {
+            // We didn't get all the way to the right end of the read without
+            // running out of score, or we had to truncate the tail to a manageable
+            // length for actual alignment.
+            // Append a softclip.
+            // TODO: Can we let the aligner know it can softclip for free?
+            size_t right_end = right_alignment.seq_offset + right_alignment.length;
+            size_t remaining = aln.sequence().size() - right_end;
+            right_alignment.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
+        }
+        if (right_alignment.length != right_tail_length) {
+            // We didn't get the alignment we expected.
+            stringstream ss;
+            ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
+            right_alignment.print(ss);
+            throw std::runtime_error(ss.str());
+        }
+        
+#ifdef debug_chaining
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+            }
+        }
+#endif
+        
+        right_alignment.check_lengths(gbwt_graph);
+        
+        append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+        composed_score += right_alignment.score;
+    }
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << composed_score << endl;
+            if (composed_path.mapping_size() > 0) {
+                cerr << log_name() << "Composed alignment starts with: " << pb2json(composed_path.mapping(0)) << endl;
+                cerr << log_name() << "Composed alignment ends with: " << pb2json(composed_path.mapping(composed_path.mapping_size() - 1)) << endl;
+            }
+        }
+    }
+    
+    // Convert to a vg Alignment.
+    Alignment result(aln);
+    *result.mutable_path() = std::move(simplify(composed_path));
+    result.set_score(composed_score);
+    if (!result.sequence().empty()) {
+        result.set_identity(identity(result.path()));
+    }
+    
+    set_annotation(result, "left_tail_length", (double) left_tail_length);
+    set_annotation(result, "longest_attempted_connection", (double) longest_attempted_connection); 
+    set_annotation(result, "right_tail_length", (double) right_tail_length); 
+    
+    return result;
 }
 
 }
