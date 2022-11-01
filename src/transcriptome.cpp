@@ -113,7 +113,7 @@ bool sort_pair_by_second(const pair<uint32_t, uint32_t> & lhs, const pair<uint32
 Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in) : _graph(move(graph_in)) {
     
     if (!_graph) {
-        cerr << "[transcriptome] ERROR: Could not load graph." << endl;
+        cerr << "\tERROR: Could not load graph." << endl;
         exit(1);
     }
 }
@@ -138,14 +138,16 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
 
     if (introns.empty()) {
 
-        cerr << "[transcriptome] ERROR: No intron parsed" << endl;
+        cerr << "\tERROR: No intron parsed" << endl;
         exit(1);        
     }
 
     sort(introns.begin(), introns.end());
 
+    cerr << "\tParsed " << introns.size() << " introns" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Parsed " << introns.size() << " introns: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -156,8 +158,10 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
     // Construct edited reference intron paths using embedded graph paths.
     auto edited_transcript_paths = construct_reference_transcript_paths_embedded(introns, graph_path_pos_overlay);
 
+    cerr << "\tConstructed " << edited_transcript_paths.size() << " intron paths" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Constructed " << edited_transcript_paths.size() << " intron paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -176,8 +180,10 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
         add_splice_junction_edges(edited_transcript_paths);
     }
 
+    cerr << "\tUpdated graph with intron paths" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Updated graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     return introns.size();
@@ -209,14 +215,16 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
 
     if (transcripts.empty() && lines_parsed != 0) {
 
-        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
+        cerr << "\tERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
         exit(1);        
     }
 
     sort(transcripts.begin(), transcripts.end());
 
+    cerr << "\tParsed " << transcripts.size() << " transcripts" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Parsed " << transcripts.size() << " transcripts: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -237,8 +245,10 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
         edited_transcript_paths = construct_reference_transcript_paths_embedded(transcripts, graph_path_pos_overlay);
     } 
 
+    cerr << "\tConstructed " << edited_transcript_paths.size() << " reference transcript paths" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Constructed " << edited_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -258,8 +268,10 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
         add_transcript_reference_paths(edited_transcript_paths);
     }
 
+    cerr << "\tUpdated graph with reference transcript paths" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Updated graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     return transcripts.size();
@@ -286,14 +298,16 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
 
     if (transcripts.empty() && lines_parsed != 0) {
 
-        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
+        cerr << "\tERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
         exit(1);        
     }
     
     sort(transcripts.begin(), transcripts.end());
 
+    cerr << "\tParsed " << transcripts.size() << " transcripts" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Parsed " << transcripts.size() << " transcripts: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -310,11 +324,14 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
     // Augment splice graph with new splice-junction edges.    
     add_splice_junction_edges(_haplotype_transcript_paths);
 
+    assert(_haplotype_transcript_paths.size() >= pre_num_haplotype_transcript_paths);
+
+    cerr << "\tConstructed " << _haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths << " haplotype-specific transcript paths" << endl;
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Projected " << _haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths << " transcript paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
-    assert(_haplotype_transcript_paths.size() >= pre_num_haplotype_transcript_paths);
     return (_haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths);
 }
 
@@ -344,7 +361,7 @@ void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron
         if (!_graph->has_path(chrom)) {
 
             if (error_on_missing_path) {
-                cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
+                cerr << "\tERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
                 exit(1);
             }
             else {
@@ -450,7 +467,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
 
             if (error_on_missing_path) {
 
-                cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph or haplotypes index (line " << line_number << ")." << endl;
+                cerr << "\tERROR: Chromomsome path \"" << chrom << "\" not found in graph or haplotypes index (line " << line_number << ")." << endl;
                 exit(1);
             
             } else {
@@ -519,19 +536,21 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
                     // If not exon_number attribute try ID.
                     auto exon_id = parse_attribute_value(attribute, "ID");
 
-                    if (!exon_id.empty()) {
+                    if (count(exon_id.begin(), exon_id.end(), ':') == 2) {
 
-                        string element;
                         auto exon_id_ss = stringstream(exon_id);
 
+                        string element;
                         getline(exon_id_ss, element, ':');   
-                        assert(element == "exon");     
+                        
+                        if (element == "exon") {
 
-                        getline(exon_id_ss, element, ':');
-                        getline(exon_id_ss, element, ':');   
+                            getline(exon_id_ss, element, ':');
+                            getline(exon_id_ss, element);   
 
-                        exon_number = stoi(element);
-                    }
+                            exon_number = stoi(element);
+                        }  
+                    }   
 
                 } else {
 
@@ -547,7 +566,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
 
         if (transcript_id.empty()) {
 
-            cerr << "[transcriptome] ERROR: Tag \"" << transcript_tag << "\" not found in attributes (line " << line_number << ")." << endl;
+            cerr << "\tERROR: Tag \"" << transcript_tag << "\" not found in attributes (line " << line_number << ")." << endl;
             exit(1);
         }
 
@@ -588,7 +607,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
 
             if (transcript->exons.size() - static_cast<uint32_t>(zero_based_exon_number) != exon_number) {
 
-                cerr << "[transcriptome] ERROR: Exons are not in correct order according to attributes (line " << line_number << ")." << endl;
+                cerr << "\tERROR: Exons are not in correct order according to attributes (line " << line_number << ")." << endl;
                 exit(1); 
             } 
         }
@@ -760,7 +779,7 @@ void Transcriptome::construct_reference_transcript_paths_embedded_callback(list<
 
 list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Transcript & cur_transcript, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_reference_paths, const bool use_haplotype_paths) const {
 
-    assert(use_reference_paths || use_haplotype_paths);
+    assert(use_reference_paths != use_haplotype_paths);
 
     vector<multimap<path_handle_t, step_handle_t> > exon_start_node_path_steps;
     vector<multimap<path_handle_t, step_handle_t> > exon_end_node_path_steps;
@@ -866,6 +885,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
             // TODO: Add support for this.
             if (exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) > 1 && exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) > 1) {
 
+                assert(use_haplotype_paths);
+
                 is_partial = true;
                 break;
             }
@@ -901,9 +922,10 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 // Get path mapping at exon end if exon end node is in the current path.
                 auto haplotype_path_end_step = haplotype_path_end_it_range.first->second;
 
-                // Exons with different border node orientations are currently not supported.
+                // Exons with different border node orientations are currently not supported
+                // for haplotype path projection.
                 // TODO: Add support for this special case.
-                if (_graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_start_step)) != _graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_end_step))) {
+                if (use_haplotype_paths && (_graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_start_step)) != _graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_end_step)))) {
 
                     is_partial = true;
                     break;
@@ -1155,7 +1177,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                 // Delete transcripts with exon overlapping haplotype break.
                 if (get<2>(incomplete_transcript_paths_it->second)) {
                     
-                    cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).name << " on " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).chrom << " since one of its exons overlap a haplotype break." << endl;
+                    cerr << "\tWARNING: Skipping transcript " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).name << " on " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).chrom << " since one of its exons overlap a haplotype break." << endl;
                     incomplete_transcript_paths_it = incomplete_transcript_paths.erase(incomplete_transcript_paths_it);
                 
                 } else {
@@ -1294,7 +1316,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
     
         for (auto & transcript_path: incomplete_transcript_paths) {
 
-            cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(transcript_path.second)).name << " on " << transcripts.at(get<0>(transcript_path.second)).chrom << " since one of its exons overlap a haplotype break." << endl;
+            cerr << "\tWARNING: Skipping transcript " << transcripts.at(get<0>(transcript_path.second)).name << " on " << transcripts.at(get<0>(transcript_path.second)).chrom << " since one of its exons overlap a haplotype break." << endl;
         }
 
         edited_transcript_paths_mutex->lock();

@@ -1145,6 +1145,11 @@ int main_mpmap(int argc, char** argv) {
     // we can usually ignore them
     int hard_hit_max = hard_hit_max_muliplier * hit_max;
     
+    // don't report secondaries if we're agglomerating
+    if (agglomerate_multipath_alns && max_num_mappings != 1) {
+        max_num_mappings = 1;
+    }
+    
     // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
@@ -1850,6 +1855,10 @@ int main_mpmap(int argc, char** argv) {
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
+        if (transcriptomic) {
+            // FIXME: replicating the behavior in surject_main
+            surjector->max_subgraph_bases = 16 * 1024 * 1024;
+        }
         
         if (!ref_paths_name.empty()) {
             log_progress("Choosing reference paths from " + ref_paths_name);

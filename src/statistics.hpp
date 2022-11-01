@@ -48,7 +48,7 @@ double lognormal_pdf(double x, double mu, double sigma);
  * out of log space.
  */
 inline double add_log(double log_x, double log_y) {
-    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
+    return log_x > log_y ? log_x + log1p(exp(log_y - log_x)) : log_y + log1p(exp(log_x - log_y));
 }
 
 /*
@@ -56,7 +56,7 @@ inline double add_log(double log_x, double log_y) {
  * them out of log space.
  */
 inline double subtract_log(double log_x, double log_y) {
-    return log_x + log(1.0 - exp(log_y - log_x));
+    return log_x + log1p(-exp(log_y - log_x));
 }
 
 /**
