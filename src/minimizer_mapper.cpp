@@ -55,52 +55,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
 
 //-----------------------------------------------------------------------------
 
-/// Accessors for attributes of a type when used as a seed.
-/// We use these to make templated code generic over the old and new seeds, so
-/// we don't need to write the same algorithm twice to satisfy the type system,
-/// or because things have slightly different names or types depending on which
-/// seeds we're using.
-///
-/// You are meant to pass this template the seed type you are using, and then
-/// fetch out the type or function you need, and you will get the right version
-/// for the seed type you have.
-template<typename SeedType>
-struct seed_traits {
-    // We don't actually define the interface here, because templates don't do any sort of inheritance.
-};
-
-/**
- * Traits for the new seed type.
- *
- * Defines what MinimizerMapper algorithms have to know about
- * SnarlDistanceIndexClusterer seeds to work with them.
- */
-template<>
-struct seed_traits<SnarlDistanceIndexClusterer::Seed> {
-    /// Get SeedType to use later, because it makes more sense to use that in
-    /// the function signatures than the type we're specialized on.
-    using SeedType = SnarlDistanceIndexClusterer::Seed;
-    
-    /// What minimizer index payload type should we use for decoding minimizer index payloads?
-    using MIPayload = vg::MIPayload;
-    /// What chain info should we keep around during clustering?
-    using chain_info_t = vg::MIPayloadValues;
-    
-    /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static chain_info_t no_chain_info() {
-        return {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false,
-                false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE };
-    } 
-    
-    /// How do we convert chain info to an actual seed of the type we are using?
-    /// Also needs to know the hit position, and the minimizer number.
-    inline static SeedType chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
-        return { hit, minimizer, chain_info };
-    }
-};
-
-//-----------------------------------------------------------------------------
-
 string MinimizerMapper::log_name() {
     return "T" + to_string(omp_get_thread_num()) + ":\t";
 }
@@ -3287,9 +3241,6 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
 template<typename SeedType>
 std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
-    // Get the traits that we use to do things with seeds.
-    using ST = seed_traits<SeedType>;
-
     if (this->track_provenance) {
         // Start the minimizer locating stage
         funnel.stage("seed");
@@ -3404,11 +3355,11 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
-                typename ST::chain_info_t chain_info = ST::no_chain_info();
-                if (minimizer.occs[j].payload != ST::MIPayload::NO_CODE) {
-                    chain_info = ST::MIPayload::decode(minimizer.occs[j].payload);
+                MIPayloadValues chain_info = no_chain_info();
+                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
+                    chain_info = MIPayload::decode(minimizer.occs[j].payload);
                 }
-                seeds.push_back(ST::chain_info_to_seed(hit, i, chain_info));
+                seeds.push_back(chain_info_to_seed(hit, i, chain_info));
             }
 
             // Remember that we took this minimizer

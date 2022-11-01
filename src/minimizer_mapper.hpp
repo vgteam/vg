@@ -296,6 +296,18 @@ protected:
     
     /// The information we store for each seed.
     typedef SnarlDistanceIndexClusterer::Seed Seed;
+    
+    /// How should we initialize chain info when it's not stored in the minimizer index?
+    inline static MIPayloadValues no_chain_info() {
+        return {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false,
+                false, false, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE };
+    } 
+    
+    /// How do we convert chain info to an actual seed of the type we are using?
+    /// Also needs to know the hit position, and the minimizer number.
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const MIPayloadValues& chain_info) {
+        return { hit, minimizer, chain_info };
+    }
 
     /// The information we store for each cluster.
     typedef SnarlDistanceIndexClusterer::Cluster Cluster;
