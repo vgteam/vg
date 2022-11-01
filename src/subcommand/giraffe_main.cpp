@@ -30,7 +30,7 @@
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
 
-//#define USE_CALLGRIND
+#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
@@ -355,6 +355,12 @@ void help_giraffe(char** argv) {
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
+    << "  --fallow-region-size INT      distance between seeds in the read required to consider a region fallow [1000]" << endl
+    << "  --reseed-distance INT         distance to search in the graph when reseeding a fallow region [2000]" << endl
+    << "  --recluster-distance INT      distance to allow between seeds when reclustering after reseeding [5000]" << endl
+    << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [5000]" << endl
+    << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [5000]" << endl
+    << "  --use-distance-net            use a precomputed distance net for chaining instead of distance index queries" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
@@ -366,6 +372,7 @@ void help_giraffe(char** argv) {
     << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [100]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+    << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
 }
 
@@ -393,6 +400,13 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
     #define OPT_ALIGN_FROM_CHAINS 1014
     #define OPT_NUM_BP_PER_MIN 1015
+    #define OPT_FALLOW_REGION_SIZE 1016
+    #define OPT_RESEED_DISTANCE 1017
+    #define OPT_RECLUSTER_DISTANCE 1018
+    #define OPT_MAX_CHAIN_CONNECTION 1019
+    #define OPT_MAX_TAIL_LENGTH 1020
+    #define OPT_USE_DISTANCE_NET 1021
+    
 
     // initialize parameters with their default options
     
@@ -412,8 +426,22 @@ int main_giraffe(int argc, char** argv) {
     bool exclude_overlapping_min = false;
     // Should we try dynamic programming, or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
+
     // Should we align from chains of gapless extensions, or from individual gapless extensions?
     bool align_from_chains = false;
+    // How far apart do seeds need to be in the read to create a fallow region?
+    Range<size_t> fallow_region_size = 1000;
+    // How far in the graph should we go to find the subgraph we use to reseed hits for minimizers in fallow regions?
+    Range<size_t> reseed_distance = 2000;
+    // How far should we look when re-clustering after reseeding?
+    Range<size_t> recluster_distance = 5000;
+    // How far apart can seeds be and still be chained together?
+    Range<size_t> max_chain_connection = 5000;
+    // How long of a tail are we willing to align in a chain before forcing a softclip?
+    Range<size_t> max_tail_length = 5000;
+    // Should we use the distance net distance computation method?
+    bool use_distance_net = false;
+    
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -474,6 +502,8 @@ int main_giraffe(int argc, char** argv) {
     bool track_correctness = false;
     // Should we log our mapping decision making?
     bool show_work = false;
+    // How many reads per batch to run at a time?
+    uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = distance_limit
@@ -482,6 +512,11 @@ int main_giraffe(int argc, char** argv) {
         .chain(minimizer_score_fraction)
         .chain(rescue_attempts)
         .chain(max_unique_min)
+        .chain(fallow_region_size)
+        .chain(reseed_distance)
+        .chain(recluster_distance)
+        .chain(max_chain_connection)
+        .chain(max_tail_length)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -561,6 +596,12 @@ int main_giraffe(int argc, char** argv) {
             {"score-fraction", required_argument, 0, 'F'},
             {"no-dp", no_argument, 0, 'O'},
             {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
+            {"fallow-region-size", required_argument, 0, OPT_FALLOW_REGION_SIZE},
+            {"reseed-distance", required_argument, 0, OPT_RESEED_DISTANCE},
+            {"recluster-distance", required_argument, 0, OPT_RECLUSTER_DISTANCE},
+            {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
+            {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
+            {"use-distance-net", no_argument, 0, OPT_USE_DISTANCE_NET},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
@@ -572,12 +613,13 @@ int main_giraffe(int argc, char** argv) {
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"show-work", no_argument, 0, OPT_SHOW_WORK},
+            {"batch-size", required_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:Ot:r:A:L:",
+        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:OB:t:r:A:L:",
                          long_options, &option_index);
 
 
@@ -912,6 +954,30 @@ int main_giraffe(int argc, char** argv) {
             case OPT_ALIGN_FROM_CHAINS:
                 align_from_chains = true;
                 break;
+
+            case OPT_FALLOW_REGION_SIZE:
+                fallow_region_size = parse<Range<size_t>>(optarg);
+                break;
+
+            case OPT_RESEED_DISTANCE:
+                reseed_distance = parse<Range<size_t>>(optarg);
+                break;
+                
+            case OPT_RECLUSTER_DISTANCE:
+                recluster_distance = parse<Range<size_t>>(optarg);
+                break;
+
+            case OPT_MAX_CHAIN_CONNECTION:
+                max_chain_connection = parse<Range<size_t>>(optarg);
+                break;
+
+            case OPT_MAX_TAIL_LENGTH:
+                max_tail_length = parse<Range<size_t>>(optarg);
+                break;
+                
+            case OPT_USE_DISTANCE_NET:
+                use_distance_net = true;
+                break;
                 
             case 'r':
                 {
@@ -983,6 +1049,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_SHOW_WORK:
                 show_work = true;
+                break;
+                
+            case 'B':
+                batch_size = parse<uint64_t>(optarg);
                 break;
                 
             case 't':
@@ -1342,6 +1412,35 @@ int main_giraffe(int argc, char** argv) {
         }
         minimizer_mapper.align_from_chains = align_from_chains;
 
+        if (show_progress) {
+            cerr << "--fallow-region-size " << fallow_region_size << endl;
+        }
+        minimizer_mapper.fallow_region_size = fallow_region_size;
+
+        if (show_progress) {
+            cerr << "--reseed-distance " << reseed_distance << endl;
+        }
+        minimizer_mapper.reseed_distance = reseed_distance;
+        if (show_progress) {
+            cerr << "--recluster-distance " << recluster_distance << endl;
+        }
+        minimizer_mapper.recluster_distance = recluster_distance;
+
+        if (show_progress) {
+            cerr << "--max-chain-connection " << max_chain_connection << endl;
+        }
+        minimizer_mapper.max_chain_connection = max_chain_connection;
+
+        if (show_progress) {
+            cerr << "--max-tail-length " << max_tail_length << endl;
+        }
+        minimizer_mapper.max_tail_length = max_tail_length;
+        
+        if (show_progress && use_distance_net) {
+            cerr << "--use-distance-net" << endl;
+        }
+        minimizer_mapper.use_distance_net = use_distance_net;
+
         if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;
         }
@@ -1595,12 +1694,12 @@ int main_giraffe(int argc, char** argv) {
                     });
                 } else if (!fastq_filename_2.empty()) {
                     //A pair of FASTQ files to map
-                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready);
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready, batch_size);
 
 
                 } else if ( !fastq_filename_1.empty()) {
                     // An interleaved FASTQ file to map, map all its pairs in parallel.
-                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready, batch_size);
                 }
 
                 // Now map all the ambiguous pairs
@@ -1642,13 +1741,13 @@ int main_giraffe(int argc, char** argv) {
                     // GAM file to remap
                     get_input_file(gam_filename, [&](istream& in) {
                         // Open it and map all the reads in parallel.
-                        vg::io::for_each_parallel<Alignment>(in, map_read);
+                        vg::io::for_each_parallel<Alignment>(in, map_read, batch_size);
                     });
                 }
                 
                 if (!fastq_filename_1.empty()) {
                     // FASTQ file to map, map all its reads in parallel.
-                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read);
+                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read, batch_size);
                 }
             }
         

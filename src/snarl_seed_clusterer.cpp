@@ -3473,17 +3473,16 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(Seed& seed1, Seed& se
         size_t distance_to_end1 =   is_rev(seed1.pos) ? get_offset(seed1.pos) + 1 : node_length - get_offset(seed1.pos);
         size_t distance_to_start2 = is_rev(seed2.pos) ? node_length - get_offset(seed2.pos) : get_offset(seed2.pos) + 1;
         size_t distance_to_end2 =   is_rev(seed2.pos) ? get_offset(seed2.pos) + 1 : node_length - get_offset(seed2.pos);
-        cerr << "Same node, distances : " << distance_to_start1 << " " << distance_to_end1 << " " << distance_to_start2 << " " << distance_to_end2 << " and node length " << node_length << endl;
 
         if (distance_to_start1 < distance_to_start2) {
             //IF 1 comes before 2
             minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2), node_length);
-        } else 
-            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end2 , distance_to_start1), node_length);{
+        } else {
+            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end2 , distance_to_start1), node_length);
         }
         if (stop_at_lowest_common_ancestor) {
             //If we only care about the lowest common ancestor, then return
-            return minimum_distance;
+            return SnarlDistanceIndex::minus(minimum_distance, 1);
         }
         
     }

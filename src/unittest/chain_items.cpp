@@ -100,7 +100,7 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when extensions intersect but 
     graph.create_edge(h[3], h[4]);
     
     // Set up the aligner fixture
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     // Set up the chaining space fixture
     algorithms::ChainingSpace<GaplessExtension> space(scoring, nullptr, &graph);
     
@@ -120,7 +120,7 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when everything is on one gian
     auto h = get_handles(graph);
     
     // Set up the aligner fixture
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     // Set up the chaining space fixture
     algorithms::ChainingSpace<GaplessExtension> space(scoring, nullptr, &graph);
     
@@ -142,21 +142,21 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when everything is on one gian
 }
 
 TEST_CASE("score_best_chain scores no gapless extensions as 0", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
     REQUIRE(algorithms::score_best_chain(to_score, space) == 0);
 }
 
 TEST_CASE("score_best_chain scores a 1-base gapless extension as 1", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
     REQUIRE(algorithms::score_best_chain(to_score, space) == 1);
 }
 
 TEST_CASE("score_best_chain scores two adjacent 1-base gapless extensions as 2", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
                                      {2, 3, 1}});
@@ -164,14 +164,14 @@ TEST_CASE("score_best_chain scores two adjacent 1-base gapless extensions as 2",
 }
 
 TEST_CASE("score_best_chain scores one 9-base extension as 9", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9}});
     REQUIRE(algorithms::score_best_chain(to_score, space) == 9);
 }
 
 TEST_CASE("score_best_chain scores two abutting 9-base extensions correctly", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {10, 19, 9}});
@@ -179,7 +179,7 @@ TEST_CASE("score_best_chain scores two abutting 9-base extensions correctly", "[
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions separated by a 1-base gap correctly", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
@@ -188,7 +188,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 1-base g
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base gap correctly", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
@@ -197,7 +197,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base g
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap correctly", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
@@ -206,7 +206,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap c
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap correctly", "[chain_items][score_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
@@ -215,7 +215,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap c
 }
 
 TEST_CASE("find_best_chain chains no gapless extensions as score 0", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
     auto result = algorithms::find_best_chain(to_score, space);
@@ -224,7 +224,7 @@ TEST_CASE("find_best_chain chains no gapless extensions as score 0", "[chain_ite
 }
 
 TEST_CASE("find_best_chain chains a 1-base gapless extension as score 1", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
     auto result = algorithms::find_best_chain(to_score, space);
@@ -233,7 +233,7 @@ TEST_CASE("find_best_chain chains a 1-base gapless extension as score 1", "[chai
 }
 
 TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as score 2", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
                                      {2, 3, 1}});
@@ -243,7 +243,7 @@ TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as scor
 }
 
 TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9}});
     auto result = algorithms::find_best_chain(to_score, space);
@@ -252,7 +252,7 @@ TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][fin
 }
 
 TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {10, 19, 9}});
@@ -262,7 +262,7 @@ TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[c
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base gap correctly", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
@@ -273,7 +273,7 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base ga
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base gap correctly", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
@@ -284,7 +284,7 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base ga
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap correctly", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
@@ -295,7 +295,7 @@ TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap co
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions with a 2-base overlap correctly", "[chain_items][find_best_chain]") {
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
@@ -312,7 +312,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -332,7 +332,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -352,7 +352,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -377,7 +377,7 @@ TEST_CASE("find_best_chain chains two extensions that abut over multiple nodes c
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -406,7 +406,7 @@ TEST_CASE("find_best_chain chains two extensions that abut in graph with a gap i
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -431,7 +431,7 @@ TEST_CASE("find_best_chain chains two extensions that abut in read with a gap in
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -456,7 +456,7 @@ TEST_CASE("find_best_chain chains two extensions that have gaps of different siz
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -487,7 +487,7 @@ TEST_CASE("find_best_chain chains two extensions that overlap the same amount in
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -513,7 +513,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
+    algorithms::MatchAssumingChainingScorer scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -527,49 +527,690 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     REQUIRE(result.second == std::vector<size_t>{0, 1, 2});
 }
 
-TEST_CASE("find_best_chain refuses to let the score go negative", "[chain_items][find_best_chain]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(10, 1);
-    auto h = get_handles(graph);
+// Define a test chaining space for within-node-only matchings.
+
+struct TestItem {
+    pos_t pos;
+    size_t source;
     
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
+    inline bool operator==(const TestItem& other) const {
+        return (this->pos == other.pos && this->source == other.source);
+    }
     
-    // Set up extensions
-    auto to_score = fake_extensions({{1, 2, {h[1]}, 0, 1}, // First one on main diagonal
-                                     {5, 6, {h[4]}, 0, 1}, // Middle one that is further in the read than the graph
-                                     {10, 11, {h[10]}, 0, 1}}); // Last one on main diagonal
+    inline bool operator!=(const TestItem& other) const {
+        return !(*this == other);
+    }
+};
+
+ostream& operator<<(ostream& out, const TestItem& item) {
+    return out << "Item at " << id(item.pos) << (is_rev(item.pos) ? '-' : '+') << offset(item.pos) << " from source " << item.source;
+}
     
-    // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, space);
-    // We'd have to let the score go negative to take either of the indels, so we just stay with the first best hit.
-    REQUIRE(result.second == std::vector<size_t>{0});
+struct TestSource {
+    size_t start;
+    size_t length;
+    
+    inline bool operator==(const TestSource& other) const {
+        return (this->start == other.start && this->length == other.length);
+    }
+    
+    inline bool operator!=(const TestSource& other) const {
+        return !(*this == other);
+    }
+};
+
+ostream& operator<<(ostream& out, const TestSource& source) {
+    return out << "Source at " << source.start << " length " << source.length;
 }
 
-TEST_CASE("find_best_chain is willing to keep indels split if the items suggest it", "[chain_items][find_best_chain]") {
-    // Set up graph fixture
+}
+
+namespace algorithms {
+
+using unittest::TestItem;
+using unittest::TestSource;
+
+template<>
+struct ChainingSpace<TestItem, TestSource> : public SourceChainingSpace<TestItem, TestSource> {
+    using Item = TestItem;
+    using Source = TestSource;
+    
+    ChainingSpace(const VectorView<Source>& sources,
+                  const ChainingScorer& scorer,
+                  const SnarlDistanceIndex* distance_index,
+                  const HandleGraph* graph) :
+        SourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph) {
+        
+        // Nothing to do!
+    }
+    
+    virtual size_t source_read_start(const Source& source) const {
+        return source.start;
+    }
+    
+    virtual size_t source_read_end(const Source& source) const {
+        return source.start + source.length;
+    }
+    
+    virtual size_t source_read_length(const Source& source) const {
+        return source.length;
+    }
+    
+    pos_t graph_start(const Item& item) const {
+        return item.pos;
+    }
+    
+    pos_t graph_end(const Item& item) const {
+        pos_t end = item.pos;
+        get_offset(end) += this->graph_length(item);
+        return end;
+    }
+    
+    size_t graph_path_size(const Item& item) const {
+        return 1;
+    }
+    
+    handle_t graph_path_at(const Item& item, size_t index) const {
+        return this->graph->get_handle(id(item.pos), is_rev(item.pos));
+    }
+    
+    size_t graph_path_offset(const Item& item) const {
+        return offset(item.pos);
+    }
+    
+    
+};
+
+}
+
+}
+
+namespace std {
+
+using vg::unittest::TestItem;
+using vg::unittest::TestSource;
+
+string to_string(const TestItem& item) {
+
+    stringstream ss;
+    ss << item;
+    return ss.str();
+}
+
+string to_string(const TestSource& item) {
+
+    stringstream ss;
+    ss << item;
+    return ss.str();
+}
+
+}
+
+namespace vg {
+
+namespace unittest {
+
+using namespace std;
+
+TEST_CASE("A forward-strand fallow region with one missing seed can be filled in", "[chain_items][reseed_fallow_region]") {
+    
     HashGraph graph = make_long_graph(10, 10);
     auto h = get_handles(graph);
     
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    Aligner scoring;
-    algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
-    // Set up extensions
-    auto to_score = fake_extensions({{10, 20, {h[1]}, 0, 10}, // First one on main diagonal
-                                     {41, 51, {h[4]}, 0, 10}, // Middle one that is further in the read than the graph
-                                     {89, 99, {h[9]}, 0, 10}, // Middle one that is further in the graph than the read
-                                     {100, 110, {h[10]}, 0, 10}}); // Last one on main diagonal
+    vector<TestSource> sources {
+        {0, 1},
+        {50, 1},
+        {90, 5}
+    };
     
-    // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, space);
-    // We should take all of the items in order and not be scared off by the indels.
-    REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
+    vector<TestItem> items {
+        {make_pos_t(1, false, 0), 0},
+        {make_pos_t(10, false, 0), 2}
+    };
+    
+    auto for_each_pos_for_source_in_subgraph = [&](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
+        if (source.start == 50 && std::find(subgraph_ids.begin(), subgraph_ids.end(), 6) != subgraph_ids.end()) {
+            // We've been asked about our no-item source and we have the right node so make an item for it.
+            iteratee(make_pos_t(6, false, 0));
+        }
+    };
+    
+    algorithms::IndelOnlyChainingScorer scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items[0],
+        items[1],
+        space,
+        source_sort_inverse,
+        100,
+        for_each_pos_for_source_in_subgraph
+    );
+                                                                 
+    REQUIRE(reseeded.size() == 1);
+    REQUIRE(reseeded[0].source == 1);
+    REQUIRE(reseeded[0].pos == make_pos_t(6, false, 0));
+}
+
+/// Take a table of sources, hit positions, and whether the hit should
+/// initially be visible.
+///
+/// Returns a vector of deduplicated sources, a vector of initially visible
+/// hits, a vector of hits that could be recovered, and a function that finds
+/// the recoverable hits when asked.
+static std::tuple<vector<TestSource>, vector<TestItem>, vector<TestItem>, std::function<void(const TestSource&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>> make_reseed_problem(const vector<tuple<TestSource, pos_t, bool>>& all_items) {
+    // Build out sources, initial items, and recoverable items
+    vector<TestSource> sources;
+    vector<TestItem> items;
+    vector<TestItem> recoverable;
+    for (size_t item_num = 0; item_num < all_items.size(); item_num++) {
+        // Make sure we have all the unique sources.
+        if (sources.size() == 0 || std::get<0>(all_items[item_num]) != sources.back()) {
+            // New source
+            sources.push_back(std::get<0>(all_items[item_num]));
+        }
+        size_t source_num = sources.size() - 1;
+        
+        if (std::get<2>(all_items[item_num])) {
+            // For each item we should see initially, make it
+            items.emplace_back();
+            items.back().pos = std::get<1>(all_items[item_num]);
+            items.back().source = source_num;
+        } else {
+            // If we shouldn't see it initially, store it for later
+            recoverable.emplace_back();
+            recoverable.back().pos = std::get<1>(all_items[item_num]);
+            recoverable.back().source = source_num;
+        }
+    }
+    
+    // We need to capture sources and recoverable by value to ensure that we
+    // have access to them after the enclosing function returns.
+    auto for_each_pos_for_source_in_subgraph = [sources, recoverable](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
+        // Just do a scan for every query
+        for (auto& item : recoverable) {
+            if (sources[item.source] == source && std::binary_search(subgraph_ids.begin(), subgraph_ids.end(), id(item.pos))) {
+                iteratee(item.pos);
+            }
+        }
+    };
+    
+    return std::tie(sources, items, recoverable, for_each_pos_for_source_in_subgraph);
+}
+
+TEST_CASE("A fallow region with several seeds can be filled in", "[chain_items][reseed_fallow_region]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{45, 3}, make_pos_t(5, false, 5), false},
+        {{49, 1}, make_pos_t(5, true, 0), false},
+        {{50, 1}, make_pos_t(6, false, 0), false},
+        {{52, 1}, make_pos_t(6, false, 2), false},
+        {{55, 1}, make_pos_t(6, false, 5), false},
+        {{55, 1}, make_pos_t(6, false, 6), false},
+        {{55, 1}, make_pos_t(6, false, 7), false},
+        {{90, 5}, make_pos_t(10, false, 0), true}
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 7);
+    
+    algorithms::IndelOnlyChainingScorer scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items.front(),
+        items.back(),
+        space,
+        source_sort_inverse,
+        100,
+        for_each_pos_for_source_in_subgraph
+    );
+                                                                 
+    REQUIRE(reseeded.size() == recoverable.size());
+    REQUIRE(reseeded == recoverable);
+}
+
+TEST_CASE("Seeds not in the region are not found", "[chain_items][reseed_fallow_region]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{45, 3}, make_pos_t(5, false, 5), false},
+        {{49, 1}, make_pos_t(5, true, 0), false},
+        {{50, 1}, make_pos_t(6, false, 0), true},
+        {{52, 1}, make_pos_t(6, false, 2), false},
+        {{55, 1}, make_pos_t(6, false, 5), false},
+        {{55, 1}, make_pos_t(6, false, 6), false},
+        {{55, 1}, make_pos_t(6, false, 7), false},
+        {{90, 5}, make_pos_t(10, false, 0), true}
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 6);
+    
+    algorithms::IndelOnlyChainingScorer scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+    vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+        items.at(1),
+        items.at(2),
+        space,
+        source_sort_inverse,
+        100,
+        for_each_pos_for_source_in_subgraph
+    );
+                                                                 
+    REQUIRE(reseeded.size() == 4);
+}
+
+TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_fallow_regions]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{45, 3}, make_pos_t(5, false, 5), false},
+        {{49, 1}, make_pos_t(5, true, 0), false},
+        {{50, 1}, make_pos_t(6, false, 0), true},
+        {{52, 1}, make_pos_t(6, false, 2), false},
+        {{55, 1}, make_pos_t(6, false, 5), false},
+        {{55, 1}, make_pos_t(6, false, 6), false},
+        {{55, 1}, make_pos_t(6, false, 7), false},
+        {{90, 5}, make_pos_t(10, false, 0), true}
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 6);
+    
+    algorithms::IndelOnlyChainingScorer scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    // We need to operate on mutable vectors
+    vector<TestItem> reseeded {items.begin(), items.end()};
+    // Everything's already in read order.
+    vector<size_t> reseeded_indexes = range_vector(items.size());
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+    
+    SECTION("no reseeding is done if the fallow region threshold is large") {
+
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            100,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            100
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        reseeded_view.with_vector([&](const vector<TestItem>& reordered) {
+            // Make sure we still just see the original items
+            REQUIRE(reordered == items);
+        });
+    }
+    
+    SECTION("reseeding is only done in gaps that are larger than the threshold") {
+        // Only the first gap is too long here
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            100,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            45
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        REQUIRE(reseeded_view.size() == 5);
+    }
+    
+    SECTION("reseeding does all gaps longer than the threshold") {
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            100,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            10
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        REQUIRE(reseeded_view.size() == all_items.size());
+        
+        // We can't actually insist on the same position order as all_items,
+        // since order of graph hits isn't specified, but we can insist on the
+        // same source order
+        
+        for (size_t i = 0; i < reseeded_view.size(); i++) {
+            REQUIRE(sources[reseeded_view[i].source] == std::get<0>(all_items[i]));
+        }
+    }
+    
+    SECTION("reseeding works when reordering is important") {
+
+        std::reverse(reseeded.begin(), reseeded.end());
+        std::reverse(reseeded_indexes.begin(), reseeded_indexes.end());
+
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            100,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            10
+        );
+        REQUIRE(reseeded.size() == reseeded_indexes.size());
+        VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+        
+        REQUIRE(reseeded_view.size() == all_items.size());
+        
+        // Sort all the items we ought to have
+        vector<TestItem> sorted {items.begin(), items.end()};
+        sorted.reserve(sorted.size() + recoverable.size());
+        std::copy(recoverable.begin(), recoverable.end(), std::back_inserter(sorted));
+        std::sort(sorted.begin(), sorted.end(), [&](const TestItem& a, const TestItem& b) -> bool {
+            return (sources.at(a.source).start < sources.at(b.source).start ||
+                    (sources.at(a.source).start == sources.at(b.source).start && sources.at(a.source).length < sources.at(b.source).length));
+        });
+         
+        reseeded_view.with_vector([&](const vector<TestItem>& reordered) {
+            // Make sure they match
+            REQUIRE(reordered == sorted);
+        });
+    }
+}
+
+TEST_CASE("Reseeding works when hits collide and are over-clustered", "[chain_items][reseed_fallow_regions]") {
+    
+    HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // What items are there, and should they be initially found?
+    // We assume this is sorted by source.
+    vector<tuple<TestSource, pos_t, bool>> all_items {
+        {{0, 1}, make_pos_t(3, false, 0), true},
+        {{0, 1}, make_pos_t(1, false, 0), true},
+        {{0, 1}, make_pos_t(5, false, 0), true},
+        {{0, 1}, make_pos_t(7, false, 0), true},
+        {{10, 1}, make_pos_t(4, false, 0), false},
+        {{10, 1}, make_pos_t(6, false, 0), false},
+        {{10, 1}, make_pos_t(8, false, 0), false},
+        {{10, 1}, make_pos_t(2, false, 0), false},
+        {{20, 1}, make_pos_t(3, false, 0), true},
+        {{20, 1}, make_pos_t(7, false, 0), true},
+        {{20, 1}, make_pos_t(9, false, 0), true},
+        {{20, 1}, make_pos_t(5, false, 0), true},
+    };
+    
+    auto problem = make_reseed_problem(all_items);
+    vector<TestSource>& sources = std::get<0>(problem);
+    vector<TestItem>& items = std::get<1>(problem);
+    vector<TestItem>& recoverable = std::get<2>(problem);
+    auto& for_each_pos_for_source_in_subgraph = std::get<3>(problem);
+    
+    REQUIRE(recoverable.size() == 4);
+    
+    algorithms::IndelOnlyChainingScorer scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    // We need to operate on mutable vectors
+    vector<TestItem> reseeded {items.begin(), items.end()};
+    // Everything's already in read order.
+    vector<size_t> reseeded_indexes = range_vector(items.size());
+    
+    std::unique_ptr<VectorViewInverse> source_sort_inverse;
+    
+    algorithms::reseed_fallow_regions<TestItem, TestSource>(
+        reseeded,
+        reseeded_indexes,
+        space,
+        source_sort_inverse,
+        100,
+        for_each_pos_for_source_in_subgraph,
+        100,
+        10
+    );
+    REQUIRE(reseeded.size() == reseeded_indexes.size());
+    VectorView<TestItem> reseeded_view {reseeded, reseeded_indexes};
+    
+    REQUIRE(reseeded_view.size() == all_items.size());
+    
+    // We can't actually insist on the same position order as all_items,
+    // since order of graph hits isn't specified, but we can insist on the
+    // same source order
+    
+    for (size_t i = 0; i < reseeded_view.size(); i++) {
+        REQUIRE(sources[reseeded_view[i].source] == std::get<0>(all_items[i]));
+    }
+    
+}
+
+TEST_CASE("Reseeding does not create extraneous hits even when they are visible in search", "[chain_items][reseed_fallow_regions]") {
+    
+   HashGraph graph = make_long_graph(10, 10);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    vector<TestSource> sources {
+        {0, 1},
+        {1, 1},
+        {50, 1},
+        {90, 5},
+        {92, 5}
+    };
+    
+    vector<TestItem> items {
+        {make_pos_t(1, false, 0), 0},
+        {make_pos_t(1, false, 1), 1},
+        {make_pos_t(5, true, 1), 1},
+        {make_pos_t(8, true, 0), 3},
+        {make_pos_t(10, false, 0), 3},
+        {make_pos_t(10, false, 2), 4}
+    };
+    
+    // Synthesize all the existing items when asked, as well as the new ones.
+    auto for_each_pos_for_source_in_subgraph = [&](const TestSource& source, const std::vector<nid_t>& subgraph_ids, const std::function<void(const pos_t&)>& iteratee) -> void {
+        for (auto id : subgraph_ids) {
+            switch(id) {
+                case 1:
+                    if (source.start == 0) {
+                        iteratee(make_pos_t(1, false, 0));
+                    }
+                    if (source.start == 1) {
+                        iteratee(make_pos_t(1, false, 1));
+                    }
+                    break;
+                case 5:
+                    if (source.start == 1) {
+                        iteratee(make_pos_t(5, true, 1));
+                    }
+                    break;
+                case 6:
+                    if (source.start == 50) {
+                        iteratee(make_pos_t(6, false, 0));
+                    }
+                    break;
+                case 8:
+                    if (source.start == 90) {
+                        iteratee(make_pos_t(8, true, 0));
+                    }
+                    break;
+                case 10:
+                    if (source.start == 90) {
+                        iteratee(make_pos_t(10, false, 0));
+                    }
+                    if (source.start == 92) {
+                        iteratee(make_pos_t(10, false, 2));
+                    }
+                    break;
+            }
+        }
+    };
+    
+    algorithms::IndelOnlyChainingScorer scoring;
+    algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
+    
+    SECTION("reseed_fallow_region doesn't find its bounds or other hits of them") {
+        std::unique_ptr<VectorViewInverse> source_sort_inverse;
+
+        vector<TestItem> reseeded = algorithms::reseed_fallow_region<TestItem, TestSource>(
+            items[1],
+            items[4],
+            space,
+            source_sort_inverse,
+            100,
+            for_each_pos_for_source_in_subgraph
+        );
+                                                                     
+        REQUIRE(reseeded.size() == 1);
+        REQUIRE(reseeded[0].source == 2);
+        REQUIRE(reseeded[0].pos == make_pos_t(6, false, 0));
+    }
+    
+    SECTION("reseed_fallow_regions doesn't find multiple copies of things") {
+        std::unique_ptr<VectorViewInverse> source_sort_inverse;
+       
+        // We need to operate on mutable vectors
+        vector<TestItem> reseeded {items.begin(), items.end()};
+        // Everything's already in read order.
+        vector<size_t> reseeded_indexes = range_vector(items.size());
+       
+        algorithms::reseed_fallow_regions<TestItem, TestSource>(
+            reseeded,
+            reseeded_indexes,
+            space,
+            source_sort_inverse,
+            100,
+            for_each_pos_for_source_in_subgraph,
+            100,
+            10
+        );
+        
+        // We should have one item per hit our search function can generate
+        REQUIRE(reseeded.size() == 7);
+    }
+    
+}
+
+
+TEST_CASE("DistanceNetDistanceSource agrees with DistanceIndexDistanceSource", "[chain_items][find_best_chain]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(5, 4);
+    auto h = get_handles(graph);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    algorithms::DistanceIndexDistanceSource index_source(&distance_index, &graph);
+    
+    std::vector<pos_t> positions {
+        make_pos_t(1, false, 0),
+        make_pos_t(1, false, 1),
+        make_pos_t(2, false, 0),
+        make_pos_t(2, false, 3),
+        make_pos_t(3, true, 0),
+        make_pos_t(3, true, 3),
+        make_pos_t(4, false, 3)
+    };
+    
+    algorithms::DistanceNetDistanceSource net_source(&graph, positions);
+    
+    auto check = [&](const pos_t& pos_a, const pos_t& pos_b) {
+        size_t index_distance = index_source.get_distance(pos_a, pos_b);
+        size_t net_distance = net_source.get_distance(pos_a, pos_b);
+        REQUIRE(index_distance == net_distance);
+    };
+    
+    
+    SECTION("distances match within a forward strand node") {
+        check(positions[0], positions[1]);
+    }
+    
+    SECTION("distances match within a reverse strand node") {
+        check(positions[4], positions[5]);
+    }
+    
+    SECTION("distances match across forward strand nodes") {
+        check(positions[0], positions[2]);
+    }
+    
+    SECTION("distances match when unreachable") {
+        check(positions[1], positions[0]);
+    }
+    
+    SECTION("distances match when positions are equal") {
+        check(positions[0], positions[0]);
+    }
 }
 
 }

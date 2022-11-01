@@ -933,17 +933,24 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         throw std::runtime_error("WFAAlignment is not OK and cannot become a path");
     }
 
-    if (this->unlocalized_insertion()) {
-        throw std::runtime_error("WFAAlignment is an unlocalized insertion and cannot bcome a path");
-    }
-
     if (this->seq_offset + this->length > sequence.size()) {
         throw std::runtime_error("WFAAlignment extends past end of sequence");
     }
 
     Path result;
+    
+    if (this->unlocalized_insertion()) {
+        // Special handling for pure insertions with no position: make a Path
+        // that has no position.
+        vg::Mapping* m = result.add_mapping();
+        vg::Edit* e = m->add_edit();
+        e->set_to_length(this->edits.front().second);
+        e->set_sequence(sequence.substr(this->seq_offset, this->edits.front().second));
+        return result;
+    }
 
     if (this->path.empty()) {
+        // Not a pure insert, but has an empty path. We assume it's an empty WFAAlignment.
         // Nothing to do!
         return result;
     }
