@@ -339,9 +339,6 @@ int main_chain(int argc, char** argv) {
     CALLGRIND_START_INSTRUMENTATION;
 #endif
 
-    // Make sure to use the distance index directly
-    space.give_distance_source(new vg::algorithms::DistanceIndexDistanceSource(&distance_index, &graph));
-    
     // Do the chaining. We assume items is already sorted right.
     std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, space);
     

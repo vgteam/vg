@@ -103,20 +103,6 @@ int IndelOnlyChainingScorer::score_transition(size_t read_distance,
     return score;
 }
 
-DistanceIndexDistanceSource::DistanceIndexDistanceSource(const SnarlDistanceIndex* distance_index, const HandleGraph* graph) : distance_index(distance_index), graph(graph) {
-    // Nothing to do!
-}
-
-size_t DistanceIndexDistanceSource::get_distance(const pos_t& left, const pos_t& right) {
-    // Get the oriented minimum distance from the index
-    size_t distance = distance_index->minimum_distance(
-        id(left), is_rev(left), offset(left),
-        id(right), is_rev(right), offset(right),
-        false, graph);
-    // And return it
-    return distance;
-}
-
 void LookbackStrategy::Problem::place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph) {
     // Default implementation: no-op.
 }
