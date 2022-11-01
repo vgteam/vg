@@ -14,30 +14,30 @@ namespace algorithms {
 using namespace std;
 
 ostream& operator<<(ostream& out, const TracedScore& value) {
-    if (TracedScore::source(value) == TracedScore::nowhere()) {
-        return out << TracedScore::score(value) << " from nowhere";
+    if (value.source == TracedScore::nowhere()) {
+        return out << value.score << " from nowhere";
     }
-    return out << TracedScore::score(value) << " from #" << TracedScore::source(value);
+    return out << value.score << " from #" << value.source;
 }
 
 
-void TracedScore::max_in(TracedScore& dest, const vector<TracedScore>& options, size_t option_number) {
+void TracedScore::max_in(const vector<TracedScore>& options, size_t option_number) {
     auto& option = options[option_number];
-    if (score(option) > score(dest) || source(dest) == nowhere()) {
+    if (option.score > this->score || this->source == nowhere()) {
         // This is the new winner.
-        score(dest) = score(option);
-        source(dest) = option_number;
+        this->score = option.score;
+        this->source = option_number;
     }
 }
 
 TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
     TracedScore got = options[option_number];
-    source(got) = option_number;
+    got.source = option_number;
     return got;
 }
 
-TracedScore TracedScore::add_points(const TracedScore& s, int adjustment) {
-    return annotate(score(s) + adjustment, source(s));
+TracedScore TracedScore::add_points(int adjustment) const {
+    return {this->score + adjustment, this->source};
 }
 
 }

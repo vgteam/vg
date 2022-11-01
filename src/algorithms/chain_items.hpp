@@ -790,43 +790,18 @@ public:
         return {0, nowhere()};
     }
     
-    /// Pack a score together with its provenance
-    inline static TracedScore annotate(int points, size_t from) {
-        return {points, from};
-    }
-
-    /// Accessor to get the score
-    inline static int& score(TracedScore& s) {
-        return s.first;
-    }
-    
-    /// Accessor to get the score, when const
-    inline static const int& score(const TracedScore& s) {
-        return s.first;
-    }
-    
-    /// Accessor to get the source
-    inline static size_t& source(TracedScore& s) {
-        return s.second;
-    }
-    
-    /// Accessor to get the source, when const
-    inline static const size_t& source(const TracedScore& s) {
-        return s.second;
-    }
-    
     /// Max in a score from a DP table. If it wins, record provenance.
-    static void max_in(TracedScore& dest, const vector<TracedScore>& options, size_t option_number);
+    void max_in(const vector<TracedScore>& options, size_t option_number);
     
     /// Get a score from a table and record provenance in it.
     static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
-    static TracedScore add_points(const TracedScore& s, int adjustment);
+    TracedScore add_points(int adjustment) const;
     
     /// Compare for equality
     inline bool operator==(const TracedScore& other) const {
-        return first == other.first && second == other.second;
+        return score == other.score && source == other.source;
     }
     
     /// Compare for inequality
@@ -836,18 +811,18 @@ public:
     
     /// Compare for less-than
     inline bool operator<(const TracedScore& other) const {
-        return first < other.first || (first == other.first && second < other.second);
+        return score < other.score || (score == other.score && source < other.source);
     }
     
     /// Compare for greater-than
     inline bool operator>(const TracedScore& other) const {
-        return first > other.first || (first == other.first && second > other.second);
+        return score > other.score || (score == other.score && source > other.source);
     }
     
     // Number of points
-    int first;
+    int score;
     // Index of source score among possibilities/traceback pointer
-    size_t second;
+    size_t source;
 };
 
 }
@@ -1197,7 +1172,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
         std::string here_gvnode = "i" + std::to_string(i);
         
         // If we come from nowhere, we get those points.
-        best_chain_score[i] = std::max(best_chain_score[i], TracedScore::annotate(item_points, TracedScore::nowhere()));
+        best_chain_score[i] = std::max(best_chain_score[i], {item_points, TracedScore::nowhere()});
         
 #ifdef debug_chaining
         cerr << "Look at transitions to #" << i
@@ -1303,7 +1278,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
                 TracedScore source_score = TracedScore::score_from(best_chain_score, *predecessor_index_it);
                 
                 // And the score with the transition and the points from the item
-                TracedScore from_source_score = TracedScore::add_points(source_score, jump_points + item_points);
+                TracedScore from_source_score = source_score.add_points(jump_points + item_points);
                 
                 // Remember that we could make this jump
                 best_chain_score[i] = std::max(best_chain_score[i],
@@ -1312,19 +1287,19 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
 #ifdef debug_chaining
                 cerr << "\t\tWe can reach #" << i << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
 #endif
-                if (TracedScore::score(from_source_score) > 0) {
+                if (from_source_score.score > 0) {
                     // Only explain edges that were actual candidates since we
                     // won't let local score go negative
                     
                     std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
                     // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, TracedScore::score(from_source_score), {
+                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
                         {"label", std::to_string(jump_points)},
-                        {"weight", std::to_string(std::max<int>(1, TracedScore::score(from_source_score)))}
+                        {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
                     });
                 }
                 
-                achieved_score = TracedScore::score(from_source_score);
+                achieved_score = from_source_score.score;
             } else {
 #ifdef debug_chaining
                 cerr << "\t\tTransition is impossible." << endl;
@@ -1345,7 +1320,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
 #endif
         
         std::stringstream label_stream;
-        label_stream << "#" << i << " " << space.to_string(here) << " = " << item_points << "/" << TracedScore::score(best_chain_score[i]);
+        label_stream << "#" << i << " " << space.to_string(here) << " = " << item_points << "/" << best_chain_score[i].score;
         diagram.add_node(here_gvnode, {
             {"label", label_stream.str()}
         });
@@ -1369,7 +1344,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
         }
         
         // See if this is the best overall
-        TracedScore::max_in(best_score, best_chain_score, i);
+        best_score.max_in(best_chain_score, i);
         
 #ifdef debug_chaining
         cerr << "\tBest chain end so far: " << best_score << endl;
@@ -1388,7 +1363,7 @@ vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score
     
     // Now we need to trace back.
     vector<size_t> traceback;
-    size_t here = TracedScore::source(best_past_ending_score_ever);
+    size_t here = best_past_ending_score_ever.source;
     if (here != TracedScore::nowhere()) {
 #ifdef debug_chaining
         cerr << "Chain ends at #" << here << " " << space.to_string(to_chain[here])
@@ -1399,7 +1374,7 @@ vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score
 #ifdef debug_chaining
             cerr << "Which gets score " << best_chain_score[here] << endl;
 #endif
-            here = TracedScore::source(best_chain_score[here]);
+            here = best_chain_score[here].source;
 #ifdef debug_chaining
             if (here != TracedScore::nowhere()) {
                 cerr << "And comes after #" << here
@@ -1438,7 +1413,7 @@ pair<int, vector<size_t>> find_best_chain(const Collection& to_chain,
                                                                     space);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
-            TracedScore::score(best_past_ending_score_ever),
+            best_past_ending_score_ever.score,
             chain_items_traceback(best_chain_score, to_chain, best_past_ending_score_ever, space));
     }
 }
@@ -1455,7 +1430,8 @@ int score_best_chain(const Collection& to_chain,
     } else {
         // Do the DP but without the traceback.
         vector<TracedScore> best_chain_score;
-        return TracedScore::score(algorithms::chain_items_dp(best_chain_score, to_chain, space));
+        TracedScore winner = algorithms::chain_items_dp(best_chain_score, to_chain, space);
+        return winner.score;
     }
 }
 
