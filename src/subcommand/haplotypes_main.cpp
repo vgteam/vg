@@ -9,11 +9,7 @@
 
 #include "subcommand.hpp"
 
-#include "../gbwt_helper.hpp"
-#include "../gbwtgraph_helper.hpp"
-#include "../snarl_distance_index.hpp"
-
-#include <gbwtgraph/algorithms.h>
+#include "../recombinator.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -27,7 +23,7 @@ using namespace vg;
 //----------------------------------------------------------------------------
 
 void help_haplotypes(char** argv) {
-    // FIXME number of jobs, GBZ output
+    // FIXME number of jobs, GBZ output, check that the generated GBZ is a subgraph
     std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] -o output.gbwt graph.gbz" << std::endl;
     std::cerr << std::endl;
     // FIXME description
@@ -149,156 +145,6 @@ std::vector<std::pair<gbwt::size_type, gbwt::size_type>> get_sequences(handle_t 
 
 //----------------------------------------------------------------------------
 
-struct Haplotype
-{
-    size_t chain, id, fragment;
-    gbwt::edge_type position; // At the end of previous `extend()` call.
-    gbwt::vector_type path;
-
-    // Extends the haplotype from the given (SA[i], i) pair at the start of the subchain over
-    // the subchain.
-    void extend(std::pair<gbwt::size_type, gbwt::size_type> sequence,
-                std::pair<handle_t, handle_t> subchain,
-                const gbwtgraph::GBZ& gbz,
-                const gbwt::FastLocate& r_index) {
-        if (this->position != gbwt::invalid_edge()) {
-            this->connect(subchain.first, gbz.graph);
-        } else {
-            this->prefix(r_index.seqId(sequence.first), subchain.first, gbz.index);
-        }
-
-        gbwt::edge_type curr(gbwtgraph::GBWTGraph::handle_to_node(subchain.first), sequence.second);
-        if (!gbz.index.contains(curr)) {
-            std::cerr << "error: [Haplotype::extend()] The GBWT index does not contain position "; gbwt::operator<<(std::cerr, curr) << std::endl;
-            return;
-        }
-        gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(subchain.second);
-        while (curr.first != end) {
-            curr = gbz.index.LF(curr);
-            if (curr.first == gbwt::ENDMARKER) {
-                std::cerr << "error: [Haplotype::extend()] The sequence did not reach " << to_string(subchain.second) << std::endl;
-                return;
-            }
-            this->path.push_back(curr.first);
-        }
-        this->position = curr;
-    }
-
-    // Takes the specified sequence from the GBWT.
-    void take(gbwt::size_type sequence, const gbwt::GBWT& index, gbwt::GBWTBuilder& builder) {
-        if (!this->path.empty() || this->fragment > 0) {
-            std::cerr << "error: [Haplotype::take()] Cannot take a sequence after haplotype generation has started" << std::endl;
-            return;
-        }
-        if (sequence >= index.sequences()) {
-            std::cerr << "error: [Haplotype::take()] The GBWT index does not contain sequence " << sequence << std::endl;
-            return;
-        }
-        this->position = gbwt::invalid_edge();
-        this->path = index.extract(sequence);
-        this->insert(builder);
-        this->fragment++;
-        this->path.clear();
-    }
-
-    // Extends the current sequence until the end, inserts the path into the builder, and starts the next fragment.
-    void finish(gbwt::GBWT& index, gbwt::GBWTBuilder& builder) {
-        this->suffix(index);
-        this->insert(builder);
-        this->fragment++;
-        this->path.clear();
-    }
-
-private:
-    // Extend the haplotype over the unary path from the current position up to
-    // and including `until`.
-    void connect(handle_t until, const gbwtgraph::GBWTGraph& graph) {
-        if (this->position == gbwt::invalid_edge()) {
-            std::cerr << "error: [Haplotype::connect()] There is no current position" << std::endl;
-            return;
-        }
-        handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(this->position.first);
-        this->position = gbwt::invalid_edge();
-        std::unordered_set<handle_t> visited;
-        while (curr != until) {
-            if (visited.find(curr) != visited.end()) {
-                std::cerr << "error: [Haplotype::connect()] The path contains a cycle" << std::endl;
-                return;
-            }
-            visited.insert(curr);
-            handle_t successor = empty_handle();
-            size_t successors = 0;
-            graph.follow_edges(curr, false, [&](const handle_t& next) {
-                successor = next;
-                successors++;
-            });
-            if (successors != 1) {
-                std::cerr << "error: [Haplotype::connect()] The path is not unary" << std::endl;
-                return;
-            }
-            curr = successor;
-        }
-    }
-
-    // Take a prefix of the given GBWT sequence up to and including `until`.
-    void prefix(gbwt::size_type sequence, handle_t until, const gbwt::GBWT& index) {
-        this->position = gbwt::invalid_edge();
-        if (sequence >= index.sequences()) {
-            std::cerr << "error: [Haplotype::prefix()] Invalid GBWT sequence id " << sequence << std::endl;
-            return;
-        }
-        gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(until);
-        for (gbwt::edge_type curr = index.start(sequence); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
-            this->path.push_back(curr.first);
-            if (curr.first == end) {
-                this->position = curr;
-                return;
-            }
-        }
-        std::cerr << "error: [Haplotype::prefix()] GBWT sequence " << sequence << " did not reach " << to_string(until) << std::endl;
-        return;
-    }
-
-    // Extend the previous sequence until the end.
-    void suffix(const gbwt::GBWT& index) {
-        if (this->position == gbwt::invalid_edge()) {
-            std::cerr << "error: [Haplotype::suffix()] There is no current position" << std::endl;
-            return;
-        }
-        for (gbwt::edge_type curr = index.LF(this->position); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
-            this->path.push_back(curr.first);
-        }
-        this->position = gbwt::invalid_edge();
-    }
-
-    // Inserts the path into the builder.
-    void insert(gbwt::GBWTBuilder& builder) {
-        if (this->path.empty()) {
-            std::cerr << "error: [Haplotype::insert()] The path is empty" << std::endl;
-            return;
-        }
-
-        // FIXME sample name?
-        std::string sample_name = "recombination";
-        gbwt::size_type sample_id = builder.index.metadata.sample(sample_name);
-        if (sample_id >= builder.index.metadata.samples()) {
-            builder.index.metadata.addSamples({ sample_name });
-        }
-
-        // FIXME contig name?
-        std::string contig_name = "chain_" + std::to_string(this->chain);
-        gbwt::size_type contig_id = builder.index.metadata.contig(contig_name);
-        if (contig_id >= builder.index.metadata.contigs()) {
-            builder.index.metadata.addContigs({ contig_name });
-        }
-
-        builder.index.metadata.addPath(sample_id, contig_id, this->id, this->fragment);
-        builder.insert(this->path, true);
-    }
-};
-
-//----------------------------------------------------------------------------
-
 int main_haplotypes(int argc, char** argv) {
     double start = gbwt::readTimer();
     if (argc < 5) {
@@ -377,47 +223,38 @@ int main_haplotypes(int argc, char** argv) {
         }
     }
 
-    // Determine GBWT construction jobs.
+    // Load the indexes.
+    double checkpoint = gbwt::readTimer();
     gbwtgraph::GBZ gbz;
     load_gbz(gbz, graph_name, progress);
-    double checkpoint = gbwt::readTimer();
-    if (progress) {
-        std::cerr << "Determining GBWT construction jobs" << std::endl;
-    }
-    size_t size_bound = gbz.graph.get_node_count() / APPROXIMATE_JOBS;
-    gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(gbz.graph, size_bound);
-    if (progress) {
-        double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Partitioned " << jobs.components << " components into " << jobs.size() << " jobs in " << seconds << " seconds" << std::endl;
-    }
-
-    // Load the distance index and partition top-level chains between jobs.
+    gbwt::FastLocate r_index;
+    load_r_index(r_index, r_index_name, progress);
+    r_index.setGBWT(gbz.index);
     SnarlDistanceIndex distance_index;
     if (progress) {
         std::cerr << "Loading distance index from " << distance_name << std::endl;
     }
     distance_index.deserialize(distance_name);
-    std::vector<std::vector<gbwtgraph::TopLevelChain>> partitioned_chains = gbwtgraph::partition_chains(distance_index, gbz.graph, jobs);
-    jobs.clear(); // This saves memory.
+    if (progress) {
+        double seconds = gbwt::readTimer() - checkpoint;
+        std::cerr << "Loaded the indexes in " << seconds << " seconds" << std::endl;
+    }
 
-    // Load the r-index.
-    gbwt::FastLocate r_index;
-    load_r_index(r_index, r_index_name, progress);
-    r_index.setGBWT(gbz.index);
+    // Create a recombinator.
+    Recombinator recombinator(gbz, r_index, distance_index, progress);
 
-    // FIXME what to do with chains that do not contain selected snarls?
-    // FIXME what to do with subchains not covered by any haplotype
-    // FIXME what to do with chrX, chrY, and other special cases
     // FIXME are all chains in the right orientation?
+    // FIXME if there are fragments without crossable subchains, take an entire haplotype
+    // FIXME choose a different haplotype for a prefix/suffix?s
     if (progress) {
         std::cerr << "Processing chains using " << omp_get_max_threads() << " threads" << std::endl;
     }
     checkpoint = gbwt::readTimer();
-    std::vector<gbwt::GBWT> indexes(partitioned_chains.size());
+    std::vector<gbwt::GBWT> indexes(recombinator.chains_by_job.size());
     size_t total_snarls = 0, total_skipped = 0, total_subchains = 0, total_generated = 0, total_took = 0;
     #pragma omp parallel for schedule(dynamic, 1)
-    for (size_t job = 0; job < partitioned_chains.size(); job++) {
-        const std::vector<gbwtgraph::TopLevelChain>& chains = partitioned_chains[job];
+    for (size_t job = 0; job < recombinator.chains_by_job.size(); job++) {
+        const std::vector<gbwtgraph::TopLevelChain>& chains = recombinator.chains_by_job[job];
         // FIXME buffer size?
         gbwt::GBWTBuilder builder(sdsl::bits::length(gbz.index.sigma() - 1));
         builder.index.addMetadata();
@@ -503,7 +340,7 @@ int main_haplotypes(int argc, char** argv) {
 
             // Generate the haplotypes.
             // FIXME include reference paths?
-            std::vector<Haplotype> haplotypes;
+            std::vector<Recombinator::Haplotype> haplotypes;
             for (size_t i = 0; i < NUM_HAPLOTYPES; i++) {
                 haplotypes.push_back({ chains[chain].offset, i, 0, gbwt::invalid_edge(), {} });
             }
@@ -512,7 +349,7 @@ int main_haplotypes(int argc, char** argv) {
                 if (subchains[i] == empty_subchain()) {
                     if (have_haplotypes) {
                         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                            haplotypes[haplotype].finish(gbz.index, builder);
+                            haplotypes[haplotype].finish(recombinator, builder);
                         }
                     }
                     have_haplotypes = false;
@@ -522,21 +359,21 @@ int main_haplotypes(int argc, char** argv) {
                 if (sequences.empty()) {
                     if (have_haplotypes) {
                         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                            haplotypes[haplotype].finish(gbz.index, builder);
+                            haplotypes[haplotype].finish(recombinator, builder);
                         }
                     }
                     have_haplotypes = false;
                     continue;
                 }
                 for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                    haplotypes[haplotype].extend(sequences[haplotype % sequences.size()], subchains[i], gbz, r_index);
+                    haplotypes[haplotype].extend(sequences[haplotype % sequences.size()], subchains[i], recombinator);
                 }
                 have_haplotypes = true;
                 generated_haplotypes = true;
             }
             if (have_haplotypes) {
                 for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                    haplotypes[haplotype].finish(gbz.index, builder);
+                    haplotypes[haplotype].finish(recombinator, builder);
                 }
                 have_haplotypes = false;
             }
@@ -546,7 +383,7 @@ int main_haplotypes(int argc, char** argv) {
                 gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(chains[chain].handle);
                 auto sequences = r_index.decompressDA(node);
                 for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                    haplotypes[haplotype].take(sequences[haplotype % sequences.size()], gbz.index, builder);
+                    haplotypes[haplotype].take(sequences[haplotype % sequences.size()], recombinator, builder);
                 }
             }
 
