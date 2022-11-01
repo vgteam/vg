@@ -1234,12 +1234,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // What cluster seeds define the space for clusters' chosen chains?
     vector<vector<size_t>> cluster_chain_seeds;
     
-    // For chaining, we might need a scoring strategy.
-    algorithms::IndelOnlyChainingScorer scorer(*get_regular_aligner());
     // For chaining, we might need a chaining space.
     algorithms::ChainingSpace<Seed, Minimizer> space(
         minimizers,
-        scorer,
+        *get_regular_aligner(),
         distance_index,
         &gbwt_graph
     );

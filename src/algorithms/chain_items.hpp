@@ -59,88 +59,6 @@ struct ChainingSpace {
     // Nothing here; this exists to be specialized.
 };
 
-/**
- * Class to represent a scoring regime for chaining. Includes the scoring
- * parameters from an Aligner, and also a strategy for scoring jumps between
- * items.
- */
-struct ChainingScorer {
-
-    /**
-     * Make a ChainingScorer off of an Aligner.
-     */
-    inline ChainingScorer(const Aligner& scores = Aligner()) : match(scores.match), mismatch(scores.mismatch), gap_open(scores.gap_open), gap_extension(scores.gap_extension) {
-        // Nothing to do!
-    }
-    
-    virtual ~ChainingScorer() = default;
-    
-    /**
-     * Score a transition between two items, based on read and graph distance.
-     * If read distance is std::numeric_limits<size_t>::max(), the items overlap in the read.
-     * If graph distance is std::numeric_limits<size_t>::max(), the items are unreachable in the graph.
-     * If graph distance is null, no graph is available.
-     * Returns a score for the transition, or std::numeric_limits<int>::min() if the transition should be prohibited.
-     * Prohibits any transitions with a length change over max_gap_length.
-     */
-    virtual int score_transition(size_t read_distance,
-                                 const size_t* graph_distance,
-                                 size_t max_gap_length = std::numeric_limits<size_t>::max()) const = 0;
-
-
-
-    int match;
-    int mismatch;
-    int gap_open;
-    int gap_extension;
-
-};
-
-/**
- * Scorer that assumes all non-indel bases are matches.
- */
-struct MatchAssumingChainingScorer : public ChainingScorer {
-
-    using ChainingScorer::ChainingScorer;
-    
-    virtual ~MatchAssumingChainingScorer() = default;
-    
-    /**
-     * Score a transition between two items, based on read and graph distance.
-     * If read distance is std::numeric_limits<size_t>::max(), the items overlap in the read.
-     * If graph distance is std::numeric_limits<size_t>::max(), the items are unreachable in the graph.
-     * If graph distance is null, no graph is available.
-     * Returns a score for the transition, or std::numeric_limits<int>::min() if the transition should be prohibited.
-     * Prohibits any transitions with a length change over max_gap_length.
-     */
-    virtual int score_transition(size_t read_distance,
-                                 const size_t* graph_distance,
-                                 size_t max_gap_length = std::numeric_limits<size_t>::max()) const;
-                                 
-};
-
-/**
- * Scorer that only counts the scores of indels.
- */
-struct IndelOnlyChainingScorer : public ChainingScorer {
-
-    using ChainingScorer::ChainingScorer;
-    
-    virtual ~IndelOnlyChainingScorer() = default;
-
-    /**
-     * Score a transition between two items, based on read and graph distance.
-     * If read distance is std::numeric_limits<size_t>::max(), the items overlap in the read.
-     * If graph distance is std::numeric_limits<size_t>::max(), the items are unreachable in the graph.
-     * If graph distance is null, no graph is available.
-     * Returns a score for the transition, or std::numeric_limits<int>::min() if the transition should be prohibited.
-     * Prohibits any transitions with a length change over max_gap_length.
-     */
-    virtual int score_transition(size_t read_distance,
-                                 const size_t* graph_distance,
-                                 size_t max_gap_length = std::numeric_limits<size_t>::max()) const;
-};
-
 /// Baser base class to let you hold chaining spaces over anything, and destroy
 /// them without knowing what they are over
 struct UnknownItemChainingSpace {
@@ -151,15 +69,15 @@ struct UnknownItemChainingSpace {
 template<typename Item>
 struct BaseChainingSpace : public UnknownItemChainingSpace {
     
-    const ChainingScorer& scorer;
+    const Aligner& aligner;
     
     const SnarlDistanceIndex* distance_index;
     const HandleGraph* graph;
     
-    BaseChainingSpace(const ChainingScorer& scorer,
+    BaseChainingSpace(const Aligner& aligner,
                       const SnarlDistanceIndex* distance_index = nullptr,
                       const HandleGraph* graph = nullptr) :
-        scorer(scorer),
+        aligner(aligner),
         distance_index(distance_index),
         graph(graph) {
     }
@@ -169,14 +87,14 @@ struct BaseChainingSpace : public UnknownItemChainingSpace {
     /// Get the score collected by visiting the item.
     virtual int score(const Item& item) const {
         // Default implementation assumes a perfect match
-        return scorer.match * read_length(item);
+        return aligner.match * read_length(item);
     }
     
     /// Get the alignment score for the alignment represented by an item. May
     /// be different han the score used in chaining.
     virtual int alignment_score(const Item& item) const {
         // Default implementation assumes a perfect match
-        return scorer.match * read_length(item);
+        return aligner.match * read_length(item);
     }
     
     /// Get where the item starts in the read
@@ -610,10 +528,10 @@ struct SourceChainingSpace: public BaseChainingSpace<Item> {
     const VectorView<Source> sources;
     
     SourceChainingSpace(const VectorView<Source>& sources,
-                        const ChainingScorer& scorer,
+                        const Aligner& aligner,
                         const SnarlDistanceIndex* distance_index,
                         const HandleGraph* graph) :
-        BaseChainingSpace<Item>(scorer, distance_index, graph), sources(sources) {
+        BaseChainingSpace<Item>(aligner, distance_index, graph), sources(sources) {
         
         // Nothing to do!
     }
@@ -652,10 +570,10 @@ struct MinimizerSourceChainingSpace : public SourceChainingSpace<Item, Source> {
     // Source is assumed to be MinimizerIndex::Minimizer.
 
     MinimizerSourceChainingSpace(const VectorView<Source>& sources,
-                  const ChainingScorer& scorer,
+                  const Aligner& aligner,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        SourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph) {
+        SourceChainingSpace<Item, Source>(sources, aligner, distance_index, graph) {
         
         // Nothing to do!
     }
@@ -664,7 +582,7 @@ struct MinimizerSourceChainingSpace : public SourceChainingSpace<Item, Source> {
     
     /// Score items flat by minimizer length
     virtual int score(const Item& item) const {
-        return this->scorer.match * this->sources[item.source].length;
+        return this->aligner.match * this->sources[item.source].length;
     }
     
     // The seeds know either a start or an end position, depending on
@@ -802,10 +720,10 @@ struct ChainingSpace<SnarlDistanceIndexClusterer::Seed, Source> : public Minimiz
     using Item = SnarlDistanceIndexClusterer::Seed;
     
     ChainingSpace(const VectorView<Source>& sources,
-                  const ChainingScorer& scorer,
+                  const Aligner& aligner,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        MinimizerSourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph) {
+        MinimizerSourceChainingSpace<Item, Source>(sources, aligner, distance_index, graph) {
         
         // Nothing to do!
     }
@@ -1377,21 +1295,45 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             // We will actually evaluate the source.
             
             // How far do we go in the graph?
-            // We use a pointer as an optional.
-            size_t graph_distance_storage;
-            size_t* graph_distance_ptr;
+            size_t graph_distance;
             if (space.graph) {
-                graph_distance_storage = space.get_graph_distance(source, here);
-                graph_distance_ptr = &graph_distance_storage;
+                graph_distance = space.get_graph_distance(source, here);
             } else {
-                graph_distance_ptr = nullptr;
+                // If there's no graph, say it's the same as the read.
+                graph_distance = read_distance;
             }
             
             // How much does it pay (+) or cost (-) to make the jump from there
             // to here?
             // Don't allow the transition if it seems like we're going the long
             // way around an inversion and needing a huge indel.
-            int jump_points = space.scorer.score_transition(read_distance, graph_distance_ptr, max_indel_bases);
+            int jump_points;
+            
+            if (read_distance == numeric_limits<size_t>::max()) {
+                // Overlap in read, so not allowed.
+                jump_points = std::numeric_limits<int>::min();
+            } else if (graph_distance == numeric_limits<size_t>::max()) {
+                // No graph connection
+                jump_points = std::numeric_limits<int>::min();
+            } else {
+                // Decide how much length changed
+                size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
+                
+                if (indel_length > max_indel_bases) {
+                    // Don't allow an indel this long
+                    jump_points = std::numeric_limits<int>::min();
+                } else {
+                    // Then charge for that indel
+                    jump_points = 0;
+                    if (indel_length > 0) {
+                        jump_points -= space.aligner.gap_open;
+                        if (indel_length > 1) {
+                            jump_points -= space.aligner.gap_extension * (indel_length - 1);
+                        }
+                    }
+                }
+            }
+            
             // And how much do we end up with overall coming from there.
             int achieved_score;
             
@@ -1430,11 +1372,8 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             }
             
             // Note that we checked out this transition and saw the observed scores and distances.
-            if (!graph_distance_ptr) {
-                graph_distance_ptr = &read_distance;
-            }
             best_transition_found = std::max(best_transition_found, jump_points);
-            if (achieved_score > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, *graph_distance_ptr)) {
+            if (achieved_score > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
                 // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
                 good_score_found = true;
             }

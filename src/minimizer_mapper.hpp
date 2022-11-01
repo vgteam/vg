@@ -1197,7 +1197,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
-                    link_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), link_length, -space.scorer.gap_open - (link_length - 1) * space.scorer.gap_extension);
+                    link_alignment = WFAAlignment::make_unlocalized_insertion(space.read_end(*here), link_length, -space.aligner.gap_open - (link_length - 1) * space.aligner.gap_extension);
                 }
             } else if (link_alignment.length != linking_bases.size()) {
                 // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.

@@ -54,10 +54,10 @@ template<>
 struct ChainingSpace<LiteralItem, void> : public BaseChainingSpace<LiteralItem> {
     using Item = LiteralItem;
     
-    ChainingSpace(const ChainingScorer& scorer,
+    ChainingSpace(const Aligner& aligner,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        BaseChainingSpace<Item>(scorer, distance_index, graph) {
+        BaseChainingSpace<Item>(aligner, distance_index, graph) {
         
         // Nothing to do!
     }
@@ -261,8 +261,8 @@ int main_chain(int argc, char** argv) {
         std::cerr << "Built distance index" << std::endl;
     }
     
-    // Decide how to score transitions
-    vg::algorithms::IndelOnlyChainingScorer scorer;
+    // Decide how to score alignments
+    vg::Aligner scorer;
     
     vg::algorithms::ChainingSpace<LiteralItem> space(scorer, &distance_index, &graph);
     if (show_progress) {

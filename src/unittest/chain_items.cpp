@@ -100,7 +100,7 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when extensions intersect but 
     graph.create_edge(h[3], h[4]);
     
     // Set up the aligner fixture
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     // Set up the chaining space fixture
     algorithms::ChainingSpace<GaplessExtension> space(scoring, nullptr, &graph);
     
@@ -120,7 +120,7 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when everything is on one gian
     auto h = get_handles(graph);
     
     // Set up the aligner fixture
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     // Set up the chaining space fixture
     algorithms::ChainingSpace<GaplessExtension> space(scoring, nullptr, &graph);
     
@@ -142,21 +142,21 @@ TEST_CASE("ChainingSpace::get_graph_overlap works when everything is on one gian
 }
 
 TEST_CASE("score_best_chain scores no gapless extensions as 0", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
     REQUIRE(algorithms::score_best_chain(to_score, space) == 0);
 }
 
 TEST_CASE("score_best_chain scores a 1-base gapless extension as 1", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
     REQUIRE(algorithms::score_best_chain(to_score, space) == 1);
 }
 
 TEST_CASE("score_best_chain scores two adjacent 1-base gapless extensions as 2", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
                                      {2, 3, 1}});
@@ -164,14 +164,14 @@ TEST_CASE("score_best_chain scores two adjacent 1-base gapless extensions as 2",
 }
 
 TEST_CASE("score_best_chain scores one 9-base extension as 9", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9}});
     REQUIRE(algorithms::score_best_chain(to_score, space) == 9);
 }
 
 TEST_CASE("score_best_chain scores two abutting 9-base extensions correctly", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {10, 19, 9}});
@@ -179,7 +179,7 @@ TEST_CASE("score_best_chain scores two abutting 9-base extensions correctly", "[
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions separated by a 1-base gap correctly", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
@@ -188,7 +188,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 1-base g
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base gap correctly", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
@@ -197,7 +197,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions separated by a 2-base g
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap correctly", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
@@ -206,7 +206,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 1-base overlap c
 }
 
 TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap correctly", "[chain_items][score_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
@@ -215,7 +215,7 @@ TEST_CASE("score_best_chain scores two 9-base extensions with a 2-base overlap c
 }
 
 TEST_CASE("find_best_chain chains no gapless extensions as score 0", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     vector<GaplessExtension> to_score;
     auto result = algorithms::find_best_chain(to_score, space);
@@ -224,7 +224,7 @@ TEST_CASE("find_best_chain chains no gapless extensions as score 0", "[chain_ite
 }
 
 TEST_CASE("find_best_chain chains a 1-base gapless extension as score 1", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1}});
     auto result = algorithms::find_best_chain(to_score, space);
@@ -233,7 +233,7 @@ TEST_CASE("find_best_chain chains a 1-base gapless extension as score 1", "[chai
 }
 
 TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as score 2", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 2, 1},
                                      {2, 3, 1}});
@@ -243,7 +243,7 @@ TEST_CASE("find_best_chain chains two adjacent 1-base gapless extensions as scor
 }
 
 TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9}});
     auto result = algorithms::find_best_chain(to_score, space);
@@ -252,7 +252,7 @@ TEST_CASE("find_best_chain chains one 9-base extension as 9", "[chain_items][fin
 }
 
 TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {10, 19, 9}});
@@ -262,7 +262,7 @@ TEST_CASE("find_best_chain chains two abutting 9-base extensions correctly", "[c
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base gap correctly", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {11, 20, 9}});
@@ -273,7 +273,7 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 1-base ga
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base gap correctly", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {12, 21, 9}});
@@ -284,7 +284,7 @@ TEST_CASE("find_best_chain chains two 9-base extensions separated by a 2-base ga
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap correctly", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {9, 18, 9}});
@@ -295,7 +295,7 @@ TEST_CASE("find_best_chain chains two 9-base extensions with a 1-base overlap co
 }
 
 TEST_CASE("find_best_chain chains two 9-base extensions with a 2-base overlap correctly", "[chain_items][find_best_chain]") {
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring);
     auto to_score = fake_extensions({{1, 10, 9},
                                      {8, 17, 9}});
@@ -312,7 +312,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read and graph corr
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -332,7 +332,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -352,7 +352,7 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -377,7 +377,7 @@ TEST_CASE("find_best_chain chains two extensions that abut over multiple nodes c
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -406,7 +406,7 @@ TEST_CASE("find_best_chain chains two extensions that abut in graph with a gap i
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -431,7 +431,7 @@ TEST_CASE("find_best_chain chains two extensions that abut in read with a gap in
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -456,7 +456,7 @@ TEST_CASE("find_best_chain chains two extensions that have gaps of different siz
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -487,7 +487,7 @@ TEST_CASE("find_best_chain chains two extensions that overlap the same amount in
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // AAAA|AAAA|AAAA|AAAA|AAAA
@@ -513,7 +513,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    algorithms::MatchAssumingChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<GaplessExtension> space(scoring, &distance_index, &graph);
     
     // Set up extensions
@@ -576,10 +576,10 @@ struct ChainingSpace<TestItem, TestSource> : public SourceChainingSpace<TestItem
     using Source = TestSource;
     
     ChainingSpace(const VectorView<Source>& sources,
-                  const ChainingScorer& scorer,
+                  const Aligner& aligner,
                   const SnarlDistanceIndex* distance_index,
                   const HandleGraph* graph) :
-        SourceChainingSpace<Item, Source>(sources, scorer, distance_index, graph) {
+        SourceChainingSpace<Item, Source>(sources, aligner, distance_index, graph) {
         
         // Nothing to do!
     }
@@ -679,7 +679,7 @@ TEST_CASE("A forward-strand fallow region with one missing seed can be filled in
         }
     };
     
-    algorithms::IndelOnlyChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
     std::unique_ptr<VectorViewInverse> source_sort_inverse;
@@ -775,7 +775,7 @@ TEST_CASE("A fallow region with several seeds can be filled in", "[chain_items][
     
     REQUIRE(recoverable.size() == 7);
     
-    algorithms::IndelOnlyChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
     std::unique_ptr<VectorViewInverse> source_sort_inverse;
@@ -824,7 +824,7 @@ TEST_CASE("Seeds not in the region are not found", "[chain_items][reseed_fallow_
     
     REQUIRE(recoverable.size() == 6);
     
-    algorithms::IndelOnlyChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
     std::unique_ptr<VectorViewInverse> source_sort_inverse;
@@ -872,7 +872,7 @@ TEST_CASE("Reseeding can augment the existing seed set", "[chain_items][reseed_f
     
     REQUIRE(recoverable.size() == 6);
     
-    algorithms::IndelOnlyChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
     // We need to operate on mutable vectors
@@ -1016,7 +1016,7 @@ TEST_CASE("Reseeding works when hits collide and are over-clustered", "[chain_it
     
     REQUIRE(recoverable.size() == 4);
     
-    algorithms::IndelOnlyChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
     // We need to operate on mutable vectors
@@ -1116,7 +1116,7 @@ TEST_CASE("Reseeding does not create extraneous hits even when they are visible 
         }
     };
     
-    algorithms::IndelOnlyChainingScorer scoring;
+    Aligner scoring;
     algorithms::ChainingSpace<TestItem, TestSource> space(sources, scoring, &distance_index, &graph);
     
     SECTION("reseed_fallow_region doesn't find its bounds or other hits of them") {
