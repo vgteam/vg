@@ -427,16 +427,6 @@ protected:
     std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
     
     /**
-     * Assign seeds to clusters.
-     *
-     * Takes a collection of seeds, and returns, for each seed in order, the
-     * cluster number it gets assigned to.
-     *
-     * Can't be const because clusterers don't have a const cluster.
-     */
-    std::vector<size_t> assign_to_clusters(std::vector<Seed>& seeds, size_t range);
-    
-    /**
      * Turn a chain into an Alignment.
      *
      * Operating on the given input alignment, align the tails and intervening
