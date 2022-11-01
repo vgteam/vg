@@ -992,202 +992,6 @@ struct score_traits<int> {
 ostream& operator<<(ostream& out, const traced_score_t& value);
 
 /**
- * When making a chain, we need to be able to control how far back we look for
- * previous items to connect to. For controling this, we have a lookback
- * strategy.
- *
- * To control the strategy, you instantiate a subclass of this calss and configure its fields.
- *
- * To use the strategy, you call setup_problem() on it to get a
- * LookbackStrategy::Problem, which is per-chaining-problem scratch. Then you
- * use that lookback problem while solving your chaining problem, in a single
- * thread, and then throw it away.
- */
-class LookbackStrategy {
-public:
-    /// When asked about a transition, we can check that item, skip that item
-    /// and look at more before it, or stop looking.
-    enum verdict_t {
-        CHECK,
-        SKIP,
-        STOP
-    };
-    
-    /**
-     * Individual problem scratch that gets made from the strategy, like a factory.
-     * Strategy must always outlive its problems.
-     */
-    class Problem {
-    public:
-        /**
-         * Start working on a new destination. Destinations should be visited in
-         * increasing order of read start position.
-         *
-         * Must be called before should_check().
-         */
-        virtual void advance() = 0;
-        
-        /**
-         * Tell the problem that the given item is at the given graph position.
-         * Lets the problem remember this and do a bit of its own clustering.
-         */
-        virtual void place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
-        
-        /**
-         * Determine if we should consider a transition between two items, given
-         * their read distance and the predecessor's achieved score. Counts the
-         * transition as a possibility.
-         */
-        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score) = 0;
-        
-        /**
-         * Report that we considered a connection between two items, and found them
-         * to be at the given read distance, and the given graph distance, and that
-         * the transition had the given score. Distances should be
-         * std::numeric_limits<size_t>::max() for things that are unreachable, and
-         * the score should be std::numeric_limits<int>::min() if the transition is
-         * otherwise disallowed.
-         *
-         * For a given destination, should be called for each source in decreasing
-         * order of end position.
-         */
-        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score) = 0;
-        
-        // Since we will use a pointer to this base class to own derived
-        // classes, we need a virtual destructor. 
-        virtual ~Problem() = default;
-    };
-
-    /**
-     * Set up a new problem over the given number of items. Thread safe.
-     *
-     * We need to use a pointer here because the problem scratch for different
-     * lookback control strategies can be of different sizes.
-     */
-    virtual std::unique_ptr<Problem> setup_problem(size_t item_count) const = 0;
-};
-
-/**
- * Lookback strategy that allows a certain number of total items, a certain
- * base pair distance, and a certain number of "good" items.
- */
-class FlatLimitLookbackStrategy : public LookbackStrategy {
-public:
-    /// How many items will we look at total?
-    size_t lookback_items = 500;
-    /// How many good items will we look at before stopping?
-    size_t lookback_good_items = 10;
-    /// How many reachable items will we look at before stopping?
-    size_t lookback_reachable_items = 500;
-    
-    /// How far back should we look before stopping.
-    size_t lookback_bases = 1000;
-    
-    virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
-    
-    class Problem : public LookbackStrategy::Problem {
-    public:
-        Problem(const FlatLimitLookbackStrategy& parent);
-    
-        virtual void advance();
-        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score);
-        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score);
-        
-        virtual ~Problem() = default;
-        
-    protected:
-        const FlatLimitLookbackStrategy& strategy;
-        size_t lookback_items_used = 0;
-        size_t lookback_good_items_used = 0;
-        size_t lookback_reachable_items_used = 0;
-        int best_achieved_score = 0;
-    };
-};
-
-/**
- * Lookback strategy that progressively doubles the lookback distance until
- * something with a positive overall score is found, or a hard limit is hit.
- */
-class ExponentialLookbackStrategy : public LookbackStrategy {
-public:
-    /// How far back should we look before stopping, max?
-    size_t lookback_bases = 200;
-    /// How far should our initial search go?
-    size_t initial_search_bases = 10;
-    /// How much should we increase by?
-    double scale_factor = 2.0;
-    /// How many points can we lose on a transition per max distance and still have it be good?
-    double min_good_transition_score_per_base = -0.1;
-    
-    virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
-    
-    class Problem : public LookbackStrategy::Problem {
-    public:
-        Problem(const ExponentialLookbackStrategy& parent);
-    
-        virtual void advance();
-        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score);
-        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score);
-        
-        virtual ~Problem() = default;
-        
-    protected:
-        const ExponentialLookbackStrategy& strategy;
-        size_t limit;
-        int best_transition_found;
-        int best_achieved_score;
-        bool good_score_found;
-    };
-};
-
-/**
- * Lookback strategy that uses exponential limits and buckets items by graph reachability.
- */
-class BucketLookbackStrategy : public LookbackStrategy {
-public:
-    /// How far back should we look before stopping, max?
-    size_t lookback_bases = 200;
-    /// How far should our initial search go?
-    size_t initial_search_bases = 10;
-    /// How much should we increase by?
-    double scale_factor = 2.0;
-    /// How many points can we lose on a transition per max distance and still have it be good?
-    double min_good_transition_score_per_base = -0.1;
-    /// How far apart should things need to be to be different buckets?
-    /// TODO: What if the point at which we tick over this happens to divide the true chain?
-    size_t bucket_limit = 50000;
-    /// How far must an indel go in bucket coordinates to prohibit crossing it? Item lengths can count against this.
-    size_t max_inferred_indel = 1100;
-    /// How much should the bucket coordinates of two things differ before we decide not to check for a path between them, even when we can't actually lower-bound the distance?
-    size_t max_suspicious_bucket_coordinate_difference = 10000;
-    
-    virtual std::unique_ptr<LookbackStrategy::Problem> setup_problem(size_t item_count) const;
-    
-    class Problem : public LookbackStrategy::Problem {
-    public:
-        Problem(const BucketLookbackStrategy& parent);
-    
-        virtual void advance();
-        virtual void place_in_graph(size_t item, const pos_t& graph_pos, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
-        virtual verdict_t should_check(size_t item_a, size_t item_b, size_t read_distance, int item_a_score);
-        virtual void did_check(size_t item_a, size_t item_b, size_t read_distance, const size_t* graph_distance, int transition_score, int achieved_score);
-        
-        virtual ~Problem() = default;
-        
-    protected:
-        const BucketLookbackStrategy& strategy;
-        size_t limit;
-        int best_transition_found;
-        int best_achieved_score;
-        bool good_score_found;
-        std::vector<pos_t> bucket_heads;
-        std::vector<size_t> bucket_sizes;
-        std::unordered_map<size_t, size_t> item_to_head;
-        std::unordered_map<size_t, size_t> item_to_coordinate;
-    };
-};
-
-/**
  * Get rid of items that are shadowed or contained by (or are identical to) others.
  * We assume that if the start and end positions put you on the same diagonals
  * on the same nodes, where the middle of the path goes doesn't matter.
@@ -1235,7 +1039,10 @@ template<typename Score, typename Item, typename Source = void, typename Collect
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     const LookbackStrategy& lookback_strategy = ExponentialLookbackStrategy(),
+                     size_t max_lookback_bases = 200,
+                     size_t initial_lookback_threshold = 10,
+                     double lookback_scale_factor = 2.0,
+                     double min_good_transition_score_per_base = -0.1,
                      int item_bonus = 0,
                      size_t max_indel_bases = 10000);
 
@@ -1454,7 +1261,10 @@ template<typename Score, typename Item, typename Source, typename Collection>
 Score chain_items_dp(vector<Score>& best_chain_score,
                      const Collection& to_chain,
                      const ChainingSpace<Item, Source>& space,
-                     const LookbackStrategy& lookback_strategy,
+                     size_t max_lookback_bases,
+                     size_t initial_lookback_threshold,
+                     double lookback_scale_factor,
+                     double min_good_transition_score_per_base,
                      int item_bonus,
                      size_t max_indel_bases) {
     
@@ -1490,10 +1300,6 @@ Score chain_items_dp(vector<Score>& best_chain_score,
     // What's the winner so far?
     Score best_score = ST::unset();
     
-    // Set up the lookback tracking so we know when to stop looking at
-    // predecessors.
-    std::unique_ptr<LookbackStrategy::Problem> lookback_problem = lookback_strategy.setup_problem(to_chain.size());
-    
     for (size_t i = 0; i < to_chain.size(); i++) {
         // For each item
         auto& here = to_chain[i];
@@ -1524,13 +1330,18 @@ Score chain_items_dp(vector<Score>& best_chain_score,
         cerr << "\tFirst item overlapping #" << i << " beginning at " << space.read_start(here) << " is #" << *first_overlapping_it << " past-ending at " << space.read_end(to_chain[*first_overlapping_it]) << " so start before there." << std::endl;
 #endif
         
-        if (space.graph && space.distance_index) {
-            // Tell the lookback problem where we are in the graph.
-            lookback_problem->place_in_graph(i, space.graph_start(here), *space.distance_index, *space.graph);
-        }
-
+        // Set up lookback control algorithm
+        // If we are looking back forther than this
+        size_t lookback_threshold = initial_lookback_threshold;
+        // And a gooid score has been found, stop
+        bool good_score_found = false;
+        // A good score will be positive and have a transition component that
+        // looks good relative to how far we are looking back. The further we
+        // look back the lower our transition score standards get, so remember
+        // the best one we have seen so far in case the standard goes below it. 
+        int best_transition_found = std::numeric_limits<int>::min();
+        
         // Start considering predecessors for this item.
-        lookback_problem->advance();
         auto predecessor_index_it = first_overlapping_it;
         while (predecessor_index_it != read_end_order.begin()) {
             --predecessor_index_it;
@@ -1544,18 +1355,17 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             // How far do we go in the read?
             size_t read_distance = space.get_read_distance(source, here);
 
-            // See if this looks like a promising source.
-            LookbackStrategy::verdict_t verdict = lookback_problem->should_check(*predecessor_index_it, i, read_distance, ST::score(best_chain_score[*predecessor_index_it]));
-            if (verdict == LookbackStrategy::STOP) {
-#ifdef debug_chaining
-                cerr << "\t\tStop because the lookback strategy says so." << endl;
-#endif
+            // See if we should look back this far.
+            if (read_distance > max_lookback_bases) {
+                // This is further in the read than the real hard limit.
                 break;
-            } else if (verdict == LookbackStrategy::SKIP) {
-#ifdef debug_chaining
-                cerr << "\t\tSkip because the lookback strategy says so." << endl;
-#endif
-                continue;
+            } else if (read_distance > lookback_threshold && good_score_found) {
+                // We already found something good enough.
+                break;
+            }
+            if (read_distance > lookback_threshold && !good_score_found) {
+                // We still haven't found anything good, so raise the threshold.
+                lookback_threshold *= lookback_scale_factor;
             }
             
             // Now it's safe to make a distance query
@@ -1620,7 +1430,14 @@ Score chain_items_dp(vector<Score>& best_chain_score,
             }
             
             // Note that we checked out this transition and saw the observed scores and distances.
-            lookback_problem->did_check(*predecessor_index_it, i, read_distance, graph_distance_ptr, jump_points, achieved_score);
+            if (!graph_distance_ptr) {
+                graph_distance_ptr = &read_distance;
+            }
+            best_transition_found = std::max(best_transition_found, jump_points);
+            if (achieved_score > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, *graph_distance_ptr)) {
+                // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
+                good_score_found = true;
+            }
         }
         
 #ifdef debug_chaining
