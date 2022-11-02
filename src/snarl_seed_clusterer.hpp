@@ -334,9 +334,10 @@ class SnarlDistanceIndexClusterer {
             //////////Data structures to hold snarl tree relationships
             //The snarls and chains get updated as we move up the snarl tree
 
+            //Maps each net_handle_t to an index to its node problem, in all_node_problems
+            hash_map<net_handle_t, size_t> net_handle_to_node_problem_index;
             //This stores all the snarl tree nodes and their clustering scratch work 
-            //so we stop spending all our time allocating lots of vectors of SnarlTreeNodeProblem
-            hash_map<net_handle_t, SnarlTreeNodeProblem> net_handle_to_node_problem;
+            vector<SnarlTreeNodeProblem> all_node_problems;
            
             //All chains for the current level of the snarl tree and gets updated as the algorithm
             //moves up the snarl tree. At one iteration, the algorithm will go through each chain
@@ -383,7 +384,8 @@ class SnarlDistanceIndexClusterer {
 
                 }
 
-                net_handle_to_node_problem.reserve(5*seed_count);
+                net_handle_to_node_problem_index.reserve(5*seed_count);
+                all_node_problems.reserve(5*seed_count);
                 root_children.reserve(seed_count);
             }
         };
