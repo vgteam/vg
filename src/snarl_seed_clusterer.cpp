@@ -2322,8 +2322,14 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
             size_t distance_between = SnarlDistanceIndex::minus(
                                 SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(chain_cluster_distances.second, 
                                                                              distance_from_last_child_to_current_child), 
-                                                                                                                          current_child_seed.distance_left),
-                                                                                                                                              1);
+                                                                            current_child_seed.distance_left),
+                                1);
+            if (!is_first_child && last_child.net_handle == current_child.net_handle) {
+                //If the last child was the same as this child (seeds on the same node),
+                //then the distances right are including the current node, so subtract
+                //the length of this node
+                distance_between -= MIPayload::node_length(current_child_seed.minimizer_cache);
+            }
 
 #ifdef DEBUG_CLUSTER
             cerr << "\t\t Compare this seed " << read_num << ":" << cluster_num <<  " with distance between: " << distance_between << endl;
