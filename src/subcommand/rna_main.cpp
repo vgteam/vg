@@ -40,20 +40,20 @@ void help_rna(char** argv) {
 
          << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences (disables projection)" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
-         << "    -c, --collapse TYPE        collapse identical transcripts beteween references or haplotypes (disable|transcript|all) [transcript]" << endl
+         << "    -c, --path-collapse TYPE   collapse identical transcript paths across no|haplotype|all paths [haplotype]" << endl
          << "    -k, --max-node-length      chop nodes longer than maximum node length (0 disables chopping) [0]" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes all paths in the graph)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact the graph" << endl
          << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the graph" << endl
-         << "    -a, --add-hap-paths        add haplotype-specific transcripts as embedded paths in the graph" << endl
+         << "    -a, --add-hap-paths        add projected transcripts as embedded paths in the graph" << endl
 
          << "\nOutput options:" << endl
 
-         << "    -u, --out-ref-paths        add reference transcript paths to pantranscriptome output" << endl
          << "    -b, --write-gbwt FILE      write pantranscriptome transcript paths as GBWT index file" << endl
-         << "    -g, --gbwt-bidirectional   use bidirectional paths in GBWT index construction" << endl
          << "    -f, --write-fasta FILE     write pantranscriptome transcript sequences as fasta file" << endl
          << "    -i, --write-info FILE      write pantranscriptome transcript info table as tsv file" << endl
+         << "    -q, --exclude-ref-paths    exclude reference transcript paths from pantranscriptome output" << endl
+         << "    -g, --gbwt-bidirectional   use bidirectional paths in GBWT index construction" << endl
 
          << endl;
 }
@@ -72,13 +72,13 @@ int32_t main_rna(int32_t argc, char** argv) {
     string haplotypes_filename;
     bool use_hap_ref = false;
     bool proj_emded_paths = false;
-    string collapse_type = "transcript";
+    string path_collapse_type = "transcript";
     uint32_t max_node_length = 0;
     bool remove_non_transcribed_nodes = false;
     bool sort_collapse_graph = true;
     bool add_reference_transcript_paths = false;
-    bool add_haplotype_transcript_paths = false;
-    bool output_reference_transcript_paths = false;
+    bool add_projected_transcript_paths = false;
+    bool output_reference_transcript_paths = true;
     string gbwt_out_filename = "";
     bool gbwt_add_bidirectional = false;
     string fasta_out_filename = "";
@@ -99,17 +99,18 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"haplotypes",  no_argument, 0, 'l'},
                 {"use-hap-ref",  no_argument, 0, 'j'},
                 {"proj-embed-paths",  no_argument, 0, 'e'},
-                {"do-not-collapse",  no_argument, 0, 'c'},
+                {"path-collapse",  no_argument, 0, 'c'},
                 {"max-node-length",  no_argument, 0, 'k'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
                 {"do-not-sort",  no_argument, 0, 'o'},
                 {"add-ref-paths",  no_argument, 0, 'r'},
-                {"add-hap-paths",  no_argument, 0, 'a'},
-                {"out-ref-paths",  no_argument, 0, 'u'},           
+                {"add-hap-paths",  no_argument, 0, 'a'},      
                 {"write-gbwt",  no_argument, 0, 'b'},
-                {"gbwt-bidirectional",  no_argument, 0, 'g'},
                 {"write-fasta",  no_argument, 0, 'f'},
                 {"write-info",  no_argument, 0, 'i'},
+                {"out-ref-paths",  no_argument, 0, 'u'},
+                {"exclude-ref-paths",  no_argument, 0, 'q'},
+                {"gbwt-bidirectional",  no_argument, 0, 'g'},   
                 {"threads",  no_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
                 {"help", no_argument, 0, 'h'},
@@ -117,7 +118,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:m:y:s:l:jeck:doraub:gf:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:m:y:s:l:jec:k:dorab:f:i:uqgt:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -155,7 +156,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
 
         case 'c':
-            collapse_type = optarg;
+            path_collapse_type = optarg;
             break;
 
         case 'k':
@@ -175,19 +176,11 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
 
         case 'a':
-            add_haplotype_transcript_paths = true;
-            break;
-
-        case 'u':
-            output_reference_transcript_paths = true;
+            add_projected_transcript_paths = true;
             break;
 
         case 'b':
             gbwt_out_filename = optarg;
-            break;
-
-        case 'g':
-            gbwt_add_bidirectional = true;
             break;
 
         case 'f':
@@ -196,6 +189,18 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'i':
             info_out_filename = optarg;
+            break;
+
+        case 'u':
+            output_reference_transcript_paths = true;
+            break;
+
+        case 'q':
+            output_reference_transcript_paths = false;
+            break;
+
+        case 'g':
+            gbwt_add_bidirectional = true;
             break;
 
         case 't':
@@ -228,14 +233,14 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
-    if (remove_non_transcribed_nodes && !add_reference_transcript_paths && !add_haplotype_transcript_paths) {
+    if (remove_non_transcribed_nodes && !add_reference_transcript_paths && !add_projected_transcript_paths) {
 
         cerr << "[vg rna] WARNING: Reference paths are deleted when removing intergenic and intronic regions. Consider adding transcripts as embedded paths using --add-ref-paths and/or --add-hap-paths." << endl;
     }
 
-    if (collapse_type != "disable" && collapse_type != "transcript" && collapse_type != "all") {
+    if (path_collapse_type != "no" && path_collapse_type != "haplotype" && path_collapse_type != "all") {
 
-        cerr << "[vg rna] ERROR: Collapse type provided (--collapse) not supported. Options: disable, transcript or all." << endl;
+        cerr << "[vg rna] ERROR: Path collapse type (--path-collapse) provided not supported. Options: no, haplotype or all." << endl;
         return 1;
     }
 
@@ -275,7 +280,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.num_threads = num_threads;
     transcriptome.feature_type = feature_type;
     transcriptome.transcript_tag = transcript_tag;
-    transcriptome.collapse_type = collapse_type;
+    transcriptome.path_collapse_type = path_collapse_type;
 
     if (show_progress) { cerr << "[vg rna] Graph " << ((!haplotype_index->empty()) ? "and GBWT index " : "") << "parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
@@ -391,32 +396,20 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
 
 
-    if (add_reference_transcript_paths || add_haplotype_transcript_paths) {
+    if (add_reference_transcript_paths || add_projected_transcript_paths) {
 
         double time_add_start = gcsa::readTimer();
 
-        uint32_t num_embedded_paths = 0;
+        if (add_reference_transcript_paths && add_projected_transcript_paths) {
 
-        if (add_reference_transcript_paths && add_haplotype_transcript_paths) {
-
-            if (show_progress) { cerr << "[vg rna] Adding reference and haplotype-specific transcripts as embedded paths in the graph ..." << endl; }
-
-            num_embedded_paths += transcriptome.embed_reference_transcript_paths();
-            num_embedded_paths += transcriptome.embed_haplotype_transcript_paths();
+            if (show_progress) { cerr << "[vg rna] Adding reference and projected transcripts as embedded paths in the graph ..." << endl; }
 
         } else {
 
-            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "haplotype-specific") << " transcripts as embedded paths in the graph ..." << endl; }
-
-            if (add_reference_transcript_paths) {
-
-                num_embedded_paths += transcriptome.embed_reference_transcript_paths();
-
-            } else {
-
-                num_embedded_paths += transcriptome.embed_haplotype_transcript_paths();
-            }
+            if (show_progress) { cerr << "[vg rna] Adding " << ((add_reference_transcript_paths) ? "reference" : "projected") << " transcripts as embedded paths in the graph ..." << endl; }
         }
+
+        uint32_t num_embedded_paths = transcriptome.embed_transcript_paths(add_reference_transcript_paths, add_projected_transcript_paths);
 
         if (show_progress) { cerr << "[vg rna] " << num_embedded_paths << " paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
@@ -426,7 +419,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     if (!gbwt_out_filename.empty() || !fasta_out_filename.empty() || !info_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing pantranscriptome (" << ((output_reference_transcript_paths) ? "reference and " : "")  << "haplotype-specific transcripts) to file(s) ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing pantranscriptome (" << ((output_reference_transcript_paths) ? "reference and " : "")  << "projected transcripts) to file(s) ..." << endl; }
     }
 
     // Write transcript paths in transcriptome as GBWT index.
@@ -436,12 +429,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
         gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true)), gbwt::DynamicGBWT::INSERT_BATCH_SIZE, gbwt::DynamicGBWT::SAMPLE_INTERVAL);
 
-        transcriptome.add_haplotype_transcripts_to_gbwt(&gbwt_builder, gbwt_add_bidirectional);
-
-        if (output_reference_transcript_paths) {
-
-            transcriptome.add_reference_transcripts_to_gbwt(&gbwt_builder, gbwt_add_bidirectional);
-        }
+        transcriptome.add_transcripts_to_gbwt(&gbwt_builder, gbwt_add_bidirectional, output_reference_transcript_paths);
 
         assert(gbwt_builder.index.hasMetadata());
 
@@ -456,13 +444,8 @@ int32_t main_rna(int32_t argc, char** argv) {
         ofstream fasta_ostream;
         fasta_ostream.open(fasta_out_filename);
 
-        transcriptome.write_haplotype_sequences(&fasta_ostream);
+        transcriptome.write_transcript_sequences(&fasta_ostream, output_reference_transcript_paths);
      
-        if (output_reference_transcript_paths) {
-
-            transcriptome.write_reference_sequences(&fasta_ostream);
-        }
-
         fasta_ostream.close();
     }    
 
@@ -472,12 +455,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
 
-        transcriptome.write_haplotype_transcript_info(&info_ostream, *haplotype_index, true);
-
-        if (output_reference_transcript_paths) {
-
-            transcriptome.write_reference_transcript_info(&info_ostream, *haplotype_index, false);
-        }
+        transcriptome.write_transcript_info(&info_ostream, *haplotype_index, output_reference_transcript_paths);
 
         info_ostream.close();
     }    

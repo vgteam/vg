@@ -186,7 +186,7 @@ namespace vg {
 
                 SECTION("Transcriptome can project transcripts onto embedded haplotype paths and not collapse redundant paths") {
 
-                    transcriptome.collapse_transcript_paths = false;
+                    transcriptome.path_collapse_type = "no";
                     
                     transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 5);
@@ -270,15 +270,15 @@ namespace vg {
 
                 SECTION("Transcriptome can add transcript paths to graph") {
 
-                    transcriptome.embed_reference_transcript_paths();
+                    transcriptome.embed_transcript_paths(true, false);
                     REQUIRE(transcriptome.graph().get_path_count() == 7);            
       
-                    transcriptome.embed_haplotype_transcript_paths();
+                    transcriptome.embed_transcript_paths(false, true);
                     REQUIRE(transcriptome.graph().get_path_count() == 7);  
 
                     transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
 
-                    transcriptome.embed_haplotype_transcript_paths();
+                    transcriptome.embed_transcript_paths(false, true);
                     REQUIRE(transcriptome.graph().get_path_count() == 11);  
                 }
 
