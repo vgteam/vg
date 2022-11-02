@@ -73,8 +73,11 @@ class SnarlDistanceIndexClusterer {
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
+            //For a seed in a chain, distance_left is the left of the chain, right is the distance
+            //to the right side of the node, relative to the chain
             size_t distance_left = std::numeric_limits<size_t>::max();
             size_t distance_right = std::numeric_limits<size_t>::max();
+            size_t chain_component = std::numeric_limits<size_t>::max();
 
         };
 
@@ -154,6 +157,17 @@ class SnarlDistanceIndexClusterer {
             //pair of <read index, seed index>
             hash_set<pair<size_t, size_t>> read_cluster_heads;
 
+            //Struct to store one child, which may be a seed, node, snarl, or chain
+            struct SnarlTreeChild {
+                //If the net_handle is a node, then the child is a seed, otherwise the handle 
+                //is used to find the problem
+                net_handle_t net_handle;
+                pair<size_t, size_t> seed_indices;
+            };
+            //The children of this snarl tree node
+            //Initially unsorted, sort before clustering for chains
+            vector<SnarlTreeChild> children;
+
             //The shortest distance from any seed in any cluster to the 
             //left/right end of the snarl tree node that contains these
             //clusters
@@ -177,8 +191,6 @@ class SnarlDistanceIndexClusterer {
             //The boundary node of containing_net_handle, for a snarl or chain
             //if it is a snarl, then this is the actual node, not the sentinel 
             net_handle_t end_in;
-
-            nid_t node_id = 0;
 
             //Minimum length of a node or snarl
             //If it is a chain, then it is distance_index.chain_minimum_length(), which is
@@ -213,14 +225,13 @@ class SnarlDistanceIndexClusterer {
                 read_cluster_heads.reserve(seed_count);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
-            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
+            SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, size_t node_length, size_t prefix_sum, size_t component) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
                 chain_component_start(component),
                 chain_component_end(component),
-                node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
                     read_cluster_heads.reserve(seed_count);
             }
@@ -250,103 +261,6 @@ class SnarlDistanceIndexClusterer {
                                                             2*distance_index.minimum_length(start_in)});
 
 
-            }
-
-        };
-
-        /*
-         * Struct for storing a map from a parent net_handle_t to a list of its children
-         * This ended up being used for parent chains, whose children can either be snarls
-         * (represented as an index to the snarl's SnarlTreeNodeProblem), or seeds
-         *
-         * The data actually gets stored as a vector of parent, child pairs. To get the 
-         * children of a parent, sort the vector and take the range corresponding to the parent
-         */
-        struct ParentToChildMap {
-
-            //Struct to store one parent-child pair
-            struct ParentChildValues {
-
-                //the parent, as an index into all_clusters
-                size_t parent_index;
-
-                //The containing net handle of the child
-                net_handle_t child_handle;
-
-                //Indices of the child. If it is a snarl, one index into all_clusters and std::numeric_limits<size_t>::max(). 
-                //If it is a seed, the two indices into all_seeds
-                size_t child_index1;
-                size_t child_index2;
-                
-                //Chain component of the child
-                size_t child_chain_component;
-                
-                //left offset of the seed or start node of the snarl 
-                //(this is used for sorting children of a chain)
-                size_t child_offset;
-
-                ParentChildValues(const size_t& parent, const net_handle_t& handle, const size_t& index1, const size_t& index2, const size_t& component, const size_t& offset) :
-                    parent_index(parent), child_handle(handle), 
-                    child_index1(index1), child_index2(index2),
-                    child_chain_component(component), child_offset(offset) {} 
-            };
-
-            //This stores the actual data, as parent-child pairs
-            //This must be sorted to find the children of a parent
-            vector<ParentChildValues> parent_to_children;
-
-            //is parent_to_children sorted?
-            //Each time we look up the children of a parent, sort and look it up
-            //If it's already sorted, skip sorting
-            //Also set this to false any time something gets added
-            bool is_sorted = false;
-
-            //Add a child (the handle, child_index) to its parent (parent_index)
-            //Component is the component of the node or start component of the snarl
-            //Offset is the prefix sum value of the seed, or the prefix sum of the start node of the snarl + 
-            // node length of the start node
-            // The vector gets unsorted after adding a child
-            void add_child(size_t& parent_index, net_handle_t& handle, size_t& child_index, size_t child_index2, 
-                           size_t component, size_t offset) {
-                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, component, offset);
-                is_sorted=false;
-            }
-            void reserve(size_t& size) {
-                parent_to_children.reserve(size);
-            }
-
-            //Sort the parent_to_children vector first by parent, and second by the order
-            //of the children determined by comparator
-            void sort(const SnarlDistanceIndex& distance_index) {
-                if (!is_sorted) {
-                    std::sort(parent_to_children.begin(), parent_to_children.end(),
-                    [&] (const ParentChildValues& a,
-                         const ParentChildValues& b)->bool {
-                        if (a.parent_index == b.parent_index) {
-                            //If they are on the same parent chain
-
-                            if (a.child_chain_component == b.child_chain_component) {
-                                //If they are on the same component of the chain
-
-                                if (a.child_offset == b.child_offset) {
-                                    //If they have the same prefix sum value, order using the distance index
-                                    return distance_index.is_ordered_in_chain(a.child_handle, b.child_handle);
-                                } else {
-                                    //IF they have different prefix sum values, sort by prefix sum
-                                    return a.child_offset < b.child_offset;
-                                }
-
-                            } else {
-                                //If they are on different components, sort by component
-                                return a.child_chain_component < b.child_chain_component;
-                            }
-                        } else {
-                            //If they are on different parent chains, sort by parent
-                            return a.parent_index < b.parent_index;
-                        }
-                    });
-                    is_sorted = true;
-                }
             }
 
         };
@@ -410,37 +324,33 @@ class SnarlDistanceIndexClusterer {
             //////////Data structures to hold snarl tree relationships
             //The snarls and chains get updated as we move up the snarl tree
 
-            //This stores all the node clusters so we stop spending all our time allocating lots of vectors of SnarlTreeNodeProblem
-            vector<SnarlTreeNodeProblem> all_node_problems;
-
-            //Map each net_handle to its index in all_node_problems
-            hash_map<net_handle_t, size_t> net_handle_to_index;
-
-            
-            //Map each chain to its children, which can be snarls or seeds on nodes in the chain. 
-            //This is only for the current level of the snarl tree and gets updated as the algorithm
+            //This stores all the snarl tree nodes and their clustering scratch work 
+            //so we stop spending all our time allocating lots of vectors of SnarlTreeNodeProblem
+            hash_map<net_handle_t, SnarlTreeNodeProblem> net_handle_to_node_problem;
+           
+            //All chains for the current level of the snarl tree and gets updated as the algorithm
             //moves up the snarl tree. At one iteration, the algorithm will go through each chain
             //in chain to children and cluster the chain using clusters on the children
-            ParentToChildMap* chain_to_children;
+            vector<net_handle_t>* current_chains;
 
 
-            //Same structure as chain_to_children but for the level of the snarl
+            //Same as current_chains but for the level of the snarl
             //tree above the current one
             //This gets updated as the current level is processed - the snarls from this level
             //are added as children to parent_chain_to_children.
             //After processing one level, this becomes the next chain_to_children
-            ParentToChildMap* parent_chain_to_children;
+            vector<net_handle_t>* parent_chains;
 
-            //Map each snarl (as an index into all_node_problems) to its children (also as an index into all_node_problems)
-            //for the current level of the snarl tree (chains from chain_to_children get added to their parent snarls, 
+            //All snarls for the current level of the snarl tree 
+            //(chains from chain_to_children get added to their parent snarls, snarls get added to parent_snarls
             //then all snarls in snarl_to_children are clustered and added to parent_chain_to_children)
-            std::multimap<size_t, size_t> snarl_to_children;
+            vector<net_handle_t> parent_snarls;
 
-            //This holds all the child clusters of the root
-            //each size_t is the index into all_node_problems
+
+            //This holds all the child problems of the root
             //Each pair is the parent and the child. This will be sorted by parent before
             //clustering
-            vector<pair<size_t, size_t>> root_children;
+            vector<pair<net_handle_t, net_handle_t>> root_children;
 
 
             /////////////////////////////////////////////////////////
@@ -463,8 +373,7 @@ class SnarlDistanceIndexClusterer {
 
                 }
 
-                all_node_problems.reserve(5*seed_count);
-                net_handle_to_index.reserve(5*seed_count);
+                net_handle_to_node_problem.reserve(5*seed_count);
                 root_children.reserve(seed_count);
             }
         };
@@ -475,7 +384,7 @@ class SnarlDistanceIndexClusterer {
         //If a node is a child of the root or of a root snarl, then add cluster it and
         //remember to cluster the root snarl 
         void get_nodes( ClusteringProblem& clustering_problem,
-                        vector<ParentToChildMap>& chain_to_children_by_level) const;
+                        vector<vector<net_handle_t>>& chains_by_level) const;
 
 
         //Cluster all the snarls at the current level
@@ -487,47 +396,34 @@ class SnarlDistanceIndexClusterer {
         void cluster_chain_level(ClusteringProblem& clustering_problem, size_t depth) const;
 
         //Cluster the seeds on the specified node
-        //seed_range_start/end are iterators to the range in a vector of seeds for this node
-        //the tuple is <index of node in all_node_problems, read_num of seed, cluster_num of seed>
-        void cluster_one_node(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem& node_clusters,
-                              const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_start,
-                              const std::vector<std::tuple<size_t, size_t, size_t>>::iterator& seed_range_end) const; 
+        //The seeds are unsorted
+        void cluster_one_node(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* node_problem) const; 
 
         //Cluster the seeds in a snarl
-        //Snarl_cluster_index is the index into clustering_problem.all_node_problems
-        //child_range_start/end are the iterators to the start (inclusive) and end (exclusive) 
-        //of range of the snarl in snarl_to_children
-        void cluster_one_snarl(ClusteringProblem& clustering_problem, size_t snarl_clusters_index, 
-                 std::multimap<size_t, size_t>::iterator child_range_start, std::multimap<size_t, size_t>::iterator child_range_end) const;
+        void cluster_one_snarl(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* snarl_problem) const;
 
-        //Cluster the seeds in a chain given by chain_clusters_index, an index into
-        //distance_index.chain_indexes
-        //chain_range_start/end are iterators to the start (inclusive) and end (exclusive) of the
-        //range in chain_to_children representing children of this chain
-        //The range must be ordered
-        //
+        //Cluster the seeds in a chain
+        //The children are unsorted, they get sorted before clustering
         //If the children of the chain are only seeds on nodes, then cluster as if it is a node
-        void cluster_one_chain(ClusteringProblem& clustering_problem, size_t chain_clusters_index, 
-            const std::vector<ParentToChildMap::ParentChildValues>::iterator& chain_range_start,
-            const std::vector<ParentToChildMap::ParentChildValues>::iterator& chain_range_end,
-            bool only_seeds, bool is_top_level_chain) const;
+        void cluster_one_chain(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* chain_problem,
+            bool is_top_level_chain) const;
 
         //Helper function for adding the next seed to the chain clusters
-        void add_seed_to_chain_clusters(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem& chain_clusters,
-                                        ParentToChildMap::ParentChildValues& last_child,
+        void add_seed_to_chain_problem(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* chain_problem,
+                                        SnarlTreeNodeProblem::SnarlTreeChild& last_child,
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<ClusterHead>& cluster_heads_to_add_again,
                                         bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
-                                        const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, bool is_last_child,
+                                        const SnarlTreeNodeProblem::SnarlTreeChild& current_child, bool is_first_child, bool is_last_child,
                                         bool skip_distances_to_ends) const;
 
         //Helper function for adding the next snarl to the chain clusters
-        void add_snarl_to_chain_clusters(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem& chain_clusters,
-                                        ParentToChildMap::ParentChildValues& last_child, 
+        void add_snarl_to_chain_problem(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* chain_problem,
+                                        SnarlTreeNodeProblem::SnarlTreeChild& last_child, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<ClusterHead>& cluster_heads_to_add_again,
                                         bool& found_first_node, pair<bool, bool>& found_first_node_by_read,
-                                        const ParentToChildMap::ParentChildValues& current_child, bool is_first_child, bool is_last_child, 
+                                        const SnarlTreeNodeProblem::SnarlTreeChild& current_child, bool is_first_child, bool is_last_child, 
                                         bool skip_distances_to_ends) const;
 
         //Cluster in the root - everything in clustering_problem.root_children 
@@ -535,30 +431,27 @@ class SnarlDistanceIndexClusterer {
 
         //Cluster a list of seeds (SeedIndexes) that are on a single linear structure (node or chain)
         //Requires that the list of seeds are sorted relative to their position on the structure
-        //The list of seeds is everything in the list between range_start and range_end
         //This can be called on a chain if there are no nested seeds on the chain
-        //get_offset_from_seed_index returns a tuple of <read_num, seed_num, left offset> indices into all_seeds from whatever
-        //SeedIndex is used to store the seeds
         //left offset is the distance from the left side of the structure
-        template <typename SeedIndex>
-        void cluster_seeds_on_linear_structure(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem& node_clusters,
-                const typename vector<SeedIndex>::iterator& range_start,
-                const typename vector<SeedIndex>::iterator& range_end,
-                size_t structure_length, std::function<std::tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index, bool skip_distances_to_ends) const;
+        //if include_prefix_sum, then this is being called on a chain and the prefix sum must be added to the
+        //distance_left of the seeds
+        void cluster_seeds_on_linear_structure(ClusteringProblem& clustering_problem, 
+                SnarlTreeNodeProblem* problem, size_t structure_length, bool include_prefix_sum, 
+                bool skip_distances_to_ends) const;
 
         //Compare two children of the parent and combine their clusters, to create clusters in the parent
         //child_distances contains the distances for cluster heads in the children, 
         //since the distances in the seeds will get updated to be the distances in the parent
-        //First child is true if this is the first time we see child_clusters1. If first_child is true and this is 
+        //First child is true if this is the first time we see child_problem1. If first_child is true and this is 
         //a snarl, then we need to update the snarl's distances to its parents
-        void compare_and_combine_cluster_on_child_structures(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem& child_clusters1,
-                SnarlTreeNodeProblem& child_clusters2, SnarlTreeNodeProblem& parent_clusters, 
+        void compare_and_combine_cluster_on_child_structures(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* child_problem1,
+                SnarlTreeNodeProblem* child_problem2, SnarlTreeNodeProblem* parent_problem, 
                 const vector<pair<size_t, size_t>>& child_distances, bool is_root, bool first_child) const;
 
         //The same as above, but compare clusters on a single child
         //This assumes that the child is the child of the root and not a root snarl
         //so we just look at external distances 
-        void compare_and_combine_cluster_on_one_child(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem& child_clusters) const;
+        void compare_and_combine_cluster_on_one_child(ClusteringProblem& clustering_problem, SnarlTreeNodeProblem* child_problem) const;
 
 };
 }
