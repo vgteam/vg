@@ -143,6 +143,47 @@ namespace unittest {
 
         }
     }
+    TEST_CASE( "two tips", "[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("AGGGAAGATGTCGTGAAG");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("GA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster on the same node" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(1, false, 5));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 15); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+    }
+
+
     TEST_CASE( "cluster simple chain",
                    "[cluster]" ) {
         VG graph;
@@ -3355,7 +3396,14 @@ namespace unittest {
                                                 size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
                                                 size_t dist = std::min(std::min(dist1, 
                                                                    dist2), std::min( dist3, dist4));
-                                                cerr << "Distance between " << pos1 << " and " << pos2 << " should be " << dist << endl;
+                                                if (dist != clusterer.distance_between_seeds(all_seeds[read_num][clust[i1]],
+                                                                                                 all_seeds[read_num][clust2[i2]],
+
+                                                                                                 false)) {
+                                                    graph.serialize("testGraph.hg");
+                                                    cerr << "Distance between " << pos1 << " and " << pos2 << " should be " << dist << endl;
+
+                                                }
                                                 REQUIRE(dist == clusterer.distance_between_seeds(all_seeds[read_num][clust[i1]],
                                                                                                  all_seeds[read_num][clust2[i2]],
 
