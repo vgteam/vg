@@ -3246,7 +3246,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         }
         auto params = gcsa::ConstructionParameters();
-        params.doubling_steps = IndexingParameters::gcsa_doubling_steps;
+        params.setSteps(IndexingParameters::gcsa_doubling_steps);
                 
 #ifdef debug_index_registry_recipes
         cerr << "enumerating k-mers for input pruned graphs:" << endl;
@@ -3945,17 +3945,31 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         steps_completed.push_back(step);
         
         // do the recipe
-        vector<vector<string>> recipe_results;
         try {
-            recipe_results = execute_recipe(step, &plan, alias_graph);
+            auto recipe_results = execute_recipe(step, &plan, alias_graph);
+            
+            // the recipe executed successfully
+            assert(recipe_results.size() == step.first.size());
+            
+            // record the results
+            auto it = step.first.begin();
+            for (const auto& results : recipe_results) {
+                auto index = get_index(*it);
+                // don't overwrite directly-provided inputs
+                if (!index->was_provided_directly()) {
+                    // and assign the new (or first) ones
+                    index->assign_constructed(results);
+                }
+                ++it;
+            }
         }
         catch (RewindPlanException& ex) {
+            
             // the recipe failed, but we can rewind and retry following the recipe with
             // modified parameters (which should have been set by the exception-throwing code)
             if (IndexingParameters::verbosity != IndexingParameters::None) {
                 cerr << ex.what() << endl;
             }
-            
             // gather the recipes we're going to need to re-attempt
             const auto& rewinding_indexes = ex.get_indexes();
             set<RecipeName> dependent_recipes;
@@ -3967,30 +3981,17 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
             }
             
             // move rewound steps back onto the queue
-            for (auto it = steps_completed.rbegin(); it != steps_completed.rend(); ) {
-                auto here = it;
-                ++it;
-                if (dependent_recipes.count(*here)) {
-                    steps_remaining.emplace_front(move(*here));
-                    steps_completed.erase(here.base());
+            vector<list<RecipeName>::iterator> to_move;
+            for (auto it = steps_completed.rbegin(); it != steps_completed.rend(); ++it) {
+                if (dependent_recipes.count(*it)) {
+                    to_move.push_back(--it.base());
                 }
             }
-        }
-        // the recipe executed successfully
-        assert(recipe_results.size() == step.first.size());
-        
-        // record the results
-        auto it = step.first.begin();
-        for (const auto& results : recipe_results) {
-            auto index = get_index(*it);
-            // don't overwrite directly-provided inputs
-            if (!index->was_provided_directly()) {
-                // and assign the new (or first) ones
-                index->assign_constructed(results);
+            for (auto& it : to_move) {
+                steps_remaining.emplace_front(*it);
+                steps_completed.erase(it);
             }
-            ++it;
         }
-        
     }
 #ifdef debug_index_registry
     cerr << "finished executing recipes, resolving aliases" << endl;
