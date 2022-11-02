@@ -138,10 +138,10 @@ cerr << "\tread distance limit: " << read_distance_limit << " and fragment dista
         throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
     }
 
-    //For each level of the snarl tree, maps chains at that level to children belonging to the chain.
-    //Children are represented as a size_t index into all_node_problems, or two size_t indexes into all_seeds
-    //Starts out with nodes from get_nodes, 
-    //then adds snarls as we walk up the snarl tree in 
+    //For each level of the snarl tree, which chains at that level contain seeds
+    //Initially populated by get_nodes(), which adds chains whose nodes contain seeds
+    //Chains are added when the child snarls are found
+    //A ClusteringProblem will have pointers to the current and next level of the snarl tree
     vector<vector<net_handle_t>> chains_by_level;
     chains_by_level.reserve(distance_index.get_max_tree_depth()+1);
 
@@ -349,13 +349,13 @@ cerr << "Add all seeds to nodes: " << endl;
             bool has_cached_values = old_cache != MIPayload::NO_CODE;
 #ifdef DEBUG_CLUSTER
             if (has_cached_values) {
-                cerr << "Using cached values" << endl;
-                cerr << MIPayload::record_offset(old_cache) << endl;
-                cerr << MIPayload::parent_record_offset(old_cache) << endl;
-                cerr << MIPayload::node_record_offset(old_cache) << endl;
-                cerr << MIPayload::node_length(old_cache) << endl;
-                cerr << MIPayload::prefix_sum(old_cache) << endl;
-                cerr << MIPayload::chain_component(old_cache) << endl;
+                cerr << "Using cached values:" 
+                    << ", " << MIPayload::record_offset(old_cache)
+                    << ", " << MIPayload::parent_record_offset(old_cache)
+                    << ", " << MIPayload::node_record_offset(old_cache)
+                    << ", " << MIPayload::node_length(old_cache)
+                    << ", " << MIPayload::prefix_sum(old_cache)
+                    << ", " << MIPayload::chain_component(old_cache) << endl;
             } else {
                 cerr << "Not using cached values" << endl;
             }

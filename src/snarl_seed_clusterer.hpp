@@ -40,6 +40,9 @@ namespace vg{
  * Every time the clusterer is run, a ClusteringProblem is made to store information about the state of the clusterer
  * The ClusteringProblem keeps track of which level of the snarl tree is currently being clustered, and
  * keeps track of the children of the current and next level of the snarl tree. 
+ * Each snarl tree node that contains seeds is represented by a SnarlTreeNodeProblem.
+ * The SnarlTreeNodeProblem represents the problem of clustering one snarl tree node. 
+ * It knows the identities of its children and keeps track of its cluster heads
  * 
  * 
  *
@@ -141,11 +144,16 @@ class SnarlDistanceIndexClusterer {
         /*
          * This struct is used to store the clustering information about one 
          * snarl tree node (node/snarl/chain)
+         *
          * It knows the cluster heads of the clusters on the node 
          * and the minimum distance from any seed in each cluster to the ends of the node
          * If the node is a snarl, then the distances stored are to the boundary nodes but
          * don't include the lengths of the boundary nodes; if the node is a node or chain,
          * then the distances include the boundary nodes
+         *
+         * Relevant children of the snarl tree node are stored as SnarlTreeChild's, which 
+         * may represent a seed (if the parent is a chain) or another snarl tree node
+         * The list of children is unsorted and must be sorted before clustering a chain
          *
          * This also stores additional information about the snarl tree node from the distance index
          * including the distance from the ends of the node to the ends of the parent
@@ -184,10 +192,12 @@ class SnarlDistanceIndexClusterer {
 
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
+
             //The parent and grandparent of containing_net_handle, which might or might not be set
             //This is just to store information from the minimizer cache
             net_handle_t parent_net_handle;
             net_handle_t grandparent_net_handle;
+
             //The boundary node of containing_net_handle, for a snarl or chain
             //if it is a snarl, then this is the actual node, not the sentinel 
             net_handle_t end_in;
