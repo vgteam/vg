@@ -3,6 +3,7 @@
 
 #include <vg/vg.pb.h>
 #include <iostream>
+#include <atomic>
 #include "vg/io/json2pb.h"
 #include "handle.hpp"
 #include "position.hpp"
@@ -56,9 +57,11 @@ private:
 };
 
 /// Iterate over all the kmers in the graph, running lambda on each
+/// If the stop flag is included, stop execution if it ever evaluates to true
 void for_each_kmer(const HandleGraph& graph, size_t k,
                    const function<void(const kmer_t&)>& lambda,
-                   id_t head_id = 0, id_t tail_id = 0);
+                   id_t head_id = 0, id_t tail_id = 0,
+                   atomic<int>* stop_flag = nullptr);
 
 /// Print a kmer_t to a stream.
 ostream& operator<<(ostream& out, const kmer_t& kmer);

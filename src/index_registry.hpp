@@ -87,8 +87,10 @@ struct IndexingParameters {
     static int gcsa_initial_kmer_length;
     // number of k-mer length doubling steps in GCSA2 [4]
     static int gcsa_doubling_steps;
+    // disk limit for temporary files in bytes [2TB]
+    static int64_t gcsa_size_limit;
     // number of gbwt nodes inserted at a time in dynamic gbwt [100M]
-    static int gbwt_insert_batch_size;
+    static int64_t gbwt_insert_batch_size;
     // factor by which the batch size is increased if construction fails [10]
     static int gbwt_insert_batch_size_increase_factor;
     // the sampling interval in the GBWT suffix array [1024]

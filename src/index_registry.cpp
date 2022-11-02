@@ -98,7 +98,8 @@ double IndexingParameters::pruning_walk_length_increase_factor = 1.5;
 double IndexingParameters::pruning_max_node_degree_decrease_factor = 0.75;
 int IndexingParameters::gcsa_initial_kmer_length = gcsa::Key::MAX_LENGTH;
 int IndexingParameters::gcsa_doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
-int IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
+int64_t IndexingParameters::gcsa_size_limit = 2ll * 1024ll * 1024ll * 1024ll;
+int64_t IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 int IndexingParameters::gbwt_insert_batch_size_increase_factor = 10;
 int IndexingParameters::gbwt_sampling_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
 bool IndexingParameters::bidirectional_haplo_tx_gbwt = false;
@@ -382,7 +383,7 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
 }
 
 // execute a function in another process and return true if successful
-// REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK INSIDE THE LAMBDA!!
+// REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
 static bool execute_in_fork(const function<void(void)>& exec) {
     
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
@@ -3247,6 +3248,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         auto params = gcsa::ConstructionParameters();
         params.setSteps(IndexingParameters::gcsa_doubling_steps);
+        params.setLimitBytes(IndexingParameters::gcsa_size_limit);
                 
 #ifdef debug_index_registry_recipes
         cerr << "enumerating k-mers for input pruned graphs:" << endl;

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 32
 
 rm auto.*
 
@@ -97,8 +97,13 @@ printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGG
 vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
 is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when no walks exist"
 
+# reduce disk limit to 1MB to trigger it during k-mer generation
+is "$(vg autoindex -p auto -w map --gcsa-size-limit 1000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during k-mer enumeration triggers a rewind"
+is "$(echo $?)" 0 "Indexing is successful after rewinding from k-mer generation"
+
+# reduce disk limit to 2MB to trigger it during doubling steps
+is "$(vg autoindex -p auto -w map --gcsa-size-limit 2000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during GCSA2 indexing triggers a rewind"
+is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
+
 rm auto.*
 rm read.fq read.gam
-
-
-
