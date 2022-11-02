@@ -38,6 +38,8 @@ namespace vg {
  * TODO: Parameterize number of haplotypes, subchain length, number of construction jobs.
  * FIXME: Handle fragments with no subchains.
  * TODO: Should the prefix and the suffix be from separate haplotypes?
+ * TODO: Include reference paths?
+ * TODO: Are all chains in the right orientation?
  */
 class Recombinator {
 public:
@@ -140,6 +142,25 @@ public:
     std::vector<std::vector<gbwtgraph::TopLevelChain>> chains_by_job;
 
     bool progress;
+
+    // FIXME should be private
+    // FIXME return statistics?
+    // Generate haplotypes for the given chain.
+    void generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const;
+
+private:
+
+    // Partition a chain into subchains.
+    std::vector<subchain_type> get_subchains(const gbwtgraph::TopLevelChain& chain) const;
+
+    // Return the minimum distance over the candidate subchain.
+    size_t get_distance(handle_t from, handle_t to) const;
+
+    // Return all GBWT sequences visiting a handle.
+    std::vector<sequence_type> get_sequences(handle_t handle) const;
+
+    // Get all GBWT sequences crossing the subchain at the start of the subchain.
+    std::vector<sequence_type> get_sequences(subchain_type subchain) const;
 };
 
 //------------------------------------------------------------------------------
