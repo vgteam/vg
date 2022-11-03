@@ -74,6 +74,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="kmer_8hpp.html">kmer.hpp</a>&quot;</code><br />
+<code>#include &lt;atomic&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -82,9 +83,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">vg::for_each_kmer</a> (const HandleGraph &amp;graph, size_t k, const function&lt; void(const kmer_t &amp;)&gt; &amp;lambda, id_t head_id=0, id_t tail_id=0)</td></tr>
-<tr class="memdesc:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the kmers in the graph, running lambda on each.  <a href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">More...</a><br /></td></tr>
-<tr class="separator:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3d4de4fa2fda6bfcd6eaa77080c67ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab3d4de4fa2fda6bfcd6eaa77080c67ad">vg::for_each_kmer</a> (const HandleGraph &amp;graph, size_t k, const function&lt; void(const kmer_t &amp;)&gt; &amp;lambda, id_t head_id, id_t tail_id, atomic&lt; int &gt; *stop_flag)</td></tr>
+<tr class="separator:ab3d4de4fa2fda6bfcd6eaa77080c67ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0e459d4a7dda13edf5b79ea8996cfd82">vg::operator&lt;&lt;</a> (ostream &amp;out, const kmer_t &amp;kmer)</td></tr>
 <tr class="memdesc:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> to a stream.  <a href="namespacevg.html#a0e459d4a7dda13edf5b79ea8996cfd82">More...</a><br /></td></tr>
 <tr class="separator:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="memSeparator" colspan="2">&#160;</td></tr>

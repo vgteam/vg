@@ -170,7 +170,10 @@ $(function() {
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#abe0ad79b8b65bea2a4f871913c83ee65">vg::PhaseUnfolder</a>
 </li>
 <li>gbwt_insert_batch_size
-: <a class="el" href="structvg_1_1IndexingParameters.html#a703bd0eeee457e95bbb3fdb1f08fa737">vg::IndexingParameters</a>
+: <a class="el" href="structvg_1_1IndexingParameters.html#ab408ae73a85875de5dfe376e340f8840">vg::IndexingParameters</a>
+</li>
+<li>gbwt_insert_batch_size_increase_factor
+: <a class="el" href="structvg_1_1IndexingParameters.html#a721125abeca5c4755e875f2e3d8c1d2f">vg::IndexingParameters</a>
 </li>
 <li>gbwt_name
 : <a class="el" href="structGBWTConfig.html#a5fe3f0a41311811ddf16bcd7dbab4f91">GBWTConfig</a>
@@ -228,6 +231,9 @@ $(function() {
 </li>
 <li>gcsa_initial_kmer_length
 : <a class="el" href="structvg_1_1IndexingParameters.html#a890a5822bd592090eaf5b529816ecb32">vg::IndexingParameters</a>
+</li>
+<li>gcsa_size_limit
+: <a class="el" href="structvg_1_1IndexingParameters.html#a144f6b2b03ccc7ecf4b7d3a504aed1b7">vg::IndexingParameters</a>
 </li>
 <li>gen_flat_node
 : <a class="el" href="structhaplo_1_1haplo__DP__rectangle.html#a87d1fd7ca4ac40321f912724bf5c3f8c">haplo::haplo_DP_rectangle</a>
@@ -645,6 +651,9 @@ $(function() {
 : <a class="el" href="classvg_1_1IndexRegistry.html#a3738a3916a17ca5a2716e7530b10c434">vg::IndexRegistry</a>
 , <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html#a3e15061afb4437ec04334ed77732fa81">vg::RepresentativeTraversalFinder</a>
 </li>
+<li>get_indexes()
+: <a class="el" href="classvg_1_1RewindPlanException.html#a80a898014c62738052c18e85a0403a24">vg::RewindPlanException</a>
+</li>
 <li>get_inward_backing_handle()
 : <a class="el" href="classvg_1_1NetGraph.html#adc4841db50e7f3073cad16d59426ba5a">vg::NetGraph</a>
 </li>
@@ -1001,6 +1010,9 @@ $(function() {
 <li>get_read_sequence()
 : <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a843fa9e4fb72e2df9afd9455ee16c8d8">vg::algorithms::BaseChainingSpace&lt; Item &gt;</a>
 </li>
+<li>get_recipe()
+: <a class="el" href="classvg_1_1IndexRegistry.html#a1f378b76124b73c85111a81be74f92b3">vg::IndexRegistry</a>
+</li>
 <li>get_ref_following()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a2e9ec5540a31571c3daba83abf03d18d">haplo::linear_haplo_structure</a>
 </li>
@@ -1142,7 +1154,7 @@ $(function() {
 , <a class="el" href="classxg_1_1XG.html#a087db8dbe184e5a22dda11d61f8fff6a">xg::XG</a>
 </li>
 <li>get_step_count()
-: <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a6d3a31f0c19054cd2908525119869b80">handlegraph::PathHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#add91075c3490f8dc5acf667f2b26832c">handlegraph::PathHandleGraph</a>
 , <a class="el" href="classvg_1_1MemoizingGraph.html#ae0bc7232272e70adab6333dbe3718f46">vg::MemoizingGraph</a>
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#ae2df84b76bcec7b4899838a99d3799f5">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a3efe30807d096a6175373bc3f4863dd7">vg::VG</a>
@@ -1270,7 +1282,7 @@ $(function() {
 : <a class="el" href="structGBWTConfig.html#a07b86c3ec44037b22504eb86d9ebd78d">GBWTConfig</a>
 </li>
 <li>GFADuplicatePathError()
-: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#aa815b9f84fdf80d9bf29c38d3d68408c">vg::algorithms::GFADuplicatePathError</a>
+: <a class="el" href="structvg_1_1algorithms_1_1GFADuplicatePathError.html#a05dd140439b17113dec810a3cdc26bab">vg::algorithms::GFADuplicatePathError</a>
 </li>
 <li>GFAFormatError()
 : <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html#afdf6dea244cc33a30ae5d9446199bea2">vg::algorithms::GFAFormatError</a>
@@ -1422,7 +1434,7 @@ $(function() {
 , <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>
 </li>
 <li>graph_pos_at_path_position()
-: <a class="el" href="classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7">xg::XG</a>
+: <a class="el" href="classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296">xg::XG</a>
 </li>
 <li>graph_source
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea">GraphHandler</a>
@@ -1506,7 +1518,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae">vg::GSSWAligner</a>
 </li>
 <li>GSSWAligner()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a8dc84b7b4cf4632d7a21c328c4b94b4b">vg::GSSWAligner</a>
 </li>
 </ul>
 </div><!-- contents -->

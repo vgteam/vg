@@ -519,6 +519,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html">ReverseGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1RewindPlanException.html">RewindPlanException</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html">Sampler</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1seed__traits.html">seed_traits</a></td></tr>
@@ -534,6 +536,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SimpleConsistencyCalculator.html">SimpleConsistencyCalculator</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SimpleTraversalSupportCalculator.html">SimpleTraversalSupportCalculator</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SizeLimitExceededException.html">SizeLimitExceededException</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1481,9 +1485,10 @@ Functions</h2></td></tr>
 <tr class="separator:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a691144860bc63559aaf088d2e052af62"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a691144860bc63559aaf088d2e052af62">vcf_contigs</a> (const string &amp;filename)</td></tr>
 <tr class="separator:a691144860bc63559aaf088d2e052af62"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> head_id=0, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> tail_id=0)</td></tr>
-<tr class="memdesc:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the kmers in the graph, running lambda on each.  <a href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">More...</a><br /></td></tr>
-<tr class="separator:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac302dd262b1fc457d0711c914a216aef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac302dd262b1fc457d0711c914a216aef">execute_in_fork</a> (const function&lt; void(void)&gt; &amp;exec)</td></tr>
+<tr class="separator:ac302dd262b1fc457d0711c914a216aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3d4de4fa2fda6bfcd6eaa77080c67ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab3d4de4fa2fda6bfcd6eaa77080c67ad">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> head_id, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> tail_id, atomic&lt; int &gt; *stop_flag)</td></tr>
+<tr class="separator:ab3d4de4fa2fda6bfcd6eaa77080c67ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0e459d4a7dda13edf5b79ea8996cfd82">operator&lt;&lt;</a> (ostream &amp;out, const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;kmer)</td></tr>
 <tr class="memdesc:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> to a stream.  <a href="namespacevg.html#a0e459d4a7dda13edf5b79ea8996cfd82">More...</a><br /></td></tr>
 <tr class="separator:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -8029,6 +8034,24 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a id="ac302dd262b1fc457d0711c914a216aef"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac302dd262b1fc457d0711c914a216aef">&#9670;&nbsp;</a></span>execute_in_fork()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::execute_in_fork </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(void)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>exec</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a491e9c11712ae965b8c6745ab33aba21"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a491e9c11712ae965b8c6745ab33aba21">&#9670;&nbsp;</a></span>extend_alignment()</h2>
 
@@ -9173,8 +9196,8 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="ad2dc76ed1d84a8e2043955ba3c8a9bb7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad2dc76ed1d84a8e2043955ba3c8a9bb7">&#9670;&nbsp;</a></span>for_each_kmer()</h2>
+<a id="ab3d4de4fa2fda6bfcd6eaa77080c67ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3d4de4fa2fda6bfcd6eaa77080c67ad">&#9670;&nbsp;</a></span>for_each_kmer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -9201,13 +9224,19 @@ template&lt;typename Annotated &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td>
-          <td class="paramname"><em>head_id</em>, </td>
+          <td class="paramname"><em>head_id</em> = <code>0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td>
-          <td class="paramname"><em>tail_id</em>&#160;</td>
+          <td class="paramname"><em>tail_id</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">atomic&lt; int &gt; *&#160;</td>
+          <td class="paramname"><em>stop_flag</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -9216,8 +9245,7 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Iterate over all the kmers in the graph, running lambda on each. </p>
+<p>Iterate over all the kmers in the graph, running lambda on each If the stop flag is included, stop execution if it ever evaluates to true </p>
 
 </div>
 </div>
@@ -24556,7 +24584,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Open a tempfile and write the kmers to it. The calling context should remove it with <a class="el" href="namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5">temp_file::remove()</a>. </p>
+<p>Open a tempfile and write the kmers to it. The calling context should remove it with <a class="el" href="namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5">temp_file::remove()</a>. In the case that the size limit is exceeded, throws a <a class="el" href="classvg_1_1SizeLimitExceededException.html">SizeLimitExceededException</a> and deletes the temp file. </p>
 
 </div>
 </div>

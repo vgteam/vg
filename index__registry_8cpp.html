@@ -86,8 +86,10 @@ $(function() {
 <code>#include &lt;cctype&gt;</code><br />
 <code>#include &lt;cstdio&gt;</code><br />
 <code>#include &lt;cerrno&gt;</code><br />
+<code>#include &lt;cstdlib&gt;</code><br />
 <code>#include &lt;omp.h&gt;</code><br />
 <code>#include &lt;sys/stat.h&gt;</code><br />
+<code>#include &lt;sys/wait.h&gt;</code><br />
 <code>#include &lt;bdsg/hash_graph.hpp&gt;</code><br />
 <code>#include &lt;bdsg/packed_graph.hpp&gt;</code><br />
 <code>#include &lt;bdsg/odgi.hpp&gt;</code><br />
@@ -167,6 +169,8 @@ Functions</h2></td></tr>
 <tr class="separator:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a691144860bc63559aaf088d2e052af62"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a691144860bc63559aaf088d2e052af62">vg::vcf_contigs</a> (const string &amp;filename)</td></tr>
 <tr class="separator:a691144860bc63559aaf088d2e052af62"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac302dd262b1fc457d0711c914a216aef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac302dd262b1fc457d0711c914a216aef">vg::execute_in_fork</a> (const function&lt; void(void)&gt; &amp;exec)</td></tr>
+<tr class="separator:ac302dd262b1fc457d0711c914a216aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

@@ -105,12 +105,20 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:ad673cb8b7687d3a60aef1036d1b1dae3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f955fc9bdfedd418b900163f36a2e15"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a1f955fc9bdfedd418b900163f36a2e15">pruning_min_component_size</a> = 33</td></tr>
 <tr class="separator:a1f955fc9bdfedd418b900163f36a2e15"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7c483115dc36e1e7e8b25684f427442c"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a7c483115dc36e1e7e8b25684f427442c">pruning_walk_length_increase_factor</a> = 1.5</td></tr>
+<tr class="separator:a7c483115dc36e1e7e8b25684f427442c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3de2fff42441077c37ff61421b6415d"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ac3de2fff42441077c37ff61421b6415d">pruning_max_node_degree_decrease_factor</a> = 0.75</td></tr>
+<tr class="separator:ac3de2fff42441077c37ff61421b6415d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a890a5822bd592090eaf5b529816ecb32"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a890a5822bd592090eaf5b529816ecb32">gcsa_initial_kmer_length</a> = gcsa::Key::MAX_LENGTH</td></tr>
 <tr class="separator:a890a5822bd592090eaf5b529816ecb32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab480b0e1f6dca30213719734b78904e5"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ab480b0e1f6dca30213719734b78904e5">gcsa_doubling_steps</a> = gcsa::ConstructionParameters::DOUBLING_STEPS</td></tr>
 <tr class="separator:ab480b0e1f6dca30213719734b78904e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a703bd0eeee457e95bbb3fdb1f08fa737"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a703bd0eeee457e95bbb3fdb1f08fa737">gbwt_insert_batch_size</a> = gbwt::DynamicGBWT::INSERT_BATCH_SIZE</td></tr>
-<tr class="separator:a703bd0eeee457e95bbb3fdb1f08fa737"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a144f6b2b03ccc7ecf4b7d3a504aed1b7"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a144f6b2b03ccc7ecf4b7d3a504aed1b7">gcsa_size_limit</a> = 2ll * 1024ll * 1024ll * 1024ll</td></tr>
+<tr class="separator:a144f6b2b03ccc7ecf4b7d3a504aed1b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab408ae73a85875de5dfe376e340f8840"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ab408ae73a85875de5dfe376e340f8840">gbwt_insert_batch_size</a> = gbwt::DynamicGBWT::INSERT_BATCH_SIZE</td></tr>
+<tr class="separator:ab408ae73a85875de5dfe376e340f8840"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a721125abeca5c4755e875f2e3d8c1d2f"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a721125abeca5c4755e875f2e3d8c1d2f">gbwt_insert_batch_size_increase_factor</a> = 10</td></tr>
+<tr class="separator:a721125abeca5c4755e875f2e3d8c1d2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd33e81c954cb14ed31455a3950abe64"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#abd33e81c954cb14ed31455a3950abe64">gbwt_sampling_interval</a> = gbwt::DynamicGBWT::SAMPLE_INTERVAL</td></tr>
 <tr class="separator:abd33e81c954cb14ed31455a3950abe64"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68d4ceb62ffb8768c1b2334475843333"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a68d4ceb62ffb8768c1b2334475843333">bidirectional_haplo_tx_gbwt</a> = false</td></tr>
@@ -251,8 +259,8 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a703bd0eeee457e95bbb3fdb1f08fa737"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a703bd0eeee457e95bbb3fdb1f08fa737">&#9670;&nbsp;</a></span>gbwt_insert_batch_size</h2>
+<a id="ab408ae73a85875de5dfe376e340f8840"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab408ae73a85875de5dfe376e340f8840">&#9670;&nbsp;</a></span>gbwt_insert_batch_size</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -261,7 +269,29 @@ Static Public Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int vg::IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE</td>
+          <td class="memname">int64_t vg::IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a721125abeca5c4755e875f2e3d8c1d2f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a721125abeca5c4755e875f2e3d8c1d2f">&#9670;&nbsp;</a></span>gbwt_insert_batch_size_increase_factor</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::gbwt_insert_batch_size_increase_factor = 10</td>
         </tr>
       </table>
   </td>
@@ -328,6 +358,28 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">int vg::IndexingParameters::gcsa_initial_kmer_length = gcsa::Key::MAX_LENGTH</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a144f6b2b03ccc7ecf4b7d3a504aed1b7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a144f6b2b03ccc7ecf4b7d3a504aed1b7">&#9670;&nbsp;</a></span>gcsa_size_limit</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IndexingParameters::gcsa_size_limit = 2ll * 1024ll * 1024ll * 1024ll</td>
         </tr>
       </table>
   </td>
@@ -603,6 +655,28 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ac3de2fff42441077c37ff61421b6415d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3de2fff42441077c37ff61421b6415d">&#9670;&nbsp;</a></span>pruning_max_node_degree_decrease_factor</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::IndexingParameters::pruning_max_node_degree_decrease_factor = 0.75</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a1f955fc9bdfedd418b900163f36a2e15"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1f955fc9bdfedd418b900163f36a2e15">&#9670;&nbsp;</a></span>pruning_min_component_size</h2>
 
@@ -636,6 +710,28 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">int vg::IndexingParameters::pruning_walk_length = 24</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7c483115dc36e1e7e8b25684f427442c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7c483115dc36e1e7e8b25684f427442c">&#9670;&nbsp;</a></span>pruning_walk_length_increase_factor</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::IndexingParameters::pruning_walk_length_increase_factor = 1.5</td>
         </tr>
       </table>
   </td>
