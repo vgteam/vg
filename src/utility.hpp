@@ -153,6 +153,9 @@ namespace temp_file {
     /// created by create() or create_directory() and not any other means.
     void remove(const string& filename);
 
+    /// Forget about all current temporary files and directories without deleting them.
+    void forget();
+
     /// Set a directory for placing temporary files and directories in,
     /// overriding system defaults and environment variables.
     void set_dir(const string& new_temp_dir);

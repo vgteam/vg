@@ -236,9 +236,9 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
     // it out exactly once. We need the start_end_id actually used in order to
     // go to the correct place when we don't go anywhere (i.e. at the far end of
     // the start/end node.
-    auto write_kmer = [&head_id, &tail_id](const kmer_t& kp){
-#pragma omp critical (cout)
-        cout << kp << endl;
+    auto write_kmer = [&head_id, &tail_id, &out](const kmer_t& kp){
+#pragma omp critical (out)
+        out << kp << endl;
     };
 
     for_each([&](HandleGraph* g) {
@@ -304,7 +304,16 @@ vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
         tail_id = overlay.get_id(overlay.get_sink_handle());
         
         size_t current_bytes = size_limit - total_size;
-        tmpnames.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, current_bytes, head_id, tail_id));
+        try {
+            tmpnames.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, current_bytes, head_id, tail_id));
+        }
+        catch (SizeLimitExceededException& ex) {
+            // clean up the temporary files before continuing to throw the exception
+            for (const auto& tmpname : tmpnames) {
+                temp_file::remove(tmpname);
+            }
+            throw ex;
+        }
         total_size += current_bytes;
     });
     size_limit = total_size;
