@@ -36,7 +36,6 @@ namespace vg {
  * chains as construction jobs.
  *
  * TODO: Parameterize number of haplotypes, subchain length, number of construction jobs.
- * FIXME: Handle fragments with no subchains.
  * TODO: Should the prefix and the suffix be from separate haplotypes?
  * TODO: Include reference paths?
  * TODO: Are all chains in the right orientation?
@@ -46,9 +45,6 @@ public:
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
 
-    /// A subchain of a top-level chain defined with two boundary nodes.
-    typedef std::pair<handle_t, handle_t> subchain_type;
-
     /// Number of haplotypes to be generated.
     constexpr static size_t NUM_HAPLOTYPES = 16;
 
@@ -57,6 +53,39 @@ public:
 
     /// Approximate number of construction jobs to be created.
     constexpr static size_t APPROXIMATE_JOBS = 32;
+
+    /**
+     * A subchain is a substring of a top-level chain defined by at one or two
+     * boundary nodes.
+     *
+     * Normal subchains have two boundary nodes, which are assumed to be the
+     * start node of a snarl and the end node of a possibly different snarl.
+     * There are assumed to be haplotypes crossing the subchain. Prefixes and
+     * suffixes lack one of the boundary nodes.
+     *
+     * When a top-level chain is partitioned into subchains, the boundary nodes
+     * may either overlap or be connected by unary paths. If a snarl is not
+     * connected, it may be presented as a suffix and a prefix.
+     */
+    struct Subchain {
+        /// Type of a subchain.
+        enum subchain_t { normal, prefix, suffix };
+
+        /// The type of this subchain.
+        subchain_t type;
+
+        /// Start node.
+        handle_t start;
+
+        /// End node.
+        handle_t end;
+
+        /// Returns `true` if the subchain has a start node.
+        bool has_start() const { return (this->type != prefix); }
+
+        /// Returns `true` if the subchain has an end node.
+        bool has_end() const { return (this->type != suffix); }
+    };
 
     /**
      * A haplotype beging generated as a GBWT path.
@@ -102,7 +131,7 @@ public:
          * take the prefix of the original original haplotype until the start
          * of the subchain.
          */
-        void extend(sequence_type sequence, subchain_type subchain, const Recombinator& recombinator);
+        void extend(sequence_type sequence, Subchain subchain, const Recombinator& recombinator, gbwt::GBWTBuilder& builder);
 
         /// Takes an existing haplotype from the GBWT index and inserts it into
         /// the builder. This is intended for fragments that do not contain
@@ -151,7 +180,7 @@ public:
 private:
 
     // Partition a chain into subchains.
-    std::vector<subchain_type> get_subchains(const gbwtgraph::TopLevelChain& chain) const;
+    std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain) const;
 
     // Return the minimum distance over the candidate subchain.
     size_t get_distance(handle_t from, handle_t to) const;
@@ -159,8 +188,9 @@ private:
     // Return all GBWT sequences visiting a handle.
     std::vector<sequence_type> get_sequences(handle_t handle) const;
 
-    // Get all GBWT sequences crossing the subchain at the start of the subchain.
-    std::vector<sequence_type> get_sequences(subchain_type subchain) const;
+    // Get all GBWT sequences crossing the subchain. The sequences will be at the
+    // start for normal subchains and at the only boundary node for other subchains.
+    std::vector<sequence_type> get_sequences(Subchain subchain) const;
 };
 
 //------------------------------------------------------------------------------

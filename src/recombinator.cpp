@@ -20,11 +20,6 @@ handle_t empty_handle() {
     return gbwtgraph::GBWTGraph::node_to_handle(0);
 }
 
-// An empty subchain.
-Recombinator::subchain_type empty_subchain() {
-    return { empty_handle(), empty_handle() };
-}
-
 // Returns a GBWTGraph handle as a string (id, orientation).
 std::string to_string(handle_t handle) {
     gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(handle);
@@ -33,23 +28,41 @@ std::string to_string(handle_t handle) {
 
 //------------------------------------------------------------------------------
 
-void Recombinator::Haplotype::extend(sequence_type sequence, subchain_type subchain, const Recombinator& recombinator) {
-    if (this->position != gbwt::invalid_edge()) {
-        this->connect(subchain.first, recombinator.gbz.graph);
-    } else {
-        this->prefix(recombinator.r_index.seqId(sequence.first), subchain.first, recombinator.gbz.index);
-    }
-
-    gbwt::edge_type curr(gbwtgraph::GBWTGraph::handle_to_node(subchain.first), sequence.second);
-    if (!recombinator.gbz.index.contains(curr)) {
-        std::cerr << "error: [Haplotype::extend()] The GBWT index does not contain position "; gbwt::operator<<(std::cerr, curr) << std::endl;
+void Recombinator::Haplotype::extend(sequence_type sequence, Subchain subchain, const Recombinator& recombinator, gbwt::GBWTBuilder& builder) {
+    if (subchain.type == Subchain::prefix) {
+        if (!this->path.empty())  {
+            std::cerr << "error: [Haplotype::extend()] got a prefix subchain after the start of a fragment" << std::endl;
+            return;
+        }
+        this->prefix(recombinator.r_index.seqId(sequence.first), subchain.end, recombinator.gbz.index);
         return;
     }
-    gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(subchain.second);
+
+    // Suffixes and normal subchains have a start node, so we must reach it first.
+    if (!this->path.empty()) {
+        this->connect(subchain.start, recombinator.gbz.graph);
+    } else {
+        this->prefix(recombinator.r_index.seqId(sequence.first), subchain.start, recombinator.gbz.index);
+    }
+
+    gbwt::edge_type curr(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
+    if (!recombinator.gbz.index.contains(curr)) {
+        std::cerr << "error: [Haplotype::extend()] the GBWT index does not contain position "; gbwt::operator<<(std::cerr, curr) << std::endl;
+        return;
+    }
+
+    if (subchain.type == Subchain::suffix) {
+        this->position = curr;
+        this->finish(recombinator, builder);
+        return;
+    }
+
+    // This is a normal subchain.
+    gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(subchain.end);
     while (curr.first != end) {
         curr = recombinator.gbz.index.LF(curr);
         if (curr.first == gbwt::ENDMARKER) {
-            std::cerr << "error: [Haplotype::extend()] The sequence did not reach " << to_string(subchain.second) << std::endl;
+            std::cerr << "error: [Haplotype::extend()] the sequence did not reach " << to_string(subchain.end) << std::endl;
             return;
         }
         this->path.push_back(curr.first);
@@ -120,6 +133,7 @@ void Recombinator::Haplotype::prefix(gbwt::size_type sequence, handle_t until, c
     for (gbwt::edge_type curr = index.start(sequence); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
         this->path.push_back(curr.first);
         if (curr.first == end) {
+            this->position = curr;
             return;
         }
     }
@@ -174,41 +188,35 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_
 //------------------------------------------------------------------------------
 
 void Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const {
-    std::vector<subchain_type> subchains = this->get_subchains(chain);
+    std::vector<Subchain> subchains = this->get_subchains(chain);
     std::vector<Haplotype> haplotypes;
     for (size_t i = 0; i < NUM_HAPLOTYPES; i++) {
         haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_edge(), {} });
     }
 
     bool have_haplotypes = false, generated_haplotypes = false;
-    size_t real_subchains = subchains.size();
-    for (size_t i = 0; i < subchains.size(); i++) {
-        if (subchains[i] == empty_subchain()) {
-            if (have_haplotypes) {
-                for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                    haplotypes[haplotype].finish(*this, builder);
-                }
-            }
-            have_haplotypes = false;
-            real_subchains--;
-            continue;
-        }
-        auto sequences = this->get_sequences(subchains[i]);
+    size_t real_subchains = 0;
+    for (const Subchain& subchain : subchains) {
+        std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
+        auto sequences = this->get_sequences(subchain);
         if (sequences.empty()) {
-            if (have_haplotypes) {
-                for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                    haplotypes[haplotype].finish(*this, builder);
-                }
+            // There are no haplotypes crossing the subchain, so we break it into
+            // a suffix and a prefix.
+            to_process.push_back({ { Subchain::suffix, subchain.start, empty_handle() }, this->get_sequences(subchain.start) });
+            to_process.push_back({ { Subchain::prefix, empty_handle(), subchain.end }, this->get_sequences(subchain.end) });
+            real_subchains++;
+        } else {
+            to_process.push_back({ subchain, std::move(sequences) });
+        }
+        for (auto iter = to_process.begin(); iter != to_process.end(); ++iter) {
+            // FIXME check that there are sequences
+            for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
+                haplotypes[haplotype].extend(iter->second[haplotype % iter->second.size()], iter->first, *this, builder);
             }
-            have_haplotypes = false;
-            real_subchains--;
-            continue;
+            have_haplotypes = iter->first.has_end();
+            generated_haplotypes = true;
+            real_subchains++;
         }
-        for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-            haplotypes[haplotype].extend(sequences[haplotype % sequences.size()], subchains[i], *this);
-        }
-        have_haplotypes = true;
-        generated_haplotypes = true;
     }
     if (have_haplotypes) {
         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
@@ -234,12 +242,12 @@ void Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gb
     }
 }
 
-std::vector<Recombinator::subchain_type>
+std::vector<Recombinator::Subchain>
 Recombinator::get_subchains(const gbwtgraph::TopLevelChain& chain) const {
-    std::vector<subchain_type> result;
+    std::vector<Subchain> result;
 
     // First pass: take all connected snarls as subchains.
-    std::vector<subchain_type> snarls;
+    std::vector<Subchain> snarls;
     handle_t snarl_start = empty_handle();
     bool has_start = false;
     bool was_snarl = false;
@@ -248,13 +256,20 @@ Recombinator::get_subchains(const gbwtgraph::TopLevelChain& chain) const {
     while (curr != chain_end) {
         if (this->distance_index.is_node(curr)) {
             handle_t handle = this->distance_index.get_handle(curr, &this->gbz.graph);
-            if (was_snarl && has_start) {
-                size_t distance = this->get_distance(snarl_start, handle);
-                if (distance < std::numeric_limits<size_t>::max()) {
-                    snarls.push_back({ snarl_start, handle });
+            if (was_snarl) {
+                if (!has_start) {
+                    // If the chain starts with a snarl, we take it as a prefix.
+                    snarls.push_back({ Subchain::prefix, empty_handle(), handle });
                 } else {
-                    // There are no paths crossing the snarl.
-                    snarls.push_back(empty_subchain());
+                    size_t distance = this->get_distance(snarl_start, handle);
+                    if (distance < std::numeric_limits<size_t>::max()) {
+                        // Normal snarl with two boundary nodes.
+                        snarls.push_back({ Subchain::normal, snarl_start, handle });
+                    } else {
+                        // The snarl is not connected, so we break it into two.
+                        snarls.push_back({ Subchain::suffix, snarl_start, empty_handle() });
+                        snarls.push_back({ Subchain::prefix, empty_handle(), handle });
+                    }
                 }
             }
             snarl_start = handle;
@@ -278,28 +293,33 @@ Recombinator::get_subchains(const gbwtgraph::TopLevelChain& chain) const {
         }
         curr = next;
     }
+    if (was_snarl && has_start) {
+        // If the chain ends with a snarl, we take it as a suffix.
+        snarls.push_back({ Subchain::suffix, snarl_start, empty_handle() });
+    }
 
     // Second pass: Combine snarls into subchains.
     size_t head = 0;
     while (head < snarls.size()) {
-        if (snarls[head] == empty_subchain()) {
-            result.push_back(empty_subchain());
+        if (snarls[head].type != Subchain::normal) {
+            // Prefixes and suffixes should be rare, so we can simply use them directly.
+            result.push_back(snarls[head]);
             head++;
             continue;
         }
         size_t tail = head;
         while (tail + 1 < snarls.size()) {
-            if (snarls[tail + 1] == empty_subchain()) {
+            if (snarls[tail + 1].type != Subchain::normal) {
                 break;
             }
-            size_t candidate = this->get_distance(snarls[head].first, snarls[tail + 1].second);
+            size_t candidate = this->get_distance(snarls[head].start, snarls[tail + 1].end);
             if (candidate <= SUBCHAIN_LENGTH) {
                 tail++;
             } else {
                 break;
             }
         }
-        result.push_back({ snarls[head].first, snarls[tail].second });
+        result.push_back({ Subchain::normal, snarls[head].start, snarls[tail].end });
         head = tail + 1;
     }
 
@@ -328,9 +348,15 @@ std::vector<Recombinator::sequence_type> Recombinator::get_sequences(handle_t ha
 }
 
 // FIXME handle haplotypes that visit the same node multiple times properly
-std::vector<Recombinator::sequence_type> Recombinator::get_sequences(subchain_type subchain) const {
-    auto from = this->get_sequences(subchain.first);
-    auto to = this->get_sequences(subchain.second);
+std::vector<Recombinator::sequence_type> Recombinator::get_sequences(Subchain subchain) const {
+    if (subchain.type == Subchain::prefix) {
+        return this->get_sequences(subchain.end);
+    }
+    if (subchain.type == Subchain::suffix) {
+        return this->get_sequences(subchain.start);
+    }
+    auto from = this->get_sequences(subchain.start);
+    auto to = this->get_sequences(subchain.end);
 
     auto from_iter = from.begin();
     auto to_iter = to.begin();
