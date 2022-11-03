@@ -384,11 +384,11 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
 
 // execute a function in another process and return true if successful
 // REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
-static bool execute_in_fork(const function<void(void)>& exec) {
+bool execute_in_fork(const function<void(void)>& exec) {
     
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
     // be copied with the fork and create deadlocks/races
-    omp_pause_resource_all(omp_pause_hard);
+    omp_pause_resource_all(omp_pause_soft);
     
     pid_t pid = fork();
     
@@ -403,14 +403,20 @@ static bool execute_in_fork(const function<void(void)>& exec) {
         temp_file::forget();
         
         exec();
-        
+                
         // end the child process successfully
         exit(0);
     }
     
     // allow the child to finish
     int child_stat;
-    wait(&child_stat);
+    waitpid(pid, &child_stat, 0); // 0 waits until the process fully exits
+    
+    // pass through signal-based exits
+    if (WIFSIGNALED(child_stat)) {
+        raise(WTERMSIG(child_stat));
+    }
+    
     assert(WIFEXITED(child_stat));
     
     return (WEXITSTATUS(child_stat) == 0);
