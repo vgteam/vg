@@ -5520,7 +5520,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         
         if (link_length == 0 && graph_length == 0) {
             // These items abut in the read and the graph, so we assume we can just connect them.
-            // GBWTExtender::connect() can't handle an empty read sequence, and
+            // WFAExtender::connect() can't handle an empty read sequence, and
             // our fallback method to align just against the graph can't handle
             // an empty graph region.
             // TODO: We can be leaving the GBWT's space here!

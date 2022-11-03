@@ -2106,10 +2106,16 @@ private:
 
 WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     if (this->graph == nullptr || this->aligner == nullptr) {
+#ifdef debug_connect
+        std::cerr << "No graph or no aligner! Returning empty alignment!" << std::endl;
+#endif
         return WFAAlignment();
     }
     gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
     if (root_state.empty()) {
+#ifdef debug_connect
+        std::cerr << "No root state! Returning empty alignment!" << std::endl;
+#endif
         return WFAAlignment();
     }
     this->mask(sequence);
@@ -2119,7 +2125,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
 
     int32_t score = 0;
     while (true) {
-
+#ifdef debug_connect
+        std::cerr << "Extend for score " << score << std::endl;
+#endif
         tree.extend(score, to);
 
         if (tree.candidate_point.score <= score) {
@@ -2127,11 +2135,17 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         }
 
         score = tree.next_score(score);
+#ifdef debug_connect
+        std::cerr << "Next score will be " << score << std::endl;
+#endif
 
         if (score > tree.score_bound) {
             break;
         }
 
+#ifdef debug_connect
+        std::cerr << "Next for score " << score << std::endl;
+#endif
         tree.next(score, to);
     }
 
@@ -2141,6 +2155,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     bool full_length = true;
     uint32_t unaligned_tail = sequence.length() - tree.candidate_point.seq_offset;
     if (tree.candidate_point.score > tree.score_bound) {
+#ifdef debug_connect
+        std::cerr << "No alignment could be found under score bound of " << tree.score_bound << "; best found was " << tree.candidate_point.score << std::endl;
+#endif
         unaligned_tail = 0;
         if (WFATree::no_pos(to)) {
             tree.trim(*(this->aligner));
@@ -2260,6 +2277,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         }
     }
 
+#ifdef debug_connect
+    std::cerr << "Found an alignment." << std::endl;
+#endif
     return result;
 }
 
