@@ -13,6 +13,10 @@ namespace algorithms {
 
 using namespace std;
 
+ostream& operator<<(ostream& out, const Anchor& anchor) {
+    return out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "*" << anchor.length() << "}";
+}
+
 ostream& operator<<(ostream& out, const TracedScore& value) {
     if (value.source == TracedScore::nowhere()) {
         return out << value.score << " from nowhere";
@@ -254,7 +258,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
                     jump_points = std::numeric_limits<int>::min();
                 } else {
                     // Then charge for that indel
-                    jump_points = get_gap_score(indel_length, gap_open, gap_extension);
+                    jump_points = score_gap(indel_length, gap_open, gap_extension);
                 }
             }
             
@@ -392,7 +396,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain, co
                                                                  distance_index,
                                                                  graph,
                                                                  gap_open,
-                                                                 gap_extension)
+                                                                 gap_extension);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             best_past_ending_score_ever.score,
@@ -419,7 +423,7 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
-    return distance_index->minimum_distance(
+    return distance_index.minimum_distance(
         id(from_pos), is_rev(from_pos), offset(from_pos),
         id(to_pos), is_rev(to_pos), offset(to_pos),
         false, &graph);  

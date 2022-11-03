@@ -13,11 +13,12 @@
 
 //#define debug_print_score_matrices
 
-using namespace vg;
+namespace vg {
+
 using namespace std;
 using namespace vg::io;
 
-int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension) const {
+int32_t score_gap(size_t gap_length, int32_t gap_open, int32_t gap_extension) {
     return gap_length ? -gap_open - (gap_length - 1) * gap_extension : 0;
 }
 
@@ -444,7 +445,7 @@ double GSSWAligner::alignment_score_partition_function(double lambda, const int8
 }
 
 int32_t GSSWAligner::score_gap(size_t gap_length) const {
-    return score_gap(gap_length, gap_open, gap_extension); 
+    return vg::score_gap(gap_length, gap_open, gap_extension); 
 }
 
 double GSSWAligner::first_mapping_quality_exact(const vector<double>& scaled_scores,
@@ -2451,4 +2452,6 @@ void AlignerClient::set_alignment_scores(std::istream& matrix_stream, int8_t gap
     regular_aligner = unique_ptr<Aligner>(new Aligner(score_matrix, gap_open, gap_extend,
                                                       full_length_bonus, gc_content_estimate));
     free(score_matrix);
+}
+
 }

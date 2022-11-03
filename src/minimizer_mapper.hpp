@@ -6,6 +6,7 @@
  * Defines a mapper that uses the minimizer index and GBWT-based extension.
  */
 
+#include "algorithms/chain_items.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
 #include "vg/io/alignment_emitter.hpp"
@@ -27,8 +28,6 @@ namespace vg {
 
 using namespace std;
 using namespace vg::io;
-
-namespace algorithms {
 
 class MinimizerMapper : public AlignerClient {
 public:
@@ -324,10 +323,10 @@ protected:
     }
     
     /// Convert a collection of seeds to a collection of chaining anchors.
-    std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const std::VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const;
+    std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const;
     
     /// Convert a single seed to a single chaining anchor.
-    algorithms::Anchor to_anchor(const Alignment& aln, const std::VectorView<Minimizer>& minimizers, const Seed& seed) const;
+    algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const Seed& seed) const;
     
     /// Convert an Anchor to a WFAAlignment
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor) const; 
@@ -429,8 +428,7 @@ protected:
      * sequences along the given chain of perfect-match seeds, and return an
      * optimal Alignment.
      */
-    template<typename Item, typename Source = void>
-    Alignment find_chain_alignment(const Alignment& aln, const VectorView<Item>& to_chain, const algorithms::SeedChainer& chainer, const std::vector<size_t>& chain) const;
+    Alignment find_chain_alignment(const Alignment& aln, const VectorView<algorithms::Anchor>& to_chain, const std::vector<size_t>& chain) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -805,7 +803,7 @@ protected:
     static string log_bits(const std::vector<bool>& bits);
     
     /// Dump a whole chaining problem
-    static void dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted);
+    static void dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted, const HandleGraph& graph);
     
     /// Dump all the given minimizers, with optional subset restriction
     static void dump_debug_minimizers(const VectorView<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);

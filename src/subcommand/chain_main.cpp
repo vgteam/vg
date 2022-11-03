@@ -26,85 +26,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-/// Define a single-graph-node item we can use for chaining
-struct LiteralItem {
-    size_t start;
-    size_t length;
-    int score;
-    pos_t pos;
-    
-    inline bool operator==(const LiteralItem& other) const {
-        return (this->start == other.start && this->length == other.length && this->pos == other.pos);
-    }
-    
-    inline bool operator!=(const LiteralItem& other) const {
-        return !(*this == other);
-    }
-};
-
-std::ostream& operator<<(std::ostream& out, const LiteralItem& item) {
-    return out << "{read " << item.start << "-" << (item.start + item.length) << " = graph " << item.pos << "}"; 
-}
-
-namespace vg {
-
-namespace algorithms {
-
-template<>
-struct ChainingSpace<LiteralItem, void> : public BaseChainingSpace<LiteralItem> {
-    using Item = LiteralItem;
-    
-    ChainingSpace(const Aligner& aligner,
-                  const SnarlDistanceIndex* distance_index,
-                  const HandleGraph* graph) :
-        BaseChainingSpace<Item>(aligner, distance_index, graph) {
-        
-        // Nothing to do!
-    }
-    
-    virtual size_t read_start(const Item& item) const {
-        return item.start;
-    }
-    
-    virtual size_t read_end(const Item& item) const {
-        return item.start + item.length;
-    }
-    
-    virtual int score(const Item& item) const {
-        return item.score;
-    }
-    
-    virtual size_t read_length(const Item& item) const {
-        return item.length;
-    }
-    
-    pos_t graph_start(const Item& item) const {
-        return item.pos;
-    }
-    
-    pos_t graph_end(const Item& item) const {
-        pos_t end = item.pos;
-        get_offset(end) += this->graph_length(item);
-        return end;
-    }
-    
-    size_t graph_path_size(const Item& item) const {
-        return 1;
-    }
-    
-    handle_t graph_path_at(const Item& item, size_t index) const {
-        return this->graph->get_handle(id(item.pos), is_rev(item.pos));
-    }
-    
-    size_t graph_path_offset(const Item& item) const {
-        return offset(item.pos);
-    }
-};
-
-}
-
-}
-
 void help_chain(char** argv) {
     cerr << "usage: " << argv[0] << " chain [options] input.json" << endl
          << "options:" << endl
@@ -264,13 +185,8 @@ int main_chain(int argc, char** argv) {
     // Decide how to score alignments
     vg::Aligner scorer;
     
-    vg::algorithms::ChainingSpace<LiteralItem> space(scorer, &distance_index, &graph);
-    if (show_progress) {
-        std::cerr << "Built chaining space" << std::endl;
-    }
-    
     // Create all the items to chain
-    std::vector<LiteralItem> items;
+    std::vector<vg::algorithms::Anchor> items;
     json_t* items_json = json_object_get(problem_json, "items");
     if (items_json && json_is_array(items_json)) {
         items.reserve(json_array_size(items_json));
@@ -315,7 +231,7 @@ int main_chain(int argc, char** argv) {
                     size_t length = vg::parse<size_t>(read_end) - start;
                     
                     // Pack up into an item
-                    items.emplace_back(LiteralItem {start, length, score, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset))});
+                    items.emplace_back(start, make_pos_t(vg::parse<nid_t>(graph_start_id), graph_start_is_reverse, vg::parse<size_t>(graph_start_offset)), length, score);
                 } else {
                     std::cerr << "warning:[vg chain] Unreadable item object at index " << i << ": " << json_error.text << std::endl;
                 }
@@ -340,7 +256,7 @@ int main_chain(int argc, char** argv) {
 #endif
 
     // Do the chaining. We assume items is already sorted right.
-    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, space);
+    std::pair<int, std::vector<size_t>> score_and_chain = vg::algorithms::find_best_chain(items, distance_index, graph, scorer.gap_open, scorer.gap_extension);
     
     std::cout << "Best chain gets score " << score_and_chain.first << std::endl;
     

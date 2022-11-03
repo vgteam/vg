@@ -106,9 +106,7 @@ protected:
 };
 
 /// Explain an Anchor to the given stream
-ostream& operator<<(ostream& out, const Anchor& anchor) {
-    return out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "*" << anchor.length() << "}";
-}
+ostream& operator<<(ostream& out, const Anchor& anchor);
 
 // For doing scores with backtracing, we use this type, which is a
 // score and a number for the place we came from to get it.

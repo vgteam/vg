@@ -170,7 +170,7 @@ string MinimizerMapper::log_bits(const std::vector<bool>& bits) {
     return ss.str();
 }
 
-void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted) {
+void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted, const HandleGraph& graph) {
     ProblemDumpExplainer exp;
     
     // We need to keep track of all the points we want in our problem subgraph.
@@ -202,7 +202,7 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
     
     // Get the subgraph for the cluster
     HashGraph subgraph;
-    algorithms::extract_containing_graph(gbwt_graph, &subgraph, seed_positions, 10000);
+    algorithms::extract_containing_graph(&graph, &subgraph, seed_positions, 10000);
     exp.key("subgraph");
     exp.value(subgraph);
     
@@ -1163,7 +1163,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
     
     // Convert the seeds into chainable anchors in the same order
-    vector<algorithms::Anchor> seed_anchors = this->to_anchors(minimizers, seeds);
+    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1332,13 +1332,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             cluster_chain_seeds.emplace_back();
                 
             // Find a chain from this cluster
-            VectorView<Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
-            auto candidate_chain = algorithms::find_best_chain(cluster_view, *distance_index, gbwt_graph);
+            VectorView<algorithms::Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
+            auto candidate_chain = algorithms::find_best_chain(cluster_view, *distance_index, gbwt_graph, get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
             if (show_work && !candidate_chain.second.empty()) {
                 #pragma omp critical (cerr)
                 {
                     
-                    cerr << log_name() << "Cluster " << cluster_num << " running " << seeds[cluster_seeds_sorted.front()] << " to " << seeds[cluster_seeds_sorted.back()]
+                    cerr << log_name() << "Cluster " << cluster_num << " running " << seed_anchors[cluster_seeds_sorted.front()] << " to " << seed_anchors[cluster_seeds_sorted.back()]
                         << " has chain with score " << candidate_chain.first
                         << " and length " << candidate_chain.second.size()
                         << " running R" << cluster_view[candidate_chain.second.front()].read_start()
@@ -1504,7 +1504,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 vector<size_t>& chain = score_and_chain.second;
                 
                 // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                best_alignments[0] = find_chain_alignment(aln, {anchors, eligible_seeds}, chain);
+                best_alignments[0] = find_chain_alignment(aln, {seed_anchors, eligible_seeds}, chain);
                     
                 // TODO: Come up with a good secondary for the cluster somehow.
                 // Traceback over the remaining extensions?
@@ -5256,26 +5256,27 @@ double MinimizerMapper::distance_to_annotation(int64_t distance) const {
     return max(min((double) distance, max_int_double), -max_int_double);
 }
 
-std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const std::VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
+std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
     for (auto& seed : seeds) {
         to_return.push_back(this->to_anchor(aln, minimizers, seed));
     }
+    return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const std::VectorView<Minimizer>& minimizers, const Seed& seed) const {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const Seed& seed) const {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, ane for
     // reverse-strand minimizers) falls.
-    auto& source = minimizers.at(seed.source);
+    auto& source = minimizers[seed.source];
     size_t length;
     pos_t graph_start;
     size_t read_start;
     if (source.value.is_reverse) {
         // Seed stores the final base of the match in the graph.
         // So get the past-end position.
-        pos_t graph_end = make_pos_t(id(item.pos), is_rev(item.pos), offset(item.pos) + 1);
+        pos_t graph_end = make_pos_t(id(seed.pos), is_rev(seed.pos), offset(seed.pos) + 1);
         
         // Work out how much of the node it could use before there.
         length = std::min((size_t) source.length, offset(graph_end));
@@ -5285,25 +5286,25 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const std::V
         read_start = source.value.offset + 1 - length;
     } else {
         // Seed stores the first base of the match in the graph
-        graph_start = item.pos;
+        graph_start = seed.pos;
         
         // Get the handle to the node it's on.
-        handle_t start_handle = graph->get_handle(id(graph_start), is_rev(graph_start));
+        handle_t start_handle = gbwt_graph.get_handle(id(graph_start), is_rev(graph_start));
         // Work out how much of the node it could use before there.
-        length = std::min((size_t) source.length, graph->get_length(start_handle) - offset(graph_start));
+        length = std::min((size_t) source.length, gbwt_graph.get_length(start_handle) - offset(graph_start));
         
         // And we store the read start position already in the item
         read_start = source.value.offset;
     }
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
-    int score = get_regular_aligner()->score_exact_match(aln, read_start, length)
+    int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
     return algorithms::Anchor(read_start, graph_start, length, score); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {
     return {
-        {graph->get_handle(id(anchor.graph_start()), is_rev(anchor.graph_start()))},
+        {gbwt_graph.get_handle(id(anchor.graph_start()), is_rev(anchor.graph_start()))},
         {{WFAAlignment::match, (uint32_t)anchor.length()}},
         (uint32_t)offset(anchor.graph_start()),
         (uint32_t)anchor.read_start(),
@@ -5315,7 +5316,7 @@ WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor)
 
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
-    const VectorView<Anchor>& to_chain,
+    const VectorView<algorithms::Anchor>& to_chain,
     const std::vector<size_t>& chain) const {
     
     if (chain.empty()) {
@@ -5350,7 +5351,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     auto next_it = here_it;
     ++next_it;
     
-    const Anchor* here = &to_chain[*here_it];
+    const algorithms::Anchor* here = &to_chain[*here_it];
     
 #ifdef debug_chaining
     if (show_work) {
@@ -5441,7 +5442,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         // Do each region between successive gapless extensions
         
         // We have to find the next item we can actually connect to
-        const Anchor* next;
+        const algorithms::Anchor* next;
         // And the actual connecting alignment to it
         WFAAlignment link_alignment;
         
@@ -5559,7 +5560,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                         }
                     }
 #endif
-                    link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner->score_gap(link_length));
+                    link_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), link_length, aligner.score_gap(link_length));
                 }
             } else if (link_alignment.length != linking_bases.size()) {
                 // We could align, but we didn't get the alignment we expected. This shouldn't happen for a middle piece that can't softclip.
