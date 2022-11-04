@@ -280,8 +280,8 @@ TEST_CASE("We can send more than 2 GB of data through the bare-to-encapsulated c
     void* data = mmap(nullptr, DATA_SIZE, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     REQUIRE(data != MAP_FAILED);
     
-    std::atomic<size_t> bytes_seen;
-    std::atomic<size_t> messages_seen;
+    std::atomic<size_t> bytes_seen(0);
+    std::atomic<size_t> messages_seen(0);
     vg::io::message_consumer_function_t emit_message = [&](const string& message) {
         // Count the data we got
         size_t message_number = messages_seen++;
