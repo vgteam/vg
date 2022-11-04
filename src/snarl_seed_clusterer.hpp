@@ -336,7 +336,7 @@ class SnarlDistanceIndexClusterer {
 
             //This stores all the snarl tree nodes and their clustering scratch work 
             //so we stop spending all our time allocating lots of vectors of SnarlTreeNodeProblem
-            hash_map<net_handle_t, SnarlTreeNodeProblem*> net_handle_to_node_problem;
+            hash_map<net_handle_t, SnarlTreeNodeProblem> net_handle_to_node_problem;
            
             //All chains for the current level of the snarl tree and gets updated as the algorithm
             //moves up the snarl tree. At one iteration, the algorithm will go through each chain
