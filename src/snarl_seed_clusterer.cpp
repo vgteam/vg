@@ -905,7 +905,7 @@ void SnarlDistanceIndexClusterer::cluster_one_node(
     std::sort(node_problem->children.begin(), node_problem->children.end(),
         [&](const SnarlTreeNodeProblem::SnarlTreeChild& a, const SnarlTreeNodeProblem::SnarlTreeChild& b) {
             return clustering_problem.all_seeds->at(a.seed_indices.first)->at(a.seed_indices.second).distance_left
-                <= clustering_problem.all_seeds->at(b.seed_indices.first)->at(b.seed_indices.second).distance_left;
+                < clustering_problem.all_seeds->at(b.seed_indices.first)->at(b.seed_indices.second).distance_left;
 
         });
         
