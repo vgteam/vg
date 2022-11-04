@@ -139,15 +139,17 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-    // Set up extensions
+    // Set up extensions.
+    // We're going to have to pay for at least 2 gaps so we need to make sure that doing that is worth it.
     auto to_score = make_anchors({{10, h[1], 0, 10, 10}, // First one on main diagonal
                                   {41, h[4], 0, 10, 10}, // Middle one that is further in the read than the graph
+                                  {61, h[6], 0, 10, 10}, // Another middle one that is further in the read than the graph
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
     auto result = algorithms::find_best_chain(to_score, distance_index, graph, 6, 1);
     // We should take all of the items in order and not be scared off by the indels.
-    REQUIRE(result.second == std::vector<size_t>{0, 1, 2});
+    REQUIRE(result.second == std::vector<size_t>{0, 1, 2, 3});
 }
 
 }
