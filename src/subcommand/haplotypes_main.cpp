@@ -11,8 +11,9 @@
 
 #include "../recombinator.hpp"
 
-#include <algorithm>
+#include <functional>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #include <getopt.h>
@@ -23,14 +24,14 @@ using namespace vg;
 //----------------------------------------------------------------------------
 
 void help_haplotypes(char** argv) {
-    // FIXME number of jobs, GBZ output, check that the generated GBZ is a subgraph
-    std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] -o output.gbwt graph.gbz" << std::endl;
+    // FIXME number of jobs
+    std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] -o output.gbz graph.gbz" << std::endl;
     std::cerr << std::endl;
     // FIXME description
     std::cerr << "Some experiments with haplotype sampling." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -o, --output-name X     write the output GBWT to X" << std::endl;
+    std::cerr << "    -o, --output-name X     write the output GBZ to X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Index files:" << std::endl;
     std::cerr << "    -d, --distance-index X  use this distance index (or guess from graph name)" << std::endl;
@@ -38,6 +39,7 @@ void help_haplotypes(char** argv) {
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -p, --progress          show progress information" << std::endl;
+    std::cerr << "    -v, --validate          check that the output graph is a subgraph of the input" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -63,6 +65,8 @@ std::string get_name(const std::string& graph_name, const std::string& extension
     return graph_name.substr(0, length) + extension;
 }
 
+void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, bool progress);
+
 //----------------------------------------------------------------------------
 
 int main_haplotypes(int argc, char** argv) {
@@ -75,7 +79,7 @@ int main_haplotypes(int argc, char** argv) {
 
     // Parse options into these.
     std::string graph_name, r_index_name, distance_name, output_name;
-    bool progress = false;
+    bool progress = false, validate = false;
 
     // Process the arguments.
     int c;
@@ -87,11 +91,12 @@ int main_haplotypes(int argc, char** argv) {
             { "distance-index", required_argument, 0, 'd' },
             { "r_index", required_argument, 0, 'r' },
             { "progress", no_argument, 0, 'p' },
+            { "validate", no_argument, 0,  'v' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:d:r:ph", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:d:r:pvh", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -109,6 +114,9 @@ int main_haplotypes(int argc, char** argv) {
 
         case 'p':
             progress = true;
+            break;
+        case 'v':
+            validate = true;
             break;
 
         case 'h':
@@ -194,7 +202,21 @@ int main_haplotypes(int argc, char** argv) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Merged the indexes in " << seconds << " seconds" << std::endl;
     }
-    save_gbwt(merged, output_name, progress);
+
+    if (progress) {
+        std::cerr << "Building GBWTGraph" << std::endl;
+    }
+    checkpoint = gbwt::readTimer();
+    gbwtgraph::GBWTGraph output_graph = gbz.graph.subgraph(merged);
+    if (progress) {
+        double seconds = gbwt::readTimer() - checkpoint;
+        std::cerr << "Built the GBWTGraph in " << seconds << " seconds" << std::endl;
+    }
+
+    if (validate) {
+        validate_subgraph(gbz.graph, output_graph, progress);
+    }
+    save_gbz(merged, output_graph, output_name, progress);
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
@@ -206,6 +228,53 @@ int main_haplotypes(int argc, char** argv) {
 
 // FIXME description
 static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling experiments", vg::subcommand::DEVELOPMENT, main_haplotypes);
+
+//----------------------------------------------------------------------------
+
+// Returns a GBWTGraph handle as a string (id, orientation).
+std::string to_string(handle_t handle) {
+    gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(handle);
+    return std::string("(") + std::to_string(gbwt::Node::id(node)) + std::string(", ") + std::to_string(gbwt::Node::is_reverse(node)) + std::string(")");
+}
+
+void validate_nodes(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph) {
+    nid_t last_node = 0;
+    bool nodes_ok = subgraph.for_each_handle([&](const handle_t& handle) -> bool {
+        last_node = subgraph.get_id(handle);
+        return graph.has_node(last_node);
+    });
+    if (!nodes_ok) {
+        std::cerr << "error: [vg haplotypes] subgraph node " << last_node << " is not in the original graph" << std::endl;
+    }
+}
+
+void validate_edges(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph) {
+    edge_t last_edge(gbwtgraph::GBWTGraph::node_to_handle(0), gbwtgraph::GBWTGraph::node_to_handle(0));
+    bool edges_ok = subgraph.for_each_edge([&](const edge_t& edge) -> bool {
+        last_edge = edge;
+        return graph.has_edge(edge.first, edge.second);
+    });
+    if (!edges_ok) {
+        std::cerr << "error: [vg haplotypes] subgraph edge from " << to_string(last_edge.first) << " to " << to_string(last_edge.second) << " is not in the original graph" << std::endl;
+    }
+}
+
+void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, bool progress) {
+    if (progress) {
+        std::cerr << "Validating the output subgraph" << std::endl;
+    }
+    double start = gbwt::readTimer();
+
+    std::thread nodes(validate_nodes, std::cref(graph), std::cref(subgraph));
+    std::thread edges(validate_edges, std::cref(graph), std::cref(subgraph));
+    nodes.join();
+    edges.join();
+
+    if (progress) {
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Validated the subgraph in " << seconds << " seconds" << std::endl;
+    }
+}
 
 //----------------------------------------------------------------------------
 
