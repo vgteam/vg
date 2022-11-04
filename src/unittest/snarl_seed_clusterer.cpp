@@ -43,7 +43,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -90,7 +90,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (auto& pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -129,9 +129,9 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (auto& pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0,chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -143,6 +143,47 @@ namespace unittest {
 
         }
     }
+    TEST_CASE( "two tips", "[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("AGGGAAGATGTCGTGAAG");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("GA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster on the same node" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(1, false, 5));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 15); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+    }
+
+
     TEST_CASE( "cluster simple chain",
                    "[cluster]" ) {
         VG graph;
@@ -179,10 +220,10 @@ namespace unittest {
             positions.emplace_back(make_pos_t(4, false, 1));
             positions.emplace_back(make_pos_t(4, false, 3));
             //all are in the same cluster
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -199,11 +240,11 @@ namespace unittest {
  
             id_t seed_nodes[] = {2, 3, 5};
             //all are in the same cluster
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -220,13 +261,13 @@ namespace unittest {
  
             id_t seed_nodes[] = {2, 3, 5};
             //all are in the same cluster
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0,chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -251,7 +292,7 @@ namespace unittest {
             pos = make_pos_t(5, false, 0);
             seeds[1].push_back({ pos, 0});
 
-            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds, 5, 5); 
+            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds,  5, 5); 
             REQUIRE(clusters.size() == 2); 
             REQUIRE(clusters[0][0].fragment == clusters[1][0].fragment);
             REQUIRE(clusters[0].size() == 2);
@@ -287,7 +328,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -346,10 +387,10 @@ namespace unittest {
             positions.emplace_back(make_pos_t(4, false, 3));
             positions.emplace_back(make_pos_t(8, false, 3));
             //all are in the same cluster
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -366,18 +407,18 @@ namespace unittest {
  
             id_t seed_nodes[] = {2, 3, 5, 8};
             //all are in the same cluster
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
                 }
-                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,  10); 
                 REQUIRE(clusters.size() == 2); 
             }
 
@@ -387,11 +428,11 @@ namespace unittest {
  
             id_t seed_nodes[] = {2, 3, 5, 8};
             //all are in the same cluster
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -481,7 +522,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -504,7 +545,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -573,7 +614,7 @@ namespace unittest {
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -592,7 +633,7 @@ namespace unittest {
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -611,7 +652,7 @@ namespace unittest {
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -630,7 +671,7 @@ namespace unittest {
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -649,7 +690,7 @@ namespace unittest {
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -668,7 +709,7 @@ namespace unittest {
             for (bool use_minimizers : {false, true} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -689,7 +730,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -708,7 +749,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -729,7 +770,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(distance_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(distance_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -808,7 +849,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -838,7 +879,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -864,7 +905,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -948,7 +989,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -970,7 +1011,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -993,7 +1034,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 seeds.clear();
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1015,7 +1056,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 seeds.clear();
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1037,7 +1078,7 @@ namespace unittest {
             for (bool use_minimizers : {true, false} ) {
                 seeds.clear();
                 for (pos_t pos : positions) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1087,7 +1128,7 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1108,7 +1149,7 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1146,7 +1187,7 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1202,8 +1243,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
-                    if (use_minimizers ) {
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
+                    if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
@@ -1223,7 +1264,7 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1243,7 +1284,7 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                     if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
@@ -1264,8 +1305,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
-                    if(use_minimizers) {
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
+                    if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
@@ -1330,8 +1371,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
-                    if(use_minimizers) {
+                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
+                    if (use_minimizers) {
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
@@ -1352,9 +1393,9 @@ namespace unittest {
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0, chain_info});
-                    } else { 
+                    } else {
                         seeds.push_back({ pos, 0});
                     }
                 }
@@ -1400,8 +1441,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds ;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
                     if (use_minimizers) {
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
@@ -1410,8 +1451,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds1;
                 for (id_t n : seed_nodes1) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
                     if (use_minimizers) {
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds1.push_back({ pos, 0, chain_info});
                     } else {
                         seeds1.push_back({ pos, 0});
@@ -1442,8 +1483,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds ;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
                     if (use_minimizers) {
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
@@ -1452,8 +1493,8 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds1;
                 for (id_t n : seed_nodes1) {
                     pos_t pos = make_pos_t(n, false, 0);
-                    auto chain_info = get_minimizer_distances(dist_index, pos);
                     if (use_minimizers) {
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds1.push_back({ pos, 0, chain_info});
                     } else {
                         seeds1.push_back({ pos, 0});
@@ -1483,13 +1524,13 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds1.push_back({ pos, 0, chain_info});
             }
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
@@ -1517,13 +1558,13 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds ;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds1.push_back({ pos, 0, chain_info});
             }
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
@@ -1587,7 +1628,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
 
@@ -1669,11 +1710,11 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
 
-            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,  20); 
 
 
         }
@@ -1682,7 +1723,7 @@ namespace unittest {
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
 
@@ -1728,7 +1769,7 @@ namespace unittest {
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
@@ -1775,7 +1816,7 @@ namespace unittest {
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
@@ -1790,7 +1831,7 @@ namespace unittest {
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
@@ -1833,7 +1874,7 @@ namespace unittest {
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
@@ -1848,7 +1889,7 @@ namespace unittest {
 
             for (pos_t pos : pos_ts){
 
-                auto chain_info = get_minimizer_distances(dist_index, pos);
+                auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                 seeds.push_back({ pos, 0, chain_info});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
@@ -1912,7 +1953,6 @@ namespace unittest {
 
 
         SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(2, false, 0);
             pos_ts.emplace_back(3, false, 0);
@@ -1924,11 +1964,12 @@ namespace unittest {
             pos_ts.emplace_back(8, false, 0);
 
             for (bool use_minimizers : {true, false}) {
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : pos_ts){
 
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
-                        seeds.push_back({ pos, 0, chain_info});
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
+                        seeds.push_back({ pos, 0,chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1988,6 +2029,7 @@ namespace unittest {
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
 
             all_seeds.push_back(seeds);
+
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
 
             REQUIRE( paired_clusters.size() == 1);
@@ -2323,6 +2365,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
             }
+
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.emplace_back(seeds);
             all_seeds.emplace_back(seeds1);
@@ -2634,7 +2677,7 @@ namespace unittest {
                 for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num ++) {
                     for (pos_t pos : pos_ts[read_num]){
                         if (use_minimizers) {
-                            auto chain_info = get_minimizer_distances(dist_index, pos);
+                            auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                             seeds[read_num].push_back({ pos, 0, chain_info});
                         } else {
                             seeds[read_num].push_back({ pos, 0});
@@ -2666,17 +2709,17 @@ namespace unittest {
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (pos_t pos : pos_ts){
                     if (use_minimizers) {
-                        auto chain_info = get_minimizer_distances(dist_index, pos);
+                        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                         seeds.push_back({ pos, 0, chain_info});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
                 }
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[1], false) == 3);
-                REQUIRE(clusterer.distance_between_seeds(seeds[1], seeds[0], false) == 3);
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[2], false) == 4);
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[3], false) == 4);
-                REQUIRE(clusterer.distance_between_seeds(seeds[2], seeds[4], false) == 5);
+                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[1],false) == 3);
+                REQUIRE(clusterer.distance_between_seeds(seeds[1], seeds[0],false) == 3);
+                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[2],false) == 4);
+                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[3],false) == 4);
+                REQUIRE(clusterer.distance_between_seeds(seeds[2], seeds[4],false) == 5);
             }
 
 
@@ -3190,7 +3233,7 @@ namespace unittest {
     //    pos_ts.emplace_back(9, false, 0);
 
     //    for (pos_t pos : pos_ts) {
-    //        auto chain_info = get_minimizer_distances(dist_index, pos);
+    //        auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
     //        seeds.push_back({ pos, 0, chain_info});
     //    }
     //    vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, read_lim); 
@@ -3230,7 +3273,7 @@ namespace unittest {
         //            for (pos_t pos : pos_ts[read_num]) {
 
         //                if (use_minimizers) {
-        //                    auto chain_info = get_minimizer_distances(dist_index, pos);
+        //                    auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
         //                    seeds[read_num].push_back({ pos, 0, chain_info});
         //                } else {
         //                    seeds[read_num].push_back({ pos, 0});
@@ -3283,9 +3326,7 @@ namespace unittest {
 
                 for (size_t k = 0; k < 10 ; k++) {
 
-                    vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-                    all_seeds.emplace_back();
-                    all_seeds.emplace_back();
+                    vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds(2);
                     size_t read_lim = 15;// Distance between read clusters
                     size_t fragment_lim = 35;// Distance between fragment clusters
                     for (size_t read = 0 ; read < 2 ; read ++) {
@@ -3304,7 +3345,7 @@ namespace unittest {
 
                         
                         if (use_minimizers) {
-                            auto chain_info = get_minimizer_distances(dist_index, pos);
+                            auto chain_info = MIPayload::encode(get_minimizer_distances(dist_index, pos));
                             all_seeds[read].push_back({ pos, 0, chain_info});
                         } else {
                             all_seeds[read].push_back({ pos, 0});
@@ -3355,9 +3396,17 @@ namespace unittest {
                                                 size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
                                                 size_t dist = std::min(std::min(dist1, 
                                                                    dist2), std::min( dist3, dist4));
-                                                cerr << "Distance between " << pos1 << " and " << pos2 << " should be " << dist << endl;
+                                                if (dist != clusterer.distance_between_seeds(all_seeds[read_num][clust[i1]],
+                                                                                                 all_seeds[read_num][clust2[i2]],
+
+                                                                                                 false)) {
+                                                    graph.serialize("testGraph.hg");
+                                                    cerr << "Distance between " << pos1 << " and " << pos2 << " should be " << dist << endl;
+
+                                                }
                                                 REQUIRE(dist == clusterer.distance_between_seeds(all_seeds[read_num][clust[i1]],
                                                                                                  all_seeds[read_num][clust2[i2]],
+
                                                                                                  false));
                                                 if ( dist != -1 && dist <= read_lim) {
                                                     dist_index.print_self();

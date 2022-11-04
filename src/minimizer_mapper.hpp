@@ -36,7 +36,6 @@ public:
      * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
-     //TODO: This can be given an old and/old new distance index. At least one is needed, new one will be used if both are given. The minimizer cache must match the distance index or it will just crash
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,

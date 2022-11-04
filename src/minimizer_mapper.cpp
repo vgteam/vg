@@ -4017,7 +4017,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                 // TODO: Don't use the seed payload anymore
                 MIPayloadValues chain_info = no_chain_info();
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
-                    chain_info = MIPayload::decode(minimizer.occs[j].payload);
+                    chain_info = minimizer.occs[j].payload;
                 }
                 seeds.push_back(chain_info_to_seed(hit, i, chain_info));
             }

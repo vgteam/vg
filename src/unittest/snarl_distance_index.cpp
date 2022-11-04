@@ -47,9 +47,40 @@ namespace vg {
         TEST_CASE( "Load",
                   "[load]" ) {
             SnarlDistanceIndex distance_index;
-            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hgsvc_v2/HGSVC_hs38d1.dist");
+            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist.new");
+
+
+            HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
+
+            distance_index.for_each_child(distance_index.get_root(), [&](const net_handle_t& child) {
+                if (distance_index.is_chain(child) && !distance_index.is_trivial_chain(child)) {
+                    net_handle_t start = distance_index.get_bound(child, false, true);
+                    net_handle_t current = start;
+                    net_handle_t end = distance_index.get_bound(child, true, false);
+                    cerr << distance_index.net_handle_as_string(child) << endl;
+
+                    while ( current != end ) {
+                        net_handle_t next_current;
+                        distance_index.follow_net_edges(current, graph, false, [&](const net_handle_t& next) {
+                            cerr << "From " << distance_index.net_handle_as_string(start) << " reached " << distance_index.net_handle_as_string(next) << endl;
+                            if (distance_index.is_node(next)) {
+                                REQUIRE(distance_index.minimum_distance(distance_index.node_id(start),
+                                                                        distance_index.ends_at(start) == SnarlDistanceIndex::START,
+                                                                        0,
+                                                                        distance_index.node_id(next),
+                                                                        distance_index.ends_at(next) == SnarlDistanceIndex::START,
+                                                                        0 ) != std::numeric_limits<size_t>::max());
+                            }
+                            next_current = next;
+                        });
+                        current = next_current;
+                    }
+                }
+            });
+
+
             //HandleGraph* graph = vg::io::VPKG::load_one<HandleGraph>("/public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg").get();
-            cerr << "Distance: " << distance_index.minimum_distance(77136065, false, 24, 77136058, true, 28, true) << endl;
+            //cerr << "Distance: " << distance_index.minimum_distance(77136065, false, 24, 77136058, true, 28, true) << endl;
 //
             
         }
@@ -225,7 +256,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -1749,6 +1780,91 @@ namespace vg {
                          n7->id(), true, 0, n8->id(), false, 0) == 16);
             }
                    
+        } 
+        TEST_CASE( "Snarl decomposition can handle chains with nodes in different directions",
+                  "[snarl_distance][bug]" ) {
+        
+        
+            // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
+            // and a snarl from 3 to 5, all nested in each other.
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("GCA");
+            Node* n10 = graph.create_node("T");
+            Node* n11 = graph.create_node("G");
+            
+            Edge* e1 = graph.create_edge(n1, n2, true, true);
+            Edge* e2 = graph.create_edge(n1, n3, true, true);
+            Edge* e3 = graph.create_edge(n2, n4, true, true);
+            Edge* e4 = graph.create_edge(n3, n4, true, true);
+            Edge* e5 = graph.create_edge(n4, n5, true, false);
+            Edge* e6 = graph.create_edge(n5, n6);
+            Edge* e7 = graph.create_edge(n5, n7);
+            Edge* e8 = graph.create_edge(n6, n8);
+            Edge* e9 = graph.create_edge(n7, n8);
+            Edge* e10 = graph.create_edge(n8, n9);
+            Edge* e11 = graph.create_edge(n8, n10);
+            Edge* e12 = graph.create_edge(n9, n11);
+            Edge* e13 = graph.create_edge(n10, n11);
+            
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+            
+            
+            SECTION ("Traversing the top-level chain hits all the nodes in the correct orientation" ) {
+                net_handle_t root = distance_index.get_root();
+                net_handle_t chain;
+                distance_index.for_each_child(root, [&](const net_handle_t& child) {
+                    chain = child;
+                });
+                net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+                REQUIRE(chain == distance_index.get_parent(node1));
+                net_handle_t current = distance_index.flip(node1);
+                net_handle_t node11 = distance_index.get_node_net_handle(n11->id());
+
+                net_handle_t n1 = distance_index.flip(distance_index.get_node_net_handle(n4->id()));
+                net_handle_t n2 = distance_index.get_node_net_handle(n5->id());
+                net_handle_t n3 = distance_index.get_node_net_handle(n8->id());
+
+                size_t i = 0;
+                while (current != node11) {
+                    net_handle_t next_current;
+                    distance_index.follow_net_edges(current, &graph, false, [&](const net_handle_t& next) {
+                        next_current = next; 
+                    });
+                    current = next_current;
+
+                    if (i == 1) {
+                        //First next thing we see is a snarl, then node 4  
+                        REQUIRE(current == n1);
+                    } else if (i == 2) {
+                        //Then  node 5
+                        REQUIRE(current == n2);
+                    } else if (i == 4) {
+                        //Then a snarl then node 8
+                        REQUIRE(current == n3);
+                    } else if (i == 6) {
+                        REQUIRE(current == node11);
+                    } else if (i < 6) {
+                        REQUIRE(distance_index.is_snarl(current));
+                    } else {
+                        //Otherwise it went too far
+                        REQUIRE(false);
+                    }
+                    i++;
+                }
+
+
+            }
         } 
         
         /*TOOD: This had a weird snarl decomposition
@@ -5490,7 +5606,7 @@ namespace vg {
 
                 string file = "test_graph.dist"; 
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-                vg::io::VPKG::save(distance_index, file);
+                distance_index.serialize(file);
 
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
