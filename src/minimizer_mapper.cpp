@@ -4015,7 +4015,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
-                MIPayloadValues chain_info = no_chain_info();
+                gbwtgraph::payload_type chain_info = no_chain_info();
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
                     chain_info = minimizer.occs[j].payload;
                 }
