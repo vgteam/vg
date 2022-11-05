@@ -233,7 +233,6 @@ class SnarlDistanceIndexClusterer {
                 containing_net_handle(std::move(net)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
                 read_cluster_heads.reserve(seed_count);
-                children.reserve(seed_count);
             }
             //Constructor for a node or trivial chain, used to remember information from the cache
             SnarlTreeNodeProblem( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, size_t node_length, size_t prefix_sum, size_t component) :
@@ -245,7 +244,6 @@ class SnarlDistanceIndexClusterer {
                 chain_component_end(component),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()){
                     read_cluster_heads.reserve(seed_count);
-                    children.reserve(seed_count);
             }
 
             //Set the values needed to cluster a chain
