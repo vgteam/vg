@@ -167,6 +167,21 @@ void Recombinator::Haplotype::insert(gbwt::GBWTBuilder& builder) {
 
 //------------------------------------------------------------------------------
 
+void Recombinator::Statistics::combine(const Statistics& another) {
+    this->chains += another.chains;
+    this->subchains += another.subchains;
+    this->fragments += another.fragments;
+    this->full_haplotypes += another.full_haplotypes;
+}
+
+std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
+    out << (this->chains - this->full_haplotypes) << " chains with " << this->subchains << " subchains and " << this->fragments << " fragments; "
+        << this->full_haplotypes << " chains with full haplotypes";
+    return out;
+}
+
+//------------------------------------------------------------------------------
+
 Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, bool progress) :
     gbz(gbz), r_index(r_index), distance_index(distance_index),
     chains_by_job(),
@@ -187,7 +202,7 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_
 
 //------------------------------------------------------------------------------
 
-void Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const {
+Recombinator::Statistics Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const {
     std::vector<Subchain> subchains = this->get_subchains(chain);
     std::vector<Haplotype> haplotypes;
     for (size_t i = 0; i < NUM_HAPLOTYPES; i++) {
@@ -195,7 +210,7 @@ void Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gb
     }
 
     bool have_haplotypes = false, generated_haplotypes = false;
-    size_t real_subchains = 0;
+    Statistics statistics; statistics.chains = 1;
     for (const Subchain& subchain : subchains) {
         std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
         auto sequences = this->get_sequences(subchain);
@@ -204,18 +219,26 @@ void Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gb
             // a suffix and a prefix.
             to_process.push_back({ { Subchain::suffix, subchain.start, empty_handle() }, this->get_sequences(subchain.start) });
             to_process.push_back({ { Subchain::prefix, empty_handle(), subchain.end }, this->get_sequences(subchain.end) });
-            real_subchains++;
+            statistics.subchains++;
         } else {
             to_process.push_back({ subchain, std::move(sequences) });
         }
         for (auto iter = to_process.begin(); iter != to_process.end(); ++iter) {
-            // FIXME check that there are sequences
+            /*
+                FIXME Haplotype selection logic:
+                * extract all selected sequences
+                * find minimizers in the sequences
+                * choose the ones with a single hit in the graph
+                * convert each sequence to a bitvector marking which selected minimizers occur in that sequence
+                * use kmer counts from the reads to select sequences that are closest to the sample
+            */
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
+                // FIXME If we have a prefix/suffix with no sequences, what should we do? Can that even happen if the handle exists?
                 haplotypes[haplotype].extend(iter->second[haplotype % iter->second.size()], iter->first, *this, builder);
             }
             have_haplotypes = iter->first.has_end();
             generated_haplotypes = true;
-            real_subchains++;
+            statistics.subchains++;
         }
     }
     if (have_haplotypes) {
@@ -232,14 +255,12 @@ void Recombinator::generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gb
         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
             haplotypes[haplotype].take(sequences[haplotype % sequences.size()], *this, builder);
         }
+        statistics.full_haplotypes = 1;
+    } else {
+        statistics.fragments = haplotypes.front().fragment;
     }
 
-    if (this->progress && generated_haplotypes) {
-        #pragma omp critical
-        {
-            std::cerr << "Chain " << chain.offset << ": " << real_subchains << " subchains, " << haplotypes.front().fragment << " fragments" << std::endl;
-        }
-    }
+    return statistics;
 }
 
 std::vector<Recombinator::Subchain>
@@ -348,6 +369,7 @@ std::vector<Recombinator::sequence_type> Recombinator::get_sequences(handle_t ha
 }
 
 // FIXME handle haplotypes that visit the same node multiple times properly
+// FIXME match each exit from the subchain to the last entry to the subchain before it
 std::vector<Recombinator::sequence_type> Recombinator::get_sequences(Subchain subchain) const {
     if (subchain.type == Subchain::prefix) {
         return this->get_sequences(subchain.end);

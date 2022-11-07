@@ -10,6 +10,8 @@
 #include "gbwtgraph_helper.hpp"
 #include "snarl_distance_index.hpp"
 
+#include <iostream>
+
 #include <gbwtgraph/algorithms.h>
 
 namespace vg {
@@ -159,6 +161,28 @@ public:
         void insert(gbwt::GBWTBuilder& builder);
     };
 
+    /// Statistics on the generated haplotypes.
+    struct Statistics
+    {
+        /// Number of top-level chains.
+        size_t chains = 0;
+
+        /// Number of subchains.
+        size_t subchains = 0;
+
+        /// Number of fragments.
+        size_t fragments = 0;
+
+        /// Number of top-level chains where full haplotypes were taken.
+        size_t full_haplotypes = 0;
+
+        /// Combines the statistics into this object.
+        void combine(const Statistics& another);
+
+        /// Prints the statistics and returns the output stream.
+        std::ostream& print(std::ostream& out) const;
+    };
+
     /// FIXME: document
     Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, bool progress);
 
@@ -173,9 +197,8 @@ public:
     bool progress;
 
     // FIXME should be private
-    // FIXME return statistics?
     // Generate haplotypes for the given chain.
-    void generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const;
+    Statistics generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const;
 
 private:
 

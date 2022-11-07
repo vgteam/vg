@@ -176,21 +176,32 @@ int main_haplotypes(int argc, char** argv) {
     }
     checkpoint = gbwt::readTimer();
     std::vector<gbwt::GBWT> indexes(recombinator.chains_by_job.size());
+    Recombinator::Statistics statistics;
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t job = 0; job < recombinator.chains_by_job.size(); job++) {
         const std::vector<gbwtgraph::TopLevelChain>& chains = recombinator.chains_by_job[job];
         // FIXME buffer size?
         gbwt::GBWTBuilder builder(sdsl::bits::length(gbz.index.sigma() - 1));
         builder.index.addMetadata();
+        Recombinator::Statistics job_statistics;
         for (size_t chain = 0; chain < chains.size(); chain++) {
-            recombinator.generate_haplotypes(chains[chain], builder);
+            Recombinator::Statistics chain_statistics = recombinator.generate_haplotypes(chains[chain], builder);
+            job_statistics.combine(chain_statistics);
         }
         builder.finish();
         indexes[job] = builder.index;
+        #pragma omp critical
+        {
+            if (progress) {
+                std::cerr << "Job " << job << ": "; job_statistics.print(std::cerr) << std::endl;
+            }
+            statistics.combine(job_statistics);
+        }
     }
     if (progress) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Processed the chains in " << seconds << " seconds" << std::endl;
+        std::cerr << "Total: "; statistics.print(std::cerr) << std::endl;
     }
 
     if (progress) {
