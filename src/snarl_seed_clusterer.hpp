@@ -171,6 +171,11 @@ class SnarlDistanceIndexClusterer {
                 //is used to find the problem
                 net_handle_t net_handle;
                 pair<size_t, size_t> seed_indices;
+
+                //Is this child a seed
+                //This is redundant with net_handle because any net_handle_t that is a node will really be a seed,
+                //but it's faster than looking it up in the distance index
+                bool is_seed;
             };
             //The children of this snarl tree node
             //Initially unsorted, sort before clustering for chains
