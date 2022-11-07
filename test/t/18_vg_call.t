@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 18
+plan tests 19
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -146,20 +146,27 @@ is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true hom
 rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 
 # simple gbwt
-vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
-vg index -G x.gbwt -v small/x.vcf.gz x.vg
+vg autoindex -r small/x.fa -v small/x.vcf.gz -w giraffe -p x
+rm -f x.min x.dist
+mv x.giraffe.gbz x.gbz
+vg gbwt -Z x.gbz -o x.gbwt -g x.gg
+vg convert x.gg -b x.gbwt -p  > x.vg
 # simulate 500 reads from each thread path
-vg paths  -g x.gbwt -V -Q _thread_1_x_0_0 0 -x x.vg >> x.vg
-vg paths  -g x.gbwt -V -Q _thread_1_x_1_0 0 -x x.vg >> x.vg
-vg sim -x x.vg -P  _thread_1_x_0_0 -n 500 -a -s 23 > sim.gam
-vg sim -x x.vg -P  _thread_1_x_1_0 -n 500 -a -s 23 >> sim.gam
+vg sim -x x.vg -P 1#0#x#0 -n 500 -a -s 23 > sim.gam
+vg sim -x x.vg -P 1#1#x#0 -n 500 -a -s 23 >> sim.gam
 # call some hets
 vg pack -x x.vg -o x.pack -g sim.gam
-vg call x.vg -k x.pack > call.vcf
+vg call x.vg -k x.pack -a > call.vcf
 vg call x.vg -k x.pack -g x.gbwt > callg.vcf
-is "$(grep -v 0/0 callg.vcf | wc -l)" "$(grep -v 0/0 call.vcf | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
+is "$(grep -v 0/0 callg.vcf | grep -v lowad | wc -l)" "$(grep -v 0/0 call.vcf | grep -v lowad | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
+# try with gbz
+vg call x.gbz -k x.pack -z > callz.vcf
+cat callg.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}' > callg.6
+cat callz.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}' > callz.6
+diff callg.6 callz.6
+is $? 0 "call produces same output with gbwt and gbz"
 
-rm -f x.vg x.gbwt sim.gam x.pack call.vcf callg.vcf
+rm -f x.vg x.gbwt x.gg x.gbz sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6
 
 
 # subpath test

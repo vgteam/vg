@@ -671,10 +671,10 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     cigar = cigar_against_path(aln, pos_rev, pos, path_len, 0);
 
     // Resolve subpath naming / offset
-    auto subpath_info = Paths::parse_subpath_name(path_name);
-    if (get<0>(subpath_info)) {
-        path_name = get<1>(subpath_info);
-        pos += get<2>(subpath_info);
+    subrange_t subrange;
+    path_name = Paths::strip_subrange(path_name, &subrange);
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        pos += subrange.first;
     }
 }
 

@@ -13,10 +13,10 @@ void packed_depths(const Packer& packer, const string& path_name, size_t min_cov
     step_handle_t start_step = graph.path_begin(path_handle);
     step_handle_t end_step = graph.path_end(path_handle);
     Position cur_pos;
-    tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_name);
-    const string& base_name = get<0>(subpath_parse) ? get<1>(subpath_parse) : path_name;
-    size_t path_offset = 1 + get<2>(subpath_parse);
-
+    subrange_t subrange;
+    string base_name = Paths::strip_subrange(path_name, &subrange);
+    size_t path_offset = subrange == PathMetadata::NO_SUBRANGE ? 1 : 1 + subrange.first;
+    
     for (step_handle_t cur_step = start_step; cur_step != end_step; cur_step = graph.get_next_step(cur_step)) {
         handle_t cur_handle = graph.get_handle_of_step(cur_step);
         nid_t cur_id = graph.get_id(cur_handle);
@@ -302,9 +302,9 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
     // big speedup
     unordered_map<path_handle_t, string> path_to_name;
 
-    tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_name);
-    const string& base_name = get<0>(subpath_parse) ? get<1>(subpath_parse) : path_name;
-    size_t offset = 1 + get<2>(subpath_parse);
+    subrange_t subrange;
+    string base_name = Paths::strip_subrange(path_name, &subrange);
+    size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 1 : 1 + subrange.first;
 
     graph.for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
             unordered_set<string> path_set;
@@ -319,9 +319,7 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
                         if (it == path_to_name.end()) {
                             string step_path_name = graph.get_path_name(step_path_handle);
                             // disregard subpath tags when counting
-                            auto subpath = Paths::parse_subpath_name(step_path_name);
-                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
-                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                            it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
                         }
                         path_set.insert(it->second);
                     }
@@ -367,9 +365,7 @@ pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
                         if (it == path_to_name.end()) {
                             string step_path_name = graph.get_path_name(step_path_handle);
                             // disregard subpath tags when counting
-                            auto subpath = Paths::parse_subpath_name(step_path_name);
-                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
-                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                            it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
                         }
                         path_set.insert(it->second);
                 }                    

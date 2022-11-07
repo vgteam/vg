@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 22
+plan tests 23
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -141,6 +141,12 @@ is "$?" 0 "haplotype 1 preserved when deconstructing small test with gbwt"
 diff small.s1.h2.fa decon.s1.h2.fa
 is "$?" 0 "haplotype 2 preserved when deconstructing small test with gbwt"
 
-rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi small.s1.h1.fa small.s1.h2.fa decon.s1.h1.fa decon.s1.h2.fa
+vg autoindex -r small/x.fa -v small/x.vcf.gz -w giraffe -p x
+vg deconstruct x.giraffe.gbz > x.gbz.decon.vcf
+gzip -dc x.decon.vcf.gz > x.decon.vcf
+diff x.decon.vcf x.gbz.decon.vcf
+is "$?" 0 "gbz deconstruction gives same output as gbwt deconstruction"
+
+rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi x.decon.vcf x.gbz.decon.vcf x.giraffe.gbz x.min x.dist small.s1.h1.fa small.s1.h2.fa decon.s1.h1.fa decon.s1.h2.fa
 
 

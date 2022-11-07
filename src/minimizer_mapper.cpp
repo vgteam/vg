@@ -4554,7 +4554,7 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
     // actually visit any bases on that node.
     // Make sure we don't count the length of the root node inside the DFS,
     // since we are already feeding it in.
-    stack.push({start_state, 0, 0});
+    stack.push({start_state, 0, false});
     
     while (!stack.empty()) {
         auto& frame = stack.top();
@@ -4566,9 +4566,9 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
         // If we're at the root node but there's no bases on it left, we don't show it.
         bool is_hidden_root = (is_root && remaining_root == 0);
         
-        if (frame.visit == 0) {
+        if (frame.visit == false) {
             // First visit
-            frame.visit++;
+            frame.visit = true;
             
             if (!is_hidden_root) {
                 // Enter this handle if there are any bases on it to visit

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 22
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -66,6 +66,9 @@ is "$(vg stats -F atgc.xg)" "format: XG" "vg stats -F detects format of xg graph
 vg convert graphs/atgc.vg -f > atgc.gfa
 is "$(vg stats -F atgc.gfa)" "format: GFA" "vg stats -F detects format of GFA graph"
 rm -f  atgc.vg atgc.hg atgc.pg atgc.og atgc.xg atgc.gfa
+vg autoindex -v tiny/tiny.vcf.gz -r tiny/tiny.fa -w giraffe -p tiny
+is "$(vg stats -F tiny.giraffe.gbz)" "format: GBZ" "vg stats -F detects format of GBZ graph"
+rm -f tiny.giraffe.gbz tiny.dist tiny.min
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg stats -D - | head -4 | tail -1 > tiny.deg
 printf "2\t12\t3\t9\t8\n" > tiny.true.deg

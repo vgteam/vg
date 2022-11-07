@@ -35,45 +35,24 @@ const std::function<bool(const string&)> Paths::is_alt = [](const string& path_n
     
 };
 
-// Check if using subpath naming scheme.  If it is return true,
-// the root path name, and the offset (false otherwise)
-// formats accepted:
-// name[start]  (0-based)
-// name[start-end] (0-based, open-ended like BED, end defaults to 0 in above case)
-tuple<bool, string, size_t, size_t> Paths::parse_subpath_name(const string& path_name) {
-    size_t tag_offset = path_name.rfind("[");
-    if (tag_offset == string::npos || tag_offset + 2 >= path_name.length() || path_name.back() != ']') {
-        return make_tuple(false, "", 0, 0);
+string Paths::strip_subrange(const string& path_name, subrange_t* out_subrange) {
+    subrange_t subrange = PathMetadata::parse_subrange(path_name);
+    string base_name;
+    if (subrange == PathMetadata::NO_SUBRANGE) {
+        base_name = path_name;
     } else {
-        string offset_str = path_name.substr(tag_offset + 1, path_name.length() - tag_offset - 2);
-        size_t sep_offset = offset_str.find("-");
-        string end_offset_str;
-        if (sep_offset != string::npos && !offset_str.empty() && sep_offset < offset_str.length() - 1) {
-            end_offset_str = offset_str.substr(sep_offset + 1, offset_str.length() - sep_offset - 1);
-            offset_str = offset_str.substr(0, sep_offset);
-        }
-        size_t offset_val;
-        size_t end_offset_val = 0;
-        try {
-           offset_val = std::stol(offset_str);
-           if (!end_offset_str.empty()) {
-               end_offset_val = std::stol(end_offset_str);
-           }
-        } catch(...) {
-            return make_tuple(false, "", 0, 0);
-        }
-        return make_tuple(true, path_name.substr(0, tag_offset), offset_val, end_offset_val);
+        PathSense sense;
+        string sample;
+        string locus;
+        size_t haplotype;
+        size_t phase_block;
+        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
+        base_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, PathMetadata::NO_SUBRANGE);        
     }
-}
-
-// Create a subpath name
-string Paths::make_subpath_name(const string& path_name, size_t offset, size_t end_offset) {
-    string out_name = path_name + "[" + std::to_string(offset);
-    if (end_offset > 0) {
-        out_name += "-" + std::to_string(end_offset);
+    if (out_subrange) {
+        *out_subrange = subrange;
     }
-    out_name += "]";
-    return out_name;
+    return base_name;
 }
 
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }

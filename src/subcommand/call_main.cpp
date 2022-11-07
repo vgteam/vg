@@ -15,6 +15,7 @@
 #include "../graph_caller.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
+#include "../gbzgraph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -48,6 +49,7 @@ void help_call(char** argv) {
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
+       << "    -z, --gbz               Only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
        << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl     
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
@@ -68,6 +70,7 @@ int main_call(int argc, char** argv) {
     string sample_name = "SAMPLE";
     string snarl_filename;
     string gbwt_filename;
+    bool   gbz_paths = false;
     string translation_file_name;    
     string ref_fasta_filename;
     string ins_fasta_filename;
@@ -128,6 +131,7 @@ int main_call(int argc, char** argv) {
             {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
             {"gbwt", required_argument, 0, 'g'},
+            {"gbz", no_argument, 0, 'z'},
             {"translation", required_argument, 0, 'N'},            
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
@@ -147,7 +151,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:N:p:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -200,6 +204,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'g':
             gbwt_filename = optarg;
+            break;
+        case 'z':
+            gbz_paths = true;
             break;
         case 'N':
             translation_file_name = optarg;
@@ -339,13 +346,32 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
         return 1;        
     }
-    
+
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
-    string graph_filename = get_input_file_name(optind, argc, argv);
-    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
-    PathHandleGraph* graph = path_handle_graph.get();
-
+    unique_ptr<GBZGraph> gbz_graph;
+    gbwt::GBWT* gbwt_index = nullptr;
+    PathHandleGraph* graph = nullptr;
+    string graph_filename = get_input_file_name(optind, argc, argv);    
+    auto input = vg::io::VPKG::try_load_first<GBZGraph, PathHandleGraph>(graph_filename);
+    if (get<0>(input)) {        
+        gbz_graph = std::move(get<0>(input));
+        graph = gbz_graph.get();
+        if (gbz_paths) {
+            gbwt_index = &gbz_graph->gbz.index;
+        }
+    } else if (get<1>(input)) {
+        path_handle_graph = std::move(get<1>(input));
+        graph = path_handle_graph.get();
+    } else {
+        cerr << "Error [vg call]: Input graph is not a GBZ or path handle graph" << endl;
+        return 1;
+    }
+    if (gbz_paths && !gbz_graph) {
+        cerr << "Error [vg call]: -z can only be used when input graph is in GBZ format" << endl;
+        return 1;
+    }
+    
     // Read the translation
     unique_ptr<unordered_map<nid_t, pair<nid_t, size_t>>> translation;
     if (!translation_file_name.empty()) {
@@ -412,6 +438,10 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: gbwt (-g) cannot be used with legacy caller (-L)" << endl;
         return 1;
     }
+    if (gbz_paths && !gbwt_filename.empty()) {
+        cerr << "error [vg call]: gbwt (-g) cannot be used with gbz graph (-z): choose one or the other" << endl;
+        return 1;
+    }
 
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
     // on vcf export.  the exception is writing the header where we need base paths. we keep
@@ -436,12 +466,14 @@ int main_call(int argc, char** argv) {
     if (ref_paths.empty()) {
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                if (!Paths::is_alt(name)) {
+                if (!Paths::is_alt(name) && PathMetadata::parse_sense(name) != PathSense::HAPLOTYPE) {
                     ref_paths.push_back(name);
                     // keep track of length best we can using maximum coordinate in event of subpaths
-                    string base_name = Paths::get_base_name(name);
+                    subrange_t subrange;
+                    string base_name = Paths::strip_subrange(name, &subrange);
+                    size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
                     size_t& cur_len = basepath_length_map[base_name];
-                    cur_len = max(cur_len, compute_path_length(path_handle) + get<2>(Paths::parse_subpath_name(name)));
+                    cur_len = max(cur_len, compute_path_length(path_handle) + offset);
                 }
             });
     } else {
@@ -455,13 +487,15 @@ int main_call(int argc, char** argv) {
         }
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                string base_name = Paths::get_base_name(name);
+                subrange_t subrange;
+                string base_name = Paths::strip_subrange(name, &subrange);
+                size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
                 if (ref_path_set.count(base_name)) {
                     ref_subpaths.push_back(name);
                     // keep track of length best we can
                     if (ref_path_lengths.empty()) {
                         size_t& cur_len = basepath_length_map[base_name];
-                        cur_len = max(cur_len, compute_path_length(path_handle) + get<2>(Paths::parse_subpath_name(name)));
+                        cur_len = max(cur_len, compute_path_length(path_handle) + offset);
                     }
                     ref_path_set[base_name] = true;
                 }
@@ -584,7 +618,7 @@ int main_call(int argc, char** argv) {
 
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<TraversalFinder> traversal_finder;
-    unique_ptr<gbwt::GBWT> gbwt_index;
+    unique_ptr<gbwt::GBWT> gbwt_index_up;
 
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
@@ -628,14 +662,17 @@ int main_call(int argc, char** argv) {
     } else {
         // flow caller can take any kind of traversal finder.  two are supported for now:
         
-        if (!gbwt_filename.empty()) {
+        if (!gbwt_filename.empty() || gbz_paths) {
             // GBWT traversals
-            gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_filename);
-            if (gbwt_index.get() == nullptr) {
-                cerr << "error:[vg call] unable to load gbwt index file: " << gbwt_filename << endl;
-                return 1;
+            if (!gbz_paths) {
+                gbwt_index_up = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_filename);
+                gbwt_index = gbwt_index_up.get();
+                if (gbwt_index == nullptr) {
+                    cerr << "error:[vg call] unable to load gbwt index file: " << gbwt_filename << endl;
+                    return 1;
+                }
             }
-            GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index.get());
+            GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index);
             traversal_finder = unique_ptr<TraversalFinder>(gbwt_traversal_finder);
         } else {
             // Flow traversals (Yen's algorithm)
