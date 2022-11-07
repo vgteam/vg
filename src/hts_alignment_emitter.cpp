@@ -672,7 +672,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
 
     // Resolve subpath naming / offset
     subrange_t subrange;
-    path_name = Paths::strip_subrange(path_name);
+    path_name = Paths::strip_subrange(path_name, &subrange);
     if (subrange != PathMetadata::NO_SUBRANGE) {
         pos += subrange.first;
     }

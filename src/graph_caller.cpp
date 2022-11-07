@@ -492,7 +492,12 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     subrange_t subrange;
     string basepath_name = Paths::strip_subrange(ref_path_name, &subrange);
     size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-    // fill out the rest of the variant
+    // in VCF we usually just want a contig
+    string contig_name = PathMetadata::parse_locus_name(basepath_name);
+    if (contig_name != PathMetadata::NO_LOCUS_NAME) {
+        basepath_name = contig_name;
+    }
+    // fill out the rest of the variant    
     out_variant.sequenceName = basepath_name;
     // +1 to convert to 1-based VCF
     out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1 + basepath_offset;
