@@ -244,12 +244,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:ad435e28133a430c86840081efd04d57d"><td class="memItemLeft" align="right" valign="top">static tuple&lt; bool, string, size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#ad435e28133a430c86840081efd04d57d">parse_subpath_name</a> (const string &amp;path_name)</td></tr>
-<tr class="separator:ad435e28133a430c86840081efd04d57d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e495215c1060a94e8252c6f0c8246fc"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a8e495215c1060a94e8252c6f0c8246fc">get_base_name</a> (const string &amp;path_name)</td></tr>
-<tr class="separator:a8e495215c1060a94e8252c6f0c8246fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a94afdbfca9131fff00ccea9d3506afdd"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a94afdbfca9131fff00ccea9d3506afdd">make_subpath_name</a> (const string &amp;path_name, size_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, size_t end_offset=0)</td></tr>
-<tr class="separator:a94afdbfca9131fff00ccea9d3506afdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaae6abfe6b12aecfe82457fe8b8b44a8"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#aaae6abfe6b12aecfe82457fe8b8b44a8">strip_subrange</a> (const string &amp;path_name, <a class="el" href="namespacevg.html#ae28b502adf2ce7302acbb3138280f06c">subrange_t</a> *subrange=nullptr)</td></tr>
+<tr class="separator:aaae6abfe6b12aecfe82457fe8b8b44a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -924,32 +920,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a8e495215c1060a94e8252c6f0c8246fc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8e495215c1060a94e8252c6f0c8246fc">&#9670;&nbsp;</a></span>get_base_name()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static string vg::Paths::get_base_name </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>path_name</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a4e79d7915cd2f68e55573bcc50c1d417"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4e79d7915cd2f68e55573bcc50c1d417">&#9670;&nbsp;</a></span>get_create_path()</h2>
 
@@ -1394,48 +1364,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a94afdbfca9131fff00ccea9d3506afdd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a94afdbfca9131fff00ccea9d3506afdd">&#9670;&nbsp;</a></span>make_subpath_name()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::Paths::make_subpath_name </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>path_name</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>end_offset</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="abb58996e669d1b9271772a929f6bebe2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abb58996e669d1b9271772a929f6bebe2">&#9670;&nbsp;</a></span>mapping_path_id()</h2>
 
@@ -1686,32 +1614,6 @@ Private Attributes</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ad435e28133a430c86840081efd04d57d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad435e28133a430c86840081efd04d57d">&#9670;&nbsp;</a></span>parse_subpath_name()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">tuple&lt; bool, string, size_t, size_t &gt; vg::Paths::parse_subpath_name </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>path_name</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -2018,6 +1920,42 @@ Private Attributes</h2></td></tr>
           <td></td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aaae6abfe6b12aecfe82457fe8b8b44a8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaae6abfe6b12aecfe82457fe8b8b44a8">&#9670;&nbsp;</a></span>strip_subrange()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::Paths::strip_subrange </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#ae28b502adf2ce7302acbb3138280f06c">subrange_t</a> *&#160;</td>
+          <td class="paramname"><em>subrange</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>
