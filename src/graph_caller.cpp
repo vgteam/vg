@@ -489,13 +489,9 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 
     // resolve subpath naming
-    string basepath_name = ref_path_name;
-    size_t basepath_offset = 0;
-    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
-    if (get<0>(subpath_info)) {
-        basepath_name = get<1>(subpath_info);
-        basepath_offset = get<2>(subpath_info);
-    }
+    subrange_t subrange;
+    string basepath_name = Paths::strip_subrange(ref_path_name, &subrange);
+    size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
     // fill out the rest of the variant
     out_variant.sequenceName = basepath_name;
     // +1 to convert to 1-based VCF
@@ -638,13 +634,10 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
 
 pair<string, int64_t> VCFOutputCaller::get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
                                                         int64_t ref_path_offset) const {
-    string basepath_name = ref_path_name;
-    size_t basepath_offset = 0;
-    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
-    if (get<0>(subpath_info)) {
-        basepath_name = get<1>(subpath_info);
-        basepath_offset = get<2>(subpath_info);
-    }
+
+    subrange_t subrange;
+    string basepath_name = Paths::strip_subrange(ref_path_name, &subrange);
+    size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
     // +1 to convert to 1-based VCF
     int64_t position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_path_offset + 1 + basepath_offset;
     return make_pair(basepath_name, position);

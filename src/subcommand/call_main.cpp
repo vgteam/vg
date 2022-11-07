@@ -439,9 +439,11 @@ int main_call(int argc, char** argv) {
                 if (!Paths::is_alt(name)) {
                     ref_paths.push_back(name);
                     // keep track of length best we can using maximum coordinate in event of subpaths
-                    string base_name = Paths::get_base_name(name);
+                    subrange_t subrange;
+                    string base_name = Paths::strip_subrange(name, &subrange);
+                    size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
                     size_t& cur_len = basepath_length_map[base_name];
-                    cur_len = max(cur_len, compute_path_length(path_handle) + get<2>(Paths::parse_subpath_name(name)));
+                    cur_len = max(cur_len, compute_path_length(path_handle) + offset);
                 }
             });
     } else {
@@ -455,13 +457,15 @@ int main_call(int argc, char** argv) {
         }
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                string base_name = Paths::get_base_name(name);
+                subrange_t subrange;
+                string base_name = Paths::strip_subrange(name, &subrange);
+                size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
                 if (ref_path_set.count(base_name)) {
                     ref_subpaths.push_back(name);
                     // keep track of length best we can
                     if (ref_path_lengths.empty()) {
                         size_t& cur_len = basepath_length_map[base_name];
-                        cur_len = max(cur_len, compute_path_length(path_handle) + get<2>(Paths::parse_subpath_name(name)));
+                        cur_len = max(cur_len, compute_path_length(path_handle) + offset);
                     }
                     ref_path_set[base_name] = true;
                 }

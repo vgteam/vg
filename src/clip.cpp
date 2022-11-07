@@ -32,10 +32,10 @@ static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool
         path_handle_t path_handle = graph->get_path_handle_of_step(step_pair.first);
         string path_name = graph->get_path_name(path_handle);
         int64_t path_offset = 0;
-        auto sp_parse = Paths::parse_subpath_name(path_name);
-        if (get<0>(sp_parse)) {
-            path_name = get<1>(sp_parse);
-            path_offset = get<2>(sp_parse);
+        subrange_t subrange;
+        path_name = Paths::strip_subrange(path_name, &subrange);
+        if (subrange != PathMetadata::NO_SUBRANGE) {
+            path_offset = subrange.first;
         }
 
         if (contig_to_interval_tree.count(path_name)) {
@@ -107,7 +107,7 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
     unordered_set<string> graph_path_name_set;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
             string graph_path_name = graph->get_path_name(path_handle);
-            if (path_name_set.count(Paths::get_base_name(graph_path_name))) {
+            if (path_name_set.count(Paths::strip_subrange(graph_path_name))) {
                 graph_path_name_set.insert(graph_path_name);
             }
         });
@@ -145,7 +145,17 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
 static path_handle_t create_path_fragment(MutablePathMutableHandleGraph* graph, const string& base_name, step_handle_t first_step,
                                           step_handle_t end_step, int64_t start_offset, int64_t end_offset) {
     assert(end_offset > start_offset);
-    string subpath_name = Paths::make_subpath_name(base_name, start_offset, end_offset - 1);
+    PathSense sense;
+    std::string sample;
+    std::string locus;
+    size_t haplotype;
+    size_t phase_block;
+    subrange_t subrange;
+    PathMetadata::parse_path_name(base_name, sense, sample, locus, haplotype, phase_block, subrange);
+    assert(subrange == PathMetadata::NO_SUBRANGE);
+    subrange.first = start_offset;
+    subrange.second = end_offset;
+    string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
 #ifdef debug
     cerr << "making fragment " << subpath_name << endl;
 #endif
@@ -172,10 +182,10 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
         cerr << "processing path " << path_name << endl;
 #endif
         int64_t path_offset = 0;
-        auto sp_parse = Paths::parse_subpath_name(path_name);
-        if (get<0>(sp_parse)) {
-            path_name = get<1>(sp_parse);
-            path_offset = get<2>(sp_parse);
+        subrange_t subrange;
+        path_name = Paths::strip_subrange(path_name, &subrange);
+        if (subrange != PathMetadata::NO_SUBRANGE) {
+            path_offset = subrange.first;
         }
 
         int64_t cur_step_offset = path_offset;

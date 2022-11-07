@@ -89,18 +89,14 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     std::sort(path_handles.begin(), path_handles.end(), [&](const path_handle_t& p1, const path_handle_t& p2) {
             string n1 = graph->get_path_name(p1);
             string n2 = graph->get_path_name(p2);
-            auto s1 = Paths::parse_subpath_name(n1);
-            auto s2 = Paths::parse_subpath_name(n2);
-            if (!get<0>(s1) || !get<0>(s2)) {
-                return n1 < n2;
-            } else if (get<1>(s1) < get<1>(s2)) {
+            subrange_t subrange1;
+            subrange_t subrange2;
+            n1 = Paths::strip_subrange(n1, &subrange1);
+            n2 = Paths::strip_subrange(n2, &subrange2);
+            if (n1 < n2) {
                 return true;
-            } else if (get<1>(s1) == get<1>(s2)) {
-                if (get<2>(s1) < get<2>(s2)) {
-                    return true;
-                } else if (get<2>(s1) == get<2>(s2)) {
-                    return get<3>(s1) < get<3>(s2);
-                }
+            } else if (n1 == n2) {
+                return subrange1 < subrange2;
             }
             return false;
         });
