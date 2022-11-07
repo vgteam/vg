@@ -182,19 +182,19 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
 
 //------------------------------------------------------------------------------
 
-Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, bool progress) :
+Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, Verbosity verbosity) :
     gbz(gbz), r_index(r_index), distance_index(distance_index),
     chains_by_job(),
-    progress(progress)
+    verbosity(verbosity)
 {
     double start = gbwt::readTimer();
-    if (this->progress) {
+    if (this->verbosity >= verbosity_basic) {
         std::cerr << "Determining GBWT construction jobs" << std::endl;
     }
     size_t size_bound = this->gbz.graph.get_node_count() / APPROXIMATE_JOBS;
     gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
     this->chains_by_job = gbwtgraph::partition_chains(this->distance_index, this->gbz.graph, jobs);
-    if (this->progress) {
+    if (this->verbosity >= verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Partitioned " << jobs.components << " components into " << jobs.size() << " jobs in " << seconds << " seconds" << std::endl;
     }
@@ -233,7 +233,10 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const gbwtgraph::TopL
                 * use kmer counts from the reads to select sequences that are closest to the sample
             */
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                // FIXME If we have a prefix/suffix with no sequences, what should we do? Can that even happen if the handle exists?
+                // If this is a normal subchain, we have already checked that it's not empty.
+                // For prefixes and suffixes, we list all GBWT path visits to the handle.
+                // The list cannot be empty, because the handle exists in a GBWTGraph.
+                assert(!iter->second.empty());
                 haplotypes[haplotype].extend(iter->second[haplotype % iter->second.size()], iter->first, *this, builder);
             }
             have_haplotypes = iter->first.has_end();
@@ -368,8 +371,6 @@ std::vector<Recombinator::sequence_type> Recombinator::get_sequences(handle_t ha
     return result;
 }
 
-// FIXME handle haplotypes that visit the same node multiple times properly
-// FIXME match each exit from the subchain to the last entry to the subchain before it
 std::vector<Recombinator::sequence_type> Recombinator::get_sequences(Subchain subchain) const {
     if (subchain.type == Subchain::prefix) {
         return this->get_sequences(subchain.end);
@@ -387,10 +388,37 @@ std::vector<Recombinator::sequence_type> Recombinator::get_sequences(Subchain su
         gbwt::size_type from_id = this->r_index.seqId(from_iter->first);
         gbwt::size_type to_id = this->r_index.seqId(to_iter->first);
         if (from_id == to_id) {
+            // To avoid weird situations, we only consider the first time a haplotype crosses this
+            // subchain. We combine the first exit from the subchain and the last entry before it.
+            // These situations should be rare.
+            // TODO: Should we consider all minimal crossings?
+            bool multiple_visits = false;
+            gbwt::size_type to_offset = this->r_index.seqOffset(to_iter->first);
             if (this->r_index.seqOffset(from_iter->first) >= this->r_index.seqOffset(to_iter->first)) {
+                auto peek = from_iter + 1;
+                while (peek != from.end() && this->r_index.seqId(peek->first) == from_id && this->r_index.seqOffset(peek->first) >= to_offset) {
+                    from_iter = peek;
+                    ++peek;
+                    multiple_visits = true;
+                }
                 result.push_back(*from_iter);
             }
-            ++from_iter; ++to_iter;
+            ++from_iter;
+            while (from_iter != from.end() && this->r_index.seqId(from_iter->first) == from_id) {
+                ++from_iter;
+                multiple_visits = true;
+            }
+            ++to_iter;
+            while (to_iter != to.end() && this->r_index.seqId(to_iter->first) == to_id) {
+                ++to_iter;
+                multiple_visits = true;
+            }
+            if (multiple_visits && this->verbosity >= verbosity_debug) {
+                #pragma omp critical
+                {
+                    std::cerr << "Taking the first visit of sequence " << from_id << " to subchain " << to_string(subchain.start) << " to " << to_string(subchain.end) << std::endl;
+                }
+            }
         } else if (from_id < to_id) {
             ++from_iter;
         } else if (from_id > to_id) {

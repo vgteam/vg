@@ -44,9 +44,6 @@ namespace vg {
  */
 class Recombinator {
 public:
-    /// A GBWT sequence as (sequence identifier, offset in a node).
-    typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
-
     /// Number of haplotypes to be generated.
     constexpr static size_t NUM_HAPLOTYPES = 16;
 
@@ -55,6 +52,24 @@ public:
 
     /// Approximate number of construction jobs to be created.
     constexpr static size_t APPROXIMATE_JOBS = 32;
+
+    /// The amount of progress information that should be printed to stderr.
+    enum Verbosity : size_t {
+        /// No progress information.
+        verbosity_silent = 0,
+
+        /// Basic information.
+        verbosity_basic = 1,
+
+        /// Basic information and detailed statistics.
+        verbosity_detailed = 2,
+
+        /// Basic information, detailed statistics, and debug information.
+        verbosity_debug = 3
+    };
+
+    /// A GBWT sequence as (sequence identifier, offset in a node).
+    typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
 
     /**
      * A subchain is a substring of a top-level chain defined by at one or two
@@ -184,7 +199,7 @@ public:
     };
 
     /// FIXME: document
-    Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, bool progress);
+    Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, Verbosity verbosity);
 
     // FIXME job()
 
@@ -194,7 +209,7 @@ public:
 
     std::vector<std::vector<gbwtgraph::TopLevelChain>> chains_by_job;
 
-    bool progress;
+    Verbosity verbosity;
 
     // FIXME should be private
     // Generate haplotypes for the given chain.

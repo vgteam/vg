@@ -38,8 +38,8 @@ void help_haplotypes(char** argv) {
     std::cerr << "    -r, --r-index-name X    use this r-index (or guess from graph name)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -p, --progress          show progress information" << std::endl;
-    std::cerr << "    -v, --validate          check that the output graph is a subgraph of the input" << std::endl;
+    std::cerr << "    -v, --verbosity N       set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default 0)" << std::endl;
+    std::cerr << "        --validate          check that the output graph is a subgraph of the input" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -65,7 +65,7 @@ std::string get_name(const std::string& graph_name, const std::string& extension
     return graph_name.substr(0, length) + extension;
 }
 
-void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, bool progress);
+void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, Recombinator::Verbosity verbosity);
 
 //----------------------------------------------------------------------------
 
@@ -79,24 +79,27 @@ int main_haplotypes(int argc, char** argv) {
 
     // Parse options into these.
     std::string graph_name, r_index_name, distance_name, output_name;
-    bool progress = false, validate = false;
+    Recombinator::Verbosity verbosity = Recombinator::verbosity_silent;
+    bool validate = false;
+
+    constexpr int OPT_VALIDATE = 1000;
+
+    static struct option long_options[] =
+    {
+        { "output-name", required_argument, 0, 'o' },
+        { "distance-index", required_argument, 0, 'd' },
+        { "r_index", required_argument, 0, 'r' },
+        { "verbosity", required_argument, 0, 'v' },
+        { "validate", no_argument, 0,  OPT_VALIDATE },
+        { 0, 0, 0, 0 }
+    };
 
     // Process the arguments.
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
-        static struct option long_options[] =
-        {
-            { "output-name", required_argument, 0, 'o' },
-            { "distance-index", required_argument, 0, 'd' },
-            { "r_index", required_argument, 0, 'r' },
-            { "progress", no_argument, 0, 'p' },
-            { "validate", no_argument, 0,  'v' },
-            { 0, 0, 0, 0 }
-        };
-
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:d:r:pvh", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:d:r:v:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -112,10 +115,17 @@ int main_haplotypes(int argc, char** argv) {
             r_index_name = optarg;
             break;
 
-        case 'p':
-            progress = true;
-            break;
         case 'v':
+            {
+                size_t level = parse<size_t>(optarg);
+                if (level > Recombinator::verbosity_debug) {
+                    std::cerr << "error: [vg haplotypes] invalid verbosity level: " << level << std::endl;
+                    return 1;
+                }
+                verbosity = static_cast<Recombinator::Verbosity>(level);
+            }
+            break;
+        case OPT_VALIDATE:
             validate = true;
             break;
 
@@ -140,13 +150,13 @@ int main_haplotypes(int argc, char** argv) {
     }
     if (r_index_name.empty()) {
         r_index_name = get_name(graph_name, gbwt::FastLocate::EXTENSION);
-        if (progress) {
+        if (verbosity >= Recombinator::verbosity_basic) {
             std::cerr << "Guessing that r-index is " << r_index_name << std::endl;
         }
     }
     if (distance_name.empty()) {
         distance_name = get_name(graph_name, ".dist");
-        if (progress) {
+        if (verbosity >= Recombinator::verbosity_basic) {
             std::cerr << "Guessing that distance index is " << distance_name << std::endl;
         }
     }
@@ -154,24 +164,24 @@ int main_haplotypes(int argc, char** argv) {
     // Load the indexes.
     double checkpoint = gbwt::readTimer();
     gbwtgraph::GBZ gbz;
-    load_gbz(gbz, graph_name, progress);
+    load_gbz(gbz, graph_name, verbosity >= Recombinator::verbosity_basic);
     gbwt::FastLocate r_index;
-    load_r_index(r_index, r_index_name, progress);
+    load_r_index(r_index, r_index_name, verbosity >= Recombinator::verbosity_basic);
     r_index.setGBWT(gbz.index);
     SnarlDistanceIndex distance_index;
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Loading distance index from " << distance_name << std::endl;
     }
     distance_index.deserialize(distance_name);
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Loaded the indexes in " << seconds << " seconds" << std::endl;
     }
 
     // Create a recombinator.
-    Recombinator recombinator(gbz, r_index, distance_index, progress);
+    Recombinator recombinator(gbz, r_index, distance_index, verbosity);
 
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Processing chains using " << omp_get_max_threads() << " threads" << std::endl;
     }
     checkpoint = gbwt::readTimer();
@@ -192,44 +202,44 @@ int main_haplotypes(int argc, char** argv) {
         indexes[job] = builder.index;
         #pragma omp critical
         {
-            if (progress) {
+            if (verbosity >= Recombinator::verbosity_detailed) {
                 std::cerr << "Job " << job << ": "; job_statistics.print(std::cerr) << std::endl;
             }
             statistics.combine(job_statistics);
         }
     }
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
+        std::cerr << "Processed "; statistics.print(std::cerr) << std::endl;
         std::cerr << "Processed the chains in " << seconds << " seconds" << std::endl;
-        std::cerr << "Total: "; statistics.print(std::cerr) << std::endl;
     }
 
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Merging the partial indexes" << std::endl;
     }
     checkpoint = gbwt::readTimer();
     gbwt::GBWT merged(indexes);
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Merged the indexes in " << seconds << " seconds" << std::endl;
     }
 
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Building GBWTGraph" << std::endl;
     }
     checkpoint = gbwt::readTimer();
     gbwtgraph::GBWTGraph output_graph = gbz.graph.subgraph(merged);
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Built the GBWTGraph in " << seconds << " seconds" << std::endl;
     }
 
     if (validate) {
-        validate_subgraph(gbz.graph, output_graph, progress);
+        validate_subgraph(gbz.graph, output_graph, verbosity);
     }
-    save_gbz(merged, output_graph, output_name, progress);
+    save_gbz(merged, output_graph, output_name, verbosity >= Recombinator::verbosity_basic);
 
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         double gib = gbwt::inGigabytes(gbwt::memoryUsage());
         std::cerr << "Used " << seconds << " seconds, " << gib << " GiB" << std::endl;
@@ -270,8 +280,8 @@ void validate_edges(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGrap
     }
 }
 
-void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, bool progress) {
-    if (progress) {
+void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, Recombinator::Verbosity verbosity) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Validating the output subgraph" << std::endl;
     }
     double start = gbwt::readTimer();
@@ -281,7 +291,7 @@ void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTG
     nodes.join();
     edges.join();
 
-    if (progress) {
+    if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Validated the subgraph in " << seconds << " seconds" << std::endl;
     }
