@@ -552,7 +552,10 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 parent_problem.children.emplace_back();
                 parent_problem.children.back().net_handle = node_net_handle;
                 parent_problem.children.back().seed_indices = {read_num, i};
-                parent_problem.children.back().is_seed = true;;
+                parent_problem.children.back().is_seed = true;
+                parent_problem.children.back().chain_component = MIPayload::chain_component(seed.minimizer_cache);
+                parent_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
+                                                                      MIPayload::prefix_sum(seed.minimizer_cache));
 
 
                 //And the parent to chains_by_level
@@ -629,7 +632,10 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 node_problem.children.emplace_back();
                 node_problem.children.back().net_handle = node_net_handle;
                 node_problem.children.back().seed_indices = {read_num, i};
-                node_problem.children.back().is_seed = true;;
+                node_problem.children.back().is_seed = true;
+                node_problem.children.back().chain_component = MIPayload::chain_component(seed.minimizer_cache);
+                node_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
+                                                                      MIPayload::prefix_sum(seed.minimizer_cache));
 
 
 
@@ -750,7 +756,6 @@ void SnarlDistanceIndexClusterer::cluster_snarl_level(ClusteringProblem& cluster
                 parent_problem.children.emplace_back();
                 parent_problem.children.back().net_handle = snarl_handle;
                 parent_problem.children.back().is_seed = false;
-
                 if (new_parent) {
                     //And the parent chain to the things to be clustered next
                     clustering_problem.parent_chains->emplace_back(snarl_parent);
@@ -1775,12 +1780,13 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
             if (!child1.is_seed || !child2.is_seed) {
                 only_seeds = false;
             }
+
             size_t component1 = child1.is_seed
-                    ? MIPayload::chain_component(clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).minimizer_cache)
+                    ? child1.chain_component
                     : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(child1.net_handle)).chain_component_start;
             size_t component2 = child2.is_seed
-                    ? MIPayload::chain_component(clustering_problem.all_seeds->at(child2.seed_indices.first)->at(child2.seed_indices.second).minimizer_cache)
+                    ? child2.chain_component
                     : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(child2.net_handle)).chain_component_start;
 
@@ -1789,13 +1795,11 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
             }
 
             size_t prefix_sum1 = child1.is_seed
-                    ? SnarlDistanceIndex::sum(clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).distance_left,
-                      MIPayload::prefix_sum(clustering_problem.all_seeds->at(child1.seed_indices.first)->at(child1.seed_indices.second).minimizer_cache))
+                    ? child1.prefix_sum
                     : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(child1.net_handle)).prefix_sum_value;
             size_t prefix_sum2 = child2.is_seed
-                    ? SnarlDistanceIndex::sum(clustering_problem.all_seeds->at(child2.seed_indices.first)->at(child2.seed_indices.second).distance_left,
-                      MIPayload::prefix_sum(clustering_problem.all_seeds->at(child2.seed_indices.first)->at(child2.seed_indices.second).minimizer_cache))
+                    ? child2.prefix_sum
                     : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(child2.net_handle)).prefix_sum_value;
             if (prefix_sum1 == prefix_sum2) {
