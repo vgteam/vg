@@ -68,9 +68,8 @@ printf "y\t10\tAACTCCAGAAAATTTCCAAG\tCTTGGAAATTTTCTGGAGTT\t1\n" > inv_truth.tsv
 diff inv_decon.tsv inv_truth.tsv
 is "$?" 0 "deconstruct correctly handles a simple inversion when the reference contains the reversing edge"
 
-printf "P\ty\t1+,2-,3+\t*\n" >> inv.gfa
 vg gbwt -G inv.gfa -g inv.chop.gbz --gbz-format --max-node 5
-vg deconstruct inv.gbz -p x > inv.chop.decon
+vg deconstruct inv.chop.gbz -p x > inv.chop.decon
 vg gbwt -G inv.gfa -g inv.gbz --gbz-format --max-node 1025
 vg deconstruct inv.gbz -p x > inv.decon
 diff inv.decon inv.chop.decon
