@@ -61,10 +61,10 @@ void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::st
 //------------------------------------------------------------------------------
 
 /// Return a mapping of the original segment ids to a list of chopped node ids
-std::unordered_map<nid_t, std::vector<nid_t>> load_translation_map(const gbwtgraph::GBWTGraph& graph);
+std::unordered_map<std::string, std::vector<nid_t>> load_translation_map(const gbwtgraph::GBWTGraph& graph);
 
 /// Return a backwards mapping of chopped node to original segment position (id,offset pair)
-std::unordered_map<nid_t, std::pair<nid_t, size_t>> load_translation_back_map(const gbwtgraph::GBWTGraph& graph);
+std::unordered_map<nid_t, std::pair<std::string, size_t>> load_translation_back_map(const gbwtgraph::GBWTGraph& graph);
 
 //------------------------------------------------------------------------------
 

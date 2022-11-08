@@ -153,50 +153,32 @@ void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::st
 
 /// Return a mapping of the original segment ids to a list of chopped node ids
 /// (mimicking logic and interface from function of same name in gbwt_helper.cpp)
-unordered_map<nid_t, vector<nid_t>> load_translation_map(const gbwtgraph::GBWTGraph& graph) {
-    unordered_map<nid_t, vector<nid_t>> translation_map;
-    try {
-        graph.for_each_segment([&](const std::string& name, std::pair<nid_t, nid_t> nodes) -> bool {
-                nid_t segment_id = parse<nid_t>(name);
-                vector<nid_t>& val = translation_map[segment_id];
-                if (!val.empty()) {
-                    throw runtime_error("Segment " + name + " already in map");
-                }
-                val.reserve(nodes.second - nodes.first);
-                for (nid_t node_id = nodes.first; node_id < nodes.second; ++node_id) {
-                    val.push_back(node_id);
-                }
-                return true;
-            });
-    } catch (const std::exception& e) {
-        cerr << "[load_translation_map] warning: unable to load translation from graph: " << e.what() << endl;
-        translation_map.clear();
-    }
+unordered_map<string, vector<nid_t>> load_translation_map(const gbwtgraph::GBWTGraph& graph) {
+    unordered_map<string, vector<nid_t>> translation_map;
+    graph.for_each_segment([&](const std::string& segment_id, std::pair<nid_t, nid_t> nodes) -> bool {
+            vector<nid_t>& val = translation_map[segment_id];
+            val.reserve(nodes.second - nodes.first);
+            for (nid_t node_id = nodes.first; node_id < nodes.second; ++node_id) {
+                val.push_back(node_id);
+            }
+            return true;
+        });
     return translation_map;
 }
 
 /// Return a backwards mapping of chopped node to original segment position (id,offset pair)
 /// (mimicking logic and interface from function of same name in gbwt_helper.cpp)
-unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(const gbwtgraph::GBWTGraph& graph) {
-    unordered_map<nid_t, pair<nid_t, size_t>> translation_back_map;
-    try {
-        graph.for_each_segment([&](const std::string& name, std::pair<nid_t, nid_t> nodes) -> bool {
-                nid_t segment_id = parse<nid_t>(name);
-                size_t offset = 0;
-                for (nid_t node_id = nodes.first; node_id < nodes.second; ++node_id) {
-                    if (translation_back_map.count(node_id)) {
-                        throw runtime_error("Node ID " + std::to_string(node_id) + " already in map");
-                    }
-                    translation_back_map[node_id] = make_pair(segment_id, offset);
-                    offset += graph.get_length(graph.get_handle(node_id));
-                }
-                return true;
-            });
+unordered_map<nid_t, pair<string, size_t>> load_translation_back_map(const gbwtgraph::GBWTGraph& graph) {
+    unordered_map<nid_t, pair<string, size_t>> translation_back_map;
+    graph.for_each_segment([&](const std::string& segment_id, std::pair<nid_t, nid_t> nodes) -> bool {
+            size_t offset = 0;
+            for (nid_t node_id = nodes.first; node_id < nodes.second; ++node_id) {
+                translation_back_map[node_id] = make_pair(segment_id, offset);
+                offset += graph.get_length(graph.get_handle(node_id));
+            }
+            return true;
+        });
                 
-    } catch (const std::exception& e) {
-        cerr << "[load_translation_back_map] warning: unable to load back translation from graph: "  << e.what() << endl;
-        translation_back_map.clear();
-    }    
     return translation_back_map;
 }
 
