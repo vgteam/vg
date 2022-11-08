@@ -331,7 +331,7 @@ void VCFOutputCaller::vcf_fixup(vcflib::Variant& var) const {
 }
 
 void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
-    translation = translation;
+    this->translation = translation;
 }
 
 void VCFOutputCaller::set_nested(bool nested) {

@@ -16,6 +16,7 @@
 #include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -374,7 +375,19 @@ int main_call(int argc, char** argv) {
     
     // Read the translation
     unique_ptr<unordered_map<nid_t, pair<nid_t, size_t>>> translation;
+    if (gbz_graph.get() != nullptr) {
+        // try to get the translation from the graph
+        translation = make_unique<unordered_map<nid_t, pair<nid_t, size_t>>>();
+        *translation = load_translation_back_map(gbz_graph->gbz.graph);
+        if (translation->empty()) {
+            // not worth keeping an empty translation
+            translation = nullptr;
+        }
+    }
     if (!translation_file_name.empty()) {
+        if (!translation->empty()) {
+            cerr << "Warning [vg call]: Using translation from -N overrides that in input GBZ (you probably don't want to use -N)" << endl;
+        }        
         ifstream translation_file(translation_file_name.c_str());
         if (!translation_file) {
             cerr << "Error [vg call]: Unable to load translation file: " << translation_file_name << endl;
