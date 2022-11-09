@@ -13,6 +13,7 @@
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/path_position_overlays.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
+#include <bdsg/overlays/packed_reference_path_overlay.hpp>
 
 #include "../vg.hpp"
 #include "../xg.hpp"
@@ -227,7 +228,7 @@ int main_surject(int argc, char** argv) {
     
     PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::OverlayHelper<PathPositionHandleGraph, bdsg::PackedReferencePathOverlay, PathHandleGraph> overlay_helper;
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = overlay_helper.apply(path_handle_graph.get());

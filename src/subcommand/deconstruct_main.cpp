@@ -21,6 +21,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
+#include <bdsg/overlays/packed_reference_path_overlay.hpp>
 #include <gbwtgraph/utils.h>
 #include <gbwtgraph/index.h>
 
@@ -196,7 +197,7 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::OverlayHelper<PathPositionHandleGraph, bdsg::PackedReferencePathOverlay, PathHandleGraph> overlay_helper;
     PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph);
 
     // Read the GBWT
