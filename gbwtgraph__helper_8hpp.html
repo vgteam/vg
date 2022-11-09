@@ -76,6 +76,9 @@ $(function() {
 <div class="textblock"><code>#include &lt;gbwtgraph/gfa.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/gbz.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/minimizer.h&gt;</code><br />
+<code>#include &quot;<a class="el" href="position_8hpp.html">position.hpp</a>&quot;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
+<code>#include &lt;vector&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -115,6 +118,12 @@ Functions</h2></td></tr>
 <tr class="memitem:af7885143ca20185816afadc669813f12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7885143ca20185816afadc669813f12">vg::save_minimizer</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:af7885143ca20185816afadc669813f12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a minimizer index to the file.  <a href="namespacevg.html#af7885143ca20185816afadc669813f12">More...</a><br /></td></tr>
 <tr class="separator:af7885143ca20185816afadc669813f12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a709e93bb1c0dbdcdbc928960e42688ec"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, vector&lt; nid_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a709e93bb1c0dbdcdbc928960e42688ec">vg::load_translation_map</a> (const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
+<tr class="memdesc:a709e93bb1c0dbdcdbc928960e42688ec"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a mapping of the original segment ids to a list of chopped node ids.  <a href="namespacevg.html#a709e93bb1c0dbdcdbc928960e42688ec">More...</a><br /></td></tr>
+<tr class="separator:a709e93bb1c0dbdcdbc928960e42688ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0b717077a15106d70c8ce4cc035ca890"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; nid_t, pair&lt; string, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0b717077a15106d70c8ce4cc035ca890">vg::load_translation_back_map</a> (const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
+<tr class="memdesc:a0b717077a15106d70c8ce4cc035ca890"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a backwards mapping of chopped node to original segment position (id,offset pair)  <a href="namespacevg.html#a0b717077a15106d70c8ce4cc035ca890">More...</a><br /></td></tr>
+<tr class="separator:a0b717077a15106d70c8ce4cc035ca890"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Utility classes and functions for working with GBWTGraph. </p>

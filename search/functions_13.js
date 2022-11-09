@@ -140,7 +140,7 @@ var searchData=
   ['set_5ftags_9650',['set_tags',['../gbwt__main_8cpp.html#ab3856151a0825f396467961305716704',1,'gbwt_main.cpp']]],
   ['set_5ftarget_5fmemory_5fusage_9651',['set_target_memory_usage',['../classvg_1_1IndexRegistry.html#aee06106e4888a5a17d12fa10f1e87893',1,'vg::IndexRegistry']]],
   ['set_5fto_5flength_9652',['set_to_length',['../classvg_1_1edit__t.html#a9b38a79f561f60c377c35e186c5cfd96',1,'vg::edit_t']]],
-  ['set_5ftranslation_9653',['set_translation',['../classvg_1_1VCFOutputCaller.html#a87bbd2732f19f3f0e5c3cd76b31f4c84',1,'vg::VCFOutputCaller']]],
+  ['set_5ftranslation_9653',['set_translation',['../classvg_1_1VCFOutputCaller.html#a918bfde23f9f6afacec9b10319030414',1,'vg::VCFOutputCaller']]],
   ['set_5fwindow_5flength_9654',['set_window_length',['../classvg_1_1Filter.html#adb96fca6a301e45c84b010f5461440a9',1,'vg::Filter']]],
   ['setk_9655',['setK',['../classvg_1_1FlowTraversalFinder.html#adf6216e25b6f61a09aa13816eafcd6e3',1,'vg::FlowTraversalFinder']]],
   ['sha1head_9656',['sha1head',['../namespacevg.html#a6821cd887e206752c50c1a7be764d1f5',1,'vg']]],
