@@ -248,13 +248,13 @@ gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);
 
 /// Load a translation file (created with vg gbwt --translation) and return a mapping
 /// original segment ids to a list of chopped node ids
-unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream);
+unordered_map<string, vector<nid_t>> load_translation_map(ifstream& input_stream);
 
 /// Load a translation file (created with vg gbwt --translation) and return a backwards mapping
 /// of chopped node to original segment position (id,offset pair)
 /// NOTE: hopefully this is just a short-term hack, and we get a general interface baked into
 ///       the handlegraphs themselves
-unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream);
+unordered_map<nid_t, pair<string, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream);
 
 //------------------------------------------------------------------------------
 

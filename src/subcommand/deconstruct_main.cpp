@@ -259,14 +259,26 @@ int main_deconstruct(int argc, char** argv){
     }
 
     // Read the translation
-    unique_ptr<unordered_map<nid_t, pair<nid_t, size_t>>> translation;
+    unique_ptr<unordered_map<nid_t, pair<string, size_t>>> translation;
+    if (gbz_graph.get() != nullptr) {
+        // try to get the translation from the graph
+        translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
+        *translation = load_translation_back_map(gbz_graph->gbz.graph);
+        if (translation->empty()) {
+            // not worth keeping an empty translation
+            translation = nullptr;
+        }
+    }
     if (!translation_file_name.empty()) {
+        if (!translation->empty()) {
+            cerr << "Warning [vg deconstruct]: Using translation from -T overrides that in input GBZ (you probably don't want to use -T)" << endl;
+        }
         ifstream translation_file(translation_file_name.c_str());
         if (!translation_file) {
             cerr << "Error [vg deconstruct]: Unable to load translation file: " << translation_file_name << endl;
             return 1;
         }
-        translation = make_unique<unordered_map<nid_t, pair<nid_t, size_t>>>();
+        translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(*graph, translation_file);
     }
     

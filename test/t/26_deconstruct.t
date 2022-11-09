@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 23
+plan tests 24
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -68,7 +68,14 @@ printf "y\t10\tAACTCCAGAAAATTTCCAAG\tCTTGGAAATTTTCTGGAGTT\t1\n" > inv_truth.tsv
 diff inv_decon.tsv inv_truth.tsv
 is "$?" 0 "deconstruct correctly handles a simple inversion when the reference contains the reversing edge"
 
-rm -f inv.gfa inv.vg inv.xg inv_decon.vcf inv_decon.tsv inv_truth.tsv
+vg gbwt -G inv.gfa -g inv.chop.gbz --gbz-format --max-node 5
+vg deconstruct inv.chop.gbz -p x > inv.chop.decon
+vg gbwt -G inv.gfa -g inv.gbz --gbz-format --max-node 1025
+vg deconstruct inv.gbz -p x > inv.decon
+diff inv.decon inv.chop.decon
+is "$?" 0 "deconstruct automatically applies translation from gbz"
+
+rm -f inv.gfa inv.vg inv.xg inv_decon.vcf inv_decon.tsv inv_truth.tsv inv.gbz inv.chop.gbz inv.gbz inv.chop.decon inv.decon
 
 
 vg construct -v small/x.vcf.gz -r small/x.fa | vg view -g - > cyclic_small.gfa
