@@ -302,9 +302,9 @@ void write_fasta_sequence(const std::string& name, const std::string& sequence, 
 namespace temp_file {
 
 // We use this to make the API thread-safe
-recursive_mutex monitor;
+static recursive_mutex monitor;
 
-string temp_dir;
+static string temp_dir;
 
 /// Because the names are in a static object, we can delete them when
 /// std::exit() is called.
@@ -386,7 +386,9 @@ struct Handler {
             remove_directory(parent_directory);
         }
     }
-} handler;
+};
+// make a static instance so that its destructor is called from std::exit()
+static Handler handler;
 
 string create(const string& base) {
     lock_guard<recursive_mutex> lock(monitor);
@@ -444,6 +446,19 @@ void remove(const string& filename) {
         // nonempty directory.
         std::remove(filename.c_str());
     }
+}
+
+void forget() {
+    lock_guard<recursive_mutex> lock(monitor);
+    
+    // forget in our submodules as well
+    xg::temp_file::forget();
+    gbwt::TempFile::forget();
+    gcsa::TempFile::forget();
+    
+    handler.filenames.clear();
+    handler.dirnames.clear();
+    handler.parent_directory.clear();
 }
 
 void set_system_dir() {

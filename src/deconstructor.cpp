@@ -630,10 +630,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                  << " trav=" << pb2json(path_travs.first[i]) << endl;
         }
 #endif
-        tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_trav_name);
-        if (get<0>(subpath_parse)) {
-            path_trav_name = get<1>(subpath_parse);
-        }
+        path_trav_name = Paths::strip_subrange(path_trav_name);
         if (ref_paths.count(path_trav_name) &&
             (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
@@ -653,24 +650,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     if (!ref_trav_name.empty()) {
         for (int i = 0; i < path_travs.first.size(); ++i) {
             path_handle_t path_handle = graph->get_path_handle_of_step(path_travs.second[i].first);
-            string path_trav_name = graph->get_path_name(path_handle);
-            subrange_t subrange = graph->get_subrange(path_handle);
-            
-            tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_trav_name);
-            int64_t sub_offset = 0;
-            if (subrange != PathMetadata::NO_SUBRANGE) {
-                // Get the name of the path we are a subrange of.
-                path_trav_name = PathMetadata::create_path_name(
-                    graph->get_sense(path_handle),
-                    graph->get_sample_name(path_handle),
-                    graph->get_locus_name(path_handle),
-                    graph->get_haplotype(path_handle),
-                    graph->get_phase_block(path_handle),
-                    PathMetadata::NO_SUBRANGE
-                );
-                // And assign an offset.
-                sub_offset = (int64_t) subrange.first;
-            }
+            string path_trav_name = graph->get_path_name(path_handle);            
+            subrange_t subrange ;
+            path_trav_name = Paths::strip_subrange(path_trav_name, &subrange);
+            int64_t sub_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
             if (path_trav_name == ref_trav_name) {
                 ref_travs.push_back(i);
                 ref_offsets.push_back(sub_offset);
@@ -835,8 +818,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             vcflib::Variant v;
             v.quality = 60;
 
+            // in VCF we usually just want the contig
+            string contig_name = PathMetadata::parse_locus_name(ref_trav_name);            
             // write variant's sequenceName (VCF contig)
-            v.sequenceName = ref_trav_name;
+            v.sequenceName = contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : ref_trav_name;
 
             // Map our snarl endpoints to oriented positions in the embedded path in the graph
             handle_t first_path_handle;

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 98
+plan tests 102
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -328,6 +328,14 @@ vg paths --sample "sample" -v components.xg -A | sort > gbz_xg_haplotypes.gaf
 cmp gbz_xg_haplotypes.gaf correct_haplotypes.gaf
 is $? 0 "GBZ to XG conversion creates the correct haplotype paths"
 
+# GBZ to HashGraph and XG while dropping haplotypes
+vg convert -x --drop-haplotypes components.gbz > no_haplotypes.xg
+is $? 0 "GBZ to XG conversion while dropping haplotypes"
+is "$(vg paths -L -x no_haplotypes.xg | wc -l)" "2" "No haplotypes in the converted graph"
+vg convert -xa --drop-haplotypes components.gbz > no_haplotypes.hg
+is $? 0 "GBZ to HashGraph conversion while dropping haplotypes"
+is "$(vg paths -L -x no_haplotypes.hg | wc -l)" "2" "No haplotypes in the converted graph"
+
 # GBWTGraph to GFA with paths and walks (needs 1 thread)
 vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
 is $? 0 "GBWTGraph to GFA conversion with paths and walks, GBWTGraph algorithm"
@@ -365,6 +373,7 @@ rm -f components.gbwt components.gg components.gbz
 rm -f direct.hg correct_paths.gaf correct_haplotypes.gaf
 rm -f components.hg hg_paths.gaf hg_haplotypes.gaf gbz_hg_paths.gaf gbz_hg_haplotypes.gaf
 rm -f components.xg xg_paths.gaf xg_haplotypes.gaf gbz_xg_paths.gaf gbz_xg_haplotypes.gaf
+rm -f no_haplotypes.xg no_haplotypes.hg
 rm -f extracted.gfa gbz.gfa extracted.hg
 rm -f sorted.gfa correct.gfa
 

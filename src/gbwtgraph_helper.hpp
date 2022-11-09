@@ -8,6 +8,9 @@
 #include <gbwtgraph/gfa.h>
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
+#include "position.hpp"
+#include <unordered_map>
+#include <vector>
 
 namespace vg {
 
@@ -54,6 +57,14 @@ void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std
 
 /// Save a minimizer index to the file.
 void save_minimizer(const gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress = false);
+
+//------------------------------------------------------------------------------
+
+/// Return a mapping of the original segment ids to a list of chopped node ids
+std::unordered_map<std::string, std::vector<nid_t>> load_translation_map(const gbwtgraph::GBWTGraph& graph);
+
+/// Return a backwards mapping of chopped node to original segment position (id,offset pair)
+std::unordered_map<nid_t, std::pair<std::string, size_t>> load_translation_back_map(const gbwtgraph::GBWTGraph& graph);
 
 //------------------------------------------------------------------------------
 
