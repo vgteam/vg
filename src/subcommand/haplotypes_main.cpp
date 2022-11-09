@@ -11,6 +11,7 @@
 
 #include "../recombinator.hpp"
 
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <thread>
@@ -19,34 +20,57 @@
 #include <getopt.h>
 #include <omp.h>
 
+#include <gbwtgraph/index.h>
+
 using namespace vg;
 
 //----------------------------------------------------------------------------
 
+constexpr size_t DEFAULT_MAX_JOBS = 14;
+constexpr size_t APPROXIMATE_JOBS = 32;
+constexpr size_t NUM_HAPLOTYPES = 16;
+constexpr size_t TARGET_DISTANCE = 10000;
+
+/*
+  The same parameter is used both for the number of threads in minimizer index
+  construction and the number of parallel GBWT construction jobs.
+
+  In minimizer index construction, the usual rule of thumb is that 16 threds is
+  enough. With too many threads, inserting the minimizers into the hash table
+  becomes a bottleneck.
+
+  In GBWT construction, we have foreground threads for generating the paths and
+  background threads for building the GBWTs. The foreground threads are
+  usually idle most of the time. The structure of the graph also limits the
+  number of parallel jobs. In human graphs, there is no benefit in using more
+  than 14 jobs.
+*/
+size_t get_default_jobs() {
+    size_t jobs = std::round(0.85 * omp_get_max_threads());
+    jobs = std::max(jobs, size_t(1));
+    return std::min(jobs, DEFAULT_MAX_JOBS);
+}
+
 void help_haplotypes(char** argv) {
-    // FIXME number of jobs
     std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] -o output.gbz graph.gbz" << std::endl;
     std::cerr << std::endl;
     // FIXME description
     std::cerr << "Some experiments with haplotype sampling." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -o, --output-name X     write the output GBZ to X" << std::endl;
+    std::cerr << "    -o, --output-name X      write the output GBZ to X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Index files:" << std::endl;
-    std::cerr << "    -d, --distance-index X  use this distance index (or guess from graph name)" << std::endl;
-    std::cerr << "    -r, --r-index-name X    use this r-index (or guess from graph name)" << std::endl;
+    std::cerr << "    -d, --distance-index X   use this distance index (default: <basename>.dist)" << std::endl;
+    std::cerr << "    -m, --minimizer-index X  use this minimizer index (default: build the index)" << std::endl;
+    std::cerr << "    -r, --r-index X          use this r-index (default: <basename>.ri)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -v, --verbosity N       set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default 0)" << std::endl;
-    std::cerr << "        --validate          check that the output graph is a subgraph of the input" << std::endl;
+    std::cerr << "    -v, --verbosity N        set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
+    std::cerr << "        --parallel-jobs N    number of parallel jobs (default: " << get_default_jobs() << ")" << std::endl;
+    std::cerr << "        --validate           check that the output graph is a subgraph of the input" << std::endl;
     std::cerr << std::endl;
 }
-
-// FIXME Should these be parameters?
-constexpr size_t APPROXIMATE_JOBS = 32;
-constexpr size_t NUM_HAPLOTYPES = 16;
-constexpr size_t TARGET_DISTANCE = 10000;
 
 //----------------------------------------------------------------------------
 
@@ -78,18 +102,23 @@ int main_haplotypes(int argc, char** argv) {
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
 
     // Parse options into these.
-    std::string graph_name, r_index_name, distance_name, output_name;
+    std::string graph_name, output_name;
+    std::string distance_name, minimizer_name, r_index_name;
     Recombinator::Verbosity verbosity = Recombinator::verbosity_silent;
+    size_t parallel_jobs = get_default_jobs();
     bool validate = false;
 
-    constexpr int OPT_VALIDATE = 1000;
+    constexpr int OPT_PARALLEL_JOBS = 1000;
+    constexpr int OPT_VALIDATE = 1001;
 
     static struct option long_options[] =
     {
         { "output-name", required_argument, 0, 'o' },
         { "distance-index", required_argument, 0, 'd' },
-        { "r_index", required_argument, 0, 'r' },
+        { "minimizer-index", required_argument, 0, 'm' },
+        { "r-index", required_argument, 0, 'r' },
         { "verbosity", required_argument, 0, 'v' },
+        { "parallel-jobs", required_argument, 0, OPT_PARALLEL_JOBS },
         { "validate", no_argument, 0,  OPT_VALIDATE },
         { 0, 0, 0, 0 }
     };
@@ -99,7 +128,7 @@ int main_haplotypes(int argc, char** argv) {
     optind = 2; // force optind past command positional argument
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:d:r:v:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:d:m:r:v:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -110,6 +139,9 @@ int main_haplotypes(int argc, char** argv) {
 
         case 'd':
             distance_name = optarg;
+            break;
+        case 'm':
+            minimizer_name = optarg;
             break;
         case 'r':
             r_index_name = optarg;
@@ -123,6 +155,16 @@ int main_haplotypes(int argc, char** argv) {
                     return 1;
                 }
                 verbosity = static_cast<Recombinator::Verbosity>(level);
+            }
+            break;
+        case OPT_PARALLEL_JOBS:
+            {
+                size_t max_threads = omp_get_max_threads();
+                parallel_jobs = parse<size_t>(optarg);
+                if (parallel_jobs == 0 || parallel_jobs > max_threads) {
+                    std::cerr << "error: [vg haplotypes] cannot run " << parallel_jobs << " jobs in parallel on this system" << std::endl;
+                    return 1;
+                }
             }
             break;
         case OPT_VALIDATE:
@@ -148,41 +190,54 @@ int main_haplotypes(int argc, char** argv) {
         std::cerr << "Option --output-name is required" << std::endl;
         return 1;
     }
-    if (r_index_name.empty()) {
-        r_index_name = get_name(graph_name, gbwt::FastLocate::EXTENSION);
-        if (verbosity >= Recombinator::verbosity_basic) {
-            std::cerr << "Guessing that r-index is " << r_index_name << std::endl;
-        }
-    }
     if (distance_name.empty()) {
         distance_name = get_name(graph_name, ".dist");
         if (verbosity >= Recombinator::verbosity_basic) {
             std::cerr << "Guessing that distance index is " << distance_name << std::endl;
         }
     }
+    if (r_index_name.empty()) {
+        r_index_name = get_name(graph_name, gbwt::FastLocate::EXTENSION);
+        if (verbosity >= Recombinator::verbosity_basic) {
+            std::cerr << "Guessing that r-index is " << r_index_name << std::endl;
+        }
+    }
+    omp_set_num_threads(parallel_jobs);
 
-    // Load the indexes.
+    // Load/build the indexes.
     double checkpoint = gbwt::readTimer();
     gbwtgraph::GBZ gbz;
     load_gbz(gbz, graph_name, verbosity >= Recombinator::verbosity_basic);
     gbwt::FastLocate r_index;
     load_r_index(r_index, r_index_name, verbosity >= Recombinator::verbosity_basic);
     r_index.setGBWT(gbz.index);
+
     SnarlDistanceIndex distance_index;
     if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Loading distance index from " << distance_name << std::endl;
     }
     distance_index.deserialize(distance_name);
+    gbwtgraph::DefaultMinimizerIndex minimizer_index;
+    if (minimizer_name.empty()) {
+        if (verbosity >= Recombinator::verbosity_basic) {
+            std::cerr << "Building minimizer index" << std::endl;
+        }
+        gbwtgraph::index_haplotypes(gbz.graph, minimizer_index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+            return MIPayload::encode(get_minimizer_distances(distance_index, pos));
+        });
+    } else {
+        load_minimizer(minimizer_index, minimizer_name, verbosity >= Recombinator::verbosity_basic);
+    }
     if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Loaded the indexes in " << seconds << " seconds" << std::endl;
+        std::cerr << "Prepared the indexes in " << seconds << " seconds" << std::endl;
     }
 
     // Create a recombinator.
     Recombinator recombinator(gbz, r_index, distance_index, verbosity);
 
     if (verbosity >= Recombinator::verbosity_basic) {
-        std::cerr << "Processing chains using " << omp_get_max_threads() << " threads" << std::endl;
+        std::cerr << "Running " << parallel_jobs << " jobs in parallel" << std::endl;
     }
     checkpoint = gbwt::readTimer();
     std::vector<gbwt::GBWT> indexes(recombinator.chains_by_job.size());
@@ -211,7 +266,7 @@ int main_haplotypes(int argc, char** argv) {
     if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Processed "; statistics.print(std::cerr) << std::endl;
-        std::cerr << "Processed the chains in " << seconds << " seconds" << std::endl;
+        std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
     }
 
     if (verbosity >= Recombinator::verbosity_basic) {
