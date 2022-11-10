@@ -292,30 +292,57 @@ TEST_CASE("We can send more than 2 GB of data through the bare-to-encapsulated c
         bytes_seen += message.size();
     };
     
-    auto explain_stream = [](const ostream& o) {
+    auto check_stream = [](const ostream& o) {
+#ifdef debug
         #pragma omp critical (cerr)
         cerr << "good: " << o.good() << " bad: " << o.bad() << " fail: " << o.fail() << " eof: " << o.eof() << endl;
+#endif
+        if (o.bad() || o.fail()) {
+            throw std::runtime_error("Stream problem");
+        }
     };
     
     vg::io::with_function_calling_stream(emit_message, [&](ostream& out) {
         // Write one giant chunk all at once
         
-        // First turn on exceptions so that if something goes wrong we stop right away.
-        out.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+        try {
         
+            check_stream(out);
 #ifdef debug
-        explain_stream(out);
-        #pragma omp critical (cerr)
-        std::cerr << "Writing " << to_write << " bytes at " << out.tellp() << "..." << std::endl;
+            
+            #pragma omp critical (cerr)
+            std::cerr << "Stream is at " << out.tellp() << std::endl;
+            check_stream(out);
+
+            #pragma omp critical (cerr)
+            std::cerr << "Writing " << to_write << " bytes..." << std::endl;
 #endif
 
-        out.write((const char*)data, to_write);
-        
+            out.write((const char*)data, to_write);
+            if (!out) {
+                // The write didn't work. Probably a write() failed.
+                // Report info from errno if it happens to be there.
+                #pragma omp critical (cerr)
+                perror("Something may be wrong with the write syscall");
+            }
+            
 #ifdef debug
-        #pragma omp critical (cerr)
-        std::cerr << "Writing over. Stream is now at " << out.tellp() << "." << std::endl;
-        explain_stream(out);
+            #pragma omp critical (cerr)
+            std::cerr << "Writing over." << std::endl;
 #endif
+            check_stream(out);
+            
+#ifdef debug
+            #pragma omp critical (cerr)
+            std::cerr << "Stream is at " << out.tellp() << std::endl;
+            check_stream(out);
+#endif
+    
+        } catch (std::ios_base::failure& problem) {
+            std::cerr << "Stream had a problem somewhere: " << problem.what() << std::endl;
+            throw std::runtime_error("Stream broke");
+        }
+
     });
     
     // Unmap the giant buffer
