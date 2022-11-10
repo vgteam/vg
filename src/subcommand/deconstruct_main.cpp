@@ -25,7 +25,7 @@
 #include <gbwtgraph/utils.h>
 #include <gbwtgraph/index.h>
 
-#define USE_CALLGRIND
+//#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
@@ -219,8 +219,8 @@ int main_deconstruct(int argc, char** argv){
     double overlay_cpu_seconds = (overlay_stop_clock - overlay_start_clock) / (double)CLOCKS_PER_SEC;
     std::chrono::duration<double> overlay_seconds = overlay_stop_time - overlay_start_time;
     
-    if (graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
-        std::cerr << "Info [vg deconstruct]: Computed overlay in " << overlay_seconds.count() << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
+    if (show_progress && graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
+        std::cerr << "Computed overlay in " << overlay_seconds.count() << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
     }
 
     // Read the GBWT
