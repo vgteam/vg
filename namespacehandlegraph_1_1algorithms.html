@@ -123,6 +123,8 @@ Functions</h2></td></tr>
 <tr class="separator:af86b0e4c4aa2e8164dbe290b1d2a5870"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0bc8222d59aee133f354e09f6d53d5dd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a0bc8222d59aee133f354e09f6d53d5dd">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;starts, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward)</td></tr>
 <tr class="separator:a0bc8222d59aee133f354e09f6d53d5dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a62990356f8196e5cb3b2e6601cc41eee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a62990356f8196e5cb3b2e6601cc41eee">for_each_handle_in_shortest_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> end, std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; iteratee)</td></tr>
+<tr class="separator:a62990356f8196e5cb3b2e6601cc41eee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2dad089a8ba50413b0737bf6ceb52f80"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a2dad089a8ba50413b0737bf6ceb52f80">eades_algorithm</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:a2dad089a8ba50413b0737bf6ceb52f80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab9dd25807e2edab1a0b14462dacfadcf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#ab9dd25807e2edab1a0b14462dacfadcf">extend</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into)</td></tr>
@@ -986,6 +988,46 @@ Functions</h2></td></tr>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>g</em></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a62990356f8196e5cb3b2e6601cc41eee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a62990356f8196e5cb3b2e6601cc41eee">&#9670;&nbsp;</a></span>for_each_handle_in_shortest_path()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::algorithms::for_each_handle_in_shortest_path </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>g</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
