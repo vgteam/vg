@@ -19,8 +19,6 @@
 
 #include "bdsg/hash_graph.hpp"
 
-#include <bdsg/overlays/packed_reference_path_overlay.hpp>
-
 //#define debug_spliced_surject
 //#define debug_anchored_surject
 //#define debug_multipath_surject
