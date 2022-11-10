@@ -24,6 +24,12 @@
 #include <gbwtgraph/utils.h>
 #include <gbwtgraph/index.h>
 
+//#define USE_CALLGRIND
+
+#ifdef USE_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -164,7 +170,6 @@ int main_deconstruct(int argc, char** argv){
         }
 
     }
-
     if ((!path_sep.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
         cerr << "Error [vg deconstruct]: -H and -d can only be used with -e or -g" << endl;
         return 1;
@@ -196,8 +201,25 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    // We might need to apply an overlay to get good path position queries
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    
+    // Set up to time making the overlay
+    clock_t overlay_start_clock = clock();
+    std::chrono::time_point<std::chrono::system_clock> overlay_start_time = std::chrono::system_clock::now(); 
+    
+    // Make the overlay
     PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph);
+    
+    // See how long that took
+    clock_t overlay_stop_clock = clock();
+    std::chrono::time_point<std::chrono::system_clock> overlay_stop_time = std::chrono::system_clock::now();
+    double overlay_cpu_seconds = (overlay_stop_clock - overlay_start_clock) / (double)CLOCKS_PER_SEC;
+    std::chrono::duration<double> overlay_seconds = overlay_stop_time - overlay_start_time;
+    
+    if (show_progress && graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
+        std::cerr << "Computed overlay in " << overlay_seconds.count() << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
+    }
 
     // Read the GBWT
     unique_ptr<gbwt::GBWT> gbwt_index_up;
@@ -218,7 +240,7 @@ int main_deconstruct(int argc, char** argv){
     if (gbwt_index) {
         gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt_index);
     }
-
+    
     if (!refpaths.empty()) {
         // We need to inventory all the GBWT paths.
         // So we need this precomputed to access them.
@@ -407,6 +429,11 @@ int main_deconstruct(int argc, char** argv){
         cerr << "Error [vg deconstruct]: No specified reference path or prefix found in graph" << endl;
         return 1;
     }
+
+#ifdef USE_CALLGRIND
+    // We want to profile stuff that accesses paths, not the loading.
+    CALLGRIND_START_INSTRUMENTATION;
+#endif
 
     // Deconstruct
     Deconstructor dd;

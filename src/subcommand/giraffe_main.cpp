@@ -1189,8 +1189,8 @@ int main_giraffe(int argc, char** argv) {
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
     // If we need an overlay for position lookup, we might be pointing into
-    // this overlay
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    // this overlay. We want one that's good for reference path queries.
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     // And we might load an XG
     unique_ptr<PathHandleGraph> xg_graph;
     if (track_correctness || hts_output) {
