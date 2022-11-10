@@ -1698,7 +1698,7 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] Identifying rescue subgraphs using embedded paths (--path-rescue-graph) is impossible on graphs that lack embedded paths. Pair rescue will not be used on this graph, potentially hurting accuracy." << endl;
     }
     
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
     // identify these before loading later data structures to reduce peak memory use
