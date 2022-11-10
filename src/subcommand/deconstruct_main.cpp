@@ -21,7 +21,6 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
-#include <bdsg/overlays/packed_reference_path_overlay.hpp>
 #include <gbwtgraph/utils.h>
 #include <gbwtgraph/index.h>
 
@@ -171,7 +170,6 @@ int main_deconstruct(int argc, char** argv){
         }
 
     }
-
     if ((!path_sep.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
         cerr << "Error [vg deconstruct]: -H and -d can only be used with -e or -g" << endl;
         return 1;
@@ -204,7 +202,7 @@ int main_deconstruct(int argc, char** argv){
     }
 
     // We might need to apply an overlay to get good path position queries
-    bdsg::OverlayHelper<PathPositionHandleGraph, bdsg::PackedReferencePathOverlay, PathHandleGraph> overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     
     // Set up to time making the overlay
     clock_t overlay_start_clock = clock();
