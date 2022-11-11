@@ -200,8 +200,8 @@ int main_depth(int argc, char** argv) {
         
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
-                tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_name);
-                const string& base_name = get<0>(subpath_parse) ? get<1>(subpath_parse) : path_name;
+                subrange_t subrange;
+                string base_name = Paths::strip_subrange(path_name, &subrange);
                 base_path_set.insert(base_name);
                 // just take anything if no selection
                 bool use_it = !Paths::is_alt(path_name) && path_prefixes.empty() && ref_paths_input_set.empty();
@@ -218,7 +218,7 @@ int main_depth(int argc, char** argv) {
                     }
                 }
                 if (use_it) {
-                    auto coord = make_pair(base_name, get<2>(subpath_parse));
+                    auto coord = make_pair(base_name, subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first);
                     assert(!ref_paths.count(coord));
                     ref_paths[coord] = path_name;
                 }

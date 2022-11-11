@@ -330,8 +330,8 @@ void VCFOutputCaller::vcf_fixup(vcflib::Variant& var) const {
     }
 }
 
-void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
-    translation = translation;
+void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<string, size_t>>* translation) {
+    this->translation = translation;
 }
 
 void VCFOutputCaller::set_nested(bool nested) {
@@ -346,18 +346,19 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
     vector<int> nodes;
     nodes.reserve(trav.visit_size());
     const Visit* prev_visit = nullptr;
-    unordered_map<nid_t, pair<nid_t, size_t>>::const_iterator prev_trans;
+    unordered_map<nid_t, pair<string, size_t>>::const_iterator prev_trans;
     
     for (size_t i = 0; i < trav.visit_size(); ++i) {
         size_t j = !reversed ? i : trav.visit_size() - 1 - i;
         const Visit& visit = trav.visit(j);
         nid_t node_id = visit.node_id();
+        string node_name = std::to_string(node_id);
         bool skip = false;
         // todo: check one_based? (we kind of ignore that when writing the snarl name, so maybe not pertienent)
         if (translation) {
             auto i = translation->find(node_id);
             if (i == translation->end()) {
-                throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(node_id) + " in translation file");
+                throw runtime_error("Error [vg deconstruct]: Unable to find node " + node_name + " in translation file");
             }
             if (prev_visit) {
                 nid_t prev_node_id = prev_visit->node_id();
@@ -368,14 +369,14 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
                     skip = true;
                 }
             }
-            node_id = i->second.first;
+            node_name = i->second.first;
             prev_trans = i;
         }
 
         if (!skip) {
             bool vrev = visit.backward() != reversed;
             trav_info[allele] += (vrev ? "<" : ">");
-            trav_info[allele] += std::to_string(node_id);
+            trav_info[allele] += node_name;
         }
         prev_visit = &visit;
     }
@@ -489,14 +490,15 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 
     // resolve subpath naming
-    string basepath_name = ref_path_name;
-    size_t basepath_offset = 0;
-    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
-    if (get<0>(subpath_info)) {
-        basepath_name = get<1>(subpath_info);
-        basepath_offset = get<2>(subpath_info);
+    subrange_t subrange;
+    string basepath_name = Paths::strip_subrange(ref_path_name, &subrange);
+    size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+    // in VCF we usually just want a contig
+    string contig_name = PathMetadata::parse_locus_name(basepath_name);
+    if (contig_name != PathMetadata::NO_LOCUS_NAME) {
+        basepath_name = contig_name;
     }
-    // fill out the rest of the variant
+    // fill out the rest of the variant    
     out_variant.sequenceName = basepath_name;
     // +1 to convert to 1-based VCF
     out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1 + basepath_offset;
@@ -638,13 +640,10 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
 
 pair<string, int64_t> VCFOutputCaller::get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
                                                         int64_t ref_path_offset) const {
-    string basepath_name = ref_path_name;
-    size_t basepath_offset = 0;
-    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
-    if (get<0>(subpath_info)) {
-        basepath_name = get<1>(subpath_info);
-        basepath_offset = get<2>(subpath_info);
-    }
+
+    subrange_t subrange;
+    string basepath_name = Paths::strip_subrange(ref_path_name, &subrange);
+    size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
     // +1 to convert to 1-based VCF
     int64_t position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_path_offset + 1 + basepath_offset;
     return make_pair(basepath_name, position);
@@ -701,17 +700,19 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
 
 string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const {
     // todo, should we canonicalize here by putting lexicographic lowest node first?
-    nid_t start_node = snarl.start().node_id();
-    nid_t end_node = snarl.end().node_id();
+    nid_t start_node_id = snarl.start().node_id();
+    nid_t end_node_id = snarl.end().node_id();
+    string start_node = std::to_string(start_node_id);
+    string end_node = std::to_string(end_node_id);
     if (translation) {
-        auto i = translation->find(start_node);
+        auto i = translation->find(start_node_id);
         if (i == translation->end()) {
-            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + std::to_string(start_node) + " in translation file");
+            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + start_node + " in translation file");
         }
         start_node = i->second.first;
-        i = translation->find(end_node);
+        i = translation->find(end_node_id);
         if (i == translation->end()) {
-            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + std::to_string(end_node) + " in translation file");
+            throw runtime_error("Error [VCFOutputCaller]: Unable to find node " + end_node + " in translation file");
         }
         end_node = i->second.first;
     }

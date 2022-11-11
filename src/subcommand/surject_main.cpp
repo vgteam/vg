@@ -227,7 +227,9 @@ int main_surject(int argc, char** argv) {
     
     PathPositionHandleGraph* xgidx = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    // If we add an overlay for path position queries, use one optimized for
+    // use with reference paths.
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = overlay_helper.apply(path_handle_graph.get());

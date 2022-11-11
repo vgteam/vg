@@ -335,7 +335,7 @@ int main_filter(int argc, char** argv) {
      // If the user gave us an XG index, we probably ought to load it up.
     PathPositionHandleGraph* xindex = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
         // read the xg index
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);

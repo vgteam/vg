@@ -600,9 +600,7 @@ int main_paths(int argc, char** argv) {
                         if (it == path_to_name.end()) {
                             string step_path_name = graph->get_path_name(step_path_handle);
                             // disregard subpath tags when counting (but not displaying)
-                            auto subpath = Paths::parse_subpath_name(step_path_name);
-                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
-                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                            it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
                         }
                         unique_names.insert(it->second);
                         unique_paths.insert(step_path_handle);

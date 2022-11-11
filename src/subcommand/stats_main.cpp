@@ -32,6 +32,7 @@
 #include "bdsg/odgi.hpp"
 #include "../io/converted_hash_graph.hpp"
 #include "../io/save_handle_graph.hpp"
+#include "../gbzgraph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -458,6 +459,8 @@ int main_stats(int argc, char** argv) {
             format_string = "HashGraph";
         } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
             format_string = "ODGI";
+        } else if (dynamic_cast<GBZGraph*>(graph.get()) != nullptr) {
+            format_string = "GBZ";
         } else {
             format_string = "Unknown";
         }
