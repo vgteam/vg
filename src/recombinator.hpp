@@ -154,7 +154,7 @@ public:
         /// the builder. This is intended for fragments that do not contain
         /// subchains crossed by the original haplotypes. The call will fail if
         /// `extend()` has been called.
-        void take(gbwt::size_type sequence, const Recombinator& recombinator, gbwt::GBWTBuilder& builder);
+        void take(gbwt::size_type sequence_id, const Recombinator& recombinator, gbwt::GBWTBuilder& builder);
 
         /// Extends the original haplotype from the latest `extend()` call until
         /// the end, inserts it into the builder, and starts a new fragment.
@@ -167,7 +167,7 @@ public:
         void connect(handle_t until, const gbwtgraph::GBWTGraph& graph);
 
         // Takes a prefix of a sequence.
-        void prefix(gbwt::size_type sequence, handle_t until, const gbwt::GBWT& index);
+        void prefix(gbwt::size_type sequence_id, handle_t until, const gbwt::GBWT& index);
 
         // Extends the haplotype from the previous subchain until the end.
         void suffix(const gbwt::GBWT& index);
@@ -177,8 +177,7 @@ public:
     };
 
     /// Statistics on the generated haplotypes.
-    struct Statistics
-    {
+    struct Statistics {
         /// Number of top-level chains.
         size_t chains = 0;
 
@@ -191,6 +190,12 @@ public:
         /// Number of top-level chains where full haplotypes were taken.
         size_t full_haplotypes = 0;
 
+        /// Number of sequences (in the subchains / full haplotypes).
+        size_t sequences = 0;
+
+        /// Number of unique minimizers in the sequences.
+        size_t minimizers = 0;
+
         /// Combines the statistics into this object.
         void combine(const Statistics& another);
 
@@ -199,13 +204,18 @@ public:
     };
 
     /// FIXME: document
-    Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, Verbosity verbosity);
+    Recombinator(const gbwtgraph::GBZ& gbz,
+        const gbwt::FastLocate& r_index,
+        const SnarlDistanceIndex& distance_index,
+        const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+        Verbosity verbosity);
 
     // FIXME job()
 
-    const gbwtgraph::GBZ&     gbz;
-    const gbwt::FastLocate&   r_index;
+    const gbwtgraph::GBZ& gbz;
+    const gbwt::FastLocate& r_index;
     const SnarlDistanceIndex& distance_index;
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
 
     std::vector<std::vector<gbwtgraph::TopLevelChain>> chains_by_job;
 
@@ -229,6 +239,12 @@ private:
     // Get all GBWT sequences crossing the subchain. The sequences will be at the
     // start for normal subchains and at the only boundary node for other subchains.
     std::vector<sequence_type> get_sequences(Subchain subchain) const;
+
+    // Count the number of minimizers in the sequence with a single occurrence in the graph.
+    size_t unique_minimizers(gbwt::size_type sequence_id) const;
+
+    // Count the number of minimizers in the sequence over the subchain with a single occurrence in the graph.
+    size_t unique_minimizers(sequence_type sequence, Subchain subchain) const;
 };
 
 //------------------------------------------------------------------------------

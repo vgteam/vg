@@ -234,7 +234,7 @@ int main_haplotypes(int argc, char** argv) {
     }
 
     // Create a recombinator.
-    Recombinator recombinator(gbz, r_index, distance_index, verbosity);
+    Recombinator recombinator(gbz, r_index, distance_index, minimizer_index, verbosity);
 
     if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Running " << parallel_jobs << " jobs in parallel" << std::endl;

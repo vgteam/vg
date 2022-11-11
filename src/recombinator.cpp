@@ -70,16 +70,16 @@ void Recombinator::Haplotype::extend(sequence_type sequence, Subchain subchain, 
     this->position = curr;
 }
 
-void Recombinator::Haplotype::take(gbwt::size_type sequence, const Recombinator& recombinator, gbwt::GBWTBuilder& builder) {
+void Recombinator::Haplotype::take(gbwt::size_type sequence_id, const Recombinator& recombinator, gbwt::GBWTBuilder& builder) {
     if (!this->path.empty()) {
         std::cerr << "error: [Haplotype::take()] The current fragment is not empty" << std::endl;
         return;
     }
-    if (sequence >= recombinator.gbz.index.sequences()) {
-        std::cerr << "error: [Haplotype::take()] The GBWT index does not contain sequence " << sequence << std::endl;
+    if (sequence_id >= recombinator.gbz.index.sequences()) {
+        std::cerr << "error: [Haplotype::take()] The GBWT index does not contain sequence " << sequence_id << std::endl;
         return;
     }
-    this->path = recombinator.gbz.index.extract(sequence);
+    this->path = recombinator.gbz.index.extract(sequence_id);
     this->insert(builder);
     this->fragment++;
     this->position = gbwt::invalid_edge();
@@ -123,21 +123,21 @@ void Recombinator::Haplotype::connect(handle_t until, const gbwtgraph::GBWTGraph
     }
 }
 
-void Recombinator::Haplotype::prefix(gbwt::size_type sequence, handle_t until, const gbwt::GBWT& index) {
+void Recombinator::Haplotype::prefix(gbwt::size_type sequence_id, handle_t until, const gbwt::GBWT& index) {
     this->position = gbwt::invalid_edge();
-    if (sequence >= index.sequences()) {
-        std::cerr << "error: [Haplotype::prefix()] Invalid GBWT sequence id " << sequence << std::endl;
+    if (sequence_id >= index.sequences()) {
+        std::cerr << "error: [Haplotype::prefix()] Invalid GBWT sequence id " << sequence_id << std::endl;
         return;
     }
     gbwt::node_type end = gbwtgraph::GBWTGraph::handle_to_node(until);
-    for (gbwt::edge_type curr = index.start(sequence); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
+    for (gbwt::edge_type curr = index.start(sequence_id); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
         this->path.push_back(curr.first);
         if (curr.first == end) {
             this->position = curr;
             return;
         }
     }
-    std::cerr << "error: [Haplotype::prefix()] GBWT sequence " << sequence << " did not reach " << to_string(until) << std::endl;
+    std::cerr << "error: [Haplotype::prefix()] GBWT sequence " << sequence_id << " did not reach " << to_string(until) << std::endl;
     return;
 }
 
@@ -172,18 +172,27 @@ void Recombinator::Statistics::combine(const Statistics& another) {
     this->subchains += another.subchains;
     this->fragments += another.fragments;
     this->full_haplotypes += another.full_haplotypes;
+    this->sequences += another.sequences;
+    this->minimizers += another.minimizers;
 }
 
 std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
+    double seqs = static_cast<double>(this->sequences) / (this->subchains + this->full_haplotypes);
+    double mins = static_cast<double>(this->minimizers) / this->sequences;
     out << (this->chains - this->full_haplotypes) << " chains with " << this->subchains << " subchains and " << this->fragments << " fragments; "
-        << this->full_haplotypes << " chains with full haplotypes";
+        << this->full_haplotypes << " chains with full haplotypes;"
+        << " average " << seqs << " sequences with " << mins << " minimizers";
     return out;
 }
 
 //------------------------------------------------------------------------------
 
-Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, const gbwt::FastLocate& r_index, const SnarlDistanceIndex& distance_index, Verbosity verbosity) :
-    gbz(gbz), r_index(r_index), distance_index(distance_index),
+Recombinator::Recombinator(const gbwtgraph::GBZ& gbz,
+    const gbwt::FastLocate& r_index,
+    const SnarlDistanceIndex& distance_index,
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    Verbosity verbosity) :
+    gbz(gbz), r_index(r_index), distance_index(distance_index), minimizer_index(minimizer_index),
     chains_by_job(),
     verbosity(verbosity)
 {
@@ -219,18 +228,23 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const gbwtgraph::TopL
             // a suffix and a prefix.
             to_process.push_back({ { Subchain::suffix, subchain.start, empty_handle() }, this->get_sequences(subchain.start) });
             to_process.push_back({ { Subchain::prefix, empty_handle(), subchain.end }, this->get_sequences(subchain.end) });
-            statistics.subchains++;
         } else {
             to_process.push_back({ subchain, std::move(sequences) });
         }
         for (auto iter = to_process.begin(); iter != to_process.end(); ++iter) {
+            // TODO: It will eventually be faster to find all unique minimizers in the relevant subgraph,
+            // align them to the haplotypes, and use the r-index to determine which haplotypes contain
+            // that minimizer. On the other hand, that will cause some issues with haplotypes that visit
+            // the same subchain multiple times.
+            for (sequence_type sequence : iter->second) {
+                statistics.sequences++;
+                statistics.minimizers += this->unique_minimizers(sequence, iter->first);
+            }
             /*
                 FIXME Haplotype selection logic:
-                * extract all selected sequences
-                * find minimizers in the sequences
-                * choose the ones with a single hit in the graph
                 * convert each sequence to a bitvector marking which selected minimizers occur in that sequence
                 * use kmer counts from the reads to select sequences that are closest to the sample
+                FIXME: What if there are multiple occurrences of the same minimizer?
             */
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
                 // If this is a normal subchain, we have already checked that it's not empty.
@@ -255,6 +269,10 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const gbwtgraph::TopL
     if (!generated_haplotypes) {
         gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(chain.handle);
         auto sequences = this->r_index.decompressDA(node);
+        for (auto seq_id : sequences) {
+            statistics.sequences++;
+            statistics.minimizers += this->unique_minimizers(seq_id);
+        }
         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
             haplotypes[haplotype].take(sequences[haplotype % sequences.size()], *this, builder);
         }
@@ -265,6 +283,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const gbwtgraph::TopL
 
     return statistics;
 }
+
+//------------------------------------------------------------------------------
 
 std::vector<Recombinator::Subchain>
 Recombinator::get_subchains(const gbwtgraph::TopLevelChain& chain) const {
@@ -358,6 +378,8 @@ size_t Recombinator::get_distance(handle_t from, handle_t to) const {
     );
 }
 
+//------------------------------------------------------------------------------
+
 std::vector<Recombinator::sequence_type> Recombinator::get_sequences(handle_t handle) const {
     std::vector<gbwt::size_type> sa = this->r_index.decompressSA(gbwtgraph::GBWTGraph::handle_to_node(handle));
     std::vector<sequence_type> result;
@@ -427,6 +449,64 @@ std::vector<Recombinator::sequence_type> Recombinator::get_sequences(Subchain su
     }
 
     return result;
+}
+
+//------------------------------------------------------------------------------
+
+void append_to(std::string& haplotype, handle_t handle, const gbwtgraph::GBWTGraph& graph) {
+    gbwtgraph::view_type view = graph.get_sequence_view(handle);
+    haplotype.append(view.first, view.second);
+}
+
+size_t count_unique_minimizers(const std::string& sequence, const gbwtgraph::DefaultMinimizerIndex& minimizer_index) {
+    size_t result = 0;
+    auto minimizers = minimizer_index.minimizers(sequence);
+    // FIXME report duplicate occurrences on debug settings
+    for (auto& minimizer : minimizers) {
+        if (minimizer_index.count(minimizer) == 1) {
+            result++;
+        }
+    }
+    return result;
+}
+
+// Generate a haplotype over the closed range from `pos` to `end`.
+// Set `end = empty_handle()` to continue until the end.
+std::string generate_haplotype(gbwt::edge_type pos, handle_t end, const gbwtgraph::GBWTGraph& graph) {
+    std::string haplotype;
+    if (pos == gbwt::invalid_edge() || pos.first == gbwt::ENDMARKER) {
+        return haplotype;
+    }
+
+    handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
+    append_to(haplotype, curr, graph);
+    while (curr != end) {
+        pos = graph.index->LF(pos);
+        if (pos.first == gbwt::ENDMARKER) {
+            break;
+        }
+        curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
+        append_to(haplotype, curr, graph);
+    }
+
+    return haplotype;
+}
+
+size_t Recombinator::unique_minimizers(gbwt::size_type sequence_id) const {
+    gbwt::edge_type pos = this->gbz.index.start(sequence_id);
+    std::string haplotype = generate_haplotype(pos, empty_handle(), this->gbz.graph);
+    return count_unique_minimizers(haplotype, this->minimizer_index);
+}
+
+size_t Recombinator::unique_minimizers(sequence_type sequence, Subchain subchain) const {
+    gbwt::edge_type pos;
+    if (subchain.has_start()) {
+        pos = gbwt::edge_type(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
+    } else {
+        pos = this->gbz.index.start(sequence.first);
+    }
+    std::string haplotype = generate_haplotype(pos, subchain.end, this->gbz.graph);
+    return count_unique_minimizers(haplotype, this->minimizer_index);
 }
 
 //------------------------------------------------------------------------------
