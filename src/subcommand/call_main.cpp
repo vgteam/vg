@@ -25,6 +25,10 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+/// Helper to ensure that a PathHandleGraph has the VectorizableHandleGraph and PathPositionHandleGraph interfaces.
+typedef bdsg::PairOverlayHelper<PathPositionHandleGraph, bdsg::PackedReferencePathOverlay, PathHandleGraph,
+                                VectorizableHandleGraph, bdsg::PathPositionVectorizableOverlay, PathPositionHandleGraph> ReferencePathVectorizableOverlayHelper;
+
 void help_call(char** argv) {
   cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
        << "Call variants or genotype known variants" << endl
@@ -400,8 +404,8 @@ int main_call(int argc, char** argv) {
     // Apply overlays as necessary
     bool need_path_positions = vcf_filename.empty();
     bool need_vectorizable = !pack_filename.empty();
-    bdsg::PathPositionOverlayHelper pp_overlay_helper;
-    bdsg::PathPositionVectorizableOverlayHelper ppv_overlay_helper;
+    bdsg::ReferencePathOverlayHelper pp_overlay_helper;
+    ReferencePathVectorizableOverlayHelper ppv_overlay_helper;
     bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
     if (need_path_positions && need_vectorizable) {
         graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
