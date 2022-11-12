@@ -959,7 +959,7 @@ namespace unittest {
             net_handle_t node1 = dist_index.get_parent(dist_index.get_node_net_handle(n1->id()));
             net_handle_t snarl82 = dist_index.get_parent(node1); 
 
-            cerr << "node: " << dist_index.net_handle_as_string(node1) << " parent: " << dist_index.net_handle_as_string(snarl82) << endl;
+            cout << "node: " << dist_index.net_handle_as_string(node1) << " parent: " << dist_index.net_handle_as_string(snarl82) << endl;
 
             REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == 0);
             REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
