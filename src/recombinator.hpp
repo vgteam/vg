@@ -47,27 +47,8 @@ public:
         std::uint64_t construction_jobs = 0;
     };
 
-    // FIXME: use sequence_type instead; store a concatenated kmer vector
-    /// Representation of a sequence as a set of kmers.
-    struct Sequence {
-        /// GBWT sequence identifier.
-        gbwt::size_type id;
-
-        /// Offset in the relevant GBWT node.
-        gbwt::size_type offset;
-
-        /// Kmers that are present.
-        sdsl::bit_vector kmers;
-
-        /// Serializes the object to a stream in the simple-sds format.
-        void simple_sds_serialize(std::ostream& out) const;
-
-        /// Loads the object from a stream in the simple-sds format.
-        void simple_sds_load(std::istream& in);
-
-        /// Returns the size of the object in elements.
-        size_t simple_sds_size() const;
-    };
+    /// A GBWT sequence as (sequence identifier, offset in a node).
+    typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
 
     /// Representation of a subchain.
     struct Subchain {
@@ -98,8 +79,12 @@ public:
         /// A vector of distinct kmers.
         std::vector<kmer_type> kmers;
 
-        /// Sequences as bitvectors over the kmers.
-        std::vector<Sequence> sequences;
+        /// Sequences as (GBWT sequence id, offset in the relevant node).
+        std::vector<sequence_type> sequences;
+
+        /// Concatenated bitvectors for each sequence that mark the presence of each kmer
+        /// in that sequence.
+        sdsl::bit_vector kmers_present;
 
         /// Returns the start node as a GBWTGraph handle.
         handle_t start_handle() const { return gbwtgraph::GBWTGraph::node_to_handle(this->start); }
@@ -166,7 +151,11 @@ public:
 //------------------------------------------------------------------------------
 
 // FIXME tests, exceptions for error handling
-// FIXME document
+/**
+ * A tool for transforming the haplotypes in a GBWT index into a `Haplotypes`
+ * representation. Requires a GBZ graph, an r-index, a distance index, and a
+ * minimizer index.
+ */
 class HaplotypePartitioner {
 public:
     /// Target length of a subchain.
@@ -191,7 +180,7 @@ public:
     };
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
-    typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
+    typedef Haplotypes::sequence_type sequence_type;
 
     /// An encoded kmer.
     typedef Haplotypes::Subchain::kmer_type kmer_type;
@@ -227,14 +216,33 @@ public:
         bool has_end() const { return (this->type == Haplotypes::Subchain::normal || this->type == Haplotypes::Subchain::prefix); }
     };
 
-    // FIXME: document
+    /// Creates a new `HaplotypePartitioner` using the given indexes.
     HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
         const gbwt::FastLocate& r_index,
         const SnarlDistanceIndex& distance_index,
         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
         Verbosity verbosity);
 
-    // FIXME document, parameters
+    // FIXME parameters
+    /**
+     * Creates a `Haplotypes` representation of the haplotypes in the GBWT index.
+     *
+     * Top-level chains (weakly connected components in the graph) are assigned to
+     * approximately `APPROXIMATE_JOBS` jobs that can be later used as GBWT
+     * construction jobs. Multiple jobs are run in parallel using OpenMP threads.
+     *
+     * Each top-level chain is partitioned into subchains that consist of one or
+     * more snarls. Multiple snarls are combined into the same subchain if the
+     * minimum distance over the subchain is at most `SUBCHAIN_LENGTH` and there
+     * are GBWT haplotypes that cross the subchain. If there are no snarls in a
+     * top-level chain, it is represented as a single subchain without boundary
+     * nodes.
+     *
+     * Haplotypes crossing each subchain are represented using minimizers with a
+     * single occurrence in the graph.
+     *
+     * TODO: Are all chains in the right orientation?
+     */
     Haplotypes partition_haplotypes() const;
 
     const gbwtgraph::GBZ& gbz;
@@ -277,29 +285,10 @@ private:
 
 //------------------------------------------------------------------------------
 
-// FIXME document, tests, exceptions for error handling
+// FIXME tests, exceptions for error handling
 /**
- * A class that generates synthetic haplotypes as recombinations of the haplotypes in
- * an existing GBWT index.
- *
- * Haplotypes will be generated separately for each weakly connected component in the
- * graph, which correspond to top-level chains in the snarl decomposition. Each
- * top-level chain is partitioned into subchains that start and end with a node. The
- * target length of a subchain is 10 kbp.
- *
- * Each generated haplotype has a single source haplotype in each subchain. The
- * subchains are connected by unary paths. If no haplotype crosses an entire subchain,
- * it creates a fragment break in the haplotype. In such cases, the source haplotype
- * for the previous subchain continues until its end, and the next fragment starts
- * from the beginning of the source haplotype for the next subchain.
- *
- * The generation of synthetic haplotypes can be parallelized using sets of top-level
- * chains as construction jobs.
- *
- * TODO: Parameterize number of haplotypes, subchain length, number of construction jobs.
- * TODO: Should the prefix and the suffix be from separate haplotypes?
- * TODO: Include reference paths?
- * TODO: Are all chains in the right orientation?
+ * A class that creates synthetic haplotypes from a `Haplotypes` representation of
+ * local haplotypes.
  */
 class Recombinator {
 public:
@@ -307,7 +296,7 @@ public:
     constexpr static size_t NUM_HAPLOTYPES = 16;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
-    typedef HaplotypePartitioner::sequence_type sequence_type;
+    typedef Haplotypes::sequence_type sequence_type;
 
     /**
      * A haplotype beging generated as a GBWT path.
@@ -381,7 +370,6 @@ public:
         void insert(gbwt::GBWTBuilder& builder);
     };
 
-    // FIXME do these statistics still make sense?
     /// Statistics on the generated haplotypes.
     struct Statistics {
         /// Number of top-level chains.
@@ -403,17 +391,32 @@ public:
         std::ostream& print(std::ostream& out) const;
     };
 
-    /// FIXME: document
+    /// Creates a new `Recombinator`.
     Recombinator(const gbwtgraph::GBZ& gbz, HaplotypePartitioner::Verbosity verbosity);
 
-    // FIXME job()
+    // FIXME parameters
+    /**
+     * Generates haplotypes based on the given `Haplotypes` representation.
+     *
+     * Runs multiple GBWT construction jobs in parallel using OpenMP threads and
+     * generates `NUM_HAPLOTYPES` haplotypes in each top-level chain / component.
+     *
+     * Each generated haplotype has a single source haplotype in each subchain.
+     * The subchains are connected by unary paths. Suffix / prefix subchains in
+     * the middle of a chain create fragment breaks. If the chain starts without
+     * a prefix (ends without a suffix), the haplotype chosen for the first (last)
+     * subchain is used from the start (continued until the end).
+     *
+     * TODO: Include reference paths?
+     */
+    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes) const;
 
     const gbwtgraph::GBZ& gbz;
     HaplotypePartitioner::Verbosity verbosity;
 
-    // FIXME should be private
+private:
     // Generate haplotypes for the given chain.
-    Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder);
+    Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const;
 };
 
 //------------------------------------------------------------------------------

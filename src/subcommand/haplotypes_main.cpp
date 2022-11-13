@@ -26,12 +26,10 @@ using namespace vg;
 
 //----------------------------------------------------------------------------
 
-constexpr size_t DEFAULT_MAX_JOBS = 14;
-constexpr size_t APPROXIMATE_JOBS = 32;
-constexpr size_t NUM_HAPLOTYPES = 16;
-constexpr size_t TARGET_DISTANCE = 10000;
+constexpr size_t DEFAULT_MAX_THREADS = 16;
 
 /*
+  FIXME document
   The same parameter is used both for the number of threads in minimizer index
   construction and the number of parallel GBWT construction jobs.
 
@@ -57,10 +55,10 @@ constexpr size_t TARGET_DISTANCE = 10000;
   Just choose a number of threads and derive the number of construction jobs
   from that.
 */
-size_t get_default_jobs() {
-    size_t jobs = std::round(0.85 * omp_get_max_threads());
-    jobs = std::max(jobs, size_t(1));
-    return std::min(jobs, DEFAULT_MAX_JOBS);
+size_t haplotypes_default_threads() {
+    size_t threads = omp_get_max_threads();
+    threads = std::max(threads, size_t(1));
+    return std::min(threads, DEFAULT_MAX_THREADS);
 }
 
 void help_haplotypes(char** argv) {
@@ -81,13 +79,17 @@ void help_haplotypes(char** argv) {
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
-    // FIXME replace with -t / --threads
-    std::cerr << "        --parallel-jobs N     number of parallel jobs (default: " << get_default_jobs() << ")" << std::endl;
+    std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_default_threads() << ")" << std::endl;
     std::cerr << "        --validate            check that the output graph is a subgraph of the input" << std::endl;
     std::cerr << std::endl;
 }
 
 //----------------------------------------------------------------------------
+
+size_t threads_to_jobs(size_t threads) {
+    size_t jobs = std::round(0.85 * threads);
+    return std::max(jobs, size_t(1));
+}
 
 bool ends_with(const std::string& str, const std::string& suffix) {
     if (str.length() < suffix.length()) {
@@ -120,10 +122,9 @@ int main_haplotypes(int argc, char** argv) {
     std::string graph_name, gbz_output, haplotype_output;
     std::string distance_name, minimizer_name, r_index_name, haplotype_input;
     HaplotypePartitioner::Verbosity verbosity = HaplotypePartitioner::verbosity_silent;
-    size_t parallel_jobs = get_default_jobs();
+    size_t threads = haplotypes_default_threads();
     bool validate = false;
 
-    constexpr int OPT_PARALLEL_JOBS = 1000;
     constexpr int OPT_VALIDATE = 1001;
 
     static struct option long_options[] =
@@ -135,7 +136,7 @@ int main_haplotypes(int argc, char** argv) {
         { "r-index", required_argument, 0, 'r' },
         { "haplotype-input", required_argument, 0, 'i' },
         { "verbosity", required_argument, 0, 'v' },
-        { "parallel-jobs", required_argument, 0, OPT_PARALLEL_JOBS },
+        { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
         { 0, 0, 0, 0 }
     };
@@ -145,7 +146,7 @@ int main_haplotypes(int argc, char** argv) {
     optind = 2; // force optind past command positional argument
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:H:d:m:r:i:v:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:H:d:m:r:i:v:t:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -180,12 +181,12 @@ int main_haplotypes(int argc, char** argv) {
                 verbosity = static_cast<HaplotypePartitioner::Verbosity>(level);
             }
             break;
-        case OPT_PARALLEL_JOBS:
+        case 't':
             {
                 size_t max_threads = omp_get_max_threads();
-                parallel_jobs = parse<size_t>(optarg);
-                if (parallel_jobs == 0 || parallel_jobs > max_threads) {
-                    std::cerr << "error: [vg haplotypes] cannot run " << parallel_jobs << " jobs in parallel on this system" << std::endl;
+                threads = parse<size_t>(optarg);
+                if (threads == 0 || threads > max_threads) {
+                    std::cerr << "error: [vg haplotypes] cannot run " << threads << " threads in parallel on this system" << std::endl;
                     return 1;
                 }
             }
@@ -213,8 +214,7 @@ int main_haplotypes(int argc, char** argv) {
         std::cerr << "At least one of --gbz-output and --haplotype-output is required" << std::endl;
         return 1;
     }
-    // FIXME this should be done separately for each phase
-    omp_set_num_threads(parallel_jobs);
+    omp_set_num_threads(threads);
 
     // Load the graph.
     gbwtgraph::GBZ gbz;
@@ -301,66 +301,25 @@ int main_haplotypes(int argc, char** argv) {
         return 0;
     }
 
-    // Determine construction jobs.
-    std::vector<std::vector<size_t>> jobs(haplotypes.jobs());
-    for (auto& chain : haplotypes.chains) {
-        if (chain.job_id < haplotypes.jobs()) {
-            jobs[chain.job_id].push_back(chain.offset);
-        }
-    }
+    // Generate haplotypes.
+    size_t parallel_jobs = threads_to_jobs(threads);
+    omp_set_num_threads(parallel_jobs); // FIXME move to recombinator?
     Recombinator recombinator(gbz, verbosity);
-    if (verbosity >= HaplotypePartitioner::verbosity_basic) {
-        std::cerr << "Running " << parallel_jobs << " jobs in parallel" << std::endl;
-    }
-    double checkpoint = gbwt::readTimer();
-    std::vector<gbwt::GBWT> indexes(jobs.size());
-    Recombinator::Statistics statistics;
-    #pragma omp parallel for schedule(dynamic, 1)
-    for (size_t job = 0; job < jobs.size(); job++) {
-        // FIXME buffer size?
-        gbwt::GBWTBuilder builder(sdsl::bits::length(gbz.index.sigma() - 1));
-        builder.index.addMetadata();
-        Recombinator::Statistics job_statistics;
-        for (auto chain_id : jobs[job]) {
-            Recombinator::Statistics chain_statistics = recombinator.generate_haplotypes(haplotypes.chains[chain_id], builder);
-            job_statistics.combine(chain_statistics);
-        }
-        builder.finish();
-        indexes[job] = builder.index;
-        #pragma omp critical
-        {
-            if (verbosity >= HaplotypePartitioner::verbosity_detailed) {
-                std::cerr << "Job " << job << ": "; job_statistics.print(std::cerr) << std::endl;
-            }
-            statistics.combine(job_statistics);
-        }
-    }
-    if (verbosity >= HaplotypePartitioner::verbosity_basic) {
-        double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Processed "; statistics.print(std::cerr) << std::endl;
-        std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
-    }
+    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes);
 
-    if (verbosity >= HaplotypePartitioner::verbosity_basic) {
-        std::cerr << "Merging the partial indexes" << std::endl;
-    }
-    checkpoint = gbwt::readTimer();
-    gbwt::GBWT merged(indexes);
-    if (verbosity >= HaplotypePartitioner::verbosity_basic) {
-        double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Merged the indexes in " << seconds << " seconds" << std::endl;
-    }
-
+    // Build GBWTGraph.
+    omp_set_num_threads(threads); // FIXME handle this better
     if (verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Building GBWTGraph" << std::endl;
     }
-    checkpoint = gbwt::readTimer();
+    double checkpoint = gbwt::readTimer();
     gbwtgraph::GBWTGraph output_graph = gbz.graph.subgraph(merged);
     if (verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Built the GBWTGraph in " << seconds << " seconds" << std::endl;
     }
 
+    // Validate and serialize the graph.
     if (validate) {
         validate_subgraph(gbz.graph, output_graph, verbosity);
     }
