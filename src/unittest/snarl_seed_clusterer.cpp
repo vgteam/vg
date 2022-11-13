@@ -964,8 +964,8 @@ namespace unittest {
             if (dist_index.node_id(dist_index.get_bound(snarl82, false, false)) == n2->id()) {
                 //If the snarl is from 2rev to 8rev
                 REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == std::numeric_limits<size_t>::max());
-                REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == 0);
-                REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == 0);
                 REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
             } else {
                 REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == 0);
