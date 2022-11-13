@@ -952,6 +952,8 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(dist_index, &graph);
+
+    
         
         //graph.to_dot(cerr);
 
@@ -959,20 +961,34 @@ namespace unittest {
             net_handle_t node1 = dist_index.get_parent(dist_index.get_node_net_handle(n1->id()));
             net_handle_t snarl82 = dist_index.get_parent(node1); 
 
-            cout << "node: " << dist_index.net_handle_as_string(node1) << " parent: " << dist_index.net_handle_as_string(snarl82) << endl;
+            if (dist_index.node_id(dist_index.get_bound(snarl82, false, false)) == n2->id()) {
+                //If the snarl is from 2rev to 8rev
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == 0);
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == 0);
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
+            }
 
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, node1) == 0);
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, false, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, node1) == std::numeric_limits<size_t>::max());
-            REQUIRE(dist_index.distance_to_parent_bound(snarl82, true, dist_index.flip(node1)) == std::numeric_limits<size_t>::max());
 
             net_handle_t node3 = dist_index.get_parent(dist_index.get_node_net_handle(n3->id()));
             net_handle_t snarl24 = dist_index.get_parent(node3); 
 
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, dist_index.flip(node3)) == 0);
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3) == std::numeric_limits<size_t>::max());
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3) == 0);
-            REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, dist_index.flip(node3)) == std::numeric_limits<size_t>::max());
+            if (dist_index.node_id(dist_index.get_bound(snarl24, false, false)) == n2->id()) {
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, dist_index.flip(node3)) == 0);
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3) == 0);
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, dist_index.flip(node3)) == std::numeric_limits<size_t>::max());
+            } else {
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, dist_index.flip(node3)) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, true, node3) == 0);
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, node3) == std::numeric_limits<size_t>::max());
+                REQUIRE(dist_index.distance_to_parent_bound(snarl24, false, dist_index.flip(node3)) == 0);
+            }
 
             net_handle_t node6 = dist_index.get_node_net_handle(n6->id());
             net_handle_t chain66 = dist_index.get_parent(node6);
