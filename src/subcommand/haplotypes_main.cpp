@@ -44,6 +44,15 @@ constexpr size_t TARGET_DISTANCE = 10000;
   usually idle most of the time. The structure of the graph also limits the
   number of parallel jobs. In human graphs, there is no benefit in using more
   than 14 jobs.
+
+  FIXME: There are two separate tasks:
+
+  1) Determine the subchains and represent each sequence in each subchain as a
+  set of kmers. This only needs to be done once and there should be one job per
+  core.
+
+  2) Choose some sequences at each site, combine them into haplotypes, and build
+  a GBWT. Here we need a bit over 1 full core for each job.
 */
 size_t get_default_jobs() {
     size_t jobs = std::round(0.85 * omp_get_max_threads());
@@ -52,23 +61,25 @@ size_t get_default_jobs() {
 }
 
 void help_haplotypes(char** argv) {
-    std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] -o output.gbz graph.gbz" << std::endl;
+    // FIXME use existing subchains vs. determine them first
+    std::cerr << "usage: " << argv[0] << " " << argv[1] << " [options] -g output.gbz graph.gbz" << std::endl;
     std::cerr << std::endl;
     // FIXME description
     std::cerr << "Some experiments with haplotype sampling." << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -o, --output-name X      write the output GBZ to X" << std::endl;
+    std::cerr << "Output options:" << std::endl;
+    std::cerr << "    -g, --gbz-output X        write the output GBZ to X" << std::endl;
+    std::cerr << "    -H, --haplotype-output X  write the local haplotypes in each subchain to X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Index files:" << std::endl;
-    std::cerr << "    -d, --distance-index X   use this distance index (default: <basename>.dist)" << std::endl;
-    std::cerr << "    -m, --minimizer-index X  use this minimizer index (default: build the index)" << std::endl;
-    std::cerr << "    -r, --r-index X          use this r-index (default: <basename>.ri)" << std::endl;
+    std::cerr << "    -d, --distance-index X    use this distance index (default: <basename>.dist)" << std::endl;
+    std::cerr << "    -m, --minimizer-index X   use this minimizer index (default: build the index)" << std::endl;
+    std::cerr << "    -r, --r-index X           use this r-index (default: <basename>.ri)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -v, --verbosity N        set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
-    std::cerr << "        --parallel-jobs N    number of parallel jobs (default: " << get_default_jobs() << ")" << std::endl;
-    std::cerr << "        --validate           check that the output graph is a subgraph of the input" << std::endl;
+    std::cerr << "    -v, --verbosity N         set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
+    std::cerr << "        --parallel-jobs N     number of parallel jobs (default: " << get_default_jobs() << ")" << std::endl;
+    std::cerr << "        --validate            check that the output graph is a subgraph of the input" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -102,7 +113,7 @@ int main_haplotypes(int argc, char** argv) {
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
 
     // Parse options into these.
-    std::string graph_name, output_name;
+    std::string graph_name, gbz_output, haplotype_output;
     std::string distance_name, minimizer_name, r_index_name;
     Recombinator::Verbosity verbosity = Recombinator::verbosity_silent;
     size_t parallel_jobs = get_default_jobs();
@@ -113,7 +124,8 @@ int main_haplotypes(int argc, char** argv) {
 
     static struct option long_options[] =
     {
-        { "output-name", required_argument, 0, 'o' },
+        { "gbz-output", required_argument, 0, 'g' },
+        { "haplotype-output", required_argument, 0, 'H' },
         { "distance-index", required_argument, 0, 'd' },
         { "minimizer-index", required_argument, 0, 'm' },
         { "r-index", required_argument, 0, 'r' },
@@ -128,13 +140,16 @@ int main_haplotypes(int argc, char** argv) {
     optind = 2; // force optind past command positional argument
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:d:m:r:v:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:H:d:m:r:v:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
         {
-        case 'o':
-            output_name = optarg;
+        case 'g':
+            gbz_output = optarg;
+            break;
+        case 'H':
+            haplotype_output = optarg;
             break;
 
         case 'd':
@@ -186,8 +201,8 @@ int main_haplotypes(int argc, char** argv) {
         return 1;
     }
     graph_name = argv[optind];
-    if (output_name.empty()) {
-        std::cerr << "Option --output-name is required" << std::endl;
+    if (gbz_output.empty()) {
+        std::cerr << "Option --gbz-output is required" << std::endl;
         return 1;
     }
     if (distance_name.empty()) {
@@ -269,6 +284,13 @@ int main_haplotypes(int argc, char** argv) {
         std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
     }
 
+    if (!haplotype_output.empty()) {
+        if (verbosity >= Recombinator::verbosity_basic) {
+            std::cerr << "Writing local haplotypes to " << haplotype_output << std::endl;
+        }
+        sdsl::simple_sds::serialize_to(recombinator.haplotypes, haplotype_output);
+    }
+
     if (verbosity >= Recombinator::verbosity_basic) {
         std::cerr << "Merging the partial indexes" << std::endl;
     }
@@ -292,7 +314,7 @@ int main_haplotypes(int argc, char** argv) {
     if (validate) {
         validate_subgraph(gbz.graph, output_graph, verbosity);
     }
-    save_gbz(merged, output_graph, output_name, verbosity >= Recombinator::verbosity_basic);
+    save_gbz(merged, output_graph, gbz_output, verbosity >= Recombinator::verbosity_basic);
 
     if (verbosity >= Recombinator::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;

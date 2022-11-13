@@ -18,6 +18,142 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+// FIXME tests
+/**
+ * A representation of the haplotypes in a graph.
+ *
+ * The graph is partitioned into top-level chains, which are further partitioned
+ * into subchains. Each subchain contains a set of kmers and a collection of
+ * sequences. Each sequence is defined by a bitvector marking the kmers that are
+ * present.
+ */
+class Haplotypes {
+public:
+    /// Header of the serialized file.
+    struct Header {
+        constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
+        constexpr static std::uint32_t VERSION = 1;
+
+        /// A magic number that identifies the file.
+        std::uint32_t magic_number = MAGIC_NUMBER;
+
+        /// Version of the file.
+        std::uint32_t version = VERSION;
+
+        /// Number of top-level chains in the graph.
+        std::uint64_t top_level_chains = 0;
+    };
+
+    /// Representation of a sequence as a set of kmers.
+    struct Sequence {
+        /// GBWT sequence identifier.
+        gbwt::size_type id;
+
+        /// Offset in the relevant GBWT node.
+        gbwt::size_type offset;
+
+        /// Kmers that are present.
+        sdsl::bit_vector kmers;
+
+        /// Serializes the object to a stream in the simple-sds format.
+        void simple_sds_serialize(std::ostream& out) const;
+
+        /// Loads the object from a stream in the simple-sds format.
+        void simple_sds_load(std::istream& in);
+
+        /// Returns the size of the object in elements.
+        size_t simple_sds_size() const;
+    };
+
+    /// Representation of a subchain.
+    struct Subchain {
+        /// Subchain types.
+        enum subchain_t : std::uint64_t {
+            /// Normal subchain with two boundary nodes.
+            normal = 0,
+
+            /// A prefix with only an end node.
+            prefix = 1,
+
+            /// A suffix with only a start node.
+            suffix = 2,
+
+            /// A full haplotype with no boundary nodes.
+            full_haplotype = 3
+        };
+
+        /// An encoded kmer.
+        typedef gbwtgraph::Key64::value_type kmer_type;
+
+        /// The type of this subchain.
+        subchain_t type;
+
+        /// Boundary nodes, or `gbwt::ENDMARKER` if not present.
+        gbwt::node_type start, end;
+
+        /// A vector of distinct kmers.
+        std::vector<kmer_type> kmers;
+
+        /// Sequences as bitvectors over the kmers.
+        std::vector<Sequence> sequences;
+
+        /// Returns the start node as a GBWTGraph handle.
+        handle_t start_handle() const { return gbwtgraph::GBWTGraph::node_to_handle(this->start); }
+
+        /// Returns the end node as a GBWTGraph handle.
+        handle_t end_handle() const { return gbwtgraph::GBWTGraph::node_to_handle(this->end); }
+
+        /// Returns `true` if the subchain has a start node.
+        bool has_start() const { return (this->type == normal || this->type == prefix); }
+
+        /// Returns `true` if the subchain has an end node.
+        bool has_end() const { return (this->type == normal || this->type == suffix); }
+
+        /// Serializes the object to a stream in the simple-sds format.
+        void simple_sds_serialize(std::ostream& out) const;
+
+        /// Loads the object from a stream in the simple-sds format.
+        void simple_sds_load(std::istream& in);
+
+        /// Returns the size of the object in elements.
+        size_t simple_sds_size() const;
+    };
+
+    // FIXME add job id
+    /// Representation of a top-level chain.
+    struct TopLevelChain {
+        /// Offset in the child list of the root snarl.
+        size_t offset;
+
+        /// Subchains in the order they appear in.
+        std::vector<Subchain> subchains;
+
+        /// Serializes the object to a stream in the simple-sds format.
+        void simple_sds_serialize(std::ostream& out) const;
+
+        /// Loads the object from a stream in the simple-sds format.
+        void simple_sds_load(std::istream& in);
+
+        /// Returns the size of the object in elements.
+        size_t simple_sds_size() const;
+    };
+
+    Header header;
+    std::vector<TopLevelChain> chains;
+
+    /// Serializes the object to a stream in the simple-sds format.
+    void simple_sds_serialize(std::ostream& out) const;
+
+    /// Loads the object from a stream in the simple-sds format.
+    void simple_sds_load(std::istream& in);
+
+    /// Returns the size of the object in elements.
+    size_t simple_sds_size() const;
+};
+
+//------------------------------------------------------------------------------
+
+// FIXME refactor this into subchain generator and haplotype generator
 // FIXME tests, exceptions for error handling
 /**
  * A class that generates synthetic haplotypes as recombinations of the haplotypes in
@@ -71,25 +207,26 @@ public:
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
 
+    /// An encoded kmer.
+    typedef gbwtgraph::Key64::value_type kmer_type;
+
     /**
-     * A subchain is a substring of a top-level chain defined by at one or two
+     * A subchain is a substring of a top-level chain defined by at most two
      * boundary nodes.
      *
      * Normal subchains have two boundary nodes, which are assumed to be the
      * start node of a snarl and the end node of a possibly different snarl.
      * There are assumed to be haplotypes crossing the subchain. Prefixes and
-     * suffixes lack one of the boundary nodes.
+     * suffixes lack one of the boundary nodes, while full haplotypes lack
+     * both.
      *
      * When a top-level chain is partitioned into subchains, the boundary nodes
      * may either overlap or be connected by unary paths. If a snarl is not
      * connected, it may be presented as a suffix and a prefix.
      */
     struct Subchain {
-        /// Type of a subchain.
-        enum subchain_t { normal, prefix, suffix };
-
         /// The type of this subchain.
-        subchain_t type;
+        Haplotypes::Subchain::subchain_t type;
 
         /// Start node.
         handle_t start;
@@ -98,10 +235,10 @@ public:
         handle_t end;
 
         /// Returns `true` if the subchain has a start node.
-        bool has_start() const { return (this->type != prefix); }
+        bool has_start() const { return (this->type == Haplotypes::Subchain::normal || this->type == Haplotypes::Subchain::suffix); }
 
         /// Returns `true` if the subchain has an end node.
-        bool has_end() const { return (this->type != suffix); }
+        bool has_end() const { return (this->type == Haplotypes::Subchain::normal || this->type == Haplotypes::Subchain::prefix); }
     };
 
     /**
@@ -218,12 +355,13 @@ public:
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
 
     std::vector<std::vector<gbwtgraph::TopLevelChain>> chains_by_job;
+    Haplotypes haplotypes;
 
     Verbosity verbosity;
 
     // FIXME should be private
     // Generate haplotypes for the given chain.
-    Statistics generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const;
+    Statistics generate_haplotypes(const gbwtgraph::TopLevelChain& chain, gbwt::GBWTBuilder& builder);
 
 private:
 
@@ -240,11 +378,14 @@ private:
     // start for normal subchains and at the only boundary node for other subchains.
     std::vector<sequence_type> get_sequences(Subchain subchain) const;
 
-    // Count the number of minimizers in the sequence with a single occurrence in the graph.
-    size_t unique_minimizers(gbwt::size_type sequence_id) const;
+    // Return the sorted set of kmers that are minimizers in the sequence and have
+    // a single occurrence in the graph.
+    std::vector<kmer_type> unique_minimizers(gbwt::size_type sequence_id) const;
 
     // Count the number of minimizers in the sequence over the subchain with a single occurrence in the graph.
-    size_t unique_minimizers(sequence_type sequence, Subchain subchain) const;
+    // Return the sorted set of kmers that are minimizers in the sequence over the
+    // subchain and have a single occurrence in the graph.
+    std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain) const;
 };
 
 //------------------------------------------------------------------------------
