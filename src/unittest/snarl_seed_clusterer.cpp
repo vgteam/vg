@@ -994,6 +994,9 @@ namespace unittest {
             net_handle_t chain66 = dist_index.get_parent(node6);
             net_handle_t node5 = dist_index.get_parent(dist_index.get_node_net_handle(n5->id()));
             net_handle_t snarl46 = dist_index.get_parent(node5);
+            if (dist_index.node_id(dist_index.get_bound(snarl46, false, false)) == n6->id()) {
+                snarl46 = dist_index.flip(snarl46);
+            }
             REQUIRE(dist_index.distance_in_parent(chain66, snarl46, dist_index.flip(node6)) == 0);
         }
         SECTION( "Two clusters" ) {
