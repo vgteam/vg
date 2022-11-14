@@ -8,8 +8,8 @@
 #include "aligner.hpp"
 #include "mem.hpp"
 #include "handle.hpp"
-#include "min_distance.hpp"
-#include "seed_clusterer.hpp"
+#include "snarl_distance_index.hpp"
+#include "snarl_seed_clusterer.hpp"
 #include "path_component_index.hpp"
 #include "bdsg/hash_graph.hpp"
 
@@ -435,7 +435,7 @@ class SnarlOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
 
 public:
     // Construct a distance service to measures distance as the minimum distance in the graph
-    SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index);
+    SnarlOrientedDistanceMeasurer(SnarlDistanceIndex* distance_index);
     
     /// Default desctructor
     ~SnarlOrientedDistanceMeasurer() = default;
@@ -456,7 +456,7 @@ public:
     
 private:
     
-    MinimumDistanceIndex* distance_index = nullptr;
+    SnarlDistanceIndex* distance_index = nullptr;
 };
     
 class OrientedDistanceClusterer : public MEMClusterer {
@@ -587,12 +587,12 @@ public:
 class SnarlMinDistance : public DistanceHeuristic {
 public:
     SnarlMinDistance() = delete;
-    SnarlMinDistance(MinimumDistanceIndex& distance_index);
+    SnarlMinDistance(SnarlDistanceIndex& distance_index);
     ~SnarlMinDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    MinimumDistanceIndex& distance_index;
+    SnarlDistanceIndex& distance_index;
 };
 
 /*
@@ -603,12 +603,12 @@ private:
 class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
     TipAnchoredMaxDistance() = delete;
-    TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index);
+    TipAnchoredMaxDistance(SnarlDistanceIndex& distance_index);
     ~TipAnchoredMaxDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    MinimumDistanceIndex& distance_index;
+    SnarlDistanceIndex& distance_index;
 };
 
 /*
@@ -656,7 +656,7 @@ protected:
  */
 class TVSClusterer : public MEMClusterer {
 public:
-    TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index);
+    TVSClusterer(const HandleGraph* handle_graph, SnarlDistanceIndex* distance_index);
     ~TVSClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -683,7 +683,7 @@ protected:
  */
 class MinDistanceClusterer : public MEMClusterer {
 public:
-    MinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    MinDistanceClusterer(SnarlDistanceIndex* distance_index);
     virtual ~MinDistanceClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -703,7 +703,7 @@ protected:
                                     size_t min_mem_length, const match_fanouts_t* fanouts);
     
     const HandleGraph* handle_graph;
-    MinimumDistanceIndex* distance_index;
+    SnarlDistanceIndex* distance_index;
 };
 
 /*
@@ -712,7 +712,7 @@ protected:
  */
 class GreedyMinDistanceClusterer : public MinDistanceClusterer {
 public:
-    GreedyMinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    GreedyMinDistanceClusterer(SnarlDistanceIndex* distance_index);
     ~GreedyMinDistanceClusterer() = default;
     
 protected:
@@ -743,7 +743,7 @@ protected:
  */
 class ComponentMinDistanceClusterer : public MinDistanceClusterer {
 public:
-    ComponentMinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    ComponentMinDistanceClusterer(SnarlDistanceIndex* distance_index);
     ~ComponentMinDistanceClusterer() = default;
     
 protected:

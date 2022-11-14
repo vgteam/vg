@@ -1755,7 +1755,7 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-    unique_ptr<MinimumDistanceIndex> distance_index;
+    unique_ptr<SnarlDistanceIndex> distance_index;
     if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
         // try to add an active thread
         int curr_thread_active = threads_active++;
@@ -1763,14 +1763,14 @@ int main_mpmap(int argc, char** argv) {
             // take back the increment and don't let it go multithreaded
             --threads_active;
             log_progress("Loading distance index from " + distance_index_name);
-            distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+            distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_index_stream);
             log_progress("Completed loading distance index");
         }
         else {
             // do the process in a background thread
             background_processes.emplace_back([&]() {
                 log_progress("Loading distance index from " + distance_index_name + " (in background)");
-                distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+                distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_index_stream);
                 --threads_active;
                 log_progress("Completed loading distance index");
             });

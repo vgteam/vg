@@ -161,7 +161,7 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+                                                     SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
@@ -189,7 +189,7 @@ namespace vg {
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+                                                     SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              create_projector(projection_trans),
@@ -198,7 +198,7 @@ namespace vg {
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+                                                     SnarlDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              project, create_injection_trans(graph, project)) {
@@ -2026,7 +2026,7 @@ namespace vg {
 
     vector<pair<size_t, size_t>> MultipathAlignmentGraph::get_cut_segments(path_t& path,
                                                                            SnarlManager* cutting_snarls,
-                                                                           MinimumDistanceIndex* dist_index,
+                                                                           SnarlDistanceIndex* dist_index,
                                                                            const function<pair<id_t, bool>(id_t)>& project,
                                                                            int64_t max_snarl_cut_size) const {
         
@@ -2108,7 +2108,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
-                                                           MinimumDistanceIndex* dist_index,
+                                                           SnarlDistanceIndex* dist_index,
                                                            const function<pair<id_t, bool>(id_t)>& project,
                                                            int64_t max_snarl_cut_size) {
 #ifdef debug_multipath_alignment
@@ -4215,7 +4215,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                     bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                     double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
                                     size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
-                                    MinimumDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+                                    SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
                                     bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
@@ -5172,7 +5172,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                         double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
                                         function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                                         multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
-                                        MinimumDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+                                        SnarlDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
                                         bool allow_negative_scores) {
         
         // TODO: magic number
@@ -5593,7 +5593,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                                                  vector<vector<pair<path_t, int32_t>>>& unshared_tail_alns,
                                                                  size_t attachment_idx, bool to_left, size_t unmergeable_len,
                                                                  const GSSWAligner* aligner,
-                                                                 SnarlManager* cutting_snarls, MinimumDistanceIndex* dist_index,
+                                                                 SnarlManager* cutting_snarls, SnarlDistanceIndex* dist_index,
                                                                  const function<pair<id_t, bool>(id_t)>* project) {
         
         // TODO: i wonder if it would be cleaner/more general to use branches rather than snarls
@@ -6448,7 +6448,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     }
 
     bool MultipathAlignmentGraph::into_cutting_snarl(id_t node_id, bool is_rev,
-                                                     SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index) const {
+                                                     SnarlManager* snarl_manager, SnarlDistanceIndex* dist_index) const {
         
         if (dist_index) {
             auto result = dist_index->into_which_snarl(node_id, is_rev);

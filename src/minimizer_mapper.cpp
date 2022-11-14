@@ -31,6 +31,8 @@
 //#define debug_dump_graph
 // Dump fragment length distribution information
 //#define debug_fragment_distr
+//Do a brute force check that clusters are correct
+//#define debug_validate_clusters
 
 namespace vg {
 
@@ -38,11 +40,11 @@ using namespace std;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-    MinimumDistanceIndex* old_distance_index, SnarlDistanceIndex* distance_index, 
+    SnarlDistanceIndex* distance_index, 
     const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
-    distance_index(distance_index), old_distance_index(old_distance_index), 
-    clusterer(distance_index, &graph), old_clusterer(old_distance_index),
+    distance_index(distance_index),  
+    clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())),
     fragment_length_distr(1000,1000,0.95) {
@@ -71,62 +73,29 @@ struct seed_traits {
  * Traits for the new seed type.
  *
  * Defines what MinimizerMapper algorithms have to know about
- * NewSnarlSeedClusterer seeds to work with them.
+ * SnarlDistanceIndexClusterer seeds to work with them.
  */
 template<>
-struct seed_traits<NewSnarlSeedClusterer::Seed> {
+struct seed_traits<SnarlDistanceIndexClusterer::Seed> {
     /// Get SeedType to use later, because it makes more sense to use that in
     /// the function signatures than the type we're specialized on.
-    using SeedType = NewSnarlSeedClusterer::Seed;
+    using SeedType = SnarlDistanceIndexClusterer::Seed;
     
     /// What minimizer index payload type should we use for decoding minimizer index payloads?
     using MIPayload = vg::MIPayload;
     /// What chain info should we keep around during clustering?
-    using chain_info_t = tuple<size_t, size_t, size_t, size_t, bool>;
+    using chain_info_t = gbwtgraph::payload_type;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static chain_info_t no_chain_info() {
-        return {MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false};
+        return MIPayload::NO_CODE;
     } 
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
     inline static SeedType chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
-        return { hit, minimizer, chain_info };
+        return {hit, minimizer, chain_info};
     }
-};
-
-/**
- * Traits for the old seed type.
- *
- * Defines what MinimizerMapper algorithms have to know about
- * SnarlSeedClusterer seeds to work with them.
- */
-template<>
-struct seed_traits<SnarlSeedClusterer::Seed> {
-    /// Get SeedType to use later, because it makes more sense to use that in
-    /// the function signatures than the type we're specialized on.
-    using SeedType = SnarlSeedClusterer::Seed;
-    
-    /// What minimizer index payload type should we use for decoding minimizer index payloads?
-    using MIPayload = MinimumDistanceIndex::MIPayload;
-    /// What chain info should we keep around during clustering?
-    using chain_info_t = tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>;
-    
-    /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static chain_info_t no_chain_info() {
-        return {false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE,
-                MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false};
-    }
-    
-    /// How do we convert chain info to an actual seed of the type we are using?
-    /// Also needs to know the hit position, and the minimizer number.
-    inline static SeedType chain_info_to_seed(const pos_t& hit, size_t minimizer, const chain_info_t& chain_info) {
-        return { hit, minimizer, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
-                 std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info),
-                 std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) };
-    }
-    
 };
 
 //-----------------------------------------------------------------------------
@@ -379,6 +348,132 @@ void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t clust
         cerr << log_name() << "Minimizers in cluster " << cluster_number << "\t" << log_bits(presence) << endl;
     }
 }
+template<typename SeedType>
+bool MinimizerMapper::validate_clusters(const std::vector<std::vector<Cluster>>& clusters, const std::vector<std::vector<SeedType>>& seeds, size_t read_limit, size_t fragment_limit) const {
+    vector<vector<pos_t>> fragment_clusters;
+    for (size_t read_num = 0 ; read_num < clusters.size() ; read_num ++) {
+        auto& one_read_clusters = clusters[read_num];
+        if (one_read_clusters.size() > 0) {
+            for (size_t cluster_num1 = 0; cluster_num1 < one_read_clusters.size(); cluster_num1++) {
+                // For each cluster -cluster this cluster to ensure that there is only one
+                vector<size_t> clust = one_read_clusters[cluster_num1].seeds;
+                size_t fragment_cluster = one_read_clusters[cluster_num1].fragment;
+                if (fragment_cluster >= fragment_clusters.size()) {
+                    fragment_clusters.resize(fragment_cluster+1);
+                }
+                
+                structures::UnionFind new_clusters (clust.size(), false);
+                for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
+                    pos_t pos1 = seeds[read_num][clust[i1]].pos;
+                    fragment_clusters[fragment_cluster].emplace_back(pos1);
+                    
+                    for (size_t cluster_num2 = 0 ; cluster_num2 < one_read_clusters.size() ; cluster_num2++) {
+                        if (cluster_num2 != cluster_num1) {
+                            //For each other cluster, make sure that the seeds in the other cluster are far away
+                            vector<size_t> clust2 = one_read_clusters[cluster_num2].seeds;
+                            for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
+                                //And each position in each other cluster,
+                                //make sure that this position is far away from i1
+                                pos_t pos2 = seeds[read_num][clust2[i2]].pos;;
+                                size_t distance_between = unoriented_distance_between(pos1, pos2);
+                                
+                                if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                                     distance_between <= read_limit) {
+                                    cerr << "These should have been in the same read cluster: " ;
+                                    cerr << pos1 << " and " << pos2 << " with distance between them " << distance_between << endl;
+                                    return false;
+                                }
+                    
+                            }
+                        }
+                    }
+                    for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
+                        //For each position in the same cluster, make sure it's close to something
+                        pos_t pos2 = seeds[read_num][clust[i2]].pos;
+                        size_t distance_between = unoriented_distance_between(pos1, pos2);
+                        if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                            distance_between <= read_limit) {
+                            new_clusters.union_groups(i1, i2);
+                        }
+                
+                    }
+                }
+                auto actual_clusters = new_clusters.all_groups();
+                if (actual_clusters.size() != 1) {
+                    cerr << "These should be different read clusters: " << endl;
+                    for (auto c : actual_clusters) {
+                        cerr << "cluster: " ;
+                        for (size_t i : c) {
+                            cerr << seeds[read_num][clust[i]].pos << " ";
+                        }
+                        cerr << endl;
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+    //Now check the fragment clusters
+    if (fragment_limit != 0) {
+        for (size_t cluster_num1 = 0; cluster_num1 < fragment_clusters.size(); cluster_num1++) {
+            // For each cluster -cluster this cluster to ensure that 
+            // there is only one
+            vector<pos_t> clust = fragment_clusters[cluster_num1];
+        
+            structures::UnionFind new_clusters (clust.size(), false);
+        
+            for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
+                pos_t pos1 = clust[i1];
+        
+                for (size_t cluster_num2 = 0 ; cluster_num2 < fragment_clusters.size() ; cluster_num2++) {
+                    if (cluster_num2 != cluster_num1) {
+                        //For each other cluster
+                        vector<pos_t> clust2 = fragment_clusters[cluster_num2];
+                        for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
+                            //And each position in each other cluster,
+                            //make sure that this position is far away from i1
+                            pos_t pos2 = clust2[i2];
+                            int64_t distance_between = unoriented_distance_between(pos1, pos2);
+                            if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                                distance_between <= fragment_limit) {
+                                cerr << "These should have been in the same fragment cluster: " ;
+                                cerr << pos1 << " and " << pos2 << " with distance between " << distance_between << " and distance limit " << fragment_limit << endl;
+                                return false;
+                                
+                            }
+                
+                        }
+                    }
+                }
+                for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
+                    //For each position in the same cluster
+                    pos_t pos2 = clust[i2];
+                    int64_t distance_between = unoriented_distance_between(pos1, pos2);
+                    if ( distance_between != std::numeric_limits<int64_t>::max() && 
+                        distance_between <= fragment_limit) {
+                        new_clusters.union_groups(i1, i2);
+                    }
+            
+                }
+            }
+            auto actual_clusters = new_clusters.all_groups();
+            if (actual_clusters.size() != 1) {
+                cerr << "These should be different fragment clusters with distance limit " << fragment_limit << endl;
+                for (auto c : actual_clusters) {
+                    cerr << "cluster: " ;
+                    for (size_t i1 : c) {
+                        cerr << clust[i1] << " ";
+                    }
+                    cerr << endl;
+                }
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
 
 template<typename SeedType>
 void MinimizerMapper::dump_debug_seeds(const std::vector<Minimizer>& minimizers, const std::vector<SeedType>& seeds, const std::vector<size_t>& selected_seeds) {
@@ -466,34 +561,27 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     //Since there can be two different versions of a distance index, find seeds and clusters differently
 
     //One of these two will be filled
-    std::vector<Seed> seeds; std::vector<OldSeed> old_seeds;
     std::vector<Cluster> clusters;
-    if (distance_index != nullptr) {
-        //If there is the new version of the distance index
 
-        // Find the seeds and mark the minimizers that were located.
-        seeds = this->find_seeds<Seed>(minimizers, aln, funnel);
+    // Find the seeds and mark the minimizers that were located.
+    vector<Seed> seeds = this->find_seeds<Seed>(minimizers, aln, funnel);
 
-        // Cluster the seeds. Get sets of input seed indexes that go together.
-        if (track_provenance) {
-            funnel.stage("cluster");
-        }
-
-        clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
-    } else {
-        //Old version of the distance index
-        assert(old_distance_index != nullptr);
-
-        // Find the seeds and mark the minimizers that were located.
-        old_seeds = this->find_seeds<OldSeed>(minimizers, aln, funnel);
-
-        // Cluster the seeds. Get sets of input seed indexes that go together.
-        if (track_provenance) {
-            funnel.stage("cluster");
-        }
-
-        clusters = old_clusterer.cluster_seeds(old_seeds, get_distance_limit(aln.sequence().size()));
+    // Cluster the seeds. Get sets of input seed indexes that go together.
+    if (track_provenance) {
+        funnel.stage("cluster");
     }
+
+    clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
+    
+#ifdef debug_validate_clusters
+    vector<vector<Cluster>> all_clusters;
+    all_clusters.emplace_back(clusters);
+    vector<vector<Seed>> all_seeds;
+    all_seeds.emplace_back(seeds);
+    validate_clusters(all_clusters, all_seeds, get_distance_limit(aln.sequence().size()), 0);
+    
+
+#endif
 
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
@@ -503,11 +591,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     double best_cluster_score = 0.0, second_best_cluster_score = 0.0;
     for (size_t i = 0; i < clusters.size(); i++) {
         Cluster& cluster = clusters[i];
-        if (distance_index != nullptr) {
-            this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().length(), funnel);
-        } else {
-            this->score_cluster(cluster, i, minimizers, old_seeds, aln.sequence().length(), funnel);
-        }
+        this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().length(), funnel);
         if (cluster.score > best_cluster_score) {
             second_best_cluster_score = best_cluster_score;
             best_cluster_score = cluster.score;
@@ -624,59 +708,34 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // TODO: deduplicate with extend_cluster
                 minimizer_kept_cluster_count.emplace_back(minimizers.size(), 0);
                 for (auto seed_index : cluster.seeds) {
-                    if (distance_index != nullptr) {
-                        auto& seed = seeds[seed_index];
-                        minimizer_kept_cluster_count.back()[seed.source]++;
-                    } else {
-                        auto& seed = old_seeds[seed_index];
-                        minimizer_kept_cluster_count.back()[seed.source]++;
-                    }
+                    auto& seed = seeds[seed_index];
+                    minimizer_kept_cluster_count.back()[seed.source]++;
                 }
                 ++kept_cluster_count;
                
                 // Sort all the seeds used in the cluster by start position, so we can chain them.
                 std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
                 
-                if (distance_index != nullptr) {
-                    if (show_work) {
-                        dump_debug_seeds(minimizers, seeds, cluster.seeds);
-                    }
-                
-                    // Define a space to chain in.
-                    // TODO: re-use!
-                    algorithms::ChainingSpace<Seed, Minimizer> space(
-                        minimizers,
-                        *get_regular_aligner(),
-                        distance_index,
-                        &gbwt_graph);
-                        
-                    // Sort seeds by read start of seeded region
-                    std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
-                        return space.read_start(seeds[a]) < space.read_start(seeds[b]);
-                    });
-                        
-                    // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
-                } else {
-                    if (show_work) {
-                        dump_debug_seeds(minimizers, old_seeds, cluster.seeds);
-                    }
-                
-                    // Define a space to chain in.
-                    // TODO: re-use!
-                    algorithms::ChainingSpace<OldSeed, Minimizer> space(
-                        minimizers,
-                        *get_regular_aligner(),
-                        &gbwt_graph);
-                        
-                    // Sort seeds by read start of seeded region
-                    std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
-                        return space.read_start(old_seeds[a]) < space.read_start(old_seeds[b]);
-                    });
-                        
-                    // Compute the best chain
-                    cluster_chains.emplace_back(algorithms::find_best_chain<OldSeed>({old_seeds, cluster_seeds_sorted}, space));
+                if (show_work) {
+                    dump_debug_seeds(minimizers, seeds, cluster.seeds);
                 }
+                
+                // Define a space to chain in.
+                // TODO: re-use!
+                algorithms::ChainingSpace<Seed, Minimizer> space(
+                    minimizers,
+                    *get_regular_aligner(),
+                    distance_index,
+                    &gbwt_graph);
+                    
+                // Sort seeds by read start of seeded region
+                std::sort(cluster_seeds_sorted.begin(), cluster_seeds_sorted.end(), [&](const size_t& a, const size_t& b) -> bool {
+                    return space.read_start(seeds[a]) < space.read_start(seeds[b]);
+                });
+                    
+                // Compute the best chain
+                cluster_chains.emplace_back(algorithms::find_best_chain<Seed>({seeds, cluster_seeds_sorted}, space));
+                
                 
                 // Remember which sorted seeds go with which chains, so we can interpret the chains.
                 processed_cluster_sorted_seeds.emplace_back(std::move(cluster_seeds_sorted));
@@ -691,29 +750,16 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
             } else {
                 // We want to align from extensions, so we actually need extensions
-                if (distance_index != nullptr) {
-                    // Extend seed hits in the cluster into one or more gapless extensions
-                    cluster_extensions.emplace_back(this->extend_cluster(
-                        cluster,
-                        cluster_num,
-                        minimizers,
-                        seeds,
-                        aln.sequence(),
-                        minimizer_kept_cluster_count,
-                        kept_cluster_count,
-                        funnel));
-                } else {
-                    // Extend old seed hits in the cluster into one or more gapless extensions
-                    cluster_extensions.emplace_back(this->extend_cluster(
-                        cluster,
-                        cluster_num,
-                        minimizers,
-                        old_seeds,
-                        aln.sequence(),
-                        minimizer_kept_cluster_count,
-                        kept_cluster_count,
-                        funnel));
-                }
+                // Extend seed hits in the cluster into one or more gapless extensions
+                cluster_extensions.emplace_back(this->extend_cluster(
+                    cluster,
+                    cluster_num,
+                    minimizers,
+                    seeds,
+                    aln.sequence(),
+                    minimizer_kept_cluster_count,
+                    kept_cluster_count,
+                    funnel));
             }
             
             return true;
@@ -866,26 +912,15 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     auto& score_and_chain = cluster_chains[processed_num]; 
                     vector<size_t>& chain = score_and_chain.second;
                     
-                    if (distance_index != nullptr) {
-                        // Define a space to chain in.
-                        // TODO: re-use!
-                        algorithms::ChainingSpace<Seed, Minimizer> space(
-                            minimizers,
-                            *get_regular_aligner(),
-                            distance_index,
-                            &gbwt_graph);
-                        // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                        best_alignments[0] = find_chain_alignment(aln, {seeds, cluster_seeds_sorted}, space, chain);
-                    } else {
-                        // Define a space to chain in.
-                        // TODO: re-use!
-                        algorithms::ChainingSpace<OldSeed, Minimizer> space(
-                            minimizers,
-                            *get_regular_aligner(),
-                            &gbwt_graph);
-                        // Do the DP between the items in the cluster as specified by the chain we got for it. 
-                        best_alignments[0] = find_chain_alignment(aln, {old_seeds, cluster_seeds_sorted}, space, chain);
-                    }
+                    // Define a space to chain in.
+                    // TODO: re-use!
+                    algorithms::ChainingSpace<Seed, Minimizer> space(
+                        minimizers,
+                        *get_regular_aligner(),
+                        distance_index,
+                        &gbwt_graph);
+                    // Do the DP between the items in the cluster as specified by the chain we got for it. 
+                    best_alignments[0] = find_chain_alignment(aln, {seeds, cluster_seeds_sorted}, space, chain);
                     
                     // TODO: Come up with a good secondary for the cluster somehow.
                     // Traceback over the remaining extensions?
@@ -1162,11 +1197,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
     if (track_provenance) {
         if (track_correctness) {
-            if (distance_index != nullptr) {
-                annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, funnel);
-            } else {
-                annotate_with_minimizer_statistics(mappings[0], minimizers, old_seeds, funnel);
-            }
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, funnel);
         }
         // Annotate with parameters used for the filters.
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
@@ -1398,26 +1429,19 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     // Seeds for both reads, stored in separate vectors.
     std::vector<std::vector<Seed>> seeds_by_read(2);
-    std::vector<std::vector<OldSeed>> old_seeds_by_read(2);
-    if (distance_index != nullptr) {
-        seeds_by_read[0] = this->find_seeds<Seed>(minimizers_by_read[0], aln1, funnels[0]);
-        seeds_by_read[1] = this->find_seeds<Seed>(minimizers_by_read[1], aln2, funnels[1]);
-    } else {
-        old_seeds_by_read[0] = this->find_seeds<OldSeed>(minimizers_by_read[0], aln1, funnels[0]);
-        old_seeds_by_read[1] = this->find_seeds<OldSeed>(minimizers_by_read[1], aln2, funnels[1]);
-    }
+    seeds_by_read[0] = this->find_seeds<Seed>(minimizers_by_read[0], aln1, funnels[0]);
+    seeds_by_read[1 ]= this->find_seeds<Seed>(minimizers_by_read[1], aln2, funnels[1]);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
     }
-    std::vector<std::vector<Cluster>> all_clusters;
-    if (distance_index != nullptr) {
-        all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
-    } else {
-        all_clusters = old_clusterer.cluster_seeds(old_seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
-    }
+    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+#ifdef debug_validate_clusters
+    validate_clusters(all_clusters, seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+
+#endif
 
 
     //Keep track of which fragment clusters (clusters of clusters) have read clusters from each end
@@ -1486,11 +1510,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         for (size_t i = 0; i < clusters.size(); i++) {
             // Determine cluster score and read coverage.
             Cluster& cluster = clusters[i];
-            if (distance_index != nullptr) {
-                this->score_cluster(cluster, i, minimizers, seeds_by_read[read_num], aln.sequence().length(), funnels[read_num]);
-            } else {
-                this->score_cluster(cluster, i, minimizers, old_seeds_by_read[read_num], aln.sequence().length(), funnels[read_num]);
-            }
+            this->score_cluster(cluster, i, minimizers, seeds_by_read[read_num], aln.sequence().length(), funnels[read_num]);
             size_t fragment = cluster.fragment;
             best_cluster_score[fragment] = std::max(best_cluster_score[fragment], cluster.score);
             best_cluster_coverage[fragment] = std::max(best_cluster_coverage[fragment], cluster.coverage);
@@ -1574,7 +1594,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         std::vector<Cluster>& clusters = all_clusters[read_num];
         std::vector<Minimizer>& minimizers = minimizers_by_read[read_num];
         std::vector<Seed>& seeds = seeds_by_read[read_num];
-        std::vector<OldSeed>& old_seeds = old_seeds_by_read[read_num];
 
         if (show_work) {
             #pragma omp critical (cerr)
@@ -1696,29 +1715,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         }
                     }
                     
-                    if (distance_index != nullptr) {
-                        // Extend seed hits in the cluster into one or more gapless extensions
-                        cluster_extensions.emplace_back(std::move(this->extend_cluster(
-                            cluster,
-                            cluster_num,
-                            minimizers,
-                            seeds,
-                            aln.sequence(),
-                            minimizer_kept_cluster_count_by_read[read_num],
-                            kept_cluster_count,
-                            funnels[read_num])), cluster.fragment);
-                    } else {
-                        // Extend old seed hits in the cluster into one or more gapless extensions
-                        cluster_extensions.emplace_back(std::move(this->extend_cluster(
-                            cluster,
-                            cluster_num,
-                            minimizers,
-                            old_seeds,
-                            aln.sequence(),
-                            minimizer_kept_cluster_count_by_read[read_num],
-                            kept_cluster_count,
-                            funnels[read_num])), cluster.fragment); 
-                    }
+                    // Extend seed hits in the cluster into one or more gapless extensions
+                    cluster_extensions.emplace_back(std::move(this->extend_cluster(
+                        cluster,
+                        cluster_num,
+                        minimizers,
+                        seeds,
+                        aln.sequence(),
+                        minimizer_kept_cluster_count_by_read[read_num],
+                        kept_cluster_count,
+                        funnels[read_num])), cluster.fragment);
                     
                     return true;
                 } else {
@@ -2615,13 +2621,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     
     if (track_provenance) {
         if (track_correctness) {
-            if (distance_index != nullptr) {
-                annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], seeds_by_read[0], funnels[0]);
-                annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], seeds_by_read[1], funnels[1]);
-            } else {
-                annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], old_seeds_by_read[0], funnels[0]);
-                annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], old_seeds_by_read[1], funnels[1]);
-            }
+            annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], seeds_by_read[0], funnels[0]);
+            annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], seeds_by_read[1], funnels[1]);
         }
         // Annotate with parameters used for the filters.
         set_annotation(mappings.first[0] , "param_hit-cap", (double) hit_cap);
@@ -3014,11 +3015,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.std_dev());
     int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
 
-    if (distance_index != nullptr) {
-        subgraph_in_distance_range(*distance_index, aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
-    } else {
-        old_distance_index->subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
-    }
+    subgraph_in_distance_range(*distance_index, aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     if (rescue_nodes.size() == 0) {
         //If the rescue subgraph is empty
@@ -3201,13 +3198,15 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist;
-    if (distance_index != nullptr) {
-        min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2), false, &gbwt_graph);
-    } else {
-        min_dist = old_distance_index->min_distance(pos1, pos2);
-    }
-    return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+    int64_t min_dist= distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), 
+                                                get_is_rev(pos2), get_offset(pos2), false, &gbwt_graph);
+    return min_dist;
+}
+
+int64_t MinimizerMapper::unoriented_distance_between(pos_t pos1, pos_t pos2) const {
+
+    int64_t min_dist = distance_index->minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2), true, &gbwt_graph);
+    return min_dist;
 }
 
 void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
@@ -3406,7 +3405,7 @@ std::vector<SeedType> MinimizerMapper::find_seeds(const std::vector<Minimizer>& 
                 // TODO: Don't use the seed payload anymore
                 typename ST::chain_info_t chain_info = ST::no_chain_info();
                 if (minimizer.occs[j].payload != ST::MIPayload::NO_CODE) {
-                    chain_info = ST::MIPayload::decode(minimizer.occs[j].payload);
+                    chain_info = minimizer.occs[j].payload;
                 }
                 seeds.push_back(ST::chain_info_to_seed(hit, i, chain_info));
             }

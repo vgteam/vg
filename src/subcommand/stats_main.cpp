@@ -20,7 +20,7 @@
 #include "../handle.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../annotation.hpp"
-#include "../min_distance.hpp"
+#include "../snarl_distance_index.hpp"
 
 #include "../path.hpp"
 #include "../statistics.hpp"
@@ -1129,11 +1129,8 @@ int main_stats(int argc, char** argv) {
 
     if (!distance_index_filename.empty()) {
         //Print snarl stats from a distance index
-        ifstream infile;
-        infile.open(distance_index_filename);
-        auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile);
+        auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_index_filename);
         distance_index->print_snarl_stats();
-        infile.close();
     }
 
     return 0;

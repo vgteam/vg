@@ -58,7 +58,7 @@ namespace vg {
 
     MultipathMapper::MultipathMapper(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
-                                     MinimumDistanceIndex* distance_index) :
+                                     SnarlDistanceIndex* distance_index) :
         BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
@@ -839,7 +839,7 @@ namespace vg {
             int64_t min_distance = max(0.0, rescue_mean_length - other_aln.sequence().size()
                                        - rescue_graph_std_devs * fragment_length_distr.std_dev());
             int64_t max_distance = rescue_mean_length + rescue_graph_std_devs * fragment_length_distr.std_dev();
-            distance_index->subgraph_in_range(opt_anchoring_aln.path(), xindex, min_distance, max_distance,
+            subgraph_in_distance_range(*distance_index, opt_anchoring_aln.path(), xindex, min_distance, max_distance,
                                               subgraph_nodes_to_add, rescue_forward);
             
             // this algorithm is better matched to the GBWTGraph, we need to extract the subgraph manually now.
@@ -1241,14 +1241,15 @@ namespace vg {
         if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
             // measure the distance in both directions and choose the minimum (or the only) absolute distance
-            int64_t forward_dist = distance_index->min_distance(pos_1, pos_2);
-            int64_t reverse_dist = distance_index->min_distance(pos_2, pos_1);
-            if (forward_dist == -1 && reverse_dist == -1) {
+            size_t forward_dist = minimum_distance(*distance_index,pos_1, pos_2);
+            size_t reverse_dist = minimum_distance(*distance_index,pos_2, pos_1);
+            if (forward_dist == std::numeric_limits<size_t>::max() && reverse_dist == std::numeric_limits<size_t>::max()) {
                 // unreachable both ways, convert to the sentinel that the client code expects
                 dist = numeric_limits<int64_t>::max();
             }
-            else if (forward_dist == -1 || (reverse_dist < forward_dist && reverse_dist != -1)) {
-                dist = -reverse_dist;
+            else if (forward_dist == std::numeric_limits<size_t>::max() || 
+                     (reverse_dist < forward_dist && reverse_dist != std::numeric_limits<size_t>::max())) {
+                dist = - (int64_t)reverse_dist;
             }
             else {
                 dist = forward_dist;
@@ -1263,7 +1264,8 @@ namespace vg {
 
     int64_t MultipathMapper::distance(const pos_t& pos_1, const pos_t& pos_2) const {
         if (distance_index) {
-            return distance_index->min_distance(pos_1, pos_2);
+            size_t distance = minimum_distance(*distance_index, pos_1, pos_2);
+            return distance == std::numeric_limits<size_t>::max() ? -1 : (int64_t)distance;
         }
         else {
             return PathOrientedDistanceMeasurer(xindex).oriented_distance(pos_1, pos_2);
@@ -2748,11 +2750,11 @@ namespace vg {
                 
                 if (distance_index) {
                     // check if these regions can reach each other
-                    int64_t test_dist = distance_index->min_distance(left_seed_pos, right_seed_pos);
+                    size_t test_dist = minimum_distance(*distance_index, left_seed_pos, right_seed_pos);
 #ifdef debug_multipath_mapper
                     cerr << "got distance index test distance " << test_dist << " between seed positions " << left_seed_pos << " and " << right_seed_pos << endl;
 #endif
-                    if (test_dist < 0 || test_dist == numeric_limits<int64_t>::max() || test_dist > max_intron_length) {
+                    if (test_dist == numeric_limits<size_t>::max() || test_dist > max_intron_length) {
 #ifdef debug_multipath_mapper
                         cerr << "test distance shows that this pair of candidates cannot reach each other" << endl;
 #endif
