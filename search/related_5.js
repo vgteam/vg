@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['minimumdistanceindex_12302',['MinimumDistanceIndex',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#add2e684a8d89bece650446af2010ecdf',1,'vg::MinimumDistanceIndex::SnarlIndex::MinimumDistanceIndex()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#add2e684a8d89bece650446af2010ecdf',1,'vg::MinimumDistanceIndex::ChainIndex::MinimumDistanceIndex()']]]
+  ['pathforeachsocket_12146',['PathForEachSocket',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ad5b94c4a72e3d6d48be27cb00bc41ca2',1,'handlegraph::PathForEachSocket::iterator']]],
+  ['pathhandlegraph_12147',['PathHandleGraph',['../classhandlegraph_1_1PathForEachSocket.html#a4260787fbe094766e75485f7d7d9d0ca',1,'handlegraph::PathForEachSocket']]],
+  ['phasedgenome_12148',['PhasedGenome',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a9a2572c185819a46668ffbb59ff09008',1,'vg::PhasedGenome::Haplotype::PhasedGenome()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a9a2572c185819a46668ffbb59ff09008',1,'vg::PhasedGenome::iterator::PhasedGenome()']]]
 ];

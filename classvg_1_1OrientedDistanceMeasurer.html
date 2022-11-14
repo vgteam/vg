@@ -90,11 +90,11 @@ Inheritance diagram for vg::OrientedDistanceMeasurer:</div>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a5352a20621ca5018d567728fac12a44f"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#a5352a20621ca5018d567728fac12a44f">~OrientedDistanceMeasurer</a> ()=default</td></tr>
 <tr class="separator:a5352a20621ca5018d567728fac12a44f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af6551e771deca01e6af9054a1ad3d30e"><td class="memItemLeft" align="right" valign="top">virtual int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#af6551e771deca01e6af9054a1ad3d30e">oriented_distance</a> (const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos_1, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos_2)=0</td></tr>
+<tr class="memitem:af6551e771deca01e6af9054a1ad3d30e"><td class="memItemLeft" align="right" valign="top">virtual int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#af6551e771deca01e6af9054a1ad3d30e">oriented_distance</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos_1, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos_2)=0</td></tr>
 <tr class="separator:af6551e771deca01e6af9054a1ad3d30e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa21aedba58999e7041483f077720d13b"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#aa21aedba58999e7041483f077720d13b">get_buckets</a> (const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;get_position, size_t num_items)=0</td></tr>
+<tr class="memitem:aa21aedba58999e7041483f077720d13b"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#aa21aedba58999e7041483f077720d13b">get_buckets</a> (const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;get_position, size_t num_items)=0</td></tr>
 <tr class="separator:aa21aedba58999e7041483f077720d13b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a738f242df59c42bc9da14b07071b7ea3"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#a738f242df59c42bc9da14b07071b7ea3">exclude_merges</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;current_groups, const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;get_position)=0</td></tr>
+<tr class="memitem:a738f242df59c42bc9da14b07071b7ea3"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#a738f242df59c42bc9da14b07071b7ea3">exclude_merges</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;current_groups, const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;get_position)=0</td></tr>
 <tr class="separator:a738f242df59c42bc9da14b07071b7ea3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
@@ -142,7 +142,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;&#160;</td>
           <td class="paramname"><em>get_position</em>&#160;</td>
         </tr>
         <tr>
@@ -175,7 +175,7 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual vector&lt;vector&lt;size_t&gt; &gt; vg::OrientedDistanceMeasurer::get_buckets </td>
           <td>(</td>
-          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;&#160;</td>
           <td class="paramname"><em>get_position</em>, </td>
         </tr>
         <tr>
@@ -214,13 +214,13 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">virtual int64_t vg::OrientedDistanceMeasurer::oriented_distance </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_2</em>&#160;</td>
         </tr>
         <tr>

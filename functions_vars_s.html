@@ -138,7 +138,7 @@ $(function() {
 , <a class="el" href="classvg_1_1MEMChainModelVertex.html#a10cf4210b2f802b628111fe2cd1f309b">vg::MEMChainModelVertex</a>
 , <a class="el" href="classvg_1_1MEMClusterer_1_1HitNode.html#aa0f6834e2a0860792afc6a701d3396c3">vg::MEMClusterer::HitNode</a>
 , <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a002868b55e87a630c4e4f1e1ff213008">vg::MinimizerMapper::Minimizer</a>
-, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Cluster.html#a83c4fde3561eb0242e6789586f7d9189">vg::SnarlSeedClusterer::Cluster</a>
+, <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Cluster.html#abe1c7432c38de20678f5a74798d96bd4">vg::SnarlDistanceIndexClusterer::Cluster</a>
 , <a class="el" href="structvg_1_1Subpath.html#acffb5adff6c20c194740186323f1f484">vg::Subpath</a>
 , <a class="el" href="structvg_1_1WFAAlignment.html#a066d6b546e0308e8df7fc74f42d5de67">vg::WFAAlignment</a>
 , <a class="el" href="structvg_1_1WFAPoint.html#a6358c051265bfcc41d857f6df091eebb">vg::WFAPoint</a>
@@ -170,23 +170,20 @@ $(function() {
 <li>secondary_score
 : <a class="el" href="structvg_1_1Alignment.html#a58502a21a2588a5ac8baaa6e31c81eb4">vg::Alignment</a>
 </li>
-<li>secondary_snarl_assignments
-: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#ade884bcf2f53950760090a8e82fe4f5f">vg::MinimumDistanceIndex</a>
-</li>
-<li>secondary_snarl_ranks
-: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#af5552e3252a707a900daf39986181718">vg::MinimumDistanceIndex</a>
-</li>
 <li>seed
 : <a class="el" href="classvg_1_1MCMCGenotyper.html#aa2399e6a45d2595e08053cdb66207b37">vg::MCMCGenotyper</a>
 , <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">vg::NGSSimulator</a>
 , <a class="el" href="classvg_1_1SpliceRegion.html#a10732e3be85dbecaf6d046ba52f9f716">vg::SpliceRegion</a>
 </li>
 <li>seed_count_prefix_sum
-: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1TreeState.html#a7a862eaada1a2efe89806d7ef6905b3b">vg::NewSnarlSeedClusterer::TreeState</a>
+: <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1ClusteringProblem.html#af787cd3652afaa91cdebf97673456004">vg::SnarlDistanceIndexClusterer::ClusteringProblem</a>
+</li>
+<li>seed_indices
+: <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1SnarlTreeNodeProblem_1_1SnarlTreeChild.html#ad587cbee5a1b577adbc9548a99f857b4">vg::SnarlDistanceIndexClusterer::SnarlTreeNodeProblem::SnarlTreeChild</a>
 </li>
 <li>seeds
 : <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297">vg::BandedGlobalAligner&lt; IntType &gt;::BAMatrix</a>
-, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Cluster.html#a55cd7522067a0f2dfcb890bb9af47267">vg::SnarlSeedClusterer::Cluster</a>
+, <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Cluster.html#a0531ebefe7a686d6624c7b5f60357aeb">vg::SnarlDistanceIndexClusterer::Cluster</a>
 </li>
 <li>seek
 : <a class="el" href="structhFILE__backend.html#a93b5b1dcb35560b106e1cccb38476ddb">hFILE_backend</a>
@@ -232,9 +229,6 @@ $(function() {
 <li>sequence_source
 : <a class="el" href="structGraphHandler.html#a1583ae5e2c88d3099b62255a28978316">GraphHandler</a>
 </li>
-<li>set_chain_components
-: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1NodeClusters.html#a8146b9701234e991d7e83490a63a59c1">vg::NewSnarlSeedClusterer::NodeClusters</a>
-</li>
 <li>shift_prune_diff
 : <a class="el" href="classvg_1_1Surjector.html#a3768ca4fe69ba4c58cdbfe81343c56bd">vg::Surjector</a>
 </li>
@@ -272,9 +266,6 @@ $(function() {
 </li>
 <li>sigma
 : <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a6462bb11645a893b5dc2de057714d8f6">vg::FragmentLengthDistribution</a>
-</li>
-<li>simple_snarl_to_nodes_by_component
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a76057827a02e4fccf12b34fa4ab3e908">vg::SnarlSeedClusterer::TreeState</a>
 </li>
 <li>simplifications
 : <a class="el" href="classvg_1_1IndexRegistry.html#a6ca3e3d567e9436918e0e970e080c00e">vg::IndexRegistry</a>
@@ -329,9 +320,6 @@ $(function() {
 <li>snarl_caller
 : <a class="el" href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">vg::GraphCaller</a>
 </li>
-<li>snarl_indexes
-: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#af4069c481be448a5ad38cd514df04fb5">vg::MinimumDistanceIndex</a>
-</li>
 <li>snarl_into
 : <a class="el" href="classvg_1_1SnarlManager.html#a0f1d327aa074d59976802999d0d179d1">vg::SnarlManager</a>
 </li>
@@ -357,17 +345,8 @@ $(function() {
 <li>snarl_number
 : <a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#add50ce54457a4031ed0d8fd0b3b34e9f">vg::SnarlManager::SnarlRecord</a>
 </li>
-<li>snarl_rank
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html#ab28605421fc50b0128c0a62ea153563a">vg::SnarlSeedClusterer::Seed</a>
-</li>
 <li>snarl_reference_length_histogram
 : <a class="el" href="classvg_1_1Genotyper.html#ac0d4917131823fc2dab43927347d4623">vg::Genotyper</a>
-</li>
-<li>snarl_to_children
-: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1TreeState.html#a42b0d4502ed6817770263af0c8cd6aeb">vg::NewSnarlSeedClusterer::TreeState</a>
-</li>
-<li>snarl_to_nodes
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a813accb1c74cd2cff0bffef31db4dba8">vg::SnarlSeedClusterer::TreeState</a>
 </li>
 <li>snarl_traversals
 : <a class="el" href="classvg_1_1Genotyper.html#a7ec1915674299d727c61377e91385974">vg::Genotyper</a>
@@ -391,8 +370,7 @@ $(function() {
 </li>
 <li>source
 : <a class="el" href="structvg_1_1GFFRecord.html#a5bc594d1d69edca2081740dcc5e27bbf">vg::GFFRecord</a>
-, <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1Seed.html#a4722de9798eda0494902794031e59496">vg::NewSnarlSeedClusterer::Seed</a>
-, <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html#a4e3911b480e12d7cf4bb108512419a74">vg::SnarlSeedClusterer::Seed</a>
+, <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1Seed.html#a440d7f98f38d52de226e584f88784381">vg::SnarlDistanceIndexClusterer::Seed</a>
 </li>
 <li>source_fwd
 : <a class="el" href="classvg_1_1SourceSinkOverlay.html#ae2d7c52a07eeef273ad95972c158c940">vg::SourceSinkOverlay</a>
@@ -457,15 +435,6 @@ $(function() {
 </li>
 <li>start_end_reachable
 : <a class="el" href="structvg_1_1Snarl.html#acab3c449de2871769eb9a39ba5f9b8f8">vg::Snarl</a>
-</li>
-<li>start_in
-: <a class="el" href="structvg_1_1NewSnarlSeedClusterer_1_1NodeClusters.html#aa774a571c120013d6da1b2b8811160ad">vg::NewSnarlSeedClusterer::NodeClusters</a>
-</li>
-<li>START_LEN_OFFSET
-: <a class="el" href="structvg_1_1MinimumDistanceIndex_1_1MIPayload.html#a1ee5ee406a40cbbffc8b7b52ca5a6d44">vg::MinimumDistanceIndex::MIPayload</a>
-</li>
-<li>start_length
-: <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1Seed.html#aed09432643963e9b4abb47522cdab06f">vg::SnarlSeedClusterer::Seed</a>
 </li>
 <li>start_pos
 : <a class="el" href="classvg_1_1MEMClusterer_1_1HitNode.html#ac1772330432b54080ac41ec1a4302d8d">vg::MEMClusterer::HitNode</a>

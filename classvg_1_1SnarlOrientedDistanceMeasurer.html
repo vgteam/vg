@@ -88,16 +88,16 @@ Inheritance diagram for vg::SnarlOrientedDistanceMeasurer:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a1987e3b0a362c283df4f12a7715607c7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a1987e3b0a362c283df4f12a7715607c7">SnarlOrientedDistanceMeasurer</a> (<a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *<a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a920a9148feadc58023d55b09a54c1f43">distance_index</a>)</td></tr>
-<tr class="separator:a1987e3b0a362c283df4f12a7715607c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81db285adff1ae830dcaf2511652e17a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a81db285adff1ae830dcaf2511652e17a">SnarlOrientedDistanceMeasurer</a> (SnarlDistanceIndex *<a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a7dd96ca42452dc97acf3063f37435f54">distance_index</a>)</td></tr>
+<tr class="separator:a81db285adff1ae830dcaf2511652e17a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afba648bfa8f3712d2ed3fb698c36cdca"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#afba648bfa8f3712d2ed3fb698c36cdca">~SnarlOrientedDistanceMeasurer</a> ()=default</td></tr>
 <tr class="memdesc:afba648bfa8f3712d2ed3fb698c36cdca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default desctructor.  <a href="classvg_1_1SnarlOrientedDistanceMeasurer.html#afba648bfa8f3712d2ed3fb698c36cdca">More...</a><br /></td></tr>
 <tr class="separator:afba648bfa8f3712d2ed3fb698c36cdca"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8f8081d5bb9b0f5526935e2691f52dc3"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a8f8081d5bb9b0f5526935e2691f52dc3">oriented_distance</a> (const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos_1, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos_2)</td></tr>
+<tr class="memitem:a8f8081d5bb9b0f5526935e2691f52dc3"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a8f8081d5bb9b0f5526935e2691f52dc3">oriented_distance</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos_1, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;pos_2)</td></tr>
 <tr class="separator:a8f8081d5bb9b0f5526935e2691f52dc3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac885044126300cab4750fd21fd4634fc"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#ac885044126300cab4750fd21fd4634fc">get_buckets</a> (const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;get_position, size_t num_items)</td></tr>
+<tr class="memitem:ac885044126300cab4750fd21fd4634fc"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#ac885044126300cab4750fd21fd4634fc">get_buckets</a> (const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;get_position, size_t num_items)</td></tr>
 <tr class="separator:ac885044126300cab4750fd21fd4634fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a77a7d291ff3ea117e59861914ee84998"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a77a7d291ff3ea117e59861914ee84998">exclude_merges</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;current_groups, const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;get_position)</td></tr>
+<tr class="memitem:a77a7d291ff3ea117e59861914ee84998"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a77a7d291ff3ea117e59861914ee84998">exclude_merges</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;current_groups, const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;get_position)</td></tr>
 <tr class="separator:a77a7d291ff3ea117e59861914ee84998"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1OrientedDistanceMeasurer"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1OrientedDistanceMeasurer')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">vg::OrientedDistanceMeasurer</a></td></tr>
 <tr class="memitem:a5352a20621ca5018d567728fac12a44f inherit pub_methods_classvg_1_1OrientedDistanceMeasurer"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html#a5352a20621ca5018d567728fac12a44f">~OrientedDistanceMeasurer</a> ()=default</td></tr>
@@ -105,12 +105,12 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a920a9148feadc58023d55b09a54c1f43"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a920a9148feadc58023d55b09a54c1f43">distance_index</a> = nullptr</td></tr>
-<tr class="separator:a920a9148feadc58023d55b09a54c1f43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7dd96ca42452dc97acf3063f37435f54"><td class="memItemLeft" align="right" valign="top">SnarlDistanceIndex *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlOrientedDistanceMeasurer.html#a7dd96ca42452dc97acf3063f37435f54">distance_index</a> = nullptr</td></tr>
+<tr class="separator:a7dd96ca42452dc97acf3063f37435f54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a1987e3b0a362c283df4f12a7715607c7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1987e3b0a362c283df4f12a7715607c7">&#9670;&nbsp;</a></span>SnarlOrientedDistanceMeasurer()</h2>
+<a id="a81db285adff1ae830dcaf2511652e17a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81db285adff1ae830dcaf2511652e17a">&#9670;&nbsp;</a></span>SnarlOrientedDistanceMeasurer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -118,7 +118,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramtype">SnarlDistanceIndex *&#160;</td>
           <td class="paramname"><em>distance_index</em></td><td>)</td>
           <td></td>
         </tr>
@@ -173,7 +173,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;&#160;</td>
           <td class="paramname"><em>get_position</em>&#160;</td>
         </tr>
         <tr>
@@ -206,7 +206,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">vector&lt; vector&lt; size_t &gt; &gt; vg::SnarlOrientedDistanceMeasurer::get_buckets </td>
           <td>(</td>
-          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>(size_t)&gt; &amp;&#160;</td>
+          <td class="paramtype">const function&lt; <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>(size_t)&gt; &amp;&#160;</td>
           <td class="paramname"><em>get_position</em>, </td>
         </tr>
         <tr>
@@ -245,13 +245,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">int64_t vg::SnarlOrientedDistanceMeasurer::oriented_distance </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_2</em>&#160;</td>
         </tr>
         <tr>
@@ -273,8 +273,8 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a920a9148feadc58023d55b09a54c1f43"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a920a9148feadc58023d55b09a54c1f43">&#9670;&nbsp;</a></span>distance_index</h2>
+<a id="a7dd96ca42452dc97acf3063f37435f54"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7dd96ca42452dc97acf3063f37435f54">&#9670;&nbsp;</a></span>distance_index</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -283,7 +283,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a>* vg::SnarlOrientedDistanceMeasurer::distance_index = nullptr</td>
+          <td class="memname">SnarlDistanceIndex* vg::SnarlOrientedDistanceMeasurer::distance_index = nullptr</td>
         </tr>
       </table>
   </td>

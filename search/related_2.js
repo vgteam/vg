@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['chainindex_12297',['ChainIndex',['../classvg_1_1MinimumDistanceIndex.html#afced995fb6563341297c267c48395b7f',1,'vg::MinimumDistanceIndex']]]
+  ['haplotype_12139',['Haplotype',['../classvg_1_1PhasedGenome_1_1iterator.html#a2a8d7bc98747d6a54dbeef69cc966afc',1,'vg::PhasedGenome::iterator']]],
+  ['haplotypenode_12140',['HaplotypeNode',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a4f0160b2daeebec5d984b4fe1921887a',1,'vg::PhasedGenome::Haplotype']]]
 ];

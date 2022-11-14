@@ -189,7 +189,7 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:af05f461840ebac9a70156214c843ee39"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39">extract_linearized_path_graph</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle, size_t first, size_t last) const</td></tr>
 <tr class="memdesc:af05f461840ebac9a70156214c843ee39"><td class="mdescLeft">&#160;</td><td class="mdescRight">make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles  <a href="classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39">More...</a><br /></td></tr>
 <tr class="separator:af05f461840ebac9a70156214c843ee39"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">set_path_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;init_surj_pos, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;final_surj_pos, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_end, bool rev_strand, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out) const</td></tr>
+<tr class="memitem:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">set_path_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;init_surj_pos, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;final_surj_pos, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_end, bool rev_strand, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out) const</td></tr>
 <tr class="memdesc:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the graph position bounds and the path range bounds to assign a path position to a surjected read  <a href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">More...</a><br /></td></tr>
 <tr class="separator:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9a83875480f04c8dad0207ead58003b8"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
@@ -1319,13 +1319,13 @@ template&lt;class AlnType &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>init_surj_pos</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>final_surj_pos</em>, </td>
         </tr>
         <tr>

@@ -111,10 +111,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a43a88184e8dde8fd59a28a88ef6646a8"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a43a88184e8dde8fd59a28a88ef6646a8">read_length</a> (const Item &amp;item) const</td></tr>
 <tr class="memdesc:a43a88184e8dde8fd59a28a88ef6646a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of the item in the read.  <a href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a43a88184e8dde8fd59a28a88ef6646a8">More...</a><br /></td></tr>
 <tr class="separator:a43a88184e8dde8fd59a28a88ef6646a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5a1bbc5b42abff521992e76bfeb318d6"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a5a1bbc5b42abff521992e76bfeb318d6">graph_start</a> (const Item &amp;item) const =0</td></tr>
+<tr class="memitem:a5a1bbc5b42abff521992e76bfeb318d6"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a5a1bbc5b42abff521992e76bfeb318d6">graph_start</a> (const Item &amp;item) const =0</td></tr>
 <tr class="memdesc:a5a1bbc5b42abff521992e76bfeb318d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the start position of the item in the graph. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set.  <a href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a5a1bbc5b42abff521992e76bfeb318d6">More...</a><br /></td></tr>
 <tr class="separator:a5a1bbc5b42abff521992e76bfeb318d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7043e7a00435dbf4ff6b856e3d681e15"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a7043e7a00435dbf4ff6b856e3d681e15">graph_end</a> (const Item &amp;item) const =0</td></tr>
+<tr class="memitem:a7043e7a00435dbf4ff6b856e3d681e15"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a7043e7a00435dbf4ff6b856e3d681e15">graph_end</a> (const Item &amp;item) const =0</td></tr>
 <tr class="memdesc:a7043e7a00435dbf4ff6b856e3d681e15"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the past-end position of the item in the graph. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set.  <a href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a7043e7a00435dbf4ff6b856e3d681e15">More...</a><br /></td></tr>
 <tr class="separator:a7043e7a00435dbf4ff6b856e3d681e15"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f79c21709699e7c18ee45822f791fff"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html#a0f79c21709699e7c18ee45822f791fff">graph_length</a> (const Item &amp;item) const</td></tr>
@@ -464,7 +464,7 @@ template&lt;typename Item &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html">vg::algorithms::BaseChainingSpace</a>&lt; Item &gt;::graph_end </td>
+          <td class="memname">virtual <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html">vg::algorithms::BaseChainingSpace</a>&lt; Item &gt;::graph_end </td>
           <td>(</td>
           <td class="paramtype">const Item &amp;&#160;</td>
           <td class="paramname"><em>item</em></td><td>)</td>
@@ -480,7 +480,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Find the past-end position of the item in the graph. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a1cf0ceb7bbe6ec65c68ac53940331a7f">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a1cf0ceb7bbe6ec65c68ac53940331a7f">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a1cf0ceb7bbe6ec65c68ac53940331a7f">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#af69536d64eb3d188c98a72870a8c4051">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a1cf0ceb7bbe6ec65c68ac53940331a7f">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a1cf0ceb7bbe6ec65c68ac53940331a7f">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#af69536d64eb3d188c98a72870a8c4051">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -512,7 +512,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get the length of the item in the graph. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Reimplemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae3f0a1eacfc999af0a96ff3098f18522">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae3f0a1eacfc999af0a96ff3098f18522">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae3f0a1eacfc999af0a96ff3098f18522">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>.</p>
+<p>Reimplemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae3f0a1eacfc999af0a96ff3098f18522">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae3f0a1eacfc999af0a96ff3098f18522">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>.</p>
 
 </div>
 </div>
@@ -554,7 +554,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get the handle at the given index in the path through the graph. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#aa0e923dae311f0513632c2e76a330682">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#aa0e923dae311f0513632c2e76a330682">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#aa0e923dae311f0513632c2e76a330682">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a0a2bb2ed60c936aae76e5b8815eff214">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#aa0e923dae311f0513632c2e76a330682">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#aa0e923dae311f0513632c2e76a330682">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a0a2bb2ed60c936aae76e5b8815eff214">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -646,7 +646,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get the offset on the first handle at which the item starts. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae57189a39c70ce99812af9aa172cca50">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae57189a39c70ce99812af9aa172cca50">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae57189a39c70ce99812af9aa172cca50">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a6effa263f6d89545b929dea9b844767a">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae57189a39c70ce99812af9aa172cca50">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ae57189a39c70ce99812af9aa172cca50">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a6effa263f6d89545b929dea9b844767a">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -738,7 +738,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get the number of handles in the path through the graph. Must always be 1 or more. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a9c4831245cb01e301217c899badfe363">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3b4a4d19310f598b898c060e1ab4d726">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a9c4831245cb01e301217c899badfe363">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -754,7 +754,7 @@ template&lt;typename Item &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html">vg::algorithms::BaseChainingSpace</a>&lt; Item &gt;::graph_start </td>
+          <td class="memname">virtual <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace.html">vg::algorithms::BaseChainingSpace</a>&lt; Item &gt;::graph_start </td>
           <td>(</td>
           <td class="paramtype">const Item &amp;&#160;</td>
           <td class="paramname"><em>item</em></td><td>)</td>
@@ -770,7 +770,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Find the start position of the item in the graph. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a39ae9c98239d10252419e243ed0313f1">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a39ae9c98239d10252419e243ed0313f1">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a39ae9c98239d10252419e243ed0313f1">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a8125b9585ad62cf2539dbd0e2d6f4ed1">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a39ae9c98239d10252419e243ed0313f1">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a39ae9c98239d10252419e243ed0313f1">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a8125b9585ad62cf2539dbd0e2d6f4ed1">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -801,7 +801,7 @@ template&lt;typename Item &gt; </div>
 </div><div class="memdoc">
 <p>Return true if the first item is a perfect chain that can't be beat, and false otherwise. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a054c03da887ee3cbe294207949187d99">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a054c03da887ee3cbe294207949187d99">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a054c03da887ee3cbe294207949187d99">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a64c979f64327ec68a132b32f6ddd9a7a">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a054c03da887ee3cbe294207949187d99">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a054c03da887ee3cbe294207949187d99">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a64c979f64327ec68a132b32f6ddd9a7a">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -833,7 +833,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get where the item past-ends in the read. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a80600d5b82e0aa3f32e2aca1b1a8bed7">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a80600d5b82e0aa3f32e2aca1b1a8bed7">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a80600d5b82e0aa3f32e2aca1b1a8bed7">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a602283f48799cf7e8a21db6b150abbdd">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a80600d5b82e0aa3f32e2aca1b1a8bed7">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a80600d5b82e0aa3f32e2aca1b1a8bed7">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a602283f48799cf7e8a21db6b150abbdd">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -865,7 +865,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get the length of the item in the read. </p>
 
-<p>Reimplemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a17203a1e1e90f4cdbcffaf4eace3dd8d">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a17203a1e1e90f4cdbcffaf4eace3dd8d">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a17203a1e1e90f4cdbcffaf4eace3dd8d">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>.</p>
+<p>Reimplemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a17203a1e1e90f4cdbcffaf4eace3dd8d">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a17203a1e1e90f4cdbcffaf4eace3dd8d">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>.</p>
 
 </div>
 </div>
@@ -897,7 +897,7 @@ template&lt;typename Item &gt; </div>
 
 <p>Get where the item starts in the read. </p>
 
-<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ac7a9274259521e1d772b55fc3a187f88">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ac7a9274259521e1d772b55fc3a187f88">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ac7a9274259521e1d772b55fc3a187f88">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a755e7ecc7f17e1e13b28348239305962">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
+<p>Implemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ac7a9274259521e1d772b55fc3a187f88">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#ac7a9274259521e1d772b55fc3a187f88">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1ChainingSpace_3_01GaplessExtension_00_01void_01_4.html#a755e7ecc7f17e1e13b28348239305962">vg::algorithms::ChainingSpace&lt; GaplessExtension, void &gt;</a>.</p>
 
 </div>
 </div>
@@ -1042,7 +1042,7 @@ template&lt;typename Item &gt; </div>
 </div><div class="memdoc">
 <p>Run checks to make sure the item is properly formed. <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> must be set. </p>
 
-<p>Reimplemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3e59cda40affc7b5c5d56b56b83ca8d3">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlSeedClusterer::Seed, Source &gt;</a>, <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3e59cda40affc7b5c5d56b56b83ca8d3">vg::algorithms::MinimizerSourceChainingSpace&lt; NewSnarlSeedClusterer::Seed, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3e59cda40affc7b5c5d56b56b83ca8d3">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>.</p>
+<p>Reimplemented in <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3e59cda40affc7b5c5d56b56b83ca8d3">vg::algorithms::MinimizerSourceChainingSpace&lt; SnarlDistanceIndexClusterer::Seed, Source &gt;</a>, and <a class="el" href="structvg_1_1algorithms_1_1MinimizerSourceChainingSpace.html#a3e59cda40affc7b5c5d56b56b83ca8d3">vg::algorithms::MinimizerSourceChainingSpace&lt; Item, Source &gt;</a>.</p>
 
 </div>
 </div>

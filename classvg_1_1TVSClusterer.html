@@ -89,8 +89,8 @@ Inheritance diagram for vg::TVSClusterer:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a3e61d65108763fd70bacb7d680c5de3f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TVSClusterer.html#a3e61d65108763fd70bacb7d680c5de3f">TVSClusterer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *handle_graph, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *distance_index)</td></tr>
-<tr class="separator:a3e61d65108763fd70bacb7d680c5de3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b8fdb6006095094e85e6f760b8d0e3d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TVSClusterer.html#a5b8fdb6006095094e85e6f760b8d0e3d">TVSClusterer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *handle_graph, SnarlDistanceIndex *distance_index)</td></tr>
+<tr class="separator:a5b8fdb6006095094e85e6f760b8d0e3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0bd55ec4d0141dbd6b22cab86e2af85"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TVSClusterer.html#ad0bd55ec4d0141dbd6b22cab86e2af85">~TVSClusterer</a> ()=default</td></tr>
 <tr class="separator:ad0bd55ec4d0141dbd6b22cab86e2af85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1477ce3367e036c0ecc101e1518b49b9"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TVSClusterer.html#a1477ce3367e036c0ecc101e1518b49b9">pair_clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_2, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a846067e40dbd876a5344a62145c3326b">cluster_t</a> * &gt; &amp;left_clusters, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a846067e40dbd876a5344a62145c3326b">cluster_t</a> * &gt; &amp;right_clusters, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;left_alt_cluster_anchors, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;right_alt_cluster_anchors, int64_t optimal_separation, int64_t max_deviation)</td></tr>
@@ -123,7 +123,7 @@ Protected Attributes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pub_types_classvg_1_1MEMClusterer"><td colspan="2" onclick="javascript:toggleInherit('pub_types_classvg_1_1MEMClusterer')"><img src="closed.png" alt="-"/>&#160;Public Types inherited from <a class="el" href="classvg_1_1MEMClusterer.html">vg::MEMClusterer</a></td></tr>
-<tr class="memitem:a679c48e684ac52020fb363aa946037c7 inherit pub_types_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7">hit_t</a> = pair&lt; const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;</td></tr>
+<tr class="memitem:a679c48e684ac52020fb363aa946037c7 inherit pub_types_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7">hit_t</a> = pair&lt; const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &gt;</td></tr>
 <tr class="separator:a679c48e684ac52020fb363aa946037c7 inherit pub_types_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a846067e40dbd876a5344a62145c3326b inherit pub_types_classvg_1_1MEMClusterer"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a846067e40dbd876a5344a62145c3326b">cluster_t</a> = pair&lt; vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7">hit_t</a> &gt;, double &gt;</td></tr>
 <tr class="memdesc:a846067e40dbd876a5344a62145c3326b inherit pub_types_classvg_1_1MEMClusterer"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each cluster is a vector of hits and a paired multiplicity.  <a href="classvg_1_1MEMClusterer.html#a846067e40dbd876a5344a62145c3326b">More...</a><br /></td></tr>
@@ -136,8 +136,8 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:a9b8459888ec7b51e739c3be04825b4fd inherit pub_attribs_classvg_1_1MEMClusterer"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a3e61d65108763fd70bacb7d680c5de3f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3e61d65108763fd70bacb7d680c5de3f">&#9670;&nbsp;</a></span>TVSClusterer()</h2>
+<a id="a5b8fdb6006095094e85e6f760b8d0e3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b8fdb6006095094e85e6f760b8d0e3d">&#9670;&nbsp;</a></span>TVSClusterer()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -151,7 +151,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramtype">SnarlDistanceIndex *&#160;</td>
           <td class="paramname"><em>distance_index</em>&#160;</td>
         </tr>
         <tr>

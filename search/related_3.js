@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['haplotype_12298',['Haplotype',['../classvg_1_1PhasedGenome_1_1iterator.html#a2a8d7bc98747d6a54dbeef69cc966afc',1,'vg::PhasedGenome::iterator']]],
-  ['haplotypenode_12299',['HaplotypeNode',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a4f0160b2daeebec5d984b4fe1921887a',1,'vg::PhasedGenome::Haplotype']]]
+  ['indexingplan_12141',['IndexingPlan',['../classvg_1_1IndexRegistry.html#a490f2f891225b54cb14e32d593f30f5c',1,'vg::IndexRegistry']]],
+  ['indexregistry_12142',['IndexRegistry',['../classvg_1_1IndexingPlan.html#a77ea72c93e5f6c8a5e65279ae52aec32',1,'vg::IndexingPlan']]]
 ];
