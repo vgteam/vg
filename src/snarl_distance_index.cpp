@@ -1195,7 +1195,7 @@ cerr << "Start positon: "<< start_pos << endl;
 
     //Graph node of the start and end of the current node(/snarl/chain) pointing out
     net_handle_t current_net = distance_index.get_node_net_handle(get_id(start_pos));
-    net_handle_t parent = distance_index.get_parent(current_net);
+    net_handle_t parent = distance_index.start_end_traversal_of(distance_index.get_parent(current_net));
 
     //The id and orientation of nodes that are too close and should be avoided
     hash_set<pair<id_t, bool>> seen_nodes;
@@ -1383,7 +1383,7 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
                 bound = distance_index.get_node_from_sentinel(bound);
             }
             handle_t current_node = distance_index.get_handle(bound, super_graph);
-                    seen_nodes.emplace(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node));
+            seen_nodes.emplace(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node));
         }
         if (current_distance_right != std::numeric_limits<size_t>::max()) {
             //If we can go right
@@ -1393,7 +1393,7 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
                 bound = distance_index.get_node_from_sentinel(bound);
             }
             handle_t current_node = distance_index.get_handle(bound, super_graph);
-                    seen_nodes.emplace(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node));
+            seen_nodes.emplace(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node));
         }
 
         current_distance_left = std::min(distance_start_left, distance_start_right);
