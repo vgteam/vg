@@ -147,6 +147,10 @@ bool is_gzipped(const string& filename) {
 
 int64_t get_num_samples(const string& vcf_filename) {
     htsFile* vcf_file = hts_open(vcf_filename.c_str(),"rb");
+    if (!vcf_file) {
+        cerr << "error:[IndexRegistry]: Failed to open VCF file: " << vcf_filename << endl;
+        exit(1);
+    }
     bcf_hdr_t* header = bcf_hdr_read(vcf_file);
     int64_t num_samples = bcf_hdr_nsamples(header);
     bcf_hdr_destroy(header);
@@ -551,7 +555,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     auto chunk_contigs = [](const vector<const IndexFile*>& inputs,
                             const IndexingPlan* plan,
                             AliasGraph& alias_graph,
-                            const IndexGroup& constructing) {
+                            const IndexGroup& constructing,
+                            bool phased_vcf) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Chunking inputs for parallelism." << endl;
@@ -963,6 +968,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vector<atomic<bool>> input_checked_out_or_finished(vcf_filenames.size());
         for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
             htsFile* vcf = bcf_open(vcf_filenames[i].c_str(), "r");
+            if (!vcf) {
+                cerr << "error:[IndexRegistry] failed to open VCF " << vcf_filenames[i] << endl;
+                exit(1);
+            }
             bcf_hdr_t* header = bcf_hdr_read(vcf);
             bcf1_t* vcf_rec = bcf_init();
             int err_code = bcf_read(vcf, header, vcf_rec);
@@ -1036,10 +1045,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     htsFile* vcf = bcf_open(output_vcf_name.c_str(), "wz");
                     bcf_hdr_t* header = bcf_hdr_init("w");
                     // this is to satisfy HaplotypeIndexer, which doesn't like sample-less VCFs
-                    int sample_add_code = bcf_hdr_add_sample(header, "dummy");
-                    if (sample_add_code != 0) {
-                        cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
-                        exit(1);
+                    if (phased_vcf) {
+                        int sample_add_code = bcf_hdr_add_sample(header, "dummy");
+                        if (sample_add_code != 0) {
+                            cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
+                            exit(1);
+                        }
                     }
                     int hdr_write_err_code = bcf_hdr_write(vcf, header);
                     if (hdr_write_err_code != 0) {
@@ -1141,13 +1152,19 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                 }
                 
-                // documentation in htslib/vcf.h says that this has to be called after addding samples
+                // documentation in htslib/vcf.h says that this has to be called after adding samples
                 int sync_err_code = bcf_hdr_sync(header_out);
                 if (sync_err_code != 0) {
                     cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
                     exit(1);
                 }
-                if (bcf_hdr_nsamples(header_out) == 0) {
+                if (phased_vcf && bcf_hdr_nsamples(header_out) == 0) {
+                    cerr << "warning:[IndexRegistry] VCF inputs from file(s)";
+                    for (auto vcf_idx : vcf_indexes) {
+                        cerr << " " << vcf_filenames[vcf_idx];
+                    }
+                    cerr << " have been identified as phased but contain no samples. Are these valid inputs?" << endl;
+                    
                     // let's add a dummy so that HaplotypeIndexer doesn't get mad later
                     int sample_add_code = bcf_hdr_add_sample(header_out, "dummy");
                     if (sample_add_code != 0) {
@@ -1587,28 +1604,28 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        return chunk_contigs(inputs, plan, alias_graph, constructing);
+        return chunk_contigs(inputs, plan, alias_graph, constructing, true);
     });
     registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"}, {"GTF/GFF", "Reference FASTA", "VCF"},
                              [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        return chunk_contigs(inputs, plan, alias_graph, constructing);
+        return chunk_contigs(inputs, plan, alias_graph, constructing, false);
     });
     registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"Reference FASTA", "VCF w/ Phasing"},
                              [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        return chunk_contigs(inputs, plan, alias_graph, constructing);
+        return chunk_contigs(inputs, plan, alias_graph, constructing, true);
     });
     registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF"}, {"Reference FASTA", "VCF"},
                              [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        return chunk_contigs(inputs, plan, alias_graph, constructing);
+        return chunk_contigs(inputs, plan, alias_graph, constructing, false);
     });
     
     
@@ -3539,7 +3556,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         string output_name = plan->output_filepath(gbz_output);
         
         gbwtgraph::GFAParsingParameters params = get_best_gbwtgraph_gfa_parsing_parameters();
-        // TODO: there's supposedly a heuristic to set back size that could perform better than this global param,
+        // TODO: there's supposedly a heuristic to set batch size that could perform better than this global param,
         // but it would be kind of a pain to update it like we do the global param
         params.batch_size = IndexingParameters::gbwt_insert_batch_size;
         params.sample_interval = IndexingParameters::gbwt_sampling_interval;
@@ -4285,6 +4302,10 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
     constexpr int vars_to_check = 1 << 15;
     
     htsFile* file = hts_open(filepath.c_str(), "rb");
+    if (!file) {
+        cerr << "error:[IndexRegistry]: Failed to open VCF file: " << filepath << endl;
+        exit(1);
+    }
     bcf_hdr_t* hdr = bcf_hdr_read(file);
     int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
     // note: it seems that this is not necessary for expressing phasing after all
