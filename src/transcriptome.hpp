@@ -84,8 +84,8 @@ struct TranscriptPath {
     /// Haplotype gbwt origin ids.
     vector<gbwt::size_type> haplotype_gbwt_ids;
 
-    /// Copy index of transcript path 
-    uint32_t copy_index;
+    /// Copy id of transcript path 
+    uint32_t copy_id;
 
     /// Is it a reference and/or haplotype-specific transcript path.
     bool is_reference;
@@ -103,7 +103,7 @@ struct TranscriptPath {
         transcript_names.emplace_back(transcript_name);
         embedded_path_names.emplace_back(embedded_path_name);
 
-        copy_index = 1;
+        copy_id = 1;
     }
 
     TranscriptPath(const string & transcript_name, const gbwt::size_type & haplotype_gbwt_id, const bool is_reference_in, const bool is_haplotype_in) : is_reference(is_reference_in), is_haplotype(is_haplotype_in) {
@@ -115,7 +115,7 @@ struct TranscriptPath {
         transcript_names.emplace_back(transcript_name);
         haplotype_gbwt_ids.emplace_back(haplotype_gbwt_id);
 
-        copy_index = 1;
+        copy_id = 1;
     }
 
     virtual ~TranscriptPath() {};
@@ -136,7 +136,7 @@ struct EditedTranscriptPath : public TranscriptPath {
 
     ~EditedTranscriptPath() {};
 
-    handle_t get_first_node_handle(const HandleGraph * const graph) const;
+    handle_t get_first_node_handle(const HandleGraph & graph) const;
 
 };
 
@@ -148,10 +148,11 @@ struct CompletedTranscriptPath : public TranscriptPath {
     /// Transcript path.
     vector<handle_t> path;
 
-    CompletedTranscriptPath(const EditedTranscriptPath & edited_transcript_path, const HandleGraph * const graph);
+    CompletedTranscriptPath(const EditedTranscriptPath & edited_transcript_path);
+    CompletedTranscriptPath(const EditedTranscriptPath & edited_transcript_path, const HandleGraph & graph);
     ~CompletedTranscriptPath() {};
 
-    handle_t get_first_node_handle(const HandleGraph * const graph) const;
+    handle_t get_first_node_handle(const HandleGraph & graph) const;
 };
 
 struct MappingHash
@@ -236,19 +237,19 @@ class Transcriptome {
         /// graphs in the PackedGraph format. Return false if not sorted.
         bool sort_compact_nodes();
 
-        /// Embeds transcript paths in the graph.  
+        /// Embeds transcriptome transcript paths in the graph.  
         /// Returns the number of paths embedded.
         int32_t embed_transcript_paths(const bool add_reference_transcripts, const bool add_haplotype_transcripts);
 
-        /// Adds transcript paths as threads to a GBWT index.
+        /// Adds transcriptome transcript paths as threads to a GBWT index.
         /// Returns the number of added threads.
         int32_t add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool output_reference_transcripts) const;
 
-        /// Writes transcript path sequences to a fasta file.  
+        /// Writes transcriptome transcript path sequences to a fasta file.  
         /// Returns the number of written sequences.
         int32_t write_transcript_sequences(ostream * fasta_ostream, const bool output_reference_transcripts) const;
 
-        /// Writes info on transcript paths to tsv file.
+        /// Writes info on transcriptome transcript paths to tsv file.
         /// Returns the number of written transcripts.
         int32_t write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool output_reference_transcripts) const;
 
@@ -307,10 +308,11 @@ class Transcriptome {
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 
+        /// Adds haplotype transcript to transcriptome.
         void project_haplotype_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length);
 
         /// Threaded haplotype transcript projecting.
-        void project_haplotype_transcripts_callback(spp::sparse_hash_map<handle_t, vector<CompletedTranscriptPath *> > * completed_transcript_paths_index, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length);
+        void project_haplotype_transcripts_callback(list<CompletedTranscriptPath> * completed_transcript_paths, spp::sparse_hash_map<handle_t, vector<CompletedTranscriptPath *> > * completed_transcript_paths_index,  mutex * completed_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length);
 
         /// Projects transcripts onto haplotypes in a GBWT index and returns the resulting transcript paths.
         list<EditedTranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
@@ -319,10 +321,9 @@ class Transcriptome {
         /// resulting paths and the corresponding haplotype ids for each path.
         vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const;
 
-        /// Adds new transcript paths to current set and optionally collapses 
-        /// identical transcripts paths.
+        /// Remove redundant transcript paths and update index.
         template <class T>
-        void append_transcript_paths(list<T> * transcript_paths, spp::sparse_hash_map<handle_t, vector<T*> > * transcript_paths_index, list<T> * new_transcript_paths) const;
+        void remove_redundant_transcript_paths(list<T> * new_transcript_paths, spp::sparse_hash_map<handle_t, vector<T*> > * transcript_paths_index) const;
 
         /// Constructs completed transcripts paths from 
         /// edited transcript paths. Checks that the
@@ -339,24 +340,25 @@ class Transcriptome {
 
         /// Augments the graph with transcript path exon boundaries and 
         /// splice-junctions. Updates threads in gbwt index to match the augmented graph. 
-        /// Adds edited transcript paths as reference transcript paths.
+        /// Optinally adds transcript paths to the transcriptome.
         void augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths);
 
         /// Update threads in gbwt index using graph translations. 
-        void update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const spp::sparse_hash_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const;
+        void update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const spp::sparse_hash_map<handle_t, vector<pair<int32_t, handle_t> > > & update_index) const;
+
+        /// Update/split node handles in transcriptome transcript paths according to index.
+        void update_transcript_paths(const spp::sparse_hash_map<handle_t, vector<pair<int32_t, handle_t> > > & update_index);
 
         /// Adds transcript path splice-junction edges to the graph
         void add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths);
+        void add_splice_junction_edges(const list<CompletedTranscriptPath> & completed_transcript_paths);
         void add_splice_junction_edges(const vector<CompletedTranscriptPath> & completed_transcript_paths);
 
-        /// Collects all unique nodes in a set of transcript paths and adds them to a set.
-        void collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const;
+        /// Collects all unique nodes in transcriptome transcript paths.
+        void collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * transcribed_nodes) const;
 
-        /// Split node handles in transcript paths according to index.
-        void split_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const spp::sparse_hash_map<handle_t, vector<handle_t> > & split_index);
-
-        /// Update node handles in transcript paths according to index.
-        void update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const spp::sparse_hash_map<handle_t, handle_t> & update_index);
+        /// Update the copy ids of the transcript paths in the transcriptome 
+        void update_copy_id();
 };
 
 }

@@ -41,7 +41,7 @@ void no_multiple_inputs(input_type input);
 // Generate an XG with nodes, edges, and paths from input.
 // Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
-void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes = false);
+void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes);
 // Copy paths from input to output.
 // Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
@@ -299,7 +299,7 @@ int main_convert(int argc, char** argv) {
             cerr << "warning [vg convert]: currently cannot convert GFA directly to XG; converting through another format" << endl;
             algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
                                                  input_rgfa_rank, gfa_trans_path);
-            graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples);
+            graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples, drop_haplotypes);
         }
         else {
             // If the GFA doesn't have forward references, we can handle it
@@ -358,7 +358,7 @@ int main_convert(int argc, char** argv) {
                 xg::XG* xg_graph = dynamic_cast<xg::XG*>(output_graph.get());
                 if (input_path_graph != nullptr) {
                     // We can convert to XG with paths, which we might adjust
-                    graph_to_xg_adjusting_paths(input_path_graph, xg_graph, ref_samples);
+                    graph_to_xg_adjusting_paths(input_path_graph, xg_graph, ref_samples, drop_haplotypes);
                 } else {
                     // No paths, just convert to xg without paths
                     xg_graph->from_handle_graph(*input_graph);
@@ -472,6 +472,7 @@ void help_convert(char** argv) {
          << "    -x, --xg-out           output in XG format" << endl
          << "    -o, --odgi-out         output in ODGI format" << endl
          << "    -f, --gfa-out          output in GFA format" << endl
+         << "    -H, --drop-haplotypes  do not include haplotype paths in the output (useful with GBWTGraph / GBZ inputs)" << endl
          << "gfa output options (use with -f):" << endl
          << "    -P, --rgfa-path STR    write given path as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
          << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl

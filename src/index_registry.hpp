@@ -79,12 +79,20 @@ struct IndexingParameters {
     static int pruning_max_edge_count;
     // during pruning, remove any isolated components with at less than this total seq length [33]
     static int pruning_min_component_size;
+    // factor by which the pruning walk length is increased if GCSA2 indexing fails [1.5]
+    static double pruning_walk_length_increase_factor;
+    // factor by which the max degree is decreased if GCSA2 indexing fails [0.75]
+    static double pruning_max_node_degree_decrease_factor;
     // length of the k-mers indexed in GCSA2 before any doubling steps [16]
     static int gcsa_initial_kmer_length;
     // number of k-mer length doubling steps in GCSA2 [4]
     static int gcsa_doubling_steps;
+    // disk limit for temporary files in bytes [2TB]
+    static int64_t gcsa_size_limit;
     // number of gbwt nodes inserted at a time in dynamic gbwt [100M]
-    static int gbwt_insert_batch_size;
+    static int64_t gbwt_insert_batch_size;
+    // factor by which the batch size is increased if construction fails [10]
+    static int gbwt_insert_batch_size_increase_factor;
     // the sampling interval in the GBWT suffix array [1024]
     static int gbwt_sampling_interval;
     // should the haplotype-transcript GBWT be made bidirectional [false]
@@ -160,6 +168,10 @@ public:
     /// TODO: is this where this function wants to live?
     int64_t target_memory_usage() const;
     
+    /// Returns the recipes in the plan that depend on this index, including the one in which
+    /// it was created (if any)
+    set<RecipeName> dependents(const IndexName& identifier) const;
+    
 protected:
     
     /// The steps to be invoked in the plan. May be empty before the plan is
@@ -174,6 +186,7 @@ protected:
     /// create the work directory.
     IndexRegistry* registry;
 };
+
 
 /**
  * An object that can record methods to produce indexes and design
@@ -290,6 +303,9 @@ protected:
     
     /// generate a plan to create the indexes
     IndexingPlan make_plan(const IndexGroup& end_products) const;
+    
+    /// use a recipe identifier to get the recipe
+    const IndexRecipe& get_recipe(const RecipeName& recipe_name) const;
     
     /// Build the index using the recipe with the provided priority.
     /// Expose the plan so that the recipe knows where it is supposed to go.
@@ -430,11 +446,33 @@ class InsufficientInputException : public runtime_error {
 public:
     InsufficientInputException() = delete;
     InsufficientInputException(const IndexName& target,
-                               const IndexRegistry& registry);
-    const char* what() const throw ();
+                               const IndexRegistry& registry) noexcept;
+    const char* what() const noexcept;
 private:
+    string msg;
     IndexName target;
     vector<IndexName> inputs;
+};
+
+
+/**
+ * An exception that indicates that we must rewind the plan to re-create some indexes
+ */
+class RewindPlanException : public std::exception {
+public:
+    
+    RewindPlanException() = delete;
+    RewindPlanException(const string& msg, const IndexGroup& rewind_to) noexcept;
+    ~RewindPlanException() noexcept = default;
+    
+    const char* what() const noexcept;
+    const IndexGroup& get_indexes() const noexcept;
+    
+private:
+    
+    const string msg;
+    IndexGroup indexes;
+    
 };
 
 }

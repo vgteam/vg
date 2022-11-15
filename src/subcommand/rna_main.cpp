@@ -41,7 +41,7 @@ void help_rna(char** argv) {
          << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences (disables projection)" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
          << "    -c, --path-collapse TYPE   collapse identical transcript paths across no|haplotype|all paths [haplotype]" << endl
-         << "    -k, --max-node-length      chop nodes longer than maximum node length (0 disables chopping) [0]" << endl
+         << "    -k, --max-node-length INT  chop nodes longer than maximum node length (0 disables chopping) [0]" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes all paths in the graph)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact the graph" << endl
          << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the graph" << endl
@@ -72,7 +72,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     string haplotypes_filename;
     bool use_hap_ref = false;
     bool proj_emded_paths = false;
-    string path_collapse_type = "transcript";
+    string path_collapse_type = "haplotype";
     uint32_t max_node_length = 0;
     bool remove_non_transcribed_nodes = false;
     bool sort_collapse_graph = true;
