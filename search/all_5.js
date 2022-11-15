@@ -230,9 +230,10 @@ var searchData=
   ['extract_5fpath_5frange_1341',['extract_path_range',['../namespacevg_1_1algorithms.html#a6da60961fae57a5568354ef5b541bcf7',1,'vg::algorithms']]],
   ['extract_5frescue_5fgraph_1342',['extract_rescue_graph',['../classvg_1_1MultipathMapper.html#a6cecbd08d03efe5b248cf2e93e5f619c',1,'vg::MultipathMapper']]],
   ['extract_5frestrained_5fgraph_1343',['extract_restrained_graph',['../classvg_1_1MultipathMapper.html#a282d59b6aa693b4f454ab25c5f7f328c',1,'vg::MultipathMapper']]],
-  ['extract_5fsub_5fmultipath_5falignment_1344',['extract_sub_multipath_alignment',['../namespacevg.html#a2b9703408d4c7160e8d9e83303c4d1c7',1,'vg']]],
-  ['extract_5fsubgraph_1345',['extract_subgraph',['../classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e',1,'vg::PathChunker']]],
-  ['extracted_1346',['extracted',['../classvg_1_1IncrementalSubgraph.html#a07d9afa325ba5788ae4ad9cb4539d644',1,'vg::IncrementalSubgraph']]],
-  ['extracting_5fleft_1347',['extracting_left',['../classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95',1,'vg::IncrementalSubgraph']]],
-  ['extranodegraph_1348',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg::ExtraNodeGraph'],['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph::ExtraNodeGraph()']]]
+  ['extract_5fsnarls_1344',['extract_snarls',['../classvg_1_1PathChunker.html#a20d6a2e56df993a7420e5b1c62df5154',1,'vg::PathChunker']]],
+  ['extract_5fsub_5fmultipath_5falignment_1345',['extract_sub_multipath_alignment',['../namespacevg.html#a2b9703408d4c7160e8d9e83303c4d1c7',1,'vg']]],
+  ['extract_5fsubgraph_1346',['extract_subgraph',['../classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e',1,'vg::PathChunker']]],
+  ['extracted_1347',['extracted',['../classvg_1_1IncrementalSubgraph.html#a07d9afa325ba5788ae4ad9cb4539d644',1,'vg::IncrementalSubgraph']]],
+  ['extracting_5fleft_1348',['extracting_left',['../classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95',1,'vg::IncrementalSubgraph']]],
+  ['extranodegraph_1349',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg::ExtraNodeGraph'],['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph::ExtraNodeGraph()']]]
 ];

@@ -85,6 +85,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a49b9500998c8e6faace1206d587ac67d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90aac076d1669b467ca5ca5868c7ed2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e">extract_subgraph</a> (const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, int64_t context, int64_t length, bool forward_only, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
 <tr class="separator:a90aac076d1669b467ca5ca5868c7ed2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20d6a2e56df993a7420e5b1c62df5154"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#a20d6a2e56df993a7420e5b1c62df5154">extract_snarls</a> (const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;region, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph)</td></tr>
+<tr class="separator:a20d6a2e56df993a7420e5b1c62df5154"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca0d2bec2834fdc534d42238a0a53b46"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#aca0d2bec2834fdc534d42238a0a53b46">extract_path_component</a> (const string &amp;path_name, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
 <tr class="separator:aca0d2bec2834fdc534d42238a0a53b46"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae971765e047d0f1747b7f481003c73c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathChunker.html#ae971765e047d0f1747b7f481003c73c7">extract_component</a> (const unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;node_ids, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;subgraph, bool subpath_naming)</td></tr>
@@ -264,6 +266,41 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Extract a connected component containing a given path </p>
+
+</div>
+</div>
+<a id="a20d6a2e56df993a7420e5b1c62df5154"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a20d6a2e56df993a7420e5b1c62df5154">&#9670;&nbsp;</a></span>extract_snarls()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::PathChunker::extract_snarls </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Region.html">Region</a> &amp;&#160;</td>
+          <td class="paramname"><em>region</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl_manager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Extract the region along the given path, and any snarls fully contained in it. This will often give more intuitive results than messing with context steps, which can run way outside the region of interest </p>
 
 </div>
 </div>
