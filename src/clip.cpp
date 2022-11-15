@@ -15,7 +15,7 @@ using namespace std;
 // then return it (or nullptr if none found)
 // also return the snarl's interval (as pair of offsets) in the path
 // this logic is mostly lifted from deconstructor which does the same thing to get vcf coordinates.
-static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool> get_containing_region(PathPositionHandleGraph* graph,
+static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool> get_containing_region(const PathPositionHandleGraph* graph,
                                                                                                         PathTraversalFinder& trav_finder,
                                                                                                         const Snarl* snarl,
                                                                                                         unordered_map<string, IntervalTree<int64_t, const Region*>>& contig_to_interval_tree,
@@ -81,7 +81,7 @@ static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool
     return make_tuple(nullptr, step_handle_t(), step_handle_t(), -1, -1, false);
 }
 
-void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
+void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
                             function<void(const Snarl*, step_handle_t, step_handle_t, int64_t, int64_t, bool, const Region*)> visit_fn) {
 

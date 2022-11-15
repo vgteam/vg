@@ -53,6 +53,7 @@ void help_chunk(char** argv) {
          << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format" << endl
          << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
          << "    -e, --input-bed FILE     write chunks for all (0-based end-exclusive) bed regions" << endl
+         << "    -S, --snarls FILE        write given path-range(s) and all snarls fully contained in them, as alternative to -c" << endl
          << "id range chunking:" << endl
          << "    -r, --node-range N:M     write the chunk for the specified node range to standard output\n"
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
@@ -73,7 +74,7 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [VG]" << endl
+         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [vg]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -108,6 +109,7 @@ int main_chunk(int argc, char** argv) {
     string output_format = "vg";
     bool components = false;
     bool path_components = false;
+    string snarl_filename;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -124,6 +126,7 @@ int main_chunk(int argc, char** argv) {
             {"chunk-size", required_argument, 0, 's'},
             {"overlap", required_argument, 0, 'o'},
             {"input-bed", required_argument, 0, 'e'},
+            {"snarls", required_argument, 0, 'S'},
             {"output-bed", required_argument, 0, 'E'},
             {"prefix", required_argument, 0, 'b'},
             {"context", required_argument, 0, 'c'},
@@ -142,7 +145,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:CMO:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:S:E:b:c:r:R:Tft:n:l:m:CMO:",
                 long_options, &option_index);
 
 
@@ -188,7 +191,11 @@ int main_chunk(int argc, char** argv) {
         case 'e':
             in_bed_file = optarg;
             break;
-
+            
+        case 'S':
+            snarl_filename = optarg;
+            break;
+            
         case 'E':
             out_bed_file = optarg;
             break;
@@ -285,6 +292,15 @@ int main_chunk(int argc, char** argv) {
         return 1;
     }
 
+    if (!snarl_filename.empty() && context_steps >= 0) {
+        cerr << "error:[vg chunk] context cannot be specified (-c) when using snarls (-S)" << endl;
+        return 1;
+    }
+    if (!snarl_filename.empty() && region_strings.empty() && path_list_file.empty() && in_bed_file.empty()) {
+        cerr << "error:[vg chunk] snarl chunking can only be used with path regions (-p -P  -e)" << endl;
+        return 1;        
+    }
+
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
     if (!vg::io::valid_output_format(output_format)) {
@@ -298,6 +314,17 @@ int main_chunk(int argc, char** argv) {
     // but we only write the subgraphs to disk if chunk_graph is true. 
     bool chunk_gam = !gam_files.empty() && gam_split_size == 0;
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
+
+    // Load the snarls
+    unique_ptr<SnarlManager> snarl_manager;
+    if (!snarl_filename.empty()) {
+        ifstream snarl_file(snarl_filename.c_str());
+        if (!snarl_file) {
+            cerr << "error:[vg chunk] Unable to load snarls file: " << snarl_filename << endl;
+            return 1;
+        }
+        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+    }
 
     // Load our index
     PathPositionHandleGraph* graph = nullptr;
@@ -474,8 +501,8 @@ int main_chunk(int argc, char** argv) {
             if (!context_length) {
                 context_steps = 1;
             }
-        } else if (!components){
-            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
+        } else if (!components && snarl_filename.empty()){
+            cerr << "error:[vg chunk] context (-c) or snarls (-S)  must be specified when chunking on paths" << endl;
             return 1;
         }
     }
@@ -614,6 +641,9 @@ int main_chunk(int argc, char** argv) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
             if (components == true) {
                 chunker.extract_path_component(region.seq, *subgraph, output_regions[i]);
+            } else if (snarl_manager.get() != nullptr) {
+                chunker.extract_snarls(region, *snarl_manager, *subgraph);
+                output_regions[i] = region;                
             } else {
                 chunker.extract_subgraph(region, context_steps, context_length,
                                          trace, *subgraph, output_regions[i]);

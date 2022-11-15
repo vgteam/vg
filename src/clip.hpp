@@ -21,7 +21,7 @@ using namespace std;
  * The parameters to visit_fn are: 
  *    <the snarl, start_step, end_step, steps_reversed, the containing input region>
  */
-void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
+void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
                             function<void(const Snarl*, step_handle_t, step_handle_t, int64_t, int64_t, bool, const Region*)> visit_fn);
 

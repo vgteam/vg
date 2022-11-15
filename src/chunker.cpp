@@ -4,6 +4,7 @@
 #include "chunker.hpp"
 #include "algorithms/subgraph.hpp"
 #include "vg.hpp"
+#include "clip.hpp"
 
 //#define debug
 
@@ -296,6 +297,60 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
     out_region.seq = region.seq;
     out_region.start = input_start_pos - left_padding;
     out_region.end = input_end_pos + graph->get_length(end_handle) + right_padding - 1;
+}
+
+void PathChunker::extract_snarls(const Region& region, SnarlManager& snarl_manager, MutablePathMutableHandleGraph& subgraph) {
+
+    // copy over the path extraction code from above:
+
+    // extract our path range into the graph
+    path_handle_t path_handle = graph->get_path_handle(region.seq);
+    step_handle_t start_step = graph->get_step_at_position(path_handle, region.start);
+    handle_t start_handle = graph->get_handle_of_step(start_step);
+    step_handle_t end_step = graph->get_step_at_position(path_handle, region.end);    
+    handle_t end_handle = graph->get_handle_of_step(end_step);
+
+#ifdef debug
+#pragma omp critical(cerr)
+    {
+        cerr << "extracting subgraph range for " << region.seq << ":" << region.start << "-" << region.end
+             << ", wich maps to handle range " << graph->get_id(start_handle) << ":" << graph->get_is_reverse(start_handle) << "-"
+             << graph->get_id(end_handle) << ":" << graph->get_is_reverse(end_handle) << endl;
+    }
+#endif
+
+    step_handle_t end_plus_one_step = graph->has_next_step(end_step) ? graph->get_next_step(end_step) : graph->path_end(path_handle) ;
+    for (step_handle_t step = start_step; step != end_plus_one_step; step = graph->get_next_step(step)) {
+        handle_t step_handle = graph->get_handle_of_step(step);
+        if (graph->get_is_reverse(step_handle)) {
+            step_handle = graph->flip(step_handle);
+        }
+        if (!subgraph.has_node(graph->get_id(step_handle))) {
+            subgraph.create_handle(graph->get_sequence(step_handle), graph->get_id(step_handle));
+        }
+    }
+
+    // now fill in the snarls using the vg clip api
+    // todo: we can specifiy multiple regions here
+    visit_contained_snarls(graph, {region}, snarl_manager, false,
+                           [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
+                               int64_t start_node, int64_t end_node, bool steps_reversed,
+                               const Region* containing_region) {
+
+                               pair<unordered_set<id_t>, unordered_set<edge_t> > snarl_contents = snarl_manager.deep_contents(snarl, *graph, true);
+                               for (id_t snarl_node : snarl_contents.first) {
+                                   if (!subgraph.has_node(snarl_node)) {
+                                       subgraph.create_handle(graph->get_sequence(graph->get_handle(snarl_node)), snarl_node);
+                                   }
+                               }
+                               
+                           });
+
+    // now fill in the edges
+    algorithms::add_connecting_edges_to_subgraph(*graph, subgraph);
+
+    // now fill in the paths
+    algorithms::add_subpaths_to_subgraph(*graph, subgraph, true);
 }
 
 void PathChunker::extract_path_component(const string& path_name, MutablePathMutableHandleGraph& subgraph, Region& out_region) {
