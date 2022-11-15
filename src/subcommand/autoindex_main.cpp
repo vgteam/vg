@@ -113,8 +113,10 @@ void help_autoindex(char** argv) {
     << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
     << "    -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
     << "                           (default: 1/2 of available)" << endl
-    << "    --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
-    << "                           increased for graphs with long haplotypes (default: " << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << ")" << endl
+// TODO: hiding this now that we have rewinding options, since detailed args aren't really in the spirit of this subcommand
+//    << "    --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
+//    << "                           increased for graphs with long haplotypes (default: " << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << ")" << endl
+//    << "    --gcsa-size-limit NUM  limit on size of GCSA2 temporary files on disk in bytes" << endl
     << "    -t, --threads NUM      number of threads (default: all available)" << endl
     << "    -V, --verbosity NUM    log to stderr (0 = none, 1 = basic, 2 = debug; default " << (int) IndexingParameters::verbosity << ")" << endl
     //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
@@ -132,6 +134,7 @@ int main_autoindex(int argc, char** argv) {
 #define OPT_FORCE_UNPHASED 1001
 #define OPT_FORCE_PHASED 1002
 #define OPT_GBWT_BUFFER_SIZE 1003
+#define OPT_GCSA_SIZE_LIMIT 1004
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
@@ -162,6 +165,7 @@ int main_autoindex(int argc, char** argv) {
             {"request", required_argument, 0, 'R'},
             {"target-mem", required_argument, 0, 'M'},
             {"gbwt-buffer-size", required_argument, 0, OPT_GBWT_BUFFER_SIZE},
+            {"gcsa-size-limit", required_argument, 0, OPT_GCSA_SIZE_LIMIT},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
             {"verbosity", required_argument, 0, 'V'},
@@ -271,11 +275,14 @@ int main_autoindex(int argc, char** argv) {
             case OPT_FORCE_PHASED:
                 force_phased = true;
                 break;
+            case OPT_GCSA_SIZE_LIMIT:
+                IndexingParameters::gcsa_size_limit = parse<int64_t>(optarg);
+                break;
             case 'h':
                 help_autoindex(argv);
                 return 0;
             default:
-                abort ();
+                return 1;
         }
     }
     

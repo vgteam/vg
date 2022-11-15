@@ -5,14 +5,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 15
 
 
 # Indexing a single graph
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -x x.xg x.vg
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
-vg snarls -T x.vg > x.snarls
 vg index -j x.dist x.xg
 
 # Default construction
@@ -49,7 +48,8 @@ is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction
 # Store payload in the index
 vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist x.gg
 is $? 0 "construction with payload"
-is $(md5sum x.mi | cut -f 1 -d\ ) 6d377fdd427c7173e16e92516bf72b7b "construction is deterministic"
+#Construction will not be deterministic because the snarls are not deterministic
+#is $(md5sum x.mi | cut -f 1 -d\ ) 6d377fdd427c7173e16e92516bf72b7b "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.gg x.gbz
 

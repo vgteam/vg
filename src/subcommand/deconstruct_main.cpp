@@ -15,10 +15,20 @@
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
 #include "../integrated_snarl_finder.hpp"
+#include "../gbwtgraph_helper.hpp"
+#include "../gbwt_helper.hpp"
+#include "../gbzgraph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <gbwtgraph/utils.h>
+#include <gbwtgraph/index.h>
+
+//#define USE_CALLGRIND
+
+#ifdef USE_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
 
 using namespace std;
 using namespace vg;
@@ -33,7 +43,7 @@ void help_deconstruct(char** argv){
          << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
          << "    -H, --path-sep SEP       Obtain alt paths from the set of paths, assuming a path name hierarchy (e.g. SEP='#' and sample#phase#contig)" << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
-         << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE." << endl
+         << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE (not needed for GBZ graph input)." << endl
          << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
@@ -160,7 +170,6 @@ int main_deconstruct(int argc, char** argv){
         }
 
     }
-
     if ((!path_sep.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
         cerr << "Error [vg deconstruct]: -H and -d can only be used with -e or -g" << endl;
         return 1;
@@ -172,29 +181,66 @@ int main_deconstruct(int argc, char** argv){
     }
 
     // Read the graph
-    unique_ptr<PathHandleGraph> path_handle_graph;
-    string path_handle_graph_filename = get_input_file_name(optind, argc, argv);
-    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(path_handle_graph_filename);
 
-    bdsg::PathPositionOverlayHelper overlay_helper;
-    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph.get());
+    unique_ptr<PathHandleGraph> path_handle_graph_up;
+    unique_ptr<GBZGraph> gbz_graph;
+    gbwt::GBWT* gbwt_index = nullptr;
+    PathHandleGraph* path_handle_graph = nullptr;
+    
+    string path_handle_graph_filename = get_input_file_name(optind, argc, argv);    
+    auto input = vg::io::VPKG::try_load_first<GBZGraph, PathHandleGraph>(path_handle_graph_filename);
+    if (get<0>(input)) {        
+        gbz_graph = std::move(get<0>(input));
+        path_handle_graph = gbz_graph.get();
+        gbwt_index = &gbz_graph->gbz.index;
+    } else if (get<1>(input)) {
+        path_handle_graph_up = std::move(get<1>(input));
+        path_handle_graph = path_handle_graph_up.get();
+    } else {
+        cerr << "Error [vg deconstruct]: Input graph is not a GBZ or path handle graph" << endl;
+        return 1;
+    }
+
+    // We might need to apply an overlay to get good path position queries
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    
+    // Set up to time making the overlay
+    clock_t overlay_start_clock = clock();
+    std::chrono::time_point<std::chrono::system_clock> overlay_start_time = std::chrono::system_clock::now(); 
+    
+    // Make the overlay
+    PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph);
+    
+    // See how long that took
+    clock_t overlay_stop_clock = clock();
+    std::chrono::time_point<std::chrono::system_clock> overlay_stop_time = std::chrono::system_clock::now();
+    double overlay_cpu_seconds = (overlay_stop_clock - overlay_start_clock) / (double)CLOCKS_PER_SEC;
+    std::chrono::duration<double> overlay_seconds = overlay_stop_time - overlay_start_time;
+    
+    if (show_progress && graph != dynamic_cast<PathPositionHandleGraph*>(path_handle_graph)) {
+        std::cerr << "Computed overlay in " << overlay_seconds.count() << " seconds using " << overlay_cpu_seconds << " CPU seconds." << std::endl;
+    }
 
     // Read the GBWT
-    unique_ptr<gbwt::GBWT> gbwt_index;
+    unique_ptr<gbwt::GBWT> gbwt_index_up;
     if (!gbwt_file_name.empty()) {
-        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
-        if (!gbwt_index) {
+        if (gbwt_index) {
+            cerr << "Warning [vg deconstruct]: Using GBWT from -g overrides that in input GBZ (you probably don't want to use -g)" << endl;
+        }
+        gbwt_index_up = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
+        if (!gbwt_index_up) {
             cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
             return 1;
         }
+        gbwt_index = gbwt_index_up.get();
     }
-
+    
     // Pre-parse some GBWT metadata
     unordered_set<string> gbwt_reference_samples;
     if (gbwt_index) {
         gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt_index);
     }
-
+    
     if (!refpaths.empty()) {
         // We need to inventory all the GBWT paths.
         // So we need this precomputed to access them.
@@ -222,7 +268,7 @@ int main_deconstruct(int argc, char** argv){
         // No paths specified: use them all
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                if (!Paths::is_alt(name)) {
+                if (!Paths::is_alt(name) && PathMetadata::parse_sense(name) != PathSense::HAPLOTYPE) {
                     refpaths.push_back(name);
                 }
             });
@@ -235,14 +281,26 @@ int main_deconstruct(int argc, char** argv){
     }
 
     // Read the translation
-    unique_ptr<unordered_map<nid_t, pair<nid_t, size_t>>> translation;
+    unique_ptr<unordered_map<nid_t, pair<string, size_t>>> translation;
+    if (gbz_graph.get() != nullptr) {
+        // try to get the translation from the graph
+        translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
+        *translation = load_translation_back_map(gbz_graph->gbz.graph);
+        if (translation->empty()) {
+            // not worth keeping an empty translation
+            translation = nullptr;
+        }
+    }
     if (!translation_file_name.empty()) {
+        if (!translation->empty()) {
+            cerr << "Warning [vg deconstruct]: Using translation from -T overrides that in input GBZ (you probably don't want to use -T)" << endl;
+        }
         ifstream translation_file(translation_file_name.c_str());
         if (!translation_file) {
             cerr << "Error [vg deconstruct]: Unable to load translation file: " << translation_file_name << endl;
             return 1;
         }
-        translation = make_unique<unordered_map<nid_t, pair<nid_t, size_t>>>();
+        translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(*graph, translation_file);
     }
     
@@ -372,6 +430,11 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
+#ifdef USE_CALLGRIND
+    // We want to profile stuff that accesses paths, not the loading.
+    CALLGRIND_START_INSTRUMENTATION;
+#endif
+
     // Deconstruct
     Deconstructor dd;
     if (show_progress) {
@@ -387,7 +450,7 @@ int main_deconstruct(int argc, char** argv){
                    strict_conflicts,
                    !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
                    &sample_ploidy,
-                   gbwt_index.get());
+                   gbwt_index);
     return 0;
 }
 

@@ -50,7 +50,9 @@ public:
     /**
      * Write out kmer lines to GCSA2.
      * size_limit is the maximum space usage for the kmer files in bytes. When the
-     * function returns, size_limit is the total size of the kmer files in bytes.
+     * function returns, size_limit is the total size of the kmer files in bytes. If the size
+     * limit is exceeded, throws SizeLimitExceededException, and (if relevant) deletes
+     * temporary files
      */
     void write_gcsa_kmers_ascii(ostream& out, int kmer_size,
                                 nid_t head_id=0, nid_t tail_id=0);
