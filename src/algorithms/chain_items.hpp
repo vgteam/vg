@@ -221,12 +221,12 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           size_t max_lookback_bases = 200,
+                           size_t max_lookback_bases = 150,
                            size_t initial_lookback_threshold = 10,
                            double lookback_scale_factor = 2.0,
                            double min_good_transition_score_per_base = -0.1,
                            int item_bonus = 0,
-                           size_t max_indel_bases = 10000);
+                           size_t max_indel_bases = 100);
 
 /**
  * Trace back through in the given DP table from the best chain score.

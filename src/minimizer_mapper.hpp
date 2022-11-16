@@ -115,12 +115,36 @@ public:
 
     /// If set, exclude overlapping minimizers
     bool exclude_overlapping_min = false;
+    
+    //////////////
+    // Alignment-from-gapless-extension/short read Giraffe specific parameters:
+    //////////////
 
-    ///Accept at least this many clusters
+    ///Accept at least this many clusters for gapless extension
     size_t min_extensions = 2;
 
-    /// How many clusters should we align?
+    /// How many clusters should we produce gapless extensions for, max?
     size_t max_extensions = 800;
+
+    //If an extension set's score is smaller than the best 
+    //extension's score by more than this much, don't align it
+    double extension_set_score_threshold = 20;
+
+    //If an extension's score is smaller than the best extension's score by
+    //more than this much, don't align it
+    int extension_score_threshold = 1;
+    
+    /// Disregard the extension set score thresholds when they would give us
+    /// fewer than this many extension sets.
+    int min_extension_sets = 2;
+    
+    /// Even if we would have fewer than min_extension_sets results, don't
+    /// process anything with a score smaller than this.
+    int extension_set_min_score = 20;
+    
+    /////////////////
+    // More shared parameters:
+    /////////////////
 
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
@@ -142,35 +166,33 @@ public:
     //by more than this much, don't extend it
     double cluster_coverage_threshold = 0.3;
     
-    //If an extension set's score is smaller than the best 
-    //extension's score by more than this much, don't align it
-    double extension_set_score_threshold = 20;
-
-    //If an extension's score is smaller than the best extension's score by
-    //more than this much, don't align it
-    int extension_score_threshold = 1;
-    
-    /// Disregard the extension set score thresholds when they would give us
-    /// fewer than this many extension sets.
-    int min_extension_sets = 2;
-    
-    /// Even if we would have fewer than min_extension_sets results, don't
-    /// process anything with a score smaller than this.
-    int extension_set_min_score = 20;
+    //////////////////
+    // Alignment-from-chains/long read Giraffe specific parameters:
+    //////////////////
     
     /// If true, produce alignments from extension sets by chaining gapless
     /// extensions up and aligning the sequences between them. If false,
     /// produce alignments by aligning the tails off of individual gapless
     /// extensions.
     bool align_from_chains = false;
+    
+    // TODO: These will go away with cluster-merging chaining
+    /// Accept at least this many clusters for chain generation
+    size_t min_clusters_to_chain = 2;
+    /// How many clusters should we produce chains for, max?
+    size_t max_clusters_to_chain = 800;
 
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
-    size_t max_chain_connection = 5000;
+    size_t max_chain_connection = 100;
     /// Similarly, what is the maximum tail length we will try to align?
-    size_t max_tail_length = 5000;
+    size_t max_tail_length = 100;
+    
+    /////////////////
+    // More shared parameters:
+    /////////////////
     
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
