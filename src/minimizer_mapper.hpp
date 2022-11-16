@@ -176,6 +176,9 @@ public:
     /// extensions.
     bool align_from_chains = false;
     
+    /// What read-length-independent distance threshold do we want to use for clustering?
+    size_t chaining_cluster_distance = 200;
+    
     // TODO: These will go away with cluster-merging chaining
     /// Accept at least this many clusters for chain generation
     size_t min_clusters_to_chain = 2;

@@ -42,6 +42,61 @@ namespace vg {
 
 using namespace std;
 
+static std::vector<Seed> reseed_between(size_t read_region_start, size_t read_region_end, pos_t left_graph_pos, pos_t right_graph_pos,
+                                        const HandleGraph& graph,
+                                        const VectorView<Minimizer>& minimizers,
+                                        const std::function<void(const MinimizerMapper::Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
+                                        size_t max_search_distance = 10000) {
+                                        
+                                        
+    std::vector<pos_t> seed_positions {left_graph_pos, right_graph_pos};
+    std::vector<size_t> position_forward_max_dist {max_search_distance, 0};
+    std::vector<size_t> position_backward_max_dist {0, max_search_distance};
+    
+    
+    std::vector<nid_t> sorted_ids;
+    {
+        bdsg::HashGraph subgraph;
+        // TODO: can we use connecting graph again?
+        // TODO: Should we be using more seeds from the cluster?
+        algorithms::extract_containing_graph(graph, &subgraph, seed_positions, max_search_distance);
+        sorted_ids.reserve(subgraph.get_node_count());
+        subgraph.for_each_handle([&](const handle_t& h) {
+            sorted_ids.push_back(subgraph.get_id(h));
+        });
+    }
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+    
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        auto& m = minimizers[i];
+        
+        if (m.forward_offset() < read_region_start || m.forward_offset() + m.length > read_region_end) {
+            // Minimizer is not in the range we care about.
+            // TODO: Find a faster way to find the relevant minimizers that doesn't require a scan! Sort them by start position or something.
+            continue;
+        }
+        
+        // We may see duplicates, so we want to do our own deduplication.
+        unordered_set<pos_t> seen;
+        
+        // Find all its hits in the part of the graph between the bounds
+        for_each_pos_for_source_in_subgraph(m, sorted_ids, [&](const pos_t& pos) {
+            // So now we know pos corresponds to read base
+            // m.value.offset, in the read's forward orientation.
+            
+            // Forge an item.
+            forged_items.emplace_back();
+            forged_items.back().pos = pos;
+            forged_items.back().source = i;
+        });
+    }
+    
+    // TODO: sort and deduplicate the new seeds
+    
+    return forged_items;
+                                        
+}
+
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (show_work) {
@@ -75,22 +130,81 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
-    // Cluster the seeds. Get sets of input seed indexes that go together.
+    // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
+    if (track_provenance) {
+        funnel.stage("precluster");
+        funnel.substage("compute-preclusters");
+    }
+
+    // Find the clusters up to a flat distance limit
+    std::vector<Cluster> preclusters = clusterer.cluster_seeds(seeds, chaining_cluster_distance);
+    
+    // Find pairs of "adjacent" preclusters
+    if (track_provenance) {
+        funnel.substage("pair-preclusters");
+    }
+    
+    // To do that, we need start end end positions for each precluster, in the read
+    std::vector<std::pair<size_t, size_t>> precluster_read_ranges(preclusters.size(), {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::min()});
+    for (size_t i = 0; i < preclusters.size(); i++) {
+        // For each precluster
+        auto& precluster = preclusters[i];
+        // We will fill in the range it ocvcupies in the read
+        auto& read_range = precluster_read_ranges[i];
+        for (auto& seed_index : cluster.seeds) {
+            // Which means we look at the minimizer for each seed
+            auto& minimizer = minimizers[seeds[seed_index].source];
+            // And min all their starts to get the cluster start
+            read_range.first = std::min(read_range.first, minimizer.forward_offset());
+            // And max all their past-ends to get the cluster past-end
+            read_range.second = std::max(read_range.second, minimizer.forward_offset() + minimizer.length);
+        }
+    }
+    
+    // Now we want to find, for each interval, the next interval that starts after it ends
+    // So we put all the intervals in an ordered map by start position.
+    std::map<size_t, size_t> preclusters_by_start;
+    for (size_t i = 0; i < preclusters.size(); i++) {
+        auto found = preclusters_by_start.find(precluster_read_ranges[i].first);
+        if (found == preclusters_by_start.end()) {
+            // Firts thing we've found starting here
+            preclusters_by_start.emplace_hint(found, precluster_read_ranges[i].first, i);
+        } else {
+            // When multiple preclusters start at a position, we always pick the one with the most seeds.
+            // TODO: score the preclusters and use the scores?
+            if (preclusters[found->second].seeds.size() < preclusters[i].seeds.size()) {
+                // If the one in the map has fewer seeds, replace it.
+                found->second = i;
+            }
+        }
+    }
+    // And then we do bound lookups for each cluster to find the next one
+    // And we put those pairs here
+    std::vector<std::pair<size_t, size_t>> precluster_connections;
+    for (size_t i = 0; i < preclusters.size(); i++) {
+        size_t past_end = precluster_read_ranges[i].second;
+        // Find the cluster with the most seeds that starts the soonest after the last base in this cluster.
+        auto found = preclusters_by_start.lower_bound(past_end);
+        if (found != preclusters_by_start.end()) {
+            // We found one
+            precluster_connections.emplace_back(i, found->second);
+            // TODO: Check graph reachability and total read distance
+        }
+    }
+    
+    if (track_provenance) {
+        funnel.stage("reseed");
+    }
+     
+    // TODO: Reseed between each pair and dump into seeds
+    
+    // Make the main clusters that include the recovered seeds
     if (track_provenance) {
         funnel.stage("cluster");
     }
-
-    // Find the clusters
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
     
-#ifdef debug_validate_clusters
-    vector<vector<Cluster>> all_clusters;
-    all_clusters.emplace_back(clusters);
-    vector<vector<Seed>> all_seeds;
-    all_seeds.emplace_back(seeds);
-    validate_clusters(all_clusters, all_seeds, get_distance_limit(aln.sequence().size()), 0);
-#endif
-
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, chaining_cluster_distance);
+    
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
     if (this->track_provenance) {
