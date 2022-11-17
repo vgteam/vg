@@ -15,7 +15,7 @@ using namespace vg::io;
 
 using namespace std;
 
-#define transcriptome_debug
+// #define transcriptome_debug
 
 bool operator==(const Exon & lhs, const Exon & rhs) { 
 
