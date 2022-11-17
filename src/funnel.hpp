@@ -89,6 +89,17 @@ public:
     template<typename Iterator>
     void merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
     
+    /// Merge all the given item indexes from the previous stage into a new item at this stage.
+    /// The new item will be a group, sized according to the total size of
+    /// previous groups, with non-groups counting as size 1.
+    template<typename Iterator>
+    void merge_groups(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
+    /// Merge all the given item indexes from the previous stage into a new item at this stage.
+    /// The new item will be a single item.
+    template<typename Iterator>
+    void merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
     /// Project a single item from the previous stage to a single non-group item at this stage.
     void project(size_t prev_stage_item);
     
@@ -252,11 +263,47 @@ protected:
 
 template<typename Iterator>
 void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
+    // Do a non-group merge
+    merge(prev_stage_items_begin, prev_stage_items_end);
+    
+    // Find it
+    size_t index = latest();
+
+    // Update its size
+    get_item(index).group_size = get_item(index).prev_stage_items.size();
+}
+
+template<typename Iterator>
+void Funnel::merge_groups(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
+    // Do a non-group merge
+    merge(prev_stage_items_begin, prev_stage_items_end);
+    
+    // Find it
+    size_t index = latest();
+    
+    // Compute the total size it should have
+    auto& prev_stage = stages[stages.size() - 2];
+    size_t total_size = 0;
+    for (auto& prev : get_item(index).prev_stage_items) {
+        size_t prev_group_size = prev_stage.items[prev].group_size;
+        if (prev_group_size == 0) {
+            // Non-groups count as size 1
+            prev_group_size = 1;
+        }
+        total_size += prev_group_size;
+    }
+
+    // Update its size
+    get_item(index).group_size = total_size;
+}
+
+template<typename Iterator>
+void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
     // There must be a prev stage to merge from
     assert(stages.size() > 1);
     auto& prev_stage = stages[stages.size() - 2];
 
-    // Make a new item to hold all the given items.
+    // Make a new item to combine all the given items.
     size_t index = create_item();
 
     for (Iterator& i = prev_stage_items_begin; i != prev_stage_items_end; ++i) {
@@ -274,9 +321,6 @@ void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_it
             tag_correct(index);
         }
     }
-
-    // Update its size
-    get_item(index).group_size = get_item(index).prev_stage_items.size();
 }
 
 }

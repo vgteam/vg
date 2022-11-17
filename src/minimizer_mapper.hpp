@@ -177,7 +177,9 @@ public:
     bool align_from_chains = false;
     
     /// What read-length-independent distance threshold do we want to use for clustering?
-    size_t chaining_cluster_distance = 200;
+    size_t chaining_cluster_distance = 1000;
+    
+    /// When connecting subclusters for reseeding, how far apart can they be
     
     // TODO: These will go away with cluster-merging chaining
     /// Accept at least this many clusters for chain generation
@@ -275,8 +277,9 @@ public:
         return max(distance_limit, read_length + 50);
     }
 
-protected:
-
+    /// The information we store for each seed.
+    typedef SnarlDistanceIndexClusterer::Seed Seed;
+    
     /**
      * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
      * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
@@ -326,13 +329,12 @@ protected:
         }
     };
     
+protected:
+    
     /// Convert an integer distance, with limits standing for no distance, to a
     /// double annotation that can safely be parsed back from JSON into an
     /// integer if it is integral.
     double distance_to_annotation(int64_t distance) const;
-    
-    /// The information we store for each seed.
-    typedef SnarlDistanceIndexClusterer::Seed Seed;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static gbwtgraph::payload_type no_chain_info() {
@@ -396,14 +398,39 @@ protected:
      * Find seeds for all minimizers passing the filters.
      */
     std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    
+    /**
+     * Mark seeds that are correctly mapped as correct in the funnel, based on
+     * proximity along paths to the input read's refpos. Assumes we are tracking
+     * provenance and correctness.
+     */
+    void mark_correct_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, size_t funnel_offset, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
      * minimizers present in the cluster. Score is the sum of the scores of
      * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
+     *
+     * Puts the cluster in the funnel as coming from its seeds.
      */
     void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
+    
+    /**
+     * Determine cluster score, read coverage, and a vector of flags for the
+     * minimizers present in the cluster. Score is the sum of the scores of
+     * distinct minimizers in the cluster, while read coverage is the fraction
+     * of the read covered by seeds in the cluster.
+     *
+     * Thinks of the cluster as being made out of some previous clusters and
+     * some new seeds from the tail end of seeds, which are already in the
+     * funnel, clusters first. seed_to_old_cluster maps from seed to the old
+     * cluster it is part of, or std::numeric_limits<size_t>::max() if it isn't
+     * from an old cluster.
+     *
+     * Puts the cluster in the funnel.
+     */
+    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_old_cluster, const std::vector<Cluster>& old_clusters, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

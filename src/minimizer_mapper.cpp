@@ -3426,31 +3426,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     }
 
     if (this->track_provenance && this->track_correctness) {
-        // Tag seeds with correctness based on proximity along paths to the input read's refpos
+        // Tag seeds with correctness 
         funnel.substage("correct");
-
-        if (this->path_graph == nullptr) {
-            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
-            exit(1);
-        }
-
-        if (aln.refpos_size() != 0) {
-            for (size_t i = 0; i < seeds.size(); i++) {
-                // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
-                
-                for (auto& true_pos : aln.refpos()) {
-                    // For every annotated true position
-                    for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
-                        // Look at all the hit positions on the path the read's true position is on.
-                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                            // Call this seed hit close enough to be correct
-                            funnel.tag_correct(i);
-                        }
-                    }
-                }
-            }
-        }
+        this->mark_correct_seeds(aln, seeds.cbegin(), seeds.cend(), 0, funnel);
     }
 
     if (show_work) {
@@ -3463,6 +3441,34 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     }
 
     return seeds;
+}
+
+void MinimizerMapper::mark_correct_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, size_t funnel_offset, Funnel& funnel) const { 
+    if (this->path_graph == nullptr) {
+        cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
+        exit(1);
+    }
+
+    if (aln.refpos_size() != 0) {
+        // Track the index of each seed in the funnel
+        size_t funnel_index = funnel_offset;
+        for (std::vector<Seed>::const_iterator it = begin; it != end; ++it) {
+            // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
+            auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, it->pos, 100);
+            
+            for (auto& true_pos : aln.refpos()) {
+                // For every annotated true position
+                for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
+                    // Look at all the hit positions on the path the read's true position is on.
+                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                        // Call this seed hit close enough to be correct
+                        funnel.tag_correct(funnel_index);
+                    }
+                }
+            }
+            funnel_index++;
+        }
+    }
 }
 
 void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const {
