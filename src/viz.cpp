@@ -279,12 +279,36 @@ void Viz::draw(void) {
 void Viz::close(void) {
     if (cr != nullptr && surface != nullptr) {
         if (output_png) {
-            cairo_surface_write_to_png(surface, outfile.c_str());
+            cairo_status_t status = cairo_surface_write_to_png(surface, outfile.c_str());
+            switch (status) {
+            case CAIRO_STATUS_SUCCESS:
+                // No problem
+                break;
+            case CAIRO_STATUS_NO_MEMORY:
+                throw std::runtime_error("There is not enough memory to save a " + std::to_string(image_width) + "x" + std::to_string(image_height) + " PNG!");
+                break;
+            case CAIRO_STATUS_SURFACE_TYPE_MISMATCH:
+                throw std::runtime_error("The surface does not have pixel contents! We cannot save it as a PNG!");
+                break;
+            case CAIRO_STATUS_WRITE_ERROR:
+                throw std::runtime_error("Encountered an I/O error when saving PNG");
+                break;
+            case CAIRO_STATUS_PNG_ERROR:
+                throw std::runtime_error("libpng returned an error when saving PNG");
+                break;
+            default:
+                throw std::runtime_error("Encountered an unrecognized Cairo error (" + std::string(cairo_status_to_string(status)) + ") when saving " + std::to_string(image_width) + "x" + std::to_string(image_height) + " PNG");
+                break;
+            }
         }
         cairo_destroy(cr);
         cairo_surface_destroy(surface);
         cr = nullptr;
         surface = nullptr;
+    } else {
+        // We should already be closed out
+        assert(cr == nullptr);
+        assert(surface == nullptr);
     }
 }
 
