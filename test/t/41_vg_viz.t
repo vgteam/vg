@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 5
+plan tests 4
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 vg index -x t.xg -g t.gcsa t.vg
@@ -21,10 +21,7 @@ is "${?}" "0" "vg viz succeeds when drawing a PNG"
 stat t.png 2>/dev/null >/dev/null
 is "${?}" "0" "vg viz actually creates an output PNG"
 
-rm -f cactus.png
 vg viz -x graphs/cactus-BRCA2.gfa -o cactus.png
-is "${?}" "0" "vg viz succeeds when drawing a larger PNG from GFA"
-stat cactus.png 2>/dev/null >/dev/null
-is "${?}" "0" "vg viz actually creates a larger PNG from GFA"
+is "${?}" "1" "vg viz knows when a graph is too big to draw as a PNG"
 
-rm -f t.vg t.xg t.gcsa t.gcsa.lcp t.cx t.svg t.png cactus.png
+rm -f t.vg t.xg t.gcsa t.gcsa.lcp t.cx t.svg t.png

@@ -32,8 +32,18 @@ void Viz::init(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, c
     if (std::regex_search(outfile, svgbase)) {
         output_svg = true;
         surface = cairo_svg_surface_create(outfile.c_str(), image_width, image_height);
+        check_status(cairo_surface_status(surface), "creating " + std::to_string(image_width) + "x" + std::to_string(image_height) + " vector surface");
     } else {
+        // Cairo can only handle a maximum size of 32,767 px on a side for a raster image.
+        // See https://stackoverflow.com/a/24600155/402891
+        if (image_width > 32767 || image_height > 32767) {
+            // Complain to the user and stop.
+            // TODO: Work out how to draw bigger images than Cairo will allow.
+            std::cerr << "[Viz::init] error: Image would be " << image_width << "x" << image_height << " which is larger than the maximum 32,767 px on a side canvas that Cairo supports for raster images. Use an SVG output, try `odgi viz`, or reduce your input size!" << std::endl;
+            exit(1);
+        }
         surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, image_width, image_height);
+        check_status(cairo_surface_status(surface), "creating " + std::to_string(image_width) + "x" + std::to_string(image_height) + " image surface");
     }
     if (std::regex_search(outfile, pngbase)) {
         output_png = true;
@@ -61,6 +71,7 @@ void Viz::compute_borders_and_dimensions(void) {
         });
     int height = top_border + 4;
     surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+    check_status(cairo_surface_status(surface), "creating zero-sized scratch surface");
     cr = cairo_create(surface);
     if (show_paths) {
         xgidx->for_each_path_handle([&](const path_handle_t& path) {
@@ -280,26 +291,7 @@ void Viz::close(void) {
     if (cr != nullptr && surface != nullptr) {
         if (output_png) {
             cairo_status_t status = cairo_surface_write_to_png(surface, outfile.c_str());
-            switch (status) {
-            case CAIRO_STATUS_SUCCESS:
-                // No problem
-                break;
-            case CAIRO_STATUS_NO_MEMORY:
-                throw std::runtime_error("There is not enough memory to save a " + std::to_string(image_width) + "x" + std::to_string(image_height) + " PNG!");
-                break;
-            case CAIRO_STATUS_SURFACE_TYPE_MISMATCH:
-                throw std::runtime_error("The surface does not have pixel contents! We cannot save it as a PNG!");
-                break;
-            case CAIRO_STATUS_WRITE_ERROR:
-                throw std::runtime_error("Encountered an I/O error when saving PNG");
-                break;
-            case CAIRO_STATUS_PNG_ERROR:
-                throw std::runtime_error("libpng returned an error when saving PNG");
-                break;
-            default:
-                throw std::runtime_error("Encountered an unrecognized Cairo error (" + std::string(cairo_status_to_string(status)) + ") when saving " + std::to_string(image_width) + "x" + std::to_string(image_height) + " PNG");
-                break;
-            }
+            check_status(status, "saving " + std::to_string(image_width) + "x" + std::to_string(image_height) + " PNG");
         }
         cairo_destroy(cr);
         cairo_surface_destroy(surface);
@@ -309,6 +301,32 @@ void Viz::close(void) {
         // We should already be closed out
         assert(cr == nullptr);
         assert(surface == nullptr);
+    }
+}
+
+void Viz::check_status(const cairo_status_t& status, const std::string& task) {
+    switch (status) {
+    case CAIRO_STATUS_SUCCESS:
+        // No problem
+        break;
+    case CAIRO_STATUS_NO_MEMORY:
+        throw std::runtime_error("Ran out of memory while " + task);
+        break;
+    case CAIRO_STATUS_INVALID_SIZE:
+        throw std::runtime_error("The input was too big when " + task);
+        break;
+    case CAIRO_STATUS_SURFACE_TYPE_MISMATCH:
+        throw std::runtime_error("The surface does not have pixel contents! We cannot attempt " + task);
+        break;
+    case CAIRO_STATUS_WRITE_ERROR:
+        throw std::runtime_error("Encountered an I/O error while " + task);
+        break;
+    case CAIRO_STATUS_PNG_ERROR:
+        throw std::runtime_error("libpng returned an error while " + task);
+        break;
+    default:
+        throw std::runtime_error("Encountered an unrecognized Cairo error (" + std::string(cairo_status_to_string(status)) + ") while " + task);
+        break;
     }
 }
 
