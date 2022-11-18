@@ -424,13 +424,13 @@ protected:
      *
      * Thinks of the cluster as being made out of some previous clusters and
      * some new seeds from the tail end of seeds, which are already in the
-     * funnel, clusters first. seed_to_old_cluster maps from seed to the old
+     * funnel, clusters first. seed_to_precluster maps from seed to the old
      * cluster it is part of, or std::numeric_limits<size_t>::max() if it isn't
      * from an old cluster.
      *
      * Puts the cluster in the funnel.
      */
-    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_old_cluster, const std::vector<Cluster>& old_clusters, size_t seq_length, Funnel& funnel) const;
+    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_precluster, const std::vector<Cluster>& preclusters, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

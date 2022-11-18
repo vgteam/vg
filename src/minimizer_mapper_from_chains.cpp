@@ -47,8 +47,8 @@ void MinimizerMapper::score_merged_cluster(Cluster& cluster,
                                            const VectorView<Minimizer>& minimizers,
                                            const std::vector<Seed>& seeds,
                                            size_t first_new_seed,
-                                           const std::vector<size_t>& seed_to_old_cluster,
-                                           const std::vector<Cluster>& old_clusters,
+                                           const std::vector<size_t>& seed_to_precluster,
+                                           const std::vector<Cluster>& preclusters,
                                            size_t seq_length,
                                            Funnel& funnel) const {
     
@@ -67,7 +67,7 @@ void MinimizerMapper::score_merged_cluster(Cluster& cluster,
     // TODO: Skip if not tracking provenance?
     std::vector<size_t> to_combine;
     // Deduplicate old clusters with a bit set
-    SmallBitset old_clusters_seen(old_clusters.size());
+    SmallBitset preclusters_seen(preclusters.size());
     
 
     // Determine the minimizers that are present in the cluster.
@@ -78,18 +78,20 @@ void MinimizerMapper::score_merged_cluster(Cluster& cluster,
         if (hit_index < first_new_seed) {
             // An old seed.
             // We can also pick up an old cluster.
-            size_t old_cluster = seed_to_old_cluster[hit_index];
+            size_t old_cluster = seed_to_precluster.at(hit_index);
             if (old_cluster != std::numeric_limits<size_t>::max()) {
                 // This seed came form an old cluster, so we must have eaten it
-                if (!old_clusters_seen.contains(old_cluster)) {
+                if (!preclusters_seen.contains(old_cluster)) {
                     // Remember we used this old cluster
                     to_combine.push_back(old_cluster);
-                    old_clusters_seen.insert(old_cluster);
+                    preclusters_seen.insert(old_cluster);
                 }
             }
         } else {
             // Make sure we tell the funnel we took in this new seed.
-            to_combine.push_back(hit_index - first_new_seed);
+            // Translate from a space that is old seeds and then new seeds to a
+            // space that is old *clusters* and then new seeds
+            to_combine.push_back(hit_index - first_new_seed + preclusters.size());
         }
     }
     if (show_work) {
@@ -289,7 +291,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // We're also going to need to know which seeds went into which preclusters.
     // TODO: We could get away with one seed per precluster here probably.
     // TODO: Can we skip building this if not tracking provenance?
-    std::vector<size_t> seed_to_precluster(preclusters.size(), std::numeric_limits<size_t>::max());
+    std::vector<size_t> seed_to_precluster(seeds.size(), std::numeric_limits<size_t>::max());
     for (size_t i = 0; i < preclusters.size(); i++) {
         auto found = preclusters_by_start.find(precluster_read_ranges[i].first);
         if (found == preclusters_by_start.end()) {
@@ -305,7 +307,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
         for (auto& seed : preclusters[i].seeds) {
             // Record which precluster this seed went into.
-            seed_to_precluster[seed] = i;
+            seed_to_precluster.at(seed) = i;
         }
     }
     // And then we do bound lookups for each cluster to find the next one
