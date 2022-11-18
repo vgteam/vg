@@ -320,7 +320,11 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
         size_t phase_block;
         subrange_t subrange;
         PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
-        assert(subrange == PathMetadata::NO_SUBRANGE);
+        if (subrange == PathMetadata::NO_SUBRANGE) {
+            subrange.first = subpath_offset;
+        } else {
+            subrange.first += subpath_offset;
+        }
         subrange.first = subpath_offset;
         subrange.second = PathMetadata::NO_END_POSITION;
         string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
