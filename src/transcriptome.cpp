@@ -1575,6 +1575,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
         edited_transcript_paths.emplace_back(cur_transcript.name, gbwt::Path::id(*haplotype_thread_ids_it), false, true);
         edited_transcript_paths.back().haplotype_gbwt_ids.reserve(haplotype.second.size());
 
+        ++haplotype_thread_ids_it;
+
         // Add haplotype names as origins.
         while (haplotype_thread_ids_it != haplotype.second.end()) {
 
