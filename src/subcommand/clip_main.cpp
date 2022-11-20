@@ -24,7 +24,7 @@ void help_clip(char** argv) {
        << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
        << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given unless -d and -P used)." << endl
        << "depth clipping options: " << endl
-       << "    -d, --depth N             Clip out nodes with path depth below N" << endl
+       << "    -d, --depth N             Clip out nodes and edges with path depth below N" << endl
        << "snarl complexity clipping options: [default mode]" << endl
        << "    -n, --max-nodes N         Only clip out snarls with > N nodes" << endl
        << "    -e, --max-edges N         Only clip out snarls with > N edges" << endl
@@ -41,7 +41,7 @@ void help_clip(char** argv) {
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
        << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
        << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
-       << "    -t, --threads N           number of threads to use (used only for computing snarls) [default: all available]" << endl
+       << "    -t, --threads N           number of threads to use [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
        << endl;
 }    
@@ -315,10 +315,10 @@ int main_clip(int argc, char** argv) {
         // run the depth clipping       
         if (bed_path.empty()) {            
             // do the whole graph
-            clip_low_depth_nodes(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
+            clip_low_depth_nodes_and_edges(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
         } else {
             // do the contained snarls
-            clip_contained_low_depth_nodes(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, verbose);
+            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, verbose);
         }
         
     } else if (max_deletion >= 0) {
