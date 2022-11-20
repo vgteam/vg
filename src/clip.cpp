@@ -485,6 +485,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
                     handle_t handle = graph->get_handle_of_step(step_handle);
                     if (!first) {
                         edge_t edge = graph->edge_handle(prev_handle, handle);
+                        size_t edge_rank = edge_hash.lookup(edge);
                         int64_t edge_depth = edge_depths.get(edge_rank);
                         if (edge_depth < min_depth) {
                             if (is_ref_path) {
