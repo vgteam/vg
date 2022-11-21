@@ -34,6 +34,7 @@ private:
     uint64_t id_to_rank(nid_t id);
     void set_hash_color(const string& str);
     void compute_borders_and_dimensions(void);
+    void check_status(const cairo_status_t& status, const std::string& task = "calling Cairo");
     unordered_map<nid_t, uint64_t> id_rank_map;
     PathHandleGraph* xgidx = nullptr;
     vector<Packer>* packs = nullptr;
