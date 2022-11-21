@@ -119,6 +119,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1BasePileup.html">BasePileup</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1BBEdgeHash.html">BBEdgeHash</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1BenchmarkResult.html">BenchmarkResult</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BitString.html">BitString</a></td></tr>
@@ -1152,12 +1154,12 @@ Functions</h2></td></tr>
 <tr class="separator:ab273ea17c855b1b0a32fc4e98405519e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:affb16bab122c9abe8aa4282992b8fe12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#affb16bab122c9abe8aa4282992b8fe12">clip_contained_snarls</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *pp_graph, const vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;regions, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, bool include_endpoints, int64_t min_fragment_len, size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow, double max_avg_degree, double max_reflen_prop, size_t max_reflen, bool out_bed, bool verbose)</td></tr>
 <tr class="separator:affb16bab122c9abe8aa4282992b8fe12"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af7c17da397784e90e34939137ea7b90c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7c17da397784e90e34939137ea7b90c">clip_low_depth_nodes_generic</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, function&lt; void(function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt; iterate_handles, int64_t min_depth, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
-<tr class="separator:af7c17da397784e90e34939137ea7b90c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6c71c900d4e21bd508c1cd99db28488c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c71c900d4e21bd508c1cd99db28488c">clip_low_depth_nodes</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t min_depth, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
-<tr class="separator:a6c71c900d4e21bd508c1cd99db28488c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac276d736096285e8d8414ee3a3dd08e4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac276d736096285e8d8414ee3a3dd08e4">clip_contained_low_depth_nodes</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *pp_graph, const vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;regions, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose)</td></tr>
-<tr class="separator:ac276d736096285e8d8414ee3a3dd08e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c4eb49afa34726115d01e380372669a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c4eb49afa34726115d01e380372669a">clip_low_depth_nodes_and_edges_generic</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, function&lt; void(function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt; iterate_handles, function&lt; void(function&lt; void(<a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt; iterate_edges, int64_t min_depth, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:a1c4eb49afa34726115d01e380372669a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeaa0f9143fd06ff6948f2b548e4dde12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeaa0f9143fd06ff6948f2b548e4dde12">clip_low_depth_nodes_and_edges</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t min_depth, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:aeaa0f9143fd06ff6948f2b548e4dde12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afca0783176bbca00f50e9c8f4b53515c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afca0783176bbca00f50e9c8f4b53515c">clip_contained_low_depth_nodes_and_edges</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *pp_graph, const vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;regions, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:afca0783176bbca00f50e9c8f4b53515c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4f58b3aa775dcde39a1d511a9d838b97"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f58b3aa775dcde39a1d511a9d838b97">clip_deletion_edges</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_deletion, int64_t context_steps, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
 <tr class="separator:a4f58b3aa775dcde39a1d511a9d838b97"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">mem_node_start_positions</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
@@ -5838,14 +5840,14 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="ac276d736096285e8d8414ee3a3dd08e4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac276d736096285e8d8414ee3a3dd08e4">&#9670;&nbsp;</a></span>clip_contained_low_depth_nodes()</h2>
+<a id="afca0783176bbca00f50e9c8f4b53515c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afca0783176bbca00f50e9c8f4b53515c">&#9670;&nbsp;</a></span>clip_contained_low_depth_nodes_and_edges()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::clip_contained_low_depth_nodes </td>
+          <td class="memname">void vg::clip_contained_low_depth_nodes_and_edges </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -6066,14 +6068,14 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="a6c71c900d4e21bd508c1cd99db28488c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6c71c900d4e21bd508c1cd99db28488c">&#9670;&nbsp;</a></span>clip_low_depth_nodes()</h2>
+<a id="aeaa0f9143fd06ff6948f2b548e4dde12"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeaa0f9143fd06ff6948f2b548e4dde12">&#9670;&nbsp;</a></span>clip_low_depth_nodes_and_edges()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::clip_low_depth_nodes </td>
+          <td class="memname">void vg::clip_low_depth_nodes_and_edges </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -6113,14 +6115,14 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="af7c17da397784e90e34939137ea7b90c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af7c17da397784e90e34939137ea7b90c">&#9670;&nbsp;</a></span>clip_low_depth_nodes_generic()</h2>
+<a id="a1c4eb49afa34726115d01e380372669a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c4eb49afa34726115d01e380372669a">&#9670;&nbsp;</a></span>clip_low_depth_nodes_and_edges_generic()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::clip_low_depth_nodes_generic </td>
+          <td class="memname">void vg::clip_low_depth_nodes_and_edges_generic </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -6130,6 +6132,12 @@ template&lt;typename Annotated &gt; </div>
           <td></td>
           <td class="paramtype">function&lt; void(function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt;&#160;</td>
           <td class="paramname"><em>iterate_handles</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(function&lt; void(<a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt;&#160;</td>
+          <td class="paramname"><em>iterate_edges</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
