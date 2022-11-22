@@ -54,13 +54,6 @@ jobs:
 
       - name: Run build and test
         run: |
-          brew --prefix
-          export PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:/usr/local/opt/bison/bin:$(pwd)/bin:/usr/local/bin:$PATH"
-          which wc
-          wc --version
-          export LD_LIBRARY_PATH=/usr/local/lib/
-          export LIBRARY_PATH=/usr/local/lib/
-          export CFLAGS="-isystem /usr/local/include/"
           export VG_FULL_TRACEBACK=1
           echo "Build with $(nproc) threads"
           make -j$(nproc) test
