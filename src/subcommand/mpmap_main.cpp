@@ -23,7 +23,6 @@
 #include "../watchdog.hpp"
 #include "../watchdog.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
-#include <bdsg/odgi.hpp>
 #include <bdsg/packed_graph.hpp>
 #include <bdsg/hash_graph.hpp>
 #include <xg.hpp>
@@ -1651,9 +1650,6 @@ int main_mpmap(int argc, char** argv) {
         else if (magic_num == bdsg::HashGraph().get_magic_number()) {
             type = "HashGraph";
         }
-        else if (magic_num == bdsg::ODGI().get_magic_number()) {
-            type = "ODGI";
-        }
         
         stringstream strm;
         if (!type.empty()) {
@@ -1668,9 +1664,6 @@ int main_mpmap(int argc, char** argv) {
             }
             else if (type == "PackedGraph") {
                 strm << "PackedGraph is memory efficient, but has some slow queries. ";
-            }
-            else if (type == "ODGI") {
-                strm << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
             }
         }
         else {

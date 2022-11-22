@@ -21,7 +21,6 @@
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
-#include <bdsg/odgi.hpp>
 #include <xg.hpp>
 #include <gbwt/variants.h>
 #include <gbwtgraph/index.h>
@@ -183,8 +182,6 @@ double format_multiplier() {
     switch (IndexingParameters::mut_graph_impl) {
         case IndexingParameters::HashGraph:
             return 1.0;
-        case IndexingParameters::ODGI:
-            return 0.615;
         case IndexingParameters::PackedGraph:
             return 0.187;
         case IndexingParameters::VG:
@@ -367,9 +364,6 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
     switch (IndexingParameters::mut_graph_impl) {
         case IndexingParameters::HashGraph:
             graph = make_unique<bdsg::HashGraph>();
-            break;
-        case IndexingParameters::ODGI:
-            graph = make_unique<bdsg::ODGI>();
             break;
         case IndexingParameters::PackedGraph:
             graph = make_unique<bdsg::PackedGraph>();
