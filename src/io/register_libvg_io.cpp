@@ -19,7 +19,6 @@
 #include "register_loader_saver_xg.hpp"
 #include "register_loader_saver_packed_graph.hpp"
 #include "register_loader_saver_hash_graph.hpp"
-#include "register_loader_saver_odgi.hpp"
 #include "register_loader_saver_gfa.hpp"
 
 #include "register_libvg_io.hpp"
@@ -47,7 +46,6 @@ bool register_libvg_io() {
     register_loader_saver_xg();
     register_loader_saver_packed_graph();
     register_loader_saver_hash_graph();
-    register_loader_saver_odgi(); 
     return true;
 }
     
