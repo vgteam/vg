@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['vg_12138',['VG',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a5e978449ccc729202c33e2dc543b8327',1,'vg::IndexingParameters']]]
+  ['widget_12131',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
+  ['wrong_5fname_12132',['wrong_name',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a5d133dedebb885c312dbfca70d5abe15',1,'vg::Counts']]],
+  ['wrong_5frefpos_12133',['wrong_refpos',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a069ad2b94f1414f1ba774043f5047d15',1,'vg::Counts']]]
 ];
