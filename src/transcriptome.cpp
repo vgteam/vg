@@ -1834,7 +1834,7 @@ void Transcriptome::remove_redundant_transcript_paths(list<T> * new_transcript_p
 
                             for (auto & new_transcript_name: new_transcript_paths_it->transcript_names) {
 
-                                if (find(transcript_path->transcript_names.begin(), transcript_path->transcript_names.end(), new_transcript_name) != transcript_path->transcript_names.end()) {
+                                if (find(transcript_path->transcript_names.begin(), transcript_path->transcript_names.end(), new_transcript_name) == transcript_path->transcript_names.end()) {
 
                                     transcript_path->transcript_names.emplace_back(new_transcript_name);
                                 }
