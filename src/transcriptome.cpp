@@ -254,7 +254,7 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
 
     sort(introns.begin(), introns.end());
 
-    cerr << "\tParsed " << introns.size() << " introns" << endl;
+    if (show_progress) { cerr << "\tParsed " << introns.size() << " introns" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -268,7 +268,7 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
     // Construct edited reference intron paths using embedded graph paths.
     auto edited_transcript_paths = construct_reference_transcript_paths_embedded(introns, graph_path_pos_overlay);
 
-    cerr << "\tConstructed " << edited_transcript_paths.size() << " intron paths" << endl;
+    if (show_progress) { cerr << "\tConstructed " << edited_transcript_paths.size() << " intron paths" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -292,7 +292,7 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
 
     assert(_transcript_paths.empty());
 
-    cerr << "\tUpdated graph with intron paths" << endl;
+    if (show_progress) { cerr << "\tUpdated graph with intron paths" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -333,7 +333,7 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
 
     sort(transcripts.begin(), transcripts.end());
 
-    cerr << "\tParsed " << transcripts.size() << " transcripts" << endl;
+    if (show_progress) { cerr << "\tParsed " << transcripts.size() << " transcripts" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -357,7 +357,7 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
         edited_transcript_paths = construct_reference_transcript_paths_embedded(transcripts, graph_path_pos_overlay);
     } 
 
-    cerr << "\tConstructed " << edited_transcript_paths.size() << " reference transcript paths" << endl;
+    if (show_progress) { cerr << "\tConstructed " << edited_transcript_paths.size() << " reference transcript paths" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -383,7 +383,7 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
     // Sort transcript paths and update their copy ids.
     sort_transcript_paths_update_copy_id();
 
-    cerr << "\tUpdated graph with reference transcript paths" << endl;
+    if (show_progress) { cerr << "\tUpdated graph with reference transcript paths" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -419,7 +419,7 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
     
     sort(transcripts.begin(), transcripts.end());
 
-    cerr << "\tParsed " << transcripts.size() << " transcripts" << endl;
+    if (show_progress) { cerr << "\tParsed " << transcripts.size() << " transcripts" << endl; };
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -444,7 +444,7 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
 
     assert(_transcript_paths.size() >= pre_num_transcript_paths);
 
-    cerr << "\tProjected " << _transcript_paths.size() - pre_num_transcript_paths << " haplotype-specific transcript paths" << endl;
+    if (show_progress) { cerr << "\tProjected " << _transcript_paths.size() - pre_num_transcript_paths << " haplotype-specific transcript paths" << endl; }
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -2356,7 +2356,6 @@ void Transcriptome::add_splice_junction_edges(const list<CompletedTranscriptPath
     }
 }
 
-  
 void Transcriptome::add_splice_junction_edges(const vector<CompletedTranscriptPath> & completed_transcript_paths) {
 
     for (auto & transcript_path: completed_transcript_paths) {
@@ -2505,7 +2504,7 @@ void Transcriptome::remove_non_transcribed_nodes() {
     assert(_graph->get_node_count() == transcribed_nodes.size());
 }
 
-uint32_t Transcriptome::chop_nodes(const uint32_t max_node_length) {
+void Transcriptome::chop_nodes(const uint32_t max_node_length) {
 
     spp::sparse_hash_map<handle_t, vector<pair<int32_t, handle_t> > > split_index;
 
@@ -2538,7 +2537,7 @@ uint32_t Transcriptome::chop_nodes(const uint32_t max_node_length) {
 
     update_transcript_paths(split_index);
 
-    return split_index.size();
+    if (show_progress) { cerr << "\tSplit " << split_index.size() << " nodes" << endl; };
 }
 
 bool Transcriptome::sort_compact_nodes() {
@@ -2600,10 +2599,12 @@ bool Transcriptome::sort_compact_nodes() {
     cerr << "\tDEBUG Updated " << _transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_update_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
+    if (show_progress) { cerr << "\tSorted " << new_order.size() << " nodes" << endl; };
+
     return true;
 }
 
-int32_t Transcriptome::embed_transcript_paths(const bool add_reference_transcripts, const bool add_haplotype_transcripts) {
+void Transcriptome::embed_transcript_paths(const bool add_reference_transcripts, const bool add_haplotype_transcripts) {
 
     assert(add_reference_transcripts || add_haplotype_transcripts);
 
@@ -2632,10 +2633,10 @@ int32_t Transcriptome::embed_transcript_paths(const bool add_reference_transcrip
         }
     }
 
-    return num_embedded_paths;
+    if (show_progress) { cerr << "\tEmbedded " << num_embedded_paths << " paths in graph" << endl; };
 }
 
-int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool output_reference_transcripts) const {
+void Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool exclude_unique_reference_transcripts) const {
 
     int32_t num_added_threads = 0;
 
@@ -2654,8 +2655,8 @@ int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder,
 
         assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
-        // Exclude reference transcripts
-        if (transcript_path.is_reference && !output_reference_transcripts) {
+        // Exclude unique reference transcripts
+        if (exclude_unique_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
 
             continue;
         }
@@ -2683,11 +2684,9 @@ int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder,
     // Set number number of haplotypes and transcript path name in metadata.
     gbwt_builder->index.metadata.setHaplotypes(pre_num_haplotypes + sample_names.size());
     gbwt_builder->index.metadata.addSamples(sample_names);
-
-    return num_added_threads;
 }
 
-int32_t Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const bool output_reference_transcripts) const {
+void Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const bool exclude_unique_reference_transcripts) const {
 
     int32_t num_written_sequences = 0;
 
@@ -2695,8 +2694,8 @@ int32_t Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const
 
         assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
-        // Exclude reference transcripts
-        if (transcript_path.is_reference && !output_reference_transcripts) {
+        // Exclude unique reference transcripts
+        if (exclude_unique_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
 
             continue;
         }
@@ -2713,11 +2712,9 @@ int32_t Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const
         // Write transcript path name and sequence.
         write_fasta_sequence(transcript_path.get_name(), transcript_path_sequence, *fasta_ostream);
     }
-
-    return num_written_sequences;
 }
 
-int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool output_reference_transcripts) const {
+void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool exclude_unique_reference_transcripts) const {
 
     *tsv_ostream << "Name\tLength\tTranscripts\tHaplotypes" << endl; 
     
@@ -2730,8 +2727,8 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
 
         assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
-        // Exclude reference transcripts
-        if (transcript_path.is_reference && !output_reference_transcripts) {
+        // Exclude unique reference transcripts
+        if (exclude_unique_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
 
             continue;
         }
@@ -2782,8 +2779,6 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
             *tsv_ostream << name;
         }
 
-        is_first = true;
-
         for (auto & id: transcript_path.haplotype_gbwt_ids) {
 
             if (!is_first) {
@@ -2798,8 +2793,6 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
 
         *tsv_ostream << endl;
     }
-
-    return num_written_info;
 }
 
 void Transcriptome::write_graph(ostream * graph_ostream) const {

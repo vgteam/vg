@@ -252,7 +252,7 @@ namespace vg {
 
                 SECTION("Transcriptome can chop long nodes") {
 
-                    REQUIRE(transcriptome.chop_nodes(2) == 3);
+                    transcriptome.chop_nodes(2);
 
                     REQUIRE(transcriptome.sort_compact_nodes());
 

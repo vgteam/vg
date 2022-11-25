@@ -2888,7 +2888,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                IndexingParameters::gbwt_insert_batch_size,
                                                IndexingParameters::gbwt_sampling_interval);
                 // actually build it
-                transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, true);
+                transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
                 
                 // save the haplotype transcript GBWT
                 gbwt_builder.finish();
@@ -2901,7 +2901,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             
             // write transcript origin info table
-            transcriptome.write_transcript_info(&info_outfile, *haplotype_index, true);
+            transcriptome.write_transcript_info(&info_outfile, *haplotype_index, false);
             
             // save the graph with the transcript paths added
             transcriptome.write_graph(&tx_graph_outfile);

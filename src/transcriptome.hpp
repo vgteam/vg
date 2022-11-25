@@ -183,6 +183,9 @@ class Transcriptome {
     
         Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in); 
 
+        /// Write progress to stderr.
+        bool show_progress = false;
+
         /// Number of threads used for transcript path construction. 
         int32_t num_threads = 1;
 
@@ -231,7 +234,7 @@ class Transcriptome {
 
         /// Chop nodes so that they are not longer than the supplied 
         /// maximum node length. Returns number of chopped nodes.
-        uint32_t chop_nodes(const uint32_t max_node_length);
+        void chop_nodes(const uint32_t max_node_length);
 
         /// Topological sorts graph and compacts node ids. Only works for 
         /// graphs in the PackedGraph format. Return false if not sorted.
@@ -239,19 +242,19 @@ class Transcriptome {
 
         /// Embeds transcriptome transcript paths in the graph.  
         /// Returns the number of paths embedded.
-        int32_t embed_transcript_paths(const bool add_reference_transcripts, const bool add_haplotype_transcripts);
+        void embed_transcript_paths(const bool add_reference_transcripts, const bool add_haplotype_transcripts);
 
         /// Adds transcriptome transcript paths as threads to a GBWT index.
         /// Returns the number of added threads.
-        int32_t add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool output_reference_transcripts) const;
+        void add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool exclude_unique_reference_transcripts) const;
 
         /// Writes transcriptome transcript path sequences to a fasta file.  
         /// Returns the number of written sequences.
-        int32_t write_transcript_sequences(ostream * fasta_ostream, const bool output_reference_transcripts) const;
+        void write_transcript_sequences(ostream * fasta_ostream, const bool exclude_unique_reference_transcripts) const;
 
         /// Writes info on transcriptome transcript paths to tsv file.
         /// Returns the number of written transcripts.
-        int32_t write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool output_reference_transcripts) const;
+        void write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool exclude_unique_reference_transcripts) const;
 
         /// Writes the graph to a file.
         void write_graph(ostream * graph_ostream) const;
