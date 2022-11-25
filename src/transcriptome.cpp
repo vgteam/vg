@@ -110,6 +110,42 @@ bool sort_pair_by_second(const pair<uint32_t, uint32_t> & lhs, const pair<uint32
     return (lhs.second < rhs.second);
 }
 
+bool sort_transcript_paths_by_name(const CompletedTranscriptPath & lhs, const CompletedTranscriptPath & rhs) {
+    
+    assert(!lhs.transcript_names.empty());
+    assert(!lhs.transcript_names.front().empty());
+
+    assert(!rhs.transcript_names.empty());
+    assert(!rhs.transcript_names.front().empty());
+
+    if (lhs.transcript_names.front() != rhs.transcript_names.front()) {
+
+        return (lhs.transcript_names.front() < rhs.transcript_names.front());
+    }
+
+    if (lhs.is_reference != rhs.is_reference) {
+
+        return (lhs.is_reference > rhs.is_reference);
+    }
+
+    if (!lhs.embedded_path_names.empty() && !rhs.embedded_path_names.empty()) {
+
+        return (lhs.embedded_path_names.front() < rhs.embedded_path_names.front());
+    }
+
+    if (!lhs.embedded_path_names.empty() || !rhs.embedded_path_names.empty()) {
+
+        return !lhs.embedded_path_names.empty();
+    }
+
+    if (!lhs.haplotype_gbwt_ids.empty() && !rhs.haplotype_gbwt_ids.empty()) {
+
+        return (lhs.haplotype_gbwt_ids.front() < rhs.haplotype_gbwt_ids.front());
+    }
+
+    return !lhs.haplotype_gbwt_ids.empty();
+}
+
 handle_t mapping_to_handle(const Mapping & mapping, const HandleGraph & graph) {
 
     return (graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse()));
@@ -120,7 +156,17 @@ string TranscriptPath::get_name() const {
     assert(!transcript_names.empty());
     assert(!transcript_names.front().empty());
 
-    return (transcript_names.front() + "_HST" + to_string(copy_id));
+    assert(is_reference || is_haplotype);
+
+    if (is_reference) {
+
+        return (transcript_names.front() + "_R" + to_string(copy_id));
+
+
+    } else {
+
+        return (transcript_names.front() + "_H" + to_string(copy_id));        
+    }
 }
 
 handle_t EditedTranscriptPath::get_first_node_handle(const HandleGraph & graph) const {
@@ -334,8 +380,8 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
         add_edited_transcript_paths(edited_transcript_paths);
     }
 
-    // Update copy id of transcript paths.
-    update_copy_id();
+    // Sort transcript paths and update their copy ids.
+    sort_transcript_paths_update_copy_id();
 
     cerr << "\tUpdated graph with reference transcript paths" << endl;
 
@@ -393,8 +439,8 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
     // Augment splice graph with new splice-junction edges.    
     add_splice_junction_edges(_transcript_paths);
 
-    // Update copy id of transcript paths.
-    update_copy_id();
+    // Sort transcript paths and update their copy ids.
+    sort_transcript_paths_update_copy_id();
 
     assert(_transcript_paths.size() >= pre_num_transcript_paths);
 
@@ -2323,21 +2369,39 @@ void Transcriptome::add_splice_junction_edges(const vector<CompletedTranscriptPa
     }
 }
 
-void Transcriptome::update_copy_id() {
-
-    spp::sparse_hash_map<string, uint32_t> name_copy_id_index;
+void Transcriptome::sort_transcript_paths_update_copy_id() {
 
     for (auto & transcript_path: _transcript_paths) {
-
-        sort(transcript_path.transcript_names.begin(), transcript_path.transcript_names.end());
 
         assert(!transcript_path.transcript_names.empty());
         assert(!transcript_path.transcript_names.front().empty());
 
-        auto name_copy_id_index_it = name_copy_id_index.emplace(transcript_path.transcript_names.front(), 0);
-        name_copy_id_index_it.first->second++;
+        assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
-        transcript_path.copy_id = name_copy_id_index_it.first->second;
+        sort(transcript_path.transcript_names.begin(), transcript_path.transcript_names.end());
+        sort(transcript_path.embedded_path_names.begin(), transcript_path.embedded_path_names.end());
+        sort(transcript_path.haplotype_gbwt_ids.begin(), transcript_path.haplotype_gbwt_ids.end());
+    }
+
+    sort(_transcript_paths.begin(), _transcript_paths.end(), sort_transcript_paths_by_name);
+
+    string cur_transcript_name = "";
+    bool cur_is_reference = false;
+
+    uint32_t cur_copy_id = 0;
+
+    for (auto & transcript_path: _transcript_paths) {
+
+        if (cur_transcript_name != transcript_path.transcript_names.front() || cur_is_reference != transcript_path.is_reference) {
+
+            cur_transcript_name = transcript_path.transcript_names.front();
+            cur_is_reference = transcript_path.is_reference;
+
+            cur_copy_id = 0;
+        }
+
+        cur_copy_id++;
+        transcript_path.copy_id = cur_copy_id;
     }
 }
 

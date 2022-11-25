@@ -357,8 +357,10 @@ class Transcriptome {
         /// Collects all unique nodes in transcriptome transcript paths.
         void collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * transcribed_nodes) const;
 
-        /// Update the copy ids of the transcript paths in the transcriptome 
-        void update_copy_id();
+        /// Sort transcriptome transcript paths by name and is reference,
+        /// and update their copy ids.
+        void sort_transcript_paths_update_copy_id();
+
 };
 
 }
