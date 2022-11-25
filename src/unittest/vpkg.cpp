@@ -12,7 +12,7 @@
 #include <bdsg/packed_graph.hpp>
 #include "xg.hpp"
 #include "../vg.hpp"
-#include "../seed_clusterer.hpp"
+#include "../snarl_seed_clusterer.hpp"
 #include "vg/io/json2pb.h"
 #include <gcsa/gcsa.h>
 #include <sstream>
@@ -124,12 +124,12 @@ TEST_CASE("We cannot read a HandleGraph from an empty file", "[vpkg][handlegraph
     REQUIRE(loaded.get() == nullptr);
 }
 
-TEST_CASE("We cannot read a SnarlSeedClusterer from an empty file", "[vpkg][snarlseedclusterer][empty]") {
+TEST_CASE("We cannot read a SnarlDistanceIndexClusterer from an empty file", "[vpkg][snarlseedclusterer][empty]") {
     stringstream ss;
-    unique_ptr<SnarlSeedClusterer> loaded = vg::io::VPKG::try_load_one<SnarlSeedClusterer>(ss);
+    unique_ptr<SnarlDistanceIndexClusterer> loaded = vg::io::VPKG::try_load_one<SnarlDistanceIndexClusterer>(ss);
     
     // It should be null because this type is not default constructible
-    REQUIRE(!std::is_default_constructible<SnarlSeedClusterer>::value);
+    REQUIRE(!std::is_default_constructible<SnarlDistanceIndexClusterer>::value);
     REQUIRE(loaded.get() == nullptr);
 }
 
@@ -267,6 +267,90 @@ TEST_CASE("We prefer to read a graph as the first provided type that matches", "
     // Make sure it is the thing we saved
     REQUIRE(get<1>(loaded)->get_node_count() == 2);
     REQUIRE(get<1>(loaded)->get_sequence(get<1>(loaded)->get_handle(1, false)) == "GATT");
+}
+
+TEST_CASE("We can send more than 2 GB of data through the bare-to-encapsulated conversion", "[vpkg]") {
+    size_t DATA_SIZE = 3L * 1024 * 1024 * 1024;
+    
+    std::streamsize to_write = DATA_SIZE;
+    // Make sure we don't overflow the amount we are supposed to be writing
+    REQUIRE((size_t)to_write == (size_t)DATA_SIZE);
+    
+    // Map a giant buffer, since we can't just ask for a 3 GB string
+    void* data = mmap(nullptr, DATA_SIZE, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    REQUIRE(data != MAP_FAILED);
+    
+    std::atomic<size_t> bytes_seen(0);
+    std::atomic<size_t> messages_seen(0);
+    vg::io::message_consumer_function_t emit_message = [&](const string& message) {
+        // Count the data we got
+        size_t message_number = messages_seen++;
+#ifdef debug
+        #pragma omp critical (cerr)
+        std::cerr << "Message " << message_number << " of size " << message.size() << " bytes observed." << std::endl;
+#endif
+        bytes_seen += message.size();
+    };
+    
+    auto check_stream = [](const ostream& o) {
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "good: " << o.good() << " bad: " << o.bad() << " fail: " << o.fail() << " eof: " << o.eof() << endl;
+#endif
+        if (o.bad() || o.fail()) {
+            throw std::runtime_error("Stream problem");
+        }
+    };
+    
+    vg::io::with_function_calling_stream(emit_message, [&](ostream& out) {
+        // Write one giant chunk all at once
+        
+        try {
+        
+            check_stream(out);
+#ifdef debug
+            
+            #pragma omp critical (cerr)
+            std::cerr << "Stream is at " << out.tellp() << std::endl;
+            check_stream(out);
+
+            #pragma omp critical (cerr)
+            std::cerr << "Writing " << to_write << " bytes..." << std::endl;
+#endif
+
+            out.write((const char*)data, to_write);
+            if (!out) {
+                // The write didn't work. Probably a write() failed.
+                // Report info from errno if it happens to be there.
+                #pragma omp critical (cerr)
+                perror("Something may be wrong with the write syscall");
+            }
+            
+#ifdef debug
+            #pragma omp critical (cerr)
+            std::cerr << "Writing over." << std::endl;
+#endif
+            check_stream(out);
+            
+#ifdef debug
+            #pragma omp critical (cerr)
+            std::cerr << "Stream is at " << out.tellp() << std::endl;
+            check_stream(out);
+#endif
+    
+        } catch (std::ios_base::failure& problem) {
+            std::cerr << "Stream had a problem somewhere: " << problem.what() << std::endl;
+            throw std::runtime_error("Stream broke");
+        }
+
+    });
+    
+    // Unmap the giant buffer
+    munmap(data, DATA_SIZE);
+    
+    // Make sure it all got there
+    REQUIRE(bytes_seen == DATA_SIZE);
+
 }
 
 }

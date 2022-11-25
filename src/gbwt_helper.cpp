@@ -553,16 +553,16 @@ gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
 
 //------------------------------------------------------------------------------
 
-unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream) {
+unordered_map<string, vector<nid_t>> load_translation_map(ifstream& input_stream) {
     string buffer;
     size_t line = 1;
-    unordered_map<nid_t, vector<nid_t>> translation_map;
+    unordered_map<string, vector<nid_t>> translation_map;
     try {
         while (getline(input_stream, buffer)) {
             vector<string> toks = split_delims(buffer, "\t");
             if (toks.size() == 3 && toks[0] == "T") {
                 vector<string> toks2 = split_delims(toks[2], ",");
-                nid_t segment_id = parse<nid_t>(toks[1]);
+                const string& segment_id = toks[1];
                 vector<nid_t> node_ids;
                 node_ids.reserve(toks2.size());
                 for (string& node_id_str : toks2) {
@@ -585,16 +585,16 @@ unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream)
     return translation_map;
 }
 
-unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream) {
+unordered_map<nid_t, pair<string, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream) {
     string buffer;
     size_t line = 1;
-    unordered_map<nid_t, pair<nid_t, size_t>> translation_back_map;
+    unordered_map<nid_t, pair<string, size_t>> translation_back_map;
     try {
         while (getline(input_stream, buffer)) {
             vector<string> toks = split_delims(buffer, "\t");
             if (toks.size() == 3 && toks[0] == "T") {
                 vector<string> toks2 = split_delims(toks[2], ",");
-                nid_t segment_id = stol(toks[1]);
+                const string& segment_id = toks[1];
                 size_t offset = 0;
                 for (string& node_id_str : toks2) {
                     nid_t node_id = stol(node_id_str);

@@ -13,7 +13,6 @@
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
-#include "bdsg/odgi.hpp"
 
 #include <handlegraph/util.hpp>
 
@@ -560,16 +559,13 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
     }
 }
 
-TEST_CASE("divide_handle works on both strands", "[handle][vg][odgi][packed][hashgraph]") {
+TEST_CASE("divide_handle works on both strands", "[handle][vg][packed][hashgraph]") {
     vector<pair<MutablePathMutableHandleGraph*, MutablePathMutableHandleGraph*>> implementations;
     
     // Add implementations
     
     VG vg, vg2;
     implementations.push_back(make_pair(&vg, &vg2));
-
-    bdsg::ODGI og, og2;
-    implementations.push_back(make_pair(&og, &og2));
 
     bdsg::HashGraph hg, hg2;
     implementations.push_back(make_pair(&hg, &hg2));
@@ -618,16 +614,13 @@ TEST_CASE("divide_handle works on both strands", "[handle][vg][odgi][packed][has
     }
 }
 
-TEST_CASE("divide_handle and destroy_handle work together on both strands", "[handle][vg][odgi][packed][hashgraph]") {
+TEST_CASE("divide_handle and destroy_handle work together on both strands", "[handle][vg][packed][hashgraph]") {
     vector<pair<MutablePathMutableHandleGraph*, MutablePathMutableHandleGraph*>> implementations;
     
     // Add implementations
     
     VG vg, vg2;
     implementations.push_back(make_pair(&vg, &vg2));
-
-    bdsg::ODGI og, og2;
-    implementations.push_back(make_pair(&og, &og2));
 
     bdsg::HashGraph hg, hg2;
     implementations.push_back(make_pair(&hg, &hg2));

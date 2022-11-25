@@ -15,7 +15,7 @@
 
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
-#include "../min_distance.hpp"
+#include "../snarl_distance_index.hpp"
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
@@ -90,6 +90,7 @@ void help_view(char** argv) {
          << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
          << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl
          << "    -x, --extract-tag TAG      extract and concatenate messages with the given tag" << endl
+         << "    --verbose                  explain the file being read with --extract-tag" << endl
          << "    --threads N                for parallel operations use this many threads [1]" << endl;
     
     // TODO: Can we regularize the option names for input and output types?
@@ -140,8 +141,11 @@ int main_view(int argc, char** argv) {
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
     string extract_tag;
+    bool verbose;
     bool ascii_labels = false;
     omp_set_num_threads(1); // default to 1 thread
+    
+    #define OPT_VERBOSE 1000
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -190,6 +194,7 @@ int main_view(int argc, char** argv) {
                 {"snarl-traversal-in", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
                 {"extract-tag", required_argument, 0, 'x'},
+                {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
                 {"ascii-labels", no_argument, 0, 'e'},
@@ -420,6 +425,10 @@ int main_view(int argc, char** argv) {
             extract_tag = optarg;
             break;
 
+        case OPT_VERBOSE:
+            verbose = true;
+            break;
+
         case '7':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -473,13 +482,23 @@ int main_view(int argc, char** argv) {
     if (!extract_tag.empty()) {
         get_input_file(file_name, [&](istream& in) {
             // Iterate over the input as tagged messages.
-            vg::io::MessageIterator it(in);
+            vg::io::MessageIterator it(in, verbose);
             while(it.has_current()) {
                 if ((*it).first == extract_tag && (*it).second.get() != nullptr) {
                     // We match the tag, so dump this message.
+                    if (verbose) {
+                        cerr << "Message of " << (*it).second->size() << " bytes in matches tag to extract" << endl;
+                    }
                     cout << *((*it).second.get());
+                } else {
+                    if (verbose) {
+                        cerr << "Message of " << (*it).second->size() << " bytes does not match tag; skip" << endl;
+                    }
                 }
                 ++it;
+            }
+            if (verbose) {
+                cerr << "Iterator no longer has messages" << endl;
             }
         });
         return 0;
@@ -868,7 +887,7 @@ int main_view(int argc, char** argv) {
     } else if (input_type == "distance") {
         if (output_type == "json") {
             get_input_file(file_name, [&](istream& in) {
-                auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
+                auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(in);
                 distance_index->write_snarls_to_json();
             });
         } else {

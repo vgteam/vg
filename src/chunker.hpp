@@ -8,6 +8,7 @@
 #include "vg/io/json2pb.h"
 #include "region.hpp"
 #include "handle.hpp"
+#include "snarls.hpp"
 
 namespace vg {
 
@@ -39,6 +40,13 @@ public:
      * */
     void extract_subgraph(const Region& region, int64_t context, int64_t length, bool forward_only,
                           MutablePathMutableHandleGraph& subgraph, Region& out_region);
+
+
+    /** Extract the region along the given path, and any snarls fully contained in it. This will often 
+     * give more intuitive results than messing with context steps, which can run way 
+     * outside the region of interest */
+    void extract_snarls(const Region& region, SnarlManager& snarl_manager,
+                        MutablePathMutableHandleGraph& subgraph);
 
     /**
      * Extract a connected component containing a given path

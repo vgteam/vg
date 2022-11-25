@@ -23,7 +23,6 @@
 #include "../watchdog.hpp"
 #include "../watchdog.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
-#include <bdsg/odgi.hpp>
 #include <bdsg/packed_graph.hpp>
 #include <bdsg/hash_graph.hpp>
 #include <xg.hpp>
@@ -1651,9 +1650,6 @@ int main_mpmap(int argc, char** argv) {
         else if (magic_num == bdsg::HashGraph().get_magic_number()) {
             type = "HashGraph";
         }
-        else if (magic_num == bdsg::ODGI().get_magic_number()) {
-            type = "ODGI";
-        }
         
         stringstream strm;
         if (!type.empty()) {
@@ -1668,9 +1664,6 @@ int main_mpmap(int argc, char** argv) {
             }
             else if (type == "PackedGraph") {
                 strm << "PackedGraph is memory efficient, but has some slow queries. ";
-            }
-            else if (type == "ODGI") {
-                strm << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
             }
         }
         else {
@@ -1698,7 +1691,7 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] Identifying rescue subgraphs using embedded paths (--path-rescue-graph) is impossible on graphs that lack embedded paths. Pair rescue will not be used on this graph, potentially hurting accuracy." << endl;
     }
     
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
     // identify these before loading later data structures to reduce peak memory use
@@ -1755,7 +1748,7 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-    unique_ptr<MinimumDistanceIndex> distance_index;
+    unique_ptr<SnarlDistanceIndex> distance_index;
     if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
         // try to add an active thread
         int curr_thread_active = threads_active++;
@@ -1763,14 +1756,14 @@ int main_mpmap(int argc, char** argv) {
             // take back the increment and don't let it go multithreaded
             --threads_active;
             log_progress("Loading distance index from " + distance_index_name);
-            distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+            distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_index_stream);
             log_progress("Completed loading distance index");
         }
         else {
             // do the process in a background thread
             background_processes.emplace_back([&]() {
                 log_progress("Loading distance index from " + distance_index_name + " (in background)");
-                distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+                distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_index_stream);
                 --threads_active;
                 log_progress("Completed loading distance index");
             });

@@ -9,7 +9,6 @@
 #include <handlegraph/serializable_handle_graph.hpp>
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
-#include "bdsg/odgi.hpp"
 #include "vg.hpp"
 #include "xg.hpp"
 #include <vg/io/stream.hpp>

@@ -24,7 +24,7 @@ rm -f x.vg y.vg z.vg xyz.vg x.paths xyz.paths
 
 vg construct -r small/x.fa -v small/x.vcf.gz | vg convert -p - >  x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz | vg paths -d -v - | vg convert -a - > y.vg
-vg construct -r small/x.fa -v small/x.vcf.gz | vg paths -d -v - | vg convert -o - > z.vg
+vg construct -r small/x.fa -v small/x.vcf.gz | vg paths -d -v - | vg convert -p - > z.vg
 
 vg combine x.vg y.vg z.vg > xyz.vg
 
@@ -39,7 +39,7 @@ rm -f x.vg y.vg z.vg xyz.vg x.paths xyz.paths
 
 vg construct -r small/x.fa -v small/x.vcf.gz | vg convert -p - >  x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz | vg convert -a - > y.vg
-vg construct -r small/x.fa -v small/x.vcf.gz | vg convert -o - > z.vg
+vg construct -r small/x.fa -v small/x.vcf.gz | vg convert -v - > z.vg
 
 vg combine -p x.vg y.vg z.vg > xyz.vg
 

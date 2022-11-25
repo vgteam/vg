@@ -62,7 +62,7 @@ using JointRecipeFunc = function<vector<vector<vector<string>>>(const vector<con
  */
 struct IndexingParameters {
     // enums for categorical options
-    enum MutableGraphImplementation {HashGraph, PackedGraph, ODGI, VG};
+    enum MutableGraphImplementation {HashGraph, PackedGraph, VG};
     enum Verbosity {None = 0, Basic = 1, Debug = 2};
     
     // the actual parameters

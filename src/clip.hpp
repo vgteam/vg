@@ -21,7 +21,7 @@ using namespace std;
  * The parameters to visit_fn are: 
  *    <the snarl, start_step, end_step, steps_reversed, the containing input region>
  */
-void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
+void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
                             function<void(const Snarl*, step_handle_t, step_handle_t, int64_t, int64_t, bool, const Region*)> visit_fn);
 
@@ -59,21 +59,22 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
  * Nodes on path with given prefix ignored (todo: should really switch to regex or something)
  * iterate_handles is a hack to generalize this function to whole graphs or snarls
  */
-void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph, function<void(function<void(handle_t, const Region*)>)> iterate_handles,
-                                  int64_t min_depth, const vector<string>& ref_prefixes,
-                                  int64_t min_fragment_len, bool verbose);
-
+void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph,
+                                            function<void(function<void(handle_t, const Region*)>)> iterate_handles,
+                                            function<void(function<void(edge_t, const Region*)>)> iterate_edges,
+                                            int64_t min_depth, const vector<string>& ref_prefixes,
+                                            int64_t min_fragment_len, bool verbose);
 
 /**
  * Run above function on graph
  */
-void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
+void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
                           int64_t min_fragment_len, bool verbose);
 
 /**
  * Or on contained snarls
  */
-void clip_contained_low_depth_nodes(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
+void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                                     SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose);
 
 /**

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 28
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -19,6 +19,11 @@ is $(vg chunk -x x.xg -p x -c 10| vg stats - -E) 291 "vg chunk with no options p
 
 # check a small chunk
 is $(vg chunk -x x.xg -p x:20-30 -c 0 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == "9"))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
+
+# check snarl chunking
+vg snarls x.xg > x.snarls
+is $(vg chunk -x x.xg -S x.snarls -p x:10-20 | vg view - | grep ^S | awk '{print $2}' | sort -n | awk 'BEGIN { ORS = "" } {print}') 6789 "snarl chunk works on simple example"
+rm -f x.snarls
 
 # check a small chunk, but using vg input and packed graph output
 is $(vg chunk -x x.vg -p x:20-30 -c 0 -O pg | vg convert -v - | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == "9"))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"

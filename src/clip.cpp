@@ -3,6 +3,9 @@
 #include <unordered_map>
 #include <IntervalTree.h>
 #include <structures/rank_pairing_heap.hpp>
+#include <BooPHF.h>
+#include "bdsg/internal/hash_map.hpp"
+#include "bdsg/internal/packed_structs.hpp"
 
 //#define debug
 
@@ -15,7 +18,7 @@ using namespace std;
 // then return it (or nullptr if none found)
 // also return the snarl's interval (as pair of offsets) in the path
 // this logic is mostly lifted from deconstructor which does the same thing to get vcf coordinates.
-static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool> get_containing_region(PathPositionHandleGraph* graph,
+static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool> get_containing_region(const PathPositionHandleGraph* graph,
                                                                                                         PathTraversalFinder& trav_finder,
                                                                                                         const Snarl* snarl,
                                                                                                         unordered_map<string, IntervalTree<int64_t, const Region*>>& contig_to_interval_tree,
@@ -32,10 +35,10 @@ static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool
         path_handle_t path_handle = graph->get_path_handle_of_step(step_pair.first);
         string path_name = graph->get_path_name(path_handle);
         int64_t path_offset = 0;
-        auto sp_parse = Paths::parse_subpath_name(path_name);
-        if (get<0>(sp_parse)) {
-            path_name = get<1>(sp_parse);
-            path_offset = get<2>(sp_parse);
+        subrange_t subrange;
+        path_name = Paths::strip_subrange(path_name, &subrange);
+        if (subrange != PathMetadata::NO_SUBRANGE) {
+            path_offset = subrange.first;
         }
 
         if (contig_to_interval_tree.count(path_name)) {
@@ -81,7 +84,7 @@ static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool
     return make_tuple(nullptr, step_handle_t(), step_handle_t(), -1, -1, false);
 }
 
-void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
+void visit_contained_snarls(const PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
                             function<void(const Snarl*, step_handle_t, step_handle_t, int64_t, int64_t, bool, const Region*)> visit_fn) {
 
@@ -107,7 +110,7 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
     unordered_set<string> graph_path_name_set;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
             string graph_path_name = graph->get_path_name(path_handle);
-            if (path_name_set.count(Paths::get_base_name(graph_path_name))) {
+            if (path_name_set.count(Paths::strip_subrange(graph_path_name))) {
                 graph_path_name_set.insert(graph_path_name);
             }
         });
@@ -145,7 +148,17 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
 static path_handle_t create_path_fragment(MutablePathMutableHandleGraph* graph, const string& base_name, step_handle_t first_step,
                                           step_handle_t end_step, int64_t start_offset, int64_t end_offset) {
     assert(end_offset > start_offset);
-    string subpath_name = Paths::make_subpath_name(base_name, start_offset, end_offset - 1);
+    PathSense sense;
+    std::string sample;
+    std::string locus;
+    size_t haplotype;
+    size_t phase_block;
+    subrange_t subrange;
+    PathMetadata::parse_path_name(base_name, sense, sample, locus, haplotype, phase_block, subrange);
+    assert(subrange == PathMetadata::NO_SUBRANGE);
+    subrange.first = start_offset;
+    subrange.second = end_offset;
+    string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
 #ifdef debug
     cerr << "making fragment " << subpath_name << endl;
 #endif
@@ -172,10 +185,10 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
         cerr << "processing path " << path_name << endl;
 #endif
         int64_t path_offset = 0;
-        auto sp_parse = Paths::parse_subpath_name(path_name);
-        if (get<0>(sp_parse)) {
-            path_name = get<1>(sp_parse);
-            path_offset = get<2>(sp_parse);
+        subrange_t subrange;
+        path_name = Paths::strip_subrange(path_name, &subrange);
+        if (subrange != PathMetadata::NO_SUBRANGE) {
+            path_offset = subrange.first;
         }
 
         int64_t cur_step_offset = path_offset;
@@ -392,10 +405,20 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
     }
 }
 
-void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
-                                  function<void(function<void(handle_t, const Region*)>)> iterate_handles,
-                                  int64_t min_depth, const vector<string>& ref_prefixes,
-                                  int64_t min_fragment_len, bool verbose) {
+struct BBEdgeHash {
+    uint64_t operator()(const edge_t& edge, uint64_t seed = 0xAAAAAAAA55555555ULL) const {
+        uint64_t hsh1 = boomphf::SingleHashFunctor<int64_t>()(as_integer(edge.first), seed);
+        uint64_t hsh2 = boomphf::SingleHashFunctor<int64_t>()(as_integer(edge.second), seed);
+        // Boost combine for hash values
+        return hsh1 ^ (hsh2 + 0x9e3779b9 + (hsh1<<6) + (hsh1>>2));
+    }
+};
+
+void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph,
+                                            function<void(function<void(handle_t, const Region*)>)> iterate_handles,
+                                            function<void(function<void(edge_t, const Region*)>)> iterate_edges,                                            
+                                            int64_t min_depth, const vector<string>& ref_prefixes,
+                                            int64_t min_fragment_len, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
     unordered_set<nid_t> to_delete;
@@ -442,8 +465,60 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
         cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes with path coverage less than " << min_depth << endl;
     }
 
+    // now do the edges
+    size_t edge_count = graph->get_edge_count();
+    vector<edge_t> edges;
+    edges.reserve(edge_count);
+    graph->for_each_edge([&](edge_t edge) {
+            edges.push_back(edge);
+        });
+    boomphf::mphf<edge_t, BBEdgeHash> edge_hash(edge_count, edges, get_thread_count(), 2.0, false, false);
+    edges.clear();
+    bdsg::PackedVector<> edge_depths;
+    edge_depths.resize(edge_count);
+    
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+            bool is_ref_path = check_prefixes(graph->get_path_name(path_handle));
+            handle_t prev_handle;
+            bool first = true;
+            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                    handle_t handle = graph->get_handle_of_step(step_handle);
+                    if (!first) {
+                        edge_t edge = graph->edge_handle(prev_handle, handle);
+                        size_t edge_rank = edge_hash.lookup(edge);
+                        int64_t edge_depth = edge_depths.get(edge_rank);
+                        if (edge_depth < min_depth) {
+                            if (is_ref_path) {
+                                // we never want to remove and edge on a reference path,
+                                // so automatically bump such edges past the threshold
+                                edge_depths.set(edge_rank, min_depth);
+                            } else {
+                                edge_depths.set(edge_rank, edge_depth + 1);
+                            }
+                        }
+                    } else {
+                        first = false;
+                    }
+                    prev_handle = handle;
+                });
+        });
+
+    unordered_set<edge_t> edges_to_delete;
+    function<void(edge_t, const Region*)> visit_edge = [&](edge_t edge, const Region* region) {
+        size_t edge_rank = edge_hash.lookup(edge);
+        if (edge_depths.get(edge_rank) < min_depth) {
+            edges_to_delete.insert(edge);
+        }
+    };
+
+    iterate_edges(visit_edge);
+
+    if (verbose) {
+        cerr << "[vg-clip]: Removing " << edges_to_delete.size() << " edges with path coverage less than " << min_depth << endl;
+    }
+
     // cut out the nodes and chop up paths
-    delete_nodes_and_chop_paths(graph, to_delete, {}, min_fragment_len, verbose ? &clip_counts : nullptr);
+    delete_nodes_and_chop_paths(graph, to_delete, edges_to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
         
     if (verbose) {
         for (const auto& kv : clip_counts) {
@@ -484,7 +559,7 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
     }
 }
 
-void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
+void clip_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
                           int64_t min_fragment_len, bool verbose) {
     
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
@@ -492,11 +567,17 @@ void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_dept
                 visit_handle(handle, nullptr);
             });        
     };
-    
-    clip_low_depth_nodes_generic(graph, iterate_handles, min_depth, ref_prefixes, min_fragment_len, verbose);
+
+    function<void(function<void(edge_t, const Region*)>)> iterate_edges = [&] (function<void(edge_t, const Region*)> visit_edge) {
+        graph->for_each_edge([&](edge_t edge) {
+                visit_edge(edge, nullptr);
+            });        
+    };
+
+    clip_low_depth_nodes_and_edges_generic(graph, iterate_handles, iterate_edges, min_depth, ref_prefixes, min_fragment_len, verbose);
 }
 
-void clip_contained_low_depth_nodes(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
+void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                                     SnarlManager& snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose) {
 
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
@@ -508,11 +589,34 @@ void clip_contained_low_depth_nodes(MutablePathMutableHandleGraph* graph, PathPo
                                    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
                                    for (id_t node_id : contents.first) {
                                        visit_handle(graph->get_handle(node_id), containing_region);
-                                   }
+                                   }                                   
                                });
     };
 
-    clip_low_depth_nodes_generic(graph, iterate_handles, min_depth, {}, min_fragment_len, verbose);
+    // todo: duplicating this is very wasteful, and is only happening because edge support was added after the fact.
+    // something needs to be refactored in order to fix this, but it's a fairly esoteric codepath and may not be worth it
+    function<void(function<void(edge_t, const Region*)>)> iterate_edges = [&] (function<void(edge_t, const Region*)> visit_edge) {
+        
+        visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
+                                                                                        int64_t start_pos, int64_t end_pos,
+                                                                                        bool steps_reversed, const Region* containing_region) {
+                                   
+                                   pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+                                   for (const edge_t& edge : contents.second) {
+                                       visit_edge(edge, containing_region);
+                                   }                                   
+                               });
+    };
+
+    // the edge depths are computed globally, without looking at regions.  as such, they need some notion of reference paths
+    // so we shimmy a set in from the regions
+    set<string> ref_path_set;
+    for (const Region& region : regions) {
+        ref_path_set.insert(region.seq);
+    }
+    vector<string> ref_paths_from_regions(ref_path_set.begin(), ref_path_set.end());
+
+    clip_low_depth_nodes_and_edges_generic(graph, iterate_handles, iterate_edges, min_depth, ref_paths_from_regions, min_fragment_len, verbose);
     
 }
 
