@@ -2565,11 +2565,38 @@ bool Transcriptome::sort_compact_nodes() {
 #endif
 
     spp::sparse_hash_map<handle_t, vector<pair<int32_t, handle_t> > > update_index; 
+
+    for (auto & transcript_path: _transcript_paths) {
+
+        for (auto & handle: transcript_path.path) {
+
+            update_index.emplace(handle, vector<pair<int32_t, handle_t> >());
+        }
+    }   
+
     uint32_t order_idx = 1;
 
     for (auto handle: new_order) {
         
-        assert(update_index.emplace(handle, vector<pair<int32_t, handle_t> >({make_pair(0, _graph->get_handle(order_idx, _graph->get_is_reverse(handle)))})).second);
+        auto update_index_it = update_index.find(handle); 
+
+        if (update_index_it != update_index.end()) {
+
+            assert(update_index_it->second.empty());
+            update_index_it->second.emplace_back(0, _graph->get_handle(order_idx, _graph->get_is_reverse(handle)));
+                
+        } 
+
+        auto handle_flip = _graph->flip(handle);
+
+        update_index_it = update_index.find(handle_flip);
+
+        if (update_index_it != update_index.end()) {
+
+            assert(update_index_it->second.empty());
+            update_index_it->second.emplace_back(0, _graph->get_handle(order_idx, _graph->get_is_reverse(handle_flip)));
+        }
+
         ++order_idx;
     }
 
