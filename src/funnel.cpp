@@ -10,6 +10,81 @@
 namespace vg {
 using namespace std;
 
+void Funnel::PaintableSpace::paint(size_t start, size_t length) {
+    // Find the last interval starting strictly before start
+    auto predecessor = regions.lower_bound(start);
+    if (predecessor != regions.begin()) {
+        --predecessor;
+        // We have one.
+        
+        if (predecessor->first + predecessor->second >= start) {
+            // If its length is long enough to abut or cover start
+            
+            if (predecessor->first + predecessor->second > start + length) {
+                // It completely encompasses us, so nothing to do!
+                return;
+            }
+            
+            // Budge start back and increase length
+            length += (start - predecessor->first);
+            start = predecessor->first;
+            
+            // And remove it
+            regions.erase(predecessor);
+            // TODO: Can we fix it up?
+        }
+    }
+    
+    // Find the first interval starting at or after start
+    auto successor = regions.upper_bound(start);
+    auto range_first = regions.end();
+    auto range_last = regions.end();
+    while (successor != regions.end() && successor->first <= start + length) {
+        // For each from there that starts at or before start + length
+        // Increase length to cover up to its end
+        length = std::max(successor->first + successor->second, start + length) - start;
+        // And remember to remove it it
+        if (range_first == regions.end()) {
+            range_first = successor;
+        }
+        // Check the next thing
+        ++successor;
+        // Which provides the removal past-end
+        range_last = successor;
+    }
+    
+    // Remove the covered intervals
+    regions.erase(range_first, range_last);
+    
+    // Add the new interval
+    regions.emplace(start, length);
+}
+
+bool Funnel::PaintableSpace::is_any_painted(size_t start, size_t length) const {
+    // Find the last interval starting strictly before start
+    auto predecessor = regions.lower_bound(start);
+    if (predecessor != regions.begin()) {
+        --predecessor;
+        // We have one.
+        if (predecessor->first + predecessor->second > start) {
+            // It covers our start, so we overlap
+            return true;
+        }
+    }
+    
+    auto successor = regions.upper_bound(start);
+    if (successor != regions.end()) {
+        // There's something starting at or after us
+        if (start + length > successor->first) {
+            // And we overlap it
+            return true;
+        }
+    }
+    
+    // We can't overlap anything
+    return false;
+}
+
 void Funnel::start(const string& name) {
     assert(!name.empty());
 
@@ -161,10 +236,12 @@ void Funnel::project(size_t prev_stage_item) {
 
     // Record the ancestry
     get_item(index).prev_stage_items.push_back(prev_stage_item);
+    
+    auto& old = prev_stage.items[prev_stage_item];
 
-    if (prev_stage.items[prev_stage_item].correct) {
-        // Tag the new item correct if it came from something correct
-        tag_correct(index);
+    if (old.tag != State::NONE) {
+        // Tag the new item if it came from something tagged
+        tag(index, old.tag, old.tag_start, old.tag_length);
     }
 }
 
@@ -199,38 +276,65 @@ void Funnel::score(size_t item, double score) {
     get_item(item).score = score;
 }
 
-void Funnel::tag_correct(size_t item) {
-    // Say the item is correct
-    get_item(item).correct = true;
-    // Say the stage has something correct.
-    stages.back().has_correct = true;
+void Funnel::tag(size_t item, State state, size_t tag_start, size_t tag_length) {
+    // Say the item is tagged
+    auto& to_mark = get_item(item);
+    to_mark.tag = std::max(to_mark.tag, state);
+    
+    if (to_mark.tag_start == std::numeric_limits<size_t>::max() && to_mark.tag_length == 0) {
+        // Item hasn't been tagged before, so we can jsut adopt the passed range.
+        to_mark.tag_start = tag_start;
+        to_mark.tag_length = tag_length;
+    } else {
+        // We need to find the enclosing range of the existing range and the new range.
+        size_t correct_end = std::max(to_mark.tag_start + to_mark.tag_length, tag_start + tag_length);
+        to_mark.tag_start = std::min(to_mark.tag_start, tag_start);
+        to_mark.tag_length = correct_end - tag_start;
+    }
+    
+    // TODO: Allow different tags to cover different ranges?
+    // TODO: Allow per-item gapped range tracking?
+    
+    // Say the stage has tag over this interval.
+    stages.back().tag = std::max(stages.back().tag, state);
+    stages.back().tag_space.paint(to_mark.tag_start, to_mark.tag_length);
+}
+
+void Funnel::tag_correct(size_t item, size_t tag_start, size_t tag_length) {
+    tag(item, State::CORRECT, tag_start, tag_length);
 }
 
 bool Funnel::is_correct(size_t item) const {
-    return stages.back().items[item].correct;
+    return stages.back().items[item].tag >= State::CORRECT;
 }
 
 bool Funnel::was_correct(size_t prev_stage_item) const {
     assert(stages.size() > 1);
     auto& prev_stage = stages[stages.size() - 2];
-    return prev_stage.items[prev_stage_item].correct;
+    return prev_stage.items[prev_stage_item].tag >= State::CORRECT;
 }
 
 bool Funnel::was_correct(size_t prev_stage_index, const string& prev_stage_name, size_t prev_stage_item) const {
     assert(stages.size() > prev_stage_index);
     auto& prev_stage = stages[prev_stage_index];
     assert(prev_stage.name == prev_stage_name);
-    return prev_stage.items[prev_stage_item].correct;
+    return prev_stage.items[prev_stage_item].tag >= State::CORRECT;
 }
 
-string Funnel::last_correct_stage() const {
+string Funnel::last_tagged_stage(State tag, size_t tag_start, size_t tag_length) const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
-        if (it->has_correct) {
+        if (it->tag >= tag && it->tag_space.is_any_painted(tag_start, tag_length)) {
+            // If we are tagged good enough and have a tag in part of that
+            // area, then we are a matching stage.
             return it->name;
         }
     }
     return "none";
+}
+
+string Funnel::last_correct_stage(size_t tag_start, size_t tag_length) const {
+    return last_tagged_stage(State::CORRECT, tag_start, tag_length); 
 }
 
 size_t Funnel::latest() const {
@@ -285,12 +389,12 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
                 
                 // Record passing
                 filter_performances[filter_index].first.passing++;
-                filter_performances[filter_index].first.passing_correct += item.correct;
+                filter_performances[filter_index].first.passing_correct += item.tag >= State::CORRECT;
                 
                 filter_performances[filter_index].second.passing += item.group_size;
-                filter_performances[filter_index].second.passing_correct += item.correct ? item.group_size : 0;
+                filter_performances[filter_index].second.passing_correct += item.tag >= State::CORRECT ? item.group_size : 0;
                 
-                if (item.correct) {
+                if (item.tag >= State::CORRECT) {
                     // Record this statistic value as belonging to a correct item
                     filter_statistics[filter_index].first.push_back(item.passed_statistics[filter_index]);
                 } else {
@@ -319,12 +423,12 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
                 
                 // Record failing
                 filter_performances[filter_index].first.failing++;
-                filter_performances[filter_index].first.failing_correct += item.correct;
+                filter_performances[filter_index].first.failing_correct += (item.tag >= State::CORRECT) ? 1 : 0;
                 
                 filter_performances[filter_index].second.failing += item.group_size;
-                filter_performances[filter_index].second.failing_correct += item.correct ? item.group_size : 0;
+                filter_performances[filter_index].second.failing_correct += (item.tag >= State::CORRECT) ? item.group_size : 0;
                 
-                if (item.correct) {
+                if (item.tag >= State::CORRECT) {
                     // Record this statistic value as belonging to a correct item
                     filter_statistics[filter_index].first.push_back(item.failed_statistic);
                 } else {
@@ -384,7 +488,7 @@ void Funnel::to_dot(ostream& out) {
                 out << "score " << item.score;
             }
             out << "\"";
-            if (item.correct) {
+            if (item.tag >= State::CORRECT) {
                 // Make it green if it is correct
                 out << " color=green";
             }
@@ -397,7 +501,7 @@ void Funnel::to_dot(ostream& out) {
                     auto& prev_item = stages[s - 1].items.at(p);
 
                     out << "s" << (s - 1) << "i" << p << " -> " << item_id << "[";
-                    if (item.correct && prev_item.correct) {
+                    if (item.tag >= State::CORRECT && prev_item.tag >= State::CORRECT) {
                         // Correctness came this way
                         out << "color=green";
                     }
@@ -422,7 +526,14 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
         // And the per-stage duration
         set_annotation(aln, "stage_" + stage + "_time", duration);
     });
-
+    
+    set_annotation(aln, "last_placed_stage", last_tagged_stage(State::PLACED));
+    for (size_t i = 0; i < aln.sequence().size(); i += 500) {
+        // For each 500 bp window, annotate with the last stage that had something placed in or spanning the window.
+        // TODO: This is terrible, use an array or something.
+        set_annotation(aln, "last_placed_stage_" + std::to_string(i) + "bp", last_tagged_stage(State::PLACED, i, 500));
+    }
+    
     if (annotate_correctness) {
         // And with the last stage at which we had any descendants of the correct seed hit locations
         set_annotation(aln, "last_correct_stage", last_correct_stage());

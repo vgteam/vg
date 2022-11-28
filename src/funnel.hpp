@@ -121,10 +121,27 @@ public:
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
+    
+    /// We can tag items as having one of these states.
+    enum class State {
+        NONE = 0,
+        PLACED = 1,
+        CORRECT = 2
+    };
+    
+    /// Tag the given item as being in the given state at the current stage.
+    /// Future items that derive from it will inherit these tags. Optionally
+    /// allows specifying that the state extends over a range in read space.
+    void tag(size_t item, State state, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max());
 
     /// Tag the given item as "correct" at the current stage. Future items that
     /// derive from it will also be tagged as correct.
-    void tag_correct(size_t item);
+    /// Optionally allows specifying that the correctness extends over a range
+    /// in read space, so correctness can be tracked as a property of regions
+    /// of the read, rather than the whole read.
+    /// If called multiple times, with different bounds, the correct region
+    /// will enclose all the correct regions provided in the different calls.
+    void tag_correct(size_t item, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max());
     
     /// Return true if the given item at this stage is tagged correct, or
     /// descends from an item that was tagged correct.
@@ -142,7 +159,19 @@ public:
 
     /// Get the name of the most recent stage that had a correct-tagged item
     /// survive into it, or "none" if no items were ever tagged correct.
-    string last_correct_stage() const;
+    /// Optionally allows specifying a read space interval to intersect with
+    /// items, so the query returns the last stage that had a correct item
+    /// intersecting that range.
+    string last_correct_stage(size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max()) const;
+    
+    /// Get the name of the most recent stage that had a n item tagged with the
+    /// given tag or better survive into it, or "none" if no items were ever
+    /// tagged that good. Optionally allows specifying a read space interval to
+    /// intersect with items, so the query returns the last stage that had an
+    /// item intersecting that range and also an item witht hat tag or better.
+    ///
+    /// TODO: Make worse tag ranges not match queries for better tags!
+    string last_tagged_stage(State tag, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max()) const;
     
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
@@ -215,12 +244,28 @@ protected:
     
     // Now members we need for provenance tracking
     
+    /// Represents a flag vector over positions via a sorted interval list.
+    /// Allows setting flags in a range.
+    struct PaintableSpace {
+        /// Mark a range as painted
+        void paint(size_t start, size_t length);
+        /// Check if any position in the given range is painted
+        bool is_any_painted(size_t start, size_t length) const;
+        
+        /// Store start position and length for all painted intervals.
+        std::map<size_t, size_t> regions;
+    };
+    
     /// Represents an Item whose provenance we track
     struct Item {
         size_t group_size = 0;
         double score = 0;
-        /// Is this item tagged as correct, or a descendant of a tagged item?
-        bool correct = false;
+        /// Is this item tagged with a state, or a descendant of a tagged item?
+        State tag = State::NONE;
+        /// If the item is tagged, over what interval is it tagged?
+        /// When projecting, intervals are combined by min/maxing the bounds.
+        size_t tag_start = std::numeric_limits<size_t>::max();
+        size_t tag_length = 0;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
         /// What filters did the item pass at this stage, if any?
@@ -242,8 +287,10 @@ protected:
         /// How many of the items were actually projected?
         /// Needed because items may need to expand to hold information for items that have not been projected yet.
         size_t projected_count = 0;
-        /// Does this stage contain any items tagged as correct?
-        bool has_correct = false;
+        /// What's the best tag of anything at this stage?
+        State tag = State::NONE;
+        /// Where are tags applied?
+        PaintableSpace tag_space;
     };
     
     /// Ensure an item with the given index exists in the current stage and return a reference to it.
@@ -315,10 +362,11 @@ void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_en
 
         // Record the dependency
         get_item(index).prev_stage_items.push_back(prev_stage_item);
-         
-        if (prev_stage.items[prev_stage_item].correct) {
-            // Tag the new item correct if it came from something correct.
-            tag_correct(index);
+        
+        auto& old = prev_stage.items[prev_stage_item];
+        if (old.tag != State::NONE) {
+            // Tag the new item if it came from something tagged.
+            tag(index, old.tag, old.tag_start, old.tag_length);
         }
     }
 }

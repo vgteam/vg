@@ -400,11 +400,12 @@ protected:
     std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
     
     /**
-     * Mark seeds that are correctly mapped as correct in the funnel, based on
-     * proximity along paths to the input read's refpos. Assumes we are tracking
-     * provenance and correctness.
+     * If tracking correctness, mark seeds that are correctly mapped as correct
+     * in the funnel, based on proximity along paths to the input read's
+     * refpos. Otherwise, tag just as placed, with the seed's read interval.
+     * Assumes we are tracking provenance.
      */
-    void mark_correct_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, size_t funnel_offset, Funnel& funnel) const;
+    void tag_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, const VectorView<Minimizer>& minimizers, size_t funnel_offset, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the

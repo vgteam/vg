@@ -3425,10 +3425,15 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
         }
     }
 
-    if (this->track_provenance && this->track_correctness) {
-        // Tag seeds with correctness 
-        funnel.substage("correct");
-        this->mark_correct_seeds(aln, seeds.cbegin(), seeds.cend(), 0, funnel);
+    if (this->track_provenance) {
+        if (this->track_correctness) {
+            // Tag seeds with correctness 
+            funnel.substage("correct");
+        } else {
+            // We're just tagging them with read positions
+            funnel.substage("placed");
+        }
+        this->tag_seeds(aln, seeds.cbegin(), seeds.cend(), minimizers, 0, funnel);
     }
 
     if (show_work) {
@@ -3443,16 +3448,20 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     return seeds;
 }
 
-void MinimizerMapper::mark_correct_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, size_t funnel_offset, Funnel& funnel) const { 
-    if (this->path_graph == nullptr) {
+void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::const_iterator& begin, const std::vector<Seed>::const_iterator& end, const VectorView<Minimizer>& minimizers, size_t funnel_offset, Funnel& funnel) const { 
+    if (this->track_correctness && this->path_graph == nullptr) {
         cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
         exit(1);
     }
-
-    if (aln.refpos_size() != 0) {
-        // Track the index of each seed in the funnel
-        size_t funnel_index = funnel_offset;
-        for (std::vector<Seed>::const_iterator it = begin; it != end; ++it) {
+    
+    // Track the index of each seed in the funnel
+    size_t funnel_index = funnel_offset;
+    for (std::vector<Seed>::const_iterator it = begin; it != end; ++it) {
+        
+        // We know the seed is placed somewhere.
+        Funnel::State tag = Funnel::State::PLACED;
+        if (this->track_correctness && aln.refpos_size() != 0) {
+            // It might also be correct
             // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
             auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, it->pos, 100);
             
@@ -3461,13 +3470,22 @@ void MinimizerMapper::mark_correct_seeds(const Alignment& aln, const std::vector
                 for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
                     // Look at all the hit positions on the path the read's true position is on.
                     if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // Call this seed hit close enough to be correct
-                        funnel.tag_correct(funnel_index);
+                        // We're close enough to be correct
+                        tag = Funnel::State::CORRECT;
+                        break;
                     }
                 }
+                if (tag == Funnel::State::CORRECT) {
+                    break;
+                }
             }
-            funnel_index++;
         }
+                
+        // Tag this seed as making some of the read space placed or even correct.
+        funnel.tag(funnel_index, tag, minimizers[it->source].forward_offset(), minimizers[it->source].length);
+        
+        // Look at the next seed
+        funnel_index++;
     }
 }
 

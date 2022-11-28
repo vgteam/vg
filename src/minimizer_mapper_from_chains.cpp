@@ -393,8 +393,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (this->track_correctness) {
             // Tag newly introduced seed items with correctness 
             funnel.substage("correct");
-            this->mark_correct_seeds(aln, seeds.cbegin() + old_seed_count, seeds.cend(), preclusters.size(), funnel);
+        } else {
+            // We're just tagging them with read positions
+            funnel.substage("placed");
         }
+        this->tag_seeds(aln, seeds.cbegin() + old_seed_count, seeds.cend(), minimizers, preclusters.size(), funnel);
     }
     
     // Make the main clusters that include the recovered seeds
