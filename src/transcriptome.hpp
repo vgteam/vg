@@ -78,11 +78,11 @@ struct TranscriptPath {
     /// Transcript names.
     vector<string> transcript_names;
 
-    /// Embedded path origin names.
-    vector<string> embedded_path_names;
+    /// Embedded path names and reference path origin.
+    vector<pair<string, bool> > embedded_path_names;
 
-    /// Haplotype gbwt origin ids.
-    vector<gbwt::size_type> haplotype_gbwt_ids;
+    /// Haplotype gbwt ids and reference path origin.
+    vector<pair<gbwt::size_type, bool> > haplotype_gbwt_ids;
 
     /// Copy id of transcript path 
     uint32_t copy_id;
@@ -98,10 +98,10 @@ struct TranscriptPath {
         assert(!transcript_name.empty());
         assert(!embedded_path_name.empty());
 
-        assert(is_reference || is_haplotype);
+        assert(is_reference != is_haplotype);
 
         transcript_names.emplace_back(transcript_name);
-        embedded_path_names.emplace_back(embedded_path_name);
+        embedded_path_names.emplace_back(embedded_path_name, is_reference);
 
         copy_id = 1;
     }
@@ -110,10 +110,10 @@ struct TranscriptPath {
 
         assert(!transcript_name.empty());
 
-        assert(is_reference || is_haplotype);
+        assert(is_reference != is_haplotype);
 
         transcript_names.emplace_back(transcript_name);
-        haplotype_gbwt_ids.emplace_back(haplotype_gbwt_id);
+        haplotype_gbwt_ids.emplace_back(haplotype_gbwt_id, is_reference);
 
         copy_id = 1;
     }
@@ -246,15 +246,15 @@ class Transcriptome {
 
         /// Adds transcriptome transcript paths as threads to a GBWT index.
         /// Returns the number of added threads.
-        void add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool exclude_unique_reference_transcripts) const;
+        void add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool exclude_reference_transcripts) const;
 
         /// Writes transcriptome transcript path sequences to a fasta file.  
         /// Returns the number of written sequences.
-        void write_transcript_sequences(ostream * fasta_ostream, const bool exclude_unique_reference_transcripts) const;
+        void write_transcript_sequences(ostream * fasta_ostream, const bool exclude_reference_transcripts) const;
 
         /// Writes info on transcriptome transcript paths to tsv file.
         /// Returns the number of written transcripts.
-        void write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool exclude_unique_reference_transcripts) const;
+        void write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool exclude_reference_transcripts) const;
 
         /// Writes the graph to a file.
         void write_graph(ostream * graph_ostream) const;

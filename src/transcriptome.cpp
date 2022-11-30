@@ -1627,7 +1627,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
         while (haplotype_thread_ids_it != haplotype.second.end()) {
 
             // Convert bidirectional path id before finding name. 
-            edited_transcript_paths.back().haplotype_gbwt_ids.emplace_back(gbwt::Path::id(*haplotype_thread_ids_it));
+            edited_transcript_paths.back().haplotype_gbwt_ids.emplace_back(gbwt::Path::id(*haplotype_thread_ids_it), false);
             ++haplotype_thread_ids_it;
         }
 
@@ -2663,7 +2663,7 @@ void Transcriptome::embed_transcript_paths(const bool add_reference_transcripts,
     if (show_progress) { cerr << "\tEmbedded " << num_embedded_paths << " paths in graph" << endl; };
 }
 
-void Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool exclude_unique_reference_transcripts) const {
+void Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const bool exclude_reference_transcripts) const {
 
     int32_t num_added_threads = 0;
 
@@ -2683,7 +2683,7 @@ void Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, co
         assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
         // Exclude unique reference transcripts
-        if (exclude_unique_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
+        if (exclude_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
 
             continue;
         }
@@ -2713,7 +2713,7 @@ void Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, co
     gbwt_builder->index.metadata.addSamples(sample_names);
 }
 
-void Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const bool exclude_unique_reference_transcripts) const {
+void Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const bool exclude_reference_transcripts) const {
 
     int32_t num_written_sequences = 0;
 
@@ -2722,7 +2722,7 @@ void Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const bo
         assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
         // Exclude unique reference transcripts
-        if (exclude_unique_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
+        if (exclude_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
 
             continue;
         }
@@ -2741,7 +2741,7 @@ void Transcriptome::write_transcript_sequences(ostream * fasta_ostream, const bo
     }
 }
 
-void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool exclude_unique_reference_transcripts) const {
+void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool exclude_reference_transcripts) const {
 
     *tsv_ostream << "Name\tLength\tTranscripts\tHaplotypes" << endl; 
     
@@ -2755,7 +2755,7 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
         assert(transcript_path.is_reference || transcript_path.is_haplotype);
 
         // Exclude unique reference transcripts
-        if (exclude_unique_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
+        if (exclude_reference_transcripts && transcript_path.is_reference && !transcript_path.is_haplotype) {
 
             continue;
         }
@@ -2792,10 +2792,15 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
         *tsv_ostream << "\t";
 
         assert(!transcript_path.embedded_path_names.empty() || !transcript_path.haplotype_gbwt_ids.empty());
-        
+
         is_first = true;
 
         for (auto & name: transcript_path.embedded_path_names) {
+
+            if (exclude_reference_transcripts && name.second) {
+
+                continue;
+            }
 
             if (!is_first) {
 
@@ -2803,10 +2808,15 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
             } 
 
             is_first = false;
-            *tsv_ostream << name;
+            *tsv_ostream << name.first;
         }
 
         for (auto & id: transcript_path.haplotype_gbwt_ids) {
+
+            if (exclude_reference_transcripts && id.second) {
+
+                continue;
+            }
 
             if (!is_first) {
 
@@ -2814,8 +2824,9 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
             } 
 
             is_first = false;             
-            PathSense sense = gbwtgraph::get_path_sense(haplotype_index, id, gbwt_reference_samples);
-            *tsv_ostream << gbwtgraph::compose_path_name(haplotype_index, id, sense);
+
+            PathSense sense = gbwtgraph::get_path_sense(haplotype_index, id.first, gbwt_reference_samples);
+            *tsv_ostream << gbwtgraph::compose_path_name(haplotype_index, id.first, sense);
         }
 
         *tsv_ostream << endl;
