@@ -22,6 +22,7 @@
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
+#include "../algorithms/find_gbwt.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
 
@@ -350,16 +351,16 @@ int main_chunk(int argc, char** argv) {
     }
 
     // Now load the haplotype data
-    unique_ptr<gbwt::GBWT> gbwt_index;
-    if (trace && !gbwt_file.empty()) {
-        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
     
-        // Load the GBWT from its container
-        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+    unique_ptr<gbwt::GBWT> gbwt_index_holder;
+    const gbwt::GBWT* gbwt_index = nullptr; 
+    if (trace) {
+        // We are tracing haplotypes, so find a GBWT in the graph or load one
+        gbwt_index = vg::algorithms::find_gbwt(path_handle_graph.get(), gbwt_index_holder, gbwt_file);
 
-        if (gbwt_index.get() == nullptr) {
+        if (gbwt_index == nullptr) {
           // Complain if we couldn't.
-          cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
+          cerr << "error:[vg chunk] unable to find gbwt index in graph or separate file" << endl;
           exit(1);
         }
     }
@@ -664,7 +665,7 @@ int main_chunk(int argc, char** argv) {
         }
 
         // optionally trace our haplotypes
-        if (trace && subgraph && gbwt_index.get() != nullptr) {
+        if (trace && subgraph && gbwt_index) {
             int64_t trace_start;
             int64_t trace_steps = 0;
             if (id_range) {
@@ -690,7 +691,7 @@ int main_chunk(int argc, char** argv) {
                 }
             }
             Graph g;
-            trace_haplotypes_and_paths(*graph, *gbwt_index.get(), trace_start, trace_steps,
+            trace_haplotypes_and_paths(*graph, *gbwt_index, trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
                     trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});
