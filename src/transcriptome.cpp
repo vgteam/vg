@@ -1878,6 +1878,7 @@ void Transcriptome::remove_redundant_transcript_paths(list<T> * new_transcript_p
 
                         if (path_collapse_type == "all") {
 
+                            // Merge unqiue transcript names.
                             for (auto & new_transcript_name: new_transcript_paths_it->transcript_names) {
 
                                 if (find(transcript_path->transcript_names.begin(), transcript_path->transcript_names.end(), new_transcript_name) == transcript_path->transcript_names.end()) {
@@ -1893,11 +1894,24 @@ void Transcriptome::remove_redundant_transcript_paths(list<T> * new_transcript_p
                             assert(new_transcript_paths_it->transcript_names.size() == 1);
                         }
 
-                        // Merge embedded path origin names.
-                        transcript_path->embedded_path_names.insert(transcript_path->embedded_path_names.end(), new_transcript_paths_it->embedded_path_names.begin(), new_transcript_paths_it->embedded_path_names.end());
+                        // Merge unqiue embedded path names.
+                        for (auto & new_embedded_path_name: new_transcript_paths_it->embedded_path_names) {
 
-                        // Merge haplotype gbwt origin ids.
-                        transcript_path->haplotype_gbwt_ids.insert(transcript_path->haplotype_gbwt_ids.end(), new_transcript_paths_it->haplotype_gbwt_ids.begin(), new_transcript_paths_it->haplotype_gbwt_ids.end());
+                            if (find(transcript_path->embedded_path_names.begin(), transcript_path->embedded_path_names.end(), new_embedded_path_name) == transcript_path->embedded_path_names.end()) {
+
+                                transcript_path->embedded_path_names.emplace_back(new_embedded_path_name);
+                            }
+                        }
+
+                        // Merge unqiue haplotype gbwt ids.
+                        for (auto & new_haplotype_gbwt_id: new_transcript_paths_it->haplotype_gbwt_ids) {
+
+                            if (find(transcript_path->haplotype_gbwt_ids.begin(), transcript_path->haplotype_gbwt_ids.end(), new_haplotype_gbwt_id
+                                ) == transcript_path->haplotype_gbwt_ids.end()) {
+
+                                transcript_path->haplotype_gbwt_ids.emplace_back(new_haplotype_gbwt_id);
+                            }
+                        }
 
                         transcript_path->is_reference = (transcript_path->is_reference || new_transcript_paths_it->is_reference);
                         transcript_path->is_haplotype = (transcript_path->is_haplotype || new_transcript_paths_it->is_haplotype);
