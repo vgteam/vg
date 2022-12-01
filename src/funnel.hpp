@@ -36,7 +36,8 @@ using namespace std;
  *
  * An item may be a "group", with a certain size.
  *
- * We also can assign scores to items at a stage.
+ * We also can assign "scores" or correctness/placed-ness "tags" to items at a
+ * stage. Tags can cover a region of a linear read space.
  */
 class Funnel {
 
@@ -99,6 +100,34 @@ public:
     /// The new item will be a single item.
     template<typename Iterator>
     void merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
+    /// Record extra provenance relationships where the latest current-stage
+    /// item came from the given previous-stage items. Increases the
+    /// current-stage item group size by the number of previous-stage items
+    /// added.
+    ///
+    /// Propagates tagging.
+    template<typename Iterator>
+    void also_merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
+    /// Record extra provenance relationships where the latest current-stage
+    /// item came from the given earlier-stage items. Increases the
+    /// current-stage item group size by the number of previous-stage items
+    /// added.
+    ///
+    /// Propagates tagging.
+    ///
+    /// earlier_stage_lookback determines how many stages to look back and must be
+    /// 1 or more.
+    template<typename Iterator>
+    void also_merge_group(size_t earlier_stage_lookback, Iterator earlier_stage_items_begin, Iterator earlier_stage_items_end);
+    
+    /// Record an extra provenance relationship where the latest current-stage
+    /// item came from the given previous-stage item, the given number of
+    /// stages ago (min 1).
+    ///
+    /// Does not adjust group size or propagate tagging.
+    void also_relevant(size_t earlier_stage_lookback, size_t earlier_stage_item); 
     
     /// Project a single item from the previous stage to a single non-group item at this stage.
     void project(size_t prev_stage_item);
@@ -201,13 +230,13 @@ public:
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages and provenance.
-    void to_dot(ostream& out);
+    void to_dot(ostream& out) const;
 
     /// Set an alignments annotations with the number of results at each stage
     /// if annotate_correctness is true, also annotate the alignment with the
     /// number of correct results at each stage. This assumes that we've been
     /// tracking correctness all along
-    void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness);
+    void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) const;
     
 protected:
     
@@ -268,6 +297,9 @@ protected:
         size_t tag_length = 0;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
+        /// And what items from stages before that? Recorded as (stage offset,
+        /// item number) pairs; all the offsets will be >=2.
+        vector<pair<size_t, size_t>> earlier_stage_items = {};
         /// What filters did the item pass at this stage, if any?
         vector<const char*> passed_filters = {};
         /// And what statistics did they have (or NaN)?
@@ -307,6 +339,19 @@ protected:
     /// Handles repeated stages.
     vector<Stage> stages;
 };
+
+inline std::ostream& operator<<(std::ostream& out, const Funnel::State& state) {
+    switch (state) {
+        case Funnel::State::NONE:
+            return out << "NONE";
+        case Funnel::State::PLACED:
+            return out << "PLACED";
+        case Funnel::State::CORRECT:
+            return out << "CORRECT";
+        default:
+            return out << "UNKNOWN";
+    }
+}
 
 template<typename Iterator>
 void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
@@ -353,9 +398,9 @@ void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_en
     // Make a new item to combine all the given items.
     size_t index = create_item();
 
-    for (Iterator& i = prev_stage_items_begin; i != prev_stage_items_end; ++i) {
-        // For each prev stage item (not copying the iterator)
-        size_t prev_stage_item = *i;
+    for (Iterator& it = prev_stage_items_begin; it != prev_stage_items_end; ++it) {
+        // For each prev stage item
+        size_t prev_stage_item = *it;
 
         // Make sure it existed
         assert(prev_stage.items.size() > prev_stage_item);
@@ -363,10 +408,51 @@ void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_en
         // Record the dependency
         get_item(index).prev_stage_items.push_back(prev_stage_item);
         
+        // Propagate tags
         auto& old = prev_stage.items[prev_stage_item];
         if (old.tag != State::NONE) {
             // Tag the new item if it came from something tagged.
             tag(index, old.tag, old.tag_start, old.tag_length);
+        }
+    }
+}
+
+template<typename Iterator>
+void Funnel::also_merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
+    also_merge_group(1, prev_stage_items_begin, prev_stage_items_end);
+}
+
+template<typename Iterator>
+void Funnel::also_merge_group(size_t earlier_stage_lookback, Iterator earlier_stage_items_begin, Iterator earlier_stage_items_end) {
+    assert(earlier_stage_lookback > 0);
+    assert(stages.size() > earlier_stage_lookback);
+    auto& earlier_stage = stages[stages.size() - 1 - earlier_stage_lookback];
+    auto& item = get_item(latest());
+    
+    for (Iterator& it = earlier_stage_items_begin; it != earlier_stage_items_end; ++it) {
+        // For each earlier stage item
+        size_t earlier_stage_item = *it;
+
+        // Make sure it existed
+        assert(earlier_stage.items.size() > earlier_stage_item);
+
+        // Record the dependency
+        if (earlier_stage_lookback == 1) {
+            // References to the immediately preceeding stage are special
+            item.prev_stage_items.push_back(earlier_stage_item);
+        } else {
+            // References to earlier stages include the stage offset back
+            item.earlier_stage_items.emplace_back(earlier_stage_lookback, earlier_stage_item);
+        }
+        
+        // Increase group size
+        item.group_size += 1;
+        
+        // Propagate tags
+        auto& old = earlier_stage.items[earlier_stage_item];
+        if (old.tag != State::NONE) {
+            // Tag the new item if it came from something tagged.
+            tag(latest(), old.tag, old.tag_start, old.tag_length);
         }
     }
 }

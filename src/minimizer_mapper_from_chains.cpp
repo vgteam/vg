@@ -582,9 +582,34 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             
             if (track_provenance) {
-                // Record with the funnel that the previous group became a single item.
-                // TODO: Change to a group when we can do multiple chains.
-                funnel.project(cluster_num);
+                // Record with the funnel that there is now a chain that comes
+                // from all the seeds that participate in the chain.
+                funnel.introduce();
+                funnel.score(funnel.latest(), cluster_chains.back().first);
+                // Accumulate the old and new seed funnel numbers to connect to.
+                // TODO: should we just call into the funnel every time instead of allocating?
+                std::vector<size_t> old_seed_ancestors;
+                std::vector<size_t> new_seed_ancestors;
+                for (auto& sorted_seed_number : cluster_chains.back().second) {
+                    // Map each seed back to its canonical seed order
+                    size_t seed_number = cluster_chain_seeds.back().at(sorted_seed_number);
+                    if (seed_number < old_seed_count) {
+                        // Seed is original, from "seed" stage 4 stages ago
+                        old_seed_ancestors.push_back(seed_number);
+                    } else {
+                        // Seed is new, from "reseed" stage 2 stages ago. Came
+                        // after all the preclusters which also live in the reseed stage.
+                        new_seed_ancestors.push_back(seed_number - old_seed_count + clusters.size());
+                    }
+                }
+                // We came from all the original seeds, 4 stages ago
+                funnel.also_merge_group(4, old_seed_ancestors.begin(), old_seed_ancestors.end());
+                // We came from all the new seeds, 2 stages ago
+                funnel.also_merge_group(2, new_seed_ancestors.begin(), new_seed_ancestors.end());
+                // We're also related to the source cluster from the
+                // immediately preceeding stage.
+                funnel.also_relevant(1, cluster_num);
+                
                 // Say we finished with this cluster, for now.
                 funnel.processed_input();
             }
@@ -982,13 +1007,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 #endif
 
-    if (track_provenance && show_work && aln.sequence().size() < LONG_LIMIT) {
-        // Dump the funnel info graph.
-        // TODO: Add a new flag for this.
-        #pragma omp critical (cerr)
-        {
-            funnel.to_dot(cerr);
+    if (track_provenance) {
+        if (show_work && aln.sequence().size() < LONG_LIMIT) {
+            // Dump the funnel info graph to standard error
+            #pragma omp critical (cerr)
+            {
+                funnel.to_dot(cerr);
+            }
         }
+        
+        // Otherwise/also, if we are dumping explanations, dump it to a file
+        DotDumpExplainer<Funnel> explainer(funnel);
     }
 
     return mappings;

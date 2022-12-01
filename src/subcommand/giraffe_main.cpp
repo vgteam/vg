@@ -1011,6 +1011,8 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_SHOW_WORK:
                 show_work = true;
+                // Also turn on saving explanations
+                Explainer::save_explanations = true;
                 break;
                 
             case 'B':

@@ -185,6 +185,30 @@ protected:
     
 };
 
+/**
+ * Explainer that can dump anything that has a:
+ *   void to_dot(ostream& out) const;
+ * method, such as a Funnel.
+ */
+template<typename T>
+class DotDumpExplainer : public Explainer {
+public:
+    /// Construct a DotDumpExplainer that will save a diagram to a file
+    DotDumpExplainer(const T& to_dump);
+};
+
+template<typename T>
+DotDumpExplainer<T>::DotDumpExplainer(const T& to_dump) : Explainer() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    // Open the dot file
+    std::ofstream out("dotdump" + std::to_string(explanation_number) + ".dot");
+    // And dump to it
+    to_dump.to_dot(out);
+}
+
+
 }
  
 #endif

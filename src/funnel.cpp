@@ -252,6 +252,21 @@ void Funnel::project_group(size_t prev_stage_item, size_t group_size) {
     get_item(latest()).group_size = group_size;
 }
 
+void Funnel::also_relevant(size_t earlier_stage_lookback, size_t earlier_stage_item) {
+    assert(earlier_stage_lookback > 0);
+    assert(stages.size() > earlier_stage_lookback);
+    auto& earlier_stage = stages[stages.size() - 1 - earlier_stage_lookback];
+    assert(earlier_stage.items.size() > earlier_stage_item);
+    auto& item = get_item(latest());
+    if (earlier_stage_lookback == 1) {
+        // References to the immediately preceeding stage are special
+        item.prev_stage_items.push_back(earlier_stage_item);
+    } else {
+        // References to earlier stages include the stage offset back
+        item.earlier_stage_items.emplace_back(earlier_stage_lookback, earlier_stage_item);
+    }
+}
+
 void Funnel::fail(const char* filter, size_t prev_stage_item, double statistic) {
     // There must be a prev stage to project from
     assert(stages.size() > 1);
@@ -277,27 +292,36 @@ void Funnel::score(size_t item, double score) {
 }
 
 void Funnel::tag(size_t item, State state, size_t tag_start, size_t tag_length) {
+
+#ifdef debug
+    std::cerr << "Tag item " << item << " stage " << stages.back().name << " as " << state << " on " << tag_start << "-" << tag_start + tag_length << std::endl;
+#endif
+    
     // Say the item is tagged
     auto& to_mark = get_item(item);
     to_mark.tag = std::max(to_mark.tag, state);
     
     if (to_mark.tag_start == std::numeric_limits<size_t>::max() && to_mark.tag_length == 0) {
-        // Item hasn't been tagged before, so we can jsut adopt the passed range.
+        // Item hasn't been tagged before, so we can just adopt the passed range.
         to_mark.tag_start = tag_start;
         to_mark.tag_length = tag_length;
     } else {
         // We need to find the enclosing range of the existing range and the new range.
         size_t correct_end = std::max(to_mark.tag_start + to_mark.tag_length, tag_start + tag_length);
         to_mark.tag_start = std::min(to_mark.tag_start, tag_start);
-        to_mark.tag_length = correct_end - tag_start;
+        to_mark.tag_length = correct_end - to_mark.tag_start;
     }
+    
+#ifdef debug
+    std::cerr << "\tNow tagged over " << to_mark.tag_start << "-" << to_mark.tag_start + to_mark.tag_length << std::endl;
+#endif
     
     // TODO: Allow different tags to cover different ranges?
     // TODO: Allow per-item gapped range tracking?
     
     // Say the stage has tag over this interval.
     stages.back().tag = std::max(stages.back().tag, state);
-    stages.back().tag_space.paint(to_mark.tag_start, to_mark.tag_length);
+    stages.back().tag_space.paint(tag_start, tag_length);
 }
 
 void Funnel::tag_correct(size_t item, size_t tag_start, size_t tag_length) {
@@ -451,7 +475,7 @@ void Funnel::for_each_filter(const function<void(const string&, const string&,
     }
 }
 
-void Funnel::to_dot(ostream& out) {
+void Funnel::to_dot(ostream& out) const {
     out << "digraph graphname {" << endl;
     out << "rankdir=\"TB\";" << endl;
 
@@ -465,7 +489,24 @@ void Funnel::to_dot(ostream& out) {
         // Start a subgraph.
         // Prepend cluster so it draws as a box.
         out << "subgraph cluster_" << stage_id << " {" << endl;
-        out << "label = \"" << stage.name << "\";" << endl;
+        out << "label = \"" << stage.name;
+        if (stage.tag != State::NONE) {
+            // Put in if it is tagged and over what area
+            out << ", " << stage.tag;
+            size_t range_min = std::numeric_limits<size_t>::max();
+            size_t range_max = 0;
+            for (auto& region : stage.tag_space.regions) {
+                if (region.first != 0 || region.second != std::numeric_limits<size_t>::max()) {
+                    // Expand bounds by the bounds of this region, to summarize
+                    range_min = std::min(range_min, region.first);
+                    range_max = std::max(range_max, region.first + region.second);
+                }
+            }
+            if (range_min != 0 && range_max != std::numeric_limits<size_t>::max()) {
+                out << " " << range_min << "-" << range_max << " in " << stage.tag_space.regions.size() << " regions";
+            }
+        }
+        out << "\";" << endl;
         out << "graph[style=solid];" << endl;
         out << "rank=same;" << endl;
 
@@ -487,10 +528,18 @@ void Funnel::to_dot(ostream& out) {
                 }
                 out << "score " << item.score;
             }
+            if (item.tag != State::NONE && (item.tag_start != std::numeric_limits<size_t>::max() || item.tag_length != 0)) {
+                if (item.group_size != 0 || item.score != 0) {
+                    out << ", ";
+                }
+                out << "tagged " << item.tag_start << " - " << item.tag_start + item.tag_length; 
+            }
             out << "\"";
             if (item.tag >= State::CORRECT) {
                 // Make it green if it is correct
                 out << " color=green";
+            } else if (item.tag >= State::PLACED) {
+                out << " color=blue";
             }
             out << "];" << endl;
 
@@ -504,8 +553,29 @@ void Funnel::to_dot(ostream& out) {
                     if (item.tag >= State::CORRECT && prev_item.tag >= State::CORRECT) {
                         // Correctness came this way
                         out << "color=green";
+                    } else if (item.tag >= State::PLACED && prev_item.tag >= State::PLACED) {
+                        // Placedness came this way
+                        out << "color=blue";
                     }
                     out << "];" << endl;
+                }
+                if (s > 1) {
+                    // And there are other stages before that
+                    for (auto& p : item.earlier_stage_items) {
+                        // Connect everything from the earlier stages to it
+                        assert(p.first > 1);
+                        auto& prev_item = stages.at(s - p.first).items.at(p.second);
+
+                        out << "s" << (s - p.first) << "i" << p.second << " -> " << item_id << "[constraint=false";
+                        if (item.tag >= State::CORRECT && prev_item.tag >= State::CORRECT) {
+                            // Correctness came this way
+                            out << ",color=green";
+                        } else if (item.tag >= State::PLACED && prev_item.tag >= State::PLACED) {
+                            // Placedness came this way
+                            out << ",color=blue";
+                        }
+                        out << "];" << endl;
+                    }
                 }
             }
 
@@ -516,7 +586,7 @@ void Funnel::to_dot(ostream& out) {
 
     out << "}" << endl;
 }
-void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) {
+void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) const {
     // Save the total duration in the field set asside for it
     aln.set_time_used(chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count());
     
