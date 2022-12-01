@@ -599,7 +599,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     } else {
                         // Seed is new, from "reseed" stage 2 stages ago. Came
                         // after all the preclusters which also live in the reseed stage.
-                        new_seed_ancestors.push_back(seed_number - old_seed_count + clusters.size());
+                        new_seed_ancestors.push_back(seed_number - old_seed_count + preclusters.size());
                     }
                 }
                 // We came from all the original seeds, 4 stages ago
