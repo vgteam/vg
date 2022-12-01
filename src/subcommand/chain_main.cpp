@@ -16,7 +16,7 @@
 #include "../algorithms/chain_items.hpp"
 #include "../integrated_snarl_finder.hpp"
 
-#define USE_CALLGRIND
+//#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
