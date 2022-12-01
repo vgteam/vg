@@ -98,73 +98,90 @@ public:
     // TODO: document each
 
     /// Use all minimizers with at most hit_cap hits
-    size_t hit_cap = 10;
-
+    static constexpr size_t default_hit_cap = 10;
+    size_t hit_cap = default_hit_cap;
+    
     /// Ignore all minimizers with more than hard_hit_cap hits
-    size_t hard_hit_cap = 500;
-
+    static constexpr size_t default_hard_hit_cap = 500;
+    size_t hard_hit_cap = default_hard_hit_cap;
+    
     /// Take minimizers between hit_cap and hard_hit_cap hits until this fraction
     /// of total score
-    double minimizer_score_fraction = 0.9;
+    static constexpr double default_minimizer_score_fraction = 0.9;
+    double minimizer_score_fraction = default_minimizer_score_fraction;
 
     /// Maximum number of distinct minimizers to take
-    size_t max_unique_min = 500;
+    static constexpr size_t default_max_unique_min = 500;
+    size_t max_unique_min = default_max_unique_min;
     
     /// Number of minimzers to select based on read_len/num_min_per_bp
-    size_t num_bp_per_min = 1000;
+    static constexpr size_t default_num_bp_per_min = 1000;
+    size_t num_bp_per_min = default_num_bp_per_min;
 
     /// If set, exclude overlapping minimizers
-    bool exclude_overlapping_min = false;
+    static constexpr bool default_exclude_overlapping_min = false;
+    bool exclude_overlapping_min = default_exclude_overlapping_min;
     
     //////////////
     // Alignment-from-gapless-extension/short read Giraffe specific parameters:
     //////////////
 
     ///Accept at least this many clusters for gapless extension
-    size_t min_extensions = 2;
+    static constexpr size_t default_min_extensions = 2;
+    size_t min_extensions = default_min_extensions;
 
     /// How many clusters should we produce gapless extensions for, max?
-    size_t max_extensions = 800;
+    static constexpr size_t default_max_extensions = 800;
+    size_t max_extensions = default_max_extensions;
 
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
-    double extension_set_score_threshold = 20;
+    static constexpr double default_extension_set_score_threshold = 20;
+    double extension_set_score_threshold = default_extension_set_score_threshold;
 
     //If an extension's score is smaller than the best extension's score by
     //more than this much, don't align it
-    int extension_score_threshold = 1;
+    static constexpr int default_extension_score_threshold = 1;
+    int extension_score_threshold = default_extension_score_threshold;
     
     /// Disregard the extension set score thresholds when they would give us
     /// fewer than this many extension sets.
-    int min_extension_sets = 2;
+    static constexpr int default_min_extension_sets = 2;
+    int min_extension_sets = default_min_extension_sets;
     
     /// Even if we would have fewer than min_extension_sets results, don't
     /// process anything with a score smaller than this.
-    int extension_set_min_score = 20;
+    static constexpr int default_extension_set_min_score = 20;
+    int extension_set_min_score = default_extension_set_min_score;
     
     /////////////////
     // More shared parameters:
     /////////////////
 
     /// How many extended clusters should we align, max?
-    size_t max_alignments = 8;
+    static constexpr size_t default_max_alignments = 8;
+    size_t max_alignments = default_max_alignments;
     
     /// How many extensions should we try as seeds within a mapping location?
-    size_t max_local_extensions = numeric_limits<size_t>::max();
+    static constexpr size_t default_max_local_extensions = numeric_limits<size_t>::max();
+    size_t max_local_extensions = default_max_local_extensions;
 
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it
-    double cluster_score_threshold = 50;
+    static constexpr double default_cluster_score_threshold = 50;
+    double cluster_score_threshold = default_cluster_score_threshold;
     
     //If the second best cluster's score is no more than this many points below
     //the cutoff set by cluster_score_threshold, snap that cutoff down to the
     //second best cluster's score, to avoid throwing away promising
     //secondaries.
-    double pad_cluster_score_threshold = 20;
+    static constexpr double default_pad_cluster_score_threshold = 20;
+    double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
-    double cluster_coverage_threshold = 0.3;
+    static constexpr double default_cluster_coverage_threshold = 0.3;
+    double cluster_coverage_threshold = default_cluster_coverage_threshold;
     
     //////////////////
     // Alignment-from-chains/long read Giraffe specific parameters:
@@ -174,88 +191,109 @@ public:
     /// extensions up and aligning the sequences between them. If false,
     /// produce alignments by aligning the tails off of individual gapless
     /// extensions.
-    bool align_from_chains = false;
+    static constexpr bool default_align_from_chains = false;
+    bool align_from_chains = default_align_from_chains;
     
     /// What read-length-independent distance threshold do we want to use for clustering?
-    size_t chaining_cluster_distance = 1000;
+    static constexpr size_t default_chaining_cluster_distance = 1000;
+    size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
     /// When connecting subclusters for reseeding, how far apart can they be
     
     // TODO: These will go away with cluster-merging chaining
     /// Accept at least this many clusters for chain generation
-    size_t min_clusters_to_chain = 2;
+    static constexpr size_t default_min_clusters_to_chain = 2;
+    size_t min_clusters_to_chain = default_min_clusters_to_chain;
     /// How many clusters should we produce chains for, max?
-    size_t max_clusters_to_chain = 800;
+    static constexpr size_t default_max_clusters_to_chain = 800;
+    size_t max_clusters_to_chain = default_max_clusters_to_chain;
 
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
-    size_t max_chain_connection = 100;
+    static constexpr size_t default_max_chain_connection = 100;
+    size_t max_chain_connection = default_max_chain_connection;
     /// Similarly, what is the maximum tail length we will try to align?
-    size_t max_tail_length = 100;
+    static constexpr size_t default_max_tail_length = 100;
+    size_t max_tail_length = default_max_tail_length;
     
     /////////////////
     // More shared parameters:
     /////////////////
     
-    size_t max_multimaps = 1;
-    size_t distance_limit = 200;
+    static constexpr size_t default_max_multimaps = 1;
+    size_t max_multimaps = default_max_multimaps;
+    static constexpr size_t default_distance_limit = 200;
+    size_t distance_limit = default_distance_limit;
     
     /// If false, skip computing base-level alignments.
-    bool do_dp = true;
-    
-    string sample_name;
-    string read_group;
+    static constexpr bool default_do_dp = true;
+    bool do_dp = default_do_dp;
     
     /// Track which internal work items came from which others during each
     /// stage of the mapping algorithm.
-    bool track_provenance = false;
+    static constexpr bool default_track_provenance = false;
+    bool track_provenance = default_track_provenance;
 
     /// Guess which seed hits are correct by location in the linear reference
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
-    bool track_correctness = false;
+    static constexpr bool default_track_correctness = false;
+    bool track_correctness = default_track_correctness;
     
     /// If set, log what the mapper is thinking in its mapping of each read.
-    bool show_work = false;
+    static constexpr bool default_show_work = false;
+    bool show_work = default_show_work;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
-    double paired_distance_stdevs = 2.0; 
+    static constexpr double default_paired_distance_stdevs = 2.0;
+    double paired_distance_stdevs = default_paired_distance_stdevs; 
 
     ///How close does an alignment have to be to the best alignment for us to rescue on it
-    double paired_rescue_score_limit = 0.9;
+    static constexpr double default_paired_rescue_score_limit = 0.9;
+    double paired_rescue_score_limit = default_paired_rescue_score_limit;
 
     ///How many stdevs from the mean do we extract a subgraph from?
-    double rescue_subgraph_stdevs = 4.0;
+    static constexpr double default_rescue_subgraph_stdevs = 4.0;
+    double rescue_subgraph_stdevs = default_rescue_subgraph_stdevs;
 
     /// Do not attempt rescue if there are more seeds in the rescue subgraph.
-    size_t rescue_seed_limit = 100;
+    static constexpr size_t default_rescue_seed_limit = 100;
+    size_t rescue_seed_limit = default_rescue_seed_limit;
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
-    size_t max_rescue_attempts = 15;
+    static constexpr size_t default_max_rescue_attempts = 15;
+    size_t max_rescue_attempts = default_max_rescue_attempts;
     
     /// How big of an alignment in POA cells should we ever try to do with Dozeu?
     /// TODO: Lift this when Dozeu's allocator is able to work with >4 MB of memory.
     /// Each cell is 16 bits in Dozeu, and we leave some room for the query and
     /// padding to full SSE registers. Note that a very chopped graph might
     /// still break this!
-    size_t max_dozeu_cells = (size_t)(1.5 * 1024 * 1024);
+    static constexpr size_t default_max_dozeu_cells = (size_t)(1.5 * 1024 * 1024);
+    size_t max_dozeu_cells = default_max_dozeu_cells;
     
-    /// And have we complained about hitting it for rescue?
-    atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
-    
-    /// And have we complained about hitting it for tails?
-    mutable atomic_flag warned_about_tail_size = ATOMIC_FLAG_INIT;
-
     ///What is the maximum fragment length that we accept as valid for paired-end reads?
-    size_t max_fragment_length = 2000;
-
+    static constexpr size_t default_max_fragment_length = 2000;
+    size_t max_fragment_length = default_max_fragment_length;
+    
     /// Implemented rescue algorithms: no rescue, dozeu, GSSW.
     enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw };
 
     /// The algorithm used for rescue.
     RescueAlgorithm rescue_algorithm = rescue_dozeu;
+    
+    /// Apply this sample name
+    string sample_name;
+    /// Apply this read group name
+    string read_group;
+    
+    /// Have we complained about hitting the size limit for rescue?
+    atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
+    
+    /// Have we complained about hitting the size limit for tails?
+    mutable atomic_flag warned_about_tail_size = ATOMIC_FLAG_INIT;
 
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
     void finalize_fragment_length_distr() {

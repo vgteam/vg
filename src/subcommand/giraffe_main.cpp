@@ -340,32 +340,32 @@ void help_giraffe(char** argv) {
     << "algorithm presets:" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
-    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [500]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
-    << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [800]" << endl
-    << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
-    << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
-    << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
-    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.3]" << endl
-    << "  -U, --max-min INT             use at most INT minimizers [500]" << endl
-    << "  --num-bp-per-min INT          use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [1000]" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
-    << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
+    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [" << MinimizerMapper::default_hit_cap << "]" << endl
+    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [" << MinimizerMapper::default_hard_hit_cap << "]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [" << MinimizerMapper::default_minimizer_score_fraction << "]" << endl
+    << "  -D, --distance-limit INT      cluster using this distance limit [" << MinimizerMapper::default_distance_limit << "]" << endl
+    << "  -e, --max-extensions INT      extend up to INT clusters [" << MinimizerMapper::default_max_extensions << "]" << endl
+    << "  -a, --max-alignments INT      align up to INT extensions [" << MinimizerMapper::default_max_alignments << "]" << endl
+    << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [" << MinimizerMapper::default_cluster_score_threshold << "]" << endl
+    << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [" << MinimizerMapper::default_pad_cluster_score_threshold << "]" << endl
+    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [" << MinimizerMapper::default_cluster_coverage_threshold << "]" << endl
+    << "  -U, --max-min INT             use at most INT minimizers [" << MinimizerMapper::default_max_unique_min << "]" << endl
+    << "  --num-bp-per-min INT          use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [" << MinimizerMapper::default_num_bp_per_min << "]" << endl
+    << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [" << MinimizerMapper::default_extension_score_threshold << "]" << endl
+    << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [" << MinimizerMapper::default_extension_set_score_threshold << "]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
-    << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [5000]" << endl
-    << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [5000]" << endl
-    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
+    << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [" << MinimizerMapper::default_max_chain_connection << "]" << endl
+    << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [" << MinimizerMapper::default_max_tail_length << "]" << endl
+    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [" << MinimizerMapper::default_max_rescue_attempts << "]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
-    << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
+    << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution [" << MinimizerMapper::default_max_fragment_length << "]" << endl
     << "  --exclude-overlapping-min     exclude overlapping minimizers" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
-    << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
-    << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
-    << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [100]" << endl
+    << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [" << MinimizerMapper::default_paired_distance_stdevs << "]" << endl
+    << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [" << MinimizerMapper::default_rescue_subgraph_stdevs << "]" << endl
+    << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [" << MinimizerMapper::default_rescue_seed_limit << "]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
@@ -406,24 +406,25 @@ int main_giraffe(int argc, char** argv) {
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
-    Range<size_t> distance_limit = 200;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 500;
-    Range<double> minimizer_score_fraction = 0.9;
-    Range<size_t> max_unique_min = 500;
+    Range<size_t> distance_limit = MinimizerMapper::default_distance_limit;
+    Range<size_t> hit_cap = MinimizerMapper::default_hit_cap;
+    Range<size_t> hard_hit_cap = MinimizerMapper::default_hard_hit_cap;
+    Range<double> minimizer_score_fraction = MinimizerMapper::default_minimizer_score_fraction;
+    Range<size_t> max_unique_min = MinimizerMapper::default_max_unique_min;
     // number minimizers calculated by READ_LENGTH / INT
-    size_t num_bp_per_min = 1000;
+    size_t num_bp_per_min = MinimizerMapper::default_num_bp_per_min;
     bool show_progress = false;
     // Should we exclude overlapping minimizers
-    bool exclude_overlapping_min = false;
+    bool exclude_overlapping_min = MinimizerMapper::default_exclude_overlapping_min;
     // Should we try dynamic programming, or just give up if we can't find a full length gapless alignment?
-    bool do_dp = true;
+    bool do_dp = MinimizerMapper::default_do_dp;
 
     // Should we align from chains of gapless extensions, or from individual gapless extensions?
-    bool align_from_chains = false;
+    bool align_from_chains = MinimizerMapper::default_align_from_chains;
     // How far apart can seeds be and still be chained together?
-    Range<size_t> max_chain_connection = 5000;
+    Range<size_t> max_chain_connection = MinimizerMapper::default_max_chain_connection;
     // How long of a tail are we willing to align in a chain before forcing a softclip?
-    Range<size_t> max_tail_length = 5000;
+    Range<size_t> max_tail_length = MinimizerMapper::default_max_tail_length;
     
     // What GAM should we realign?
     string gam_filename;
@@ -437,26 +438,26 @@ int main_giraffe(int argc, char** argv) {
     bool paired = false;
     string param_preset = "default";
     // How many mappings per read can we emit?
-    Range<size_t> max_multimaps = 1;
+    Range<size_t> max_multimaps = MinimizerMapper::default_max_multimaps;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 800;
+    Range<size_t> max_extensions = MinimizerMapper::default_max_extensions;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 8;
+    Range<size_t> max_alignments = MinimizerMapper::default_max_alignments;
     //Throw away cluster with scores that are this amount below the best
-    Range<double> cluster_score = 50;
+    Range<double> cluster_score_threshold = MinimizerMapper::default_cluster_score_threshold;
     //Unless they are the second best and within this amount beyond that
-    Range<double> pad_cluster_score = 0;
+    Range<double> pad_cluster_score_threshold = MinimizerMapper::default_pad_cluster_score_threshold;
     //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0.3;
+    Range<double> cluster_coverage_threshold = MinimizerMapper::default_cluster_coverage_threshold;
     //Throw away extension sets with scores that are this amount below the best
-    Range<double> extension_set = 20;
+    Range<double> extension_set_score_threshold = MinimizerMapper::default_extension_set_score_threshold;
     //Throw away extensions with scores that are this amount below the best
-    Range<int> extension_score = 1;
+    Range<int> extension_score_threshold = MinimizerMapper::default_extension_score_threshold;
     //Attempt up to this many rescues of reads with no pairs
     bool forced_rescue_attempts = false;
-    Range<int> rescue_attempts = 15;
+    Range<int> max_rescue_attempts = MinimizerMapper::default_max_rescue_attempts;
     //Don't let distances larger than this contribute to the fragment length distribution
-    size_t fragment_length = 2000;
+    size_t max_fragment_length = MinimizerMapper::default_max_fragment_length;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     //Did we force the fragment length distribution?
@@ -466,25 +467,26 @@ int main_giraffe(int argc, char** argv) {
     bool forced_stdev = false;
     double fragment_stdev = 0.0;
     //How many sdevs to we look out when clustering pairs?
-    double cluster_stdev = 2.0;
+    double paired_distance_stdevs = MinimizerMapper::default_paired_distance_stdevs;
     //How many stdevs do we look out when rescuing? 
-    double rescue_stdev = 4.0;
+    double rescue_subgraph_stdevs = MinimizerMapper::default_rescue_subgraph_stdevs;
     // Attempt rescue with up to this many seeds.
-    size_t rescue_seed_limit = 100;
+    size_t rescue_seed_limit = MinimizerMapper::default_rescue_seed_limit;
     // How many pairs should we be willing to buffer before giving up on fragment length estimation?
     size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
     string read_group;
+    // Should we track candidate provenance?
+    bool track_provenance = MinimizerMapper::default_track_provenance;
+    // Should we track candidate correctness?
+    bool track_correctness = MinimizerMapper::default_track_correctness;
+    // Should we log our mapping decision making?
+    bool show_work = MinimizerMapper::default_show_work;
+    
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
-    // Should we track candidate provenance?
-    bool track_provenance = false;
-    // Should we track candidate correctness?
-    bool track_correctness = false;
-    // Should we log our mapping decision making?
-    bool show_work = false;
     // How many reads per batch to run at a time?
     uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
 
@@ -493,18 +495,18 @@ int main_giraffe(int argc, char** argv) {
         .chain(hit_cap)
         .chain(hard_hit_cap)
         .chain(minimizer_score_fraction)
-        .chain(rescue_attempts)
+        .chain(max_rescue_attempts)
         .chain(max_unique_min)
         .chain(max_chain_connection)
         .chain(max_tail_length)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
-        .chain(cluster_score)
-        .chain(pad_cluster_score)
-        .chain(cluster_coverage)
-        .chain(extension_set)
-        .chain(extension_score)
+        .chain(cluster_score_threshold)
+        .chain(pad_cluster_score_threshold)
+        .chain(cluster_coverage_threshold)
+        .chain(extension_set_score_threshold)
+        .chain(extension_score_threshold)
         .get_iterator();
     
 
@@ -789,11 +791,11 @@ int main_giraffe(int argc, char** argv) {
                     max_multimaps = 1;
                     max_extensions = 400;
                     max_alignments = 8;
-                    cluster_score = 50;
-                    pad_cluster_score = 0;
-                    cluster_coverage = 0.2;
-                    extension_set = 20;
-                    extension_score = 1;
+                    cluster_score_threshold = 50;
+                    pad_cluster_score_threshold = 0;
+                    cluster_coverage_threshold = 0.2;
+                    extension_set_score_threshold = 20;
+                    extension_score_threshold = 1;
                 } else if (param_preset != "default" ) {
                     std::cerr << "error: [vg giraffe] invalid parameter preset: " << optarg << std:: endl;
                 }
@@ -865,7 +867,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error: [vg giraffe] Cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
-                    cluster_score = score;
+                    cluster_score_threshold = score;
                 }
                 break;
                 
@@ -876,7 +878,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error: [vg giraffe] Second best cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
-                    pad_cluster_score = score;
+                    pad_cluster_score_threshold = score;
                 }
                 break;
 
@@ -887,7 +889,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error: [vg giraffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
-                    cluster_coverage = score;
+                    cluster_coverage_threshold = score;
                 }
                 break;
 
@@ -909,7 +911,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error: [vg giraffe] Extension score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
-                    extension_score = score;
+                    extension_score_threshold = score;
                 }
                 break;
             case 'w':
@@ -919,7 +921,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error: [vg giraffe] Extension set score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
-                    extension_set = score;
+                    extension_set_score_threshold = score;
                 }
                 break;
                 
@@ -942,8 +944,8 @@ int main_giraffe(int argc, char** argv) {
             case 'r':
                 {
                     forced_rescue_attempts = true;
-                    rescue_attempts = parse<Range<int>>( optarg);
-                    if (rescue_attempts < 0) {
+                    max_rescue_attempts = parse<Range<int>>( optarg);
+                    if (max_rescue_attempts < 0) {
                         cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
                         exit(1);
                     }
@@ -983,15 +985,15 @@ int main_giraffe(int argc, char** argv) {
                 fragment_stdev = parse<double>(optarg);
                 break;
             case 'L':
-                fragment_length = parse<size_t>(optarg);
+                max_fragment_length = parse<size_t>(optarg);
                 break;
 
             case OPT_CLUSTER_STDEV:
-                cluster_stdev = parse<double>(optarg);
+                paired_distance_stdevs = parse<double>(optarg);
                 break;
 
             case OPT_RESCUE_STDEV:
-                rescue_stdev = parse<double>(optarg);
+                rescue_subgraph_stdevs = parse<double>(optarg);
                 break;
 
             case OPT_RESCUE_SEED_LIMIT:
@@ -1079,8 +1081,8 @@ int main_giraffe(int argc, char** argv) {
     }
 
     // If we don't want rescue, let the user see we don't try it.
-    if (rescue_attempts == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
-        rescue_attempts = 0;
+    if (max_rescue_attempts == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+        max_rescue_attempts = 0;
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
@@ -1275,11 +1277,11 @@ int main_giraffe(int argc, char** argv) {
             s << "-M" << max_multimaps;
             s << "-e" << max_extensions;
             s << "-a" << max_alignments;
-            s << "-s" << cluster_score;
-            s << "-u" << cluster_coverage;
+            s << "-s" << cluster_score_threshold;
+            s << "-u" << cluster_coverage_threshold;
             s << "-U" << max_unique_min;
-            s << "-w" << extension_set;
-            s << "-v" << extension_score;
+            s << "-w" << extension_set_score_threshold;
+            s << "-v" << extension_score_threshold;
             
             s << ".gam";
             
@@ -1343,29 +1345,29 @@ int main_giraffe(int argc, char** argv) {
         minimizer_mapper.max_alignments = max_alignments;
 
         if (show_progress) {
-            cerr << "--cluster-score " << cluster_score << endl;
+            cerr << "--cluster-score " << cluster_score_threshold << endl;
         }
-        minimizer_mapper.cluster_score_threshold = cluster_score;
+        minimizer_mapper.cluster_score_threshold = cluster_score_threshold;
         
         if (show_progress) {
-            cerr << "--pad-cluster-score " << pad_cluster_score << endl;
+            cerr << "--pad-cluster-score " << pad_cluster_score_threshold << endl;
         }
-        minimizer_mapper.pad_cluster_score_threshold = pad_cluster_score;
+        minimizer_mapper.pad_cluster_score_threshold = pad_cluster_score_threshold;
 
         if (show_progress) {
-            cerr << "--cluster-coverage " << cluster_coverage << endl;
+            cerr << "--cluster-coverage " << cluster_coverage_threshold << endl;
         }
-        minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
+        minimizer_mapper.cluster_coverage_threshold = cluster_coverage_threshold;
 
         if (show_progress) {
-            cerr << "--extension-score " << extension_score << endl;
+            cerr << "--extension-score " << extension_score_threshold << endl;
         }
-        minimizer_mapper.extension_score_threshold = extension_score;
+        minimizer_mapper.extension_score_threshold = extension_score_threshold;
 
         if (show_progress) {
-            cerr << "--extension-set " << extension_set << endl;
+            cerr << "--extension-set " << extension_set_score_threshold << endl;
         }
-        minimizer_mapper.extension_set_score_threshold = extension_set;
+        minimizer_mapper.extension_set_score_threshold = extension_set_score_threshold;
 
         if (show_progress && align_from_chains) {
             cerr << "--align-from-chains " << endl;
@@ -1417,17 +1419,17 @@ int main_giraffe(int argc, char** argv) {
                 cerr << "--fragment-mean " << fragment_mean << endl; 
                 cerr << "--fragment-stdev " << fragment_stdev << endl;
             }
-            cerr << "--paired-distance-limit " << cluster_stdev << endl;
-            cerr << "--rescue-subgraph-size " << rescue_stdev << endl;
+            cerr << "--paired-distance-limit " << paired_distance_stdevs << endl;
+            cerr << "--rescue-subgraph-size " << rescue_subgraph_stdevs << endl;
             cerr << "--rescue-seed-limit " << rescue_seed_limit << endl;
-            cerr << "--rescue-attempts " << rescue_attempts << endl;
+            cerr << "--rescue-attempts " << max_rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
-        minimizer_mapper.max_fragment_length = fragment_length;
-        minimizer_mapper.paired_distance_stdevs = cluster_stdev;
-        minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
+        minimizer_mapper.max_fragment_length = max_fragment_length;
+        minimizer_mapper.paired_distance_stdevs = paired_distance_stdevs;
+        minimizer_mapper.rescue_subgraph_stdevs = rescue_subgraph_stdevs;
         minimizer_mapper.rescue_seed_limit = rescue_seed_limit;
-        minimizer_mapper.max_rescue_attempts = rescue_attempts;
+        minimizer_mapper.max_rescue_attempts = max_rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
         minimizer_mapper.sample_name = sample_name;
