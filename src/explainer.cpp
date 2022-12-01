@@ -13,7 +13,7 @@ namespace vg {
 
 std::atomic<size_t> Explainer::next_explanation_number {0};
 
-bool Explainer::save_explanations = true;
+bool Explainer::save_explanations = false;
 
 Explainer::Explainer() : explanation_number(Explainer::next_explanation_number++) {
     // Nothing to do!
