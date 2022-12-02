@@ -383,7 +383,17 @@ vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score
     return traceback;
 }
 
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension) {
+pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
+                                          const SnarlDistanceIndex& distance_index,
+                                          const HandleGraph& graph,
+                                          int gap_open,
+                                          int gap_extension,
+                                          size_t max_lookback_bases,
+                                          size_t initial_lookback_threshold,
+                                          double lookback_scale_factor,
+                                          double min_good_transition_score_per_base,
+                                          int item_bonus,
+                                          size_t max_indel_bases) {
                                                                  
     if (to_chain.empty()) {
         return std::make_pair(0, vector<size_t>());
@@ -396,7 +406,13 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain, co
                                                                  distance_index,
                                                                  graph,
                                                                  gap_open,
-                                                                 gap_extension);
+                                                                 gap_extension,
+                                                                 max_lookback_bases,
+                                                                 initial_lookback_threshold,
+                                                                 lookback_scale_factor,
+                                                                 min_good_transition_score_per_base,
+                                                                 item_bonus,
+                                                                 max_indel_bases);
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             best_past_ending_score_ever.score,

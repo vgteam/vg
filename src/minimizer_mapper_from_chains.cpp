@@ -559,7 +559,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 
             // Find a chain from this cluster
             VectorView<algorithms::Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
-            auto candidate_chain = algorithms::find_best_chain(cluster_view, *distance_index, gbwt_graph, get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension);
+            auto candidate_chain = algorithms::find_best_chain(cluster_view,
+                                                               *distance_index,
+                                                               gbwt_graph,
+                                                               get_regular_aligner()->gap_open,
+                                                               get_regular_aligner()->gap_extension,
+                                                               max_lookback_bases,
+                                                               initial_lookback_threshold,
+                                                               lookback_scale_factor,
+                                                               min_good_transition_score_per_base,
+                                                               item_bonus,
+                                                               max_indel_bases);
             if (show_work && !candidate_chain.second.empty()) {
                 #pragma omp critical (cerr)
                 {
@@ -964,15 +974,32 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (track_correctness) {
             annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, funnel);
         }
-        // Annotate with parameters used for the filters.
+        // Annotate with parameters used for the filters and algorithms.
+        
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
         set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
         set_annotation(mappings[0], "param_score-fraction", (double) minimizer_score_fraction);
+        set_annotation(mappings[0], "param_max-unique-min", (double) max_unique_min);
+        set_annotation(mappings[0], "param_num-bp-per-min", (double) num_bp_per_min);
+        set_annotation(mappings[0], "param_exclude-overlapping-min", exclude_overlapping_min);
+        set_annotation(mappings[0], "param_align-from-chains", align_from_chains);
+        set_annotation(mappings[0], "param_chaining-cluster-distance", (double) chaining_cluster_distance);
+        set_annotation(mappings[0], "param_min-clusters-to-chain", (double) min_clusters_to_chain);
         set_annotation(mappings[0], "param_max-clusters-to-chain", (double) max_clusters_to_chain);
+        
+        // Chaining algorithm parameters
+        set_annotation(mappings[0], "param_max-lookback-bases", (double) max_lookback_bases);
+        set_annotation(mappings[0], "param_initial-lookback-threshold", (double) initial_lookback_threshold);
+        set_annotation(mappings[0], "param_lookback-scale-factor", lookback_scale_factor);
+        set_annotation(mappings[0], "param_min-good-transition-score-per-base", min_good_transition_score_per_base);
+        set_annotation(mappings[0], "param_item-bonus", (double) item_bonus);
+        set_annotation(mappings[0], "param_max-indel-bases", (double) max_indel_bases);
+        
+        set_annotation(mappings[0], "param_max-chain-connection", (double) max_chain_connection);
+        set_annotation(mappings[0], "param_max-tail-length", (double) max_tail_length);
         set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
         set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
         set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(mappings[0], "param_extension-set", (double) extension_set_score_threshold);
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
     

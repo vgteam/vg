@@ -218,6 +218,25 @@ public:
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
+    /// How many bases should we look back when chaining?
+    static constexpr size_t default_max_lookback_bases = 150;
+    size_t max_lookback_bases = default_max_lookback_bases;
+    /// How many bases should we try to look back initially when chaining?
+    static constexpr size_t default_initial_lookback_threshold = 10;
+    size_t initial_lookback_threshold = default_initial_lookback_threshold;
+    /// How much chould we increase lookback when we can't find anything good?
+    static constexpr double default_lookback_scale_factor = 2.0;
+    double lookback_scale_factor = default_lookback_scale_factor;
+    /// How bad can a transition be per base before lookback accepts it?
+    static constexpr double default_min_good_transition_score_per_base = -0.1;
+    double min_good_transition_score_per_base = default_min_good_transition_score_per_base;
+    /// How much of a bonus should we give to each item in chaining?
+    static constexpr int default_item_bonus = 0;
+    int item_bonus = default_item_bonus;
+    /// How many bases of indel should we allow in chaining?
+    static constexpr size_t default_max_indel_bases = 100;
+    size_t max_indel_bases = default_max_indel_bases;
+    
     /////////////////
     // More shared parameters:
     /////////////////

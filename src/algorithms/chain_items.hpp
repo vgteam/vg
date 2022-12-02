@@ -244,7 +244,17 @@ vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score
  * Returns the score and the list of indexes of items visited to achieve
  * that score, in order.
  */
-pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension);
+pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
+                                          const SnarlDistanceIndex& distance_index,
+                                          const HandleGraph& graph,
+                                          int gap_open,
+                                          int gap_extension,
+                                          size_t max_lookback_bases = 150,
+                                          size_t initial_lookback_threshold = 10,
+                                          double lookback_scale_factor = 2.0,
+                                          double min_good_transition_score_per_base = -0.1,
+                                          int item_bonus = 0,
+                                          size_t max_indel_bases = 100);
 
 /**
  * Score the given group of items. Determines the best score that can be
