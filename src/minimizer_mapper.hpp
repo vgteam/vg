@@ -205,21 +205,21 @@ public:
     static constexpr size_t default_min_clusters_to_chain = 2;
     size_t min_clusters_to_chain = default_min_clusters_to_chain;
     /// How many clusters should we produce chains for, max?
-    static constexpr size_t default_max_clusters_to_chain = 800;
+    static constexpr size_t default_max_clusters_to_chain = 20;
     size_t max_clusters_to_chain = default_max_clusters_to_chain;
 
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
-    static constexpr size_t default_max_chain_connection = 100;
+    static constexpr size_t default_max_chain_connection = 80;
     size_t max_chain_connection = default_max_chain_connection;
     /// Similarly, what is the maximum tail length we will try to align?
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
     /// How many bases should we look back when chaining?
-    static constexpr size_t default_max_lookback_bases = 150;
+    static constexpr size_t default_max_lookback_bases = 20;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many bases should we try to look back initially when chaining?
     static constexpr size_t default_initial_lookback_threshold = 10;
@@ -234,7 +234,7 @@ public:
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
     /// How many bases of indel should we allow in chaining?
-    static constexpr size_t default_max_indel_bases = 100;
+    static constexpr size_t default_max_indel_bases = 50;
     size_t max_indel_bases = default_max_indel_bases;
     
     /////////////////
