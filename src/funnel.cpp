@@ -633,8 +633,32 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
             
             // Save the correct and non-correct filter statistics, even if
             // everything is non-correct because correctness isn't computed
-            set_annotation(aln, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-            set_annotation(aln, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+            bool all_nan = true;
+            for (auto& v : filter_statistics_correct) {
+                if (!isnan(v)) {
+                    all_nan = false;
+                    break;
+                }
+            }
+            if (all_nan) {
+                // Elide all-nan vector
+                set_annotation(aln, "filterstats_" + filter_id + "_correct", std::vector<double>());
+            } else {
+                set_annotation(aln, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+            }
+            all_nan = true;
+            for (auto& v : filter_statistics_non_correct) {
+                if (!isnan(v)) {
+                    all_nan = false;
+                    break;
+                }
+            }
+            if (all_nan) {
+                // Elide all-nan vector
+                set_annotation(aln, "filterstats_" + filter_id + "_noncorrect", std::vector<double>());
+            } else {
+                set_annotation(aln, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+            }
             filter_num++;
         });
 }
