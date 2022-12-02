@@ -73,7 +73,8 @@ void help_chunk(char** argv) {
          << "    -c, --context-steps N    expand the context of the chunk this many node steps [1]" << endl
          << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
-         << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
+         << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
+         << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
          << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [vg]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
@@ -104,6 +105,7 @@ int main_chunk(int argc, char** argv) {
     string node_range_string;
     string node_ranges_file;
     bool trace = false;
+    bool no_embedded_haplotypes = false;
     bool fully_contained = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
@@ -111,6 +113,8 @@ int main_chunk(int argc, char** argv) {
     bool components = false;
     bool path_components = false;
     string snarl_filename;
+    
+    #define OPT_NO_EMBEDDED_HAPLOTYPES 1000
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -133,7 +137,8 @@ int main_chunk(int argc, char** argv) {
             {"context", required_argument, 0, 'c'},
             {"id-ranges", no_argument, 0, 'r'},
             {"id-range", no_argument, 0, 'R'},
-            {"trace", required_argument, 0, 'T'},
+            {"trace", no_argument, 0, 'T'},
+            {"no-embedded-haplotypes", no_argument, 0, OPT_NO_EMBEDDED_HAPLOTYPES},
             {"fully-contained", no_argument, 0, 'f'},
             {"threads", required_argument, 0, 't'},
             {"n-chunks", required_argument, 0, 'n'},
@@ -245,6 +250,10 @@ int main_chunk(int argc, char** argv) {
         case 'T':
             trace = true;
             break;
+            
+        case OPT_NO_EMBEDDED_HAPLOTYPES:
+            no_embedded_haplotypes = true;
+            break;
 
         case 'f':
             fully_contained = true;
@@ -355,14 +364,28 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<gbwt::GBWT> gbwt_index_holder;
     const gbwt::GBWT* gbwt_index = nullptr; 
     if (trace) {
-        // We are tracing haplotypes, so find a GBWT in the graph or load one
-        gbwt_index = vg::algorithms::find_gbwt(path_handle_graph.get(), gbwt_index_holder, gbwt_file);
-
-        if (gbwt_index == nullptr) {
-          // Complain if we couldn't.
-          cerr << "error:[vg chunk] unable to find gbwt index in graph or separate file" << endl;
-          exit(1);
+        // We are tracing haplotypes.
+        // We might want a GBWT.
+        
+        // TODO: Make the tube map stop calling us in trace mode *without* a GBWT?
+        
+        if (!gbwt_file.empty()) {
+            // A GBWT file is specified, so load that
+            gbwt_index_holder = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+            if (gbwt_index_holder.get() == nullptr) {
+                // Complain if we couldn't get it but were supposed to.
+                cerr << "error:[vg::chunk] unable to load gbwt index file " << gbwt_file << endl;
+                exit(1);
+            }
+            gbwt_index = gbwt_index_holder.get();
         }
+        
+        if (!gbwt_index && !no_embedded_haplotypes) {
+            // We didn't get a GBWT from a file, and we are allowed to use the one in the graph, if any.
+            gbwt_index = vg::algorithms::find_gbwt(path_handle_graph.get());
+        }
+        
+        // It's OK if gbwt_index is still null here!
     }
 
     
