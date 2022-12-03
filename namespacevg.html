@@ -2248,6 +2248,10 @@ Functions</h2></td></tr>
 <tr class="separator:a67115fb742d1bf6d7e4e489fda99b78e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47c7102baf9a07b2c701e9937d53351f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a47c7102baf9a07b2c701e9937d53351f">sort_pair_by_second</a> (const pair&lt; uint32_t, uint32_t &gt; &amp;lhs, const pair&lt; uint32_t, uint32_t &gt; &amp;rhs)</td></tr>
 <tr class="separator:a47c7102baf9a07b2c701e9937d53351f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaddbcf35ad2ff899bf2ae0caf901f778"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaddbcf35ad2ff899bf2ae0caf901f778">sort_transcript_paths_by_name</a> (const <a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a> &amp;lhs, const <a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a> &amp;rhs)</td></tr>
+<tr class="separator:aaddbcf35ad2ff899bf2ae0caf901f778"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acdaa29c218d5d55e76fe4ab168f7a14b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acdaa29c218d5d55e76fe4ab168f7a14b">mapping_to_handle</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:acdaa29c218d5d55e76fe4ab168f7a14b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
 <tr class="separator:a52292dfd3869a811170f7c5c0d9da564"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1d85d380ba4b936ac8a715a72062866c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1d85d380ba4b936ac8a715a72062866c">make_pos_t</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>, <a class="el" href="namespacevg.html#afe223f2c7890c76de5e00b43ceb37add">offset_t</a> off)</td></tr>
@@ -13778,6 +13782,34 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
+<a id="acdaa29c218d5d55e76fe4ab168f7a14b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acdaa29c218d5d55e76fe4ab168f7a14b">&#9670;&nbsp;</a></span>mapping_to_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::mapping_to_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;&#160;</td>
+          <td class="paramname"><em>mapping</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a9ef1ccef545dfc30f9123eba61267b4a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9ef1ccef545dfc30f9123eba61267b4a">&#9670;&nbsp;</a></span>mapping_to_length() <span class="overload">[1/2]</span></h2>
 
@@ -20790,6 +20822,34 @@ template&lt;class RandomIt , class Compare &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Sort the items between the two given random-access iterators, as with std::sort. Deterministically shuffle the ties, if any, at the top end. </p>
+
+</div>
+</div>
+<a id="aaddbcf35ad2ff899bf2ae0caf901f778"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaddbcf35ad2ff899bf2ae0caf901f778">&#9670;&nbsp;</a></span>sort_transcript_paths_by_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::sort_transcript_paths_by_name </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a> &amp;&#160;</td>
+          <td class="paramname"><em>lhs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a> &amp;&#160;</td>
+          <td class="paramname"><em>rhs</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

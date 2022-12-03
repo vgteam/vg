@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['traversalalg_12020',['TraversalAlg',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4',1,'vg::Genotyper']]]
+  ['traversalalg_12018',['TraversalAlg',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4',1,'vg::Genotyper']]]
 ];
