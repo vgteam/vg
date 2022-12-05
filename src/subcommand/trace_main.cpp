@@ -8,6 +8,7 @@
 #include "../vg.hpp"
 #include <vg/io/vpkg.hpp>
 #include "../haplotype_extracter.hpp"
+#include "../algorithms/find_gbwt.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace vg;
@@ -20,7 +21,7 @@ void help_trace(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --index FILE           use this xg index or graph" << endl
-         << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of the xg's embedded gPBWT" << endl
+         << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of any in the graph" << endl
          << "    -n, --start-node INT       start at this node" << endl
         //TODO: implement backwards iteration over graph
         // << "    -b, --backwards            iterate backwards over graph" << endl
@@ -122,25 +123,19 @@ int main_trace(int argc, char** argv) {
   PathPositionHandleGraph* xindex = overlay_helper.apply(path_handle_graph.get());    
 
   // Now load the haplotype data
-  unique_ptr<gbwt::GBWT> gbwt_index;
-  if (!gbwt_name.empty()) {
-    // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
-    
-    // Load the GBWT from its container
-    gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
+  unique_ptr<gbwt::GBWT> gbwt_index_holder;
+  const gbwt::GBWT* gbwt_index = vg::algorithms::find_gbwt(path_handle_graph.get(), gbwt_index_holder, gbwt_name);
 
-    if (gbwt_index.get() == nullptr) {
-      // Complain if we couldn't.
-      cerr << "error:[vg trace] unable to load gbwt index file" << endl;
-      return 1;
-    }
-
+  if (gbwt_index == nullptr) {
+    // Complain if we couldn't.
+    cerr << "error:[vg trace] unable to find gbwt index in graph or separate file" << endl;
+    exit(1);
   }
-
+  
   // trace out our graph and paths from the start node
   Graph trace_graph;
   map<string, int> haplotype_frequences;
-  trace_haplotypes_and_paths(*xindex, *gbwt_index.get(), start_node, extend_distance,
+  trace_haplotypes_and_paths(*xindex, *gbwt_index, start_node, extend_distance,
                              trace_graph, haplotype_frequences);
 
   // dump our graph to stdout
