@@ -552,6 +552,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 funnel.substage("find_chain");
             }
             
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Computing chain over " << cluster_seeds_sorted.size() << " seeds" << endl;
+                }
+            }
+            
+            if (show_work) {
+                // Log the chaining problem so we can try it again elsewhere.
+                this->dump_chaining_problem(seed_anchors, cluster_seeds_sorted, gbwt_graph);
+            }
+            
             // Compute the best chain
             cluster_chains.emplace_back();
             cluster_chains.back().first = std::numeric_limits<int>::min();
