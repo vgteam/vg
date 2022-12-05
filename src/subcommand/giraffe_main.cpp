@@ -1177,6 +1177,9 @@ int main_giraffe(int argc, char** argv) {
 #endif
     
     try {
+        if (show_progress) {
+            cerr << "Preparing Indexes" << endl;
+        }
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
@@ -1195,16 +1198,22 @@ int main_giraffe(int argc, char** argv) {
 #endif
     
     // Grab the minimizer index
+    if (show_progress) {
+        cerr << "Loading Minimizer Index" << endl;
+    }
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
     // Grab the GBZ
+    if (show_progress) {
+        cerr << "Loading GBZ" << endl;
+    }
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     if (show_progress) {
         cerr << "Loading Distance Index v2" << endl;
     }
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
@@ -1219,6 +1228,9 @@ int main_giraffe(int argc, char** argv) {
         PathHandleGraph* base_graph = &gbz->graph;
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
         if (registry.available("XG")) {
+            if (show_progress) {
+                cerr << "Loading XG Graph" << endl;
+            }
             xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
             base_graph = xg_graph.get();
         }
