@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/subcommand/trace_main.cpp File Reference</title>
+<title>vg: src/algorithms/find_gbwt.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,80 +62,36 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_94786e3396b40c0f51bdede03caaa4e5.html">subcommand</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">trace_main.cpp File Reference</div>  </div>
+<div class="title">find_gbwt.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;getopt.h&gt;</code><br />
-<code>#include &lt;string&gt;</code><br />
-<code>#include &lt;vector&gt;</code><br />
-<code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="vg_8hpp.html">../vg.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="find__gbwt_8hpp.html">find_gbwt.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="find__gbwtgraph_8hpp.html">find_gbwtgraph.hpp</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
-<code>#include &quot;<a class="el" href="haplotype__extracter_8hpp.html">../haplotype_extracter.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="find__gbwt_8hpp.html">../algorithms/find_gbwt.hpp</a>&quot;</code><br />
-<code>#include &lt;bdsg/overlays/overlay_helper.hpp&gt;</code><br />
+<code>#include &quot;<a class="el" href="gbzgraph_8hpp.html">../gbzgraph.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a1e6c8dca8a2b0b1ba628313be3a56fe8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="trace__main_8cpp.html#a1e6c8dca8a2b0b1ba628313be3a56fe8">help_trace</a> (char **argv)</td></tr>
-<tr class="separator:a1e6c8dca8a2b0b1ba628313be3a56fe8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7bc03098058581a46cba55a13de823e9"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="trace__main_8cpp.html#a7bc03098058581a46cba55a13de823e9">main_trace</a> (int argc, char **argv)</td></tr>
-<tr class="separator:a7bc03098058581a46cba55a13de823e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92780d34d13ab2a6be9fe477543179ce"><td class="memItemLeft" align="right" valign="top">const gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a92780d34d13ab2a6be9fe477543179ce">vg::algorithms::find_gbwt</a> (const HandleGraph *graph)</td></tr>
+<tr class="separator:a92780d34d13ab2a6be9fe477543179ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5783b30c1ad6ea3ff4bc4576f447b615"><td class="memItemLeft" align="right" valign="top">const gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5783b30c1ad6ea3ff4bc4576f447b615">vg::algorithms::find_gbwt</a> (const HandleGraph *graph, std::unique_ptr&lt; gbwt::GBWT &gt; &amp;holder, const std::string &amp;filename)</td></tr>
+<tr class="separator:a5783b30c1ad6ea3ff4bc4576f447b615"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Function Documentation</h2>
-<a id="a1e6c8dca8a2b0b1ba628313be3a56fe8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e6c8dca8a2b0b1ba628313be3a56fe8">&#9670;&nbsp;</a></span>help_trace()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void help_trace </td>
-          <td>(</td>
-          <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a7bc03098058581a46cba55a13de823e9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7bc03098058581a46cba55a13de823e9">&#9670;&nbsp;</a></span>main_trace()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int main_trace </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>argc</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

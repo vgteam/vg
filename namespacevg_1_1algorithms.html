@@ -253,6 +253,10 @@ Functions</h2></td></tr>
 <tr class="separator:ab31b1b707c93f96d6f013e579c4d8783"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f600eb589d48607c2616bed69ff2e27"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1f600eb589d48607c2616bed69ff2e27">extract_extending_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, int64_t max_dist, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos, bool backward, bool preserve_cycles_on_src_node)</td></tr>
 <tr class="separator:a1f600eb589d48607c2616bed69ff2e27"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92780d34d13ab2a6be9fe477543179ce"><td class="memItemLeft" align="right" valign="top">const gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a92780d34d13ab2a6be9fe477543179ce">find_gbwt</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a92780d34d13ab2a6be9fe477543179ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5783b30c1ad6ea3ff4bc4576f447b615"><td class="memItemLeft" align="right" valign="top">const gbwt::GBWT *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5783b30c1ad6ea3ff4bc4576f447b615">find_gbwt</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, std::unique_ptr&lt; gbwt::GBWT &gt; &amp;holder, const std::string &amp;filename)</td></tr>
+<tr class="separator:a5783b30c1ad6ea3ff4bc4576f447b615"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1e8867ea22636dc22aa53bd8fe1d0aaa"><td class="memItemLeft" align="right" valign="top">const gbwtgraph::GBWTGraph *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1e8867ea22636dc22aa53bd8fe1d0aaa">find_gbwtgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:a1e8867ea22636dc22aa53bd8fe1d0aaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af38c05b9c1e56c79faccfbbf6b3ade95"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af38c05b9c1e56c79faccfbbf6b3ade95">find_translation</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -2584,6 +2588,60 @@ template&lt;typename Item , typename Source  = void, typename Collection  = Vect
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a92780d34d13ab2a6be9fe477543179ce"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92780d34d13ab2a6be9fe477543179ce">&#9670;&nbsp;</a></span>find_gbwt() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const gbwt::GBWT * vg::algorithms::find_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the GBWT that is part of the given handle graph, if any exists. Works on GBWTGraphs and GBZGraphs. Returns null if no such GBWT exists. </p>
+
+</div>
+</div>
+<a id="a5783b30c1ad6ea3ff4bc4576f447b615"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5783b30c1ad6ea3ff4bc4576f447b615">&#9670;&nbsp;</a></span>find_gbwt() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const gbwt::GBWT * vg::algorithms::find_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::unique_ptr&lt; gbwt::GBWT &gt; &amp;&#160;</td>
+          <td class="paramname"><em>holder</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find a GBWT either by getting it from the given graph or loading it from the given filename into the given unique_ptr. </p>
 
 </div>
 </div>
