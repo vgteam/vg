@@ -491,6 +491,24 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 funnel.pass("max-clusters-to-chain", cluster_num);
             }
             
+            // Collect some cluster statistics in the graph
+            size_t cluster_node_count = 0;
+            nid_t cluster_min_node = std::numeric_limits<nid_t>::max();
+            nid_t cluster_max_node = 0;
+            {
+                // Count the distinct node IDs in the cluster (as seed starts)
+                // to get an idea of its size in the reference
+                std::unordered_set<nid_t> id_set;
+                for (auto seed_index : cluster.seeds) {
+                    auto& seed = seeds[seed_index];
+                    nid_t node_id = id(seed.pos);
+                    cluster_min_node = std::min(cluster_min_node, node_id);
+                    cluster_max_node = std::max(cluster_max_node, node_id);
+                    id_set.insert(node_id);
+                }
+                cluster_node_count = id_set.size();
+            }
+            
             // First check against the additional score filter
             if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff 
                 && kept_cluster_count >= min_clusters_to_chain) {
@@ -504,6 +522,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     {
                         cerr << log_name() << "Cluster " << cluster_num << " fails cluster score cutoff" <<  endl;
                         cerr << log_name() << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+                        cerr << log_name() << "Involves " << cluster_node_count << " nodes in " << cluster_min_node << "-" << cluster_max_node << endl;
                         cerr << log_name() << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
                     }
                 }
@@ -520,6 +539,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 {
                     cerr << log_name() << "Cluster " << cluster_num << endl;
                     cerr << log_name() << "Covers " << cluster.coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+                    cerr << log_name() << "Involves " << cluster_node_count << " nodes in " << cluster_min_node << "-" << cluster_max_node << endl;
                     cerr << log_name() << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
                 }
             }

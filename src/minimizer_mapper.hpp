@@ -195,7 +195,7 @@ public:
     bool align_from_chains = default_align_from_chains;
     
     /// What read-length-independent distance threshold do we want to use for clustering?
-    static constexpr size_t default_chaining_cluster_distance = 1000;
+    static constexpr size_t default_chaining_cluster_distance = 80;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
     /// When connecting subclusters for reseeding, how far apart can they be
