@@ -390,7 +390,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             #pragma omp critical (cerr)
             {
                 std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_read << " = G:" << left_pos
-                    << "} and " << connected.second << " at {R:" << right_pos << " = G:" << right_pos
+                    << "} and " << connected.second << " at {R:" << right_read << " = G:" << right_pos
                     << "} found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
             }
         }

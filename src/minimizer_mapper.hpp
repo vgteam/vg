@@ -220,8 +220,10 @@ public:
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
-    /// How many bases should we look back when chaining?
-    static constexpr size_t default_max_lookback_bases = 20;
+    /// How many bases should we look back when chaining? Needs to be about the
+    /// same as the clustering distance or we will be able to cluster but not
+    /// chain.
+    static constexpr size_t default_max_lookback_bases = 80;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many bases should we try to look back initially when chaining?
     static constexpr size_t default_initial_lookback_threshold = 10;
