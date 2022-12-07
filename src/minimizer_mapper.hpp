@@ -198,7 +198,9 @@ public:
     static constexpr size_t default_chaining_cluster_distance = 80;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
-    /// When connecting subclusters for reseeding, how far apart can they be
+    /// When connecting subclusters for reseeding, how far should we search?
+    static constexpr size_t default_reseed_search_distance = 10000;
+    size_t reseed_search_distance = default_reseed_search_distance;
     
     // TODO: These will go away with cluster-merging chaining
     /// Accept at least this many clusters for chain generation

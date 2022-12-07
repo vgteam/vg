@@ -3285,9 +3285,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     // or skip all of them. Such minimizers are expensive to process, because
     // they tend to have many hits and each hit in the graph is matched with
     // each occurrence in the read.
-    bool took_last = false;
     size_t start = 0, limit = 0;
     size_t run_hits = 0;
+    bool taking_run = false;
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -3306,6 +3306,83 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     std::vector<Seed> seeds;
+    
+    // Define the filters for minimizers.
+    //
+    // Each has a name, a function to check if a minimizer passes, a function
+    // to check the minimizer's statistic, and a pass and a fail function to
+    // update state.
+    //
+    // Filters that keep state and don't want to treat multiple duplicate
+    // minimizers differently should check taking_run to see if something in
+    // the run already passed all filters (and therefore this filter).
+    //
+    // Functions are only allowed to be called after run_hits is set and the
+    // run logic has determined run membership for the minimizer.
+    using filter_t = std::tuple<const char*, std::function<bool(const Minimizer&)>, std::function<double(const Minimizer&)>, std::function<void(const Minimizer&)>, std::function<void(const Minimizer&)>>;
+    std::vector<filter_t> minimizer_filters;
+    minimizer_filters.reserve(5);
+    minimizer_filters.emplace_back(
+        "any-hits", 
+        [&](const Minimizer& m) { return m.hits > 0; },
+        [](const Minimizer& m) { return nan(""); },
+        [](const Minimizer& m) {},
+        [](const Minimizer& m) {}
+    );
+    minimizer_filters.emplace_back(
+        "hard-hit-cap",
+        [&](const Minimizer& m) { return run_hits > this->hard_hit_cap; },
+        [&](const Minimizer& m) { return (double)run_hits; },
+        [](const Minimizer& m) {},
+        [](const Minimizer& m) {}
+    );
+    if (this->exclude_overlapping_min) {
+        minimizer_filters.emplace_back(
+            "exclude-overlapping-min",
+            [&](const Minimizer& m) {
+                // TODO: Is this matching abutting minimizers?
+                return !read_bit_vector[m.forward_offset()] && 
+                !read_bit_vector[m.forward_offset() + m.length];
+            },
+            [](const Minimizer& m) { return nan(""); },
+            [&](const Minimizer& m) {
+              for (size_t i = m.forward_offset(); i < m.forward_offset() + m.length; i++) {
+                read_bit_vector[i] = true;
+              }
+            },
+            [](const Minimizer& m) {}
+        );
+    }
+    minimizer_filters.emplace_back(
+        "max-unique-min||num-bp-per-min",
+        [&](const Minimizer& m) {
+            return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
+        },
+        [](const Minimizer& m) { return nan(""); },
+        [](const Minimizer& m) {},
+        [](const Minimizer& m) {}
+    );
+    minimizer_filters.emplace_back(
+        "hit-cap||score-fraction",
+        [&](const Minimizer& m) {
+            return (m.hits <= this->hit_cap) || // We pass if we are under the soft hit cap
+            (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hot cap and we need the score
+            (taking_run); // Or we already took one duplicate and we want to finish out the run 
+        },
+        [&](const Minimizer& m) {
+            return (selected_score + m.score) / base_target_score;
+        },
+        [&](const Minimizer& m) {
+            // Remember that we took this minimizer for evaluating later ones
+            selected_score += m.score;
+        },
+        [&](const Minimizer& m) {
+            //Stop looking for more minimizers once we fail the score fraction
+            target_score = selected_score; 
+        }
+    );
+     
+    
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
     // they would have to be created in the read no matter where we say it came
@@ -3320,55 +3397,59 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
 
         // Find the next run of identical minimizers.
         if (i >= limit) {
+            // We are starting a new run
             start = i; limit = i + 1;
             run_hits = minimizers[i].hits;
             for (size_t j = i + 1; j < minimizers.size() && minimizers[j].value.key == minimizers[i].value.key; j++) {
                 limit++;
                 run_hits += minimizers[j].hits;
             }
+            // We haven't taken the first thing in the run yet.
+            taking_run = false;
         }
 
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
 
-        // minimizer information
-        size_t min_start_index = minimizer.forward_offset();
-        size_t min_len = minimizer.length;
-        bool overlapping = false;
-        if (this->exclude_overlapping_min) {
-          if (read_bit_vector[min_start_index] == true || read_bit_vector[min_start_index + min_len] == true) {
-            overlapping = true;
-          }
-        }
-
-        if (minimizer.hits == 0) {
-            // A minimizer with no hits can't go on.
-            took_last = false;
-            // We do not treat it as located for MAPQ capping purposes.
-            if (this->track_provenance) {
-                funnel.fail("any-hits", i);
-            }
-        } else if (  // passes reads
-              // cap minimizer at max of specified minimizers and minimizers calculated by read length
-              ((minimizer.hits <= this->hit_cap) ||
-              (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
-              (took_last && i > start)) &&
-              (num_minimizers < ( max(this->max_unique_min, num_min_by_read_len) )) &&
-              (overlapping == false)
-            ) {
+        // Evaluate the filters
+        bool passing = true;
+        for (auto& filter : minimizer_filters) {
+            auto& filter_name = std::get<0>(filter);
+            auto& filter_function = std::get<1>(filter);
+            auto& filter_stat_function = std::get<2>(filter);
+            auto& filter_pass_function = std::get<3>(filter);
+            auto& filter_fail_function = std::get<4>(filter);
             
-            // set minimizer overlap as a reads
-            num_minimizers += 1;    // tracking number of minimizers selected
-            if (this->exclude_overlapping_min) {
-              for (size_t i = min_start_index; i < min_start_index + min_len; i++) {
-                read_bit_vector[i] = true;
-              }
+            passing = filter_function(minimizer);
+            if (passing) {
+                // Pass this filter
+                if (this->track_provenance) {
+                    funnel.pass(filter_name, i, filter_stat_function(minimizer));
+                }
+                filter_pass_function(minimizer);
+            } else {
+                // Fail this filter.
+                if (this->track_provenance) {
+                    funnel.fail(filter_name, i, filter_stat_function(minimizer));
+                }
+                filter_fail_function(minimizer);
+                // Don't do later filters
+                break;
             }
-
+        }
+        
+        if (passing) {
+            // We passed all filters.
+            // So we are taking this item and ought to take the others in the same run in most cases.
+            taking_run = true;
+            // Track number of minimizers selected.
+            num_minimizers++;
+            
             // We should keep this minimizer instance because it is
             // sufficiently rare, or we want it to make target_score, or it is
-            // the same sequence as the previous minimizer which we also took.
+            // the same sequence as a previous minimizer in this run of identical
+            // minimizers which we also took.
 
             // Locate the hits.
             for (size_t j = 0; j < minimizer.hits; j++) {
@@ -3387,38 +3468,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                 }
                 seeds.push_back(chain_info_to_seed(hit, i, chain_info));
             }
-
-            // Remember that we took this minimizer
-            selected_score += minimizer.score;
-            took_last = true;
-
+            
             if (this->track_provenance) {
                 // Record in the funnel that this minimizer gave rise to these seeds.
-                funnel.pass("any-hits", i);
-                funnel.pass("hard-hit-cap", i);
-                funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
                 funnel.expand(i, minimizer.hits);
             }
-        } else if (run_hits <= this->hard_hit_cap) {
-            // Passed hard hit cap but failed score fraction/normal hit cap
-            took_last = false;
-            rejected_count++;
-            if (this->track_provenance) {
-                funnel.pass("any-hits", i);
-                funnel.pass("hard-hit-cap", i);
-                funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
-            }
-            //Stop looking for more minimizers once we fail the score fraction
-            target_score = selected_score; 
+                
         } else {
-            // Failed hard hit cap
-            took_last = false;
+            // We failed a filter.
+            // Track number of minimizers rejected.
             rejected_count++;
-            if (this->track_provenance) {
-                funnel.pass("any-hits", i);
-                funnel.fail("hard-hit-cap", i);
-            }
         }
+        
         if (this->track_provenance) {
             // Say we're done with this input item
             funnel.processed_input();

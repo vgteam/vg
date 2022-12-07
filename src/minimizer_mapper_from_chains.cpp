@@ -370,10 +370,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         const pos_t right_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
         
         // Do the reseed
-        std::vector<Seed> new_seeds = reseed_between(left_read, right_read, left_pos, right_pos, this->gbwt_graph, minimizers, find_minimizer_hit_positions);
+        std::vector<Seed> new_seeds = reseed_between(left_read, right_read, left_pos, right_pos, this->gbwt_graph, minimizers, find_minimizer_hit_positions, reseed_search_distance);
         
         // Concatenate and deduplicate with existing seeds
-        seeds.reserve(seeds.size() + new_seeds.size());
+        size_t seeds_before = seeds.size();
+        seeds.reserve(seeds_before + new_seeds.size());
         for (auto& seed : new_seeds) {
             // Check if we have seen it before
             std::pair<size_t, pos_t> key {minimizers[seed.source].forward_offset(), seed.pos};
@@ -382,6 +383,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // Keep this new seed
                 seeds.emplace_back(std::move(seed));
                 seen_seeds.emplace_hint(found, std::move(key));
+            }
+        }
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_read << " = G:" << left_pos
+                    << "} and " << connected.second << " at {R:" << right_pos << " = G:" << right_pos
+                    << "} found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
             }
         }
     }
@@ -1018,6 +1028,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_chaining-cluster-distance", (double) chaining_cluster_distance);
         set_annotation(mappings[0], "param_min-clusters-to-chain", (double) min_clusters_to_chain);
         set_annotation(mappings[0], "param_max-clusters-to-chain", (double) max_clusters_to_chain);
+        set_annotation(mappings[0], "param_reseed-search-distance", (double) reseed_search_distance);
         
         // Chaining algorithm parameters
         set_annotation(mappings[0], "param_max-lookback-bases", (double) max_lookback_bases);
