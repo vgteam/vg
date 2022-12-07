@@ -3331,7 +3331,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     );
     minimizer_filters.emplace_back(
         "hard-hit-cap",
-        [&](const Minimizer& m) { return run_hits > this->hard_hit_cap; },
+        [&](const Minimizer& m) { return run_hits <= this->hard_hit_cap; },
         [&](const Minimizer& m) { return (double)run_hits; },
         [](const Minimizer& m) {},
         [](const Minimizer& m) {}
@@ -3341,6 +3341,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
             "exclude-overlapping-min",
             [&](const Minimizer& m) {
                 // TODO: Is this matching abutting minimizers?
+                // If at both ehnds the flag isn't set yet, we pass. 
                 return !read_bit_vector[m.forward_offset()] && 
                 !read_bit_vector[m.forward_offset() + m.length];
             },
