@@ -55,9 +55,61 @@ namespace vg {
 
 // Define a system for grid searching
 
+/// Base interface fro things that can be chained up and ticked
+struct TickChainLink {
+    /// This will be called when we want to reset_chain what we are chained onto.
+    function<void(void)> reset_chain_parent = []() {
+    };
+    /// This will be called when we need to tick_chain our parent
+    function<bool(void)> tick_chain_parent = []() {
+        return false;
+    };
+    
+    /// Reset the chain to its initial values.
+    virtual void reset_chain() {
+        reset_chain_parent();
+    }
+    
+    /// Tick the chain. Return true if there's still a value for the chain, and
+    /// false if the chain is out of values.
+    virtual bool tick_chain() {
+        return tick_chain_parent();
+    }
+    
+    /// Add a thing to the chain after us.
+    /// Return that thing.
+    virtual TickChainLink& chain(TickChainLink& next) {
+        // Attach next to us
+        next.reset_chain_parent = [&]() {
+            this->reset_chain();
+        };
+        next.tick_chain_parent = [&]() {
+            return this->tick_chain();
+        };
+        
+        // And return it for a nice chain of chain calls.
+        return next;
+    }
+    
+    /// Get a function that runs another function for each combination of
+    /// values for this Range and all Ranges it has been chained onto.
+    virtual function<void(const function<void(void)>&)> get_iterator() {
+        return [&](const function<void(void)>& iteratee) {
+            // Start
+            reset_chain();
+            
+            do {
+                // Run iteratee
+                iteratee();
+                // And tick the whole chain before running again
+            } while(tick_chain());
+        };
+    }
+};
+
 /// This defines a range of values to test, from start to <=end, going up by step
 template<typename Number>
-struct Range {
+struct Range : public TickChainLink {
     
     // Expose the thing we are a range of
     using type = Number;
@@ -73,14 +125,6 @@ struct Range {
     Number here = 0;
     /// Determines if we are running or not (i.e. is here valid)
     bool running = false;
-    
-    /// This will be called when we want to reset_chain what we are chained onto.
-    function<void(void)> reset_chain_parent = []() {
-    };
-    /// This will be called when we need to tick_chain our parent
-    function<bool(void)> tick_chain_parent = []() {
-        return false;
-    };
     
     /// Default constructor
     Range() {
@@ -180,7 +224,7 @@ struct Range {
     }
     
     /// Increment our value.
-    /// If it overflows, tock_chain whatever we are chained onto, and reset and succeed if that succeeds.
+    /// If it overflows, tick_chain whatever we are chained onto, and reset and succeed if that succeeds.
     bool tick_chain() {
         if (tick()) {
             // We could change
@@ -196,38 +240,6 @@ struct Range {
                 return false;
             }
         }
-    }
-    
-    /// Chain the given range onto this one.
-    /// Return the passed-in range.
-    /// Neither range may be moved away!
-    template<typename Other>
-    Range<Other>& chain(Range<Other>& next) {
-        
-        // Attach next to us
-        next.reset_chain_parent = [&]() {
-            this->reset_chain();
-        };
-        next.tick_chain_parent = [&]() {
-            return this->tick_chain();
-        };
-        
-        return next;
-    }
-    
-    /// Get a function that runs another function for each combination of
-    /// values for this Range and all Ranges it has been chained onto.
-    function<void(const function<void(void)>&)> get_iterator() {
-        return [&](const function<void(void)>& iteratee) {
-            // Start
-            reset_chain();
-            
-            do {
-                // Run iteratee
-                iteratee();
-                // And tick the whole chain before running again
-            } while(tick_chain());
-        };
     }
 };
 
@@ -295,6 +307,506 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
 }
 }
 
+/// Get a new unique option ID.
+int get_option_id() {
+    static int id = 10000;
+    return id++;
+}
+
+template<typename T>
+const char* get_metavar();
+
+template<>
+const char* get_metavar<size_t>() {
+    return "INT";
+}
+
+template<>
+const char* get_metavar<int>() {
+    return "INT";
+}
+
+template<>
+const char* get_metavar<bool>() {
+    return "BOOL";
+}
+
+template<>
+const char* get_metavar<double>() {
+    return "FLOAT";
+}
+
+template<>
+const char* get_metavar<std::string>() {
+    return "NAME";
+}
+
+/**
+ * Interface for a command-line argument that goes into a field on an object of
+ * the given type.
+ */
+template<typename Receiver>
+struct BaseArgSpec : public TickChainLink {
+    /// Make an option with a long option name only
+    BaseArgSpec(const std::string& option, const std::string& help) : option(option), help(help), short_option(0), option_id(get_option_id()) {
+        // Nothing to do
+    }
+    /// Make an option with a long and short option name
+    BaseArgSpec(const std::string& option, char short_option, const std::string& help) : option(option), help(help), short_option(short_option), option_id(short_option) {
+        // Nothing to do
+    }
+    virtual ~BaseArgSpec() = default;
+    
+    /// Parse the argument's value from the command line.
+    virtual void parse(const char* optarg) = 0;
+    /// Apply the value to the right field of the given object.
+    virtual void apply(Receiver& receiver) const = 0;
+     /// Print value to the given stream after the given separator.
+    virtual void print_value(ostream& out, const char* sep = "") const = 0;
+    /// Print value metavar placeholder to the given stream after the given separator.
+    virtual void print_metavar(ostream& out, const char* sep = "") const = 0;
+    /// Print default value to the given stream, if appropriate.
+    virtual void print_default(ostream& out) const = 0;
+    /// Print option and value to the given stream, without newlines, between the given separators.
+    virtual void print(ostream& out, const char* sep = "", const char* after = "") const {
+        out << sep << "--" << option;
+        this->print_value(out, " ");
+        out << after;
+    }
+    /// Get the getopt structure for this option. Option must outlive it and not move.
+    virtual struct option get_option_struct() const = 0;
+    
+    /// Name of the option (long opt)
+    std::string option;
+    /// Help for the option
+    std::string help;
+    /// Character of the option (short opt), or 0
+    char short_option;
+    /// Int value to represent the option
+    int option_id;
+};
+
+/**
+ * Definition structure for normal value-having options.
+ */
+template<typename T, typename Receiver, typename Holder=T>
+struct ValueArgSpec : public BaseArgSpec<Receiver> {
+    /// Make an option with a long option name only
+    ValueArgSpec(const std::string& option, T Receiver::*dest, const T& default_value, const std::string& help) : BaseArgSpec<Receiver>(option, help), dest(dest), value(default_value), default_value(default_value) {
+        // Nothing to do
+    }
+    /// Make an option with a long and short option name
+    ValueArgSpec(const std::string& option, char short_option, T Receiver::*dest, const T& default_value, const std::string& help) : BaseArgSpec<Receiver>(option, short_option, help), dest(dest), value(default_value), default_value(default_value) {
+        // Nothing to do
+    }
+    virtual ~ValueArgSpec() = default;
+    
+    virtual void parse(const char* optarg) {
+        if (!optarg) {
+            // Protect against nulls
+            cerr << "error: Missing argument for ";
+            if (this->short_option) {
+                cerr << "-" << this->short_option << "/";
+            }
+            cerr << "--" << this->option << endl;
+            exit(1);
+        }
+        value = vg::parse<Holder>(optarg);
+    }
+    
+    virtual void apply(Receiver& receiver) const {
+        receiver.*dest = value;
+    }
+    virtual void print_metavar(ostream& out, const char* sep = "") const {
+        out << sep << get_metavar<T>();
+    }
+    virtual void print_value(ostream& out, const char* sep = "") const {
+        out << sep << value;
+    }
+    virtual void print_default(ostream& out) const {
+        out << " [" << default_value << "]";
+    }
+    virtual struct option get_option_struct() const {
+        return {this->option.c_str(), required_argument, 0, this->option_id};
+    }
+    
+    T Receiver::*dest;
+    Holder value;
+    T default_value;
+};
+
+/**
+ * Definition structure for value-having options that can run through a range.
+ */
+template<typename T, typename Receiver>
+struct RangeArgSpec : public ValueArgSpec<T, Receiver, Range<T>> {
+    using Holder = Range<T>;
+    
+    using ValueArgSpec<T, Receiver, Range<T>>::ValueArgSpec;
+    virtual ~RangeArgSpec() = default;
+    
+    virtual TickChainLink& chain(TickChainLink& next) {
+        // Wire our value range into the chain.
+        TickChainLink::chain(this->value);
+        this->value.chain(next);
+        return next;
+    }
+};
+
+/**
+ * Definition structure for flag options that flip a default value.
+ */
+template<typename Receiver>
+struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
+    using T = bool;
+    using Holder = T;
+    
+    using ValueArgSpec<bool, Receiver>::ValueArgSpec;
+    virtual ~FlagArgSpec() = default;
+    
+    virtual void parse(const char* optarg) {
+        // When parsing, flip stored default.
+        this->value = !this->default_value;
+    }
+    virtual void print_metavar(ostream& out, const char* sep = "") const {
+        // Don't do anything
+    }
+    virtual void print_value(ostream& out, const char* sep = "") const {
+        // Don't do anything
+    }
+    virtual void print_default(ostream& out) const {
+        // Don't do anything
+    }
+    virtual void print(ostream& out, const char* sep = "", const char* after = "") const {
+        // Override print to just print the flag when used
+        if (this->value != this->default_value) {
+            out << sep << "--" << this->option << after;
+        }
+    }
+    virtual struct option get_option_struct() const {
+        return {this->option.c_str(), no_argument, 0, this->option_id};
+    }
+};
+
+/**
+ * Represents a set of command-line options.
+ */
+struct BaseOptionGroup : public TickChainLink {
+    
+    /// Parse the given option ID, with the given value if needed.
+    /// Return true if we matched the ID, and false otherwise.
+    virtual bool parse(int option_id, const char* optarg) = 0;
+    
+    /// Print all options set, one per line
+    virtual void print_options(ostream& out) const = 0;
+    
+    /// Get help, in the form of pairs of options and descriptions.
+    /// Headings are descriptions without options.
+    virtual std::vector<std::pair<std::string, std::string>> get_help() const = 0;
+    
+    /// Add options to non-null-terminated input for getopt_long
+    virtual void make_long_options(std::vector<struct option>& dest) const = 0;
+    
+    /// Add options to string input for getopt_long
+    virtual void make_short_options(std::string& dest) const = 0;
+};
+
+/**
+ * Represents a set of command-line options that can be applied to an object.
+ * Internal values can be ranges that can be ticked.
+ * Comes with a heading.
+ */
+template<typename Receiver>
+struct OptionGroup : public BaseOptionGroup {
+
+    /// Make an option group woith the given heading.
+    OptionGroup(const std::string& heading) : heading(heading) {
+        // Nothing to do!
+    }
+   
+    /// Chain through all options 
+    virtual TickChainLink& chain(TickChainLink& next) {
+        if (args.empty()) {
+            // Just chain through
+            return TickChainLink::chain(next);
+        } else {
+            // Chain us to first arg, and last arg to next.
+            TickChainLink::chain(*args.front());
+            args.back()->chain(next);
+            return next;
+        }
+    }
+    
+    /// Add a new option that goes to the given field, with the given default.
+    template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
+    void add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help) {
+        args.emplace_back(new Spec(name, dest, default_value, help));
+        if (args.size() > 1) {
+            // Chain onto previous option
+            args[args.size() - 2]->chain(*args[args.size() - 1]);
+        }
+        // Index it by option ID
+        id_to_index.emplace(args[args.size() - 1]->option_id, args.size() - 1);
+    }
+    
+    /// Add a new option that handles range values
+    template<typename T>
+    void add_range(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help) {
+        add_option<T, RangeArgSpec<T, Receiver>>(name, dest, default_value, help);
+    }
+    
+    /// Add a new option that is a boolean flag
+    void add_flag(const std::string& name, bool Receiver::*dest, const bool& default_value, const std::string& help) {
+        add_option<bool, FlagArgSpec<Receiver>>(name, dest, default_value, help);
+    }
+    
+    /// Parse the given option ID, with the given value if needed.
+    /// Return true if we matched the ID, and false otherwise.
+    virtual bool parse(int option_id, const char* optarg) {
+        auto found = id_to_index.find(option_id);
+        if (found != id_to_index.end()) {
+            // We have this option, so parse.
+            args.at(found->second)->parse(optarg);
+            return true;
+        } else {
+            // We don't have this option, maybe someone else does.
+            return false;
+        }
+    }
+    
+    /// Print all options set, one per line
+    virtual void print_options(ostream& out) const {
+        for (auto& arg : args) {
+            arg->print(out, "", "\n");
+        }
+    }
+    
+    /// Apply all flags to the receiver
+    void apply(Receiver& receiver) const {
+        for (auto& arg : args) {
+            arg->apply(receiver);
+        }
+    }
+    
+    /// Get help, in the form of pairs of options and descriptions.
+    /// Headings are descriptions without options.
+    virtual std::vector<std::pair<std::string, std::string>> get_help() const {
+        std::vector<std::pair<std::string, std::string>> to_return;
+        to_return.reserve(args.size() + 1);
+        
+        // Put the heading
+        to_return.emplace_back("", heading + ":");
+        
+        for (auto& arg : args) {
+            // Show the option
+            std::stringstream opt_stream;
+            if (arg->short_option) {
+                opt_stream << "-" << arg->short_option << ", ";
+            }
+            opt_stream << "--" << arg->option;
+            arg->print_metavar(opt_stream, " ");
+            
+            // Show the help text with default value
+            std::stringstream help_stream;
+            help_stream << arg->help;
+            arg->print_default(help_stream);
+            
+            to_return.emplace_back(opt_stream.str(), help_stream.str());
+        }
+        
+        return to_return;
+    }
+    
+    /// Add to non-null-terminated input for getopt_long
+    virtual void make_long_options(std::vector<struct option>& dest) const {
+        dest.reserve(dest.size() + args.size());
+        for (auto& arg : args) {
+            // Collect them from all the options
+            dest.emplace_back(arg->get_option_struct());
+        }
+    }
+    
+    /// Add to string input for getopt_long
+    virtual void make_short_options(std::string& dest) const {
+        for (auto& arg : args) {
+            struct option long_spec = arg->get_option_struct();
+            if (long_spec.val < std::numeric_limits<char>::max()) {
+                // This has a short option. Encode the short option string.
+                dest.push_back(long_spec.val);
+                switch (long_spec.has_arg) {
+                case optional_argument:
+                    dest.push_back(':');
+                    // Fall-through
+                case required_argument:
+                    dest.push_back(':');
+                    // Fall-through
+                case no_argument:
+                    break;
+                }
+            }
+        }
+    }
+    
+    /// Heading we will appear under in the help.
+    std::string heading;
+    /// Holds the argument definitions and parsing destinations
+    std::vector<std::unique_ptr<BaseArgSpec<Receiver>>> args;
+    /// Map from option ID to option index
+    std::unordered_map<int, size_t> id_to_index;
+};
+
+/**
+ * Represents a group of groups of options.
+ */
+struct GroupedOptionGroup : public BaseOptionGroup {
+
+    /// Create a new child group with a new heading, which we can add options
+    /// to.
+    template<typename Receiver>
+    OptionGroup<Receiver>& add_group(const std::string& heading) {
+        OptionGroup<Receiver>* new_group = new OptionGroup<Receiver>(heading);
+        subgroups.emplace_back(new_group);
+        if (subgroups.size() > 1) {
+            // Chain the groups
+            subgroups[subgroups.size() - 2]->chain(*subgroups[subgroups.size() - 1]);
+        }
+        return *new_group;
+    }
+    
+    /// Apply all options that go on an object of this type to the given object.
+    template<typename Receiver>
+    void apply(Receiver& receiver) {
+        for (auto& group : subgroups) {
+            OptionGroup<Receiver>* as_relevant_leaf = dynamic_cast<OptionGroup<Receiver>*>(group.get());
+            if (as_relevant_leaf) {
+                // This is a group that cares about this type
+                as_relevant_leaf->apply(receiver);
+            }
+            GroupedOptionGroup* as_internal_node = dynamic_cast<GroupedOptionGroup*>(group.get());
+            if (as_internal_node) {
+                // This is a group that has child groups
+                as_internal_node->apply(receiver);
+            }
+        }
+    }
+    
+    /// Chain through all subgroups 
+    virtual TickChainLink& chain(TickChainLink& next) {
+        if (subgroups.empty()) {
+            // Just chain through
+            return TickChainLink::chain(next);
+        } else {
+            // Chain us to first subgroup, and last subgroup to next.
+            TickChainLink::chain(*subgroups.front());
+            subgroups.back()->chain(next);
+            return next;
+        }
+    }
+    
+    virtual bool parse(int option_id, const char* optarg) {
+        for (auto& group : subgroups) {
+            if (group->parse(option_id, optarg)) {
+                // If any of our groups wants this option, we do too.
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    virtual void print_options(ostream& out) const {
+        for (auto& group : subgroups) {
+            // Print options from all groups in order
+            group->print_options(out);
+        }
+    }
+    
+    virtual std::vector<std::pair<std::string, std::string>> get_help() const {
+        std::vector<std::pair<std::string, std::string>> helps;
+        for (auto& group : subgroups) {
+            // Get helps from all subgroups
+            auto subgroup_helps = group->get_help();
+            // And put each collection on the end
+            std::copy(subgroup_helps.begin(), subgroup_helps.end(), std::back_inserter(helps));
+        }
+        return helps;
+    }
+    
+    virtual void make_long_options(std::vector<struct option>& dest) const {
+        for (auto& group : subgroups) {
+            group->make_long_options(dest);
+        }
+    }
+    
+    virtual void make_short_options(std::string& dest) const {
+        for (auto& group : subgroups) {
+            group->make_short_options(dest);
+        }
+    }
+    
+    /// Holds all the child groups of options
+    std::vector<std::unique_ptr<BaseOptionGroup>> subgroups;
+};
+
+/// Print a table of rows, with each column starting at the same character on the line.
+static void print_table(const std::vector<std::pair<std::string, std::string>>& rows, ostream& out) {
+    // Work out the max length of anything in the first column
+    size_t max_length = 0;
+    for (auto& r : rows) {
+        max_length = std::max(max_length, r.first.size());
+    }
+    for (auto& r : rows) {
+        if (r.first.empty()) {
+            // It's a heading
+            out << r.second << std::endl;
+        } else {
+            // Print leading indent
+            out << "  ";
+            // Print column 1
+            out << r.first;
+            for (size_t i = 0; i < max_length - r.first.size(); i++) {
+                // Print padding to make all items the max length
+                out << " ";
+            }
+            // Print separator
+            out << " ";
+            // Print column 2
+            out << r.second << std::endl;
+        }
+    }
+}
+
+static GroupedOptionGroup get_options() {
+    GroupedOptionGroup parser;
+    
+    // Configure chaining
+    auto& chaining_opts = parser.add_group<MinimizerMapper>("long-read/chaining parameters");
+    chaining_opts.add_flag(
+        "align-from-chains",
+        &MinimizerMapper::align_from_chains,
+        MinimizerMapper::default_align_from_chains,
+        "chain up extensions to create alignments, instead of doing each separately"
+    );
+    chaining_opts.add_range(
+        "chaining-cluster-distance",
+        &MinimizerMapper::chaining_cluster_distance,
+        MinimizerMapper::default_chaining_cluster_distance,
+        "maximum distance to cluster over when chaining"
+    );
+    chaining_opts.add_range(
+        "max-chain-connection",
+        &MinimizerMapper::max_chain_connection,
+        MinimizerMapper::default_max_chain_connection,
+        "maximum distance across which to connect seeds when chaining"
+    );
+    chaining_opts.add_range(
+        "max-tail-length",
+        &MinimizerMapper::max_tail_length,
+        MinimizerMapper::default_max_tail_length,
+        "maximum length of a tail to align before forcing softclipping when chaining"
+    );
+    return parser;
+}
+
 // Try stripping all suffixes in the vector, one at a time, and return on failure.
 std::string strip_suffixes(std::string filename, const std::vector<std::string>& suffixes) {
     for (const std::string& suffix : suffixes) {
@@ -307,7 +819,7 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
-void help_giraffe(char** argv) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     cerr
     << "usage: " << argv[0] << " giraffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
     << "Fast haplotype-aware short read mapper." << endl
@@ -338,7 +850,10 @@ void help_giraffe(char** argv) {
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
     << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl
     << "algorithm presets:" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl;
+    auto helps = parser.get_help();
+    print_table(helps, cerr);
+    cerr
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [" << MinimizerMapper::default_hit_cap << "]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [" << MinimizerMapper::default_hard_hit_cap << "]" << endl
@@ -354,9 +869,6 @@ void help_giraffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [" << MinimizerMapper::default_extension_score_threshold << "]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [" << MinimizerMapper::default_extension_set_score_threshold << "]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
-    << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
-    << "  --max-chain-connection INT    maximum distance across which to connect seeds when chaining [" << MinimizerMapper::default_max_chain_connection << "]" << endl
-    << "  --max-tail-length INT         maximum length of a tail to align before forcing softclipping when chaining [" << MinimizerMapper::default_max_tail_length << "]" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [" << MinimizerMapper::default_max_rescue_attempts << "]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution [" << MinimizerMapper::default_max_fragment_length << "]" << endl
@@ -376,11 +888,14 @@ int main_giraffe(int argc, char** argv) {
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
+    // Set up to parse options
+    GroupedOptionGroup parser = get_options();
+
     if (argc == 2) {
-        help_giraffe(argv);
+        help_giraffe(argv, parser);
         return 1;
     }
-
+    
     #define OPT_OUTPUT_BASENAME 1001
     #define OPT_REPORT_NAME 1002
     #define OPT_TRACK_PROVENANCE 1003
@@ -398,6 +913,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_NUM_BP_PER_MIN 1015
     #define OPT_MAX_CHAIN_CONNECTION 1019
     #define OPT_MAX_TAIL_LENGTH 1020
+    #define OPT_CHAINING_CLUSTER_DISTANCE 1021
 
     // initialize parameters with their default options
     
@@ -425,6 +941,8 @@ int main_giraffe(int argc, char** argv) {
     Range<size_t> max_chain_connection = MinimizerMapper::default_max_chain_connection;
     // How long of a tail are we willing to align in a chain before forcing a softclip?
     Range<size_t> max_tail_length = MinimizerMapper::default_max_tail_length;
+    // How far should we cluster over when chaining?
+    Range<size_t> chaining_cluster_distance = MinimizerMapper::default_chaining_cluster_distance;
     
     // What GAM should we realign?
     string gam_filename;
@@ -489,16 +1007,15 @@ int main_giraffe(int argc, char** argv) {
     bool discard_alignments = false;
     // How many reads per batch to run at a time?
     uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
-
+    
     // Chain all the ranges and get a function that loops over all combinations.
-    auto for_each_combo = distance_limit
+    auto for_each_combo = parser
+        .chain(distance_limit)
         .chain(hit_cap)
         .chain(hard_hit_cap)
         .chain(minimizer_score_fraction)
         .chain(max_rescue_attempts)
         .chain(max_unique_min)
-        .chain(max_chain_connection)
-        .chain(max_tail_length)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -534,77 +1051,90 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_gssw, "gssw" },
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
+    
+    std::vector<struct option> long_options =
+    {
+        {"help", no_argument, 0, 'h'},
+        {"gbz-name", required_argument, 0, 'Z'},
+        {"xg-name", required_argument, 0, 'x'},
+        {"graph-name", required_argument, 0, 'g'},
+        {"gbwt-name", required_argument, 0, 'H'},
+        {"minimizer-name", required_argument, 0, 'm'},
+        {"dist-name", required_argument, 0, 'd'},
+        {"progress", no_argument, 0, 'p'},
+        {"gam-in", required_argument, 0, 'G'},
+        {"fastq-in", required_argument, 0, 'f'},
+        {"interleaved", no_argument, 0, 'i'},
+        {"max-multimaps", required_argument, 0, 'M'},
+        {"sample", required_argument, 0, 'N'},
+        {"read-group", required_argument, 0, 'R'},
+        {"output-format", required_argument, 0, 'o'},
+        {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+        {"prune-low-cplx", no_argument, 0, 'P'},
+        {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
+        {"discard", no_argument, 0, 'n'},
+        {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
+        {"report-name", required_argument, 0, OPT_REPORT_NAME},
+        {"fast-mode", no_argument, 0, 'b'},
+        {"hit-cap", required_argument, 0, 'c'},
+        {"hard-hit-cap", required_argument, 0, 'C'},
+        {"distance-limit", required_argument, 0, 'D'},
+        {"max-extensions", required_argument, 0, 'e'},
+        {"max-alignments", required_argument, 0, 'a'},
+        {"cluster-score", required_argument, 0, 's'},
+        {"pad-cluster-score", required_argument, 0, 'S'},
+        {"cluster-coverage", required_argument, 0, 'u'},
+        {"max-min", required_argument, 0, 'U'},
+        {"num-bp-per-min", required_argument, 0, OPT_NUM_BP_PER_MIN},
+        {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
+        {"extension-score", required_argument, 0, 'v'},
+        {"extension-set", required_argument, 0, 'w'},
+        {"score-fraction", required_argument, 0, 'F'},
+        {"no-dp", no_argument, 0, 'O'},
+        {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
+        {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
+        {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
+        {"chaining-cluster-distance", required_argument, 0, OPT_CHAINING_CLUSTER_DISTANCE},
+        {"rescue-attempts", required_argument, 0, 'r'},
+        {"rescue-algorithm", required_argument, 0, 'A'},
+        {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
+        {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
+        {"rescue-seed-limit", required_argument, 0, OPT_RESCUE_SEED_LIMIT},
+        {"max-fragment-length", required_argument, 0, 'L' },
+        {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
+        {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
+        {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
+        {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
+        {"show-work", no_argument, 0, OPT_SHOW_WORK},
+        {"batch-size", required_argument, 0, 'B'},
+        {"threads", required_argument, 0, 't'},
+    };
+    parser.make_long_options(long_options);
+    long_options.push_back({0, 0, 0, 0});
+    
+    std::string short_options = "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:OB:t:r:A:L:";
+    parser.make_short_options(short_options);
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
-        static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {"gbz-name", required_argument, 0, 'Z'},
-            {"xg-name", required_argument, 0, 'x'},
-            {"graph-name", required_argument, 0, 'g'},
-            {"gbwt-name", required_argument, 0, 'H'},
-            {"minimizer-name", required_argument, 0, 'm'},
-            {"dist-name", required_argument, 0, 'd'},
-            {"progress", no_argument, 0, 'p'},
-            {"gam-in", required_argument, 0, 'G'},
-            {"fastq-in", required_argument, 0, 'f'},
-            {"interleaved", no_argument, 0, 'i'},
-            {"max-multimaps", required_argument, 0, 'M'},
-            {"sample", required_argument, 0, 'N'},
-            {"read-group", required_argument, 0, 'R'},
-            {"output-format", required_argument, 0, 'o'},
-            {"ref-paths", required_argument, 0, OPT_REF_PATHS},
-            {"prune-low-cplx", no_argument, 0, 'P'},
-            {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
-            {"discard", no_argument, 0, 'n'},
-            {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
-            {"report-name", required_argument, 0, OPT_REPORT_NAME},
-            {"fast-mode", no_argument, 0, 'b'},
-            {"hit-cap", required_argument, 0, 'c'},
-            {"hard-hit-cap", required_argument, 0, 'C'},
-            {"distance-limit", required_argument, 0, 'D'},
-            {"max-extensions", required_argument, 0, 'e'},
-            {"max-alignments", required_argument, 0, 'a'},
-            {"cluster-score", required_argument, 0, 's'},
-            {"pad-cluster-score", required_argument, 0, 'S'},
-            {"cluster-coverage", required_argument, 0, 'u'},
-            {"max-min", required_argument, 0, 'U'},
-            {"num-bp-per-min", required_argument, 0, OPT_NUM_BP_PER_MIN},
-            {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
-            {"extension-score", required_argument, 0, 'v'},
-            {"extension-set", required_argument, 0, 'w'},
-            {"score-fraction", required_argument, 0, 'F'},
-            {"no-dp", no_argument, 0, 'O'},
-            {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
-            {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
-            {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
-            {"rescue-attempts", required_argument, 0, 'r'},
-            {"rescue-algorithm", required_argument, 0, 'A'},
-            {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
-            {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
-            {"rescue-seed-limit", required_argument, 0, OPT_RESCUE_SEED_LIMIT},
-            {"max-fragment-length", required_argument, 0, 'L' },
-            {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
-            {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
-            {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
-            {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
-            {"show-work", no_argument, 0, OPT_SHOW_WORK},
-            {"batch-size", required_argument, 0, 'B'},
-            {"threads", required_argument, 0, 't'},
-            {0, 0, 0, 0}
-        };
+        
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:OB:t:r:A:L:",
-                         long_options, &option_index);
+        c = getopt_long (argc, argv, short_options.c_str(),
+                         &long_options[0], &option_index);
 
 
         // Detect the end of the options.
         if (c == -1)
             break;
+            
+        if (parser.parse(c, optarg)) {
+            // Parser took care of it
+            continue;
+        }
 
+        // Otherwise handle it manually
         switch (c)
         {
             case 'Z':
@@ -941,6 +1471,10 @@ int main_giraffe(int argc, char** argv) {
                 max_tail_length = parse<Range<size_t>>(optarg);
                 break;
                 
+            case OPT_CHAINING_CLUSTER_DISTANCE:
+                chaining_cluster_distance = parse<Range<size_t>>(optarg);
+                break;
+                
             case 'r':
                 {
                     forced_rescue_attempts = true;
@@ -1033,7 +1567,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv);
+                help_giraffe(argv, parser);
                 exit(1);
                 break;
         }
@@ -1310,6 +1844,12 @@ int main_giraffe(int argc, char** argv) {
             }
         }
 
+        // Show and apply all the parser-managed options
+        if (show_progress) {
+            parser.print_options(cerr);
+        }
+        parser.apply(minimizer_mapper);
+        
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
         }
@@ -1382,21 +1922,6 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--extension-set " << extension_set_score_threshold << endl;
         }
         minimizer_mapper.extension_set_score_threshold = extension_set_score_threshold;
-
-        if (show_progress && align_from_chains) {
-            cerr << "--align-from-chains " << endl;
-        }
-        minimizer_mapper.align_from_chains = align_from_chains;
-
-        if (show_progress) {
-            cerr << "--max-chain-connection " << max_chain_connection << endl;
-        }
-        minimizer_mapper.max_chain_connection = max_chain_connection;
-
-        if (show_progress) {
-            cerr << "--max-tail-length " << max_tail_length << endl;
-        }
-        minimizer_mapper.max_tail_length = max_tail_length;
         
         if (show_progress && !do_dp) {
             cerr << "--no-dp " << endl;
