@@ -342,23 +342,82 @@ const char* get_metavar<std::string>() {
 }
 
 /**
+ * Represent setting an option to a value as part of a preset. Base interface.
+ */
+struct BasePresetEntry {
+    BasePresetEntry(const std::string& option) : option(option) {
+        // Nothing to do!
+    }
+    virtual ~BasePresetEntry() = default;
+    
+    /// Long option to set
+    std::string option;
+};
+
+/**
+ * Represent setting an option to a value as part of a preset. Actually has the value.
+ */
+template<typename T>
+struct PresetEntry : public BasePresetEntry {
+    /// Make a preset entry that sets the given long option to the given value.
+    PresetEntry(const std::string& option, const T& value) : BasePresetEntry(option), value(value) {
+        // Nothing to do
+    }
+    
+    virtual ~PresetEntry() = default;
+
+    T value;
+};
+
+/// Function type used to validate arguments. Throw std::out_of_range if not allowed, explaining why.
+template<typename T>
+using ValidatorFunction<T> = std::function<void(const T&)>;
+
+ValidatorFunction<double> double_is_positive = [](const double& d) {
+    if (d <= 0) {
+        throw std::out_of_range("must be strictly positive");
+    }
+};
+
+ValidatorFunction<double> double_is_nonnegative = [](const double& d) {
+    if (d < 0) {
+        throw std::out_of_range("cannot be negative");
+    }
+};
+
+ValidatorFunction<size_t> size_is_nonzero = [](const size_t& s) {
+    if (s == 0) {
+        throw std::out_of_range("cannot be zero");
+    }
+};
+
+ValidatorFunction<int> int_is_nonnegative = [](const int& i) {
+    if (i < 0) {
+        throw std::out_of_range("cannot be negative");
+    }
+};
+
+/**
  * Interface for a command-line argument that goes into a field on an object of
  * the given type.
  */
 template<typename Receiver>
 struct BaseArgSpec : public TickChainLink {
-    /// Make an option with a long option name only
-    BaseArgSpec(const std::string& option, const std::string& help) : option(option), help(help), short_option(0), option_id(get_option_id()) {
+    /// Make an option with a long and short option name
+    BaseArgSpec(const std::string& option, char short_option, const std::string& help) : option(option), help(help), short_option(short_option), option_id(short_option != '\0' ? short_option : get_option_id()) {
         // Nothing to do
     }
-    /// Make an option with a long and short option name
-    BaseArgSpec(const std::string& option, char short_option, const std::string& help) : option(option), help(help), short_option(short_option), option_id(short_option) {
+    /// Make an option with a long option name only
+    BaseArgSpec(const std::string& option, const std::string& help) : BaseArgSpec(option, '\0', help) {
         // Nothing to do
     }
     virtual ~BaseArgSpec() = default;
     
     /// Parse the argument's value from the command line.
     virtual void parse(const char* optarg) = 0;
+    /// Apply a preset item, or fail if it doesn't match.
+    /// The preset value will sit under any parsed value but above the default.
+    virtual void preset(const BasePresetEntry& entry) = 0;
     /// Apply the value to the right field of the given object.
     virtual void apply(Receiver& receiver) const = 0;
      /// Print value to the given stream after the given separator.
@@ -387,31 +446,95 @@ struct BaseArgSpec : public TickChainLink {
 };
 
 /**
- * Definition structure for normal value-having options.
+ * Interface for a command-line argument that corresponds to a value of a given type.
+ * Storage method is left to be implemented by inheritor.
+ */
+template<typename T, typename Receiver>
+struct ArgSpec : public BaseArgSpec<Receiver> {
+    /// Make an option with a long and short option name
+    ArgSpec(const std::string& option, char short_option, T Receiver::*dest, const T& default_value, const std::string& help,  const ValidatorFunction<T>& validator) : BaseArgSpec<Receiver>(option, short_option, help), dest(dest), default_value(default_value), validator(validator) {
+        // Nothing to do!
+    }
+    /// Make an option with a long option name only
+    ArgSpec(const std::string& option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator) : ArgSpec(option, '\0', dest, default_value, help, validator) {
+        // Nothing to do!
+    }
+    
+    virtual ~ArgSpec() = default;
+    
+    /// Allow setting our stored value
+    virtual void set_value(const T& value) = 0;
+    /// Return true if a value has been set from parsing or a preset.
+    virtual bool was_set() = 0;
+    
+    virtual void preset(const BasePresetEntry& entry) {
+        // Needs to be a preset for the right option
+        assert(entry.option == this->option);
+        PresetEntry<T>* as_typed = dynamic_cast<PresetEntry<T>*>(&entry);
+        if (as_typed) {
+            if (!this->was_set()) {
+                // Apply the preset value, if nothing is set yet.
+                this->set_value(as_typed->value);
+            }
+        } else {
+            throw std::runtime_error("Could not cast preset");
+        }
+    }
+    
+    /// Field in the receiving type we set.
+    T Receiver::*dest;
+    /// Original default value.
+    T default_value;
+    /// Function to check value with
+    ValidatorFunction<T> validator;
+};
+
+/**
+ * Definition structure for normal value-having options. Lets you specify
+ * storage type for the actual value.
  */
 template<typename T, typename Receiver, typename Holder=T>
-struct ValueArgSpec : public BaseArgSpec<Receiver> {
-    /// Make an option with a long option name only
-    ValueArgSpec(const std::string& option, T Receiver::*dest, const T& default_value, const std::string& help) : BaseArgSpec<Receiver>(option, help), dest(dest), value(default_value), default_value(default_value) {
+struct ValueArgSpec : public ArgSpec<T, Receiver> {
+    /// Make an option with a long and short option name
+    ValueArgSpec(const std::string& option, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator) : ArgSpec<T, Receiver>(option, short_option, dest, default_value, help, validator), value(default_value)  {
         // Nothing to do
     }
-    /// Make an option with a long and short option name
-    ValueArgSpec(const std::string& option, char short_option, T Receiver::*dest, const T& default_value, const std::string& help) : BaseArgSpec<Receiver>(option, short_option, help), dest(dest), value(default_value), default_value(default_value) {
+    /// Make an option with a long option name only
+    ValueArgSpec(const std::string& option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator) : ValueArgSpec(option, '\0', dest, default_value, help, validator) {
         // Nothing to do
     }
     virtual ~ValueArgSpec() = default;
     
+    virtual void set_value(const T& replacement) {
+        // We assume the holder supports assignment.
+        this->value = replacement;
+        // Remember we got a value applied. Presets shouldn't clobber it.
+        this->value_set = true;
+    }
+    
+    virtual bool was_set() {
+        return this->value_set;
+    }
+    
     virtual void parse(const char* optarg) {
-        if (!optarg) {
-            // Protect against nulls
-            cerr << "error: Missing argument for ";
-            if (this->short_option) {
-                cerr << "-" << this->short_option << "/";
+        try {
+            if (!optarg) {
+                // Protect against nulls
+                throw std::out_of_range("requires a value");
             }
-            cerr << "--" << this->option << endl;
-            exit(1);
+       
+            this->value = vg::parse<Holder>(optarg);
+            this->validator(this->value);
+            this->value_set = true;
+        } catch (std::out_of_range& e) {
+            cerr << "error: option ";
+                if (this->short_option) {
+                    cerr << "-" << this->short_option << "/";
+                }
+                cerr << "--" << this->option << " ";
+                cerr << e.what() << endl;
+                exit(1);
         }
-        value = vg::parse<Holder>(optarg);
     }
     
     virtual void apply(Receiver& receiver) const {
@@ -430,9 +553,9 @@ struct ValueArgSpec : public BaseArgSpec<Receiver> {
         return {this->option.c_str(), required_argument, 0, this->option_id};
     }
     
-    T Receiver::*dest;
+    
     Holder value;
-    T default_value;
+    bool value_set = false;
 };
 
 /**
@@ -466,7 +589,7 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
     
     virtual void parse(const char* optarg) {
         // When parsing, flip stored default.
-        this->value = !this->default_value;
+        this->set_value(!this->default_value);
     }
     virtual void print_metavar(ostream& out, const char* sep = "") const {
         // Don't do anything
@@ -496,6 +619,10 @@ struct BaseOptionGroup : public TickChainLink {
     /// Parse the given option ID, with the given value if needed.
     /// Return true if we matched the ID, and false otherwise.
     virtual bool parse(int option_id, const char* optarg) = 0;
+    
+    /// Apply a preset value to its option. Returns true if it was found, and
+    /// false otherwies.
+    virtual bool preset(const BasePresetEntry& entry) = 0;
     
     /// Print all options set, one per line
     virtual void print_options(ostream& out) const = 0;
@@ -539,25 +666,42 @@ struct OptionGroup : public BaseOptionGroup {
     
     /// Add a new option that goes to the given field, with the given default.
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help) {
-        args.emplace_back(new Spec(name, dest, default_value, help));
+    void add_option(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        args.emplace_back(new Spec(name, short_option, dest, default_value, help, validator));
         if (args.size() > 1) {
             // Chain onto previous option
             args[args.size() - 2]->chain(*args[args.size() - 1]);
         }
         // Index it by option ID
         id_to_index.emplace(args[args.size() - 1]->option_id, args.size() - 1);
+        // And option name
+        option_to_index.emplace(args[args.size() - 1]->option, args.size() - 1);
+    }
+    
+    /// Add a new option that goes to the given field, with the given default.
+    template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
+    void add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        add_option<T, Spec>(name, '\0', dest, default_value, help, validator);
     }
     
     /// Add a new option that handles range values
     template<typename T>
-    void add_range(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help) {
-        add_option<T, RangeArgSpec<T, Receiver>>(name, dest, default_value, help);
+    void add_range(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        add_option<T, RangeArgSpec<T, Receiver>>(name, short_option, dest, default_value, help, validator);
+    }
+    /// Add a new option that handles range values
+    template<typename T>
+    void add_range(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+        add_range<T>(name, '\0', dest, default_value, help, validator);
     }
     
     /// Add a new option that is a boolean flag
-    void add_flag(const std::string& name, bool Receiver::*dest, const bool& default_value, const std::string& help) {
-        add_option<bool, FlagArgSpec<Receiver>>(name, dest, default_value, help);
+    void add_flag(const std::string& name, char short_option, bool Receiver::*dest, const bool& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const bool& ignored) {}) {
+        add_option<bool, FlagArgSpec<Receiver>>(name, short_option, dest, default_value, help, validator);
+    }
+    /// Add a new option that is a boolean flag
+    void add_flag(const std::string& name, bool Receiver::*dest, const bool& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const bool& ignored) {}) {
+        add_flag(name, '\0', dest, default_value, help, validator);
     }
     
     /// Parse the given option ID, with the given value if needed.
@@ -567,6 +711,18 @@ struct OptionGroup : public BaseOptionGroup {
         if (found != id_to_index.end()) {
             // We have this option, so parse.
             args.at(found->second)->parse(optarg);
+            return true;
+        } else {
+            // We don't have this option, maybe someone else does.
+            return false;
+        }
+    }
+    
+    virtual bool preset(const BasePresetEntry& entry) {
+        auto found = option_to_index.find(entry.option);
+        if (found != option_to_index.end()) {
+            // We have this option, so assign the preset.
+            args.at(found->second)->preset(entry);
             return true;
         } else {
             // We don't have this option, maybe someone else does.
@@ -653,6 +809,8 @@ struct OptionGroup : public BaseOptionGroup {
     std::vector<std::unique_ptr<BaseArgSpec<Receiver>>> args;
     /// Map from option ID to option index
     std::unordered_map<int, size_t> id_to_index;
+    /// Map from long option to option index, to allow applying presets.
+    std::unordered_map<std::string, size_t> option_to_index;
 };
 
 /**
@@ -713,6 +871,16 @@ struct GroupedOptionGroup : public BaseOptionGroup {
         return false;
     }
     
+    virtual bool preset(const BasePresetEntry& entry) {
+        for (auto& group : subgroups) {
+            if (group->preset(entry)) {
+                // If any of our groups wants this option, we do too.
+                return true;
+            }
+        }
+        return false;
+    }
+    
     virtual void print_options(ostream& out) const {
         for (auto& group : subgroups) {
             // Print options from all groups in order
@@ -747,6 +915,31 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     std::vector<std::unique_ptr<BaseOptionGroup>> subgroups;
 };
 
+/**
+ * Represents a named preset of command-line option default overrides. Options
+ * are organized by long option name.
+ */
+struct Preset {
+    /// As part of this preset, set the given option to the given value.
+    template<typename T>
+    add_entry(const std::string& option, const T& value) {
+        PresetEntry<T>* entry = new PresetEntry<T>(option, value);
+        entries.emplace_back(entry);
+    }
+    
+    /// Apply stored presets to the given parser
+    void apply(BaseOptionGroup& parser) const {
+        for (auto& entry : entries) {
+            // Apply the entry
+            bool applied = parser.preset(*entry);
+            // Make sure it worked
+            assert(applied);
+        }
+    }
+    
+    std::vector<std::unique_ptr<BasePresetEntry>> entries;
+}
+
 /// Print a table of rows, with each column starting at the same character on the line.
 static void print_table(const std::vector<std::pair<std::string, std::string>>& rows, ostream& out) {
     // Work out the max length of anything in the first column
@@ -777,6 +970,146 @@ static void print_table(const std::vector<std::pair<std::string, std::string>>& 
 
 static GroupedOptionGroup get_options() {
     GroupedOptionGroup parser;
+    
+    // COnfigure output settings on the MinimizerMapper
+    auto& result_opts = parser.add_group<MinimizerMapper>("result options");
+    result_opts.add_range(
+        "max-multimaps", 'M',
+        &MinimizerMapper::max_multimaps,
+        MinimizerMapper::default_max_multimaps,
+        "produce up to INT alignments for each read",
+        int_is_nonnegative
+    );
+    
+    // Configure normal Giraffe mapping compoutation
+    auto& comp_opts = parser.add_group<MinimizerMapper>("computational parameters");
+    comp_opts.add_range(
+        "hit-cap", 'c',
+        &MinimizerMapper::hit_cap,
+        MinimizerMapper::default_hit_cap,
+        "use all minimizers with at most INT hits"
+    );
+    comp_opts.add_range(
+        "hard-hit-cap", 'C',
+        &MinimizerMapper::hard_hit_cap,
+        MinimizerMapper::default_hard_hit_cap,
+        "ignore all minimizers with more than INT hits"
+    );
+    comp_opts.add_range(
+        "score-fraction", 'F',
+        &MinimizerMapper::minimizer_score_fraction
+        MinimizerMapper::default_minimizer_score_fraction,
+        "select minimizers between hit caps until score is FLOAT of total"
+    );
+    comp_opts.add_range(
+        "max-min", 'U',
+        &MinimizerMapper::max_unique_min,
+        MinimizerMapper::default_max_unique_min,
+        "use at most INT minimizers",
+        size_is_nonzero
+    );
+    comp_opts.add_range(
+        "num-bp-per-min",
+        &MinimizerMapper::num_bp_per_min,
+        MinimizerMapper::default_num_bp_per_min,
+        "use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min"
+    );
+    comp_opts.add_range(
+        "distance-limit", 'D',
+        &MinimizerMapper::distance_limit,
+        MinimizerMapper::default_distance_limit,
+        "cluster using this distance limit"
+    );
+    comp_opts.add_range(
+        "max-extensions", 'e',
+        &MinimizerMapper::max_extensions,
+        MinimizerMapper::default_max_extensions,
+        "extend up to INT clusters"
+    );
+    comp_opts.add_range(
+        "max-alignments", 'a',
+        &MinimizerMapper::max_alignments,
+        MinimizerMapper::default_max_alignments,
+        "align up to INT extensions"
+    );
+    comp_opts.add_range(
+        "cluster-score", 's',
+        &MinimizerMapper::cluster_score_threshold,
+        MinimizerMapper::default_cluster_score_threshold,
+        "only extend clusters if they are within INT of the best score",
+        double_is_nonnegative
+    );
+    comp_opts.add_range(
+        "pad-cluster-score", 'S',
+        &MinimizerMapper::pad_cluster_score_threshold,
+        MinimizerMapper::default_pad_cluster_score_threshold,
+        "also extend clusters within INT of above threshold to get a second-best cluster",
+        double_is_nonnegative
+    );
+    comp_opts.add_range(
+        "cluster-coverage", 'u',
+        &MinimizerMapper::cluster_coverage_threshold,
+        MinimizerMapper::default_cluster_coverage_threshold,
+        "only extend clusters if they are within FLOAT of the best read coverage",
+        double_is_nonnegative
+    );
+    comp_opts.add_range(
+        "extension-score", 'v'
+        &MinimizerMapper::extension_score_threshold,
+        MinimizerMapper::default_extension_score_threshold,
+        "only align extensions if their score is within INT of the best score",
+        int_is_nonnegative
+    );
+    comp_opts.add_range(
+        "extension-set", 'w'
+        &MinimizerMapper::extension_set_score_threshold,
+        MinimizerMapper::default_extension_set_score_threshold,
+        "only align extension sets if their score is within INT of the best score",
+        double_is_nonnegative
+    );
+    comp_opts.add_flag(
+        "no-dp", 'O'
+        &MinimizerMapper::do_dp,
+        MinimizerMapper::default_do_dp,
+        "disable all gapped alignment"
+    );
+    comp_opts.add_range(
+        "rescue-attempts", 'r'
+        &MinimizerMapper::max_rescue_attempts,
+        MinimizerMapper::default_max_rescue_attempts,
+        "attempt up to INT rescues per read in a pair",
+        int_is_nonnegative
+    );
+    comp_opts.add_range(
+        "max-fragment-length", 'L'
+        &MinimizerMapper::max_fragment_length,
+        MinimizerMapper::default_max_fragment_length,
+        "assume that fragment lengths should be smaller than INT when estimating the fragment length distribution"
+    );
+    comp_opts.add_flag(
+        "exclude-overlapping-min",
+        &MinimizerMapper::exclude_overlapping_min,
+        MinimizerMapper::default_exclude_overlapping_min,
+        "exclude overlapping minimizers"
+    );
+    comp_opts.add_range(
+        "paired-distance-limit",
+        &MinimizerMapper::paired_distance_stdevs,
+        MinimizerMapper::default_paired_distance_stdevs,
+        "cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean"
+    );
+    comp_opts.add_range(
+        "rescue-subgraph-size",
+        &MinimizerMapper::rescue_subgraph_stdevs,
+        MinimizerMapper::default_rescue_subgraph_stdevs,
+        "search for rescued alignments FLOAT standard deviations greater than the mean"
+    );
+    comp_opts.add_range(
+        "rescue-seed-limit",
+        &MinimizerMapper::rescue_seed_limit,
+        MinimizerMapper::default_rescue_seed_limit,
+        "attempt rescue with at most INT seeds"
+    );
     
     // Configure chaining
     auto& chaining_opts = parser.add_group<MinimizerMapper>("long-read/chaining parameters");
@@ -838,7 +1171,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     << "  -g, --graph-name FILE         use this GBWTGraph" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index" << endl
     << "output options:" << endl
-    << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
@@ -854,30 +1186,10 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     auto helps = parser.get_help();
     print_table(helps, cerr);
     cerr
-    << "computational parameters:" << endl
-    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [" << MinimizerMapper::default_hit_cap << "]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [" << MinimizerMapper::default_hard_hit_cap << "]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [" << MinimizerMapper::default_minimizer_score_fraction << "]" << endl
-    << "  -D, --distance-limit INT      cluster using this distance limit [" << MinimizerMapper::default_distance_limit << "]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [" << MinimizerMapper::default_max_extensions << "]" << endl
-    << "  -a, --max-alignments INT      align up to INT extensions [" << MinimizerMapper::default_max_alignments << "]" << endl
-    << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [" << MinimizerMapper::default_cluster_score_threshold << "]" << endl
-    << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [" << MinimizerMapper::default_pad_cluster_score_threshold << "]" << endl
-    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [" << MinimizerMapper::default_cluster_coverage_threshold << "]" << endl
-    << "  -U, --max-min INT             use at most INT minimizers [" << MinimizerMapper::default_max_unique_min << "]" << endl
-    << "  --num-bp-per-min INT          use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [" << MinimizerMapper::default_num_bp_per_min << "]" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [" << MinimizerMapper::default_extension_score_threshold << "]" << endl
-    << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [" << MinimizerMapper::default_extension_set_score_threshold << "]" << endl
-    << "  -O, --no-dp                   disable all gapped alignment" << endl
-    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [" << MinimizerMapper::default_max_rescue_attempts << "]" << endl
+    << "Giraffe parameters:" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
-    << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution [" << MinimizerMapper::default_max_fragment_length << "]" << endl
-    << "  --exclude-overlapping-min     exclude overlapping minimizers" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
-    << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [" << MinimizerMapper::default_paired_distance_stdevs << "]" << endl
-    << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [" << MinimizerMapper::default_rescue_subgraph_stdevs << "]" << endl
-    << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [" << MinimizerMapper::default_rescue_seed_limit << "]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
@@ -902,18 +1214,9 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_TRACK_CORRECTNESS 1004
     #define OPT_FRAGMENT_MEAN 1005
     #define OPT_FRAGMENT_STDEV 1006
-    #define OPT_CLUSTER_STDEV 1007
-    #define OPT_RESCUE_STDEV 1008
-    #define OPT_RESCUE_SEED_LIMIT 1009
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
     #define OPT_NAMED_COORDINATES 1012
-    #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
-    #define OPT_ALIGN_FROM_CHAINS 1014
-    #define OPT_NUM_BP_PER_MIN 1015
-    #define OPT_MAX_CHAIN_CONNECTION 1019
-    #define OPT_MAX_TAIL_LENGTH 1020
-    #define OPT_CHAINING_CLUSTER_DISTANCE 1021
 
     // initialize parameters with their default options
     
@@ -921,28 +1224,7 @@ int main_giraffe(int argc, char** argv) {
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
     string output_basename;
     string report_name;
-    // How close should two hits be to be in the same cluster?
-    Range<size_t> distance_limit = MinimizerMapper::default_distance_limit;
-    Range<size_t> hit_cap = MinimizerMapper::default_hit_cap;
-    Range<size_t> hard_hit_cap = MinimizerMapper::default_hard_hit_cap;
-    Range<double> minimizer_score_fraction = MinimizerMapper::default_minimizer_score_fraction;
-    Range<size_t> max_unique_min = MinimizerMapper::default_max_unique_min;
-    // number minimizers calculated by READ_LENGTH / INT
-    size_t num_bp_per_min = MinimizerMapper::default_num_bp_per_min;
     bool show_progress = false;
-    // Should we exclude overlapping minimizers
-    bool exclude_overlapping_min = MinimizerMapper::default_exclude_overlapping_min;
-    // Should we try dynamic programming, or just give up if we can't find a full length gapless alignment?
-    bool do_dp = MinimizerMapper::default_do_dp;
-
-    // Should we align from chains of gapless extensions, or from individual gapless extensions?
-    bool align_from_chains = MinimizerMapper::default_align_from_chains;
-    // How far apart can seeds be and still be chained together?
-    Range<size_t> max_chain_connection = MinimizerMapper::default_max_chain_connection;
-    // How long of a tail are we willing to align in a chain before forcing a softclip?
-    Range<size_t> max_tail_length = MinimizerMapper::default_max_tail_length;
-    // How far should we cluster over when chaining?
-    Range<size_t> chaining_cluster_distance = MinimizerMapper::default_chaining_cluster_distance;
     
     // What GAM should we realign?
     string gam_filename;
@@ -955,27 +1237,8 @@ int main_giraffe(int argc, char** argv) {
     // True if fastq_filename_2 or interleaved is set.
     bool paired = false;
     string param_preset = "default";
-    // How many mappings per read can we emit?
-    Range<size_t> max_multimaps = MinimizerMapper::default_max_multimaps;
-    // How many clusters should we extend?
-    Range<size_t> max_extensions = MinimizerMapper::default_max_extensions;
-    // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = MinimizerMapper::default_max_alignments;
-    //Throw away cluster with scores that are this amount below the best
-    Range<double> cluster_score_threshold = MinimizerMapper::default_cluster_score_threshold;
-    //Unless they are the second best and within this amount beyond that
-    Range<double> pad_cluster_score_threshold = MinimizerMapper::default_pad_cluster_score_threshold;
-    //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage_threshold = MinimizerMapper::default_cluster_coverage_threshold;
-    //Throw away extension sets with scores that are this amount below the best
-    Range<double> extension_set_score_threshold = MinimizerMapper::default_extension_set_score_threshold;
-    //Throw away extensions with scores that are this amount below the best
-    Range<int> extension_score_threshold = MinimizerMapper::default_extension_score_threshold;
     //Attempt up to this many rescues of reads with no pairs
     bool forced_rescue_attempts = false;
-    Range<int> max_rescue_attempts = MinimizerMapper::default_max_rescue_attempts;
-    //Don't let distances larger than this contribute to the fragment length distribution
-    size_t max_fragment_length = MinimizerMapper::default_max_fragment_length;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     //Did we force the fragment length distribution?
@@ -984,12 +1247,6 @@ int main_giraffe(int argc, char** argv) {
     double fragment_mean = 0.0;
     bool forced_stdev = false;
     double fragment_stdev = 0.0;
-    //How many sdevs to we look out when clustering pairs?
-    double paired_distance_stdevs = MinimizerMapper::default_paired_distance_stdevs;
-    //How many stdevs do we look out when rescuing? 
-    double rescue_subgraph_stdevs = MinimizerMapper::default_rescue_subgraph_stdevs;
-    // Attempt rescue with up to this many seeds.
-    size_t rescue_seed_limit = MinimizerMapper::default_rescue_seed_limit;
     // How many pairs should we be willing to buffer before giving up on fragment length estimation?
     size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
@@ -1009,22 +1266,7 @@ int main_giraffe(int argc, char** argv) {
     uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
     
     // Chain all the ranges and get a function that loops over all combinations.
-    auto for_each_combo = parser
-        .chain(distance_limit)
-        .chain(hit_cap)
-        .chain(hard_hit_cap)
-        .chain(minimizer_score_fraction)
-        .chain(max_rescue_attempts)
-        .chain(max_unique_min)
-        .chain(max_multimaps)
-        .chain(max_extensions)
-        .chain(max_alignments)
-        .chain(cluster_score_threshold)
-        .chain(pad_cluster_score_threshold)
-        .chain(cluster_coverage_threshold)
-        .chain(extension_set_score_threshold)
-        .chain(extension_score_threshold)
-        .get_iterator();
+    auto for_each_combo = parser.get_iterator();
     
 
     // Formats for alignment output.
@@ -1052,6 +1294,21 @@ int main_giraffe(int argc, char** argv) {
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
     
+    // Map preset names to presets
+    std::map<std::string, Preset> presets;
+    preset["fast"].add_entry<size_t>("hit-cap", 10);
+    preset["fast"].add_entry<size_t>("hard-hit-cap", 500);
+    preset["fast"].add_entry<double>("score-fraction", 0.5);
+    preset["fast"].add_entry<size_t>("max-multimaps", 1);
+    preset["fast"].add_entry<size_t>("max-extensions", 400);
+    preset["fast"].add_entry<size_t>("max-alignments", 8);
+    preset["fast"].add_entry<size_t>("cluster-score", 50);
+    preset["fast"].add_entry<size_t>("pad-cluster-score", 0);
+    preset["fast"].add_entry<double>("cluster-coverage", 0.2);
+    preset["fast"].add_entry<size_t>("extension-set", 20);
+    preset["fast"].add_entry<size_t>("extension-score", 1);
+    presets.emplace("default");
+    
     std::vector<struct option> long_options =
     {
         {"help", no_argument, 0, 'h'},
@@ -1076,31 +1333,7 @@ int main_giraffe(int argc, char** argv) {
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
         {"fast-mode", no_argument, 0, 'b'},
-        {"hit-cap", required_argument, 0, 'c'},
-        {"hard-hit-cap", required_argument, 0, 'C'},
-        {"distance-limit", required_argument, 0, 'D'},
-        {"max-extensions", required_argument, 0, 'e'},
-        {"max-alignments", required_argument, 0, 'a'},
-        {"cluster-score", required_argument, 0, 's'},
-        {"pad-cluster-score", required_argument, 0, 'S'},
-        {"cluster-coverage", required_argument, 0, 'u'},
-        {"max-min", required_argument, 0, 'U'},
-        {"num-bp-per-min", required_argument, 0, OPT_NUM_BP_PER_MIN},
-        {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
-        {"extension-score", required_argument, 0, 'v'},
-        {"extension-set", required_argument, 0, 'w'},
-        {"score-fraction", required_argument, 0, 'F'},
-        {"no-dp", no_argument, 0, 'O'},
-        {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
-        {"max-chain-connection", required_argument, 0, OPT_MAX_CHAIN_CONNECTION},
-        {"max-tail-length", required_argument, 0, OPT_MAX_TAIL_LENGTH},
-        {"chaining-cluster-distance", required_argument, 0, OPT_CHAINING_CLUSTER_DISTANCE},
-        {"rescue-attempts", required_argument, 0, 'r'},
         {"rescue-algorithm", required_argument, 0, 'A'},
-        {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
-        {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
-        {"rescue-seed-limit", required_argument, 0, OPT_RESCUE_SEED_LIMIT},
-        {"max-fragment-length", required_argument, 0, 'L' },
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
@@ -1112,7 +1345,7 @@ int main_giraffe(int argc, char** argv) {
     parser.make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:OB:t:r:A:L:";
+    std::string short_options = "hZ:x:g:H:m:d:pG:f:iM:N:R:o:Pnb:B:t:A:";
     parser.make_short_options(short_options);
 
     int c;
@@ -1312,177 +1545,14 @@ int main_giraffe(int argc, char** argv) {
                 break;
             case 'b':
                 param_preset = optarg;
-
-                if (param_preset == "fast" ) {
-
-                    hit_cap = 10;
-                    hard_hit_cap = 500;
-                    minimizer_score_fraction = 0.5;
-                    max_multimaps = 1;
-                    max_extensions = 400;
-                    max_alignments = 8;
-                    cluster_score_threshold = 50;
-                    pad_cluster_score_threshold = 0;
-                    cluster_coverage_threshold = 0.2;
-                    extension_set_score_threshold = 20;
-                    extension_score_threshold = 1;
-                } else if (param_preset != "default" ) {
-                    std::cerr << "error: [vg giraffe] invalid parameter preset: " << optarg << std:: endl;
-                }
-                break;
-
-            case 'c':
-                {
-                    auto cap = parse<Range<size_t>>(optarg);
-                    if (cap <= 0) {
-                        cerr << "error: [vg giraffe] Hit cap (" << cap << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    hit_cap = cap;
-                }
-                break;
-
-            case 'C':
-                {
-                    auto cap = parse<Range<size_t>>(optarg);
-                    if (cap <= 0) {
-                        cerr << "error: [vg giraffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    hard_hit_cap = cap;
-                }
-                break;
-                
-            case 'D':
-                {
-                    auto limit = parse<Range<size_t>>(optarg);
-                    if (limit <= 0) {
-                        cerr << "error: [vg giraffe] Distance limit (" << limit << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    distance_limit = limit;
-                }
-                break;
-
-            case 'F':
-                minimizer_score_fraction = parse<Range<double>>(optarg);
-                break;
-
-            case 'e':
-                {
-                    auto extensions = parse<Range<size_t>>(optarg);
-                    if (extensions <= 0) {
-                        cerr << "error: [vg giraffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    max_extensions = extensions;
-                }
-                break;
-
-            case 'a':
-                {
-                    auto alignments = parse<Range<size_t>>(optarg);
-                    if (alignments <= 0) {
-                        cerr << "error: [vg giraffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    max_alignments = alignments;
-                }
-                break;
-
-            case 's':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Cluster score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    cluster_score_threshold = score;
-                }
-                break;
-                
-            case 'S':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Second best cluster score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    pad_cluster_score_threshold = score;
-                }
-                break;
-
-            case 'u':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    cluster_coverage_threshold = score;
-                }
-                break;
-
-            case 'U':
-                {
-                    auto maxmin = parse<Range<size_t>>(optarg);
-                    if (maxmin <= 0) {
-                        cerr << "error: [vg giraffe] Maximum unique minimizer (" << maxmin << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    max_unique_min = maxmin;
-                }
-                break;
-
-            case 'v':
-                {
-                    auto score = parse<Range<int>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Extension score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    extension_score_threshold = score;
-                }
-                break;
-            case 'w':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Extension set score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    extension_set_score_threshold = score;
-                }
-                break;
-                
-            case 'O':
-                do_dp = false;
-                break;
-                
-            case OPT_ALIGN_FROM_CHAINS:
-                align_from_chains = true;
-                break;
-
-            case OPT_MAX_CHAIN_CONNECTION:
-                max_chain_connection = parse<Range<size_t>>(optarg);
-                break;
-
-            case OPT_MAX_TAIL_LENGTH:
-                max_tail_length = parse<Range<size_t>>(optarg);
-                break;
-                
-            case OPT_CHAINING_CLUSTER_DISTANCE:
-                chaining_cluster_distance = parse<Range<size_t>>(optarg);
-                break;
-                
-            case 'r':
-                {
-                    forced_rescue_attempts = true;
-                    max_rescue_attempts = parse<Range<int>>( optarg);
-                    if (max_rescue_attempts < 0) {
-                        cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
-                        exit(1);
-                    }
+                auto found = presets.find(param_preset);
+                if (found == presets.end()) {
+                    // Complain this isn't a preset.
+                    std::cerr << "error: [vg giraffe] invalid parameter preset: " << param_preset << std::endl;
+                    exit(1);
+                } else {
+                    // Apply the preset values.
+                    found->second.apply(parser);
                 }
                 break;
 
@@ -1501,14 +1571,6 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
-            case OPT_NUM_BP_PER_MIN:
-                num_bp_per_min = parse<size_t>(optarg);;
-                break;
-
-            case OPT_EXCLUDE_OVERLAPPING_MIN:
-                exclude_overlapping_min = true;
-                break;
-                
             case OPT_FRAGMENT_MEAN:
                 forced_mean = true;
                 fragment_mean = parse<double>(optarg);
@@ -1517,21 +1579,6 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
-                break;
-            case 'L':
-                max_fragment_length = parse<size_t>(optarg);
-                break;
-
-            case OPT_CLUSTER_STDEV:
-                paired_distance_stdevs = parse<double>(optarg);
-                break;
-
-            case OPT_RESCUE_STDEV:
-                rescue_subgraph_stdevs = parse<double>(optarg);
-                break;
-
-            case OPT_RESCUE_SEED_LIMIT:
-                rescue_seed_limit = parse<size_t>(optarg);
                 break;
 
             case OPT_TRACK_PROVENANCE:
@@ -1818,19 +1865,7 @@ int main_giraffe(int argc, char** argv) {
             if (interleaved) {
                 s << "-i";
             }
-            s << "-D" << distance_limit;
-            s << "-c" << hit_cap;
-            s << "-C" << hard_hit_cap;
-            s << "-F" << minimizer_score_fraction;
-            s << "-M" << max_multimaps;
-            s << "-e" << max_extensions;
-            s << "-a" << max_alignments;
-            s << "-s" << cluster_score_threshold;
-            s << "-u" << cluster_coverage_threshold;
-            s << "-U" << max_unique_min;
-            s << "-w" << extension_set_score_threshold;
-            s << "-v" << extension_score_threshold;
-            
+            parser.slug(s);
             s << ".gam";
             
             output_filename = s.str();
@@ -1858,86 +1893,6 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--prune-low-cplx" << endl;
         }
 
-        if (show_progress) {
-            cerr << "--hit-cap " << hit_cap << endl;
-        }
-        minimizer_mapper.hit_cap = hit_cap;
-
-        if (show_progress) {
-            cerr << "--hard-hit-cap " << hard_hit_cap << endl;
-        }
-        minimizer_mapper.hard_hit_cap = hard_hit_cap;
-
-        if (show_progress) {
-            cerr << "--score-fraction " << minimizer_score_fraction << endl;
-        }
-        minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
-
-        if (show_progress) {
-            cerr << "--max-min " << max_unique_min << endl;
-        }
-        minimizer_mapper.max_unique_min = max_unique_min;
-
-        if (show_progress) {
-            cerr << "--num-bp-per-min " << num_bp_per_min << endl;
-        }
-        minimizer_mapper.num_bp_per_min = num_bp_per_min;
-
-        if (show_progress) {
-            cerr << "--exclude-overlapping-min " << endl;
-        }
-        minimizer_mapper.exclude_overlapping_min = exclude_overlapping_min;
-
-        if (show_progress) {
-            cerr << "--max-extensions " << max_extensions << endl;
-        }
-        minimizer_mapper.max_extensions = max_extensions;
-
-        if (show_progress) {
-            cerr << "--max-alignments " << max_alignments << endl;
-        }
-        minimizer_mapper.max_alignments = max_alignments;
-
-        if (show_progress) {
-            cerr << "--cluster-score " << cluster_score_threshold << endl;
-        }
-        minimizer_mapper.cluster_score_threshold = cluster_score_threshold;
-        
-        if (show_progress) {
-            cerr << "--pad-cluster-score " << pad_cluster_score_threshold << endl;
-        }
-        minimizer_mapper.pad_cluster_score_threshold = pad_cluster_score_threshold;
-
-        if (show_progress) {
-            cerr << "--cluster-coverage " << cluster_coverage_threshold << endl;
-        }
-        minimizer_mapper.cluster_coverage_threshold = cluster_coverage_threshold;
-
-        if (show_progress) {
-            cerr << "--extension-score " << extension_score_threshold << endl;
-        }
-        minimizer_mapper.extension_score_threshold = extension_score_threshold;
-
-        if (show_progress) {
-            cerr << "--extension-set " << extension_set_score_threshold << endl;
-        }
-        minimizer_mapper.extension_set_score_threshold = extension_set_score_threshold;
-        
-        if (show_progress && !do_dp) {
-            cerr << "--no-dp " << endl;
-        }
-        minimizer_mapper.do_dp = do_dp;
-
-        if (show_progress) {
-            cerr << "--max-multimaps " << max_multimaps << endl;
-        }
-        minimizer_mapper.max_multimaps = max_multimaps;
-
-        if (show_progress) {
-            cerr << "--distance-limit " << distance_limit << endl;
-        }
-        minimizer_mapper.distance_limit = distance_limit;
-        
         if (show_progress && track_provenance) {
             cerr << "--track-provenance " << endl;
         }
@@ -1958,17 +1913,8 @@ int main_giraffe(int argc, char** argv) {
                 cerr << "--fragment-mean " << fragment_mean << endl; 
                 cerr << "--fragment-stdev " << fragment_stdev << endl;
             }
-            cerr << "--paired-distance-limit " << paired_distance_stdevs << endl;
-            cerr << "--rescue-subgraph-size " << rescue_subgraph_stdevs << endl;
-            cerr << "--rescue-seed-limit " << rescue_seed_limit << endl;
-            cerr << "--rescue-attempts " << max_rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
-        minimizer_mapper.max_fragment_length = max_fragment_length;
-        minimizer_mapper.paired_distance_stdevs = paired_distance_stdevs;
-        minimizer_mapper.rescue_subgraph_stdevs = rescue_subgraph_stdevs;
-        minimizer_mapper.rescue_seed_limit = rescue_seed_limit;
-        minimizer_mapper.max_rescue_attempts = max_rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
         minimizer_mapper.sample_name = sample_name;
