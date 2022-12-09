@@ -205,19 +205,25 @@ static GroupedOptionGroup get_options() {
         "chaining-cluster-distance",
         &MinimizerMapper::chaining_cluster_distance,
         MinimizerMapper::default_chaining_cluster_distance,
-        "maximum distance to cluster over when chaining"
+        "maximum distance to cluster over before chaining"
+    );
+    chaining_opts.add_range(
+        "max-lookback-bases",
+        &MinimizerMapper::max_lookback_bases,
+        MinimizerMapper::default_max_lookback_bases,
+        "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
         "max-chain-connection",
         &MinimizerMapper::max_chain_connection,
         MinimizerMapper::default_max_chain_connection,
-        "maximum distance across which to connect seeds when chaining"
+        "maximum distance across which to connect seeds when aligning a chain"
     );
     chaining_opts.add_range(
         "max-tail-length",
         &MinimizerMapper::max_tail_length,
         MinimizerMapper::default_max_tail_length,
-        "maximum length of a tail to align before forcing softclipping when chaining"
+        "maximum length of a tail to align before forcing softclipping when aligning a chain"
     );
     return parser;
 }
