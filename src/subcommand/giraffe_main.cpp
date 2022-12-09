@@ -1803,9 +1803,9 @@ int main_giraffe(int argc, char** argv) {
     }
 
     // If we don't want rescue, let the user see we don't try it.
-    if (parser.get_option_value<size_t>("max-rescue-attempts") == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+    if (parser.get_option_value<size_t>("rescue-attempts") == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
         // Replace any parsed values
-        parser.set_option_value<size_t>("max_rescue_attempts", 0);
+        parser.set_option_value<size_t>("rescue-attempts", 0);
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
