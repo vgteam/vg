@@ -342,58 +342,58 @@ const char* get_metavar<std::string>() {
 }
 
 /**
- * Represent setting an option to a value as part of a preset. Base interface.
+ * Represents an option being set to a value. Base interface.
  */
-struct BasePresetEntry {
-    BasePresetEntry(const std::string& option) : option(option) {
+struct BaseValuation {
+    BaseValuation(const std::string& option) : option(option) {
         // Nothing to do!
     }
-    virtual ~BasePresetEntry() = default;
+    virtual ~BaseValuation() = default;
     
     /// Long option to set
     std::string option;
 };
 
 /**
- * Represent setting an option to a value as part of a preset. Actually has the value.
+ * Represents an option being set to a value. Actually has the value.
  */
 template<typename T>
-struct PresetEntry : public BasePresetEntry {
+struct Valuation : public BaseValuation {
     /// Make a preset entry that sets the given long option to the given value.
-    PresetEntry(const std::string& option, const T& value) : BasePresetEntry(option), value(value) {
+    Valuation(const std::string& option, const T& value) : BaseValuation(option), value(value) {
         // Nothing to do
     }
     
-    virtual ~PresetEntry() = default;
+    virtual ~Valuation() = default;
 
     T value;
 };
 
-/// Function type used to validate arguments. Throw std::out_of_range if not allowed, explaining why.
+/// Function type used to validate arguments. Throw std::domain_error if not allowed, explaining why.
 template<typename T>
-using ValidatorFunction<T> = std::function<void(const T&)>;
+using ValidatorFunction = std::function<void(const T&)>;
 
 ValidatorFunction<double> double_is_positive = [](const double& d) {
     if (d <= 0) {
-        throw std::out_of_range("must be strictly positive");
+        throw std::domain_error("must be strictly positive");
     }
 };
 
 ValidatorFunction<double> double_is_nonnegative = [](const double& d) {
     if (d < 0) {
-        throw std::out_of_range("cannot be negative");
+        throw std::domain_error("cannot be negative");
     }
 };
 
 ValidatorFunction<size_t> size_is_nonzero = [](const size_t& s) {
     if (s == 0) {
-        throw std::out_of_range("cannot be zero");
+        throw std::domain_error("cannot be zero");
     }
 };
 
 ValidatorFunction<int> int_is_nonnegative = [](const int& i) {
     if (i < 0) {
-        throw std::out_of_range("cannot be negative");
+        throw std::domain_error("cannot be negative");
     }
 };
 
@@ -414,10 +414,18 @@ struct BaseArgSpec : public TickChainLink {
     virtual ~BaseArgSpec() = default;
     
     /// Parse the argument's value from the command line.
+    /// Throws std::domain_error if validation fails.
     virtual void parse(const char* optarg) = 0;
     /// Apply a preset item, or fail if it doesn't match.
     /// The preset value will sit under any parsed value but above the default.
-    virtual void preset(const BasePresetEntry& entry) = 0;
+    virtual void preset(const BaseValuation& entry) = 0;
+    /// Apply a valuation, or fail if it doesn't match.
+    /// The value will replace any parsed value!
+    /// Validation will not be run!
+    virtual void set(const BaseValuation& entry) = 0;
+    /// Put our current effective value into the given BaseValuation, which
+    /// must be for the right option and have the right type.
+    virtual void query(BaseValuation& entry) const = 0;
     /// Apply the value to the right field of the given object.
     virtual void apply(Receiver& receiver) const = 0;
      /// Print value to the given stream after the given separator.
@@ -427,9 +435,15 @@ struct BaseArgSpec : public TickChainLink {
     /// Print default value to the given stream, if appropriate.
     virtual void print_default(ostream& out) const = 0;
     /// Print option and value to the given stream, without newlines, between the given separators.
-    virtual void print(ostream& out, const char* sep = "", const char* after = "") const {
-        out << sep << "--" << option;
-        this->print_value(out, " ");
+    /// If slug is set, use short option if available and don't include spaces.
+    virtual void print(ostream& out, const char* sep = "", const char* after = "", bool slug = false) const {
+        out << sep;
+        if (slug && short_option != '\0') {
+            out << "-" << short_option;
+        } else {
+            out << "--" << option;
+        }
+        this->print_value(out, slug ? "" : " ");
         out << after;
     }
     /// Get the getopt structure for this option. Option must outlive it and not move.
@@ -464,20 +478,46 @@ struct ArgSpec : public BaseArgSpec<Receiver> {
     
     /// Allow setting our stored value
     virtual void set_value(const T& value) = 0;
+    /// And getting our current effective value
+    virtual T get_value() const = 0;
     /// Return true if a value has been set from parsing or a preset.
-    virtual bool was_set() = 0;
+    virtual bool was_set() const = 0;
     
-    virtual void preset(const BasePresetEntry& entry) {
+    virtual void preset(const BaseValuation& entry) {
         // Needs to be a preset for the right option
         assert(entry.option == this->option);
-        PresetEntry<T>* as_typed = dynamic_cast<PresetEntry<T>*>(&entry);
+        const Valuation<T>* as_typed = dynamic_cast<const Valuation<T>*>(&entry);
         if (as_typed) {
             if (!this->was_set()) {
                 // Apply the preset value, if nothing is set yet.
                 this->set_value(as_typed->value);
             }
         } else {
-            throw std::runtime_error("Could not cast preset");
+            throw std::runtime_error("Could not cast valuation");
+        }
+    }
+    
+    virtual void set(const BaseValuation& entry) {
+        // Needs to be for the right option
+        assert(entry.option == this->option);
+        const Valuation<T>* as_typed = dynamic_cast<const Valuation<T>*>(&entry);
+        if (as_typed) {
+            // Apply the value
+            this->set_value(as_typed->value);
+        } else {
+            throw std::runtime_error("Could not cast valuation");
+        }
+    }
+    
+    virtual void query(BaseValuation& entry) const {
+        // Needs to be a valuation for the right option
+        assert(entry.option == this->option);
+        Valuation<T>* as_typed = dynamic_cast<Valuation<T>*>(&entry);
+        if (as_typed) {
+            // Put our value in there.
+            as_typed->value = this->get_value();
+        } else {
+            throw std::runtime_error("Could not cast valuation");
         }
     }
     
@@ -512,7 +552,11 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
         this->value_set = true;
     }
     
-    virtual bool was_set() {
+    virtual T get_value() const {
+        return this->value;
+    }
+    
+    virtual bool was_set() const {
         return this->value_set;
     }
     
@@ -520,13 +564,13 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
         try {
             if (!optarg) {
                 // Protect against nulls
-                throw std::out_of_range("requires a value");
+                throw std::domain_error("requires a value");
             }
        
             this->value = vg::parse<Holder>(optarg);
             this->validator(this->value);
             this->value_set = true;
-        } catch (std::out_of_range& e) {
+        } catch (std::domain_error& e) {
             cerr << "error: option ";
                 if (this->short_option) {
                     cerr << "-" << this->short_option << "/";
@@ -538,7 +582,7 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
     }
     
     virtual void apply(Receiver& receiver) const {
-        receiver.*dest = value;
+        receiver.*(this->dest) = value;
     }
     virtual void print_metavar(ostream& out, const char* sep = "") const {
         out << sep << get_metavar<T>();
@@ -547,7 +591,7 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
         out << sep << value;
     }
     virtual void print_default(ostream& out) const {
-        out << " [" << default_value << "]";
+        out << " [" << this->default_value << "]";
     }
     virtual struct option get_option_struct() const {
         return {this->option.c_str(), required_argument, 0, this->option_id};
@@ -600,10 +644,16 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
     virtual void print_default(ostream& out) const {
         // Don't do anything
     }
-    virtual void print(ostream& out, const char* sep = "", const char* after = "") const {
+    virtual void print(ostream& out, const char* sep = "", const char* after = "", bool slug = false) const {
         // Override print to just print the flag when used
         if (this->value != this->default_value) {
-            out << sep << "--" << this->option << after;
+            out << sep;
+            if (slug && this->short_option != '\0') {
+                out << "-" << this->short_option;
+            } else {
+                out << "--" << this->option;
+            }
+            out << after;
         }
     }
     virtual struct option get_option_struct() const {
@@ -622,10 +672,20 @@ struct BaseOptionGroup : public TickChainLink {
     
     /// Apply a preset value to its option. Returns true if it was found, and
     /// false otherwies.
-    virtual bool preset(const BasePresetEntry& entry) = 0;
+    virtual bool preset(const BaseValuation& entry) = 0;
     
-    /// Print all options set, one per line
-    virtual void print_options(ostream& out) const = 0;
+    /// Apply a value to its option. Returns true if it was found, and false
+    /// otherwies.
+    virtual bool set(const BaseValuation& entry) = 0;
+    
+    /// Fill in entry with the value of the correspondign option, if we have
+    /// that option. If so, return true.
+    virtual bool query(BaseValuation& entry) const = 0;
+    
+    /// Print all options set.
+    /// By default, prints one option per line.
+    /// If slug is set, prints short options, all on one line.
+    virtual void print_options(ostream& out, bool slug = false) const = 0;
     
     /// Get help, in the form of pairs of options and descriptions.
     /// Headings are descriptions without options.
@@ -636,6 +696,28 @@ struct BaseOptionGroup : public TickChainLink {
     
     /// Add options to string input for getopt_long
     virtual void make_short_options(std::string& dest) const = 0;
+    
+    /// Allow the user to query an option value by name.
+    /// Would be simpler if we could override template methods but we can't.
+    template<typename T>
+    T get_option_value(const std::string& option) const {
+        Valuation<T> question(option, T());
+        bool found = this->query(question);
+        if (!found) {
+            throw std::runtime_error("Undefined option: " + option);
+        }
+        return question.value;
+    }
+    
+    /// Allow the user to manually set an option value
+    template<typename T>
+    void set_option_value(const std::string& option, const T& value) {
+        Valuation<T> setter(option, value);
+        bool found = this->set(setter);
+        if (!found) {
+            throw std::runtime_error("Undefined option: " + option);
+        }
+    }
 };
 
 /**
@@ -664,9 +746,14 @@ struct OptionGroup : public BaseOptionGroup {
         }
     }
     
+    // We need to take default_value by value, and not by reference, because we
+    // often want to pass stuff that is constexpr and trying to use a reference
+    // will make us try to link against it.
+    // TODO: C++17 fixes this, so fix when we use that.
+    
     /// Add a new option that goes to the given field, with the given default.
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_option(const std::string& name, char short_option, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         args.emplace_back(new Spec(name, short_option, dest, default_value, help, validator));
         if (args.size() > 1) {
             // Chain onto previous option
@@ -680,27 +767,27 @@ struct OptionGroup : public BaseOptionGroup {
     
     /// Add a new option that goes to the given field, with the given default.
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
-    void add_option(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_option(const std::string& name, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         add_option<T, Spec>(name, '\0', dest, default_value, help, validator);
     }
     
     /// Add a new option that handles range values
     template<typename T>
-    void add_range(const std::string& name, char short_option, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_range(const std::string& name, char short_option, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         add_option<T, RangeArgSpec<T, Receiver>>(name, short_option, dest, default_value, help, validator);
     }
     /// Add a new option that handles range values
     template<typename T>
-    void add_range(const std::string& name, T Receiver::*dest, const T& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
+    void add_range(const std::string& name, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         add_range<T>(name, '\0', dest, default_value, help, validator);
     }
     
     /// Add a new option that is a boolean flag
-    void add_flag(const std::string& name, char short_option, bool Receiver::*dest, const bool& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const bool& ignored) {}) {
+    void add_flag(const std::string& name, char short_option, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
         add_option<bool, FlagArgSpec<Receiver>>(name, short_option, dest, default_value, help, validator);
     }
     /// Add a new option that is a boolean flag
-    void add_flag(const std::string& name, bool Receiver::*dest, const bool& default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const bool& ignored) {}) {
+    void add_flag(const std::string& name, bool Receiver::*dest, bool default_value, const std::string& help, const ValidatorFunction<bool>& validator = [](const bool& ignored) {}) {
         add_flag(name, '\0', dest, default_value, help, validator);
     }
     
@@ -718,7 +805,7 @@ struct OptionGroup : public BaseOptionGroup {
         }
     }
     
-    virtual bool preset(const BasePresetEntry& entry) {
+    virtual bool preset(const BaseValuation& entry) {
         auto found = option_to_index.find(entry.option);
         if (found != option_to_index.end()) {
             // We have this option, so assign the preset.
@@ -730,10 +817,42 @@ struct OptionGroup : public BaseOptionGroup {
         }
     }
     
+    virtual bool set(const BaseValuation& entry) {
+        auto found = option_to_index.find(entry.option);
+        if (found != option_to_index.end()) {
+            // We have this option, so assign the preset.
+            args.at(found->second)->set(entry);
+            return true;
+        } else {
+            // We don't have this option, maybe someone else does.
+            return false;
+        }
+    }
+    
+    virtual bool query(BaseValuation& entry) const {
+        auto found = option_to_index.find(entry.option);
+        if (found != option_to_index.end()) {
+            // We have this option, so get its value.
+            args.at(found->second)->query(entry);
+            return true;
+        } else {
+            // We don't have this option, maybe someone else does.
+            return false;
+        }
+    }
+    
     /// Print all options set, one per line
-    virtual void print_options(ostream& out) const {
-        for (auto& arg : args) {
-            arg->print(out, "", "\n");
+    virtual void print_options(ostream& out, bool slug = false) const {
+        if (slug) {
+            for (auto& arg : args) {
+                // Print unseparated short options
+                arg->print(out, "", "", true);
+            }
+        } else {
+            for (auto& arg : args) {
+                // Print long options, one per line
+                arg->print(out, "", "\n");
+            }
         }
     }
     
@@ -871,7 +990,7 @@ struct GroupedOptionGroup : public BaseOptionGroup {
         return false;
     }
     
-    virtual bool preset(const BasePresetEntry& entry) {
+    virtual bool preset(const BaseValuation& entry) {
         for (auto& group : subgroups) {
             if (group->preset(entry)) {
                 // If any of our groups wants this option, we do too.
@@ -881,10 +1000,30 @@ struct GroupedOptionGroup : public BaseOptionGroup {
         return false;
     }
     
-    virtual void print_options(ostream& out) const {
+    virtual bool set(const BaseValuation& entry) {
+        for (auto& group : subgroups) {
+            if (group->set(entry)) {
+                // If any of our groups wants this option, we do too.
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    virtual bool query(BaseValuation& entry) const {
+        for (auto& group : subgroups) {
+            if (group->query(entry)) {
+                // If any of our groups wants this option, we do too.
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    virtual void print_options(ostream& out, bool slug = false) const {
         for (auto& group : subgroups) {
             // Print options from all groups in order
-            group->print_options(out);
+            group->print_options(out, slug);
         }
     }
     
@@ -922,9 +1061,10 @@ struct GroupedOptionGroup : public BaseOptionGroup {
 struct Preset {
     /// As part of this preset, set the given option to the given value.
     template<typename T>
-    add_entry(const std::string& option, const T& value) {
-        PresetEntry<T>* entry = new PresetEntry<T>(option, value);
+    Preset& add_entry(const std::string& option, const T& value) {
+        Valuation<T>* entry = new Valuation<T>(option, value);
         entries.emplace_back(entry);
+        return *this;
     }
     
     /// Apply stored presets to the given parser
@@ -937,8 +1077,8 @@ struct Preset {
         }
     }
     
-    std::vector<std::unique_ptr<BasePresetEntry>> entries;
-}
+    std::vector<std::unique_ptr<BaseValuation>> entries;
+};
 
 /// Print a table of rows, with each column starting at the same character on the line.
 static void print_table(const std::vector<std::pair<std::string, std::string>>& rows, ostream& out) {
@@ -977,8 +1117,7 @@ static GroupedOptionGroup get_options() {
         "max-multimaps", 'M',
         &MinimizerMapper::max_multimaps,
         MinimizerMapper::default_max_multimaps,
-        "produce up to INT alignments for each read",
-        int_is_nonnegative
+        "produce up to INT alignments for each read"
     );
     
     // Configure normal Giraffe mapping compoutation
@@ -997,7 +1136,7 @@ static GroupedOptionGroup get_options() {
     );
     comp_opts.add_range(
         "score-fraction", 'F',
-        &MinimizerMapper::minimizer_score_fraction
+        &MinimizerMapper::minimizer_score_fraction,
         MinimizerMapper::default_minimizer_score_fraction,
         "select minimizers between hit caps until score is FLOAT of total"
     );
@@ -1054,34 +1193,33 @@ static GroupedOptionGroup get_options() {
         double_is_nonnegative
     );
     comp_opts.add_range(
-        "extension-score", 'v'
+        "extension-score", 'v',
         &MinimizerMapper::extension_score_threshold,
         MinimizerMapper::default_extension_score_threshold,
         "only align extensions if their score is within INT of the best score",
         int_is_nonnegative
     );
     comp_opts.add_range(
-        "extension-set", 'w'
+        "extension-set", 'w',
         &MinimizerMapper::extension_set_score_threshold,
         MinimizerMapper::default_extension_set_score_threshold,
         "only align extension sets if their score is within INT of the best score",
         double_is_nonnegative
     );
     comp_opts.add_flag(
-        "no-dp", 'O'
+        "no-dp", 'O',
         &MinimizerMapper::do_dp,
         MinimizerMapper::default_do_dp,
         "disable all gapped alignment"
     );
     comp_opts.add_range(
-        "rescue-attempts", 'r'
+        "rescue-attempts", 'r',
         &MinimizerMapper::max_rescue_attempts,
         MinimizerMapper::default_max_rescue_attempts,
-        "attempt up to INT rescues per read in a pair",
-        int_is_nonnegative
+        "attempt up to INT rescues per read in a pair"
     );
     comp_opts.add_range(
-        "max-fragment-length", 'L'
+        "max-fragment-length", 'L',
         &MinimizerMapper::max_fragment_length,
         MinimizerMapper::default_max_fragment_length,
         "assume that fragment lengths should be smaller than INT when estimating the fragment length distribution"
@@ -1296,18 +1434,21 @@ int main_giraffe(int argc, char** argv) {
     
     // Map preset names to presets
     std::map<std::string, Preset> presets;
-    preset["fast"].add_entry<size_t>("hit-cap", 10);
-    preset["fast"].add_entry<size_t>("hard-hit-cap", 500);
-    preset["fast"].add_entry<double>("score-fraction", 0.5);
-    preset["fast"].add_entry<size_t>("max-multimaps", 1);
-    preset["fast"].add_entry<size_t>("max-extensions", 400);
-    preset["fast"].add_entry<size_t>("max-alignments", 8);
-    preset["fast"].add_entry<size_t>("cluster-score", 50);
-    preset["fast"].add_entry<size_t>("pad-cluster-score", 0);
-    preset["fast"].add_entry<double>("cluster-coverage", 0.2);
-    preset["fast"].add_entry<size_t>("extension-set", 20);
-    preset["fast"].add_entry<size_t>("extension-score", 1);
-    presets.emplace("default");
+    // We have a fast preset that sets a bunch of stuff
+    presets["fast"]
+        .add_entry<size_t>("hit-cap", 10)
+        .add_entry<size_t>("hard-hit-cap", 500)
+        .add_entry<double>("score-fraction", 0.5)
+        .add_entry<size_t>("max-multimaps", 1)
+        .add_entry<size_t>("max-extensions", 400)
+        .add_entry<size_t>("max-alignments", 8)
+        .add_entry<size_t>("cluster-score", 50)
+        .add_entry<size_t>("pad-cluster-score", 0)
+        .add_entry<double>("cluster-coverage", 0.2)
+        .add_entry<size_t>("extension-set", 20)
+        .add_entry<size_t>("extension-score", 1);
+    // And a default preset that doesn't.
+    presets["default"];
     
     std::vector<struct option> long_options =
     {
@@ -1495,10 +1636,6 @@ int main_giraffe(int argc, char** argv) {
                 paired = true;
                 break;
                 
-            case 'M':
-                max_multimaps = parse<Range<size_t>>(optarg);
-                break;
-            
             case 'N':
                 sample_name = optarg;
                 break;
@@ -1545,14 +1682,16 @@ int main_giraffe(int argc, char** argv) {
                 break;
             case 'b':
                 param_preset = optarg;
-                auto found = presets.find(param_preset);
-                if (found == presets.end()) {
-                    // Complain this isn't a preset.
-                    std::cerr << "error: [vg giraffe] invalid parameter preset: " << param_preset << std::endl;
-                    exit(1);
-                } else {
-                    // Apply the preset values.
-                    found->second.apply(parser);
+                {
+                    auto found = presets.find(param_preset);
+                    if (found == presets.end()) {
+                        // Complain this isn't a preset.
+                        std::cerr << "error: [vg giraffe] invalid parameter preset: " << param_preset << std::endl;
+                        exit(1);
+                    } else {
+                        // Apply the preset values.
+                        found->second.apply(parser);
+                    }
                 }
                 break;
 
@@ -1664,8 +1803,9 @@ int main_giraffe(int argc, char** argv) {
     }
 
     // If we don't want rescue, let the user see we don't try it.
-    if (max_rescue_attempts == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
-        max_rescue_attempts = 0;
+    if (parser.get_option_value<size_t>("max-rescue-attempts") == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+        // Replace any parsed values
+        parser.set_option_value<size_t>("max_rescue_attempts", 0);
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
@@ -1865,7 +2005,8 @@ int main_giraffe(int argc, char** argv) {
             if (interleaved) {
                 s << "-i";
             }
-            parser.slug(s);
+            // Make a slug of the other options
+            parser.print_options(s, true);
             s << ".gam";
             
             output_filename = s.str();
