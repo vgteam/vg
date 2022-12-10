@@ -209,17 +209,17 @@ void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor
     exp.object_end();
 }
 
-void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence) {
-    int digits_needed = (int) ceil(log10(sequence.size()));
+void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence, size_t start_offset, size_t length_limit) {
+    int digits_needed = (int) ceil(log10(std::min(sequence.size(), start_offset + length_limit)));
     for (int digit = digits_needed - 1; digit >= 0; digit--) {
         out << log_name();
-        for (size_t i = 0; i < sequence.size(); i++) {
+        for (size_t i = start_offset; i < std::min(sequence.size(), start_offset + length_limit); i++) {
             // Output the correct digit for this place in this number
             out << (char) ('0' + (uint8_t) floor(i % (int) round(pow(10, digit + 1)) / pow(10, digit)));
         }
         out << endl;
     }
-    out << log_name() << sequence << endl;
+    out << log_name() << sequence.substr(start_offset, std::min(sequence.size() - start_offset, length_limit)) << endl;
 }
 
 void MinimizerMapper::dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds) {
@@ -259,9 +259,9 @@ void MinimizerMapper::dump_debug_extension_set(const HandleGraph& graph, const A
     }
 }
 
-void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include) {
+void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include, size_t start_offset, size_t length_limit) {
 
-    if (sequence.size() >= LONG_LIMIT) {
+    if (std::min(sequence.size() - start_offset, length_limit) >= LONG_LIMIT) {
         // Describe the minimizers, because the read is huge
         size_t minimizer_count = to_include ? to_include->size() : minimizers.size();
         if (minimizer_count < MANY_LIMIT) {
@@ -283,7 +283,7 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
         }
     } else {
         // Draw a diagram
-        dump_debug_sequence(cerr, sequence);
+        dump_debug_sequence(cerr, sequence, start_offset, length_limit);
         
         vector<size_t> all;
         if (to_include == nullptr) {
@@ -303,22 +303,33 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
         // Dump minimizers
         for (auto& index : *to_include) {
             // For each minimizer
+            auto& m = minimizers[index];
+            
+            if (m.forward_offset() < start_offset || m.forward_offset() - start_offset + m.length > length_limit) {
+                // Minimizer itself reaches out of bounds, so hide it
+                continue;
+            }
+            
+            // Compute its traits relative to the region we are interested in showing
+            size_t relative_agglomeration_start = (m.agglomeration_start < start_offset) ? (size_t)0 : m.agglomeration_start - start_offset;
+            size_t relative_forward_offset = m.forward_offset() - start_offset;
+            size_t capped_agglomeration_length = (relative_agglomeration_start + m.agglomeration_length > length_limit) ? length_limit - relative_agglomeration_start: m.agglomeration_length;
             
             cerr << log_name();
             
-            auto& m = minimizers[index];
-            for (size_t i = 0; i < m.agglomeration_start; i++) {
+            
+            for (size_t i = 0; i < relative_agglomeration_start; i++) {
                 // Space until its agglomeration starts
                 cerr << ' ';
             }
             
-            for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
+            for (size_t i = relative_agglomeration_start; i < relative_forward_offset; i++) {
                 // Do the beginnign of the agglomeration
                 cerr << '-';
             }
             // Do the minimizer itself
             cerr << m.value.key.decode(m.length);
-            for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
+            for (size_t i = relative_forward_offset + m.length ; i < relative_agglomeration_start + capped_agglomeration_length; i++) {
                 // Do the tail end of the agglomeration
                 cerr << '-';
             }

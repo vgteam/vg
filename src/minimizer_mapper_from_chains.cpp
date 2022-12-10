@@ -141,19 +141,23 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
 }
 
 /// Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
-static std::vector<MinimizerMapper::Seed> reseed_between(size_t read_region_start, size_t read_region_end, pos_t left_graph_pos, pos_t right_graph_pos,
-                                        const HandleGraph& graph,
-                                        const VectorView<MinimizerMapper::Minimizer>& minimizers,
-                                        const std::function<void(const MinimizerMapper::Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph,
-                                        size_t max_search_distance = 10000) {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
+    size_t read_region_start,
+    size_t read_region_end,
+    pos_t left_graph_pos,
+    pos_t right_graph_pos,
+    const HandleGraph& graph,
+    const VectorView<Minimizer>& minimizers,
+    const std::function<void(const Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph
+) const {
     
     // We are going to make up some seeds
     std::vector<MinimizerMapper::Seed> forged_items;                                    
     
     
     std::vector<pos_t> seed_positions {left_graph_pos, right_graph_pos};
-    std::vector<size_t> position_forward_max_dist {max_search_distance, 0};
-    std::vector<size_t> position_backward_max_dist {0, max_search_distance};
+    std::vector<size_t> position_forward_max_dist {this->reseed_search_distance, 0};
+    std::vector<size_t> position_backward_max_dist {0, this->reseed_search_distance};
     
     
     std::vector<nid_t> sorted_ids;
@@ -161,13 +165,37 @@ static std::vector<MinimizerMapper::Seed> reseed_between(size_t read_region_star
         bdsg::HashGraph subgraph;
         // TODO: can we use connecting graph again?
         // TODO: Should we be using more seeds from the cluster?
-        algorithms::extract_containing_graph(&graph, &subgraph, seed_positions, max_search_distance);
+        algorithms::extract_containing_graph(&graph, &subgraph, seed_positions, this->reseed_search_distance);
         sorted_ids.reserve(subgraph.get_node_count());
         subgraph.for_each_handle([&](const handle_t& h) {
             sorted_ids.push_back(subgraph.get_id(h));
         });
     }
     std::sort(sorted_ids.begin(), sorted_ids.end());
+    
+    if (this->show_work) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Reseeding against nodes ";
+            // Dump the nodes as consecutive ranges 
+            nid_t prev_node;
+            nid_t printed_node;
+            for (size_t i = 0; i < sorted_ids.size(); i++) {
+                if (i == 0 || prev_node + 1 != sorted_ids[i]) {
+                    if (i > 0) {
+                        std::cerr << "-" << prev_node << ", ";
+                    }
+                    std::cerr << sorted_ids[i];
+                    printed_node = sorted_ids[i];
+                }
+                prev_node = sorted_ids[i];
+            }
+            if (!sorted_ids.empty() && printed_node != sorted_ids.back()) {
+                std::cerr << "-" << sorted_ids.back();
+            }
+            std::cerr << endl;
+        }
+    }
     
     for (size_t i = 0; i < minimizers.size(); i++) {
         auto& m = minimizers[i];
@@ -178,8 +206,17 @@ static std::vector<MinimizerMapper::Seed> reseed_between(size_t read_region_star
             continue;
         }
         
+        if (this->show_work) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << log_name() << "Query minimizer #" << i << " at " << m.forward_offset() << " which overall has " << m.hits << " hits" << std::endl;
+            }
+        }
+        
         // We may see duplicates, so we want to do our own deduplication.
         unordered_set<pos_t> seen;
+        
+        size_t hit_count = 0;
         
         // Find all its hits in the part of the graph between the bounds
         for_each_pos_for_source_in_subgraph(m, sorted_ids, [&](const pos_t& pos) {
@@ -190,7 +227,17 @@ static std::vector<MinimizerMapper::Seed> reseed_between(size_t read_region_star
             forged_items.emplace_back();
             forged_items.back().pos = pos;
             forged_items.back().source = i;
+            
+            // Record the hit
+            hit_count++;
         });
+        
+        if (this->show_work) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << log_name() << "\tFound " << hit_count << "/" << m.hits << " hits" << std::endl;
+            }
+        }
     }
     
     // TODO: sort and deduplicate the new seeds
@@ -320,8 +367,20 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (found != preclusters_by_start.end()) {
             // We found one. Can we connect them?
             precluster_connections.emplace_back(i, found->second);
+        } else {
+            if (show_work) {
+                #pragma omp critical (cerr)
+                std::cerr << log_name() << "Precluster at {R:" << precluster_read_ranges[i].first << "-" << precluster_read_ranges[i].second << "} has nowhere to reseed to" << std::endl;
+            }
         }
     }
+    
+    // Sort the connections for debuggability.
+    // TODO: Stop wasting time
+    std::sort(precluster_connections.begin(), precluster_connections.end(), [&](const std::pair<size_t, size_t>& a, const std::pair<size_t, size_t>& b) {
+        return precluster_read_ranges[a.second].first < precluster_read_ranges[b.second].first ||
+            (precluster_read_ranges[a.second].first == precluster_read_ranges[b.second].first && precluster_read_ranges[a.first].second < precluster_read_ranges[b.first].second);
+    });
     
     if (track_provenance) {
         funnel.stage("reseed");
@@ -362,15 +421,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Reseed between each pair of preclusters and dump into seeds
         
         // Get the bounds in the read that we are working on
-        size_t left_read = precluster_read_ranges[connected.first].second;
-        size_t right_read = precluster_read_ranges[connected.second].first;
+        auto& left_range = precluster_read_ranges[connected.first];
+        auto& right_range = precluster_read_ranges[connected.second];
+        size_t left_read = left_range.second;
+        size_t right_read = right_range.first;
         
         // Get a rightmost seed from the first cluster and a leftmost seed from the second. Make sure they both point forward along the read.
         const pos_t left_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.first].second), minimizers, this->gbwt_graph);
         const pos_t right_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
         
+        if (this->show_work) {
+            // Dump the minimizers in the region
+            this->dump_debug_minimizers(minimizers, aln.sequence(), nullptr, left_read, right_read - left_read);
+        }
+        
         // Do the reseed
-        std::vector<Seed> new_seeds = reseed_between(left_read, right_read, left_pos, right_pos, this->gbwt_graph, minimizers, find_minimizer_hit_positions, reseed_search_distance);
+        std::vector<Seed> new_seeds = reseed_between(left_read, right_read, left_pos, right_pos, this->gbwt_graph, minimizers, find_minimizer_hit_positions);
         
         // Concatenate and deduplicate with existing seeds
         size_t seeds_before = seeds.size();
@@ -383,23 +449,35 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // Keep this new seed
                 seeds.emplace_back(std::move(seed));
                 seen_seeds.emplace_hint(found, std::move(key));
+                
+                if (this->track_provenance) {
+                    funnel.introduce();
+                    // Tell the funnel we came from these preclusters together
+                    funnel.also_relevant(1, connected.first);
+                    funnel.also_relevant(1, connected.second);
+                    // TODO: Tie these back to the minimizers, several stages ago.
+                }
             }
         }
         
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_read << " = G:" << left_pos
-                    << "} and " << connected.second << " at {R:" << right_read << " = G:" << right_pos
+                std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_range.first << "-" << left_range.second << " = G:" << left_pos
+                    << "} and " << connected.second << " at {R:" << right_range.first << "-" << right_range.second << " = G:" << right_pos
                     << "} found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
+                std::vector<size_t> new_seeds;
+                for (size_t i = seeds_before; i < seeds.size(); i++) {
+                    new_seeds.push_back(i);
+                } 
+                this->dump_debug_seeds(minimizers, seeds, new_seeds);
+                  
             }
         }
     }
     
     if (this->track_provenance) {
         // Make items in the funnel for all the new seeds, basically as one-seed preclusters.
-        // TODO: Extend funnel to allow us tying these back to the minimizers, several stages ago.
-        funnel.introduce(seeds.size() - old_seed_count);
         if (this->track_correctness) {
             // Tag newly introduced seed items with correctness 
             funnel.substage("correct");

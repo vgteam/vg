@@ -495,6 +495,18 @@ protected:
     void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_precluster, const std::vector<Cluster>& preclusters, size_t seq_length, Funnel& funnel) const;
     
     /**
+     * Reseed between the given positions in the read and graph.
+     */
+    std::vector<Seed> reseed_between(
+        size_t read_region_start,
+        size_t read_region_end,
+        pos_t left_graph_pos,
+        pos_t right_graph_pos,
+        const HandleGraph& graph,
+        const VectorView<Minimizer>& minimizers,
+        const std::function<void(const Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph) const;
+    
+    /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
      */
     vector<GaplessExtension> extend_cluster(
@@ -918,13 +930,14 @@ protected:
     static void dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted, const HandleGraph& graph);
     
     /// Dump all the given minimizers, with optional subset restriction
-    static void dump_debug_minimizers(const VectorView<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
+    static void dump_debug_minimizers(const VectorView<Minimizer>& minimizers, const string& sequence,
+                                      const vector<size_t>* to_include = nullptr, size_t start_offset = 0, size_t length_limit = std::numeric_limits<size_t>::max());
     
     /// Dump all the extansions in an extension set
     static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds);
     
     /// Print a sequence with base numbering
-    static void dump_debug_sequence(ostream& out, const string& sequence);
+    static void dump_debug_sequence(ostream& out, const string& sequence, size_t start_offset = 0, size_t length_limit = std::numeric_limits<size_t>::max());
     
     /// Print the seed content of a cluster.
     static void dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds);
