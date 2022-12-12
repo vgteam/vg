@@ -261,7 +261,11 @@ void MinimizerMapper::dump_debug_extension_set(const HandleGraph& graph, const A
 
 void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include, size_t start_offset, size_t length_limit) {
 
-    if (std::min(sequence.size() - start_offset, length_limit) >= LONG_LIMIT) {
+    // Work out what region we are actually looking at
+    size_t region_start = start_offset;
+    size_t region_length = std::min(sequence.size() - start_offset, length_limit);
+
+    if (region_length >= LONG_LIMIT) {
         // Describe the minimizers, because the read is huge
         size_t minimizer_count = to_include ? to_include->size() : minimizers.size();
         if (minimizer_count < MANY_LIMIT) {
@@ -279,11 +283,11 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
                 }
             }
         } else {
-            cerr << log_name() << "<" << minimizer_count << " minimizers>" << endl;
+            cerr << log_name() << "<" << minimizer_count << " minimizers from " << region_start << " to " << (region_start + region_length) << ">" << endl;
         }
     } else {
         // Draw a diagram
-        dump_debug_sequence(cerr, sequence, start_offset, length_limit);
+        dump_debug_sequence(cerr, sequence, region_start, region_length);
         
         vector<size_t> all;
         if (to_include == nullptr) {
@@ -305,15 +309,15 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
             // For each minimizer
             auto& m = minimizers[index];
             
-            if (m.forward_offset() < start_offset || m.forward_offset() - start_offset + m.length > length_limit) {
+            if (m.forward_offset() < region_start || m.forward_offset() - region_start + m.length > region_length) {
                 // Minimizer itself reaches out of bounds, so hide it
                 continue;
             }
             
             // Compute its traits relative to the region we are interested in showing
-            size_t relative_agglomeration_start = (m.agglomeration_start < start_offset) ? (size_t)0 : m.agglomeration_start - start_offset;
-            size_t relative_forward_offset = m.forward_offset() - start_offset;
-            size_t capped_agglomeration_length = (relative_agglomeration_start + m.agglomeration_length > length_limit) ? length_limit - relative_agglomeration_start: m.agglomeration_length;
+            size_t relative_agglomeration_start = (m.agglomeration_start < region_start) ? (size_t)0 : m.agglomeration_start - region_start;
+            size_t relative_forward_offset = m.forward_offset() - region_start;
+            size_t capped_agglomeration_length = (relative_agglomeration_start + m.agglomeration_length > region_length) ? (region_length - relative_agglomeration_start) : m.agglomeration_length;
             
             cerr << log_name();
             
