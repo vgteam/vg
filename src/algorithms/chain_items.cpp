@@ -8,7 +8,7 @@
 
 #include <handlegraph/algorithms/dijkstra.hpp>
 
-#define debug_chaining
+//#define debug_chaining
 
 namespace vg {
 namespace algorithms {
