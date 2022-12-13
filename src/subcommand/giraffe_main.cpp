@@ -214,6 +214,12 @@ static GroupedOptionGroup get_options() {
         "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
+        "min-lookback-items",
+        &MinimizerMapper::min_lookback_items,
+        MinimizerMapper::default_min_lookback_items,
+        "minimum items to look back when chaining"
+    );
+    chaining_opts.add_range(
         "max-chain-connection",
         &MinimizerMapper::max_chain_connection,
         MinimizerMapper::default_max_chain_connection,

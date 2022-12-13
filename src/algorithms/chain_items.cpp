@@ -125,6 +125,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
                            int gap_open,
                            int gap_extension,
                            size_t max_lookback_bases,
+                           size_t min_lookback_items,
                            size_t initial_lookback_threshold,
                            double lookback_scale_factor,
                            double min_good_transition_score_per_base,
@@ -190,8 +191,11 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
         cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
 #endif
         
-        // Set up lookback control algorithm
-        // If we are looking back forther than this
+        // Set up lookback control algorithm.
+        // Until we have looked at a certain number of items, we keep going
+        // even if we meet other stopping conditions.
+        size_t items_considered = 0;
+        // If we are looking back further than this
         size_t lookback_threshold = initial_lookback_threshold;
         // And a gooid score has been found, stop
         bool good_score_found = false;
@@ -205,6 +209,10 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
         auto predecessor_index_it = first_overlapping_it;
         while (predecessor_index_it != read_end_order.begin()) {
             --predecessor_index_it;
+            
+            // How many items have we considered before this one?
+            size_t item_number = items_considered++;
+            
             // For each source that ended before here started, in reverse order by end position...
             auto& source = to_chain[*predecessor_index_it];
             
@@ -214,14 +222,17 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
 
             // How far do we go in the read?
             size_t read_distance = get_read_distance(source, here);
-
-            // See if we should look back this far.
-            if (read_distance > max_lookback_bases) {
-                // This is further in the read than the real hard limit.
-                break;
-            } else if (read_distance > lookback_threshold && good_score_found) {
-                // We already found something good enough.
-                break;
+            
+            if (item_number >= min_lookback_items) {
+                // We have looked at enough predecessors that we might consider stopping.
+                // See if we should look back this far.
+                if (read_distance > max_lookback_bases) {
+                    // This is further in the read than the real hard limit.
+                    break;
+                } else if (read_distance > lookback_threshold && good_score_found) {
+                    // We already found something good enough.
+                    break;
+                }
             }
             if (read_distance > lookback_threshold && !good_score_found) {
                 // We still haven't found anything good, so raise the threshold.
@@ -391,6 +402,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int gap_open,
                                           int gap_extension,
                                           size_t max_lookback_bases,
+                                          size_t min_lookback_items,
                                           size_t initial_lookback_threshold,
                                           double lookback_scale_factor,
                                           double min_good_transition_score_per_base,
@@ -410,6 +422,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                                                  gap_open,
                                                                  gap_extension,
                                                                  max_lookback_bases,
+                                                                 min_lookback_items,
                                                                  initial_lookback_threshold,
                                                                  lookback_scale_factor,
                                                                  min_good_transition_score_per_base,

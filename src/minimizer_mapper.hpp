@@ -225,6 +225,9 @@ public:
     /// chain.
     static constexpr size_t default_max_lookback_bases = 80;
     size_t max_lookback_bases = default_max_lookback_bases;
+    /// How many chaining sources should we make sure to consider regardless of distance?
+    static constexpr size_t default_min_lookback_items = 1;
+    size_t min_lookback_items = default_min_lookback_items;
     /// How many bases should we try to look back initially when chaining?
     static constexpr size_t default_initial_lookback_threshold = 10;
     size_t initial_lookback_threshold = default_initial_lookback_threshold;

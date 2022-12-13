@@ -685,6 +685,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                                                get_regular_aligner()->gap_open,
                                                                get_regular_aligner()->gap_extension,
                                                                max_lookback_bases,
+                                                               min_lookback_items,
                                                                initial_lookback_threshold,
                                                                lookback_scale_factor,
                                                                min_good_transition_score_per_base,
