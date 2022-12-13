@@ -403,6 +403,11 @@ bool execute_in_fork(const function<void(void)>& exec) {
                 
         // end the child process successfully
         exit(0);
+    } else {
+        // This is the parent
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry] forked child " << pid << endl;
+        }
     }
     
     // allow the child to finish
@@ -411,12 +416,18 @@ bool execute_in_fork(const function<void(void)>& exec) {
     
     // pass through signal-based exits
     if (WIFSIGNALED(child_stat)) {
+        cerr << "error:[IndexRegistry] child process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
         raise(WTERMSIG(child_stat));
     }
     
     assert(WIFEXITED(child_stat));
     
-    return (WEXITSTATUS(child_stat) == 0);
+    if (WEXITSTATUS(child_stat) != 0) {
+        cerr << "warning:[IndexRegistry] child process " << pid << " failed with status " << child_stat << " representing exit code " << WEXITSTATUS(child_stat) << endl;
+        return false;
+    }
+    
+    return true;
 }
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
