@@ -21,7 +21,6 @@
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
-#include <bdsg/odgi.hpp>
 #include <xg.hpp>
 #include <gbwt/variants.h>
 #include <gbwtgraph/index.h>
@@ -183,8 +182,6 @@ double format_multiplier() {
     switch (IndexingParameters::mut_graph_impl) {
         case IndexingParameters::HashGraph:
             return 1.0;
-        case IndexingParameters::ODGI:
-            return 0.615;
         case IndexingParameters::PackedGraph:
             return 0.187;
         case IndexingParameters::VG:
@@ -367,9 +364,6 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
     switch (IndexingParameters::mut_graph_impl) {
         case IndexingParameters::HashGraph:
             graph = make_unique<bdsg::HashGraph>();
-            break;
-        case IndexingParameters::ODGI:
-            graph = make_unique<bdsg::ODGI>();
             break;
         case IndexingParameters::PackedGraph:
             graph = make_unique<bdsg::PackedGraph>();
@@ -2903,7 +2897,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                IndexingParameters::gbwt_insert_batch_size,
                                                IndexingParameters::gbwt_sampling_interval);
                 // actually build it
-                transcriptome.add_haplotype_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt);
+                transcriptome.add_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt, false);
                 
                 // save the haplotype transcript GBWT
                 gbwt_builder.finish();
@@ -2916,7 +2910,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             
             // write transcript origin info table
-            transcriptome.write_haplotype_transcript_info(&info_outfile, *haplotype_index, true);
+            transcriptome.write_transcript_info(&info_outfile, *haplotype_index, false);
             
             // save the graph with the transcript paths added
             transcriptome.write_graph(&tx_graph_outfile);

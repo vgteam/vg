@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 22
+plan tests 21
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -59,13 +59,11 @@ vg convert graphs/atgc.vg -a > atgc.hg
 is "$(vg stats -F atgc.hg)" "format: HashGraph" "vg stats -F detects format of hash graph"
 vg convert graphs/atgc.vg -p > atgc.pg
 is "$(vg stats -F atgc.pg)" "format: PackedGraph" "vg stats -F detects format of packed graph"
-vg convert graphs/atgc.vg -o > atgc.og
-is "$(vg stats -F atgc.og)" "format: ODGI" "vg stats -F detects format of odgi graph"
 vg index graphs/atgc.vg -x atgc.xg
 is "$(vg stats -F atgc.xg)" "format: XG" "vg stats -F detects format of xg graph"
 vg convert graphs/atgc.vg -f > atgc.gfa
 is "$(vg stats -F atgc.gfa)" "format: GFA" "vg stats -F detects format of GFA graph"
-rm -f  atgc.vg atgc.hg atgc.pg atgc.og atgc.xg atgc.gfa
+rm -f  atgc.vg atgc.hg atgc.pg atgc.xg atgc.gfa
 vg autoindex -v tiny/tiny.vcf.gz -r tiny/tiny.fa -w giraffe -p tiny
 is "$(vg stats -F tiny.giraffe.gbz)" "format: GBZ" "vg stats -F detects format of GBZ graph"
 rm -f tiny.giraffe.gbz tiny.dist tiny.min

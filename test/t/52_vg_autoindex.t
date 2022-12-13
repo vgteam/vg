@@ -40,8 +40,8 @@ is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with 
 is $(ls auto.* | wc -l) 6 "autoindexing creates 6 files for mpmap/rpvg"
 vg sim -x auto.spliced.xg -n 20 -a -l 10 | vg mpmap -x auto.spliced.xg -g auto.spliced.gcsa -d auto.spliced.dist -B -t 1 -G - > /dev/null
 is $(echo $?) 0 "basic autoindexing results can be used by vg mpmap"
-is $(vg paths -g auto.haplotx.gbwt -L | wc -l) 4 "haplotype transcript GBWT made by autoindex is valid"
-is $(cat auto.txorigin.tsv | wc -l) 5 "transcript origin table has expected number of rows" 
+is $(vg paths -g auto.haplotx.gbwt -L | wc -l) 6 "haplotype transcript GBWT made by autoindex is valid"
+is $(cat auto.txorigin.tsv | wc -l) 7 "transcript origin table has expected number of rows" 
 
 rm auto.*
 

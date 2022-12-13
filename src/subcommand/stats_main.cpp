@@ -29,7 +29,6 @@
 #include "xg.hpp"
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
-#include "bdsg/odgi.hpp"
 #include "../io/converted_hash_graph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../gbzgraph.hpp"
@@ -64,7 +63,7 @@ void help_stats(char** argv) {
          << "                          multiple allowed; limit comparison to those provided" << endl
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
-         << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
+         << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
          << "    -D, --degree-dist     print degree distribution of the graph." << endl
          << "    -b, --dist-snarls FILE print the sizes and depths of the snarls in a given distance index." << endl
@@ -140,7 +139,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORFDb:",
+        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORFDb:p:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -457,8 +456,6 @@ int main_stats(int argc, char** argv) {
             format_string = "VG-Protobuf";
         } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
             format_string = "HashGraph";
-        } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
-            format_string = "ODGI";
         } else if (dynamic_cast<GBZGraph*>(graph.get()) != nullptr) {
             format_string = "GBZ";
         } else {
