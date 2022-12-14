@@ -511,7 +511,9 @@ protected:
     void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_precluster, const std::vector<Cluster>& preclusters, size_t seq_length, Funnel& funnel) const;
     
     /**
-     * Reseed between the given positions in the read and graph.
+     * Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
+     *  Up to one end of the graph region can be a read end, with a pos_t matching is_empty().
+     * The read region always needs to be fully defined.
      */
     std::vector<Seed> reseed_between(
         size_t read_region_start,

@@ -140,7 +140,6 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
     return position;
 }
 
-/// Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
 std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
     size_t read_region_start,
     size_t read_region_end,
@@ -155,10 +154,26 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
     std::vector<MinimizerMapper::Seed> forged_items;                                    
     
     
-    std::vector<pos_t> seed_positions {left_graph_pos, right_graph_pos};
-    std::vector<size_t> position_forward_max_dist {this->reseed_search_distance, 0};
-    std::vector<size_t> position_backward_max_dist {0, this->reseed_search_distance};
+    std::vector<pos_t> seed_positions;
+    seed_positions.reserve(2);
+    std::vector<size_t> position_forward_max_dist;
+    position_forward_max_dist.reserve(2);
+    std::vector<size_t> position_backward_max_dist;
+    position_backward_max_dist.reserve(2);
     
+    if (!is_empty(left_graph_pos)) {
+        // We have a left endpoint
+        seed_positions.emplace_back(left_graph_pos);
+        position_forward_max_dist.emplace_back(this->reseed_search_distance);
+        position_backward_max_dist.emplace_back(0);
+    }
+    
+    if (!is_empty(right_graph_pos)) {
+        // We have a left endpoint
+        seed_positions.emplace_back(right_graph_pos);
+        position_forward_max_dist.emplace_back(0);
+        position_backward_max_dist.emplace_back(this->reseed_search_distance);
+    }
     
     std::vector<nid_t> sorted_ids;
     {
@@ -357,6 +372,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             seed_to_precluster.at(seed) = i;
         }
     }
+    // And we need to know the unconnected-to preclusters with nothing to their
+    // left, which also won the contest for most seeds at their start position
+    // (and so could have been connected to)
+    std::unordered_set<size_t> unconnected_preclusters;
+    for (auto& kv : preclusters_by_start) {
+        unconnected_preclusters.insert(kv.second);
+    }
     // And then we do bound lookups for each cluster to find the next one
     // And we put those pairs here.
     using precluster_connection_t = std::pair<size_t, size_t>;
@@ -368,12 +390,20 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (found != preclusters_by_start.end()) {
             // We found one. Can we connect them?
             precluster_connections.emplace_back(i, found->second);
+            // Something might connect to them
+            unconnected_preclusters.erase(found->second);
         } else {
+            // There's nothing after us, so connect to nowhere.
+            precluster_connections.emplace_back(i, std::numeric_limits<size_t>::max());
             if (show_work) {
                 #pragma omp critical (cerr)
                 std::cerr << log_name() << "Precluster at {R:" << precluster_read_ranges[i].first << "-" << precluster_read_ranges[i].second << "} has nowhere to reseed to" << std::endl;
             }
         }
+    }
+    for (auto& unconnected : unconnected_preclusters) {
+        // These preclusters could have been connected to but weren't, so look left off of them.
+        precluster_connections.emplace_back(std::numeric_limits<size_t>::max(), unconnected);
     }
     
     if (track_provenance) {
@@ -413,7 +443,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     process_until_threshold_a(precluster_connections.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         // Best pairs to connect are those with the highest total coverage
-        return preclusters[precluster_connections[i].first].coverage + preclusters[precluster_connections[i].second].coverage;
+        return (precluster_connections[i].first == std::numeric_limits<size_t>::max() ?
+                    0.0 :
+                    preclusters[precluster_connections[i].first].coverage) + 
+               (precluster_connections[i].second == std::numeric_limits<size_t>::max() ?
+                    0.0 :
+                    preclusters[precluster_connections[i].second].coverage);
     },
     precluster_connection_coverage_threshold,
     min_precluster_connections,
@@ -427,22 +462,56 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Reseed between each pair of preclusters and dump into seeds
         auto& connected = precluster_connections[precluster_num];
         
-        // Get the bounds in the read that we are working on
-        auto& left_range = precluster_read_ranges[connected.first];
-        auto& right_range = precluster_read_ranges[connected.second];
-        size_t left_read = left_range.second;
-        size_t right_read = right_range.first;
+        // Where should we start in the read
+        size_t left_read;
+        // And in the graph
+        pos_t left_pos;
+        if (connected.first == std::numeric_limits<size_t>::max()) {
+            // Nothing is on the left side of this connection
+            left_read = 0;
+            left_pos = empty_pos_t();
+        } else {
+            // Get the information from the precluster on the left side of this connection.
+            left_read = precluster_read_ranges[connected.first].second;
+            // Make sure graph position points forward along the read.
+            left_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.first].second), minimizers, this->gbwt_graph);
+        }
         
-        // Get a rightmost seed from the first cluster and a leftmost seed from the second. Make sure they both point forward along the read.
-        const pos_t left_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.first].second), minimizers, this->gbwt_graph);
-        const pos_t right_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
+        // Where should we end in the read
+        size_t right_read;
+        // And in the graph
+        pos_t right_pos;
+        if (connected.second == std::numeric_limits<size_t>::max()) {
+            // Nothing is on the right side of this connection
+            right_read = aln.sequence().size();
+            right_pos = empty_pos_t();
+        } else {
+            // Get the information from the precluster on the right side of this connection.
+            right_read = precluster_read_ranges[connected.second].first;
+            // Make sure graph position points forward along the read.
+            right_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
+        }
         
         if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_range.first << "-" << left_range.second << " = G:" << left_pos
-                    << "} and " << connected.second << " at {R:" << right_range.first << "-" << right_range.second << " = G:" << right_pos
-                    << "}" << std::endl;
+            if (connected.first == std::numeric_limits<size_t>::max()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Reseeding before precluster " << connected.second << " at {R:" << right_read << "-" << precluster_read_ranges[connected.second].second << " = G:" << right_pos
+                        << "}" << std::endl;
+                }
+            } else if (connected.second == std::numeric_limits<size_t>::max()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Reseeding after precluster " << connected.first << " at {R:" << precluster_read_ranges[connected.first].first << "-" << left_read << " = G:" << left_pos
+                        << "}" << std::endl;
+                }
+            } else {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << precluster_read_ranges[connected.first].first << "-" << left_read << " = G:" << left_pos
+                        << "} and " << connected.second << " at {R:" << right_read << "-" << precluster_read_ranges[connected.second].second << " = G:" << right_pos
+                        << "}" << std::endl;
+                }
             }
                     
             // Dump the minimizers in the region
@@ -467,8 +536,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 if (this->track_provenance) {
                     funnel.introduce();
                     // Tell the funnel we came from these preclusters together
-                    funnel.also_relevant(1, connected.first);
-                    funnel.also_relevant(1, connected.second);
+                    if (connected.first != std::numeric_limits<size_t>::max()) {
+                        funnel.also_relevant(1, connected.first);
+                    }
+                    if (connected.second != std::numeric_limits<size_t>::max()) {
+                        funnel.also_relevant(1, connected.second);
+                    }
                     // TODO: Tie these back to the minimizers, several stages ago.
                 }
             }
