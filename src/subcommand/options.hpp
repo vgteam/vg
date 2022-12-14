@@ -686,6 +686,8 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
  * Represents a set of command-line options.
  */
 struct BaseOptionGroup : public TickChainLink {
+
+    virtual ~BaseOptionGroup() = default;
     
     /// Parse the given option ID, with the given value if needed.
     /// Return true if we matched the ID, and false otherwise.
@@ -748,6 +750,8 @@ struct BaseOptionGroup : public TickChainLink {
  */
 template<typename Receiver>
 struct OptionGroup : public BaseOptionGroup {
+
+    virtual ~OptionGroup() = default;
 
     /// Make an option group woith the given heading.
     OptionGroup(const std::string& heading) : heading(heading) {
@@ -963,6 +967,14 @@ struct OptionGroup : public BaseOptionGroup {
  * eventually belong in.
  */
 struct GroupedOptionGroup : public BaseOptionGroup {
+    
+    // We can't copy because we contain unique_ptr values
+    GroupedOptionGroup() = default;
+    GroupedOptionGroup(const GroupedOptionGroup& other) = delete;
+    GroupedOptionGroup& operator=(GroupedOptionGroup& other) = delete;
+    GroupedOptionGroup(GroupedOptionGroup&& other) = default;
+    GroupedOptionGroup& operator=(GroupedOptionGroup&& other) = default;
+    virtual ~GroupedOptionGroup() = default;
 
     /// Create a new child group with a new heading, which we can add options
     /// to.
