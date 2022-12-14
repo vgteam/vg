@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 32
+plan tests 34
 
 rm auto.*
 
@@ -35,7 +35,7 @@ rm auto.*
 
 # to add: GFA construction
 
-vg autoindex -p auto -w mpmap -r tiny/tiny.fa -v tiny/tiny.vcf.gz -x tiny/tiny.gtf
+vg autoindex -p auto -w mpmap -w rpvg -r tiny/tiny.fa -v tiny/tiny.vcf.gz -x tiny/tiny.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with unchunked input"
 is $(ls auto.* | wc -l) 6 "autoindexing creates 6 files for mpmap/rpvg"
 vg sim -x auto.spliced.xg -n 20 -a -l 10 | vg mpmap -x auto.spliced.xg -g auto.spliced.gcsa -d auto.spliced.dist -B -t 1 -G - > /dev/null
@@ -45,18 +45,24 @@ is $(cat auto.txorigin.tsv | wc -l) 7 "transcript origin table has expected numb
 
 rm auto.*
 
-vg autoindex -p auto -w mpmap -r small/x.fa -r small/y.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/x.gtf -x small/y.gtf
+vg autoindex -p auto -w mpmap -r tiny/tiny.fa -x tiny/tiny.gtf
+is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap without variants"
+is $(ls auto.* | wc -l) 4 "autoindexing creates 4 files for mpmap/rpvg without variants"
+
+rm auto.*
+
+vg autoindex -p auto -w mpmap -w rpvg -r small/x.fa -r small/y.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/x.gtf -x small/y.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with chunked input"
 is $(ls auto.* | wc -l) 6 "autoindexing creates 6 files for mpmap/rpvg with chunked input"
 
 rm auto.*
 
-vg autoindex -p auto -w mpmap -r small/x.fa -r small/y.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/xy.gtf
+vg autoindex -p auto -w mpmap -w rpvg -r small/x.fa -r small/y.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/xy.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with partially chunked input"
 
 rm auto.*
 
-vg autoindex -p auto -w mpmap -r small/xy.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/xy.gtf
+vg autoindex -p auto -w mpmap -w rpvg -r small/xy.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/xy.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with another partially chunked input"
 
 rm auto.*
