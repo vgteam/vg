@@ -283,7 +283,13 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
                 }
             }
         } else {
-            cerr << log_name() << "<" << minimizer_count << " minimizers from " << region_start << " to " << (region_start + region_length) << ">" << endl;
+            if (region_start == 0 && length_limit == sequence.size()) {
+                // Report as if we have a count
+                cerr << log_name() << "<" << minimizer_count << " minimizers>" << endl;
+            } else {
+                // We don't know how many minimizers are actually in the region
+                cerr << log_name() << "<Minimizers from " << region_start << " to " << (region_start + region_length) << ">" << endl;
+            }
         }
     } else {
         // Draw a diagram
