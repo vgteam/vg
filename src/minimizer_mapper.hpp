@@ -195,7 +195,7 @@ public:
     bool align_from_chains = default_align_from_chains;
     
     /// What read-length-independent distance threshold do we want to use for clustering?
-    static constexpr size_t default_chaining_cluster_distance = 80;
+    static constexpr size_t default_chaining_cluster_distance = 100;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
     /// If the read coverage of a precluster connection is less than the best of any
@@ -227,7 +227,7 @@ public:
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
-    static constexpr size_t default_max_chain_connection = 80;
+    static constexpr size_t default_max_chain_connection = 100;
     size_t max_chain_connection = default_max_chain_connection;
     /// Similarly, what is the maximum tail length we will try to align?
     static constexpr size_t default_max_tail_length = 100;
@@ -236,7 +236,7 @@ public:
     /// How many bases should we look back when chaining? Needs to be about the
     /// same as the clustering distance or we will be able to cluster but not
     /// chain.
-    static constexpr size_t default_max_lookback_bases = 80;
+    static constexpr size_t default_max_lookback_bases = 100;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many chaining sources should we make sure to consider regardless of distance?
     static constexpr size_t default_min_lookback_items = 1;
