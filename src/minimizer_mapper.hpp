@@ -166,20 +166,20 @@ public:
     static constexpr size_t default_max_local_extensions = numeric_limits<size_t>::max();
     size_t max_local_extensions = default_max_local_extensions;
 
-    //If a cluster's score is smaller than the best score of any cluster by more than
-    //this much, then don't extend it
+    /// If a cluster's score is smaller than the best score of any cluster by more than
+    /// this much, then don't extend it
     static constexpr double default_cluster_score_threshold = 50;
     double cluster_score_threshold = default_cluster_score_threshold;
     
-    //If the second best cluster's score is no more than this many points below
-    //the cutoff set by cluster_score_threshold, snap that cutoff down to the
-    //second best cluster's score, to avoid throwing away promising
-    //secondaries.
+    /// If the second best cluster's score is no more than this many points below
+    /// the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    /// second best cluster's score, to avoid throwing away promising
+    /// secondaries.
     static constexpr double default_pad_cluster_score_threshold = 20;
     double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
 
-    //If the read coverage of a cluster is less than the best coverage of any cluster
-    //by more than this much, don't extend it
+    /// If the read coverage of a cluster is less than the best coverage of any cluster
+    /// by more than this much, don't extend it
     static constexpr double default_cluster_coverage_threshold = 0.3;
     double cluster_coverage_threshold = default_cluster_coverage_threshold;
     
@@ -197,6 +197,19 @@ public:
     /// What read-length-independent distance threshold do we want to use for clustering?
     static constexpr size_t default_chaining_cluster_distance = 80;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
+    
+    /// If the read coverage of a precluster connection is less than the best of any
+    /// by more than this much, don't extend it
+    static constexpr double default_precluster_connection_coverage_threshold = 0.3;
+    double precluster_connection_coverage_threshold = default_precluster_connection_coverage_threshold;
+    
+    /// How many connections between preclusters should we reseed over, minimum?
+    static constexpr size_t default_min_precluster_connections = 10;
+    size_t min_precluster_connections = default_min_precluster_connections;
+    
+    /// How many connections between preclusters should we reseed over, maximum?
+    static constexpr size_t default_max_precluster_connections = 100;
+    size_t max_precluster_connections = default_max_precluster_connections;
     
     /// When connecting subclusters for reseeding, how far should we search?
     static constexpr size_t default_reseed_search_distance = 10000;

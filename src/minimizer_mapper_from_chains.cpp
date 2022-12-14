@@ -358,8 +358,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
     // And then we do bound lookups for each cluster to find the next one
-    // And we put those pairs here
-    std::vector<std::pair<size_t, size_t>> precluster_connections;
+    // And we put those pairs here.
+    using precluster_connection_t = std::pair<size_t, size_t>;
+    std::vector<precluster_connection_t> precluster_connections;
     for (size_t i = 0; i < preclusters.size(); i++) {
         size_t past_end = precluster_read_ranges[i].second;
         // Find the cluster with the most seeds that starts the soonest after the last base in this cluster.
@@ -374,13 +375,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         }
     }
-    
-    // Sort the connections for debuggability.
-    // TODO: Stop wasting time
-    std::sort(precluster_connections.begin(), precluster_connections.end(), [&](const std::pair<size_t, size_t>& a, const std::pair<size_t, size_t>& b) {
-        return precluster_read_ranges[a.second].first < precluster_read_ranges[b.second].first ||
-            (precluster_read_ranges[a.second].first == precluster_read_ranges[b.second].first && precluster_read_ranges[a.first].second < precluster_read_ranges[b.first].second);
-    });
     
     if (track_provenance) {
         funnel.stage("reseed");
@@ -416,9 +410,22 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     for (auto& seed : seeds) {
         seen_seeds.emplace(minimizers[seed.source].forward_offset(), seed.pos);
     }
-     
-    for (auto& connected : precluster_connections) {
+    
+    process_until_threshold_a(precluster_connections.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
+        // Best pairs to connect are those with the highest total coverage
+        return preclusters[precluster_connections[i].first].coverage + preclusters[precluster_connections[i].second].coverage;
+    },
+    precluster_connection_coverage_threshold,
+    min_precluster_connections,
+    max_precluster_connections,
+    rng,
+    [&](size_t precluster_num) -> bool {
+        // This connection is good enough
+        
+        // TODO: Add provenance tracking/stage for connections?
+    
         // Reseed between each pair of preclusters and dump into seeds
+        auto& connected = precluster_connections[precluster_num];
         
         // Get the bounds in the read that we are working on
         auto& left_range = precluster_read_ranges[connected.first];
@@ -430,7 +437,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         const pos_t left_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.first].second), minimizers, this->gbwt_graph);
         const pos_t right_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
         
-        if (this->show_work) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_range.first << "-" << left_range.second << " = G:" << left_pos
+                    << "} and " << connected.second << " at {R:" << right_range.first << "-" << right_range.second << " = G:" << right_pos
+                    << "}" << std::endl;
+            }
+                    
             // Dump the minimizers in the region
             this->dump_debug_minimizers(minimizers, aln.sequence(), nullptr, left_read, right_read - left_read);
         }
@@ -463,18 +477,23 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << left_range.first << "-" << left_range.second << " = G:" << left_pos
-                    << "} and " << connected.second << " at {R:" << right_range.first << "-" << right_range.second << " = G:" << right_pos
-                    << "} found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
+                std::cerr << log_name() << "Found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
                 std::vector<size_t> new_seeds;
                 for (size_t i = seeds_before; i < seeds.size(); i++) {
                     new_seeds.push_back(i);
                 } 
                 this->dump_debug_seeds(minimizers, seeds, new_seeds);
-                  
             }
         }
-    }
+        
+        return true;
+    }, [&](size_t connection_num) -> void {
+        // There are too many sufficiently good connections
+        // TODO: Add provenance tracking
+    }, [&](size_t connection_num) -> void {
+        // This connection is not sufficiently good.
+        // TODO: Add provenance tracking
+    });
     
     if (this->track_provenance) {
         // Make items in the funnel for all the new seeds, basically as one-seed preclusters.
@@ -1105,6 +1124,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_exclude-overlapping-min", exclude_overlapping_min);
         set_annotation(mappings[0], "param_align-from-chains", align_from_chains);
         set_annotation(mappings[0], "param_chaining-cluster-distance", (double) chaining_cluster_distance);
+        set_annotation(mappings[0], "param_precluster-connection-coverage-threshold", precluster_connection_coverage_threshold);
+        set_annotation(mappings[0], "param_min-precluster-connections", (double) min_precluster_connections);
+        set_annotation(mappings[0], "param_max-precluster-connections", (double) max_precluster_connections);
         set_annotation(mappings[0], "param_min-clusters-to-chain", (double) min_clusters_to_chain);
         set_annotation(mappings[0], "param_max-clusters-to-chain", (double) max_clusters_to_chain);
         set_annotation(mappings[0], "param_reseed-search-distance", (double) reseed_search_distance);
