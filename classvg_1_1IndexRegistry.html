@@ -109,6 +109,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ad8f48075fe06df92c65bc5fd0207f9bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afdda05f4e7f1dfd93ecb33ad3b582aad"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#afdda05f4e7f1dfd93ecb33ad3b582aad">register_recipe</a> (const vector&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt; &amp;identifiers, const vector&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt; &amp;input_identifiers, const <a class="el" href="namespacevg.html#a1ff09b399af11722aeee121ae6f4fd9b">RecipeFunc</a> &amp;exec)</td></tr>
 <tr class="separator:afdda05f4e7f1dfd93ecb33ad3b582aad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e1c0e83f49e8719459e644ce143302b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a2e1c0e83f49e8719459e644ce143302b">register_generalization</a> (const <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &amp;generalizer, const <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &amp;generalizee)</td></tr>
+<tr class="separator:a2e1c0e83f49e8719459e644ce143302b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a72c4f8ea143cd9a982366234a8eed71e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a72c4f8ea143cd9a982366234a8eed71e">provide</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier, const string &amp;filename)</td></tr>
 <tr class="memdesc:a72c4f8ea143cd9a982366234a8eed71e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Indicate a serialized file that contains some identified index.  <a href="classvg_1_1IndexRegistry.html#a72c4f8ea143cd9a982366234a8eed71e">More...</a><br /></td></tr>
 <tr class="separator:a72c4f8ea143cd9a982366234a8eed71e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -189,8 +191,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a963c33ba471ce5e0c4e5403d4a86e753"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a>, vector&lt; <a class="el" href="structvg_1_1IndexRecipe.html">IndexRecipe</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a963c33ba471ce5e0c4e5403d4a86e753">recipe_registry</a></td></tr>
 <tr class="memdesc:a963c33ba471ce5e0c4e5403d4a86e753"><td class="mdescLeft">&#160;</td><td class="mdescRight">The storage struct for recipes, which may make index.  <a href="classvg_1_1IndexRegistry.html#a963c33ba471ce5e0c4e5403d4a86e753">More...</a><br /></td></tr>
 <tr class="separator:a963c33ba471ce5e0c4e5403d4a86e753"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ca3e3d567e9436918e0e970e080c00e"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt;, vector&lt; <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a6ca3e3d567e9436918e0e970e080c00e">simplifications</a></td></tr>
-<tr class="separator:a6ca3e3d567e9436918e0e970e080c00e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a665cc9431438ef50124b29e518465a05"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a>, <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a665cc9431438ef50124b29e518465a05">generalizations</a></td></tr>
+<tr class="memdesc:a665cc9431438ef50124b29e518465a05"><td class="mdescLeft">&#160;</td><td class="mdescRight">Map from generalizees to generalizers.  <a href="classvg_1_1IndexRegistry.html#a665cc9431438ef50124b29e518465a05">More...</a><br /></td></tr>
+<tr class="separator:a665cc9431438ef50124b29e518465a05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab2e9084645b146ff321f70a231161d66"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#ab2e9084645b146ff321f70a231161d66">work_dir</a></td></tr>
 <tr class="memdesc:ab2e9084645b146ff321f70a231161d66"><td class="mdescLeft">&#160;</td><td class="mdescRight">Temporary directory in which indexes will live.  <a href="classvg_1_1IndexRegistry.html#ab2e9084645b146ff321f70a231161d66">More...</a><br /></td></tr>
 <tr class="separator:ab2e9084645b146ff321f70a231161d66"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -818,6 +821,35 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a id="a2e1c0e83f49e8719459e644ce143302b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e1c0e83f49e8719459e644ce143302b">&#9670;&nbsp;</a></span>register_generalization()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexRegistry::register_generalization </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &amp;&#160;</td>
+          <td class="paramname"><em>generalizer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &amp;&#160;</td>
+          <td class="paramname"><em>generalizee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Indicate one recipe is a broadened version of another. The indexes consumed and produced by the generalization must be semantically identical to those of the generalizee </p>
+
+</div>
+</div>
 <a id="ad8f48075fe06df92c65bc5fd0207f9bc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad8f48075fe06df92c65bc5fd0207f9bc">&#9670;&nbsp;</a></span>register_index()</h2>
 
@@ -1070,6 +1102,30 @@ Friends</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a665cc9431438ef50124b29e518465a05"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a665cc9431438ef50124b29e518465a05">&#9670;&nbsp;</a></span>generalizations</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">map&lt;<a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a>, <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a>&gt; vg::IndexRegistry::generalizations</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Map from generalizees to generalizers. </p>
+
+</div>
+</div>
 <a id="a866b81f28ca2fba68aff7de143f35b9b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a866b81f28ca2fba68aff7de143f35b9b">&#9670;&nbsp;</a></span>index_registry</h2>
 
@@ -1187,29 +1243,6 @@ Friends</h2></td></tr>
 </div><div class="memdoc">
 
 <p>All of the suffixes that have been registered by indexes. </p>
-
-</div>
-</div>
-<a id="a6ca3e3d567e9436918e0e970e080c00e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6ca3e3d567e9436918e0e970e080c00e">&#9670;&nbsp;</a></span>simplifications</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt;pair&lt;vector&lt;<a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a>&gt;, vector&lt;<a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a>&gt; &gt; &gt; vg::IndexRegistry::simplifications</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Record that, when the given input indexes are available, this collection of recipes is efficient to run together. </p>
 
 </div>
 </div>

@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['namednodebacktranslation_12289',['NamedNodeBackTranslation',['../namespacevg.html#a2c7b4f84e5a75aee3d3abf4b65b0000f',1,'vg']]],
-  ['nid_5ft_12290',['nid_t',['../namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb',1,'vg::nid_t()'],['../namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45',1,'xg::nid_t()'],['../namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b',1,'handlegraph::nid_t()'],['../namespacevg_1_1io.html#a43c8209ab6c2c1d48c0ca50c24fd0d13',1,'vg::io::nid_t()']]],
-  ['node_12291',['Node',['../structvg_1_1Tree.html#ad5b04c67e4c1390c2ae46d1db40548f7',1,'vg::Tree']]],
-  ['nodetype_12292',['nodeType',['../structhaplo_1_1linear__haplo__structure.html#a2eb8780c98a02ad3a070d3d2b027170e',1,'haplo::linear_haplo_structure']]]
+  ['off_5ft_12295',['off_t',['../namespacehandlegraph.html#a0dcae34b861ba40c47d177dc06537bf7',1,'handlegraph']]],
+  ['offset_5ft_12296',['offset_t',['../namespacevg.html#afe223f2c7890c76de5e00b43ceb37add',1,'vg::offset_t()'],['../namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8',1,'handlegraph::offset_t()']]],
+  ['oriented_5fnode_5frange_5ft_12297',['oriented_node_range_t',['../namespacevg.html#acf54b55d1c1d16a3d64f1bae268a58af',1,'vg::oriented_node_range_t()'],['../namespacehandlegraph.html#aa9a6ea7613d52c42947d4faa2a189bba',1,'handlegraph::oriented_node_range_t()']]]
 ];
