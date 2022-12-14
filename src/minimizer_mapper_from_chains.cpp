@@ -442,13 +442,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     process_until_threshold_a(precluster_connections.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
-        // Best pairs to connect are those with the highest total coverage
-        return (precluster_connections[i].first == std::numeric_limits<size_t>::max() ?
-                    0.0 :
-                    preclusters[precluster_connections[i].first].coverage) + 
-               (precluster_connections[i].second == std::numeric_limits<size_t>::max() ?
-                    0.0 :
-                    preclusters[precluster_connections[i].second].coverage);
+        // Best pairs to connect are those with the highest average coverage
+        if (precluster_connections[i].first == std::numeric_limits<size_t>::max()) {
+            return preclusters[precluster_connections[i].second].coverage;
+        } else if (precluster_connections[i].second == std::numeric_limits<size_t>::max()) {
+            return preclusters[precluster_connections[i].first].coverage;
+        } else {
+            return (preclusters[precluster_connections[i].first].coverage + preclusters[precluster_connections[i].second].coverage) / 2;
+        }
     },
     precluster_connection_coverage_threshold,
     min_precluster_connections,

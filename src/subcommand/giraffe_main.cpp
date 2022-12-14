@@ -55,7 +55,7 @@ using namespace vg::subcommand;
 static GroupedOptionGroup get_options() {
     GroupedOptionGroup parser;
     
-    // COnfigure output settings on the MinimizerMapper
+    // Configure output settings on the MinimizerMapper
     auto& result_opts = parser.add_group<MinimizerMapper>("result options");
     result_opts.add_range(
         "max-multimaps", 'M',
@@ -206,6 +206,30 @@ static GroupedOptionGroup get_options() {
         &MinimizerMapper::chaining_cluster_distance,
         MinimizerMapper::default_chaining_cluster_distance,
         "maximum distance to cluster over before chaining"
+    );
+    chaining_opts.add_range(
+        "precluster-connection-coverage-threshold",
+        &MinimizerMapper::precluster_connection_coverage_threshold,
+        MinimizerMapper::default_precluster_connection_coverage_threshold,
+        "threshold of precluster pair coverage below the base, after which to stop reseeding between preclusters"
+    );
+    chaining_opts.add_range(
+        "min-precluster-connections",
+        &MinimizerMapper::min_precluster_connections,
+        MinimizerMapper::default_min_precluster_connections,
+        "minimum number of precluster connections to reseed over"
+    );
+    chaining_opts.add_range(
+        "max-precluster-connections",
+        &MinimizerMapper::max_precluster_connections,
+        MinimizerMapper::default_max_precluster_connections,
+        "maximum number of precluster connections to reseed over"
+    );
+    chaining_opts.add_range(
+        "max-lookback-bases",
+        &MinimizerMapper::max_lookback_bases,
+        MinimizerMapper::default_max_lookback_bases,
+        "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
         "max-lookback-bases",
