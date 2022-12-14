@@ -56,5 +56,15 @@ jobs:
         run: |
           export VG_FULL_TRACEBACK=1
           echo "Build with $(nproc) threads"
+          set +e
           make -j$(nproc) test
+          RETVAL=$?
+          set -e
+          # Whether vg testing succeeds or fails, see if we can get any Apple crash logs for it.
+          ls ~/Library/Logs/DiagnosticReports/
+          for CRASH_FILE in $(ls ~/Library/Logs/DiagnosticReports/vg-* 2>/dev/null) ; do
+              echo "vg crash report found: ${CRASH_FILE}"
+              cat ${CRASH_FILE}
+          done
+          exit $RETVAL
         shell: bash

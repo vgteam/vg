@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <sstream>
 #include <tuple>
 
 #include <handlegraph/types.hpp>
@@ -95,5 +96,15 @@ inline std::ostream& operator<<(std::ostream& out, const pos_t& pos) {
 }
 
 } // namespace vg
+
+namespace std {
+
+inline string to_string(const vg::pos_t& pos) {
+    stringstream ss;
+    vg::operator<<(ss, pos);
+    return ss.str();
+}
+    
+}
 
 #endif

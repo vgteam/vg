@@ -22,8 +22,8 @@ void DeletionAligner::align(Alignment& aln, const HandleGraph& graph) const {
         cerr << "error: DeletionAligner can only be used for alignments of empty strings" << endl;
         exit(1);
     }
-    auto trace = move(run_dp(graph, 1).front());
-    trace_to_alignment(aln, trace, graph);
+    auto traces = run_dp(graph, 1);
+    trace_to_alignment(aln, traces.at(0), graph);
 }
 
 void DeletionAligner::align_multi(Alignment& aln, vector<Alignment>& alt_alns,
@@ -49,6 +49,13 @@ vector<vector<handle_t>> DeletionAligner::run_dp(const HandleGraph& graph,
     cerr << "aligning deletions with " << max_tracebacks << " tracebacks" << endl;
 #endif
     auto order = handlealgs::lazier_topological_order(&graph);
+    
+    if (order.empty() && max_tracebacks > 0) {
+        // Turns out the graph is empty.
+        // We need to produce one traceback of visiting nothing.
+        return {{}};
+    }
+    
     unordered_map<handle_t, size_t> index_of;
     index_of.reserve(order.size());
     for (size_t i = 0; i < order.size(); ++i) {
@@ -66,7 +73,7 @@ pair<vector<size_t>, vector<pair<size_t, size_t>>> DeletionAligner::min_dists(
       const HandleGraph& graph) const
 {
 #ifdef debug_deletion_aligner
-    cerr << "finding min dists" << endl;
+    cerr << "finding min dists among " << order.size() << " handles" << endl;
 #endif
     // use dynamic programming to compute the minimum distance from a source
     vector<size_t> dists(order.size(), numeric_limits<size_t>::max());
@@ -75,17 +82,28 @@ pair<vector<size_t>, vector<pair<size_t, size_t>>> DeletionAligner::min_dists(
         if (dists[i] == numeric_limits<size_t>::max()) {
             // nothing has replaced the starting value, must be a source
             dists[i] = 0;
+#ifdef debug_deletion_aligner
+            cerr << "Declare a source at " << graph.get_id(order[i]) << (graph.get_is_reverse(order[i]) ? '-' : '+') << endl;
+#endif
         }
         size_t length_thru = dists[i] + graph.get_length(order[i]);
         bool is_sink = true;;
         graph.follow_edges(order[i], false, [&](const handle_t& next) {
             size_t j = index_of.at(next);
             dists[j] = min(dists[j], length_thru);
+#ifdef debug_deletion_aligner
+            cerr << "Edge from " << graph.get_id(order[i]) << (graph.get_is_reverse(order[i]) ? '-' : '+')
+                << " to " << graph.get_id(next) << (graph.get_is_reverse(next) ? '-' : '+')
+                << " assigns distance " << dists[j] << endl;
+#endif
             is_sink = false;
         });
         if (is_sink) {
             // didn't find any edges forward
             sinks.emplace_back(i, length_thru);
+#ifdef debug_deletion_aligner
+            cerr << "Declare a sink at " << graph.get_id(order[i]) << (graph.get_is_reverse(order[i]) ? '-' : '+') << " with distance " << length_thru << endl;
+#endif
         }
     }
 #ifdef debug_deletion_aligner
@@ -215,8 +233,8 @@ void DeletionAligner::trace_to_alignment(Alignment& aln, const vector<handle_t>&
     int64_t total_dist = 0;
     auto path = aln.mutable_path();
     // traces are constructed in reverse
-    for (int64_t i = trace.size() - 1; i >= 0; --i) {
-        handle_t handle = trace[i];
+    for (auto it = trace.rbegin(); it != trace.rend(); ++it) {
+        handle_t handle = *it;
         auto mapping = path->add_mapping();
         auto position = mapping->mutable_position();
         position->set_node_id(graph.get_id(handle));

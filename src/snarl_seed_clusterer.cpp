@@ -3404,12 +3404,12 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, co
         if (distance_to_start1 < distance_to_start2) {
             //IF 1 comes before 2
             minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2), node_length);
-        } else 
-            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end2 , distance_to_start1), node_length);{
+        } else {
+            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end2 , distance_to_start1), node_length);
         }
         if (stop_at_lowest_common_ancestor) {
             //If we only care about the lowest common ancestor, then return
-            return minimum_distance;
+            return SnarlDistanceIndex::minus(minimum_distance, 1);
         }
         
     }

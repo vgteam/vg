@@ -1695,7 +1695,7 @@ TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
         check_score(result, aligner, sequence.length(), 0, 1, 2);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
-
+    
     SECTION("Insertion in the middle") {
         // MMMMMIIM|MMMM
         std::string sequence("ATTATACAGATT");
@@ -1729,6 +1729,22 @@ TEST_CASE("Gaps in a linear graph", "[wfa_extender]") {
         pos_t from(3, true, 0); pos_t to(2, true, 6);
         WFAAlignment result = extender.connect(sequence, from, to);
         check_score(result, aligner, sequence.length(), 0, 1, 2);
+        check_alignment(result, sequence, graph, aligner, &from, &to);
+    }
+    
+    SECTION("Deletion to empty string over node boundary") {
+        // DDDDDD|DDDD
+        std::string sequence("");
+        pos_t from(2, false, 0); pos_t to(3, false, 4);
+        
+        // To support this many deletions we need to adjust the default error model.
+        WFAExtender::ErrorModel model = WFAExtender::default_error_model;
+        model.gap_length.max = 15;
+        model.gap_length.min = 15;
+        extender = WFAExtender(graph, aligner, model);
+        
+        WFAAlignment result = extender.connect(sequence, from, to);
+        check_score(result, aligner, sequence.length(), 0, 1, 10);
         check_alignment(result, sequence, graph, aligner, &from, &to);
     }
 

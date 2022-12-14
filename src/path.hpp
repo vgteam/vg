@@ -246,6 +246,9 @@ public:
 
 string  path_to_string(Path p);
 Path& increment_node_mapping_ids(Path& p, id_t inc);
+/// Append the second path onto the end of the first, without combining
+/// mappings or simplifying. Modifies and returns a reference to the first
+/// path.
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
 int path_to_length(const Path& path);

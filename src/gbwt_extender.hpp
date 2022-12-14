@@ -82,7 +82,7 @@ struct GaplessExtension
     /// Take a prefix of the extension as a new GaplessExtension object.
     GaplessExtension prefix(size_t prefix_length) const;
 
-    /// Convert the extension into a Path.
+    /// Convert the extension into a Path. The sequence should be the full read-space sequence. 
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
     /// For priority queues.
