@@ -62,7 +62,7 @@ jobs:
           set -e
           # Whether vg testing succeeds or fails, see if we can get any Apple crash logs for it.
           ls ~/Library/Logs/DiagnosticReports/
-          for CRASH_FILE in $(ls ~/Library/Logs/DiagnosticReports/vg_*) ; do
+          for CRASH_FILE in $(ls ~/Library/Logs/DiagnosticReports/vg-* 2>/dev/null) ; do
               echo "vg crash report found: ${CRASH_FILE}"
               cat ${CRASH_FILE}
           done

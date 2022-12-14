@@ -295,7 +295,9 @@ int main_giraffe(int argc, char** argv) {
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
     // Set up to parse options
-    GroupedOptionGroup parser = get_options();
+    std::unique_ptr<GroupedOptionGroup> parser_holder;
+    parser_holder.reset(new GroupedOptionGroup(get_options()));
+    auto& parser = *parser_holder;
 
     if (argc == 2) {
         help_giraffe(argv, parser);
@@ -1353,6 +1355,8 @@ int main_giraffe(int argc, char** argv) {
         }
         
     });
+    
+    parser_holder.reset();
         
     return 0;
 }
