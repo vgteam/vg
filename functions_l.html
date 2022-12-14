@@ -82,7 +82,7 @@ $(function() {
 : <a class="el" href="structvg_1_1Watchdog_1_1thread__state__t.html#ad54ba05d09be7a40b4e9504b8d020ea6">vg::Watchdog::thread_state_t</a>
 </li>
 <li>last_correct_stage()
-: <a class="el" href="classvg_1_1Funnel.html#a99b8a07d0b3a1d0649aae4090918bfad">vg::Funnel</a>
+: <a class="el" href="classvg_1_1Funnel.html#a996005ebe76091bbba404bf4a2a9a405">vg::Funnel</a>
 </li>
 <li>last_group_min_id
 : <a class="el" href="classvg_1_1StreamIndexBase.html#aef3a7bd46aeb49185a8cd6a9a261e883">vg::StreamIndexBase</a>
@@ -92,6 +92,9 @@ $(function() {
 </li>
 <li>last_progress
 : <a class="el" href="classvg_1_1Progressive.html#a4984481e2b887e5fb78ea40728f1b97f">vg::Progressive</a>
+</li>
+<li>last_tagged_stage()
+: <a class="el" href="classvg_1_1Funnel.html#ab53e816bd740407417b0bd8d14d5237c">vg::Funnel</a>
 </li>
 <li>latest()
 : <a class="el" href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">vg::Funnel</a>
@@ -157,6 +160,7 @@ $(function() {
 : <a class="el" href="structhaplo_1_1haplo__DP__column.html#a43833a8ca83be7d6c2daa13b7707f32f">haplo::haplo_DP_column</a>
 , <a class="el" href="classhaplo_1_1hDP__gbwt__graph__accessor.html#ac06d9b8444018d7490500c9dfa97a03b">haplo::hDP_gbwt_graph_accessor&lt; GBWTType &gt;</a>
 , <a class="el" href="structMappingRun.html#af5b291d6db781206833956c21d74c94f">MappingRun</a>
+, <a class="el" href="classvg_1_1algorithms_1_1Anchor.html#a2fbd6d0440d796d4feb855488bab5b24">vg::algorithms::Anchor</a>
 , <a class="el" href="classvg_1_1algorithms_1_1GFAParser.html#aea0cfcb22ae0987ea37f64c5cd547322">vg::algorithms::GFAParser</a>
 , <a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a4be6edd3b92c2b9670ea09ec82aa3846">vg::algorithms::walk_t</a>
 , <a class="el" href="classvg_1_1BitString.html#a07225c6d00ba670f2dd0b3d6dd83bf70">vg::BitString</a>
@@ -233,7 +237,7 @@ $(function() {
 : <a class="el" href="structGraphHandler.html#a74c5a92b327a6cfef23afac62eb413a5">GraphHandler</a>
 </li>
 <li>load_one()
-: <a class="el" href="classvg_1_1io_1_1VPKG.html#a60cacf98de761eab29ed168ee56e8e39">vg::io::VPKG</a>
+: <a class="el" href="classvg_1_1io_1_1VPKG.html#affd67a72df658a50228c6cae7efe7753">vg::io::VPKG</a>
 </li>
 <li>load_pack_as_supports()
 : <a class="el" href="structvg_1_1SupportAugmentedGraph.html#ac7374e695e572eb9eace645005992ec9">vg::SupportAugmentedGraph</a>
@@ -246,6 +250,9 @@ $(function() {
 </li>
 <li>local_handle()
 : <a class="el" href="classxg_1_1XGPath.html#a6a9566f974aebd3c74fc00ee9dc0c5f0">xg::XGPath</a>
+</li>
+<li>Lock()
+: <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a64972da675bb40fbbaec55470aeebdc4">vg::GraphSynchronizer::Lock</a>
 </li>
 <li>lock()
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a1a6ed95994cc497481d3338986a30e49">vg::GraphSynchronizer::Lock</a>
@@ -270,7 +277,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Genotyper.html#a55c456d612728331007f2f6c4307195f">vg::Genotyper</a>
 </li>
 <li>log_alignment()
-: <a class="el" href="classvg_1_1MinimizerMapper.html#aed8f32c63a79281d8693c19f6d6d5521">vg::MinimizerMapper</a>
+: <a class="el" href="classvg_1_1MinimizerMapper.html#ab02245901b7ec1710512eab20aec3a48">vg::MinimizerMapper</a>
 </li>
 <li>log_base
 : <a class="el" href="classvg_1_1GSSWAligner.html#a5a1a7e6edc3764ff32f7815999d6345f">vg::GSSWAligner</a>
@@ -337,10 +344,19 @@ $(function() {
 : <a class="el" href="classvg_1_1ConfigurableParser.html#a60395eaf832c2acfa46fe0763749614f">vg::ConfigurableParser</a>
 </li>
 <li>longest_detectable_gap()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a820cb34582e239efb55297b55455e310">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a00852660c55c381bdcc3546bdb2b1a93">vg::GSSWAligner</a>
 </li>
 <li>longest_paths_in_forest()
 : <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a98105712f44db6c5fadc3b9bd64f97f0">vg::IntegratedSnarlFinder::MergedAdjacencyGraph</a>
+</li>
+<li>lookback_scale_factor
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a053ecaf9d07436f85d39eecfb1f784ac">vg::MinimizerMapper</a>
+</li>
+<li>lookup_for_read_in()
+: <a class="el" href="structvg_1_1read__alignment__index__t.html#add622e2d97706e4ad842ed27d2a93726">vg::read_alignment_index_t</a>
+</li>
+<li>lookup_in()
+: <a class="el" href="structvg_1_1alignment__index__t.html#a96d88d8fc53918a02c51b6ba811e88be">vg::alignment_index_t</a>
 </li>
 <li>loop_left
 : <a class="el" href="structvg_1_1SnarlDistanceIndexClusterer_1_1SnarlTreeNodeProblem.html#a3374b357e0bc3bc98bd131d7dc0a3209">vg::SnarlDistanceIndexClusterer::SnarlTreeNodeProblem</a>

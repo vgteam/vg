@@ -607,7 +607,7 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Iterate over ranges of virtual offsets from the end of the file to the start. The ranges to <em>not</em> necessarily correspond to runs. The ending VO of the first range iterated may be numeric_limits&lt;int64_t&gt;::max(). The start VO of each range is guaranteed to be a valid VO of a group. The past-end VO may be the start of the previously iterated range. We have no scan_forward because you can just do that with a cursor. Stops when the callback returns false. </p>
+<p>Iterate over ranges of virtual offsets from the end of the file to the start. The ranges to <em>not</em> necessarily correspond to runs. The ending VO of the first range iterated may be <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;int64_t&gt;::max()</a>. The start VO of each range is guaranteed to be a valid VO of a group. The past-end VO may be the start of the previously iterated range. We have no scan_forward because you can just do that with a cursor. Stops when the callback returns false. </p>
 
 </div>
 </div>

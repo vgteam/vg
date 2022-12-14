@@ -85,12 +85,18 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a23706e46f9ebd56acbea3c612358bb79"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91b9d511109c7c561be120d3346ea3df"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a91b9d511109c7c561be120d3346ea3df">score</a> = 0</td></tr>
 <tr class="separator:a91b9d511109c7c561be120d3346ea3df"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aed70406f40053fdaec6147a350fe2f0f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#aed70406f40053fdaec6147a350fe2f0f">correct</a> = false</td></tr>
-<tr class="memdesc:aed70406f40053fdaec6147a350fe2f0f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is this item tagged as correct, or a descendant of a tagged item?  <a href="structvg_1_1Funnel_1_1Item.html#aed70406f40053fdaec6147a350fe2f0f">More...</a><br /></td></tr>
-<tr class="separator:aed70406f40053fdaec6147a350fe2f0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acba00ec4fad9a9b3f1a0f9c8dcb4484c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#acba00ec4fad9a9b3f1a0f9c8dcb4484c">tag</a> = <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693">State::NONE</a></td></tr>
+<tr class="memdesc:acba00ec4fad9a9b3f1a0f9c8dcb4484c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is this item tagged with a state, or a descendant of a tagged item?  <a href="structvg_1_1Funnel_1_1Item.html#acba00ec4fad9a9b3f1a0f9c8dcb4484c">More...</a><br /></td></tr>
+<tr class="separator:acba00ec4fad9a9b3f1a0f9c8dcb4484c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a40097e3acf4a20046f5679c5601f823f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a40097e3acf4a20046f5679c5601f823f">tag_start</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:a40097e3acf4a20046f5679c5601f823f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a965c4d888554644e3cbfc5deae970b92"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a965c4d888554644e3cbfc5deae970b92">tag_length</a> = 0</td></tr>
+<tr class="separator:a965c4d888554644e3cbfc5deae970b92"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ee7530fac67298fbcdb27f8280b4a14"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a9ee7530fac67298fbcdb27f8280b4a14">prev_stage_items</a> = {}</td></tr>
 <tr class="memdesc:a9ee7530fac67298fbcdb27f8280b4a14"><td class="mdescLeft">&#160;</td><td class="mdescRight">What previous stage items were combined to make this one, if any?  <a href="structvg_1_1Funnel_1_1Item.html#a9ee7530fac67298fbcdb27f8280b4a14">More...</a><br /></td></tr>
 <tr class="separator:a9ee7530fac67298fbcdb27f8280b4a14"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e3bcc678e4f1d348d87941074869007"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a0e3bcc678e4f1d348d87941074869007">earlier_stage_items</a> = {}</td></tr>
+<tr class="separator:a0e3bcc678e4f1d348d87941074869007"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a566978051c820d69d63e72763dc38b17"><td class="memItemLeft" align="right" valign="top">vector&lt; const char * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html#a566978051c820d69d63e72763dc38b17">passed_filters</a> = {}</td></tr>
 <tr class="memdesc:a566978051c820d69d63e72763dc38b17"><td class="mdescLeft">&#160;</td><td class="mdescRight">What filters did the item pass at this stage, if any?  <a href="structvg_1_1Funnel_1_1Item.html#a566978051c820d69d63e72763dc38b17">More...</a><br /></td></tr>
 <tr class="separator:a566978051c820d69d63e72763dc38b17"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -107,19 +113,18 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents an <a class="el" href="structvg_1_1Funnel_1_1Item.html" title="Represents an Item whose provenance we track.">Item</a> whose provenance we track. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
-<a id="aed70406f40053fdaec6147a350fe2f0f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aed70406f40053fdaec6147a350fe2f0f">&#9670;&nbsp;</a></span>correct</h2>
+<a id="a0e3bcc678e4f1d348d87941074869007"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e3bcc678e4f1d348d87941074869007">&#9670;&nbsp;</a></span>earlier_stage_items</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::Funnel::Item::correct = false</td>
+          <td class="memname">vector&lt;pair&lt;size_t, size_t&gt; &gt; vg::Funnel::Item::earlier_stage_items = {}</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Is this item tagged as correct, or a descendant of a tagged item? </p>
+<p>And what items from stages before that? Recorded as (stage offset, item number) pairs; all the offsets will be &gt;=2. </p>
 
 </div>
 </div>
@@ -228,6 +233,51 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="acba00ec4fad9a9b3f1a0f9c8dcb4484c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acba00ec4fad9a9b3f1a0f9c8dcb4484c">&#9670;&nbsp;</a></span>tag</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a> vg::Funnel::Item::tag = <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693">State::NONE</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Is this item tagged with a state, or a descendant of a tagged item? </p>
+
+</div>
+</div>
+<a id="a965c4d888554644e3cbfc5deae970b92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a965c4d888554644e3cbfc5deae970b92">&#9670;&nbsp;</a></span>tag_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Funnel::Item::tag_length = 0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a40097e3acf4a20046f5679c5601f823f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a40097e3acf4a20046f5679c5601f823f">&#9670;&nbsp;</a></span>tag_start</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Funnel::Item::tag_start = std::numeric_limits&lt;size_t&gt;::max()</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>If the item is tagged, over what interval is it tagged? When projecting, intervals are combined by min/maxing the bounds. </p>
 
 </div>
 </div>

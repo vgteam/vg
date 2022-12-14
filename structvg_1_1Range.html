@@ -76,8 +76,16 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p>This defines a range of values to test, from start to &lt;=end, going up by step.  
- <a href="structvg_1_1Range.html#details">More...</a></p>
+<p><code>#include &lt;options.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::Range&lt; Number &gt;:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="structvg_1_1Range.png" usemap="#vg::Range_3C_20Number_20_3E_map" alt=""/>
+  <map id="vg::Range_3C_20Number_20_3E_map" name="vg::Range_3C_20Number_20_3E_map">
+<area href="structvg_1_1subcommand_1_1TickChainLink.html" alt="vg::subcommand::TickChainLink" shape="rect" coords="0,0,190,24"/>
+  </map>
+</div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
@@ -120,11 +128,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a10f700e0447a5a922611122fa1811b61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac43f1cdc096cf02b316361df308ff934"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html#ac43f1cdc096cf02b316361df308ff934">tick_chain</a> ()</td></tr>
 <tr class="separator:ac43f1cdc096cf02b316361df308ff934"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9e877d24ff937a7ad40da61d809ebaaf"><td class="memTemplParams" colspan="2">template&lt;typename Other &gt; </td></tr>
-<tr class="memitem:a9e877d24ff937a7ad40da61d809ebaaf"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Range.html">Range</a>&lt; Other &gt; &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html#a9e877d24ff937a7ad40da61d809ebaaf">chain</a> (<a class="el" href="structvg_1_1Range.html">Range</a>&lt; Other &gt; &amp;next)</td></tr>
-<tr class="separator:a9e877d24ff937a7ad40da61d809ebaaf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac9cd52441da7ba1816ec79cc787716c1"><td class="memItemLeft" align="right" valign="top">function&lt; void(const function&lt; void(void)&gt; &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html#ac9cd52441da7ba1816ec79cc787716c1">get_iterator</a> ()</td></tr>
-<tr class="separator:ac9cd52441da7ba1816ec79cc787716c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_structvg_1_1subcommand_1_1TickChainLink"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_structvg_1_1subcommand_1_1TickChainLink')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html">vg::subcommand::TickChainLink</a></td></tr>
+<tr class="memitem:aa5742ab455378cdb60f18cafba2ce01d inherit pub_methods_structvg_1_1subcommand_1_1TickChainLink"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html">TickChainLink</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#aa5742ab455378cdb60f18cafba2ce01d">chain</a> (<a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html">TickChainLink</a> &amp;next)</td></tr>
+<tr class="separator:aa5742ab455378cdb60f18cafba2ce01d inherit pub_methods_structvg_1_1subcommand_1_1TickChainLink"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa21e2c735dba10a3b97c739d66008937 inherit pub_methods_structvg_1_1subcommand_1_1TickChainLink"><td class="memItemLeft" align="right" valign="top">virtual std::function&lt; void(const std::function&lt; void(void)&gt; &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#aa21e2c735dba10a3b97c739d66008937">get_iterator</a> ()</td></tr>
+<tr class="separator:aa21e2c735dba10a3b97c739d66008937 inherit pub_methods_structvg_1_1subcommand_1_1TickChainLink"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -143,18 +151,19 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:abbd18ac55fecb0e698fcabebc7ae48ad"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html#abbd18ac55fecb0e698fcabebc7ae48ad">running</a> = false</td></tr>
 <tr class="memdesc:abbd18ac55fecb0e698fcabebc7ae48ad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determines if we are running or not (i.e. is here valid)  <a href="structvg_1_1Range.html#abbd18ac55fecb0e698fcabebc7ae48ad">More...</a><br /></td></tr>
 <tr class="separator:abbd18ac55fecb0e698fcabebc7ae48ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae7094ff81d6898f0c8e8b7883f316bd9"><td class="memItemLeft" align="right" valign="top">function&lt; void(void)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html#ae7094ff81d6898f0c8e8b7883f316bd9">reset_chain_parent</a></td></tr>
-<tr class="memdesc:ae7094ff81d6898f0c8e8b7883f316bd9"><td class="mdescLeft">&#160;</td><td class="mdescRight">This will be called when we want to reset_chain what we are chained onto.  <a href="structvg_1_1Range.html#ae7094ff81d6898f0c8e8b7883f316bd9">More...</a><br /></td></tr>
-<tr class="separator:ae7094ff81d6898f0c8e8b7883f316bd9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae0be818c9296bc19e77d5e3b0df7bd20"><td class="memItemLeft" align="right" valign="top">function&lt; bool(void)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html#ae0be818c9296bc19e77d5e3b0df7bd20">tick_chain_parent</a></td></tr>
-<tr class="memdesc:ae0be818c9296bc19e77d5e3b0df7bd20"><td class="mdescLeft">&#160;</td><td class="mdescRight">This will be called when we need to tick_chain our parent.  <a href="structvg_1_1Range.html#ae0be818c9296bc19e77d5e3b0df7bd20">More...</a><br /></td></tr>
-<tr class="separator:ae0be818c9296bc19e77d5e3b0df7bd20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_structvg_1_1subcommand_1_1TickChainLink')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html">vg::subcommand::TickChainLink</a></td></tr>
+<tr class="memitem:ab14c8136e84a40ba55b2608874ff96b0 inherit pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td class="memItemLeft" align="right" valign="top">std::function&lt; void(void)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#ab14c8136e84a40ba55b2608874ff96b0">reset_chain_parent</a></td></tr>
+<tr class="memdesc:ab14c8136e84a40ba55b2608874ff96b0 inherit pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td class="mdescLeft">&#160;</td><td class="mdescRight">This will be called when we want to reset_chain what we are chained onto.  <a href="structvg_1_1subcommand_1_1TickChainLink.html#ab14c8136e84a40ba55b2608874ff96b0">More...</a><br /></td></tr>
+<tr class="separator:ab14c8136e84a40ba55b2608874ff96b0 inherit pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20f21e9c115468aeae6c5556d4a8983d inherit pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td class="memItemLeft" align="right" valign="top">std::function&lt; bool(void)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#a20f21e9c115468aeae6c5556d4a8983d">tick_chain_parent</a></td></tr>
+<tr class="memdesc:a20f21e9c115468aeae6c5556d4a8983d inherit pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td class="mdescLeft">&#160;</td><td class="mdescRight">This will be called when we need to tick_chain our parent.  <a href="structvg_1_1subcommand_1_1TickChainLink.html#a20f21e9c115468aeae6c5556d4a8983d">More...</a><br /></td></tr>
+<tr class="separator:a20f21e9c115468aeae6c5556d4a8983d inherit pub_attribs_structvg_1_1subcommand_1_1TickChainLink"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><h3>template&lt;typename Number&gt;<br />
 struct vg::Range&lt; Number &gt;</h3>
 
-<p>This defines a range of values to test, from start to &lt;=end, going up by step. </p>
+<p>Tickable link that represents a single value or a range of values. <a class="el" href="structvg_1_1Range.html">Range</a> rusn from start to &lt;=end, going up by step. You can set the range to s aingle value or to a full range, and when you read it you see the current value. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a5ea713fb16f3d49d94278914668503a9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5ea713fb16f3d49d94278914668503a9">&#9670;&nbsp;</a></span>type</h2>
@@ -293,65 +302,6 @@ template&lt;typename Number &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a9e877d24ff937a7ad40da61d809ebaaf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9e877d24ff937a7ad40da61d809ebaaf">&#9670;&nbsp;</a></span>chain()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Number &gt; </div>
-<div class="memtemplate">
-template&lt;typename Other &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Range.html">Range</a>&lt;Other&gt;&amp; <a class="el" href="structvg_1_1Range.html">vg::Range</a>&lt; Number &gt;::chain </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Range.html">Range</a>&lt; Other &gt; &amp;&#160;</td>
-          <td class="paramname"><em>next</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Chain the given range onto this one. Return the passed-in range. Neither range may be moved away! </p>
-
-</div>
-</div>
-<a id="ac9cd52441da7ba1816ec79cc787716c1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac9cd52441da7ba1816ec79cc787716c1">&#9670;&nbsp;</a></span>get_iterator()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Number &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">function&lt;void(const function&lt;void(void)&gt;&amp;)&gt; <a class="el" href="structvg_1_1Range.html">vg::Range</a>&lt; Number &gt;::get_iterator </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Get a function that runs another function for each combination of values for this <a class="el" href="structvg_1_1Range.html" title="This defines a range of values to test, from start to &lt;=end, going up by step.">Range</a> and all Ranges it has been chained onto. </p>
-
-</div>
-</div>
 <a id="a15b962d68b5743aa9ba5f8a487007a83"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a15b962d68b5743aa9ba5f8a487007a83">&#9670;&nbsp;</a></span>is_valid()</h2>
 
@@ -519,12 +469,14 @@ template&lt;typename Number &gt; </div>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 
 <p>Start us and all the things we are chained onto at their start values. </p>
+
+<p>Reimplemented from <a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#a5a3dd8ac3d8a86fec1d2062e6d864c73">vg::subcommand::TickChainLink</a>.</p>
 
 </div>
 </div>
@@ -576,11 +528,13 @@ template&lt;typename Number &gt; </div>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Increment our value. If it overflows, tock_chain whatever we are chained onto, and reset and succeed if that succeeds. </p>
+<p>Increment our value. If it overflows, tick_chain whatever we are chained onto, and reset and succeed if that succeeds. </p>
+
+<p>Reimplemented from <a class="el" href="structvg_1_1subcommand_1_1TickChainLink.html#a90c9bb7ca4ab9e7f91bb246c5949eae4">vg::subcommand::TickChainLink</a>.</p>
 
 </div>
 </div>
@@ -618,26 +572,6 @@ template&lt;typename Number &gt; </div>
 </div><div class="memdoc">
 
 <p>Represents the current value the range is at. </p>
-
-</div>
-</div>
-<a id="ae7094ff81d6898f0c8e8b7883f316bd9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae7094ff81d6898f0c8e8b7883f316bd9">&#9670;&nbsp;</a></span>reset_chain_parent</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Number &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">function&lt;void(void)&gt; <a class="el" href="structvg_1_1Range.html">vg::Range</a>&lt; Number &gt;::reset_chain_parent</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">= []() {</div>
-<div class="line">    }</div>
-</div><!-- fragment -->
-<p>This will be called when we want to reset_chain what we are chained onto. </p>
 
 </div>
 </div>
@@ -695,29 +629,8 @@ template&lt;typename Number &gt; </div>
 
 </div>
 </div>
-<a id="ae0be818c9296bc19e77d5e3b0df7bd20"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae0be818c9296bc19e77d5e3b0df7bd20">&#9670;&nbsp;</a></span>tick_chain_parent</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Number &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">function&lt;bool(void)&gt; <a class="el" href="structvg_1_1Range.html">vg::Range</a>&lt; Number &gt;::tick_chain_parent</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">= []() {</div>
-<div class="line">        <span class="keywordflow">return</span> <span class="keyword">false</span>;</div>
-<div class="line">    }</div>
-</div><!-- fragment -->
-<p>This will be called when we need to tick_chain our parent. </p>
-
-</div>
-</div>
 <hr/>The documentation for this struct was generated from the following file:<ul>
-<li>src/subcommand/<a class="el" href="giraffe__main_8cpp.html">giraffe_main.cpp</a></li>
+<li>src/subcommand/<a class="el" href="options_8hpp.html">options.hpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

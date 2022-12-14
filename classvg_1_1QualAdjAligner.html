@@ -90,123 +90,123 @@ Inheritance diagram for vg::QualAdjAligner:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:abb28b2864e6e48ed6e7ffe705be68a48"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#abb28b2864e6e48ed6e7ffe705be68a48">QualAdjAligner</a> (const int8_t *_score_matrix=default_score_matrix, int8_t _gap_open=default_gap_open, int8_t _gap_extension=default_gap_extension, int8_t _full_length_bonus=default_full_length_bonus, double _gc_content=default_gc_content)</td></tr>
-<tr class="separator:abb28b2864e6e48ed6e7ffe705be68a48"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a611f96202de903220d924bf918950e7c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a611f96202de903220d924bf918950e7c">~QualAdjAligner</a> (void)</td></tr>
-<tr class="separator:a611f96202de903220d924bf918950e7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af5a9e2e96926859e3c3deeecdf374f9d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#af5a9e2e96926859e3c3deeecdf374f9d">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool traceback_aln) const</td></tr>
-<tr class="separator:af5a9e2e96926859e3c3deeecdf374f9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab9e5a1a0233d35ee28789516b9344f43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ab9e5a1a0233d35ee28789516b9344f43">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
-<tr class="separator:ab9e5a1a0233d35ee28789516b9344f43"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac8142837afb23ddc7c9f634048b2a5a1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ac8142837afb23ddc7c9f634048b2a5a1">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, bool xdrop=false, uint16_t xdrop_max_gap_length=default_xdrop_max_gap_length) const</td></tr>
-<tr class="separator:ac8142837afb23ddc7c9f634048b2a5a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a70b09053f260e4a49da46b4a6799c729"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a70b09053f260e4a49da46b4a6799c729">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
-<tr class="separator:a70b09053f260e4a49da46b4a6799c729"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4a3999dbef4ad44d15f9475c62809ec2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a4a3999dbef4ad44d15f9475c62809ec2">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int32_t max_alt_alns) const</td></tr>
-<tr class="separator:a4a3999dbef4ad44d15f9475c62809ec2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02375e46df40e5163bee95a18cca0705"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a02375e46df40e5163bee95a18cca0705">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const</td></tr>
-<tr class="memdesc:a02375e46df40e5163bee95a18cca0705"><td class="mdescLeft">&#160;</td><td class="mdescRight">xdrop aligner  <a href="classvg_1_1QualAdjAligner.html#a02375e46df40e5163bee95a18cca0705">More...</a><br /></td></tr>
-<tr class="separator:a02375e46df40e5163bee95a18cca0705"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd4904b68a5db468672d13d095b3a298"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#acd4904b68a5db468672d13d095b3a298">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const</td></tr>
-<tr class="separator:acd4904b68a5db468672d13d095b3a298"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac206da9087de3fd77d26147e26ebb9dd"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ac206da9087de3fd77d26147e26ebb9dd">score_exact_match</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t read_offset, size_t length) const</td></tr>
-<tr class="separator:ac206da9087de3fd77d26147e26ebb9dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a89a12943aa532cda18ebbd5ccb8ac7f9"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a89a12943aa532cda18ebbd5ccb8ac7f9">score_exact_match</a> (const string &amp;sequence, const string &amp;base_quality) const</td></tr>
-<tr class="separator:a89a12943aa532cda18ebbd5ccb8ac7f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7477c0be20954fbe9ddd3939a8abaa8d"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a7477c0be20954fbe9ddd3939a8abaa8d">score_exact_match</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
-<tr class="separator:a7477c0be20954fbe9ddd3939a8abaa8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4b60c05aa08eaf51d5e77aabde39a409"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a4b60c05aa08eaf51d5e77aabde39a409">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
-<tr class="separator:a4b60c05aa08eaf51d5e77aabde39a409"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2b8898f04397d773b73b3c32ae9b74b8"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a2b8898f04397d773b73b3c32ae9b74b8">score_full_length_bonus</a> (bool left_side, string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
-<tr class="separator:a2b8898f04397d773b73b3c32ae9b74b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1dae3734684e38399793267a550fd1bb"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a1dae3734684e38399793267a550fd1bb">score_full_length_bonus</a> (bool left_side, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
-<tr class="separator:a1dae3734684e38399793267a550fd1bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aba298db3a8925219193a648acbc03c61"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#aba298db3a8925219193a648acbc03c61">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const</td></tr>
-<tr class="memdesc:aba298db3a8925219193a648acbc03c61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="classvg_1_1QualAdjAligner.html#aba298db3a8925219193a648acbc03c61">More...</a><br /></td></tr>
-<tr class="separator:aba298db3a8925219193a648acbc03c61"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1eb97ac4416d8ae7e23351c2c03e0314"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a1eb97ac4416d8ae7e23351c2c03e0314">QualAdjAligner</a> (const int8_t *_score_matrix=default_score_matrix, int8_t _gap_open=default_gap_open, int8_t _gap_extension=default_gap_extension, int8_t _full_length_bonus=default_full_length_bonus, double _gc_content=default_gc_content)</td></tr>
+<tr class="separator:a1eb97ac4416d8ae7e23351c2c03e0314"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2fb50e162cf507b6feca91f4294c4e1a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a2fb50e162cf507b6feca91f4294c4e1a">~QualAdjAligner</a> (void)</td></tr>
+<tr class="separator:a2fb50e162cf507b6feca91f4294c4e1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46684d481ad89ddf49b98e952388c9b8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a46684d481ad89ddf49b98e952388c9b8">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool traceback_aln) const</td></tr>
+<tr class="separator:a46684d481ad89ddf49b98e952388c9b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7982acd5c785bf80de3e2b8ddeb89dd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#af7982acd5c785bf80de3e2b8ddeb89dd">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
+<tr class="separator:af7982acd5c785bf80de3e2b8ddeb89dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af1545edb0591d1b62bb10714af6aa3bd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#af1545edb0591d1b62bb10714af6aa3bd">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, bool xdrop=false, uint16_t xdrop_max_gap_length=default_xdrop_max_gap_length) const</td></tr>
+<tr class="separator:af1545edb0591d1b62bb10714af6aa3bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a61c7e3502ccbc03884be829da20768c2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a61c7e3502ccbc03884be829da20768c2">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
+<tr class="separator:a61c7e3502ccbc03884be829da20768c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a44a05f9824834133c34f487f77708383"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a44a05f9824834133c34f487f77708383">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int32_t max_alt_alns) const</td></tr>
+<tr class="separator:a44a05f9824834133c34f487f77708383"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2ffbaa8d9a7e2b8cf503a3bdd169e0c5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a2ffbaa8d9a7e2b8cf503a3bdd169e0c5">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const</td></tr>
+<tr class="memdesc:a2ffbaa8d9a7e2b8cf503a3bdd169e0c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">xdrop aligner  <a href="classvg_1_1QualAdjAligner.html#a2ffbaa8d9a7e2b8cf503a3bdd169e0c5">More...</a><br /></td></tr>
+<tr class="separator:a2ffbaa8d9a7e2b8cf503a3bdd169e0c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8b497f4fb4d1e07d2bc388de3b8b604e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a8b497f4fb4d1e07d2bc388de3b8b604e">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const</td></tr>
+<tr class="separator:a8b497f4fb4d1e07d2bc388de3b8b604e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adf03ac873ae9a9cfbc21e589775111be"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#adf03ac873ae9a9cfbc21e589775111be">score_exact_match</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t read_offset, size_t length) const</td></tr>
+<tr class="separator:adf03ac873ae9a9cfbc21e589775111be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51941e8914296630f63d303c548cee8d"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a51941e8914296630f63d303c548cee8d">score_exact_match</a> (const string &amp;sequence, const string &amp;base_quality) const</td></tr>
+<tr class="separator:a51941e8914296630f63d303c548cee8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8348afe2de6738fd4cd26e3fd6358818"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a8348afe2de6738fd4cd26e3fd6358818">score_exact_match</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
+<tr class="separator:a8348afe2de6738fd4cd26e3fd6358818"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada69f388d291f6c3693812d91c84231a"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ada69f388d291f6c3693812d91c84231a">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
+<tr class="separator:ada69f388d291f6c3693812d91c84231a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac4505d206516b2ad51bdc2387309ae9e"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ac4505d206516b2ad51bdc2387309ae9e">score_full_length_bonus</a> (bool left_side, string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
+<tr class="separator:ac4505d206516b2ad51bdc2387309ae9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a84b8bacfebeb426d367ec4441800a4e4"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a84b8bacfebeb426d367ec4441800a4e4">score_full_length_bonus</a> (bool left_side, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
+<tr class="separator:a84b8bacfebeb426d367ec4441800a4e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee20bae08e744224825723a878d57bef"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#aee20bae08e744224825723a878d57bef">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const</td></tr>
+<tr class="memdesc:aee20bae08e744224825723a878d57bef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="classvg_1_1QualAdjAligner.html#aee20bae08e744224825723a878d57bef">More...</a><br /></td></tr>
+<tr class="separator:aee20bae08e744224825723a878d57bef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
-<tr class="memitem:a0cbfe31fd31f4155e2db3ab9027ee4ef inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a0cbfe31fd31f4155e2db3ab9027ee4ef">max_possible_mapping_quality</a> (int length) const</td></tr>
-<tr class="separator:a0cbfe31fd31f4155e2db3ab9027ee4ef inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1a15539f94b43518a2363332122254ef inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a1a15539f94b43518a2363332122254ef">estimate_max_possible_mapping_quality</a> (int length, double min_diffs, double next_min_diffs) const</td></tr>
-<tr class="separator:a1a15539f94b43518a2363332122254ef inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a616923bd568fa23d20c0e3a019d650ea inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a616923bd568fa23d20c0e3a019d650ea">score_gap</a> (size_t gap_length) const</td></tr>
-<tr class="memdesc:a616923bd568fa23d20c0e3a019d650ea inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the score of an insert or deletion of the given length.  <a href="classvg_1_1GSSWAligner.html#a616923bd568fa23d20c0e3a019d650ea">More...</a><br /></td></tr>
-<tr class="separator:a616923bd568fa23d20c0e3a019d650ea inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9ab75f941cc5450b8fff9b7f07507272 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a9ab75f941cc5450b8fff9b7f07507272">compute_mapping_quality</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, int max_mapping_quality, bool fast_approximation, double cluster_mq, bool use_cluster_mq, int overlap_count, double mq_estimate, double maybe_mq_threshold, double identity_weight) const</td></tr>
-<tr class="separator:a9ab75f941cc5450b8fff9b7f07507272 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a86d07f5ef78625fc4ca8c166c396f613 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a86d07f5ef78625fc4ca8c166c396f613">compute_paired_mapping_quality</a> (pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;alignment_pairs, const vector&lt; double &gt; &amp;frag_weights, int max_mapping_quality1, int max_mapping_quality2, bool fast_approximation, double cluster_mq, bool use_cluster_mq, int overlap_count1, int overlap_count2, double mq_estimate1, double mq_estimate2, double maybe_mq_threshold, double identity_weight) const</td></tr>
-<tr class="memdesc:a86d07f5ef78625fc4ca8c166c396f613 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">same function for paired reads, mapping qualities are stored in both alignments in the pair  <a href="classvg_1_1GSSWAligner.html#a86d07f5ef78625fc4ca8c166c396f613">More...</a><br /></td></tr>
-<tr class="separator:a86d07f5ef78625fc4ca8c166c396f613 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af6559fb3f957acc44096cf8e2048c127 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af6559fb3f957acc44096cf8e2048c127">compute_first_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:af6559fb3f957acc44096cf8e2048c127 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a673269c14426e70ff8c01817ac06eda4 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a673269c14426e70ff8c01817ac06eda4">compute_max_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:a673269c14426e70ff8c01817ac06eda4 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac35684130035d20b8e5d004f55f39652 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac35684130035d20b8e5d004f55f39652">compute_group_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, const vector&lt; size_t &gt; &amp;group, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:ac35684130035d20b8e5d004f55f39652 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af7b892b20d6171feb448c26b503c6052 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">vector&lt; int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af7b892b20d6171feb448c26b503c6052">compute_all_mapping_qualities</a> (const vector&lt; double &gt; &amp;scores, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:af7b892b20d6171feb448c26b503c6052 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af1a60f9e7f9a519f16c3f69a798f7f06 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af1a60f9e7f9a519f16c3f69a798f7f06">mapping_quality_score_diff</a> (double mapping_quality) const</td></tr>
-<tr class="separator:af1a60f9e7f9a519f16c3f69a798f7f06 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb512afa78f06e9be93dfdc033018fec inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adb512afa78f06e9be93dfdc033018fec">score_to_unnormalized_likelihood_ln</a> (double score) const</td></tr>
-<tr class="separator:adb512afa78f06e9be93dfdc033018fec inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a801ffb646287d9a74d990f7ba7a22a09 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a801ffb646287d9a74d990f7ba7a22a09">longest_detectable_gap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const string::const_iterator &amp;read_pos) const</td></tr>
-<tr class="memdesc:a801ffb646287d9a74d990f7ba7a22a09 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from a read position without soft-clipping.  <a href="classvg_1_1GSSWAligner.html#a801ffb646287d9a74d990f7ba7a22a09">More...</a><br /></td></tr>
-<tr class="separator:a801ffb646287d9a74d990f7ba7a22a09 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a820cb34582e239efb55297b55455e310 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a820cb34582e239efb55297b55455e310">longest_detectable_gap</a> (size_t read_length, size_t read_pos) const</td></tr>
-<tr class="memdesc:a820cb34582e239efb55297b55455e310 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from a read position without soft-clipping, for a generic read.  <a href="classvg_1_1GSSWAligner.html#a820cb34582e239efb55297b55455e310">More...</a><br /></td></tr>
-<tr class="separator:a820cb34582e239efb55297b55455e310 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adaddff537ae9d455811c45a0c362252f inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adaddff537ae9d455811c45a0c362252f">longest_detectable_gap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
-<tr class="memdesc:adaddff537ae9d455811c45a0c362252f inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping.  <a href="classvg_1_1GSSWAligner.html#adaddff537ae9d455811c45a0c362252f">More...</a><br /></td></tr>
-<tr class="separator:adaddff537ae9d455811c45a0c362252f inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aee465771aeb2e2767ade0a1cfa8ce4af inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aee465771aeb2e2767ade0a1cfa8ce4af">longest_detectable_gap</a> (size_t read_length) const</td></tr>
-<tr class="memdesc:aee465771aeb2e2767ade0a1cfa8ce4af inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping, for a generic read.  <a href="classvg_1_1GSSWAligner.html#aee465771aeb2e2767ade0a1cfa8ce4af">More...</a><br /></td></tr>
-<tr class="separator:aee465771aeb2e2767ade0a1cfa8ce4af inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4597bec90e5d9f9e4122ec4dc1592a39 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a4597bec90e5d9f9e4122ec4dc1592a39">score_discontiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const function&lt; size_t(<a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, size_t)&gt; &amp;estimate_distance, bool strip_bonuses=false) const</td></tr>
-<tr class="separator:a4597bec90e5d9f9e4122ec4dc1592a39 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaaa352b242e4ac133758e3c49356669e inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aaaa352b242e4ac133758e3c49356669e">score_contiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool strip_bonuses=false) const</td></tr>
-<tr class="separator:aaaa352b242e4ac133758e3c49356669e inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a092c4c915bea1128d93f8f26056d0e84 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a092c4c915bea1128d93f8f26056d0e84">remove_bonuses</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool pinned=false, bool pin_left=false) const</td></tr>
-<tr class="separator:a092c4c915bea1128d93f8f26056d0e84 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0058c97d1dbe2be7643e9f75cee15bab inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a0058c97d1dbe2be7643e9f75cee15bab">max_possible_mapping_quality</a> (int length) const</td></tr>
+<tr class="separator:a0058c97d1dbe2be7643e9f75cee15bab inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0dc19c58a3f70a67a4b2a1ad475af79d inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a0dc19c58a3f70a67a4b2a1ad475af79d">estimate_max_possible_mapping_quality</a> (int length, double min_diffs, double next_min_diffs) const</td></tr>
+<tr class="separator:a0dc19c58a3f70a67a4b2a1ad475af79d inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4071f79659899761586807411d5ab767 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a4071f79659899761586807411d5ab767">score_gap</a> (size_t gap_length) const</td></tr>
+<tr class="memdesc:a4071f79659899761586807411d5ab767 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the score of an insert or deletion of the given length.  <a href="classvg_1_1GSSWAligner.html#a4071f79659899761586807411d5ab767">More...</a><br /></td></tr>
+<tr class="separator:a4071f79659899761586807411d5ab767 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a627256abe48089a54509400db8916ff3 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a627256abe48089a54509400db8916ff3">compute_mapping_quality</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, int max_mapping_quality, bool fast_approximation, double cluster_mq, bool use_cluster_mq, int overlap_count, double mq_estimate, double maybe_mq_threshold, double identity_weight) const</td></tr>
+<tr class="separator:a627256abe48089a54509400db8916ff3 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad896b2b0b1956da5f57bc3abbbd65701 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ad896b2b0b1956da5f57bc3abbbd65701">compute_paired_mapping_quality</a> (pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;alignment_pairs, const vector&lt; double &gt; &amp;frag_weights, int max_mapping_quality1, int max_mapping_quality2, bool fast_approximation, double cluster_mq, bool use_cluster_mq, int overlap_count1, int overlap_count2, double mq_estimate1, double mq_estimate2, double maybe_mq_threshold, double identity_weight) const</td></tr>
+<tr class="memdesc:ad896b2b0b1956da5f57bc3abbbd65701 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">same function for paired reads, mapping qualities are stored in both alignments in the pair  <a href="classvg_1_1GSSWAligner.html#ad896b2b0b1956da5f57bc3abbbd65701">More...</a><br /></td></tr>
+<tr class="separator:ad896b2b0b1956da5f57bc3abbbd65701 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad39d942f83d8d168daf96142a1fecd2b inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ad39d942f83d8d168daf96142a1fecd2b">compute_first_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:ad39d942f83d8d168daf96142a1fecd2b inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae2f5d5343d90ef6778d8c634bfc76c06 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ae2f5d5343d90ef6778d8c634bfc76c06">compute_max_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:ae2f5d5343d90ef6778d8c634bfc76c06 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a84bcb00f3e4cb834cdbc62beaec8f894 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a84bcb00f3e4cb834cdbc62beaec8f894">compute_group_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, const vector&lt; size_t &gt; &amp;group, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:a84bcb00f3e4cb834cdbc62beaec8f894 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af5f906f0628c45c3507524da99754d93 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">vector&lt; int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af5f906f0628c45c3507524da99754d93">compute_all_mapping_qualities</a> (const vector&lt; double &gt; &amp;scores, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:af5f906f0628c45c3507524da99754d93 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c341fd9f6dd51131b714d580f5ccfea inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a1c341fd9f6dd51131b714d580f5ccfea">mapping_quality_score_diff</a> (double mapping_quality) const</td></tr>
+<tr class="separator:a1c341fd9f6dd51131b714d580f5ccfea inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59623587d4dfb1e0310fb608e9def2f0 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a59623587d4dfb1e0310fb608e9def2f0">score_to_unnormalized_likelihood_ln</a> (double score) const</td></tr>
+<tr class="separator:a59623587d4dfb1e0310fb608e9def2f0 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a0d0245bdab8420b4f760d818a3d9cc inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a9a0d0245bdab8420b4f760d818a3d9cc">longest_detectable_gap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const string::const_iterator &amp;read_pos) const</td></tr>
+<tr class="memdesc:a9a0d0245bdab8420b4f760d818a3d9cc inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from a read position without soft-clipping.  <a href="classvg_1_1GSSWAligner.html#a9a0d0245bdab8420b4f760d818a3d9cc">More...</a><br /></td></tr>
+<tr class="separator:a9a0d0245bdab8420b4f760d818a3d9cc inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c803e19e479e8310fda8976ac30eb3a inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6c803e19e479e8310fda8976ac30eb3a">longest_detectable_gap</a> (size_t read_length, size_t read_pos) const</td></tr>
+<tr class="memdesc:a6c803e19e479e8310fda8976ac30eb3a inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from a read position without soft-clipping, for a generic read.  <a href="classvg_1_1GSSWAligner.html#a6c803e19e479e8310fda8976ac30eb3a">More...</a><br /></td></tr>
+<tr class="separator:a6c803e19e479e8310fda8976ac30eb3a inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a00852660c55c381bdcc3546bdb2b1a93 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a00852660c55c381bdcc3546bdb2b1a93">longest_detectable_gap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
+<tr class="memdesc:a00852660c55c381bdcc3546bdb2b1a93 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping.  <a href="classvg_1_1GSSWAligner.html#a00852660c55c381bdcc3546bdb2b1a93">More...</a><br /></td></tr>
+<tr class="separator:a00852660c55c381bdcc3546bdb2b1a93 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6f2bbbc1b2c955874ad531cab3bf4879 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6f2bbbc1b2c955874ad531cab3bf4879">longest_detectable_gap</a> (size_t read_length) const</td></tr>
+<tr class="memdesc:a6f2bbbc1b2c955874ad531cab3bf4879 inherit pub_methods_classvg_1_1GSSWAligner"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping, for a generic read.  <a href="classvg_1_1GSSWAligner.html#a6f2bbbc1b2c955874ad531cab3bf4879">More...</a><br /></td></tr>
+<tr class="separator:a6f2bbbc1b2c955874ad531cab3bf4879 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a795072356e28310d80f95bb5f0bb61f3 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a795072356e28310d80f95bb5f0bb61f3">score_discontiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const function&lt; size_t(<a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a>, size_t)&gt; &amp;estimate_distance, bool strip_bonuses=false) const</td></tr>
+<tr class="separator:a795072356e28310d80f95bb5f0bb61f3 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95753239b9d5fa388198ea04ac6c559b inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a95753239b9d5fa388198ea04ac6c559b">score_contiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool strip_bonuses=false) const</td></tr>
+<tr class="separator:a95753239b9d5fa388198ea04ac6c559b inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35fe72b24fc734d75864275c8cc1257e inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a35fe72b24fc734d75864275c8cc1257e">remove_bonuses</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool pinned=false, bool pin_left=false) const</td></tr>
+<tr class="separator:a35fe72b24fc734d75864275c8cc1257e inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a28324e03d8b362ae5c44d65ca8fe0768"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a28324e03d8b362ae5c44d65ca8fe0768">qual_adjusted_matrix</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, double gc_content, uint32_t max_qual) const</td></tr>
-<tr class="separator:a28324e03d8b362ae5c44d65ca8fe0768"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa2beaa1ca87773469233b820975d7b9"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#afa2beaa1ca87773469233b820975d7b9">qual_adjusted_bonuses</a> (int8_t _full_length_bonus, uint32_t max_qual) const</td></tr>
-<tr class="separator:afa2beaa1ca87773469233b820975d7b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a5f37a8540b09cb683927ec58318c40"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a0a5f37a8540b09cb683927ec58318c40">align_internal</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *multi_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln) const</td></tr>
-<tr class="separator:a0a5f37a8540b09cb683927ec58318c40"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a44f320fb6e114e25c9ff8856954b10aa"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a44f320fb6e114e25c9ff8856954b10aa">qual_adjusted_matrix</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, double gc_content, uint32_t max_qual) const</td></tr>
+<tr class="separator:a44f320fb6e114e25c9ff8856954b10aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e36e10804dcd53c0ac30f351311f2cc"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a8e36e10804dcd53c0ac30f351311f2cc">qual_adjusted_bonuses</a> (int8_t _full_length_bonus, uint32_t max_qual) const</td></tr>
+<tr class="separator:a8e36e10804dcd53c0ac30f351311f2cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87cc90a9c2f1107546b483fd31f57518"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a87cc90a9c2f1107546b483fd31f57518">align_internal</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *multi_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln) const</td></tr>
+<tr class="separator:a87cc90a9c2f1107546b483fd31f57518"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
 <tr class="memitem:a02c1c427118eb1a8244274d852684c79 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">GSSWAligner</a> ()=default</td></tr>
 <tr class="separator:a02c1c427118eb1a8244274d852684c79 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8dc84b7b4cf4632d7a21c328c4b94b4b inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a8dc84b7b4cf4632d7a21c328c4b94b4b">GSSWAligner</a> (const int8_t *_score_matrix, int8_t _gap_open, int8_t _gap_extension, int8_t _full_length_bonus, double _gc_content)</td></tr>
-<tr class="separator:a8dc84b7b4cf4632d7a21c328c4b94b4b inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14f93c839c3aab59afee99708cb83430 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a14f93c839c3aab59afee99708cb83430">~GSSWAligner</a> ()</td></tr>
-<tr class="separator:a14f93c839c3aab59afee99708cb83430 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a56a0a0d3962e573dc9ed372394fbd13a inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">gssw_graph *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a56a0a0d3962e573dc9ed372394fbd13a">create_gssw_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g) const</td></tr>
-<tr class="separator:a56a0a0d3962e573dc9ed372394fbd13a inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9e07985027f6dffb561b132a32fc0fae inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a9e07985027f6dffb561b132a32fc0fae">identify_pinning_points</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const</td></tr>
-<tr class="separator:a9e07985027f6dffb561b132a32fc0fae inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:add9329344fdf10d65d9d6c2fd35e8cf2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#add9329344fdf10d65d9d6c2fd35e8cf2">unreverse_graph_mapping</a> (gssw_graph_mapping *gm) const</td></tr>
-<tr class="separator:add9329344fdf10d65d9d6c2fd35e8cf2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:add2d3b75b4343ba0b3d828a87ac56f47 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#add2d3b75b4343ba0b3d828a87ac56f47">unreverse_graph</a> (gssw_graph *graph) const</td></tr>
-<tr class="separator:add2d3b75b4343ba0b3d828a87ac56f47 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3c6dcbacb6dd77cbd5b672c7a06a66ae inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae">gssw_mapping_to_alignment</a> (gssw_graph *graph, gssw_graph_mapping *gm, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool pinned, bool pin_left) const</td></tr>
-<tr class="separator:a3c6dcbacb6dd77cbd5b672c7a06a66ae inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa00d5de382ccbd9e9c0c46bbfa38aab1 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aa00d5de382ccbd9e9c0c46bbfa38aab1">graph_cigar</a> (gssw_graph_mapping *gm) const</td></tr>
-<tr class="separator:aa00d5de382ccbd9e9c0c46bbfa38aab1 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab28b533e37bb8cfa19c2e080a7e88bd2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab28b533e37bb8cfa19c2e080a7e88bd2">group_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; size_t &gt; &amp;group, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:ab28b533e37bb8cfa19c2e080a7e88bd2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa5cbf3bce1fe039727bf1e91581d7df1 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aa5cbf3bce1fe039727bf1e91581d7df1">estimate_next_best_score</a> (int length, double min_diffs) const</td></tr>
-<tr class="separator:aa5cbf3bce1fe039727bf1e91581d7df1 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aad24254cfb12b181cb153a082988cfbc inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aad24254cfb12b181cb153a082988cfbc">recover_log_base</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, double gc_content, double tol) const</td></tr>
-<tr class="separator:aad24254cfb12b181cb153a082988cfbc inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65f35576e740e49d2723cb1b635d40c5 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a65f35576e740e49d2723cb1b635d40c5">verify_valid_log_odds_score_matrix</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, const double *nt_freqs) const</td></tr>
-<tr class="separator:a65f35576e740e49d2723cb1b635d40c5 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05ba50a5b6e04001184216b901ed3426 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a05ba50a5b6e04001184216b901ed3426">alignment_score_partition_function</a> (double lambda, const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, const double *nt_freqs) const</td></tr>
-<tr class="separator:a05ba50a5b6e04001184216b901ed3426 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e20744e9a76f2c17ce5eed9117f344e inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a8e20744e9a76f2c17ce5eed9117f344e">all_mapping_qualities_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:a8e20744e9a76f2c17ce5eed9117f344e inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c3f1338e6a66850b779e8331a65a61c inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6c3f1338e6a66850b779e8331a65a61c">GSSWAligner</a> (const int8_t *_score_matrix, int8_t _gap_open, int8_t _gap_extension, int8_t _full_length_bonus, double _gc_content)</td></tr>
+<tr class="separator:a6c3f1338e6a66850b779e8331a65a61c inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7a80ce643da0316c9151fab19e8e8581 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a7a80ce643da0316c9151fab19e8e8581">~GSSWAligner</a> ()</td></tr>
+<tr class="separator:a7a80ce643da0316c9151fab19e8e8581 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46733f8704aeffeca98904240c774823 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">gssw_graph *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a46733f8704aeffeca98904240c774823">create_gssw_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g) const</td></tr>
+<tr class="separator:a46733f8704aeffeca98904240c774823 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4cd705824a3926a510fea64f883cab66 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a4cd705824a3926a510fea64f883cab66">identify_pinning_points</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const</td></tr>
+<tr class="separator:a4cd705824a3926a510fea64f883cab66 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa00b750624c67e2cfa4d98193acf8dd9 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aa00b750624c67e2cfa4d98193acf8dd9">unreverse_graph_mapping</a> (gssw_graph_mapping *gm) const</td></tr>
+<tr class="separator:aa00b750624c67e2cfa4d98193acf8dd9 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb2785609201c50f8e7addde7eeddb0a inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aeb2785609201c50f8e7addde7eeddb0a">unreverse_graph</a> (gssw_graph *graph) const</td></tr>
+<tr class="separator:aeb2785609201c50f8e7addde7eeddb0a inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab45f7399b68bdc980499d4384515b9b7 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab45f7399b68bdc980499d4384515b9b7">gssw_mapping_to_alignment</a> (gssw_graph *graph, gssw_graph_mapping *gm, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool pinned, bool pin_left) const</td></tr>
+<tr class="separator:ab45f7399b68bdc980499d4384515b9b7 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a429c1cbb1e166acba4e29a8dc172da7d inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a429c1cbb1e166acba4e29a8dc172da7d">graph_cigar</a> (gssw_graph_mapping *gm) const</td></tr>
+<tr class="separator:a429c1cbb1e166acba4e29a8dc172da7d inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7e03bd79bceb8a8034ae57ba640069bc inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a7e03bd79bceb8a8034ae57ba640069bc">group_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; size_t &gt; &amp;group, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:a7e03bd79bceb8a8034ae57ba640069bc inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a439ed0a50959b73b99d08d5ec0af4bc6 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a439ed0a50959b73b99d08d5ec0af4bc6">estimate_next_best_score</a> (int length, double min_diffs) const</td></tr>
+<tr class="separator:a439ed0a50959b73b99d08d5ec0af4bc6 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab5102e690e6e2e0e72aa35ea769179a2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab5102e690e6e2e0e72aa35ea769179a2">recover_log_base</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, double gc_content, double tol) const</td></tr>
+<tr class="separator:ab5102e690e6e2e0e72aa35ea769179a2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc5d3a8c0c22cbd966e96a42eb095cd8 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#acc5d3a8c0c22cbd966e96a42eb095cd8">verify_valid_log_odds_score_matrix</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, const double *nt_freqs) const</td></tr>
+<tr class="separator:acc5d3a8c0c22cbd966e96a42eb095cd8 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a610e81a719f399a5018bd722a6affad5 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a610e81a719f399a5018bd722a6affad5">alignment_score_partition_function</a> (double lambda, const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, const double *nt_freqs) const</td></tr>
+<tr class="separator:a610e81a719f399a5018bd722a6affad5 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab9f99a04dd14ab7c3cc43662b6b73293 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab9f99a04dd14ab7c3cc43662b6b73293">all_mapping_qualities_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:ab9f99a04dd14ab7c3cc43662b6b73293 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -218,14 +218,14 @@ Protected Attributes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pub_static_methods_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_static_methods_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Static Public Member Functions inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
-<tr class="memitem:a6f627fd08a61adb4cd8761b2715e2398 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6f627fd08a61adb4cd8761b2715e2398">maximum_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
-<tr class="separator:a6f627fd08a61adb4cd8761b2715e2398 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab0e776948467dcbe816f68b378ccd720 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab0e776948467dcbe816f68b378ccd720">maximum_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
-<tr class="separator:ab0e776948467dcbe816f68b378ccd720 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a501d3ef8358f4ce01733627c7ab1faad inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a501d3ef8358f4ce01733627c7ab1faad">first_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
-<tr class="separator:a501d3ef8358f4ce01733627c7ab1faad inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a42a1fc41aaaf45bb6e11ca0cd21b9d75 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a42a1fc41aaaf45bb6e11ca0cd21b9d75">first_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
-<tr class="separator:a42a1fc41aaaf45bb6e11ca0cd21b9d75 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac17619c1908446d3e61a882c879f2eb1 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac17619c1908446d3e61a882c879f2eb1">maximum_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:ac17619c1908446d3e61a882c879f2eb1 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3104dc6ddfd6a15e1ed02950006a4063 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a3104dc6ddfd6a15e1ed02950006a4063">maximum_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:a3104dc6ddfd6a15e1ed02950006a4063 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a25cb693e3eb45f8c7d1e0ae7c6dcf0af inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a25cb693e3eb45f8c7d1e0ae7c6dcf0af">first_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:a25cb693e3eb45f8c7d1e0ae7c6dcf0af inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20cfadad5c8d3807320cd206427ef243 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a20cfadad5c8d3807320cd206427ef243">first_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:a20cfadad5c8d3807320cd206427ef243 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
 <tr class="memitem:a7bd8654938361b8edf947fb888dcd6d8 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1DeletionAligner.html">DeletionAligner</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a7bd8654938361b8edf947fb888dcd6d8">deletion_aligner</a></td></tr>
 <tr class="separator:a7bd8654938361b8edf947fb888dcd6d8 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -249,14 +249,14 @@ Additional Inherited Members</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>An aligner that uses read base qualities to adjust its scores and alignments. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="abb28b2864e6e48ed6e7ffe705be68a48"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abb28b2864e6e48ed6e7ffe705be68a48">&#9670;&nbsp;</a></span>QualAdjAligner()</h2>
+<a id="a1eb97ac4416d8ae7e23351c2c03e0314"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1eb97ac4416d8ae7e23351c2c03e0314">&#9670;&nbsp;</a></span>QualAdjAligner()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">QualAdjAligner::QualAdjAligner </td>
+          <td class="memname">vg::QualAdjAligner::QualAdjAligner </td>
           <td>(</td>
           <td class="paramtype">const int8_t *&#160;</td>
           <td class="paramname"><em>_score_matrix</em> = <code>default_score_matrix</code>, </td>
@@ -295,14 +295,14 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a611f96202de903220d924bf918950e7c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a611f96202de903220d924bf918950e7c">&#9670;&nbsp;</a></span>~QualAdjAligner()</h2>
+<a id="a2fb50e162cf507b6feca91f4294c4e1a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2fb50e162cf507b6feca91f4294c4e1a">&#9670;&nbsp;</a></span>~QualAdjAligner()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">QualAdjAligner::~QualAdjAligner </td>
+          <td class="memname">vg::QualAdjAligner::~QualAdjAligner </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -314,8 +314,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="af5a9e2e96926859e3c3deeecdf374f9d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af5a9e2e96926859e3c3deeecdf374f9d">&#9670;&nbsp;</a></span>align()</h2>
+<a id="a46684d481ad89ddf49b98e952388c9b8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46684d481ad89ddf49b98e952388c9b8">&#9670;&nbsp;</a></span>align()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -324,7 +324,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align </td>
+          <td class="memname">void vg::QualAdjAligner::align </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -359,8 +359,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ab9e5a1a0233d35ee28789516b9344f43"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab9e5a1a0233d35ee28789516b9344f43">&#9670;&nbsp;</a></span>align_global_banded()</h2>
+<a id="af7982acd5c785bf80de3e2b8ddeb89dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af7982acd5c785bf80de3e2b8ddeb89dd">&#9670;&nbsp;</a></span>align_global_banded()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -369,7 +369,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_global_banded </td>
+          <td class="memname">void vg::QualAdjAligner::align_global_banded </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -410,8 +410,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a70b09053f260e4a49da46b4a6799c729"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a70b09053f260e4a49da46b4a6799c729">&#9670;&nbsp;</a></span>align_global_banded_multi()</h2>
+<a id="a61c7e3502ccbc03884be829da20768c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a61c7e3502ccbc03884be829da20768c2">&#9670;&nbsp;</a></span>align_global_banded_multi()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -420,7 +420,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_global_banded_multi </td>
+          <td class="memname">void vg::QualAdjAligner::align_global_banded_multi </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -473,8 +473,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a0a5f37a8540b09cb683927ec58318c40"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0a5f37a8540b09cb683927ec58318c40">&#9670;&nbsp;</a></span>align_internal()</h2>
+<a id="a87cc90a9c2f1107546b483fd31f57518"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a87cc90a9c2f1107546b483fd31f57518">&#9670;&nbsp;</a></span>align_internal()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -483,7 +483,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_internal </td>
+          <td class="memname">void vg::QualAdjAligner::align_internal </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -540,8 +540,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ac8142837afb23ddc7c9f634048b2a5a1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac8142837afb23ddc7c9f634048b2a5a1">&#9670;&nbsp;</a></span>align_pinned()</h2>
+<a id="af1545edb0591d1b62bb10714af6aa3bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af1545edb0591d1b62bb10714af6aa3bd">&#9670;&nbsp;</a></span>align_pinned()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -550,7 +550,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_pinned </td>
+          <td class="memname">void vg::QualAdjAligner::align_pinned </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -599,8 +599,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a4a3999dbef4ad44d15f9475c62809ec2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4a3999dbef4ad44d15f9475c62809ec2">&#9670;&nbsp;</a></span>align_pinned_multi()</h2>
+<a id="a44a05f9824834133c34f487f77708383"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a44a05f9824834133c34f487f77708383">&#9670;&nbsp;</a></span>align_pinned_multi()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -609,7 +609,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_pinned_multi </td>
+          <td class="memname">void vg::QualAdjAligner::align_pinned_multi </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -656,8 +656,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="acd4904b68a5db468672d13d095b3a298"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acd4904b68a5db468672d13d095b3a298">&#9670;&nbsp;</a></span>align_xdrop() <span class="overload">[1/2]</span></h2>
+<a id="a8b497f4fb4d1e07d2bc388de3b8b604e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8b497f4fb4d1e07d2bc388de3b8b604e">&#9670;&nbsp;</a></span>align_xdrop() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -666,7 +666,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_xdrop </td>
+          <td class="memname">void vg::QualAdjAligner::align_xdrop </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -719,8 +719,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a02375e46df40e5163bee95a18cca0705"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02375e46df40e5163bee95a18cca0705">&#9670;&nbsp;</a></span>align_xdrop() <span class="overload">[2/2]</span></h2>
+<a id="a2ffbaa8d9a7e2b8cf503a3bdd169e0c5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2ffbaa8d9a7e2b8cf503a3bdd169e0c5">&#9670;&nbsp;</a></span>align_xdrop() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -729,7 +729,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void QualAdjAligner::align_xdrop </td>
+          <td class="memname">void vg::QualAdjAligner::align_xdrop </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>
@@ -777,8 +777,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="afa2beaa1ca87773469233b820975d7b9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa2beaa1ca87773469233b820975d7b9">&#9670;&nbsp;</a></span>qual_adjusted_bonuses()</h2>
+<a id="a8e36e10804dcd53c0ac30f351311f2cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e36e10804dcd53c0ac30f351311f2cc">&#9670;&nbsp;</a></span>qual_adjusted_bonuses()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -787,7 +787,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int8_t * QualAdjAligner::qual_adjusted_bonuses </td>
+          <td class="memname">int8_t * vg::QualAdjAligner::qual_adjusted_bonuses </td>
           <td>(</td>
           <td class="paramtype">int8_t&#160;</td>
           <td class="paramname"><em>_full_length_bonus</em>, </td>
@@ -813,8 +813,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a28324e03d8b362ae5c44d65ca8fe0768"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a28324e03d8b362ae5c44d65ca8fe0768">&#9670;&nbsp;</a></span>qual_adjusted_matrix()</h2>
+<a id="a44f320fb6e114e25c9ff8856954b10aa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a44f320fb6e114e25c9ff8856954b10aa">&#9670;&nbsp;</a></span>qual_adjusted_matrix()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -823,7 +823,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int8_t * QualAdjAligner::qual_adjusted_matrix </td>
+          <td class="memname">int8_t * vg::QualAdjAligner::qual_adjusted_matrix </td>
           <td>(</td>
           <td class="paramtype">const int8_t *&#160;</td>
           <td class="paramname"><em>score_matrix</em>, </td>
@@ -855,8 +855,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ac206da9087de3fd77d26147e26ebb9dd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac206da9087de3fd77d26147e26ebb9dd">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[1/3]</span></h2>
+<a id="adf03ac873ae9a9cfbc21e589775111be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adf03ac873ae9a9cfbc21e589775111be">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -865,7 +865,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_exact_match </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_exact_match </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln</em>, </td>
@@ -900,8 +900,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a89a12943aa532cda18ebbd5ccb8ac7f9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a89a12943aa532cda18ebbd5ccb8ac7f9">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[2/3]</span></h2>
+<a id="a51941e8914296630f63d303c548cee8d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a51941e8914296630f63d303c548cee8d">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -910,7 +910,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_exact_match </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_exact_match </td>
           <td>(</td>
           <td class="paramtype">const string &amp;&#160;</td>
           <td class="paramname"><em>sequence</em>, </td>
@@ -939,8 +939,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a7477c0be20954fbe9ddd3939a8abaa8d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7477c0be20954fbe9ddd3939a8abaa8d">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[3/3]</span></h2>
+<a id="a8348afe2de6738fd4cd26e3fd6358818"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8348afe2de6738fd4cd26e3fd6358818">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -949,7 +949,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_exact_match </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_exact_match </td>
           <td>(</td>
           <td class="paramtype">string::const_iterator&#160;</td>
           <td class="paramname"><em>seq_begin</em>, </td>
@@ -984,8 +984,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a1dae3734684e38399793267a550fd1bb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1dae3734684e38399793267a550fd1bb">&#9670;&nbsp;</a></span>score_full_length_bonus() <span class="overload">[1/2]</span></h2>
+<a id="a84b8bacfebeb426d367ec4441800a4e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a84b8bacfebeb426d367ec4441800a4e4">&#9670;&nbsp;</a></span>score_full_length_bonus() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -994,7 +994,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_full_length_bonus </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_full_length_bonus </td>
           <td>(</td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>left_side</em>, </td>
@@ -1022,8 +1022,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a2b8898f04397d773b73b3c32ae9b74b8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2b8898f04397d773b73b3c32ae9b74b8">&#9670;&nbsp;</a></span>score_full_length_bonus() <span class="overload">[2/2]</span></h2>
+<a id="ac4505d206516b2ad51bdc2387309ae9e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac4505d206516b2ad51bdc2387309ae9e">&#9670;&nbsp;</a></span>score_full_length_bonus() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1032,7 +1032,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_full_length_bonus </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_full_length_bonus </td>
           <td>(</td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>left_side</em>, </td>
@@ -1072,8 +1072,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a4b60c05aa08eaf51d5e77aabde39a409"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4b60c05aa08eaf51d5e77aabde39a409">&#9670;&nbsp;</a></span>score_mismatch()</h2>
+<a id="ada69f388d291f6c3693812d91c84231a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ada69f388d291f6c3693812d91c84231a">&#9670;&nbsp;</a></span>score_mismatch()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1082,7 +1082,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_mismatch </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_mismatch </td>
           <td>(</td>
           <td class="paramtype">string::const_iterator&#160;</td>
           <td class="paramname"><em>seq_begin</em>, </td>
@@ -1117,8 +1117,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="aba298db3a8925219193a648acbc03c61"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aba298db3a8925219193a648acbc03c61">&#9670;&nbsp;</a></span>score_partial_alignment()</h2>
+<a id="aee20bae08e744224825723a878d57bef"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee20bae08e744224825723a878d57bef">&#9670;&nbsp;</a></span>score_partial_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1127,7 +1127,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t QualAdjAligner::score_partial_alignment </td>
+          <td class="memname">int32_t vg::QualAdjAligner::score_partial_alignment </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment</em>, </td>

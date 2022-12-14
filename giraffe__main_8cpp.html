@@ -67,8 +67,6 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a> &#124;
 <a href="#define-members">Macros</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
@@ -88,6 +86,7 @@ $(function() {
 <code>#include &lt;chrono&gt;</code><br />
 <code>#include &lt;mutex&gt;</code><br />
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="options_8hpp.html">options.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="snarl__seed__clusterer_8hpp.html">../snarl_seed_clusterer.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="mapper_8hpp.html">../mapper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="annotation_8hpp.html">../annotation.hpp</a>&quot;</code><br />
@@ -101,21 +100,6 @@ $(function() {
 <code>#include &lt;gbwtgraph/minimizer.h&gt;</code><br />
 <code>#include &lt;sys/ioctl.h&gt;</code><br />
 </div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
-Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Range.html">vg::Range&lt; Number &gt;</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">This defines a range of values to test, from start to &lt;=end, going up by step.  <a href="structvg_1_1Range.html#details">More...</a><br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1is__instantiation__of.html">vg::is_instantiation_of&lt; Subject, Predicate &gt;</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1is__instantiation__of_3_01Predicate_3_01PredicateArgs_8_8_8_01_4_00_01Predicate_01_4.html">vg::is_instantiation_of&lt; Predicate&lt; PredicateArgs... &gt;, Predicate &gt;</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
-Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
 <tr class="memitem:a0c681930b458fe282cd216da55579963"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a0c681930b458fe282cd216da55579963">OPT_OUTPUT_BASENAME</a>&#160;&#160;&#160;1001</td></tr>
@@ -130,83 +114,25 @@ Macros</h2></td></tr>
 <tr class="separator:aa055926d6478a0b8608fa875b2820bcc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adde7a058ded8363842b583d1dc0869ea"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#adde7a058ded8363842b583d1dc0869ea">OPT_FRAGMENT_STDEV</a>&#160;&#160;&#160;1006</td></tr>
 <tr class="separator:adde7a058ded8363842b583d1dc0869ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a98ef106b414bb2991e2aa2a329e86c4d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a98ef106b414bb2991e2aa2a329e86c4d">OPT_CLUSTER_STDEV</a>&#160;&#160;&#160;1007</td></tr>
-<tr class="separator:a98ef106b414bb2991e2aa2a329e86c4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2fba80bc0910639f82cf41e3d2792bd0"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a2fba80bc0910639f82cf41e3d2792bd0">OPT_RESCUE_STDEV</a>&#160;&#160;&#160;1008</td></tr>
-<tr class="separator:a2fba80bc0910639f82cf41e3d2792bd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af6e1b06f966363a2764f021e4890701f"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#af6e1b06f966363a2764f021e4890701f">OPT_RESCUE_SEED_LIMIT</a>&#160;&#160;&#160;1009</td></tr>
-<tr class="separator:af6e1b06f966363a2764f021e4890701f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0a122861e2617680fcbb125c8a35597"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ab0a122861e2617680fcbb125c8a35597">OPT_REF_PATHS</a>&#160;&#160;&#160;1010</td></tr>
 <tr class="separator:ab0a122861e2617680fcbb125c8a35597"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4108d1aa45ee8d8f7099af817397586b"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a4108d1aa45ee8d8f7099af817397586b">OPT_SHOW_WORK</a>&#160;&#160;&#160;1011</td></tr>
 <tr class="separator:a4108d1aa45ee8d8f7099af817397586b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a56890287df21bebcdb18d95702b3e5dc"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a56890287df21bebcdb18d95702b3e5dc">OPT_NAMED_COORDINATES</a>&#160;&#160;&#160;1012</td></tr>
 <tr class="separator:a56890287df21bebcdb18d95702b3e5dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3ea10bd338b702711105c453f8acf1cc"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a3ea10bd338b702711105c453f8acf1cc">OPT_EXCLUDE_OVERLAPPING_MIN</a>&#160;&#160;&#160;1013</td></tr>
-<tr class="separator:a3ea10bd338b702711105c453f8acf1cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a024ac90550f77c7708233685dec73b31"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a024ac90550f77c7708233685dec73b31">OPT_ALIGN_FROM_CHAINS</a>&#160;&#160;&#160;1014</td></tr>
-<tr class="separator:a024ac90550f77c7708233685dec73b31"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39fdb77eea846f60621864ed3240b725"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a39fdb77eea846f60621864ed3240b725">OPT_NUM_BP_PER_MIN</a>&#160;&#160;&#160;1015</td></tr>
-<tr class="separator:a39fdb77eea846f60621864ed3240b725"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a1384531a1c8d8387bdd04961590bdf93"><td class="memTemplParams" colspan="2">template&lt;typename Result &gt; </td></tr>
-<tr class="memitem:a1384531a1c8d8387bdd04961590bdf93"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1384531a1c8d8387bdd04961590bdf93">vg::parse</a> (const string &amp;arg, typename enable_if&lt; <a class="el" href="structvg_1_1is__instantiation__of.html">is_instantiation_of</a>&lt; Result, <a class="el" href="structvg_1_1Range.html">Range</a> &gt;::value, Result &gt;::type &amp;dest)</td></tr>
-<tr class="memdesc:a1384531a1c8d8387bdd04961590bdf93"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a range as start[:end[:step]].  <a href="namespacevg.html#a1384531a1c8d8387bdd04961590bdf93">More...</a><br /></td></tr>
-<tr class="separator:a1384531a1c8d8387bdd04961590bdf93"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
 <tr class="separator:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8a250b5afd57abf13a1adceb71c7e677"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a8a250b5afd57abf13a1adceb71c7e677">help_giraffe</a> (char **argv)</td></tr>
-<tr class="separator:a8a250b5afd57abf13a1adceb71c7e677"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8a930e32de3c44bc2dffc12684bfbce8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a8a930e32de3c44bc2dffc12684bfbce8">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser)</td></tr>
+<tr class="separator:a8a930e32de3c44bc2dffc12684bfbce8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a03a19bdd804f12c23f77bb885e91df4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast short-read-to-haplotypes mapper </p>
 </div><h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="a024ac90550f77c7708233685dec73b31"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a024ac90550f77c7708233685dec73b31">&#9670;&nbsp;</a></span>OPT_ALIGN_FROM_CHAINS</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define OPT_ALIGN_FROM_CHAINS&#160;&#160;&#160;1014</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a98ef106b414bb2991e2aa2a329e86c4d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a98ef106b414bb2991e2aa2a329e86c4d">&#9670;&nbsp;</a></span>OPT_CLUSTER_STDEV</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define OPT_CLUSTER_STDEV&#160;&#160;&#160;1007</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a3ea10bd338b702711105c453f8acf1cc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3ea10bd338b702711105c453f8acf1cc">&#9670;&nbsp;</a></span>OPT_EXCLUDE_OVERLAPPING_MIN</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define OPT_EXCLUDE_OVERLAPPING_MIN&#160;&#160;&#160;1013</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="aa055926d6478a0b8608fa875b2820bcc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa055926d6478a0b8608fa875b2820bcc">&#9670;&nbsp;</a></span>OPT_FRAGMENT_MEAN</h2>
 
@@ -249,20 +175,6 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a39fdb77eea846f60621864ed3240b725"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39fdb77eea846f60621864ed3240b725">&#9670;&nbsp;</a></span>OPT_NUM_BP_PER_MIN</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define OPT_NUM_BP_PER_MIN&#160;&#160;&#160;1015</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a0c681930b458fe282cd216da55579963"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0c681930b458fe282cd216da55579963">&#9670;&nbsp;</a></span>OPT_OUTPUT_BASENAME</h2>
 
@@ -299,34 +211,6 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define OPT_REPORT_NAME&#160;&#160;&#160;1002</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="af6e1b06f966363a2764f021e4890701f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af6e1b06f966363a2764f021e4890701f">&#9670;&nbsp;</a></span>OPT_RESCUE_SEED_LIMIT</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define OPT_RESCUE_SEED_LIMIT&#160;&#160;&#160;1009</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a2fba80bc0910639f82cf41e3d2792bd0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2fba80bc0910639f82cf41e3d2792bd0">&#9670;&nbsp;</a></span>OPT_RESCUE_STDEV</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define OPT_RESCUE_STDEV&#160;&#160;&#160;1008</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -376,8 +260,8 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="a8a250b5afd57abf13a1adceb71c7e677"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8a250b5afd57abf13a1adceb71c7e677">&#9670;&nbsp;</a></span>help_giraffe()</h2>
+<a id="a8a930e32de3c44bc2dffc12684bfbce8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8a930e32de3c44bc2dffc12684bfbce8">&#9670;&nbsp;</a></span>help_giraffe()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -386,8 +270,18 @@ Functions</h2></td></tr>
           <td class="memname">void help_giraffe </td>
           <td>(</td>
           <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em></td><td>)</td>
+          <td class="paramname"><em>argv</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;&#160;</td>
+          <td class="paramname"><em>parser</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">

@@ -1,14 +1,10 @@
 var searchData=
 [
-  ['save_5ffunction_5ft_11979',['save_function_t',['../namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57',1,'vg::io']]],
-  ['score_11980',['Score',['../structvg_1_1algorithms_1_1score__traits_3_01traced__score__t_01_4.html#a40e817e6c2a7f95d6e0f748b0c5c3425',1,'vg::algorithms::score_traits&lt; traced_score_t &gt;::Score()'],['../structvg_1_1algorithms_1_1score__traits_3_01int_01_4.html#aadc29b3f61a1b10f4a656c2d258488ef',1,'vg::algorithms::score_traits&lt; int &gt;::Score()']]],
-  ['search_5ftype_11981',['search_type',['../classvg_1_1PhaseUnfolder.html#a7484966dc448f4c3b894a53233f46d9f',1,'vg::PhaseUnfolder']]],
-  ['seed_11982',['Seed',['../classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7',1,'vg::MinimizerMapper']]],
-  ['seed_5ftype_11983',['seed_type',['../structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081',1,'vg::GaplessExtension::seed_type()'],['../classvg_1_1GaplessExtender.html#a8891a422c7921863c589850636d9f252',1,'vg::GaplessExtender::seed_type()']]],
-  ['seedtype_11984',['SeedType',['../structvg_1_1seed__traits_3_01SnarlDistanceIndexClusterer_1_1Seed_01_4.html#a02f373070e77055dc3dfd182f80f3cb3',1,'vg::seed_traits&lt; SnarlDistanceIndexClusterer::Seed &gt;']]],
-  ['serializablehandlegraph_11985',['SerializableHandleGraph',['../namespacevg.html#a7378a177b4ed2e7be87e02a9bfcb7d4e',1,'vg']]],
-  ['state_5ftype_11986',['state_type',['../classvg_1_1PhaseUnfolder.html#a95529e399d5ef61f6a426e1b5cfe9237',1,'vg::PhaseUnfolder']]],
-  ['step_5fhandle_5ft_11987',['step_handle_t',['../namespacevg.html#a40b137bbd07d198ca2b77962eeeaf7c8',1,'vg::step_handle_t()'],['../namespacevg_1_1io.html#a5473f8a5ac351719453cfd62655beebb',1,'vg::io::step_handle_t()']]],
-  ['subrange_5ft_11988',['subrange_t',['../namespacevg.html#ae28b502adf2ce7302acbb3138280f06c',1,'vg::subrange_t()'],['../namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a',1,'handlegraph::subrange_t()']]],
-  ['supportmap_11989',['SupportMap',['../classvg_1_1NestedCachedPackedTraversalSupportFinder.html#af8ae65b6009d1f121c27fb3ab969ef90',1,'vg::NestedCachedPackedTraversalSupportFinder']]]
+  ['rankedhandlegraph_12308',['RankedHandleGraph',['../namespacevg.html#a215e44b59d26cf0745f02218dfd902a2',1,'vg']]],
+  ['real_5ft_12309',['real_t',['../namespacevg.html#a7392de2ef03532b2ec3461ebb178c75a',1,'vg']]],
+  ['recipefunc_12310',['RecipeFunc',['../namespacevg.html#a1ff09b399af11722aeee121ae6f4fd9b',1,'vg']]],
+  ['recipename_12311',['RecipeName',['../namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb',1,'vg']]],
+  ['reference_12312',['reference',['../classvg_1_1count__back__inserter.html#a84eca4db3ffead0102aa62bd53000631',1,'vg::count_back_inserter::reference()'],['../structvg_1_1VectorView_1_1const__iterator.html#a037cb8cbbd9c2be6c471ee6aa9bfbb1d',1,'vg::VectorView::const_iterator::reference()']]],
+  ['referencepathvectorizableoverlayhelper_12313',['ReferencePathVectorizableOverlayHelper',['../call__main_8cpp.html#adc0e01cf2a62b559e7c67d23dfbd757e',1,'call_main.cpp']]],
+  ['result_5ftype_12314',['result_type',['../classvg_1_1uniform__real__distribution.html#a45f57ac9dad3e93958eda6a596748faa',1,'vg::uniform_real_distribution::result_type()'],['../classvg_1_1normal__distribution.html#a3cf267467b3608710fc42fc70f5df9ab',1,'vg::normal_distribution::result_type()'],['../classvg_1_1truncated__normal__distribution.html#a4a25c23c8e6024d988a0ac8617415897',1,'vg::truncated_normal_distribution::result_type()'],['../classvg_1_1WideningPRNG.html#a167ab33bf96b19131d4d85738c37e5ce',1,'vg::WideningPRNG::result_type()'],['../classvg_1_1uniform__int__distribution.html#a06f14fe90ff4a3b995f9e2100b11487d',1,'vg::uniform_int_distribution::result_type()'],['../classvg_1_1discrete__distribution.html#a06c8d8862509e0b67c9ed940b7a6c204',1,'vg::discrete_distribution::result_type()']]]
 ];

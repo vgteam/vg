@@ -1,9 +1,8 @@
 var searchData=
 [
-  ['handle2component_11924',['Handle2Component',['../namespacevg.html#a7143bc6d4008d03bc4a0ac4d4ba26948',1,'vg']]],
-  ['handle_5ft_11925',['handle_t',['../namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a',1,'vg::handle_t()'],['../namespacevg_1_1io.html#a3943ae5818e3556e216014f0df531502',1,'vg::io::handle_t()']]],
-  ['handlegraph_11926',['HandleGraph',['../namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62',1,'vg::HandleGraph()'],['../namespacevg_1_1io.html#a172e1fe036e09c51c5a60918463de08f',1,'vg::io::HandleGraph()']]],
-  ['handleset_11927',['HandleSet',['../namespacevg.html#a0942a662fe36dad76d2d0e310ec66e3f',1,'vg']]],
-  ['haplo_5fscore_5ftype_11928',['haplo_score_type',['../namespacehaplo.html#aa35eb194ac0f5a70dae8d2283c170736',1,'haplo']]],
-  ['hit_5ft_11929',['hit_t',['../classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7',1,'vg::MEMClusterer']]]
+  ['gamindex_12256',['GAMIndex',['../namespacevg.html#a9b677be2f409ffcbefd5d9f6149c80c1',1,'vg']]],
+  ['gamsorter_12257',['GAMSorter',['../namespacevg.html#a6c00bf57d75db83e41ac19a88882c043',1,'vg']]],
+  ['gen_5fflat_5fnode_12258',['gen_flat_node',['../structhaplo_1_1haplo__DP__rectangle.html#a87d1fd7ca4ac40321f912724bf5c3f8c',1,'haplo::haplo_DP_rectangle']]],
+  ['gen_5frange_5ft_12259',['gen_range_t',['../structhaplo_1_1haplo__DP__rectangle.html#af3fc7fee833ac23bdbc93f73fb5be9d9',1,'haplo::haplo_DP_rectangle']]],
+  ['group_5flistener_5ft_12260',['group_listener_t',['../classvg_1_1io_1_1MessageEmitter.html#a4569ac626dfd036074603cc6f05d55e1',1,'vg::io::MessageEmitter::group_listener_t()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a3fdef59aeb9c688e752463a2257ebbfd',1,'vg::io::ProtobufEmitter::group_listener_t()']]]
 ];

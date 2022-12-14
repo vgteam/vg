@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-types">Protected Types</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
@@ -87,9 +88,20 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Item.html">Item</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an <a class="el" href="structvg_1_1Funnel_1_1Item.html" title="Represents an Item whose provenance we track.">Item</a> whose provenance we track.  <a href="structvg_1_1Funnel_1_1Item.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1PaintableSpace.html">PaintableSpace</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Funnel_1_1Stage.html">Stage</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a <a class="el" href="structvg_1_1Funnel_1_1Stage.html" title="Represents a Stage which is a series of Items, which track their own provenance.">Stage</a> which is a series of Items, which track their own provenance.  <a href="structvg_1_1Funnel_1_1Stage.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a23e7fd0c49df53dd8a9e25934fe06c85"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a> { <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693">State::NONE</a> = 0, 
+<a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85a0a4373ca716769f93112e16e251bb8a1">State::PLACED</a> = 1, 
+<a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85a0d536515ce0fb6e96a5510b6556f30f2">State::CORRECT</a> = 2
+ }</td></tr>
+<tr class="memdesc:a23e7fd0c49df53dd8a9e25934fe06c85"><td class="mdescLeft">&#160;</td><td class="mdescRight">We can tag items as having one of these states.  <a href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">More...</a><br /></td></tr>
+<tr class="separator:a23e7fd0c49df53dd8a9e25934fe06c85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -128,6 +140,20 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a585c5484ef877a1ede56ed4467e32312"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
 <tr class="memitem:a585c5484ef877a1ede56ed4467e32312"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a585c5484ef877a1ede56ed4467e32312">merge_group</a> (Iterator prev_stage_items_begin, Iterator prev_stage_items_end)</td></tr>
 <tr class="separator:a585c5484ef877a1ede56ed4467e32312"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a44fcff7c06cb79e43cc1aa2fc73a8da6"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
+<tr class="memitem:a44fcff7c06cb79e43cc1aa2fc73a8da6"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a44fcff7c06cb79e43cc1aa2fc73a8da6">merge_groups</a> (Iterator prev_stage_items_begin, Iterator prev_stage_items_end)</td></tr>
+<tr class="separator:a44fcff7c06cb79e43cc1aa2fc73a8da6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae75f133fdc545176a27f0121a61a98e4"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
+<tr class="memitem:ae75f133fdc545176a27f0121a61a98e4"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ae75f133fdc545176a27f0121a61a98e4">merge</a> (Iterator prev_stage_items_begin, Iterator prev_stage_items_end)</td></tr>
+<tr class="separator:ae75f133fdc545176a27f0121a61a98e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc00e34c78f024874b44ebf90443cc4e"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
+<tr class="memitem:abc00e34c78f024874b44ebf90443cc4e"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#abc00e34c78f024874b44ebf90443cc4e">also_merge_group</a> (Iterator prev_stage_items_begin, Iterator prev_stage_items_end)</td></tr>
+<tr class="separator:abc00e34c78f024874b44ebf90443cc4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68135544a4504edde8de7df48557d4ba"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
+<tr class="memitem:a68135544a4504edde8de7df48557d4ba"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a68135544a4504edde8de7df48557d4ba">also_merge_group</a> (size_t earlier_stage_lookback, Iterator earlier_stage_items_begin, Iterator earlier_stage_items_end)</td></tr>
+<tr class="separator:a68135544a4504edde8de7df48557d4ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0642f2a1faae54dc12e98df452d4be65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a0642f2a1faae54dc12e98df452d4be65">also_relevant</a> (size_t earlier_stage_lookback, size_t earlier_stage_item)</td></tr>
+<tr class="separator:a0642f2a1faae54dc12e98df452d4be65"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b9e7695a998b23314c25f7fe3de4701"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a2b9e7695a998b23314c25f7fe3de4701">project</a> (size_t prev_stage_item)</td></tr>
 <tr class="memdesc:a2b9e7695a998b23314c25f7fe3de4701"><td class="mdescLeft">&#160;</td><td class="mdescRight">Project a single item from the previous stage to a single non-group item at this stage.  <a href="classvg_1_1Funnel.html#a2b9e7695a998b23314c25f7fe3de4701">More...</a><br /></td></tr>
 <tr class="separator:a2b9e7695a998b23314c25f7fe3de4701"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -141,16 +167,20 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a9cdacae4561ece776ba90e293299f930"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a9cdacae4561ece776ba90e293299f930">score</a> (size_t item, double score)</td></tr>
 <tr class="memdesc:a9cdacae4561ece776ba90e293299f930"><td class="mdescLeft">&#160;</td><td class="mdescRight">Assign the given score to the given item at the current stage.  <a href="classvg_1_1Funnel.html#a9cdacae4561ece776ba90e293299f930">More...</a><br /></td></tr>
 <tr class="separator:a9cdacae4561ece776ba90e293299f930"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4e2ab6878393d0d9aaee56127844b06b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b">tag_correct</a> (size_t item)</td></tr>
-<tr class="separator:a4e2ab6878393d0d9aaee56127844b06b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd3cf8783612cccf4faf96f25fc4f17c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#abd3cf8783612cccf4faf96f25fc4f17c">tag</a> (size_t item, <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a> state, size_t tag_start=0, size_t tag_length=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:abd3cf8783612cccf4faf96f25fc4f17c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa725f066e32a967c8d482f50c1606f08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aa725f066e32a967c8d482f50c1606f08">tag_correct</a> (size_t item, size_t tag_start=0, size_t tag_length=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:aa725f066e32a967c8d482f50c1606f08"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4296184811926cf97a42d52aaf3fc6f6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a4296184811926cf97a42d52aaf3fc6f6">is_correct</a> (size_t item) const</td></tr>
 <tr class="separator:a4296184811926cf97a42d52aaf3fc6f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aac71f37530afee1b7e49770aff8cc53b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aac71f37530afee1b7e49770aff8cc53b">was_correct</a> (size_t prev_stage_item) const</td></tr>
 <tr class="separator:aac71f37530afee1b7e49770aff8cc53b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f0037505a9df13b92e381f5ff108d72"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a5f0037505a9df13b92e381f5ff108d72">was_correct</a> (size_t prev_stage_index, const string &amp;prev_stage_name, size_t prev_stage_item) const</td></tr>
 <tr class="separator:a5f0037505a9df13b92e381f5ff108d72"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a99b8a07d0b3a1d0649aae4090918bfad"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a99b8a07d0b3a1d0649aae4090918bfad">last_correct_stage</a> () const</td></tr>
-<tr class="separator:a99b8a07d0b3a1d0649aae4090918bfad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a996005ebe76091bbba404bf4a2a9a405"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a996005ebe76091bbba404bf4a2a9a405">last_correct_stage</a> (size_t tag_start=0, size_t tag_length=std::numeric_limits&lt; size_t &gt;::max()) const</td></tr>
+<tr class="separator:a996005ebe76091bbba404bf4a2a9a405"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab53e816bd740407417b0bd8d14d5237c"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab53e816bd740407417b0bd8d14d5237c">last_tagged_stage</a> (<a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a> <a class="el" href="classvg_1_1Funnel.html#abd3cf8783612cccf4faf96f25fc4f17c">tag</a>, size_t tag_start=0, size_t tag_length=std::numeric_limits&lt; size_t &gt;::max()) const</td></tr>
+<tr class="separator:ab53e816bd740407417b0bd8d14d5237c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a933c8a296c5a680aa96b0b913c465250"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">latest</a> () const</td></tr>
 <tr class="memdesc:a933c8a296c5a680aa96b0b913c465250"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the index of the most recent item created in the current stage.  <a href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">More...</a><br /></td></tr>
 <tr class="separator:a933c8a296c5a680aa96b0b913c465250"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -158,10 +188,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:afe28658059032edb97960675bd8806ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc114c16e43a80739d292e03b65fa8ab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#afc114c16e43a80739d292e03b65fa8ab">for_each_filter</a> (const function&lt; void(const string &amp;, const string &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const <a class="el" href="structvg_1_1Funnel_1_1FilterPerformance.html">FilterPerformance</a> &amp;, const vector&lt; double &gt; &amp;, const vector&lt; double &gt; &amp;)&gt; &amp;callback) const</td></tr>
 <tr class="separator:afc114c16e43a80739d292e03b65fa8ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab38eefb0fa53720d2ab80793a2c13762"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762">to_dot</a> (ostream &amp;out)</td></tr>
-<tr class="separator:ab38eefb0fa53720d2ab80793a2c13762"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a835425e6527a844e11d1e4c59eaa0d6e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a835425e6527a844e11d1e4c59eaa0d6e">annotate_mapped_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool annotate_correctness)</td></tr>
-<tr class="separator:a835425e6527a844e11d1e4c59eaa0d6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad4a9374a423b2b87a15355ffac7a1935"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ad4a9374a423b2b87a15355ffac7a1935">to_dot</a> (ostream &amp;out) const</td></tr>
+<tr class="separator:ad4a9374a423b2b87a15355ffac7a1935"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adc044b59bc97ac7e6536068fa9bdb5d2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#adc044b59bc97ac7e6536068fa9bdb5d2">annotate_mapped_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool annotate_correctness) const</td></tr>
+<tr class="separator:adc044b59bc97ac7e6536068fa9bdb5d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-types"></a>
 Protected Types</h2></td></tr>
@@ -211,7 +241,7 @@ Protected Attributes</h2></td></tr>
 <p>Tracks the history of "lines" of data "item" provenance through a series of "stages", containing a series of "filters".</p>
 <p>Lines are "introduced", and "project" from earlier stages to later stages, possibly "expanding" or "merging", until they "fail" a filter or reach the final stage. At each stage, items occur in a linear order and are identified by index.</p>
 <p>An item may be a "group", with a certain size.</p>
-<p>We also can assign scores to items at a stage. </p>
+<p>We also can assign "scores" or correctness/placed-ness "tags" to items at a stage. Tags can cover a region of a linear read space. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a8173e5288d688fbf38e324eeb1308978"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8173e5288d688fbf38e324eeb1308978">&#9670;&nbsp;</a></span>clock</h2>
@@ -261,9 +291,140 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<h2 class="groupheader">Member Enumeration Documentation</h2>
+<a id="a23e7fd0c49df53dd8a9e25934fe06c85"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a23e7fd0c49df53dd8a9e25934fe06c85">&#9670;&nbsp;</a></span>State</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">vg::Funnel::State</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">strong</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>We can tag items as having one of these states. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a23e7fd0c49df53dd8a9e25934fe06c85ab50339a10e1de285ac99d4c3990b8693"></a>NONE&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a23e7fd0c49df53dd8a9e25934fe06c85a0a4373ca716769f93112e16e251bb8a1"></a>PLACED&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a23e7fd0c49df53dd8a9e25934fe06c85a0d536515ce0fb6e96a5510b6556f30f2"></a>CORRECT&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a835425e6527a844e11d1e4c59eaa0d6e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a835425e6527a844e11d1e4c59eaa0d6e">&#9670;&nbsp;</a></span>annotate_mapped_alignment()</h2>
+<a id="abc00e34c78f024874b44ebf90443cc4e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abc00e34c78f024874b44ebf90443cc4e">&#9670;&nbsp;</a></span>also_merge_group() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Iterator &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::also_merge_group </td>
+          <td>(</td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>prev_stage_items_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>prev_stage_items_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Record extra provenance relationships where the latest current-stage item came from the given previous-stage items. Increases the current-stage item group size by the number of previous-stage items added.</p>
+<p>Propagates tagging. </p>
+
+</div>
+</div>
+<a id="a68135544a4504edde8de7df48557d4ba"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68135544a4504edde8de7df48557d4ba">&#9670;&nbsp;</a></span>also_merge_group() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Iterator &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::also_merge_group </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>earlier_stage_lookback</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>earlier_stage_items_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>earlier_stage_items_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Record extra provenance relationships where the latest current-stage item came from the given earlier-stage items. Increases the current-stage item group size by the number of previous-stage items added.</p>
+<p>Propagates tagging.</p>
+<p>earlier_stage_lookback determines how many stages to look back and must be 1 or more. </p>
+
+</div>
+</div>
+<a id="a0642f2a1faae54dc12e98df452d4be65"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0642f2a1faae54dc12e98df452d4be65">&#9670;&nbsp;</a></span>also_relevant()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::also_relevant </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>earlier_stage_lookback</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>earlier_stage_item</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Record an extra provenance relationship where the latest current-stage item came from the given previous-stage item, the given number of stages ago (min 1).</p>
+<p>Does not adjust group size or propagate tagging. </p>
+
+</div>
+</div>
+<a id="adc044b59bc97ac7e6536068fa9bdb5d2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adc044b59bc97ac7e6536068fa9bdb5d2">&#9670;&nbsp;</a></span>annotate_mapped_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -283,7 +444,7 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -486,8 +647,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a99b8a07d0b3a1d0649aae4090918bfad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a99b8a07d0b3a1d0649aae4090918bfad">&#9670;&nbsp;</a></span>last_correct_stage()</h2>
+<a id="a996005ebe76091bbba404bf4a2a9a405"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a996005ebe76091bbba404bf4a2a9a405">&#9670;&nbsp;</a></span>last_correct_stage()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -495,12 +656,59 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname">string vg::Funnel::last_correct_stage </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_start</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_length</em> = <code>std::numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get the name of the most recent stage that had a correct-tagged item survive into it, or "none" if no items were ever tagged correct. </p>
+<p>Get the name of the most recent stage that had a correct-tagged item survive into it, or "none" if no items were ever tagged correct. Optionally allows specifying a read space interval to intersect with items, so the query returns the last stage that had a correct item intersecting that range. </p>
+
+</div>
+</div>
+<a id="ab53e816bd740407417b0bd8d14d5237c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab53e816bd740407417b0bd8d14d5237c">&#9670;&nbsp;</a></span>last_tagged_stage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::Funnel::last_tagged_stage </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a>&#160;</td>
+          <td class="paramname"><em>tag</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_start</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_length</em> = <code>std::numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the name of the most recent stage that had a n item tagged with the given tag or better survive into it, or "none" if no items were ever tagged that good. Optionally allows specifying a read space interval to intersect with items, so the query returns the last stage that had an item intersecting that range and also an item witht hat tag or better.</p>
+<p>TODO: Make worse tag ranges not match queries for better tags! </p>
 
 </div>
 </div>
@@ -520,6 +728,37 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the index of the most recent item created in the current stage. </p>
+
+</div>
+</div>
+<a id="ae75f133fdc545176a27f0121a61a98e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae75f133fdc545176a27f0121a61a98e4">&#9670;&nbsp;</a></span>merge()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Iterator &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::merge </td>
+          <td>(</td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>prev_stage_items_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>prev_stage_items_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Merge all the given item indexes from the previous stage into a new item at this stage. The new item will be a single item. </p>
 
 </div>
 </div>
@@ -551,6 +790,37 @@ template&lt;typename Iterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Merge all the given item indexes from the previous stage into a new item at this stage. The new item will be a group, sized according to the number of previous items merged. </p>
+
+</div>
+</div>
+<a id="a44fcff7c06cb79e43cc1aa2fc73a8da6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a44fcff7c06cb79e43cc1aa2fc73a8da6">&#9670;&nbsp;</a></span>merge_groups()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Iterator &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::merge_groups </td>
+          <td>(</td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>prev_stage_items_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Iterator&#160;</td>
+          <td class="paramname"><em>prev_stage_items_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Merge all the given item indexes from the previous stage into a new item at this stage. The new item will be a group, sized according to the total size of previous groups, with non-groups counting as size 1. </p>
 
 </div>
 </div>
@@ -860,8 +1130,49 @@ template&lt;typename Iterator &gt; </div>
 
 </div>
 </div>
-<a id="a4e2ab6878393d0d9aaee56127844b06b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4e2ab6878393d0d9aaee56127844b06b">&#9670;&nbsp;</a></span>tag_correct()</h2>
+<a id="abd3cf8783612cccf4faf96f25fc4f17c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd3cf8783612cccf4faf96f25fc4f17c">&#9670;&nbsp;</a></span>tag()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::tag </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">State</a>&#160;</td>
+          <td class="paramname"><em>state</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_start</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_length</em> = <code>std::numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Tag the given item as being in the given state at the current stage. Future items that derive from it will inherit these tags. Optionally allows specifying that the state extends over a range in read space. </p>
+
+</div>
+</div>
+<a id="aa725f066e32a967c8d482f50c1606f08"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa725f066e32a967c8d482f50c1606f08">&#9670;&nbsp;</a></span>tag_correct()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -870,17 +1181,33 @@ template&lt;typename Iterator &gt; </div>
           <td class="memname">void vg::Funnel::tag_correct </td>
           <td>(</td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>item</em></td><td>)</td>
+          <td class="paramname"><em>item</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_start</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>tag_length</em> = <code>std::numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Tag the given item as "correct" at the current stage. Future items that derive from it will also be tagged as correct. </p>
+<p>Tag the given item as "correct" at the current stage. Future items that derive from it will also be tagged as correct. Optionally allows specifying that the correctness extends over a range in read space, so correctness can be tracked as a property of regions of the read, rather than the whole read. If called multiple times, with different bounds, the correct region will enclose all the correct regions provided in the different calls. </p>
 
 </div>
 </div>
-<a id="ab38eefb0fa53720d2ab80793a2c13762"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab38eefb0fa53720d2ab80793a2c13762">&#9670;&nbsp;</a></span>to_dot()</h2>
+<a id="ad4a9374a423b2b87a15355ffac7a1935"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad4a9374a423b2b87a15355ffac7a1935">&#9670;&nbsp;</a></span>to_dot()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -890,7 +1217,7 @@ template&lt;typename Iterator &gt; </div>
           <td>(</td>
           <td class="paramtype">ostream &amp;&#160;</td>
           <td class="paramname"><em>out</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -996,7 +1323,7 @@ template&lt;typename Iterator &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>What's the current prev-stage input we are processing? Will be numeric_limits&lt;size_t&gt;::max() if none. </p>
+<p>What's the current prev-stage input we are processing? Will be <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;size_t&gt;::max()</a> if none. </p>
 
 </div>
 </div>
@@ -1019,7 +1346,7 @@ template&lt;typename Iterator &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>what's the current current-stage output we are generating? Will be numeric_limits&lt;size_t&gt;::max() if none. </p>
+<p>what's the current current-stage output we are generating? Will be <a class="el" href="namespacestd.html#a032e2e35689ce96dfb488db853f83334" title="Allow maxing TracedScore.">numeric_limits&lt;size_t&gt;::max()</a> if none. </p>
 
 </div>
 </div>

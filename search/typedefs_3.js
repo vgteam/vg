@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['edge_5ft_11914',['edge_t',['../namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963',1,'vg::edge_t()'],['../namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b',1,'handlegraph::edge_t()'],['../namespacevg_1_1io.html#a51e10b2bc70fa91b79b32c5aadeab4ff',1,'vg::io::edge_t()']]],
-  ['edgemapping_11915',['EdgeMapping',['../namespacevg.html#a7a29090bbc6b842c2362f9da44a4a57c',1,'vg']]],
-  ['emitter_5ft_11916',['emitter_t',['../classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d',1,'vg::StreamSorter']]],
-  ['exon_5fnodes_5ft_11917',['exon_nodes_t',['../namespacevg.html#a8ae488d495e344881cbcf599ebdd2355',1,'vg']]]
+  ['decomposition_5fsource_5ft_12246',['decomposition_source_t',['../classhandlegraph_1_1BuildableSnarlDecomposition.html#a5e521833234f94ccd3d4874d361a858b',1,'handlegraph::BuildableSnarlDecomposition']]],
+  ['deletablehandlegraph_12247',['DeletableHandleGraph',['../namespacevg.html#aa6df851edf21daea75fc6dc1dd81a78f',1,'vg']]],
+  ['difference_5ftype_12248',['difference_type',['../classvg_1_1count__back__inserter.html#a5179c0c806e711f2561e389293ada86f',1,'vg::count_back_inserter::difference_type()'],['../structvg_1_1VectorView_1_1const__iterator.html#a1a5f1849c8062c6ebba6a70fe5cbb1cb',1,'vg::VectorView::const_iterator::difference_type()']]],
+  ['duration_12249',['duration',['../classvg_1_1Watchdog.html#aba6d996685d0d7939c5ff17176710233',1,'vg::Watchdog']]]
 ];

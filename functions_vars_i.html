@@ -77,6 +77,9 @@ $(function() {
 <li>id_to_edge_indices
 : <a class="el" href="structvg_1_1IndexedVG_1_1CacheEntry.html#a75ad6266609d35ec42e64abb2a29c7c8">vg::IndexedVG::CacheEntry</a>
 </li>
+<li>id_to_index
+: <a class="el" href="structvg_1_1subcommand_1_1OptionGroup.html#a1bef2cbc66c4d3d005cab5f79d5cf76e">vg::subcommand::OptionGroup&lt; Receiver &gt;</a>
+</li>
 <li>id_to_name
 : <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html#a0ef46eac291cd354dc89e90d31e87777">vg::algorithms::GFAIDMapInfo</a>
 , <a class="el" href="classvg_1_1Paths.html#a75a67b0c836eb9a21ae0eee3a213d62c">vg::Paths</a>
@@ -146,7 +149,6 @@ $(function() {
 : <a class="el" href="classhaplo_1_1GBWTScoreProvider.html#ae24f0ba2be7fdc64cb0d0a33123e41ad">haplo::GBWTScoreProvider&lt; GBWTType &gt;</a>
 , <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a79e51544898895192d319f95e95cf2f1">haplo::linear_haplo_structure</a>
 , <a class="el" href="classhaplo_1_1LinearScoreProvider.html#a1ceb289752fb8e83c13e52e82bea393b">haplo::LinearScoreProvider</a>
-, <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace_1_1PathIterator.html#ab0efcf0ab5b6e9705fa708d19e35a24a">vg::algorithms::BaseChainingSpace&lt; Item &gt;::PathIterator</a>
 , <a class="el" href="classvg_1_1IndexedVG.html#a4f618ecb46d596aa053450a4de13e990">vg::IndexedVG</a>
 </li>
 <li>index_of
@@ -156,9 +158,12 @@ $(function() {
 : <a class="el" href="classvg_1_1IndexRegistry.html#a866b81f28ca2fba68aff7de143f35b9b">vg::IndexRegistry</a>
 </li>
 <li>indexes
-: <a class="el" href="structvg_1_1algorithms_1_1VectorView.html#a1198c3d0bd5a10ed741ac07039706a67">vg::algorithms::VectorView&lt; Item &gt;</a>
-, <a class="el" href="classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4">vg::GraphSynchronizer</a>
+: <a class="el" href="classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4">vg::GraphSynchronizer</a>
 , <a class="el" href="classvg_1_1RewindPlanException.html#abf38371b59f5d1ebc55806967bc3b12b">vg::RewindPlanException</a>
+, <a class="el" href="structvg_1_1VectorView.html#a54433c9bb742729c00a4d48adaa88015">vg::VectorView&lt; Item &gt;</a>
+</li>
+<li>initial_lookback_threshold
+: <a class="el" href="classvg_1_1MinimizerMapper.html#ac34a8000fb9659a54c7d967da64efc0d">vg::MinimizerMapper</a>
 </li>
 <li>inline_items
 : <a class="el" href="structvg_1_1MatchPos_1_1PathList.html#abffe04434a41c9f8dfcb85ef8d3d26f9">vg::MatchPos::PathList</a>
@@ -227,6 +232,7 @@ $(function() {
 </li>
 <li>inverse
 : <a class="el" href="classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882">vg::Filter</a>
+, <a class="el" href="classvg_1_1VectorViewInverse.html#a54a9cc36f21c2562f2f0836e5a040773">vg::VectorViewInverse</a>
 </li>
 <li>is_alt
 : <a class="el" href="classvg_1_1Paths.html#a3e8fd05a0a584cbae2f2919b5ab98e4d">vg::Paths</a>
@@ -303,8 +309,8 @@ $(function() {
 <li>isForward
 : <a class="el" href="structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631">vg::BREAKPOINT</a>
 </li>
-<li>item
-: <a class="el" href="structvg_1_1algorithms_1_1BaseChainingSpace_1_1PathIterator.html#a16eb531e828ab54bceeb73fd63180956">vg::algorithms::BaseChainingSpace&lt; Item &gt;::PathIterator</a>
+<li>item_bonus
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a7646fc428d4eb41fb022dd9c61afa687">vg::MinimizerMapper</a>
 </li>
 <li>item_count
 : <a class="el" href="structvg_1_1MatchPos_1_1PathList.html#ad3ebb006eb120b2934d64cece179d0e8">vg::MatchPos::PathList</a>
@@ -313,8 +319,8 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1f58abce5de3c8f71a82e689c0170c49">vg::io::MessageIterator</a>
 </li>
 <li>items
-: <a class="el" href="structvg_1_1algorithms_1_1VectorView.html#ab3b8034136ef5c2645861c8313e5ecf5">vg::algorithms::VectorView&lt; Item &gt;</a>
-, <a class="el" href="structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6">vg::Funnel::Stage</a>
+: <a class="el" href="structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6">vg::Funnel::Stage</a>
+, <a class="el" href="structvg_1_1VectorView.html#a1d1194d5eac47211eda065d3dc6312ef">vg::VectorView&lt; Item &gt;</a>
 </li>
 <li>iteratee
 : <a class="el" href="classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c">vg::ShuffledPairs::iterator</a>

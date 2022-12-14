@@ -99,6 +99,13 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Tree.html">vg::Tree&lt; T &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1VectorView.html">vg::VectorView&lt; Item &gt;</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1VectorView_1_1const__iterator.html">vg::VectorView&lt; Item &gt;::const_iterator</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Random access iterator.  <a href="structvg_1_1VectorView_1_1const__iterator.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VectorViewInverse.html">vg::VectorViewInverse</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IncrementIter.html">vg::IncrementIter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LazyRNG.html">vg::LazyRNG</a></td></tr>
@@ -206,10 +213,27 @@ Functions</h2></td></tr>
 <tr class="memitem:ae6a210206858f806b345f8eb5c2c292a"><td class="memTemplParams" colspan="2">template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Container, typename Item &gt; </td></tr>
 <tr class="memitem:ae6a210206858f806b345f8eb5c2c292a"><td class="memTemplItemLeft" align="right" valign="top">Container&lt; const Item * &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae6a210206858f806b345f8eb5c2c292a">vg::pointerfy</a> (const Container&lt; Item &gt; &amp;in)</td></tr>
 <tr class="separator:ae6a210206858f806b345f8eb5c2c292a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a64380ba1816d3fd97847a6dc6b2665d8"><td class="memTemplParams" colspan="2">template&lt;typename Item &gt; </td></tr>
+<tr class="memitem:a64380ba1816d3fd97847a6dc6b2665d8"><td class="memTemplItemLeft" align="right" valign="top">VectorView&lt; Item &gt;::const_iterator&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a64380ba1816d3fd97847a6dc6b2665d8">vg::operator+</a> (typename VectorView&lt; Item &gt;::const_iterator::difference_type a, const typename VectorView&lt; Item &gt;::const_iterator &amp;b)</td></tr>
+<tr class="memdesc:a64380ba1816d3fd97847a6dc6b2665d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow <a class="el" href="structvg_1_1VectorView.html">VectorView</a> iterators to be added to numbers.  <a href="namespacevg.html#a64380ba1816d3fd97847a6dc6b2665d8">More...</a><br /></td></tr>
+<tr class="separator:a64380ba1816d3fd97847a6dc6b2665d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a931d9271de88fc786030fdd0ab4bf534"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a931d9271de88fc786030fdd0ab4bf534">vg::range_vector</a> (size_t begin, size_t end)</td></tr>
+<tr class="memdesc:a931d9271de88fc786030fdd0ab4bf534"><td class="mdescLeft">&#160;</td><td class="mdescRight">Vector containing positive integer values in [begin, end)  <a href="namespacevg.html#a931d9271de88fc786030fdd0ab4bf534">More...</a><br /></td></tr>
 <tr class="separator:a931d9271de88fc786030fdd0ab4bf534"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a39adca1737de5d28d007d95b809deb7f"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a39adca1737de5d28d007d95b809deb7f">vg::range_vector</a> (size_t end)</td></tr>
+<tr class="memdesc:a39adca1737de5d28d007d95b809deb7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Vector containing positive integer values in [0, end)  <a href="namespacevg.html#a39adca1737de5d28d007d95b809deb7f">More...</a><br /></td></tr>
 <tr class="separator:a39adca1737de5d28d007d95b809deb7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae031408254f8c4031ba0b632f5456059"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
+<tr class="memitem:ae031408254f8c4031ba0b632f5456059"><td class="memTemplItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae031408254f8c4031ba0b632f5456059">vg::sort_permutation</a> (const Iterator &amp;begin, const Iterator &amp;end, const std::function&lt; bool(const typename Iterator::value_type &amp;, const typename Iterator::value_type &amp;)&gt; &amp;comparator)</td></tr>
+<tr class="memdesc:ae031408254f8c4031ba0b632f5456059"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the index permutation that sorts the given items with the given comparator instead of &lt;.  <a href="namespacevg.html#ae031408254f8c4031ba0b632f5456059">More...</a><br /></td></tr>
+<tr class="separator:ae031408254f8c4031ba0b632f5456059"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab03fad9d3c71a090606afbe1ef22ce71"><td class="memTemplParams" colspan="2">template&lt;typename Iterator &gt; </td></tr>
+<tr class="memitem:ab03fad9d3c71a090606afbe1ef22ce71"><td class="memTemplItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab03fad9d3c71a090606afbe1ef22ce71">vg::sort_permutation</a> (const Iterator &amp;begin, const Iterator &amp;end)</td></tr>
+<tr class="memdesc:ab03fad9d3c71a090606afbe1ef22ce71"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the index permutation that sorts the given items ascending using &lt;.  <a href="namespacevg.html#ab03fad9d3c71a090606afbe1ef22ce71">More...</a><br /></td></tr>
+<tr class="separator:ab03fad9d3c71a090606afbe1ef22ce71"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5e9c563a243faef4e5357eca9c7c8500"><td class="memItemLeft" align="right" valign="top">std::vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5e9c563a243faef4e5357eca9c7c8500">vg::stack_permutations</a> (const std::vector&lt; size_t &gt; &amp;bottom, const std::vector&lt; size_t &gt; &amp;top)</td></tr>
+<tr class="memdesc:a5e9c563a243faef4e5357eca9c7c8500"><td class="mdescLeft">&#160;</td><td class="mdescRight">Apply one permutation on top of another. Retutn the combined permutation.  <a href="namespacevg.html#a5e9c563a243faef4e5357eca9c7c8500">More...</a><br /></td></tr>
+<tr class="separator:a5e9c563a243faef4e5357eca9c7c8500"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7c32d1e90ec006624a7ee03655f3c35"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa7c32d1e90ec006624a7ee03655f3c35">vg::integer_power</a> (size_t x, size_t power)</td></tr>
 <tr class="separator:aa7c32d1e90ec006624a7ee03655f3c35"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca4239af1a9e3eb1283f78bf5cc1411a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aca4239af1a9e3eb1283f78bf5cc1411a">vg::integer_power</a> (uint64_t base, uint64_t exponent)</td></tr>
@@ -305,6 +329,9 @@ Functions</h2></td></tr>
 <tr class="memitem:aa1de4a1752e875116c767ec49a8e2961"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:aa1de4a1752e875116c767ec49a8e2961"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa1de4a1752e875116c767ec49a8e2961">vg::parse</a> (const string &amp;arg, std::regex &amp;dest)</td></tr>
 <tr class="separator:aa1de4a1752e875116c767ec49a8e2961"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa4a3393960dd54c941e9d7c317923c2e"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:aa4a3393960dd54c941e9d7c317923c2e"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa4a3393960dd54c941e9d7c317923c2e">vg::parse</a> (const string &amp;arg, pos_t &amp;dest)</td></tr>
+<tr class="separator:aa4a3393960dd54c941e9d7c317923c2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

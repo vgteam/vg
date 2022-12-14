@@ -119,10 +119,10 @@ Functions</h2></td></tr>
 <tr class="separator:a735c13fd9a1fb84b477ac45d6d81f005"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64feaa655343996c7d233d938a5f35d8"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a64feaa655343996c7d233d938a5f35d8">dagify</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, size_t min_preserved_path_length)</td></tr>
 <tr class="separator:a64feaa655343996c7d233d938a5f35d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af86b0e4c4aa2e8164dbe290b1d2a5870"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#af86b0e4c4aa2e8164dbe290b1d2a5870">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward)</td></tr>
-<tr class="separator:af86b0e4c4aa2e8164dbe290b1d2a5870"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0bc8222d59aee133f354e09f6d53d5dd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a0bc8222d59aee133f354e09f6d53d5dd">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;starts, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward)</td></tr>
-<tr class="separator:a0bc8222d59aee133f354e09f6d53d5dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e7bda18174c291a0d991002c2f56a4d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a8e7bda18174c291a0d991002c2f56a4d">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward, bool prune, bool cycle_to_start)</td></tr>
+<tr class="separator:a8e7bda18174c291a0d991002c2f56a4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a236138ba6f70d430d3a401251372ff74"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a236138ba6f70d430d3a401251372ff74">dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;starts, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; reached_callback, bool traverse_leftward, bool prune, bool cycle_to_start)</td></tr>
+<tr class="separator:a236138ba6f70d430d3a401251372ff74"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a62990356f8196e5cb3b2e6601cc41eee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a62990356f8196e5cb3b2e6601cc41eee">for_each_handle_in_shortest_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> end, std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, size_t)&gt; iteratee)</td></tr>
 <tr class="separator:a62990356f8196e5cb3b2e6601cc41eee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2dad089a8ba50413b0737bf6ceb52f80"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a2dad089a8ba50413b0737bf6ceb52f80">eades_algorithm</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -816,8 +816,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a0bc8222d59aee133f354e09f6d53d5dd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0bc8222d59aee133f354e09f6d53d5dd">&#9670;&nbsp;</a></span>dijkstra() <span class="overload">[1/2]</span></h2>
+<a id="a236138ba6f70d430d3a401251372ff74"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a236138ba6f70d430d3a401251372ff74">&#9670;&nbsp;</a></span>dijkstra() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -844,7 +844,19 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>traverse_leftward</em>&#160;</td>
+          <td class="paramname"><em>traverse_leftward</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>prune</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>cycle_to_start</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -856,8 +868,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="af86b0e4c4aa2e8164dbe290b1d2a5870"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af86b0e4c4aa2e8164dbe290b1d2a5870">&#9670;&nbsp;</a></span>dijkstra() <span class="overload">[2/2]</span></h2>
+<a id="a8e7bda18174c291a0d991002c2f56a4d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e7bda18174c291a0d991002c2f56a4d">&#9670;&nbsp;</a></span>dijkstra() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -884,7 +896,19 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>traverse_leftward</em>&#160;</td>
+          <td class="paramname"><em>traverse_leftward</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>prune</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>cycle_to_start</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
