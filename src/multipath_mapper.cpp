@@ -3087,7 +3087,7 @@ namespace vg {
             // check if the fully realized alignment still looks approx disjoint with the primary
             auto interval = aligned_interval(candidate);
             if (searching_left) {
-                if (interval.second >= primary_interval.first + max_softclip_overlap ||
+                if (interval.second >= primary_interval.first + 2 * max_softclip_overlap ||
                     min<int64_t>(interval.second, primary_interval.first) - interval.first < min_softclip_length_for_splice) {
 #ifdef debug_multipath_mapper
                     cerr << "rejecting candidate because of overlap" << endl;
@@ -3098,7 +3098,7 @@ namespace vg {
                 }
             }
             else {
-                if (interval.first < primary_interval.second - max_softclip_overlap ||
+                if (interval.first < primary_interval.second - 2 * max_softclip_overlap ||
                     interval.second - max<int64_t>(interval.first, primary_interval.second) < min_softclip_length_for_splice) {
 #ifdef debug_multipath_mapper
                     cerr << "rejecting candidate because of overlap" << endl;
