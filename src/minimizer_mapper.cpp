@@ -345,8 +345,8 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
 }
 
 void MinimizerMapper::dump_debug_clustering(const Cluster& cluster, size_t cluster_number, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) {
-    if (cluster.seeds.size() < MANY_LIMIT) {
-        // There are a few seeds so describe them individually.
+    if (minimizers.size() < MANY_LIMIT) {
+        // There are a few minimizers overall, so describe each in the cluster individually.
         for (auto hit_index : cluster.seeds) {
             cerr << log_name() << "Minimizer " << seeds[hit_index].source << " is present in cluster " << cluster_number << endl;
         }
