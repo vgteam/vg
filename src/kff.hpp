@@ -23,14 +23,11 @@ std::string kff_invert(const uint8_t* encoding);
 /// Decodes a kmer in KFF format according to the given encoding.
 std::string kff_decode(const uint8_t* kmer, size_t k, const std::string& decoding);
 
-/// Decodes a kmer in KFF format according to the encoding in the given file.
-std::string kff_decode(const uint8_t* kmer, Kff_reader& reader);
-
 /// Recodes a kmer from a minimizer index in KFF format according to the given encoding.
 std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, const uint8_t* encoding);
 
-/// Recodes a kmer from a minimizer index in KFF format according to the encoding in the given file.
-std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, Kff_reader& reader);
+/// Parses a big-endian integer from KFF data.
+size_t kff_parse(const uint8_t* data, size_t bytes);
 
 //------------------------------------------------------------------------------
 

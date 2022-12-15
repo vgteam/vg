@@ -73,6 +73,29 @@ TEST_CASE("Recode minimizers", "[kff]") {
     }
 }
 
+TEST_CASE("Parse integers", "[kff]") {
+    SECTION("single byte") {
+        uint8_t bytes[1] = { 0x12 };
+        size_t expected = 0x12;
+        size_t parsed = kff_parse(bytes, sizeof(bytes));
+        REQUIRE(parsed == expected);
+    }
+
+    SECTION("multiple bytes") {
+        uint8_t bytes[5] = { 0x12, 0x34, 0x56, 0x78, 0x9A };
+        size_t expected = 0x123456789A;
+        size_t parsed = kff_parse(bytes, sizeof(bytes));
+        REQUIRE(parsed == expected);
+    }
+
+    SECTION("maximum length") {
+        uint8_t bytes[8] = { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 };
+        size_t expected = 0x123456789ABCDEF0;
+        size_t parsed = kff_parse(bytes, sizeof(bytes));
+        REQUIRE(parsed == expected);
+    }
+}
+
 //------------------------------------------------------------------------------
 
 }

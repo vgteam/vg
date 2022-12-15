@@ -71,10 +71,6 @@ std::string kff_decode(const uint8_t* kmer, size_t k, const std::string& decodin
     return result;
 }
 
-std::string kff_decode(const uint8_t* kmer, Kff_reader& reader) {
-    return kff_decode(kmer, reader.k, kff_invert(reader.get_encoding()));
-}
-
 //------------------------------------------------------------------------------
 
 // Recode up to 4 characters in one byte.
@@ -103,8 +99,16 @@ std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, con
     return result;
 }
 
-std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, Kff_reader& reader) {
-    return kff_recode(kmer, reader.k, reader.get_encoding());
+//------------------------------------------------------------------------------
+
+size_t kff_parse(const uint8_t* data, size_t bytes) {
+    size_t value = 0;
+    size_t shift = 8 * bytes;
+    for (size_t i = 0; i < bytes; i++) {
+        shift -= 8;
+        value |= static_cast<size_t>(data[i]) << shift;
+    }
+    return value;
 }
 
 //------------------------------------------------------------------------------
