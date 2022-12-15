@@ -130,3 +130,6 @@
 	path = deps/tabixpp
 	url = https://github.com/ekg/tabixpp.git
 	branch = master
+[submodule "deps/kff-cpp-api"]
+	path = deps/kff-cpp-api
+	url = https://github.com/Kmer-File-Format/kff-cpp-api.git

@@ -66,7 +66,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SR
 
 # Define libraries to link against.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := -lvgio -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
+LD_LIB_FLAGS := -lvgio -lvcflib -ltabixpp -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -lkff -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lbdsg -lxg -lsdsl -lzstd -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -284,6 +284,7 @@ SNAPPY_DIR:=deps/snappy
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
+KFF_DIR=deps/kff-cpp-api
 PROGRESS_BAR_DIR:=deps/progress_bar
 FASTAHACK_DIR:=deps/fastahack
 FERMI_DIR:=deps/fermi-lite
@@ -331,6 +332,7 @@ LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
 LIB_DEPS += $(LIB_DIR)/libgbwtgraph.a
+LIB_DEPS += $(LIB_DIR)/libkff.a
 LIB_DEPS += $(LIB_DIR)/libhts.a
 LIB_DEPS += $(LIB_DIR)/libtabixpp.a
 LIB_DEPS += $(LIB_DIR)/libvcflib.a
@@ -385,6 +387,7 @@ DEPS = $(LIB_DEPS)
 DEPS += $(INC_DIR)/gcsa/gcsa.h
 DEPS += $(INC_DIR)/gbwt/dynamic_gbwt.h
 DEPS += $(INC_DIR)/gbwtgraph/gbwtgraph.h
+DEPS += $(INC_DIR)/kff_io.hpp
 DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
@@ -525,6 +528,15 @@ ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
 else
 	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
+endif
+
+$(INC_DIR)/kff_io.hpp: $(LIB_DIR)/libkff.a
+
+$(LIB_DIR)/libkff.a: $(KFF_DIR)/kff_io.cpp $(KFF_DIR)/kff_io.hpp.in
+ifeq ($(shell uname -s),Darwin)
+	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake .. && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
+else
+	+. ./source_me.sh && cd $(KFF_DIR) && rm -Rf build && mkdir build && cd build && cmake .. && $(MAKE) $(FILTER) && cp kff_io.hpp $(CWD)/$(INC_DIR) && mv libkff.a $(CWD)/$(LIB_DIR)
 endif
 
 $(INC_DIR)/BooPHF.h: $(BBHASH_DIR)/BooPHF.h
@@ -958,6 +970,7 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean
+	cd $(DEP_DIR) && cd kff-cpp-api && rm -Rf build
 	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
 	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
