@@ -48,19 +48,23 @@ jobs:
         # because there's no way to tell Homebrew to force-link when installing
         # from a Brewfile. We also update Protobuf to make sure we have 3.21.3+
         # to avoid problems with ABI changes with/without -DNDEBUG.
+        # And we update libomp to make extra sure it will be picked up by the compiler.
         # We pre-install a pinned txm to work around https://github.com/anko/txm/issues/8
-        run: brew bundle cleanup --force && brew bundle install && brew update && brew install protobuf && npm install -g txm@7.4.5
+        run: brew bundle cleanup --force && brew bundle install && brew update && brew install protobuf && brew install libomp && npm install -g txm@7.4.5
 
       - name: Run build and test
         run: |
-          brew --prefix
-          export PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:/usr/local/opt/bison/bin:$(pwd)/bin:/usr/local/bin:$PATH"
-          which wc
-          wc --version
-          export LD_LIBRARY_PATH=/usr/local/lib/
-          export LIBRARY_PATH=/usr/local/lib/
-          export CFLAGS="-isystem /usr/local/include/"
           export VG_FULL_TRACEBACK=1
           echo "Build with $(nproc) threads"
+          set +e
           make -j$(nproc) test
+          RETVAL=$?
+          set -e
+          # Whether vg testing succeeds or fails, see if we can get any Apple crash logs for it.
+          ls ~/Library/Logs/DiagnosticReports/
+          for CRASH_FILE in $(ls ~/Library/Logs/DiagnosticReports/vg-* 2>/dev/null) ; do
+              echo "vg crash report found: ${CRASH_FILE}"
+              cat ${CRASH_FILE}
+          done
+          exit $RETVAL
         shell: bash

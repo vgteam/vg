@@ -600,9 +600,7 @@ int main_paths(int argc, char** argv) {
                         if (it == path_to_name.end()) {
                             string step_path_name = graph->get_path_name(step_path_handle);
                             // disregard subpath tags when counting (but not displaying)
-                            auto subpath = Paths::parse_subpath_name(step_path_name);
-                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
-                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                            it = path_to_name.insert(make_pair(step_path_handle, Paths::strip_subrange(step_path_name))).first;
                         }
                         unique_names.insert(it->second);
                         unique_paths.insert(step_path_handle);
@@ -719,16 +717,22 @@ int main_paths(int argc, char** argv) {
                         }
                     }
                     if (list_cyclicity) {
-                        bool cyclic = false;
+                        bool directed_cyclic = false; // same node visited twice in same orientation
+                        bool undirected_cyclic = false; // same not visited twice in any orientation
                         unordered_set<handle_t> visits;
                         graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-                                pair<unordered_set<handle_t>::iterator, bool> ret = visits.insert(graph->get_handle_of_step(step_handle));
-                                if (ret.second == false) {
-                                    cyclic = true;
+                                handle_t handle = graph->get_handle_of_step(step_handle);
+                                if (visits.count(handle)) {
+                                    directed_cyclic = true;
+                                    undirected_cyclic = false;
+                                } else if (visits.count(graph->flip(handle))) {
+                                    undirected_cyclic = true;
                                 }
-                                return !cyclic;
+                                visits.insert(handle);
+                                return !directed_cyclic || !undirected_cyclic;
                             });
-                        cout << "\t" << (cyclic ? "cyclic" : "acyclic");
+                        cout << "\t" << (directed_cyclic ? "directed-cyclic" : "directed-acyclic")
+                             << "\t" << (undirected_cyclic ? "undirected-cyclic" : "undirected-acyclic");
                     }
                     cout << endl;
                 } else {

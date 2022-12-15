@@ -5,14 +5,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 15
 
 
 # Indexing a single graph
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -x x.xg x.vg
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
-vg snarls -T x.vg > x.snarls
 vg index -j x.dist x.xg
 
 # Default construction
@@ -22,34 +21,35 @@ is $? 0 "default parameters"
 # Single-threaded for deterministic results
 vg minimizer -t 1 -o x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 24d7b6cf578766edb397c68f18a8682a "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction is deterministic"
 
 # Indexing syncmers
 vg minimizer -t 1 -o x.mi -c -g x.gbwt x.xg
 is $? 0 "syncmer index"
-is $(md5sum x.mi | cut -f 1 -d\ ) 6989e05796bf9371819f4c6cbd9f1ab4 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 9c4d84fb43d4db62a200bc6ebfea93ee "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer -t 1 -k 7 -w 3 -o x.mi -g x.gbwt -p x.xg 
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) 9579ca9206a36b1b1181a72ea0da311b "setting -k -w works correctly"
+is $(md5sum x.mi | cut -f 1 -d\ ) e7f21c6a3acb0dc2e7722f699ab489b1 "setting -k -w works correctly"
 
 # Construction from GBWTGraph
 vg gbwt -x x.xg -g x.gg x.gbwt
 vg minimizer -t 1 -g x.gbwt -o x.mi x.gg
 is $? 0 "construction from GBWTGraph"
-is $(md5sum x.mi | cut -f 1 -d\ ) 24d7b6cf578766edb397c68f18a8682a "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction is deterministic"
 
 # Construction from GBZ
 vg gbwt -x x.xg -g x.gbz --gbz-format x.gbwt
 vg minimizer -t 1 -o x.mi x.gbz
 is $? 0 "construction from GBZ"
-is $(md5sum x.mi | cut -f 1 -d\ ) 24d7b6cf578766edb397c68f18a8682a "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 12621590710a43c3f5efd2c9c2a1094b "construction is deterministic"
 
 # Store payload in the index
 vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist x.gg
 is $? 0 "construction with payload"
-is $(md5sum x.mi | cut -f 1 -d\ ) 6d377fdd427c7173e16e92516bf72b7b "construction is deterministic"
+#Construction will not be deterministic because the snarls are not deterministic
+#is $(md5sum x.mi | cut -f 1 -d\ ) 6d377fdd427c7173e16e92516bf72b7b "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.gg x.gbz
 
@@ -66,7 +66,7 @@ vg minimizer -t 1 -o x.mi -g x.gbwt x.xg
 is $? 0 "multiple graphs: first"
 vg minimizer -t 1 -l x.mi -o xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
-is $(md5sum xy.mi | cut -f 1 -d\ ) 20f22a8e827e0e23d90ce0d78280b86d "construction is deterministic"
+is $(md5sum xy.mi | cut -f 1 -d\ ) 0c42d6deab976da6e51a624c1eba4789 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg

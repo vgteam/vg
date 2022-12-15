@@ -23,7 +23,6 @@
 #include "../watchdog.hpp"
 #include "../watchdog.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
-#include <bdsg/odgi.hpp>
 #include <bdsg/packed_graph.hpp>
 #include <bdsg/hash_graph.hpp>
 #include <xg.hpp>
@@ -1651,9 +1650,6 @@ int main_mpmap(int argc, char** argv) {
         else if (magic_num == bdsg::HashGraph().get_magic_number()) {
             type = "HashGraph";
         }
-        else if (magic_num == bdsg::ODGI().get_magic_number()) {
-            type = "ODGI";
-        }
         
         stringstream strm;
         if (!type.empty()) {
@@ -1668,9 +1664,6 @@ int main_mpmap(int argc, char** argv) {
             }
             else if (type == "PackedGraph") {
                 strm << "PackedGraph is memory efficient, but has some slow queries. ";
-            }
-            else if (type == "ODGI") {
-                strm << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
             }
         }
         else {
@@ -1698,7 +1691,7 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] Identifying rescue subgraphs using embedded paths (--path-rescue-graph) is impossible on graphs that lack embedded paths. Pair rescue will not be used on this graph, potentially hurting accuracy." << endl;
     }
     
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
     // identify these before loading later data structures to reduce peak memory use
@@ -1855,6 +1848,10 @@ int main_mpmap(int argc, char** argv) {
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
+        if (transcriptomic) {
+            // FIXME: replicating the behavior in surject_main
+            surjector->max_subgraph_bases = 16 * 1024 * 1024;
+        }
         
         if (!ref_paths_name.empty()) {
             log_progress("Choosing reference paths from " + ref_paths_name);

@@ -14,7 +14,6 @@
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
-#include "bdsg/odgi.hpp"
 
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/gfa.h>
@@ -41,7 +40,7 @@ void no_multiple_inputs(input_type input);
 // Generate an XG with nodes, edges, and paths from input.
 // Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
-void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes = false);
+void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes);
 // Copy paths from input to output.
 // Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
@@ -91,7 +90,6 @@ int main_convert(int argc, char** argv) {
             {"hash-out", no_argument, 0, 'a'},
             {"packed-out", no_argument, 0, 'p'},
             {"xg-out", no_argument, 0, 'x'},
-            {"odgi-out", no_argument, 0, 'o'},
             {"gfa-out", no_argument, 0, 'f'},
             {"rgfa-path", required_argument, 0, 'P'},
             {"rgfa-prefix", required_argument, 0, 'Q'},
@@ -107,7 +105,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:b:HvxapxofP:Q:BT:WG:F:t:",
+        c = getopt_long (argc, argv, "hgr:b:HvxapxfP:Q:BT:WG:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -150,9 +148,6 @@ int main_convert(int argc, char** argv) {
             break;
         case 'x':
             output_format = "xg";
-            break;
-        case 'o':
-            output_format = "odgi";
             break;
         case 'f':
             output_format = "gfa";
@@ -272,8 +267,6 @@ int main_convert(int argc, char** argv) {
         output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
     } else if (output_format == "xg") {
         output_graph = unique_ptr<HandleGraph>(new xg::XG());
-    } else if (output_format == "odgi") {
-        output_graph = unique_ptr<HandleGraph>(new bdsg::ODGI());
     } else if (output_format == "gfa") {
         // we need an intermediary for going gfa to gfa, use packed graph
         output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
@@ -299,7 +292,7 @@ int main_convert(int argc, char** argv) {
             cerr << "warning [vg convert]: currently cannot convert GFA directly to XG; converting through another format" << endl;
             algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
                                                  input_rgfa_rank, gfa_trans_path);
-            graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples);
+            graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples, drop_haplotypes);
         }
         else {
             // If the GFA doesn't have forward references, we can handle it
@@ -358,7 +351,7 @@ int main_convert(int argc, char** argv) {
                 xg::XG* xg_graph = dynamic_cast<xg::XG*>(output_graph.get());
                 if (input_path_graph != nullptr) {
                     // We can convert to XG with paths, which we might adjust
-                    graph_to_xg_adjusting_paths(input_path_graph, xg_graph, ref_samples);
+                    graph_to_xg_adjusting_paths(input_path_graph, xg_graph, ref_samples, drop_haplotypes);
                 } else {
                     // No paths, just convert to xg without paths
                     xg_graph->from_handle_graph(*input_graph);
@@ -368,7 +361,7 @@ int main_convert(int argc, char** argv) {
             else if (input_path_graph != nullptr && output_path_graph != nullptr) {
                 MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
                 assert(mutable_output_graph != nullptr);
-                // ID hint (currently only for odgi)
+                // ID hint (TODO: currently not needed since only odgi used it)
                 mutable_output_graph->set_id_increment(input_graph->min_node_id());
                 // Copy the graph as-is
                 handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
@@ -382,7 +375,7 @@ int main_convert(int argc, char** argv) {
                 }
                 MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
                 assert(mutable_output_graph != nullptr);
-                // ID hint (currently only for odgi)
+                // ID hint (TODO: currently not needed since only odgi used it)
                 mutable_output_graph->set_id_increment(input_graph->min_node_id());
                 handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
             }
@@ -470,8 +463,8 @@ void help_convert(char** argv) {
          << "    -a, --hash-out         output in HashGraph format [default]" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
-         << "    -o, --odgi-out         output in ODGI format" << endl
          << "    -f, --gfa-out          output in GFA format" << endl
+         << "    -H, --drop-haplotypes  do not include haplotype paths in the output (useful with GBWTGraph / GBZ inputs)" << endl
          << "gfa output options (use with -f):" << endl
          << "    -P, --rgfa-path STR    write given path as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
          << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl

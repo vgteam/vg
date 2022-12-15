@@ -933,17 +933,24 @@ Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence
         throw std::runtime_error("WFAAlignment is not OK and cannot become a path");
     }
 
-    if (this->unlocalized_insertion()) {
-        throw std::runtime_error("WFAAlignment is an unlocalized insertion and cannot bcome a path");
-    }
-
     if (this->seq_offset + this->length > sequence.size()) {
         throw std::runtime_error("WFAAlignment extends past end of sequence");
     }
 
     Path result;
+    
+    if (this->unlocalized_insertion()) {
+        // Special handling for pure insertions with no position: make a Path
+        // that has no position.
+        vg::Mapping* m = result.add_mapping();
+        vg::Edit* e = m->add_edit();
+        e->set_to_length(this->edits.front().second);
+        e->set_sequence(sequence.substr(this->seq_offset, this->edits.front().second));
+        return result;
+    }
 
     if (this->path.empty()) {
+        // Not a pure insert, but has an empty path. We assume it's an empty WFAAlignment.
         // Nothing to do!
         return result;
     }
@@ -2099,10 +2106,16 @@ private:
 
 WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     if (this->graph == nullptr || this->aligner == nullptr) {
+#ifdef debug_connect
+        std::cerr << "No graph or no aligner! Returning empty alignment!" << std::endl;
+#endif
         return WFAAlignment();
     }
     gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
     if (root_state.empty()) {
+#ifdef debug_connect
+        std::cerr << "No root state! Returning empty alignment!" << std::endl;
+#endif
         return WFAAlignment();
     }
     this->mask(sequence);
@@ -2112,7 +2125,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
 
     int32_t score = 0;
     while (true) {
-
+#ifdef debug_connect
+        std::cerr << "Extend for score " << score << std::endl;
+#endif
         tree.extend(score, to);
 
         if (tree.candidate_point.score <= score) {
@@ -2120,11 +2135,17 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         }
 
         score = tree.next_score(score);
+#ifdef debug_connect
+        std::cerr << "Next score will be " << score << std::endl;
+#endif
 
         if (score > tree.score_bound) {
             break;
         }
 
+#ifdef debug_connect
+        std::cerr << "Next for score " << score << std::endl;
+#endif
         tree.next(score, to);
     }
 
@@ -2134,6 +2155,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     bool full_length = true;
     uint32_t unaligned_tail = sequence.length() - tree.candidate_point.seq_offset;
     if (tree.candidate_point.score > tree.score_bound) {
+#ifdef debug_connect
+        std::cerr << "No alignment could be found under score bound of " << tree.score_bound << "; best found was " << tree.candidate_point.score << std::endl;
+#endif
         unaligned_tail = 0;
         if (WFATree::no_pos(to)) {
             tree.trim(*(this->aligner));
@@ -2253,6 +2277,9 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         }
     }
 
+#ifdef debug_connect
+    std::cerr << "Found an alignment." << std::endl;
+#endif
     return result;
 }
 

@@ -313,7 +313,21 @@ void add_subpaths_to_subgraph(const PathPositionHandleGraph& source, MutablePath
 
     function<path_handle_t(const string&, bool, size_t)> new_subpath =
         [&subgraph](const string& path_name, bool is_circular, size_t subpath_offset) {
-        string subpath_name = Paths::make_subpath_name(path_name, subpath_offset);
+        PathSense sense;
+        string sample;
+        string locus;
+        size_t haplotype;
+        size_t phase_block;
+        subrange_t subrange;
+        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
+        if (subrange == PathMetadata::NO_SUBRANGE) {
+            subrange.first = subpath_offset;
+        } else {
+            subrange.first += subpath_offset;
+        }
+        subrange.first = subpath_offset;
+        subrange.second = PathMetadata::NO_END_POSITION;
+        string subpath_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, subrange);
         if (subgraph.has_path(subpath_name)) {
             subgraph.destroy_path(subgraph.get_path_handle(subpath_name));
         }

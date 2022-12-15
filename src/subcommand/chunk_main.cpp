@@ -22,6 +22,7 @@
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
+#include "../algorithms/find_gbwt.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
 
@@ -53,6 +54,7 @@ void help_chunk(char** argv) {
          << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format" << endl
          << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
          << "    -e, --input-bed FILE     write chunks for all (0-based end-exclusive) bed regions" << endl
+         << "    -S, --snarls FILE        write given path-range(s) and all snarls fully contained in them, as alternative to -c" << endl
          << "id range chunking:" << endl
          << "    -r, --node-range N:M     write the chunk for the specified node range to standard output\n"
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
@@ -71,9 +73,10 @@ void help_chunk(char** argv) {
          << "    -c, --context-steps N    expand the context of the chunk this many node steps [1]" << endl
          << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
-         << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
+         << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
+         << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [VG]" << endl
+         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [vg]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -102,12 +105,16 @@ int main_chunk(int argc, char** argv) {
     string node_range_string;
     string node_ranges_file;
     bool trace = false;
+    bool no_embedded_haplotypes = false;
     bool fully_contained = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
     string output_format = "vg";
     bool components = false;
     bool path_components = false;
+    string snarl_filename;
+    
+    #define OPT_NO_EMBEDDED_HAPLOTYPES 1000
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -124,12 +131,14 @@ int main_chunk(int argc, char** argv) {
             {"chunk-size", required_argument, 0, 's'},
             {"overlap", required_argument, 0, 'o'},
             {"input-bed", required_argument, 0, 'e'},
+            {"snarls", required_argument, 0, 'S'},
             {"output-bed", required_argument, 0, 'E'},
             {"prefix", required_argument, 0, 'b'},
             {"context", required_argument, 0, 'c'},
             {"id-ranges", no_argument, 0, 'r'},
             {"id-range", no_argument, 0, 'R'},
-            {"trace", required_argument, 0, 'T'},
+            {"trace", no_argument, 0, 'T'},
+            {"no-embedded-haplotypes", no_argument, 0, OPT_NO_EMBEDDED_HAPLOTYPES},
             {"fully-contained", no_argument, 0, 'f'},
             {"threads", required_argument, 0, 't'},
             {"n-chunks", required_argument, 0, 'n'},
@@ -142,7 +151,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:CMO:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:S:E:b:c:r:R:Tft:n:l:m:CMO:",
                 long_options, &option_index);
 
 
@@ -188,7 +197,11 @@ int main_chunk(int argc, char** argv) {
         case 'e':
             in_bed_file = optarg;
             break;
-
+            
+        case 'S':
+            snarl_filename = optarg;
+            break;
+            
         case 'E':
             out_bed_file = optarg;
             break;
@@ -236,6 +249,10 @@ int main_chunk(int argc, char** argv) {
 
         case 'T':
             trace = true;
+            break;
+            
+        case OPT_NO_EMBEDDED_HAPLOTYPES:
+            no_embedded_haplotypes = true;
             break;
 
         case 'f':
@@ -285,6 +302,15 @@ int main_chunk(int argc, char** argv) {
         return 1;
     }
 
+    if (!snarl_filename.empty() && context_steps >= 0) {
+        cerr << "error:[vg chunk] context cannot be specified (-c) when using snarls (-S)" << endl;
+        return 1;
+    }
+    if (!snarl_filename.empty() && region_strings.empty() && path_list_file.empty() && in_bed_file.empty()) {
+        cerr << "error:[vg chunk] snarl chunking can only be used with path regions (-p -P  -e)" << endl;
+        return 1;        
+    }
+
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
     if (!vg::io::valid_output_format(output_format)) {
@@ -298,6 +324,17 @@ int main_chunk(int argc, char** argv) {
     // but we only write the subgraphs to disk if chunk_graph is true. 
     bool chunk_gam = !gam_files.empty() && gam_split_size == 0;
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
+
+    // Load the snarls
+    unique_ptr<SnarlManager> snarl_manager;
+    if (!snarl_filename.empty()) {
+        ifstream snarl_file(snarl_filename.c_str());
+        if (!snarl_file) {
+            cerr << "error:[vg chunk] Unable to load snarls file: " << snarl_filename << endl;
+            return 1;
+        }
+        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+    }
 
     // Load our index
     PathPositionHandleGraph* graph = nullptr;
@@ -323,18 +360,32 @@ int main_chunk(int argc, char** argv) {
     }
 
     // Now load the haplotype data
-    unique_ptr<gbwt::GBWT> gbwt_index;
-    if (trace && !gbwt_file.empty()) {
-        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
     
-        // Load the GBWT from its container
-        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
-
-        if (gbwt_index.get() == nullptr) {
-          // Complain if we couldn't.
-          cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
-          exit(1);
+    unique_ptr<gbwt::GBWT> gbwt_index_holder;
+    const gbwt::GBWT* gbwt_index = nullptr; 
+    if (trace) {
+        // We are tracing haplotypes.
+        // We might want a GBWT.
+        
+        // TODO: Make the tube map stop calling us in trace mode *without* a GBWT?
+        
+        if (!gbwt_file.empty()) {
+            // A GBWT file is specified, so load that
+            gbwt_index_holder = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+            if (gbwt_index_holder.get() == nullptr) {
+                // Complain if we couldn't get it but were supposed to.
+                cerr << "error:[vg::chunk] unable to load gbwt index file " << gbwt_file << endl;
+                exit(1);
+            }
+            gbwt_index = gbwt_index_holder.get();
         }
+        
+        if (!gbwt_index && !no_embedded_haplotypes) {
+            // We didn't get a GBWT from a file, and we are allowed to use the one in the graph, if any.
+            gbwt_index = vg::algorithms::find_gbwt(path_handle_graph.get());
+        }
+        
+        // It's OK if gbwt_index is still null here!
     }
 
     
@@ -474,8 +525,8 @@ int main_chunk(int argc, char** argv) {
             if (!context_length) {
                 context_steps = 1;
             }
-        } else if (!components){
-            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
+        } else if (!components && snarl_filename.empty()){
+            cerr << "error:[vg chunk] context (-c) or snarls (-S)  must be specified when chunking on paths" << endl;
             return 1;
         }
     }
@@ -614,6 +665,9 @@ int main_chunk(int argc, char** argv) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
             if (components == true) {
                 chunker.extract_path_component(region.seq, *subgraph, output_regions[i]);
+            } else if (snarl_manager.get() != nullptr) {
+                chunker.extract_snarls(region, *snarl_manager, *subgraph);
+                output_regions[i] = region;                
             } else {
                 chunker.extract_subgraph(region, context_steps, context_length,
                                          trace, *subgraph, output_regions[i]);
@@ -634,7 +688,7 @@ int main_chunk(int argc, char** argv) {
         }
 
         // optionally trace our haplotypes
-        if (trace && subgraph && gbwt_index.get() != nullptr) {
+        if (trace && subgraph && gbwt_index) {
             int64_t trace_start;
             int64_t trace_steps = 0;
             if (id_range) {
@@ -660,7 +714,7 @@ int main_chunk(int argc, char** argv) {
                 }
             }
             Graph g;
-            trace_haplotypes_and_paths(*graph, *gbwt_index.get(), trace_start, trace_steps,
+            trace_haplotypes_and_paths(*graph, *gbwt_index, trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->for_each_path_handle([&trace_thread_frequencies, &subgraph](path_handle_t path_handle) {
                     trace_thread_frequencies[subgraph->get_path_name(path_handle)] = 1;});

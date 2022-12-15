@@ -16,6 +16,7 @@
 #include <mutex>
 
 #include "subcommand.hpp"
+#include "options.hpp"
 
 #include "../snarl_seed_clusterer.hpp"
 #include "../mapper.hpp"
@@ -51,248 +52,186 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-namespace vg {
-
-// Define a system for grid searching
-
-/// This defines a range of values to test, from start to <=end, going up by step
-template<typename Number>
-struct Range {
+static GroupedOptionGroup get_options() {
+    GroupedOptionGroup parser;
     
-    // Expose the thing we are a range of
-    using type = Number;
-
-    /// Represents the start of the range
-    Number start = 0;
-    /// Represents the inclusive end of the range
-    Number end = 0;
-    /// Represents the step to move by each tick
-    Number step = 1;
+    // COnfigure output settings on the MinimizerMapper
+    auto& result_opts = parser.add_group<MinimizerMapper>("result options");
+    result_opts.add_range(
+        "max-multimaps", 'M',
+        &MinimizerMapper::max_multimaps,
+        MinimizerMapper::default_max_multimaps,
+        "produce up to INT alignments for each read"
+    );
     
-    /// Represents the current value the range is at
-    Number here = 0;
-    /// Determines if we are running or not (i.e. is here valid)
-    bool running = false;
+    // Configure normal Giraffe mapping compoutation
+    auto& comp_opts = parser.add_group<MinimizerMapper>("computational parameters");
+    comp_opts.add_range(
+        "hit-cap", 'c',
+        &MinimizerMapper::hit_cap,
+        MinimizerMapper::default_hit_cap,
+        "use all minimizers with at most INT hits"
+    );
+    comp_opts.add_range(
+        "hard-hit-cap", 'C',
+        &MinimizerMapper::hard_hit_cap,
+        MinimizerMapper::default_hard_hit_cap,
+        "ignore all minimizers with more than INT hits"
+    );
+    comp_opts.add_range(
+        "score-fraction", 'F',
+        &MinimizerMapper::minimizer_score_fraction,
+        MinimizerMapper::default_minimizer_score_fraction,
+        "select minimizers between hit caps until score is FLOAT of total"
+    );
+    comp_opts.add_range(
+        "max-min", 'U',
+        &MinimizerMapper::max_unique_min,
+        MinimizerMapper::default_max_unique_min,
+        "use at most INT minimizers",
+        size_t_is_nonzero
+    );
+    comp_opts.add_range(
+        "num-bp-per-min",
+        &MinimizerMapper::num_bp_per_min,
+        MinimizerMapper::default_num_bp_per_min,
+        "use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min"
+    );
+    comp_opts.add_range(
+        "distance-limit", 'D',
+        &MinimizerMapper::distance_limit,
+        MinimizerMapper::default_distance_limit,
+        "cluster using this distance limit"
+    );
+    comp_opts.add_range(
+        "max-extensions", 'e',
+        &MinimizerMapper::max_extensions,
+        MinimizerMapper::default_max_extensions,
+        "extend up to INT clusters"
+    );
+    comp_opts.add_range(
+        "max-alignments", 'a',
+        &MinimizerMapper::max_alignments,
+        MinimizerMapper::default_max_alignments,
+        "align up to INT extensions"
+    );
+    comp_opts.add_range(
+        "cluster-score", 's',
+        &MinimizerMapper::cluster_score_threshold,
+        MinimizerMapper::default_cluster_score_threshold,
+        "only extend clusters if they are within INT of the best score",
+        double_is_nonnegative
+    );
+    comp_opts.add_range(
+        "pad-cluster-score", 'S',
+        &MinimizerMapper::pad_cluster_score_threshold,
+        MinimizerMapper::default_pad_cluster_score_threshold,
+        "also extend clusters within INT of above threshold to get a second-best cluster",
+        double_is_nonnegative
+    );
+    comp_opts.add_range(
+        "cluster-coverage", 'u',
+        &MinimizerMapper::cluster_coverage_threshold,
+        MinimizerMapper::default_cluster_coverage_threshold,
+        "only extend clusters if they are within FLOAT of the best read coverage",
+        double_is_nonnegative
+    );
+    comp_opts.add_range(
+        "extension-score", 'v',
+        &MinimizerMapper::extension_score_threshold,
+        MinimizerMapper::default_extension_score_threshold,
+        "only align extensions if their score is within INT of the best score",
+        int_is_nonnegative
+    );
+    comp_opts.add_range(
+        "extension-set", 'w',
+        &MinimizerMapper::extension_set_score_threshold,
+        MinimizerMapper::default_extension_set_score_threshold,
+        "only align extension sets if their score is within INT of the best score",
+        double_is_nonnegative
+    );
+    comp_opts.add_flag(
+        "no-dp", 'O',
+        &MinimizerMapper::do_dp,
+        MinimizerMapper::default_do_dp,
+        "disable all gapped alignment"
+    );
+    comp_opts.add_range(
+        "rescue-attempts", 'r',
+        &MinimizerMapper::max_rescue_attempts,
+        MinimizerMapper::default_max_rescue_attempts,
+        "attempt up to INT rescues per read in a pair"
+    );
+    comp_opts.add_range(
+        "max-fragment-length", 'L',
+        &MinimizerMapper::max_fragment_length,
+        MinimizerMapper::default_max_fragment_length,
+        "assume that fragment lengths should be smaller than INT when estimating the fragment length distribution"
+    );
+    comp_opts.add_flag(
+        "exclude-overlapping-min",
+        &MinimizerMapper::exclude_overlapping_min,
+        MinimizerMapper::default_exclude_overlapping_min,
+        "exclude overlapping minimizers"
+    );
+    comp_opts.add_range(
+        "paired-distance-limit",
+        &MinimizerMapper::paired_distance_stdevs,
+        MinimizerMapper::default_paired_distance_stdevs,
+        "cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean"
+    );
+    comp_opts.add_range(
+        "rescue-subgraph-size",
+        &MinimizerMapper::rescue_subgraph_stdevs,
+        MinimizerMapper::default_rescue_subgraph_stdevs,
+        "search for rescued alignments FLOAT standard deviations greater than the mean"
+    );
+    comp_opts.add_range(
+        "rescue-seed-limit",
+        &MinimizerMapper::rescue_seed_limit,
+        MinimizerMapper::default_rescue_seed_limit,
+        "attempt rescue with at most INT seeds"
+    );
     
-    /// This will be called when we want to reset_chain what we are chained onto.
-    function<void(void)> reset_chain_parent = []() {
-    };
-    /// This will be called when we need to tick_chain our parent
-    function<bool(void)> tick_chain_parent = []() {
-        return false;
-    };
-    
-    /// Default constructor
-    Range() {
-        // Nothing to do!
-    }
-    
-    /// Construct from a single value
-    Range(const Number& val): start(val), end(val) {
-        // Nothing to do!
-    }
-    
-    /// Copy, preserving destination links
-    Range(const Range& other): start(other.start), end(other.end), step(other.step) {
-        // Nothing to do
-    }
-    
-    /// Move, preserving destination links
-    Range(Range&& other): start(other.start), end(other.end), step(other.step) {
-        // Nothing to do
-    }
-    
-    /// Copy assignment, preserving destination links
-    Range& operator=(const Range& other) {
-        start = other.start;
-        end = other.end;
-        step = other.step;
-        return *this;
-    }
-    
-    /// Move assignment, preserving destination links
-    Range& operator=(Range&& other) {
-        start = other.start;
-        end = other.end;
-        step = other.step;
-        return *this;
-    }
-    
-    /// Check the range for usefulness
-    inline bool is_valid() {
-        if (start != end && step == 0) {
-            // We'll never make it
-            cerr << "Invalid range (no movement): " << start << " to " << end << " step " << step << endl;
-            return false;
-        }
-        
-        if (start > end && step > 0) {
-            // We're going the wrong way
-            cerr << "Invalid range (need to go down): " << start << " to " << end << " step " << step << endl;
-            return false;
-        }
-        
-        if (start < end && step < 0) {
-            // We're going the other wrong way
-            cerr << "Invalid range (need to go up): " << start << " to " << end << " step " << step << endl;
-            return false;
-        }
-        
-        return true;
-    }
-    
-    /// Convert to Number with the current value
-    operator Number() const {
-        if (running) {
-            return here;
-        } else {
-            return start;
-        }
-    }
-    
-    /// Start at our start value
-    void reset() {
-        here = start;
-        running = true;
-    }
-    
-    /// Start us and all the things we are chained onto at their start values
-    void reset_chain() {
-        reset();
-        reset_chain_parent();
-    }
-    
-    /// Increment our value.
-    /// Returns true if the new value needs processing, and false if we have left or would leave the range.
-    bool tick() {
-        if (here == end) {
-            // We are at the end
-            return false;
-        }
-        
-        here += step;
-        if ((step > 0 && here > end) || (step < 0 && here < end)) {
-            // We have passed the end (for things like double)
-            return false;
-        }
-        
-        return true;
-    }
-    
-    /// Increment our value.
-    /// If it overflows, tock_chain whatever we are chained onto, and reset and succeed if that succeeds.
-    bool tick_chain() {
-        if (tick()) {
-            // We could change
-            return true;
-        } else {
-            // We couldn't change.
-            if (tick_chain_parent()) {
-                // We have a parent we could advance.
-                reset();
-                return true;
-            } else {
-                // Our parent couldn't advance either.
-                return false;
-            }
-        }
-    }
-    
-    /// Chain the given range onto this one.
-    /// Return the passed-in range.
-    /// Neither range may be moved away!
-    template<typename Other>
-    Range<Other>& chain(Range<Other>& next) {
-        
-        // Attach next to us
-        next.reset_chain_parent = [&]() {
-            this->reset_chain();
-        };
-        next.tick_chain_parent = [&]() {
-            return this->tick_chain();
-        };
-        
-        return next;
-    }
-    
-    /// Get a function that runs another function for each combination of
-    /// values for this Range and all Ranges it has been chained onto.
-    function<void(const function<void(void)>&)> get_iterator() {
-        return [&](const function<void(void)>& iteratee) {
-            // Start
-            reset_chain();
-            
-            do {
-                // Run iteratee
-                iteratee();
-                // And tick the whole chain before running again
-            } while(tick_chain());
-        };
-    }
-};
-
-// Define a way to test if a type is a Result<T>
-// See https://stackoverflow.com/a/25803794
-
-// In general, things aren't instantiations of things
-template <typename Subject, template<typename...> class Predicate>
-struct is_instantiation_of : std::false_type {
-};
-
-// Except things that are instantiations of things with some arguments
-template <template<typename... > class Predicate, class... PredicateArgs>
-struct is_instantiation_of<Predicate<PredicateArgs...>, Predicate> : std::true_type {
-};
-
-/// Parse a range as start[:end[:step]]
-template<typename Result>
-inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Result, Range>::value, Result>::type& dest) {
-
-    auto colon1 = arg.find(':');
-    
-    if (colon1 == string::npos) {
-        // No colons here. Parse one number.
-        if (!parse<typename Result::type>(arg, dest.start)) {
-            return false;
-        }
-        dest.end = dest.start;
-        dest.step = 0;
-        return dest.is_valid();
-    } else if (colon1 == arg.size()) {
-        // Can't end in a colon
-        return false;
-    } else {
-        // Look for another colon
-        auto colon2 = arg.find(':', colon1 + 1);
-        if (colon2 == string::npos) {
-            // Just a range of two things
-            if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
-                return false;
-            }
-            if (!parse<typename Result::type>(arg.substr(colon1 + 1), dest.end)) {
-                return false;
-            }
-            dest.step = 1;
-            return dest.is_valid();
-        } else if (colon2 == arg.size()) {
-            // Can't end in a colon
-            return false;
-        } else {
-            // We have 3 numbers
-            if (!parse<typename Result::type>(arg.substr(0, colon1), dest.start)) {
-                return false;
-            }
-            if (!parse<typename Result::type>(arg.substr(colon1 + 1, colon2 - colon1 - 1), dest.end)) {
-                return false;
-            }
-            if (!parse<typename Result::type>(arg.substr(colon2 + 1), dest.step)) {
-                return false;
-            }
-            
-            return dest.is_valid();
-        }
-    }
-}
+    // Configure chaining
+    auto& chaining_opts = parser.add_group<MinimizerMapper>("long-read/chaining parameters");
+    chaining_opts.add_flag(
+        "align-from-chains",
+        &MinimizerMapper::align_from_chains,
+        MinimizerMapper::default_align_from_chains,
+        "chain up extensions to create alignments, instead of doing each separately"
+    );
+    chaining_opts.add_range(
+        "chaining-cluster-distance",
+        &MinimizerMapper::chaining_cluster_distance,
+        MinimizerMapper::default_chaining_cluster_distance,
+        "maximum distance to cluster over before chaining"
+    );
+    chaining_opts.add_range(
+        "max-lookback-bases",
+        &MinimizerMapper::max_lookback_bases,
+        MinimizerMapper::default_max_lookback_bases,
+        "maximum distance to look back when chaining"
+    );
+    chaining_opts.add_range(
+        "min-lookback-items",
+        &MinimizerMapper::min_lookback_items,
+        MinimizerMapper::default_min_lookback_items,
+        "minimum items to look back when chaining"
+    );
+    chaining_opts.add_range(
+        "max-chain-connection",
+        &MinimizerMapper::max_chain_connection,
+        MinimizerMapper::default_max_chain_connection,
+        "maximum distance across which to connect seeds when aligning a chain"
+    );
+    chaining_opts.add_range(
+        "max-tail-length",
+        &MinimizerMapper::max_tail_length,
+        MinimizerMapper::default_max_tail_length,
+        "maximum length of a tail to align before forcing softclipping when aligning a chain"
+    );
+    return parser;
 }
 
 // Try stripping all suffixes in the vector, one at a time, and return on failure.
@@ -307,7 +246,7 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
-void help_giraffe(char** argv) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     cerr
     << "usage: " << argv[0] << " giraffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
     << "Fast haplotype-aware short read mapper." << endl
@@ -326,7 +265,6 @@ void help_giraffe(char** argv) {
     << "  -g, --graph-name FILE         use this GBWTGraph" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index" << endl
     << "output options:" << endl
-    << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
@@ -338,34 +276,17 @@ void help_giraffe(char** argv) {
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
     << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl
     << "algorithm presets:" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
-    << "computational parameters:" << endl
-    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [500]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
-    << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [800]" << endl
-    << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
-    << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
-    << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
-    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.3]" << endl
-    << "  -U, --max-min INT             use at most INT minimizers [500]" << endl
-    << "  --num-bp-per-min INT          use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min [1000]" << endl
-    << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
-    << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
-    << "  -O, --no-dp                   disable all gapped alignment" << endl
-    << "  --align-from-chains           chain up extensions to create alignments, instead of doing each separately" << endl
-    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl;
+    auto helps = parser.get_help();
+    print_table(helps, cerr);
+    cerr
+    << "Giraffe parameters:" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
-    << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
-    << "  --exclude-overlapping-min     exclude overlapping minimizers" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
-    << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
-    << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
-    << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [100]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+    << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
 }
 
@@ -373,26 +294,23 @@ int main_giraffe(int argc, char** argv) {
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
+    // Set up to parse options
+    GroupedOptionGroup parser = get_options();
+
     if (argc == 2) {
-        help_giraffe(argv);
+        help_giraffe(argv, parser);
         return 1;
     }
-
+    
     #define OPT_OUTPUT_BASENAME 1001
     #define OPT_REPORT_NAME 1002
     #define OPT_TRACK_PROVENANCE 1003
     #define OPT_TRACK_CORRECTNESS 1004
     #define OPT_FRAGMENT_MEAN 1005
     #define OPT_FRAGMENT_STDEV 1006
-    #define OPT_CLUSTER_STDEV 1007
-    #define OPT_RESCUE_STDEV 1008
-    #define OPT_RESCUE_SEED_LIMIT 1009
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
     #define OPT_NAMED_COORDINATES 1012
-    #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
-    #define OPT_ALIGN_FROM_CHAINS 1014
-    #define OPT_NUM_BP_PER_MIN 1015
 
     // initialize parameters with their default options
     
@@ -400,20 +318,8 @@ int main_giraffe(int argc, char** argv) {
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
     string output_basename;
     string report_name;
-    // How close should two hits be to be in the same cluster?
-    Range<size_t> distance_limit = 200;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 500;
-    Range<double> minimizer_score_fraction = 0.9;
-    Range<size_t> max_unique_min = 500;
-    // number minimizers calculated by READ_LENGTH / INT
-    size_t num_bp_per_min = 1000;
     bool show_progress = false;
-    // Should we exclude overlapping minimizers
-    bool exclude_overlapping_min = false;
-    // Should we try dynamic programming, or just give up if we can't find a full length gapless alignment?
-    bool do_dp = true;
-    // Should we align from chains of gapless extensions, or from individual gapless extensions?
-    bool align_from_chains = false;
+    
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -425,27 +331,8 @@ int main_giraffe(int argc, char** argv) {
     // True if fastq_filename_2 or interleaved is set.
     bool paired = false;
     string param_preset = "default";
-    // How many mappings per read can we emit?
-    Range<size_t> max_multimaps = 1;
-    // How many clusters should we extend?
-    Range<size_t> max_extensions = 800;
-    // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 8;
-    //Throw away cluster with scores that are this amount below the best
-    Range<double> cluster_score = 50;
-    //Unless they are the second best and within this amount beyond that
-    Range<double> pad_cluster_score = 0;
-    //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0.3;
-    //Throw away extension sets with scores that are this amount below the best
-    Range<double> extension_set = 20;
-    //Throw away extensions with scores that are this amount below the best
-    Range<int> extension_score = 1;
     //Attempt up to this many rescues of reads with no pairs
     bool forced_rescue_attempts = false;
-    Range<int> rescue_attempts = 15;
-    //Don't let distances larger than this contribute to the fragment length distribution
-    size_t fragment_length = 2000;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     //Did we force the fragment length distribution?
@@ -454,43 +341,26 @@ int main_giraffe(int argc, char** argv) {
     double fragment_mean = 0.0;
     bool forced_stdev = false;
     double fragment_stdev = 0.0;
-    //How many sdevs to we look out when clustering pairs?
-    double cluster_stdev = 2.0;
-    //How many stdevs do we look out when rescuing? 
-    double rescue_stdev = 4.0;
-    // Attempt rescue with up to this many seeds.
-    size_t rescue_seed_limit = 100;
     // How many pairs should we be willing to buffer before giving up on fragment length estimation?
     size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
     string read_group;
+    // Should we track candidate provenance?
+    bool track_provenance = MinimizerMapper::default_track_provenance;
+    // Should we track candidate correctness?
+    bool track_correctness = MinimizerMapper::default_track_correctness;
+    // Should we log our mapping decision making?
+    bool show_work = MinimizerMapper::default_show_work;
+    
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
-    // Should we track candidate provenance?
-    bool track_provenance = false;
-    // Should we track candidate correctness?
-    bool track_correctness = false;
-    // Should we log our mapping decision making?
-    bool show_work = false;
-
+    // How many reads per batch to run at a time?
+    uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
+    
     // Chain all the ranges and get a function that loops over all combinations.
-    auto for_each_combo = distance_limit
-        .chain(hit_cap)
-        .chain(hard_hit_cap)
-        .chain(minimizer_score_fraction)
-        .chain(rescue_attempts)
-        .chain(max_unique_min)
-        .chain(max_multimaps)
-        .chain(max_extensions)
-        .chain(max_alignments)
-        .chain(cluster_score)
-        .chain(pad_cluster_score)
-        .chain(cluster_coverage)
-        .chain(extension_set)
-        .chain(extension_score)
-        .get_iterator();
+    auto for_each_combo = parser.get_iterator();
     
 
     // Formats for alignment output.
@@ -517,74 +387,84 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_gssw, "gssw" },
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
+    
+    // Map preset names to presets
+    std::map<std::string, Preset> presets;
+    // We have a fast preset that sets a bunch of stuff
+    presets["fast"]
+        .add_entry<size_t>("hit-cap", 10)
+        .add_entry<size_t>("hard-hit-cap", 500)
+        .add_entry<double>("score-fraction", 0.5)
+        .add_entry<size_t>("max-multimaps", 1)
+        .add_entry<size_t>("max-extensions", 400)
+        .add_entry<size_t>("max-alignments", 8)
+        .add_entry<size_t>("cluster-score", 50)
+        .add_entry<size_t>("pad-cluster-score", 0)
+        .add_entry<double>("cluster-coverage", 0.2)
+        .add_entry<size_t>("extension-set", 20)
+        .add_entry<size_t>("extension-score", 1);
+    // And a default preset that doesn't.
+    presets["default"];
+    
+    std::vector<struct option> long_options =
+    {
+        {"help", no_argument, 0, 'h'},
+        {"gbz-name", required_argument, 0, 'Z'},
+        {"xg-name", required_argument, 0, 'x'},
+        {"graph-name", required_argument, 0, 'g'},
+        {"gbwt-name", required_argument, 0, 'H'},
+        {"minimizer-name", required_argument, 0, 'm'},
+        {"dist-name", required_argument, 0, 'd'},
+        {"progress", no_argument, 0, 'p'},
+        {"gam-in", required_argument, 0, 'G'},
+        {"fastq-in", required_argument, 0, 'f'},
+        {"interleaved", no_argument, 0, 'i'},
+        {"max-multimaps", required_argument, 0, 'M'},
+        {"sample", required_argument, 0, 'N'},
+        {"read-group", required_argument, 0, 'R'},
+        {"output-format", required_argument, 0, 'o'},
+        {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+        {"prune-low-cplx", no_argument, 0, 'P'},
+        {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
+        {"discard", no_argument, 0, 'n'},
+        {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
+        {"report-name", required_argument, 0, OPT_REPORT_NAME},
+        {"fast-mode", no_argument, 0, 'b'},
+        {"rescue-algorithm", required_argument, 0, 'A'},
+        {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
+        {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
+        {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
+        {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
+        {"show-work", no_argument, 0, OPT_SHOW_WORK},
+        {"batch-size", required_argument, 0, 'B'},
+        {"threads", required_argument, 0, 't'},
+    };
+    parser.make_long_options(long_options);
+    long_options.push_back({0, 0, 0, 0});
+    
+    std::string short_options = "hZ:x:g:H:m:d:pG:f:iM:N:R:o:Pnb:B:t:A:";
+    parser.make_short_options(short_options);
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
-        static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {"gbz-name", required_argument, 0, 'Z'},
-            {"xg-name", required_argument, 0, 'x'},
-            {"graph-name", required_argument, 0, 'g'},
-            {"gbwt-name", required_argument, 0, 'H'},
-            {"minimizer-name", required_argument, 0, 'm'},
-            {"dist-name", required_argument, 0, 'd'},
-            {"progress", no_argument, 0, 'p'},
-            {"gam-in", required_argument, 0, 'G'},
-            {"fastq-in", required_argument, 0, 'f'},
-            {"interleaved", no_argument, 0, 'i'},
-            {"max-multimaps", required_argument, 0, 'M'},
-            {"sample", required_argument, 0, 'N'},
-            {"read-group", required_argument, 0, 'R'},
-            {"output-format", required_argument, 0, 'o'},
-            {"ref-paths", required_argument, 0, OPT_REF_PATHS},
-            {"prune-low-cplx", no_argument, 0, 'P'},
-            {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
-            {"discard", no_argument, 0, 'n'},
-            {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
-            {"report-name", required_argument, 0, OPT_REPORT_NAME},
-            {"fast-mode", no_argument, 0, 'b'},
-            {"hit-cap", required_argument, 0, 'c'},
-            {"hard-hit-cap", required_argument, 0, 'C'},
-            {"distance-limit", required_argument, 0, 'D'},
-            {"max-extensions", required_argument, 0, 'e'},
-            {"max-alignments", required_argument, 0, 'a'},
-            {"cluster-score", required_argument, 0, 's'},
-            {"pad-cluster-score", required_argument, 0, 'S'},
-            {"cluster-coverage", required_argument, 0, 'u'},
-            {"max-min", required_argument, 0, 'U'},
-            {"num-bp-per-min", required_argument, 0, OPT_NUM_BP_PER_MIN},
-            {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
-            {"extension-score", required_argument, 0, 'v'},
-            {"extension-set", required_argument, 0, 'w'},
-            {"score-fraction", required_argument, 0, 'F'},
-            {"no-dp", no_argument, 0, 'O'},
-            {"align-from-chains", no_argument, 0, OPT_ALIGN_FROM_CHAINS},
-            {"rescue-attempts", required_argument, 0, 'r'},
-            {"rescue-algorithm", required_argument, 0, 'A'},
-            {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
-            {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
-            {"rescue-seed-limit", required_argument, 0, OPT_RESCUE_SEED_LIMIT},
-            {"max-fragment-length", required_argument, 0, 'L' },
-            {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
-            {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
-            {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
-            {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
-            {"show-work", no_argument, 0, OPT_SHOW_WORK},
-            {"threads", required_argument, 0, 't'},
-            {0, 0, 0, 0}
-        };
+        
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:U:v:w:Ot:r:A:L:",
-                         long_options, &option_index);
+        c = getopt_long (argc, argv, short_options.c_str(),
+                         &long_options[0], &option_index);
 
 
         // Detect the end of the options.
         if (c == -1)
             break;
+            
+        if (parser.parse(c, optarg)) {
+            // Parser took care of it
+            continue;
+        }
 
+        // Otherwise handle it manually
         switch (c)
         {
             case 'Z':
@@ -712,10 +592,6 @@ int main_giraffe(int argc, char** argv) {
                 paired = true;
                 break;
                 
-            case 'M':
-                max_multimaps = parse<Range<size_t>>(optarg);
-                break;
-            
             case 'N':
                 sample_name = optarg;
                 break;
@@ -762,164 +638,15 @@ int main_giraffe(int argc, char** argv) {
                 break;
             case 'b':
                 param_preset = optarg;
-
-                if (param_preset == "fast" ) {
-
-                    hit_cap = 10;
-                    hard_hit_cap = 500;
-                    minimizer_score_fraction = 0.5;
-                    max_multimaps = 1;
-                    max_extensions = 400;
-                    max_alignments = 8;
-                    cluster_score = 50;
-                    pad_cluster_score = 0;
-                    cluster_coverage = 0.2;
-                    extension_set = 20;
-                    extension_score = 1;
-                } else if (param_preset != "default" ) {
-                    std::cerr << "error: [vg giraffe] invalid parameter preset: " << optarg << std:: endl;
-                }
-                break;
-
-            case 'c':
                 {
-                    auto cap = parse<Range<size_t>>(optarg);
-                    if (cap <= 0) {
-                        cerr << "error: [vg giraffe] Hit cap (" << cap << ") must be a positive integer" << endl;
+                    auto found = presets.find(param_preset);
+                    if (found == presets.end()) {
+                        // Complain this isn't a preset.
+                        std::cerr << "error: [vg giraffe] invalid parameter preset: " << param_preset << std::endl;
                         exit(1);
-                    }
-                    hit_cap = cap;
-                }
-                break;
-
-            case 'C':
-                {
-                    auto cap = parse<Range<size_t>>(optarg);
-                    if (cap <= 0) {
-                        cerr << "error: [vg giraffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    hard_hit_cap = cap;
-                }
-                break;
-                
-            case 'D':
-                {
-                    auto limit = parse<Range<size_t>>(optarg);
-                    if (limit <= 0) {
-                        cerr << "error: [vg giraffe] Distance limit (" << limit << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    distance_limit = limit;
-                }
-                break;
-
-            case 'F':
-                minimizer_score_fraction = parse<Range<double>>(optarg);
-                break;
-
-            case 'e':
-                {
-                    auto extensions = parse<Range<size_t>>(optarg);
-                    if (extensions <= 0) {
-                        cerr << "error: [vg giraffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    max_extensions = extensions;
-                }
-                break;
-
-            case 'a':
-                {
-                    auto alignments = parse<Range<size_t>>(optarg);
-                    if (alignments <= 0) {
-                        cerr << "error: [vg giraffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    max_alignments = alignments;
-                }
-                break;
-
-            case 's':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Cluster score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    cluster_score = score;
-                }
-                break;
-                
-            case 'S':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Second best cluster score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    pad_cluster_score = score;
-                }
-                break;
-
-            case 'u':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    cluster_coverage = score;
-                }
-                break;
-
-            case 'U':
-                {
-                    auto maxmin = parse<Range<size_t>>(optarg);
-                    if (maxmin <= 0) {
-                        cerr << "error: [vg giraffe] Maximum unique minimizer (" << maxmin << ") must be a positive integer" << endl;
-                        exit(1);
-                    }
-                    max_unique_min = maxmin;
-                }
-                break;
-
-            case 'v':
-                {
-                    auto score = parse<Range<int>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Extension score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    extension_score = score;
-                }
-                break;
-            case 'w':
-                {
-                    auto score = parse<Range<double>>(optarg);
-                    if (score < 0) {
-                        cerr << "error: [vg giraffe] Extension set score threshold (" << score << ") must be positive" << endl;
-                        exit(1);
-                    }
-                    extension_set = score;
-                }
-                break;
-                
-            case 'O':
-                do_dp = false;
-                break;
-                
-            case OPT_ALIGN_FROM_CHAINS:
-                align_from_chains = true;
-                break;
-                
-            case 'r':
-                {
-                    forced_rescue_attempts = true;
-                    rescue_attempts = parse<Range<int>>( optarg);
-                    if (rescue_attempts < 0) {
-                        cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
-                        exit(1);
+                    } else {
+                        // Apply the preset values.
+                        found->second.apply(parser);
                     }
                 }
                 break;
@@ -939,14 +666,6 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
-            case OPT_NUM_BP_PER_MIN:
-                num_bp_per_min = parse<size_t>(optarg);;
-                break;
-
-            case OPT_EXCLUDE_OVERLAPPING_MIN:
-                exclude_overlapping_min = true;
-                break;
-                
             case OPT_FRAGMENT_MEAN:
                 forced_mean = true;
                 fragment_mean = parse<double>(optarg);
@@ -955,21 +674,6 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
-                break;
-            case 'L':
-                fragment_length = parse<size_t>(optarg);
-                break;
-
-            case OPT_CLUSTER_STDEV:
-                cluster_stdev = parse<double>(optarg);
-                break;
-
-            case OPT_RESCUE_STDEV:
-                rescue_stdev = parse<double>(optarg);
-                break;
-
-            case OPT_RESCUE_SEED_LIMIT:
-                rescue_seed_limit = parse<size_t>(optarg);
                 break;
 
             case OPT_TRACK_PROVENANCE:
@@ -983,6 +687,12 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_SHOW_WORK:
                 show_work = true;
+                // Also turn on saving explanations
+                Explainer::save_explanations = true;
+                break;
+                
+            case 'B':
+                batch_size = parse<uint64_t>(optarg);
                 break;
                 
             case 't':
@@ -999,7 +709,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv);
+                help_giraffe(argv, parser);
                 exit(1);
                 break;
         }
@@ -1049,8 +759,9 @@ int main_giraffe(int argc, char** argv) {
     }
 
     // If we don't want rescue, let the user see we don't try it.
-    if (rescue_attempts == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
-        rescue_attempts = 0;
+    if (parser.get_option_value<size_t>("rescue-attempts") == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+        // Replace any parsed values
+        parser.set_option_value<size_t>("rescue-attempts", 0);
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
@@ -1143,6 +854,9 @@ int main_giraffe(int argc, char** argv) {
 #endif
     
     try {
+        if (show_progress) {
+            cerr << "Preparing Indexes" << endl;
+        }
         registry.make_indexes(index_targets);
     }
     catch (InsufficientInputException ex) {
@@ -1161,23 +875,29 @@ int main_giraffe(int argc, char** argv) {
 #endif
     
     // Grab the minimizer index
+    if (show_progress) {
+        cerr << "Loading Minimizer Index" << endl;
+    }
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
     // Grab the GBZ
+    if (show_progress) {
+        cerr << "Loading GBZ" << endl;
+    }
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     if (show_progress) {
         cerr << "Loading Distance Index v2" << endl;
     }
+    auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
     // If we need an overlay for position lookup, we might be pointing into
-    // this overlay
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    // this overlay. We want one that's good for reference path queries.
+    bdsg::ReferencePathOverlayHelper overlay_helper;
     // And we might load an XG
     unique_ptr<PathHandleGraph> xg_graph;
     if (track_correctness || hts_output) {
@@ -1185,6 +905,9 @@ int main_giraffe(int argc, char** argv) {
         PathHandleGraph* base_graph = &gbz->graph;
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
         if (registry.available("XG")) {
+            if (show_progress) {
+                cerr << "Loading XG Graph" << endl;
+            }
             xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
             base_graph = xg_graph.get();
         }
@@ -1238,19 +961,8 @@ int main_giraffe(int argc, char** argv) {
             if (interleaved) {
                 s << "-i";
             }
-            s << "-D" << distance_limit;
-            s << "-c" << hit_cap;
-            s << "-C" << hard_hit_cap;
-            s << "-F" << minimizer_score_fraction;
-            s << "-M" << max_multimaps;
-            s << "-e" << max_extensions;
-            s << "-a" << max_alignments;
-            s << "-s" << cluster_score;
-            s << "-u" << cluster_coverage;
-            s << "-U" << max_unique_min;
-            s << "-w" << extension_set;
-            s << "-v" << extension_score;
-            
+            // Make a slug of the other options
+            parser.print_options(s, true);
             s << ".gam";
             
             output_filename = s.str();
@@ -1264,6 +976,12 @@ int main_giraffe(int argc, char** argv) {
             }
         }
 
+        // Show and apply all the parser-managed options
+        if (show_progress) {
+            parser.print_options(cerr);
+        }
+        parser.apply(minimizer_mapper);
+        
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
         }
@@ -1272,91 +990,6 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--prune-low-cplx" << endl;
         }
 
-        if (show_progress) {
-            cerr << "--hit-cap " << hit_cap << endl;
-        }
-        minimizer_mapper.hit_cap = hit_cap;
-
-        if (show_progress) {
-            cerr << "--hard-hit-cap " << hard_hit_cap << endl;
-        }
-        minimizer_mapper.hard_hit_cap = hard_hit_cap;
-
-        if (show_progress) {
-            cerr << "--score-fraction " << minimizer_score_fraction << endl;
-        }
-        minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
-
-        if (show_progress) {
-            cerr << "--max-min " << max_unique_min << endl;
-        }
-        minimizer_mapper.max_unique_min = max_unique_min;
-
-        if (show_progress) {
-            cerr << "--num-bp-per-min " << num_bp_per_min << endl;
-        }
-        minimizer_mapper.num_bp_per_min = num_bp_per_min;
-
-        if (show_progress) {
-            cerr << "--exclude-overlapping-min " << endl;
-        }
-        minimizer_mapper.exclude_overlapping_min = exclude_overlapping_min;
-
-        if (show_progress) {
-            cerr << "--max-extensions " << max_extensions << endl;
-        }
-        minimizer_mapper.max_extensions = max_extensions;
-
-        if (show_progress) {
-            cerr << "--max-alignments " << max_alignments << endl;
-        }
-        minimizer_mapper.max_alignments = max_alignments;
-
-        if (show_progress) {
-            cerr << "--cluster-score " << cluster_score << endl;
-        }
-        minimizer_mapper.cluster_score_threshold = cluster_score;
-        
-        if (show_progress) {
-            cerr << "--pad-cluster-score " << pad_cluster_score << endl;
-        }
-        minimizer_mapper.pad_cluster_score_threshold = pad_cluster_score;
-
-        if (show_progress) {
-            cerr << "--cluster-coverage " << cluster_coverage << endl;
-        }
-        minimizer_mapper.cluster_coverage_threshold = cluster_coverage;
-
-        if (show_progress) {
-            cerr << "--extension-score " << extension_score << endl;
-        }
-        minimizer_mapper.extension_score_threshold = extension_score;
-
-        if (show_progress) {
-            cerr << "--extension-set " << extension_set << endl;
-        }
-        minimizer_mapper.extension_set_score_threshold = extension_set;
-
-        if (show_progress && align_from_chains) {
-            cerr << "--align-from-chains " << endl;
-        }
-        minimizer_mapper.align_from_chains = align_from_chains;
-
-        if (show_progress && !do_dp) {
-            cerr << "--no-dp " << endl;
-        }
-        minimizer_mapper.do_dp = do_dp;
-
-        if (show_progress) {
-            cerr << "--max-multimaps " << max_multimaps << endl;
-        }
-        minimizer_mapper.max_multimaps = max_multimaps;
-
-        if (show_progress) {
-            cerr << "--distance-limit " << distance_limit << endl;
-        }
-        minimizer_mapper.distance_limit = distance_limit;
-        
         if (show_progress && track_provenance) {
             cerr << "--track-provenance " << endl;
         }
@@ -1377,17 +1010,8 @@ int main_giraffe(int argc, char** argv) {
                 cerr << "--fragment-mean " << fragment_mean << endl; 
                 cerr << "--fragment-stdev " << fragment_stdev << endl;
             }
-            cerr << "--paired-distance-limit " << cluster_stdev << endl;
-            cerr << "--rescue-subgraph-size " << rescue_stdev << endl;
-            cerr << "--rescue-seed-limit " << rescue_seed_limit << endl;
-            cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
-        minimizer_mapper.max_fragment_length = fragment_length;
-        minimizer_mapper.paired_distance_stdevs = cluster_stdev;
-        minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
-        minimizer_mapper.rescue_seed_limit = rescue_seed_limit;
-        minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
         minimizer_mapper.sample_name = sample_name;
@@ -1595,12 +1219,12 @@ int main_giraffe(int argc, char** argv) {
                     });
                 } else if (!fastq_filename_2.empty()) {
                     //A pair of FASTQ files to map
-                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready);
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready, batch_size);
 
 
                 } else if ( !fastq_filename_1.empty()) {
                     // An interleaved FASTQ file to map, map all its pairs in parallel.
-                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready, batch_size);
                 }
 
                 // Now map all the ambiguous pairs
@@ -1642,13 +1266,13 @@ int main_giraffe(int argc, char** argv) {
                     // GAM file to remap
                     get_input_file(gam_filename, [&](istream& in) {
                         // Open it and map all the reads in parallel.
-                        vg::io::for_each_parallel<Alignment>(in, map_read);
+                        vg::io::for_each_parallel<Alignment>(in, map_read, batch_size);
                     });
                 }
                 
                 if (!fastq_filename_1.empty()) {
                     // FASTQ file to map, map all its reads in parallel.
-                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read);
+                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read, batch_size);
                 }
             }
         

@@ -144,9 +144,9 @@ using namespace std;
         assert((source_aln && alns_out) || (source_mp_aln && mp_alns_out));
                 
 #ifdef debug_anchored_surject
-        cerr << "surjecting alignment: ";
+        cerr << "surjecting alignment ";
         if (source_mp_aln) {
-            cerr << debug_string(*source_mp_aln);
+            cerr << "with " << source_mp_aln->subpath_size() << " subpaths " << debug_string(*source_mp_aln);
         }
         else {
             cerr << pb2json(*source_aln);
@@ -170,6 +170,32 @@ using namespace std;
                 cerr << "error[Surjector::surject]: offending alignemnt: " << pb2json(*source_aln) << endl; 
                 exit(1);
             }
+        }
+        
+        
+        // do we need to simplify a complicated multipath alignment?
+        multipath_alignment_t simplified_source_mp_aln;
+        // TODO: magic number
+        if (source_mp_aln && source_mp_aln->subpath_size() > 8 * source_mp_aln->sequence().size()) {
+            // the multipath alignment seems to have a very complex topology, we'll simplify it before
+            // generating a whole bunch of low-quality anchors
+            
+            // it's hard to know how much we need to prune to tame this thing, so we try tighter and tighter thresholds
+            int32_t diff = max<int32_t>(optimal_alignment_score(*source_mp_aln), 0);
+            do {
+                diff /= 2;
+                
+                // copy the const alignment so we can modify it
+                simplified_source_mp_aln = *source_mp_aln;
+                remove_low_scoring_sections(simplified_source_mp_aln, diff);
+                
+#ifdef debug_anchored_surject
+                cerr << "simplified complicated multipath alignment from " << source_mp_aln->subpath_size() << " to " << simplified_source_mp_aln.subpath_size() << " subpaths using score diff " << diff << endl;
+#endif
+                
+            } while (diff > 1 && simplified_source_mp_aln.subpath_size() > 8 * source_mp_aln->sequence().size());
+            
+            source_mp_aln = &simplified_source_mp_aln;
         }
         
         // make an overlay that will memoize the results of some expensive XG operations
@@ -2650,10 +2676,17 @@ using namespace std;
                 cerr << " at " << graph->get_position_of_step(section_path_ranges[i].first) << " - " << graph->get_position_of_step(section_path_ranges[i].second);
             }
             cerr << "):" << endl;
+            if (sections[i].path().mapping_size() != 0) {
+                continue;
+            }
             
             for (auto& edge : comp_group_edges[original_copy[i]]) {
                 
                 for (size_t j = copy_range[get<0>(edge)], n = copy_range[get<0>(edge) + 1]; j < n; ++j) {
+                    if (sections[j].path().mapping_size() == 0) {
+                        cerr << "\tX " << j << " (null section)" << endl;
+                        continue;
+                    }
                     auto d = section_path_dist(i, j);
                     if (d >= 0) {
                         cerr << "\t-> " << j << ", dist " << d << ", score " << get<1>(edge) << ", connection? " << get<2>(edge) << endl;
@@ -2691,14 +2724,24 @@ using namespace std;
                 
                 for (size_t j = copy_range[i], m = copy_range[i + 1]; j < m; ++j) {
                     
+                    if (sections[j].path().mapping_size() == 0) {
+                        // this section failed to project
+                        continue;
+                    }
+                    
                     for (size_t k = copy_range[get<0>(edge)], n = copy_range[get<0>(edge) + 1]; k < n; ++k) {
+                        
+                        if (sections[k].path().mapping_size() == 0) {
+                            // this section failed to project
+                            continue;
+                        }
                         
                         int32_t extended_score = score_dp[j] + get<1>(edge) + sections[k].score();
                         
-#ifdef debug_spliced_surject
-                        cerr << "extending from component " << i << " section copy index " << j << " (DP score " << score_dp[i] << ") with score of " << extended_score << " to " << get<0>(edge) << " section copy index " << k << " (DP score " << score_dp[get<0>(edge)] << ") dist " << section_path_dist(i, get<0>(edge)) << endl;
-#endif
                         int64_t dist = section_path_dist(j, k);
+#ifdef debug_spliced_surject
+                        cerr << "extending from component " << i << " section copy index " << j << " (DP score " << score_dp[i] << ") with score of " << extended_score << " to " << get<0>(edge) << " section copy index " << k << " (DP score " << score_dp[get<0>(edge)] << ") dist " << dist << endl;
+#endif
                         if (dist < 0) {
 #ifdef debug_spliced_surject
                             cerr << "the sections are not colinear along the path" << endl;
@@ -2726,6 +2769,13 @@ using namespace std;
             }
         }
         
+#ifdef debug_spliced_surject
+        cerr << "backpointers after DP:" << endl;
+        for (size_t i = 0; i < backpointer.size(); ++i) {
+            cerr << i << ": " << backpointer[i].first << " " << backpointer[i].second << endl;
+        }
+#endif
+        
         // find the maximum, subject to full length requirements
         vector<size_t> traceback(1, -1);
         int32_t max_score = numeric_limits<int32_t>::min();
@@ -2746,26 +2796,30 @@ using namespace std;
             }
         }
         
-        // follow the back pointers
-        while (backpointer[traceback.back()].first != -1) {
-            traceback.push_back(backpointer[traceback.back()].first);
-        }
-        
-        
+        if (traceback.front() != -1) {
+            
+            // follow the back pointers
+            while (backpointer[traceback.back()].first != -1) {
+                traceback.push_back(backpointer[traceback.back()].first);
+            }
+            
 #ifdef debug_spliced_surject
-        cerr << "combining " << traceback.size() << " sections into surjected alignment" << endl;
-        for (int64_t i = traceback.size() - 1; i >= 0; --i) {
-            cerr << "\t" << traceback[i] << endl;
-        }
+            cerr << "combining " << traceback.size() << " sections into surjected alignment" << endl;
+            for (int64_t i = traceback.size() - 1; i >= 0; --i) {
+                cerr << "\t" << traceback[i] << endl;
+            }
 #endif
-        
-        if (traceback.empty()) {
-            // sentinel for unmapped
-            path_range_out.first = path_range_out.second = graph->path_end(path_handle);
-        }
-        else {
             path_range_out.first = section_path_ranges[traceback.back()].first;
             path_range_out.second = section_path_ranges[traceback.front()].second;
+        }
+        else {
+#ifdef debug_spliced_surject
+            cerr << "traceback is empty" << endl;
+#endif
+            
+            // sentinel for unmapped
+            path_range_out.first = path_range_out.second = graph->path_end(path_handle);
+            traceback.clear();
         }
         
         // make an alignment to build out the path in

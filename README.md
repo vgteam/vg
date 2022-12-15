@@ -26,7 +26,7 @@ Paths provide stable coordinates for graphs built in different ways from the sam
 
 ## Support 
 
-We maintain a support forum on biostars: https://www.biostars.org/t/vg/
+We maintain a support forum on biostars: https://www.biostars.org/tag/vg/
 
 ## Installation
 
@@ -106,22 +106,6 @@ Homebrew provides another package management solution for OSX, and may be prefer
     # Install all the dependencies in the Brewfile
     brew bundle
     
-    # Use GNU versions of coreutils over Apple versions
-    export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
-
-    # Force use of new version of bison
-    brew link bison --force
-    # NOTE! If brew says that it is refusing to link Bison, follow its suggested
-    # instructions to put Bison on your PATH instead.
-
-    # Use glibtool/ize
-    export LIBTOOL=glibtool
-    export LIBTOOLIZE=glibtoolize
-
-    # Use installed libraries
-    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
-    export LIBRARY_PATH=$LD_LIBRARY_PATH;
-
 #### Build
 
 With dependencies installed, VG can now be built:

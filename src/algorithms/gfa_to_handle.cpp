@@ -1,8 +1,6 @@
 #include "gfa_to_handle.hpp"
 #include "../path.hpp"
 
-#include <bdsg/odgi.hpp>
-
 #include <gbwtgraph/utils.h>
 
 namespace vg {

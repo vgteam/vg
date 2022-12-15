@@ -5,12 +5,16 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 32
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
-vg index -x x.xg -G x.gbwt -v small/x.vcf.gz  x.vg
-vg gbwt -x x.xg -v small/x.vcf.gz --gbz-format -g x.gbz
+vg index -x x.xg x.vg
+vg gbwt -x x.vg -v small/x.vcf.gz -o x.haps.gbwt
+vg gbwt -x x.vg -E -o x.paths.gbwt
+vg gbwt -m x.haps.gbwt x.paths.gbwt -o x.gbwt
+vg gbwt -x x.vg x.gbwt --gbz-format -g x.gbz
+
 vg view -a small/x-l100-n1000-s10-e0.01-i0.01.gam > x.gam.json
 
 # sanity check: does passing no options preserve input
@@ -19,6 +23,12 @@ is $(vg chunk -x x.xg -p x -c 10| vg stats - -E) 291 "vg chunk with no options p
 
 # check a small chunk
 is $(vg chunk -x x.xg -p x:20-30 -c 0 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == "9"))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
+is $(vg chunk -x x.gbz -p x:20-30 -c 0 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == "9"))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk can be found from GBZ"
+
+# check snarl chunking
+vg snarls x.xg > x.snarls
+is $(vg chunk -x x.xg -S x.snarls -p x:10-20 | vg view - | grep ^S | awk '{print $2}' | sort -n | awk 'BEGIN { ORS = "" } {print}') 6789 "snarl chunk works on simple example"
+rm -f x.snarls
 
 # check a small chunk, but using vg input and packed graph output
 is $(vg chunk -x x.vg -p x:20-30 -c 0 -O pg | vg convert -v - | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == "9"))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
@@ -50,11 +60,17 @@ is "$(vg view -aj _chunk_test000005.gam | wc -l)" "100" "simple chunk contains t
 is $(vg chunk -x x.xg -r 1:3 -c 0 | vg view - -j | jq .node | grep id |  wc -l) 3 "id chunker produces correct chunk size"
 is $(vg chunk -x x.xg -r 1 -c 0 | vg view - -j | jq .node | grep id | wc -l) 1 "id chunker produces correct single chunk"
 
+# Check that traces work without any haplotypes
+# TODO: Make the tube map stop doing that?
+is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size without haplotypes"
+
 # Check that traces work on a GBWT
 is $(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
 is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
-is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
+is "$(vg chunk -x x.xg -G x.haps.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBWT"
+is "$(vg chunk -x x.gbz -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBZ"
+is "$(vg chunk -x x.gbz -r 1:1 -c 2 -T --no-embedded-haplotypes | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" "" "chunker doesn't see haplotypes in the GBZ if asked not to"
 
 vg chunk -x x.xg -G x.gbwt -p x:50-100 -c 0 -T | vg view - | grep ^S | sort > cnodes
 vg find -x x.xg -p x:50-100 -c 0 | vg view - | grep ^S | sort > fnodes

@@ -36,7 +36,8 @@ using namespace std;
  *
  * An item may be a "group", with a certain size.
  *
- * We also can assign scores to items at a stage.
+ * We also can assign "scores" or correctness/placed-ness "tags" to items at a
+ * stage. Tags can cover a region of a linear read space.
  */
 class Funnel {
 
@@ -89,6 +90,45 @@ public:
     template<typename Iterator>
     void merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
     
+    /// Merge all the given item indexes from the previous stage into a new item at this stage.
+    /// The new item will be a group, sized according to the total size of
+    /// previous groups, with non-groups counting as size 1.
+    template<typename Iterator>
+    void merge_groups(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
+    /// Merge all the given item indexes from the previous stage into a new item at this stage.
+    /// The new item will be a single item.
+    template<typename Iterator>
+    void merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
+    /// Record extra provenance relationships where the latest current-stage
+    /// item came from the given previous-stage items. Increases the
+    /// current-stage item group size by the number of previous-stage items
+    /// added.
+    ///
+    /// Propagates tagging.
+    template<typename Iterator>
+    void also_merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end);
+    
+    /// Record extra provenance relationships where the latest current-stage
+    /// item came from the given earlier-stage items. Increases the
+    /// current-stage item group size by the number of previous-stage items
+    /// added.
+    ///
+    /// Propagates tagging.
+    ///
+    /// earlier_stage_lookback determines how many stages to look back and must be
+    /// 1 or more.
+    template<typename Iterator>
+    void also_merge_group(size_t earlier_stage_lookback, Iterator earlier_stage_items_begin, Iterator earlier_stage_items_end);
+    
+    /// Record an extra provenance relationship where the latest current-stage
+    /// item came from the given previous-stage item, the given number of
+    /// stages ago (min 1).
+    ///
+    /// Does not adjust group size or propagate tagging.
+    void also_relevant(size_t earlier_stage_lookback, size_t earlier_stage_item); 
+    
     /// Project a single item from the previous stage to a single non-group item at this stage.
     void project(size_t prev_stage_item);
     
@@ -110,10 +150,27 @@ public:
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
+    
+    /// We can tag items as having one of these states.
+    enum class State {
+        NONE = 0,
+        PLACED = 1,
+        CORRECT = 2
+    };
+    
+    /// Tag the given item as being in the given state at the current stage.
+    /// Future items that derive from it will inherit these tags. Optionally
+    /// allows specifying that the state extends over a range in read space.
+    void tag(size_t item, State state, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max());
 
     /// Tag the given item as "correct" at the current stage. Future items that
     /// derive from it will also be tagged as correct.
-    void tag_correct(size_t item);
+    /// Optionally allows specifying that the correctness extends over a range
+    /// in read space, so correctness can be tracked as a property of regions
+    /// of the read, rather than the whole read.
+    /// If called multiple times, with different bounds, the correct region
+    /// will enclose all the correct regions provided in the different calls.
+    void tag_correct(size_t item, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max());
     
     /// Return true if the given item at this stage is tagged correct, or
     /// descends from an item that was tagged correct.
@@ -131,7 +188,19 @@ public:
 
     /// Get the name of the most recent stage that had a correct-tagged item
     /// survive into it, or "none" if no items were ever tagged correct.
-    string last_correct_stage() const;
+    /// Optionally allows specifying a read space interval to intersect with
+    /// items, so the query returns the last stage that had a correct item
+    /// intersecting that range.
+    string last_correct_stage(size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max()) const;
+    
+    /// Get the name of the most recent stage that had a n item tagged with the
+    /// given tag or better survive into it, or "none" if no items were ever
+    /// tagged that good. Optionally allows specifying a read space interval to
+    /// intersect with items, so the query returns the last stage that had an
+    /// item intersecting that range and also an item witht hat tag or better.
+    ///
+    /// TODO: Make worse tag ranges not match queries for better tags!
+    string last_tagged_stage(State tag, size_t tag_start = 0, size_t tag_length = std::numeric_limits<size_t>::max()) const;
     
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
@@ -161,13 +230,13 @@ public:
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages and provenance.
-    void to_dot(ostream& out);
+    void to_dot(ostream& out) const;
 
     /// Set an alignments annotations with the number of results at each stage
     /// if annotate_correctness is true, also annotate the alignment with the
     /// number of correct results at each stage. This assumes that we've been
     /// tracking correctness all along
-    void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness);
+    void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) const;
     
 protected:
     
@@ -204,14 +273,33 @@ protected:
     
     // Now members we need for provenance tracking
     
+    /// Represents a flag vector over positions via a sorted interval list.
+    /// Allows setting flags in a range.
+    struct PaintableSpace {
+        /// Mark a range as painted
+        void paint(size_t start, size_t length);
+        /// Check if any position in the given range is painted
+        bool is_any_painted(size_t start, size_t length) const;
+        
+        /// Store start position and length for all painted intervals.
+        std::map<size_t, size_t> regions;
+    };
+    
     /// Represents an Item whose provenance we track
     struct Item {
         size_t group_size = 0;
         double score = 0;
-        /// Is this item tagged as correct, or a descendant of a tagged item?
-        bool correct = false;
+        /// Is this item tagged with a state, or a descendant of a tagged item?
+        State tag = State::NONE;
+        /// If the item is tagged, over what interval is it tagged?
+        /// When projecting, intervals are combined by min/maxing the bounds.
+        size_t tag_start = std::numeric_limits<size_t>::max();
+        size_t tag_length = 0;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
+        /// And what items from stages before that? Recorded as (stage offset,
+        /// item number) pairs; all the offsets will be >=2.
+        vector<pair<size_t, size_t>> earlier_stage_items = {};
         /// What filters did the item pass at this stage, if any?
         vector<const char*> passed_filters = {};
         /// And what statistics did they have (or NaN)?
@@ -231,8 +319,10 @@ protected:
         /// How many of the items were actually projected?
         /// Needed because items may need to expand to hold information for items that have not been projected yet.
         size_t projected_count = 0;
-        /// Does this stage contain any items tagged as correct?
-        bool has_correct = false;
+        /// What's the best tag of anything at this stage?
+        State tag = State::NONE;
+        /// Where are tags applied?
+        PaintableSpace tag_space;
     };
     
     /// Ensure an item with the given index exists in the current stage and return a reference to it.
@@ -250,33 +340,121 @@ protected:
     vector<Stage> stages;
 };
 
+inline std::ostream& operator<<(std::ostream& out, const Funnel::State& state) {
+    switch (state) {
+        case Funnel::State::NONE:
+            return out << "NONE";
+        case Funnel::State::PLACED:
+            return out << "PLACED";
+        case Funnel::State::CORRECT:
+            return out << "CORRECT";
+        default:
+            return out << "UNKNOWN";
+    }
+}
+
 template<typename Iterator>
 void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
+    // Do a non-group merge
+    merge(prev_stage_items_begin, prev_stage_items_end);
+    
+    // Find it
+    size_t index = latest();
+
+    // Update its size
+    get_item(index).group_size = get_item(index).prev_stage_items.size();
+}
+
+template<typename Iterator>
+void Funnel::merge_groups(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
+    // Do a non-group merge
+    merge(prev_stage_items_begin, prev_stage_items_end);
+    
+    // Find it
+    size_t index = latest();
+    
+    // Compute the total size it should have
+    auto& prev_stage = stages[stages.size() - 2];
+    size_t total_size = 0;
+    for (auto& prev : get_item(index).prev_stage_items) {
+        size_t prev_group_size = prev_stage.items[prev].group_size;
+        if (prev_group_size == 0) {
+            // Non-groups count as size 1
+            prev_group_size = 1;
+        }
+        total_size += prev_group_size;
+    }
+
+    // Update its size
+    get_item(index).group_size = total_size;
+}
+
+template<typename Iterator>
+void Funnel::merge(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
     // There must be a prev stage to merge from
     assert(stages.size() > 1);
     auto& prev_stage = stages[stages.size() - 2];
 
-    // Make a new item to hold all the given items.
+    // Make a new item to combine all the given items.
     size_t index = create_item();
 
-    for (Iterator& i = prev_stage_items_begin; i != prev_stage_items_end; ++i) {
-        // For each prev stage item (not copying the iterator)
-        size_t prev_stage_item = *i;
+    for (Iterator& it = prev_stage_items_begin; it != prev_stage_items_end; ++it) {
+        // For each prev stage item
+        size_t prev_stage_item = *it;
 
         // Make sure it existed
         assert(prev_stage.items.size() > prev_stage_item);
 
         // Record the dependency
         get_item(index).prev_stage_items.push_back(prev_stage_item);
-         
-        if (prev_stage.items[prev_stage_item].correct) {
-            // Tag the new item correct if it came from something correct.
-            tag_correct(index);
+        
+        // Propagate tags
+        auto& old = prev_stage.items[prev_stage_item];
+        if (old.tag != State::NONE) {
+            // Tag the new item if it came from something tagged.
+            tag(index, old.tag, old.tag_start, old.tag_length);
         }
     }
+}
 
-    // Update its size
-    get_item(index).group_size = get_item(index).prev_stage_items.size();
+template<typename Iterator>
+void Funnel::also_merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
+    also_merge_group(1, prev_stage_items_begin, prev_stage_items_end);
+}
+
+template<typename Iterator>
+void Funnel::also_merge_group(size_t earlier_stage_lookback, Iterator earlier_stage_items_begin, Iterator earlier_stage_items_end) {
+    assert(earlier_stage_lookback > 0);
+    assert(stages.size() > earlier_stage_lookback);
+    auto& earlier_stage = stages[stages.size() - 1 - earlier_stage_lookback];
+    auto& item = get_item(latest());
+    
+    for (Iterator& it = earlier_stage_items_begin; it != earlier_stage_items_end; ++it) {
+        // For each earlier stage item
+        size_t earlier_stage_item = *it;
+
+        // Make sure it existed
+        assert(earlier_stage.items.size() > earlier_stage_item);
+
+        // Record the dependency
+        if (earlier_stage_lookback == 1) {
+            // References to the immediately preceeding stage are special
+            item.prev_stage_items.push_back(earlier_stage_item);
+        } else {
+            // References to earlier stages include the stage offset back
+            item.earlier_stage_items.emplace_back(earlier_stage_lookback, earlier_stage_item);
+        }
+        
+        // Increase group size
+        item.group_size += 1;
+        
+        // Propagate tags
+        auto& old = earlier_stage.items[earlier_stage_item];
+        if (old.tag != State::NONE) {
+            // Tag the new item if it came from something tagged.
+            tag(latest(), old.tag, old.tag_start, old.tag_length);
+        }
+    }
 }
 
 }

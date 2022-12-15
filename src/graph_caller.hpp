@@ -89,7 +89,7 @@ public:
     void vcf_fixup(vcflib::Variant& var) const;
 
     /// Add a translation map
-    void set_translation(const unordered_map<nid_t, pair<nid_t, size_t>>* translation);
+    void set_translation(const unordered_map<nid_t, pair<string, size_t>>* translation);
 
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
@@ -150,7 +150,7 @@ protected:
     size_t max_uncalled_alleles = 5;
 
     // optional node translation to apply to snarl names in variant IDs
-    const unordered_map<nid_t, pair<nid_t, size_t>>* translation;
+    const unordered_map<nid_t, pair<string, size_t>>* translation;
 
     // need to write LV/PS info tags
     bool include_nested;

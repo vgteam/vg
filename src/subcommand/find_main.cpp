@@ -12,6 +12,7 @@
 #include "../algorithms/subgraph.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
+#include "../algorithms/extract_connecting_graph.hpp"
 #include "../algorithms/walk.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
@@ -38,6 +39,9 @@ void help_find(char** argv) {
          << "    -I, --list-paths       write out the path names in the index" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
+         << "    --connecting-start POS find the graph connecting from POS (node ID, + or -, node offset) to --connecting-end" << endl
+         << "    --connecting-end POS   find the graph connecting to POS (node ID, + or -, node offset) from --connecting-start" << endl
+         << "    --connecting-range INT traverse up to INT bases when going from --connecting-start to --connecting-end (default: 100)" << endl
          << "subgraphs by path range:" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -R, --path-bed FILE    read our targets from the given BED FILE" << endl
@@ -94,6 +98,9 @@ int main_find(int argc, char** argv) {
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
     string gam_file;
+    pos_t connecting_start = make_pos_t(0, false, 0);
+    pos_t connecting_end = make_pos_t(0, false, 0);
+    size_t connecting_range = 100;
     int max_mem_length = 0;
     int min_mem_length = 1;
     string to_graph_file;
@@ -109,6 +116,9 @@ int main_find(int argc, char** argv) {
     string gbwt_name;
 
     constexpr int OPT_MAPPING = 1000;
+    constexpr int OPT_CONNECTING_START = 1001;
+    constexpr int OPT_CONNECTING_END = 1002;
+    constexpr int OPT_CONNECTING_RANGE = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -140,6 +150,9 @@ int main_find(int argc, char** argv) {
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
                 {"gam", required_argument, 0, 'G'},
+                {"connecting-start", required_argument, 0, OPT_CONNECTING_START},
+                {"connecting-end", required_argument, 0, OPT_CONNECTING_END},
+                {"connecting-range", required_argument, 0, OPT_CONNECTING_RANGE},
                 {"to-graph", required_argument, 0, 'A'},
                 {"max-mem", required_argument, 0, 'Y'},
                 {"min-mem", required_argument, 0, 'Z'},
@@ -275,6 +288,18 @@ int main_find(int argc, char** argv) {
         case 'G':
             gam_file = optarg;
             break;
+            
+        case OPT_CONNECTING_START:
+            connecting_start = parse<pos_t>(optarg);
+            break;
+            
+        case OPT_CONNECTING_END:
+            connecting_end = parse<pos_t>(optarg);
+            break;
+        
+        case OPT_CONNECTING_RANGE:
+            connecting_range = parse<size_t>(optarg);
+            break;
 
         case 'A':
             to_graph_file = optarg;
@@ -315,6 +340,11 @@ int main_find(int argc, char** argv) {
     
     if (xg_name.empty() && mem_reseed_length) {
         cerr << "error:[vg find] SMEM reseeding requires an XG index. Provide XG index with -x." << endl;
+        exit(1);
+    }
+    
+    if ((id(connecting_start) == 0) != (id(connecting_end) == 0)) {
+        cerr << "error:[vg find] --connecting-start and --connecting-end must be specified together." << endl;
         exit(1);
     }
     
@@ -368,12 +398,12 @@ int main_find(int argc, char** argv) {
         }
         node_ids = final_ids;
     }
-    function<unique_ptr<MutablePathMutableHandleGraph>()> get_output_graph = [&]() {
+    function<unique_ptr<MutablePathDeletableHandleGraph>()> get_output_graph = [&]() {
         if (input_gfa) {
-            return unique_ptr<MutablePathMutableHandleGraph>(new GFAHandleGraph());
+            return unique_ptr<MutablePathDeletableHandleGraph>(new GFAHandleGraph());
         }
         // todo: move away from VG here
-        return unique_ptr<MutablePathMutableHandleGraph>(new VG());
+        return unique_ptr<MutablePathDeletableHandleGraph>(new VG());
     };
 
     unique_ptr<gbwt::GBWT> gbwt_index;
@@ -773,6 +803,13 @@ int main_find(int argc, char** argv) {
             }
             vg::algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
             vg::algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
+            vg::io::save_handle_graph(&graph, cout);
+        }
+        if (id(connecting_start) != 0) {
+            // Extract a connecting graph
+            auto output_graph = get_output_graph();
+            auto& graph = *output_graph;
+            vg::algorithms::extract_connecting_graph(xindex, &graph, connecting_range, connecting_start, connecting_end);
             vg::io::save_handle_graph(&graph, cout);
         }
     }

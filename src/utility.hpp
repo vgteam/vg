@@ -153,6 +153,9 @@ namespace temp_file {
     /// created by create() or create_directory() and not any other means.
     void remove(const string& filename);
 
+    /// Forget about all current temporary files and directories without deleting them.
+    void forget();
+
     /// Set a directory for placing temporary files and directories in,
     /// overriding system defaults and environment variables.
     void set_dir(const string& new_temp_dir);
@@ -252,13 +255,336 @@ struct Tree {
 
 };
 
-// vector containing positive integer values in [begin, end)
+
+/**
+ * We want to be able to operate on reordered subset of things without moving
+ * the originals, so we use this view over things stored in a vector.
+ *
+ * Both the backing collection and the indexes must outlive the view.
+ *
+ * Copyable and assignable, and default-constructable to an empty state.
+ */
+template<typename Item>
+struct VectorView {
+    const vector<Item>* items;
+    const vector<size_t>* indexes;
+    
+    inline VectorView() : items(nullptr), indexes(nullptr) {
+        // Nothing to do!
+    };
+    
+    // Behave like a nice value.
+    ~VectorView() = default;
+    VectorView(const VectorView& other) = default;
+    VectorView(VectorView&& other) = default;
+    VectorView& operator=(const VectorView& other) = default;
+    VectorView& operator=(VectorView&& other) = default;
+    
+    /**
+     * Make a VectorView of a whole vector. Provides an implicit conversion.
+     */
+    inline VectorView(const vector<Item>& items) : items(&items), indexes(nullptr) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Make a VectorView of a reordered subset of a vector.
+     */
+    inline VectorView(const vector<Item>& items, const vector<size_t>& indexes) : items(&items), indexes(&indexes) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Get an item by index.
+     */
+    inline const Item& operator[](size_t index) const {
+        if (indexes) {
+            return (*items)[(*indexes)[index]];
+        } else {
+            return (*items)[index];
+        }
+    }
+    
+    /**
+     * Get the backing index of an item by index.
+     */
+    inline size_t backing_index(size_t index) const {
+        if (indexes) {
+            return (*indexes)[index];
+        } else {
+            return index;
+        }
+    }
+    
+    /**
+     * Get the total number of items.
+     */
+    inline size_t size() const {
+        if (indexes) {
+            return indexes->size();
+        } else if (items) {
+            return items->size();
+        } else {
+            return 0;
+        }
+    }
+    
+    /**
+     * Determine if there are no items.
+     */
+    inline bool empty() const {
+        if (indexes) {
+            return indexes->empty();
+        } else if (items) {
+            return items->empty();
+        } else {
+            return true;
+        }
+    }
+    
+    /**
+     * Call the given callback with a dense and properly ordered vector of the items.
+     */
+    void with_vector(const std::function<void(const vector<Item>&)>& callback) const {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back((*items)[i]);
+            }
+            callback(reordered);
+        } else if (items) {
+            // We already have this
+            callback(*items);
+        } else {
+            // We have no items at all.
+            return callback({});
+        }
+    }
+    
+    /**
+     * Call the given callback with a dense and properly ordered vector of the
+     * items, which can be modified. Modification will not be visible in
+     * the backing storage.
+     *
+     * TODO: will this be called even when the const version could be more
+     * efficiently used?
+     */
+    void with_vector(const std::function<void(vector<Item>&)>& callback) {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back((*items)[i]);
+            }
+            callback(reordered);
+        } else if (items) {
+            // We need a copy
+            std::vector<Item> clone(*items);
+            callback(clone);
+        } else {
+            // We have no items at all.
+            vector<Item> empty;
+            return callback(empty);
+        }
+    }
+    
+    /// Random access iterator.
+    struct const_iterator {
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type = const Item;
+        using pointer = const Item*;
+        using reference = const Item&;
+        using difference_type = std::ptrdiff_t;
+        
+    
+        const VectorView<Item>& parent;
+        size_t offset = 0;
+        
+        /// Advance the iterator. Pre-increment.
+        const_iterator& operator++() {
+            ++offset;
+            return *this;
+        }
+        
+        /// De-advance the iterator. Pre-decrement.
+        const_iterator& operator--() {
+            --offset;
+            return *this;
+        }
+        
+        /// Advance the iterator by a distance, in place
+        const_iterator& operator+=(const difference_type& difference) {
+            offset += difference;
+            return *this;
+        }
+        
+        /// De-advance the iterator by a distance, in place
+        const_iterator& operator-=(const difference_type& difference) {
+            offset -= difference;
+            return *this;
+        }
+        
+        /// Advance the iterator. Post-increment.
+        const_iterator operator++(int) {
+            auto copy = *this;
+            ++(*this);
+            return copy;
+        }
+        
+        /// De-advance the iterator. Post-decrement.
+        const_iterator operator--(int) {
+            auto copy = *this;
+            --(*this);
+            return copy;
+        }
+        
+        /// Advance the iterator by a distance, copying
+        const_iterator operator+(const difference_type& difference) const {
+            auto copy = *this;
+            copy += difference;
+            return copy;
+        }
+        
+        /// De-advance the iterator by a distance, copying
+        const_iterator operator-(const difference_type& difference) const {
+            auto copy = *this;
+            copy -= difference;
+            return copy;
+        }
+        
+        /// Get a difference of iterators on the same container
+        difference_type operator-(const const_iterator& other) const {
+            return offset - other.offset;
+        }
+        
+        /// Check if two iterators on the same container are equal
+        bool operator==(const const_iterator& other) const {
+            return offset == other.offset;
+        }
+        
+        /// Check if two iterators on the same container are not equal
+        bool operator!=(const const_iterator& other) const {
+            return offset != other.offset;
+        }
+        
+        /// Get the item pointed to by the iterator.
+        const Item& operator*() const {
+            return parent[offset];
+        }
+        
+        /// Get a pointer to the item pointed to by the itarator.
+        const Item* operator->() const {
+            // Since the items really exist, this is easy.
+            return &parent[offset];
+        }
+    };
+    
+    /// Get iterator to first item.
+    const_iterator begin() const {
+        return {*this, 0};
+    };
+    
+    /// Get iterator to past-end item.
+    const_iterator end() const {
+        return {*this, size()};
+    };
+};
+
+/// Allow VectorView iterators to be added to numbers.
+template<typename Item>
+typename VectorView<Item>::const_iterator operator+(typename VectorView<Item>::const_iterator::difference_type a, const typename VectorView<Item>::const_iterator& b) {
+    return b + a;
+}
+
+/**
+ * Represents the reverse of the view transformation used in a VectorView.
+ *
+ * Assumes we have the memory for a dense inverse, and that nobody will ever
+ * ask about values that aren't actually in the view. If an item appears
+ * multiple times, one index will win.
+ *
+ * If the VectorView's backing vectors are modified, the inverse will need to
+ * be re-made.
+ *
+ * In keeping with VectorView's value semantics, the inverted VectorView does
+ * not need to outlivce this object.
+ */
+class VectorViewInverse {
+
+private:
+    /// Stores the index in the view at which each item in the backing storage appears.
+    vector<size_t> inverse;
+    
+public:
+    /// Default-construct an inverse of nothing
+    inline VectorViewInverse() : inverse() {
+        // Nothing to do!
+    };
+    
+    /// Invert the given VectorView.
+    template<typename Item>
+    inline VectorViewInverse(const VectorView<Item>& view) : inverse() {
+        if (view.indexes) {
+            // A transformation exists to invert.
+            // Make sure we have room for all the dense inverse values
+            inverse.resize(view.items->size());
+            for (size_t view_index = 0; view_index < view.indexes->size(); view_index++) {
+                // Save all the inverse references.
+                inverse[(*(view.indexes))[view_index]] = view_index;
+            }
+        }
+    };
+    
+    /**
+     * Get the view index from a backing index.
+     */
+    inline size_t operator[](size_t backing_index) {
+        if (inverse.empty()) {
+            // No transformation necessary.
+            return backing_index;
+        }
+        // Otherwise, look in the stored inverse and hope we asked for
+        // something actually in the view.
+        return inverse[backing_index];
+    }
+};
+
+/// Vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);
     
-// vector containing positive integer values in [0, end)
+/// Vector containing positive integer values in [0, end)
 inline vector<size_t> range_vector(size_t end) {
     return range_vector(0, end);
 }
+
+/// Get the index permutation that sorts the given items with the given comparator instead of <
+template<typename Iterator>
+std::vector<size_t> sort_permutation(const Iterator& begin,
+                                     const Iterator& end,
+                                     const std::function<bool(const typename Iterator::value_type&, const typename Iterator::value_type&)>& comparator) {
+    // Start with all numbers in number order.
+    std::vector<size_t> indexes = range_vector(end - begin);
+    // Then sort them using the comparator
+    std::sort(indexes.begin(), indexes.end(), [&](size_t a, size_t b) {
+        return comparator(*(begin + a), *(begin + b));
+    });
+    // And return
+    return indexes;
+}
+
+/// Get the index permutation that sorts the given items ascending using <
+template<typename Iterator>
+std::vector<size_t> sort_permutation(const Iterator& begin, const Iterator& end) {
+    return sort_permutation(begin, end, [](const typename Iterator::value_type& a, const typename Iterator::value_type& b) {
+        return a < b;
+    });
+}
+
+/// Apply one permutation on top of another. Retutn the combined permutation.
+std::vector<size_t> stack_permutations(const std::vector<size_t>& bottom, const std::vector<size_t>& top);
 
 struct IncrementIter {
 public:
@@ -543,6 +869,10 @@ bool parse(const string& arg, double& dest);
 // And one for regular expressions
 template<>
 bool parse(const string& arg, std::regex& dest);
+
+// And one for positions. Parses ID{+/-}Offset.
+template<>
+bool parse(const string& arg, pos_t& dest);
 
 // Implement the first version in terms of the second, for any type
 template<typename Result>

@@ -6678,7 +6678,7 @@ namespace vg {
         
             }
         } //End test case
-        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph]") {
+        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph][bug]") {
             VG graph;
         
             Node* n1 = graph.create_node("GCA");
@@ -6711,6 +6711,10 @@ namespace vg {
             Edge* e15 = graph.create_edge(n10, n11);
             Edge* e16 = graph.create_edge(n10, n12);
             Edge* e17 = graph.create_edge(n11, n12);
+
+            ofstream out ("test_graph.vg");
+            graph.serialize(out);
+
         
             IntegratedSnarlFinder snarl_finder(graph);
             SECTION("Skip right in chain") {
@@ -6745,6 +6749,9 @@ namespace vg {
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 subgraph_in_distance_range(distance_index, path, &graph, 11, 14, sub_graph, true);
+                for (auto& id : sub_graph) {
+                    cerr << id << endl;
+                }
         
                 REQUIRE(!sub_graph.count(3));
                 REQUIRE(!sub_graph.count(8));

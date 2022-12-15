@@ -42,7 +42,7 @@ void vg_help(char** argv) {
      });
      
      cerr << endl << "For more commands, type `vg help`." << endl;
-     cerr << "For technical support, please visit: https://www.biostars.org/t/vg/" << endl << endl;
+     cerr << "For technical support, please visit: https://www.biostars.org/tag/vg/" << endl << endl;
  }
 
 // We make sure to compile main for the lowest common denominator architecture.

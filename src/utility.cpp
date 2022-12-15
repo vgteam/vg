@@ -302,9 +302,9 @@ void write_fasta_sequence(const std::string& name, const std::string& sequence, 
 namespace temp_file {
 
 // We use this to make the API thread-safe
-recursive_mutex monitor;
+static recursive_mutex monitor;
 
-string temp_dir;
+static string temp_dir;
 
 /// Because the names are in a static object, we can delete them when
 /// std::exit() is called.
@@ -386,7 +386,9 @@ struct Handler {
             remove_directory(parent_directory);
         }
     }
-} handler;
+};
+// make a static instance so that its destructor is called from std::exit()
+static Handler handler;
 
 string create(const string& base) {
     lock_guard<recursive_mutex> lock(monitor);
@@ -444,6 +446,19 @@ void remove(const string& filename) {
         // nonempty directory.
         std::remove(filename.c_str());
     }
+}
+
+void forget() {
+    lock_guard<recursive_mutex> lock(monitor);
+    
+    // forget in our submodules as well
+    xg::temp_file::forget();
+    gbwt::TempFile::forget();
+    gcsa::TempFile::forget();
+    
+    handler.filenames.clear();
+    handler.dirnames.clear();
+    handler.parent_directory.clear();
 }
 
 void set_system_dir() {
@@ -517,6 +532,15 @@ vector<size_t> range_vector(size_t begin, size_t end) {
         range[i] = begin + i;
     }
     return range;
+}
+
+std::vector<size_t> stack_permutations(const std::vector<size_t>& bottom, const std::vector<size_t>& top) {
+    std::vector<size_t> result;
+    result.reserve(top.size());
+    for (auto& index : top) {
+        result.push_back(bottom[index]);
+    }
+    return result;
 }
 
 bool have_input_file(int& optind, int argc, char** argv) {
@@ -831,6 +855,40 @@ bool parse(const string& arg, std::regex& dest) {
     // This throsw std::regex_error if it can't parse.
     // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
     dest = std::regex(arg);
+    return true;
+}
+
+template<>
+bool parse(const string& arg, pos_t& dest) {
+    const char* cursor = arg.c_str();
+    // The STL cheats and breaks constness here.
+    char* next = nullptr;
+    // Read the node ID
+    get_id(dest) = std::strtoull(cursor, &next, 10);
+    if (next == nullptr || *next == '\0' || id(dest) == 0) {
+        // Out of parts or didn't get an ID
+        return false;
+    }
+    if (*next == '+') {
+        get_is_rev(dest) = false;
+    } else if (*next == '-') {
+        get_is_rev(dest) = true;
+    } else {
+        // No separator character
+        return false;
+    }
+    cursor = next;
+    ++cursor;
+    if (*cursor == '\0') {
+        // No offset
+        return false;
+    }
+    // Parse the offset
+    get_offset(dest) = std::strtoull(cursor, &next, 10);
+    if (next == nullptr || *next != '\0') {
+        // We didn't consume the rest of the string
+        return false;
+    }
     return true;
 }
 

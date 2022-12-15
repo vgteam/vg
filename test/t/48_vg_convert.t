@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 98
+plan tests 100
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -42,15 +42,7 @@ cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <
 diff c.info c1.info
 is "$?" 0 "vg convert maintains same nodes throughout gfa conversion"
 
-rm -f c.gfa c1.vg c1.info
-
-vg convert c.vg -o > c.odgi
-vg convert c.odgi -v > c1.vg
-cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
-diff c.info c1.info
-is "$?" 0 "vg convert maintains same nodes throughout ODGI conversion"
-
-rm -f c.vg c.odgi c1.vg c.info c1.info
+rm -f c.vg c.gfa c1.vg c1.info
 
 # some less rigorous tests I made without noticing that the earlier ones had already been written
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -59,7 +51,6 @@ vg view x.vg > x.gfa
 is "$(vg convert -a x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "hash graph conversion looks good"
 is "$(vg convert -p x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "packed graph conversion looks good"
 is "$(vg convert -v x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "vg conversion looks good"
-is "$(vg convert -o x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "odgi conversion looks good"
 is "$(vg convert -f x.vg | vg convert -g - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa conversion looks good"
 is "$(vg convert -x x.vg | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "xg conversion looks good"
 
@@ -328,6 +319,14 @@ vg paths --sample "sample" -v components.xg -A | sort > gbz_xg_haplotypes.gaf
 cmp gbz_xg_haplotypes.gaf correct_haplotypes.gaf
 is $? 0 "GBZ to XG conversion creates the correct haplotype paths"
 
+# GBZ to HashGraph and XG while dropping haplotypes
+vg convert -x --drop-haplotypes components.gbz > no_haplotypes.xg
+is $? 0 "GBZ to XG conversion while dropping haplotypes"
+is "$(vg paths -L -x no_haplotypes.xg | wc -l)" "2" "No haplotypes in the converted graph"
+vg convert -xa --drop-haplotypes components.gbz > no_haplotypes.hg
+is $? 0 "GBZ to HashGraph conversion while dropping haplotypes"
+is "$(vg paths -L -x no_haplotypes.hg | wc -l)" "2" "No haplotypes in the converted graph"
+
 # GBWTGraph to GFA with paths and walks (needs 1 thread)
 vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
 is $? 0 "GBWTGraph to GFA conversion with paths and walks, GBWTGraph algorithm"
@@ -365,6 +364,7 @@ rm -f components.gbwt components.gg components.gbz
 rm -f direct.hg correct_paths.gaf correct_haplotypes.gaf
 rm -f components.hg hg_paths.gaf hg_haplotypes.gaf gbz_hg_paths.gaf gbz_hg_haplotypes.gaf
 rm -f components.xg xg_paths.gaf xg_haplotypes.gaf gbz_xg_paths.gaf gbz_xg_haplotypes.gaf
+rm -f no_haplotypes.xg no_haplotypes.hg
 rm -f extracted.gfa gbz.gfa extracted.hg
 rm -f sorted.gfa correct.gfa
 

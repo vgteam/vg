@@ -28,6 +28,7 @@ public:
     using MinimizerMapper::Minimizer;
     using MinimizerMapper::fragment_length_distr;
     using MinimizerMapper::faster_cap;
+    using MinimizerMapper::align_sequence_between;
 };
 
 TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mapping]") {
@@ -160,7 +161,96 @@ TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][m
     REQUIRE(!isinf(cap));
 }
 
+TEST_CASE("MinimizerMapper can map against subgraphs between points", "[giraffe][mapping]") {
 
+        Aligner aligner;
+        HashGraph graph;
+        
+        // We have a real path with a mismatch
+        auto h1 = graph.create_handle("AAAAGAT");
+        auto h2 = graph.create_handle("TG");
+        graph.create_edge(h1, h2);
+        // This node is backward
+        auto h3 = graph.create_handle("AAAAAAAAATG");
+        graph.create_edge(h2, graph.flip(h3));
+        // And we have a dangling tip that is a better matchn
+        auto h4 = graph.create_handle("TA");
+        graph.create_edge(h2, h4);
+        auto h5 = graph.create_handle("CA");
+        graph.create_edge(h4, h5);
+        
+        
+        Alignment aln;
+        aln.set_sequence("GATTACA");
+        
+        // Left anchor should be on start
+        pos_t left_anchor {graph.get_id(h1), false, 4};
+        // Right anchor should be past end
+        pos_t right_anchor {graph.get_id(h3), true, 2};
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, &graph, &aligner, aln);
+        
+        // Make sure we get the right alignment
+        REQUIRE(aln.path().mapping_size() == 3);
+        REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(h1));
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == graph.get_is_reverse(h1));
+        REQUIRE(aln.path().mapping(0).position().offset() == offset(left_anchor));
+        REQUIRE(aln.path().mapping(1).position().node_id() == graph.get_id(h2));
+        REQUIRE(aln.path().mapping(1).position().is_reverse() == graph.get_is_reverse(h2));
+        REQUIRE(aln.path().mapping(1).position().offset() == 0);
+        REQUIRE(aln.path().mapping(2).position().node_id() == graph.get_id(h3));
+        REQUIRE(aln.path().mapping(2).position().is_reverse() == !graph.get_is_reverse(h3));
+        REQUIRE(aln.path().mapping(2).position().offset() == 0);
+}
+
+TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraffe][mapping]") {
+
+        Aligner aligner;
+        
+        string graph_json = R"({
+            "edge": [
+                {"from": "55511923", "to": "55511925"},
+                {"from": "55511923", "to": "55511924"},
+                {"from": "55511921", "to": "55511924"},
+                {"from": "55511921", "to": "55511922"},
+                {"from": "55511922", "to": "55511923"},
+                {"from": "55511922", "to": "55511924"},
+                {"from": "55511924", "to": "55511925"}
+            ],
+            "node": [
+                {"id": "55511923", "sequence": "T"},
+                {"id": "55511921", "sequence": "TTCCTT"},
+                {"id": "55511922", "sequence": "CC"},
+                {"id": "55511924", "sequence": "TC"},
+                {"id": "55511925", "sequence": "CTTCCTTCC"}
+            ]
+        })";
+        
+        // TODO: Write a json_to_handle_graph
+        vg::Graph proto_graph;
+        json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+        auto graph = vg::VG(proto_graph);
+        
+        Alignment aln;
+        aln.set_sequence("");
+        
+        pos_t left_anchor {55511921, false, 5}; // This is on the final base of the node
+        pos_t right_anchor {55511925, false, 6};
+        
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 100, &graph, &aligner, aln);
+        
+        // Make sure we get the right alignment. We should see the last base of '21 and go '21 to '24 to '25 and delete everything
+        REQUIRE(aln.path().mapping_size() == 3);
+        REQUIRE(aln.path().mapping(0).position().node_id() == 55511921);
+        REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(0).position().offset() == 5);
+        REQUIRE(aln.path().mapping(1).position().node_id() == 55511924);
+        REQUIRE(aln.path().mapping(1).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(1).position().offset() == 0);
+        REQUIRE(aln.path().mapping(2).position().node_id() == 55511925);
+        REQUIRE(aln.path().mapping(2).position().is_reverse() == false);
+        REQUIRE(aln.path().mapping(2).position().offset() == 0);
+}
 
 
 

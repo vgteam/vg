@@ -50,19 +50,12 @@ using RecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*
                                                    const IndexGroup&)>;
 
 /**
- * Is a recipe to create the files (returned by name) associated with some
- * indexes, from a series of input indexes, given the plan they are being
- * generated for.
- */
-using JointRecipeFunc = function<vector<vector<vector<string>>>(const vector<const IndexFile*>&,const IndexingPlan*)>;
-
-/**
  * A struct namespace for global handling of parameters used by
  * the IndexRegistry
  */
 struct IndexingParameters {
     // enums for categorical options
-    enum MutableGraphImplementation {HashGraph, PackedGraph, ODGI, VG};
+    enum MutableGraphImplementation {HashGraph, PackedGraph, VG};
     enum Verbosity {None = 0, Basic = 1, Debug = 2};
     
     // the actual parameters
@@ -79,12 +72,20 @@ struct IndexingParameters {
     static int pruning_max_edge_count;
     // during pruning, remove any isolated components with at less than this total seq length [33]
     static int pruning_min_component_size;
+    // factor by which the pruning walk length is increased if GCSA2 indexing fails [1.5]
+    static double pruning_walk_length_increase_factor;
+    // factor by which the max degree is decreased if GCSA2 indexing fails [0.75]
+    static double pruning_max_node_degree_decrease_factor;
     // length of the k-mers indexed in GCSA2 before any doubling steps [16]
     static int gcsa_initial_kmer_length;
     // number of k-mer length doubling steps in GCSA2 [4]
     static int gcsa_doubling_steps;
+    // disk limit for temporary files in bytes [2TB]
+    static int64_t gcsa_size_limit;
     // number of gbwt nodes inserted at a time in dynamic gbwt [100M]
-    static int gbwt_insert_batch_size;
+    static int64_t gbwt_insert_batch_size;
+    // factor by which the batch size is increased if construction fails [10]
+    static int gbwt_insert_batch_size_increase_factor;
     // the sampling interval in the GBWT suffix array [1024]
     static int gbwt_sampling_interval;
     // should the haplotype-transcript GBWT be made bidirectional [false]
@@ -127,6 +128,8 @@ struct VGIndexes {
     static vector<IndexName> get_default_map_indexes();
     /// A list of the identifiers of the default indexes to run vg mpmap
     static vector<IndexName> get_default_mpmap_indexes();
+    /// A list of the identifiers of the default indexes to run rpvg
+    static vector<IndexName> get_default_rpvg_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe
     static vector<IndexName> get_default_giraffe_indexes();
 };
@@ -160,6 +163,10 @@ public:
     /// TODO: is this where this function wants to live?
     int64_t target_memory_usage() const;
     
+    /// Returns the recipes in the plan that depend on this index, including the one in which
+    /// it was created (if any)
+    set<RecipeName> dependents(const IndexName& identifier) const;
+    
 protected:
     
     /// The steps to be invoked in the plan. May be empty before the plan is
@@ -174,6 +181,7 @@ protected:
     /// create the work directory.
     IndexRegistry* registry;
 };
+
 
 /**
  * An object that can record methods to produce indexes and design
@@ -220,20 +228,9 @@ public:
                                const vector<IndexName>& input_identifiers,
                                const RecipeFunc& exec);
                         
-//    /// Register a recipe to produce multiple indexes.
-//    /// Individual index recipes must still be registered; this recipe will be
-//    /// used to simplify the plan when the individual recipes with the same
-//    /// input set are all called.
-//    ///
-//    /// Joint recipes may also be used to generate single indexes if they have
-//    /// higher priority than other recipes.
-//    ///
-//    /// All output identifiers must be distinct, and there must be at least
-//    /// one. Only one multi-index recipe can be applied to simplify the
-//    /// production of any given index in a plan.
-//    void register_joint_recipe(const vector<IndexName>& identifiers,
-//                               const vector<IndexName>& input_identifiers,
-//                               const JointRecipeFunc& exec);
+    /// Indicate one recipe is a broadened version of another. The indexes consumed and produced
+    /// by the generalization must be semantically identical to those of the generalizee
+    void register_generalization(const RecipeName& generalizer, const RecipeName& generalizee);
     
     /// Indicate a serialized file that contains some identified index
     void provide(const IndexName& identifier, const string& filename);
@@ -291,6 +288,9 @@ protected:
     /// generate a plan to create the indexes
     IndexingPlan make_plan(const IndexGroup& end_products) const;
     
+    /// use a recipe identifier to get the recipe
+    const IndexRecipe& get_recipe(const RecipeName& recipe_name) const;
+    
     /// Build the index using the recipe with the provided priority.
     /// Expose the plan so that the recipe knows where it is supposed to go.
     vector<vector<string>> execute_recipe(const RecipeName& recipe_name, const IndexingPlan* plan,
@@ -318,9 +318,8 @@ protected:
     /// The storage struct for recipes, which may make index
     map<IndexGroup, vector<IndexRecipe>> recipe_registry;
     
-    /// Record that, when the given input indexes are available, this
-    /// collection of recipes is efficient to run together.
-    vector<pair<vector<IndexName>, vector<RecipeName>>> simplifications;
+    /// Map from generalizees to generalizers
+    map<RecipeName, RecipeName> generalizations;
     
     /// Temporary directory in which indexes will live
     string work_dir;
@@ -430,11 +429,33 @@ class InsufficientInputException : public runtime_error {
 public:
     InsufficientInputException() = delete;
     InsufficientInputException(const IndexName& target,
-                               const IndexRegistry& registry);
-    const char* what() const throw ();
+                               const IndexRegistry& registry) noexcept;
+    const char* what() const noexcept;
 private:
+    string msg;
     IndexName target;
     vector<IndexName> inputs;
+};
+
+
+/**
+ * An exception that indicates that we must rewind the plan to re-create some indexes
+ */
+class RewindPlanException : public std::exception {
+public:
+    
+    RewindPlanException() = delete;
+    RewindPlanException(const string& msg, const IndexGroup& rewind_to) noexcept;
+    ~RewindPlanException() noexcept = default;
+    
+    const char* what() const noexcept;
+    const IndexGroup& get_indexes() const noexcept;
+    
+private:
+    
+    const string msg;
+    IndexGroup indexes;
+    
 };
 
 }
