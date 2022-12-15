@@ -4953,8 +4953,15 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         return dep_order_of_identifier[a.first] < dep_order_of_identifier[b.first];
     });
     
+#ifdef debug_index_registry
+    cerr << "plan before applying generalizations:" << endl;
+    for (auto plan_elem : plan.steps) {
+        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
+    }
+#endif
+    
     // remove generalizees if we used their generalizers
-    set<RecipeName> plan_set(plan.steps.begin(), plan.steps.begin());
+    set<RecipeName> plan_set(plan.steps.begin(), plan.steps.end());
     plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe) {
         return generalizations.count(recipe) && plan_set.count(generalizations.at(recipe));
     }) - plan.steps.begin());
