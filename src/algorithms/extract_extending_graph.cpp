@@ -38,7 +38,8 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
         }
     };
     
-    // a map from node ids in the extracted graph to the node ids in the original graph
+    // A map from node ids in the extracted graph to the node ids in the original graph.
+    // The IDs are always the same except for when we cut/duplicate the source node.
     unordered_map<id_t, id_t> id_trans;
     
     // a graph index that we will maintain as we extract the subgraph
@@ -159,7 +160,7 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Del
         }
         
         if (add_edge) {
-            into->create_edge(edge.first, edge.second);
+            into->create_edge(into->get_handle(source->get_id(edge.first), source->get_is_reverse(edge.first)), into->get_handle(source->get_id(edge.second), source->get_is_reverse(edge.second)));
         }
     }
     

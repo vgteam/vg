@@ -1384,6 +1384,11 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
 #endif
             
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp left tail in " << aln.name() << endl;
+            }
+            
             Alignment tail_aln;
             tail_aln.set_sequence(left_tail);
             if (!aln.quality().empty()) {
@@ -1670,6 +1675,11 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
             }
 #endif
+
+            #pragma omp critical (cerr)
+            {
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp right tail in " << aln.name() << endl;
+            }
             
             Alignment tail_aln;
             tail_aln.set_sequence(right_tail);
@@ -1795,12 +1805,14 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         std::vector<handle_t> to_remove_handles;
         for (auto& h : tip_handles) {
             auto base_coords = dagified_handle_to_base(h);
-            if (base_coords.first == id(left_anchor) && !dagified_graph.get_is_reverse(h)) {
-                // This is the left anchoring node, and it is a head in the subgraph, so keep it.
-                // Can't happen if left anchor is empty.
-            } else if (base_coords.first == id(right_anchor) && dagified_graph.get_is_reverse(h)) {
-                // This is the right anchoring node, and it is a tail in the subgraph, so keep it.
-                // Can't happen if right anchor is empty.
+            if (!dagified_graph.get_is_reverse(h) && (is_empty(left_anchor) || base_coords.first == id(left_anchor))) {
+                // Tip is inward forward, so it's a source.
+                // This is a head in the subgraph, and either matches a left
+                // anchoring node or we don't have any, so keep it.
+            } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
+                // Tip is inward reverse, so it's a sink.
+                // This is a tail in the subgraph, and either matches a right
+                // anchoring node or we don't have any, so keep it.
             } else {
                 // This is a wrong orientation of an anchoring node, or some other tip.
                 // We don't want to keep this handle
@@ -1826,12 +1838,18 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         }
     } while (trimmed);
     if (trim_count > 0) {
-        std::cerr << "Trimmed back tips " << trim_count << " times" << std::endl;
+        #pragma omp critical (cerr)
+        std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " << tip_handles.size() << " tips" << std::endl;
     }
     
-    // Then align the linking bases, with global alignment so they have
-    // to go from a source to a sink.
-    aligner->align_global_banded(alignment, dagified_graph);
+    if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
+        // Then align the linking bases, with global alignment so they have
+        // to go from a source to a sink.
+        aligner->align_global_banded(alignment, dagified_graph);
+    } else {
+        // Do pinned alignment off the anchor we actually have
+        aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor));
+    }
     
     // And translate back into original graph space
     for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
