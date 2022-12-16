@@ -299,7 +299,7 @@ void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, siz
                 if (!size_limit_exceeded.load()) {
                     // we didn't exceed the size limit while waiting for the critical block
                     if (total_bytes + bytes_required > size_limit) {
-                        cerr << "error: [write_gcsa_kmers()] size limit exceeded" << endl;
+                        cerr << "error: [write_gcsa_kmers()] size limit of " << size_limit << " bytes exceeded" << endl;
                         size_limit_exceeded.store(1);
                     }
                     else {
