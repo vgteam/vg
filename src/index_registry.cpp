@@ -96,7 +96,7 @@ double IndexingParameters::pruning_walk_length_increase_factor = 1.5;
 double IndexingParameters::pruning_max_node_degree_decrease_factor = 0.75;
 int IndexingParameters::gcsa_initial_kmer_length = gcsa::Key::MAX_LENGTH;
 int IndexingParameters::gcsa_doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
-int64_t IndexingParameters::gcsa_size_limit = 2ll * 1024ll * 1024ll * 1024ll;
+int64_t IndexingParameters::gcsa_size_limit = 2ll * 1024ll * 1024ll * 1024ll * 1024ll;
 int64_t IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 int IndexingParameters::gbwt_insert_batch_size_increase_factor = 10;
 int IndexingParameters::gbwt_sampling_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
@@ -2342,65 +2342,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     // MaxNodeID Recipes
     ////////////////////////////////////
-    
-    // these recipes actually kinda mess up everything now that we just make the max node id
-    // alongside the graphs during construction
-    
-//#ifdef debug_index_registry_setup
-//    cerr << "registering MaxNodeID recipes" << endl;
-//#endif
-//
-//    // meta-recipe to write max node id down to a file
-//    auto write_max_node_id = [](const vector<const IndexFile*>& inputs,
-//                                const IndexingPlan* plan,
-//                                const IndexGroup& constructing) {
-//
-//        if (IndexingParameters::verbosity != IndexingParameters::None) {
-//            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
-//        }
-//
-//        // TODO: this is pretty unoptimized in that we have to load the whole graph just
-//        // to read the max node id
-//
-//        assert(constructing.size() == 1);
-//        assert(inputs.size() == 1);
-//        vector<vector<string>> all_outputs(constructing.size());
-//        auto output_index = *constructing.begin();
-//        auto graph_files = inputs.at(0)->get_filenames();
-//
-//        // test I/O
-//        for (const string& graph_file : graph_files) {
-//            ifstream infile;
-//            init_in(infile, graph_file);
-//        }
-//        string output_name = plan->output_filepath(output_index);
-//        ofstream outfile;
-//        init_out(outfile, output_name);
-//
-//        VGset graph_set(graph_files);
-//        nid_t max_node_id = graph_set.max_node_id();
-//
-//        outfile << max_node_id;
-//
-//        all_outputs[0].push_back(output_name);
-//        return all_outputs;
-//    };
-//
-//    registry.register_recipe({"MaxNodeID"}, {"VG"},
-//                             [write_max_node_id](const vector<const IndexFile*>& inputs,
-//                                 const IndexingPlan* plan,
-//                                 AliasGraph& alias_graph,
-//                                 const IndexGroup& constructing) {
-//        return write_max_node_id(inputs, plan, constructing);
-//    });
-//
-//    registry.register_recipe({"Spliced MaxNodeID"}, {"Spliced VG w/ Transcript Paths"},
-//                             [write_max_node_id](const vector<const IndexFile*>& inputs,
-//                                 const IndexingPlan* plan,
-//                                 AliasGraph& alias_graph,
-//                                 const IndexGroup& constructing) {
-//        return write_max_node_id(inputs, plan, constructing);
-//    });
     
     ////////////////////////////////////
     // GBWT Recipes
@@ -5077,7 +5018,7 @@ string IndexRegistry::to_dot(const vector<IndexName>& targets) const {
         for (size_t priority_idx = 0; priority_idx < recipes.size(); ++priority_idx, ++recipe_idx) {
             const auto& recipe = recipes[priority_idx];
             string recipe_dot_id = "R" + to_string(recipe_idx);
-            recipe_to_dot_id[RecipeName(recipe_record.first, recipe_idx)] = recipe_dot_id;
+            recipe_to_dot_id[RecipeName(recipe_record.first, priority_idx)] = recipe_dot_id;
             bool recipe_in_plan = plan_elements.count(RecipeName(recipe_record.first, priority_idx));
             if (recipe_in_plan) {
                 strm << recipe_dot_id << "[label=\"" << priority_idx << "\" shape=circle style=bold];" << endl;
