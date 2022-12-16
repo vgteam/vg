@@ -16,6 +16,7 @@
 #include "algorithms/intersect_path_offsets.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/chain_items.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
@@ -1325,72 +1326,80 @@ Alignment MinimizerMapper::find_chain_alignment(
     // aligners that aren't the WFAAligner and don't make WFAAlignments.
     Path composed_path;
     // We also track the total score of all the pieces.
-    int composed_score;
+    int composed_score = 0;
     
     // Do the left tail, if any.
     size_t left_tail_length = (*here).read_start();
-    WFAAlignment left_alignment;
     if (left_tail_length > 0) {
-    
+        // We need to do a left tail.
         // Anchor position will not be covered. 
         string left_tail = aln.sequence().substr(0, left_tail_length);
-        size_t left_tail_additional_offset = 0;
-        if (left_tail.size() > max_tail_length) {
-            #pragma omp critical (cerr)
-            {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << left_tail.size() << " bp left tail in " << aln.name() << endl;
+        WFAAlignment left_alignment;
+        pos_t right_anchor = (*here).graph_start();
+        if (left_tail.size() <= max_tail_length) {
+            // Tail is short so keep to the GBWT.
+            // We align the left tail with prefix(), which creates a prefix of the alignment.
+            left_alignment = extender.prefix(left_tail, right_anchor);
+            if (left_alignment && left_alignment.seq_offset != 0) {
+                // We didn't get all the way to the left end of the read without
+                // running out of score.
+                // Prepend a softclip.
+                // TODO: Can we let the aligner know it can softclip for free?
+                WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, left_alignment.seq_offset, 0);
+                prepend.join(left_alignment);
+                left_alignment = std::move(prepend);
             }
-            // Keep only the right part of the left tail
-            left_tail_additional_offset = left_tail.size() - max_tail_length;
-            left_tail = left_tail.substr(left_tail_additional_offset);
+            if (left_alignment.length != (*here).read_start()) {
+                // We didn't get the alignment we expected.
+                stringstream ss;
+                ss << "Aligning left tail " << left_tail << " from " << (*here).graph_start() << " produced wrong-length alignment ";
+                left_alignment.print(ss);
+                throw std::runtime_error(ss.str());
+            }
         }
-        
-        // We align the left tail with prefix(), which creates a prefix of the alignment.
-        left_alignment = extender.prefix(left_tail, (*here).graph_start());
-        // Account for if we had to shorten the left tail
-        left_alignment.seq_offset += left_tail_additional_offset;
-        
-        if (!left_alignment) {
-            // Left tail did not align. Make a softclip for it.
-            left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
-        }
-        if (left_alignment.seq_offset != 0) {
-            // We didn't get all the way to the left end of the read without
-            // running out of score, or we had to shorten the left tail to a
-            // manageable size to align.
-            // Prepend a softclip.
-            // TODO: Can we let the aligner know it can softclip for free?
-            WFAAlignment prepend = WFAAlignment::make_unlocalized_insertion(0, left_alignment.seq_offset, 0);
-            prepend.join(left_alignment);
-            left_alignment = std::move(prepend);
-        }
-        if (left_alignment.length != (*here).read_start()) {
-            // We didn't get the alignment we expected.
-            stringstream ss;
-            ss << "Aligning left tail " << left_tail << " from " << (*here).graph_start() << " produced wrong-length alignment ";
-            left_alignment.print(ss);
-            throw std::runtime_error(ss.str());
-        }
-        // Since the tail starts at offset 0, the alignment is already in full read space.
-
+        if (left_alignment) {
+            // We got an alignment, so make it a path
+            left_alignment.check_lengths(gbwt_graph);
+            
 #ifdef debug_chaining
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Start with left tail of " << left_alignment.length << " with score of " << left_alignment.score << endl;
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Start with left tail of " << left_alignment.length << " with score of " << left_alignment.score << endl;
+                }
             }
-        }
 #endif
-        left_alignment.check_lengths(gbwt_graph);
-    } else {
-        // No left tail to start with.
-        // Just use an empty starting alignment, which is OK.
-        left_alignment = WFAAlignment::make_empty();
+            
+            composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
+            composed_score = left_alignment.score;
+        } else {
+            // We need to fall back on alignment against the graph
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Start with long left tail fallback alignment" << endl;
+                }
+            }
+#endif
+            
+            Alignment tail_aln;
+            tail_aln.set_sequence(left_tail);
+            if (!aln.quality().empty()) {
+                tail_aln.set_quality(aln.quality().substr(0, left_tail_length));
+            }
+            
+            // Work out how far the tail can see
+            size_t graph_horizon = left_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
+            // Align the left tail, anchoring the right end.
+            align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln);
+            // Since it's the left tail we can just clobber the path
+            composed_path = tail_aln.path();
+            composed_score = tail_aln.score();
+        }
     }
-    
-    composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
-    composed_score = left_alignment.score;
-    
+        
     size_t longest_attempted_connection = 0;
     while(next_it != chain.end()) {
         // Do each region between successive gapless extensions
@@ -1607,57 +1616,75 @@ Alignment MinimizerMapper::find_chain_alignment(
     // Do the right tail, if any. Do as much of it as we can afford to do.
     size_t right_tail_length = aln.sequence().size() - (*here).read_end();
     if (right_tail_length > 0) {
-        if (right_tail_length > max_tail_length) {
-            #pragma omp critical (cerr)
-            {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Truncating " << right_tail_length << " bp right tail in " << aln.name() << endl;
-            }
-        }
-        string right_tail = aln.sequence().substr((*here).read_end(), max_tail_length);
-        // We align the right tail with suffix(), which creates a suffix of the alignment.
-        // Make sure to walk back the anchor so it is outside of the region to be aligned.
+        // We need to do a right tail
+        string right_tail = aln.sequence().substr((*here).read_end(), right_tail_length);
+        WFAAlignment right_alignment;
         pos_t left_anchor = (*here).graph_end();
         get_offset(left_anchor)--;
-        WFAAlignment right_alignment = extender.suffix(right_tail, left_anchor);
+        if (right_tail_length <= max_tail_length) {
+            // We align the right tail with suffix(), which creates a suffix of the alignment.
+            // Make sure to walk back the anchor so it is outside of the region to be aligned.
+            right_alignment = extender.suffix(right_tail, left_anchor);
+        }
         
-        if (!right_alignment) {
-            // Right tail did not align. Make a softclip for it.
-            right_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), aln.sequence().size() - (*here).read_end(), 0);
-        } else {
+        if (right_alignment) {
             // Right tail did align. Put the alignment back into full read space.
             right_alignment.seq_offset += (*here).read_end();
-        }
-        if (right_alignment.seq_offset + right_alignment.length != aln.sequence().size()) {
-            // We didn't get all the way to the right end of the read without
-            // running out of score, or we had to truncate the tail to a manageable
-            // length for actual alignment.
-            // Append a softclip.
-            // TODO: Can we let the aligner know it can softclip for free?
-            size_t right_end = right_alignment.seq_offset + right_alignment.length;
-            size_t remaining = aln.sequence().size() - right_end;
-            right_alignment.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
-        }
-        if (right_alignment.length != right_tail_length) {
-            // We didn't get the alignment we expected.
-            stringstream ss;
-            ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
-            right_alignment.print(ss);
-            throw std::runtime_error(ss.str());
-        }
-        
-#ifdef debug_chaining
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+            if (right_alignment.seq_offset + right_alignment.length != aln.sequence().size()) {
+                // We didn't get all the way to the right end of the read without
+                // running out of score.
+                // Append a softclip.
+                // TODO: Can we let the aligner know it can softclip for free?
+                size_t right_end = right_alignment.seq_offset + right_alignment.length;
+                size_t remaining = aln.sequence().size() - right_end;
+                right_alignment.join(WFAAlignment::make_unlocalized_insertion(right_end, remaining, 0));
             }
-        }
+            if (right_alignment.length != right_tail_length) {
+                // We didn't get the alignment we expected.
+                stringstream ss;
+                ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
+                right_alignment.print(ss);
+                throw std::runtime_error(ss.str());
+            }
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Add right tail of " << right_tail.size() << " with score of " << right_alignment.score << endl;
+                }
+            }
 #endif
-        
-        right_alignment.check_lengths(gbwt_graph);
-        
-        append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
-        composed_score += right_alignment.score;
+            
+            right_alignment.check_lengths(gbwt_graph);
+            
+            append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+            composed_score += right_alignment.score;
+        } else {
+            // We need to fall back on alignment against the graph
+            
+#ifdef debug_chaining
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "End with long right tail fallback alignment" << endl;
+                }
+            }
+#endif
+            
+            Alignment tail_aln;
+            tail_aln.set_sequence(right_tail);
+            if (!aln.quality().empty()) {
+                tail_aln.set_quality(aln.quality().substr((*here).read_end(), right_tail_length));
+            }
+            
+            // Work out how far the tail can see
+            size_t graph_horizon = right_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
+            // Align the right tail, anchoring the left end.
+            align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln);
+            // Since it's the right tail we have to add it on
+            append_path(composed_path, tail_aln.path());
+            composed_score += tail_aln.score();
+        } 
     }
     
     if (show_work) {
@@ -1696,21 +1723,45 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
 
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
     
-    // Make sure the positions are actually set.
-    assert(id(left_anchor) != 0);
-    assert(id(right_anchor) != 0);
+    if (is_empty(left_anchor) && is_empty(right_anchor)) {
+        throw std::runtime_error("Cannot align sequence between two unset positions");
+    }
     
-    // We need to get the connecting graph to align to.
-    bdsg::HashGraph connecting_graph;
-    auto connecting_to_base = algorithms::extract_connecting_graph(
-        graph,
-        &connecting_graph,
-        max_path_length,
-        left_anchor, right_anchor
-    );
+    // We need to get the graph to align to.
+    bdsg::HashGraph local_graph;
+    unordered_map<id_t, id_t> local_to_base;
+    if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
+        // We want a graph actually between two positions
+        local_to_base = algorithms::extract_connecting_graph(
+            graph,
+            &local_graph,
+            max_path_length,
+            left_anchor, right_anchor
+        );
+    } else if (!is_empty(left_anchor)) {
+        // We only have the left anchor
+        local_to_base = algorithms::extract_extending_graph(
+            graph,
+            &local_graph,
+            max_path_length,
+            left_anchor,
+            false,
+            false
+        );
+    } else {
+        // We only have the right anchor
+        local_to_base = algorithms::extract_extending_graph(
+            graph,
+            &local_graph,
+            max_path_length,
+            right_anchor,
+            true,
+            false
+        );
+    }
     
     // And split by strand since we can only align to one strand
-    StrandSplitGraph split_graph(&connecting_graph);
+    StrandSplitGraph split_graph(&local_graph);
     
     // And make sure it's a DAG
     bdsg::HashGraph dagified_graph;
@@ -1724,9 +1775,9 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         handle_t split_handle = split_graph.get_handle(split_id, dagified_is_reverse);
         // We rely on get_underlying_handle understanding reversed handles in the split graph
         handle_t connecting_handle = split_graph.get_underlying_handle(split_handle);
-        nid_t connecting_id = connecting_graph.get_id(connecting_handle);
-        bool connecting_is_reverse = connecting_graph.get_is_reverse(connecting_handle);
-        nid_t base_id = connecting_to_base.at(connecting_id);
+        nid_t connecting_id = local_graph.get_id(connecting_handle);
+        bool connecting_is_reverse = local_graph.get_is_reverse(connecting_handle);
+        nid_t base_id = local_to_base.at(connecting_id);
         return std::make_pair(base_id, connecting_is_reverse);
     };
     
@@ -1746,8 +1797,10 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             auto base_coords = dagified_handle_to_base(h);
             if (base_coords.first == id(left_anchor) && !dagified_graph.get_is_reverse(h)) {
                 // This is the left anchoring node, and it is a head in the subgraph, so keep it.
+                // Can't happen if left anchor is empty.
             } else if (base_coords.first == id(right_anchor) && dagified_graph.get_is_reverse(h)) {
                 // This is the right anchoring node, and it is a tail in the subgraph, so keep it.
+                // Can't happen if right anchor is empty.
             } else {
                 // This is a wrong orientation of an anchoring node, or some other tip.
                 // We don't want to keep this handle
@@ -1791,7 +1844,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         m->mutable_position()->set_node_id(base_coords.first);
         m->mutable_position()->set_is_reverse(base_coords.second);
     }
-    if (alignment.path().mapping_size() > 0 && offset(left_anchor) != 0) {
+    if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0) {
         // Get the positions of the leftmost mapping
         Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
         // Add on the offset for the missing piece of the left anchor node

@@ -652,6 +652,9 @@ protected:
      * Alignment's path and score.
      *
      * Finds an alignment against a graph path if it is <= max_path_length.
+     *
+     * If one of the anchor positions is empty, does pinned alighnment against
+     * the other position.
      */
     static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment);
     
