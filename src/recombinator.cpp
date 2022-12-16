@@ -195,7 +195,12 @@ Haplotypes HaplotypePartitioner::partition_haplotypes() const {
     for (size_t job = 0; job < chains_by_job.size(); job++) {
         const std::vector<gbwtgraph::TopLevelChain>& chains = chains_by_job[job];
         for (auto& chain : chains) {
-            this->build_subchains(chain, result.chains[chain.offset]);
+            try {
+                this->build_subchains(chain, result.chains[chain.offset]);
+            } catch (const std::runtime_error& e) {
+                std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
         }
         if (this->verbosity >= verbosity_detailed) {
             #pragma omp critical
@@ -265,11 +270,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain) const
             next = child;
         });
         if (successors != 1) {
-            #pragma omp critical
-            {
-                std::cerr << "error: [HaplotypePartitioner::get_subchains()] chain " << chain.offset << " has " << successors << " successors for a child" << std::endl;
-            }
-            return result;
+            throw std::runtime_error("HaplotypePartitioner::get_subchains(): chain " + std::to_string(chain.offset) + " has " + std::to_string(successors) + " successors for a child");
         }
         curr = next;
     }
@@ -555,14 +556,12 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
 
 void Recombinator::Haplotype::extend(sequence_type sequence, const Haplotypes::Subchain& subchain, const Recombinator& recombinator, gbwt::GBWTBuilder& builder) {
     if (subchain.type == Haplotypes::Subchain::full_haplotype) {
-        std::cerr << "error: [Haplotype::extend()] cannot extend a full haplotype" << std::endl;
-        return;
+        throw std::runtime_error("Haplotype::extend(): cannot extend a full haplotype");
     }
 
     if (subchain.type == Haplotypes::Subchain::prefix) {
         if (!this->path.empty())  {
-            std::cerr << "error: [Haplotype::extend()] got a prefix subchain after the start of a fragment" << std::endl;
-            return;
+            throw std::runtime_error("Haplotype::extend(): got a prefix subchain after the start of a fragment");
         }
         this->prefix(sequence.first, subchain.end, recombinator.gbz.index);
         return;
@@ -577,8 +576,7 @@ void Recombinator::Haplotype::extend(sequence_type sequence, const Haplotypes::S
 
     gbwt::edge_type curr(subchain.start, sequence.second);
     if (!recombinator.gbz.index.contains(curr)) {
-        std::cerr << "error: [Haplotype::extend()] the GBWT index does not contain position "; gbwt::operator<<(std::cerr, curr) << std::endl;
-        return;
+        throw std::runtime_error("Haplotype::extend(): the GBWT index does not contain position (" + std::to_string(curr.first) + ", " + std::to_string(curr.second) + ")");
     }
 
     if (subchain.type == Haplotypes::Subchain::suffix) {
@@ -591,8 +589,7 @@ void Recombinator::Haplotype::extend(sequence_type sequence, const Haplotypes::S
     while (curr.first != subchain.end) {
         curr = recombinator.gbz.index.LF(curr);
         if (curr.first == gbwt::ENDMARKER) {
-            std::cerr << "error: [Haplotype::extend()] the sequence did not the end of the subchain at GBWT node " << subchain.end << std::endl;
-            return;
+            throw std::runtime_error("Haplotype::extend(): the sequence did not reach the end of the subchain at GBWT node " + std::to_string(subchain.end));
         }
         this->path.push_back(curr.first);
     }
@@ -601,12 +598,10 @@ void Recombinator::Haplotype::extend(sequence_type sequence, const Haplotypes::S
 
 void Recombinator::Haplotype::take(gbwt::size_type sequence_id, const Recombinator& recombinator, gbwt::GBWTBuilder& builder) {
     if (!this->path.empty()) {
-        std::cerr << "error: [Haplotype::take()] the current fragment is not empty" << std::endl;
-        return;
+        throw std::runtime_error("Haplotype::take(): the current fragment is not empty");
     }
     if (sequence_id >= recombinator.gbz.index.sequences()) {
-        std::cerr << "error: [Haplotype::take()] the GBWT index does not contain sequence " << sequence_id << std::endl;
-        return;
+        throw std::runtime_error("Haplotype::take(): the GBWT index does not contain sequence " + std::to_string(sequence_id));
     }
     this->path = recombinator.gbz.index.extract(sequence_id);
     this->insert(builder);
@@ -617,8 +612,7 @@ void Recombinator::Haplotype::take(gbwt::size_type sequence_id, const Recombinat
 
 void Recombinator::Haplotype::finish(const Recombinator& recombinator, gbwt::GBWTBuilder& builder) {
     if (this->position == gbwt::invalid_edge()) {
-        std::cerr << "error: [Haplotype::finish()] there is no current position" << std::endl;
-        return;
+        throw std::runtime_error("Haplotype::finish(): there is no current position");
     }
     this->suffix(recombinator.gbz.index);
     this->insert(builder);
@@ -634,8 +628,7 @@ void Recombinator::Haplotype::connect(gbwt::node_type until, const gbwtgraph::GB
     std::unordered_set<handle_t> visited;
     while (curr != end) {
         if (visited.find(curr) != visited.end()) {
-            std::cerr << "error: [Haplotype::connect()] the path contains a cycle" << std::endl;
-            return;
+            throw std::runtime_error("Haplotype::connect(): the path contains a cycle");
         }
         visited.insert(curr);
         handle_t successor = empty_handle();
@@ -645,8 +638,7 @@ void Recombinator::Haplotype::connect(gbwt::node_type until, const gbwtgraph::GB
             successors++;
         });
         if (successors != 1) {
-            std::cerr << "error: [Haplotype::connect()] The path is not unary" << std::endl;
-            return;
+            throw std::runtime_error("Haplotype::connect(): the path is not unary");
         }
         this->path.push_back(gbwtgraph::GBWTGraph::handle_to_node(successor));
         curr = successor;
@@ -656,8 +648,7 @@ void Recombinator::Haplotype::connect(gbwt::node_type until, const gbwtgraph::GB
 void Recombinator::Haplotype::prefix(gbwt::size_type sequence_id, gbwt::node_type until, const gbwt::GBWT& index) {
     this->position = gbwt::invalid_edge();
     if (sequence_id >= index.sequences()) {
-        std::cerr << "error: [Haplotype::prefix()] Invalid GBWT sequence id " << sequence_id << std::endl;
-        return;
+        throw std::runtime_error("Haplotype::prefix(): invalid GBWT sequence id " + std::to_string(sequence_id));
     }
     for (gbwt::edge_type curr = index.start(sequence_id); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
         this->path.push_back(curr.first);
@@ -666,8 +657,7 @@ void Recombinator::Haplotype::prefix(gbwt::size_type sequence_id, gbwt::node_typ
             return;
         }
     }
-    std::cerr << "error: [Haplotype::prefix()] GBWT sequence " << sequence_id << " did not reach GBWT node " << until << std::endl;
-    return;
+    throw std::runtime_error("Haplotype::prefix(): GBWT sequence " + std::to_string(sequence_id) + " did not reach GBWT node " + std::to_string(until));
 }
 
 void Recombinator::Haplotype::suffix(const gbwt::GBWT& index) {
@@ -746,8 +736,13 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes) const
         builder.index.addMetadata();
         Statistics job_statistics;
         for (auto chain_id : jobs[job]) {
-            Statistics chain_statistics = this->generate_haplotypes(haplotypes.chains[chain_id], builder);
-            job_statistics.combine(chain_statistics);
+            try {
+                Statistics chain_statistics = this->generate_haplotypes(haplotypes.chains[chain_id], builder);
+                job_statistics.combine(chain_statistics);
+            } catch (const std::runtime_error& e) {
+                std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
         }
         builder.finish();
         indexes[job] = builder.index;
@@ -802,11 +797,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
         bool have_haplotypes = false;
         for (auto& subchain : chain.subchains) {
             if (subchain.type == Haplotypes::Subchain::full_haplotype) {
-                #pragma omp critical
-                {
-                    std::cerr << "error: [Recombinator::generate_haplotypes()] skipping a subchain with full haplotypes in chain " << chain.offset << std::endl;
-                }
-                continue;
+                throw std::runtime_error("Recombinator::generate_haplotypes(): nontrivial chain " + std::to_string(chain.offset) + " contains a subchain with full haplotypes");
             }
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
                 assert(!subchain.sequences.empty());

@@ -150,7 +150,7 @@ public:
 
 //------------------------------------------------------------------------------
 
-// FIXME tests, exceptions for error handling
+// FIXME tests
 /**
  * A tool for transforming the haplotypes in a GBWT index into a `Haplotypes`
  * representation. Requires a GBZ graph, an r-index, a distance index, and a
@@ -285,7 +285,7 @@ private:
 
 //------------------------------------------------------------------------------
 
-// FIXME tests, exceptions for error handling
+// FIXME tests
 /**
  * A class that creates synthetic haplotypes from a `Haplotypes` representation of
  * local haplotypes.
@@ -394,7 +394,7 @@ public:
     /// Creates a new `Recombinator`.
     Recombinator(const gbwtgraph::GBZ& gbz, HaplotypePartitioner::Verbosity verbosity);
 
-    // FIXME parameters
+    // FIXME parameters, kmer input
     /**
      * Generates haplotypes based on the given `Haplotypes` representation.
      *
