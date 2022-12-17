@@ -33,6 +33,7 @@ public:
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
         constexpr static std::uint32_t VERSION = 1;
+        constexpr static std::uint64_t DEFAULT_K = 29;
 
         /// A magic number that identifies the file.
         std::uint32_t magic_number = MAGIC_NUMBER;
@@ -45,6 +46,9 @@ public:
 
         /// Number of GBWT construction jobs for the chains.
         std::uint64_t construction_jobs = 0;
+
+        /// Length of the kmers.
+        std::uint64_t k = DEFAULT_K;
     };
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
@@ -79,9 +83,11 @@ public:
         /// A vector of distinct kmers.
         std::vector<kmer_type> kmers;
 
+        // TODO: This could be smaller
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<sequence_type> sequences;
 
+        // TODO: This could be compressed
         /// Concatenated bitvectors for each sequence that mark the presence of each kmer
         /// in that sequence.
         sdsl::bit_vector kmers_present;
@@ -135,8 +141,13 @@ public:
     /// Returns the number of GBWT construction jobs.
     size_t jobs() const { return this->header.construction_jobs; }
 
+    /// Returns the length of the kmers.
+    size_t k() const { return this->header.k; }
+
     Header header;
     std::vector<TopLevelChain> chains;
+
+    // FIXME: a function that returns a map (canonical KFF kmer as uint64_t) -> (chain, subchain, offset, count)
 
     /// Serializes the object to a stream in the simple-sds format.
     void simple_sds_serialize(std::ostream& out) const;

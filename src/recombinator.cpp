@@ -12,6 +12,7 @@ namespace vg {
 
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
+constexpr std::uint64_t Haplotypes::Header::DEFAULT_K;
 
 constexpr size_t HaplotypePartitioner::SUBCHAIN_LENGTH;
 constexpr size_t HaplotypePartitioner::APPROXIMATE_JOBS;
@@ -158,6 +159,7 @@ HaplotypePartitioner::HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
 
 Haplotypes HaplotypePartitioner::partition_haplotypes() const {
     Haplotypes result;
+    result.header.k = this->minimizer_index.k();
 
     // Determine top-level chains and assign them to jobs.
     double start = gbwt::readTimer();

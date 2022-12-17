@@ -50,13 +50,21 @@ size_t haplotypes_default_threads() {
     return std::min(threads, DEFAULT_MAX_THREADS);
 }
 
+size_t haplotypes_default_k() {
+    return Haplotypes::Header::DEFAULT_K;
+}
+
+size_t haplotypes_default_w() {
+    return gbwtgraph::Key64::WINDOW_LENGTH;
+}
+
 void help_haplotypes(char** argv) {
     std::cerr << "Usage: " << argv[0] << " " << argv[1] << " [options] (-k counts.kff -g output.gbz | -H output.hapl) graph.gbz" << std::endl;
     std::cerr << std::endl;
     // FIXME description
     std::cerr << "Some experiments with haplotype sampling." << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Output options:" << std::endl;
+    std::cerr << "Output files:" << std::endl;
     std::cerr << "    -g, --gbz-output X        write the output GBZ to X" << std::endl;
     std::cerr << "    -H, --haplotype-output X  write haplotype information to X" << std::endl;
     std::cerr << std::endl;
@@ -67,8 +75,12 @@ void help_haplotypes(char** argv) {
     std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate the information)" << std::endl;
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
     std::cerr << std::endl;
+    std::cerr << "Computational parameters:" << std::endl;
+    std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
+    std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -v, --verbosity N         set verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
+    std::cerr << "    -v, --verbosity N         verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
     std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_default_threads() << ")" << std::endl;
     std::cerr << "        --validate            check that the output graph is a subgraph of the input" << std::endl;
     std::cerr << std::endl;
@@ -112,11 +124,14 @@ int main_haplotypes(int argc, char** argv) {
     // Parse options into these.
     std::string graph_name, gbz_output, haplotype_output;
     std::string distance_name, minimizer_name, r_index_name, haplotype_input, kmer_input;
+    size_t k = haplotypes_default_k(), w = haplotypes_default_w();
     HaplotypePartitioner::Verbosity verbosity = HaplotypePartitioner::verbosity_silent;
     size_t threads = haplotypes_default_threads();
     bool validate = false;
 
-    constexpr int OPT_VALIDATE = 1001;
+    constexpr int OPT_KMER_LENGTH = 1200;
+    constexpr int OPT_WINDOW_LENGTH = 1201;
+    constexpr int OPT_VALIDATE = 1300;
 
     static struct option long_options[] =
     {
@@ -127,6 +142,8 @@ int main_haplotypes(int argc, char** argv) {
         { "r-index", required_argument, 0, 'r' },
         { "haplotype-input", required_argument, 0, 'i' },
         { "kmer-input", required_argument, 0, 'k' },
+        { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
+        { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -166,6 +183,21 @@ int main_haplotypes(int argc, char** argv) {
             kmer_input = optarg;
             break;
 
+        case OPT_KMER_LENGTH:
+            k = parse<size_t>(optarg);
+            if (k == 0 || k > gbwtgraph::Key64::KMER_MAX_LENGTH) {
+                std::cerr << "error: [vg haplotypes] kmer length must be between 1 and " << gbwtgraph::Key64::KMER_MAX_LENGTH << std::endl;
+                return 1;
+            }
+            break;
+        case OPT_WINDOW_LENGTH:
+            w = parse<size_t>(optarg);
+            if (w == 0) {
+                std::cerr << "error: [vg haplotypes] window length cannot be 0" << std::endl;
+                return 1;
+            }
+            break;
+
         case 'v':
             {
                 size_t level = parse<size_t>(optarg);
@@ -177,14 +209,12 @@ int main_haplotypes(int argc, char** argv) {
             }
             break;
         case 't':
-            {
-                threads = parse<size_t>(optarg);
-                if (threads == 0 || threads > max_threads) {
-                    std::cerr << "error: [vg haplotypes] cannot run " << threads << " threads in parallel on this system" << std::endl;
-                    return 1;
-                }
-                omp_set_num_threads(threads);
+            threads = parse<size_t>(optarg);
+            if (threads == 0 || threads > max_threads) {
+                std::cerr << "error: [vg haplotypes] cannot run " << threads << " threads in parallel on this system" << std::endl;
+                return 1;
             }
+            omp_set_num_threads(threads);
             break;
         case OPT_VALIDATE:
             validate = true;
@@ -240,7 +270,7 @@ int main_haplotypes(int argc, char** argv) {
         distance_index.deserialize(distance_name);
 
         // Minimizer index.
-        gbwtgraph::DefaultMinimizerIndex minimizer_index;
+        gbwtgraph::DefaultMinimizerIndex minimizer_index(k, w, false);
         if (minimizer_name.empty()) {
             double minimizer = gbwt::readTimer();
             if (verbosity >= HaplotypePartitioner::verbosity_basic) {

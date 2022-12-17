@@ -4,6 +4,7 @@
  */
 
 #include "../kff.hpp"
+#include "../utility.hpp"
 
 #include "catch.hpp"
 
@@ -35,6 +36,15 @@ void minimizer_recode(const std::string& kmer, const uint8_t* encoding) {
     std::string decoding = kff_invert(encoding);
     std::string decoded = kff_decode(recoded.data(), kmer.length(), decoding);
     REQUIRE(decoded == kmer);
+}
+
+void rev_comp(const std::string& kmer, const uint8_t* encoding) {
+    std::vector<uint8_t> encoded = kff_encode(kmer, encoding);
+    std::vector<uint8_t> complemented = kff_reverse_complement(encoded.data(), kmer.length(), encoding);
+    std::string decoding = kff_invert(encoding);
+    std::string decoded = kff_decode(complemented.data(), kmer.length(), decoding);
+    std::string expected = reverse_complement(kmer);
+    REQUIRE(decoded == expected);
 }
 
 } // Anonymous namespace.
@@ -76,23 +86,39 @@ TEST_CASE("Recode minimizers", "[kff]") {
 TEST_CASE("Parse integers", "[kff]") {
     SECTION("single byte") {
         uint8_t bytes[1] = { 0x12 };
-        size_t expected = 0x12;
-        size_t parsed = kff_parse(bytes, sizeof(bytes));
+        uint64_t expected = 0x12;
+        uint64_t parsed = kff_parse(bytes, sizeof(bytes));
         REQUIRE(parsed == expected);
     }
 
     SECTION("multiple bytes") {
         uint8_t bytes[5] = { 0x12, 0x34, 0x56, 0x78, 0x9A };
-        size_t expected = 0x123456789A;
-        size_t parsed = kff_parse(bytes, sizeof(bytes));
+        uint64_t expected = 0x123456789A;
+        uint64_t parsed = kff_parse(bytes, sizeof(bytes));
         REQUIRE(parsed == expected);
     }
 
     SECTION("maximum length") {
         uint8_t bytes[8] = { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 };
-        size_t expected = 0x123456789ABCDEF0;
-        size_t parsed = kff_parse(bytes, sizeof(bytes));
+        uint64_t expected = 0x123456789ABCDEF0;
+        uint64_t parsed = kff_parse(bytes, sizeof(bytes));
         REQUIRE(parsed == expected);
+    }
+}
+
+TEST_CASE("Reverse complements", "[kff]") {
+    SECTION("default encoding") {
+        uint8_t encoding[4] = { 0, 1, 2, 3 };
+        for (auto& kmer : kmers) {
+            rev_comp(kmer, encoding);
+        }
+    }
+
+    SECTION("kff encoding") {
+        uint8_t encoding[4] = { 0, 1, 3, 2 };
+        for (auto& kmer : kmers) {
+            rev_comp(kmer, encoding);
+        }
     }
 }
 
