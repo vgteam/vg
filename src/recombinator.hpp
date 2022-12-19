@@ -11,6 +11,7 @@
 #include "snarl_distance_index.hpp"
 
 #include <iostream>
+#include <unordered_map>
 
 #include <gbwtgraph/algorithms.h>
 
@@ -26,6 +27,10 @@ namespace vg {
  * into subchains. Each subchain contains a set of kmers and a collection of
  * sequences. Each sequence is defined by a bitvector marking the kmers that are
  * present.
+ *
+ * At the moment, the kmers are minimizers with a single occurrence in the graph.
+ * The requirement is that each kmer is specific to a single subchain and does
+ * not occur anywhere else.
  */
 class Haplotypes {
 public:
@@ -135,6 +140,21 @@ public:
         size_t simple_sds_size() const;
     };
 
+    /// Kmer count for a kmer used for defining haplotypes in a subchain.
+    struct KMerCount {
+        /// Offset of the top-level chain in `Haplotypes::chains`.
+        std::uint32_t chain;
+
+        /// Offset of the subchain in `TopLevelChain::subchains`.
+        std::uint32_t subchain;
+
+        /// Offset of the kmer in `Subchain::kmers`.
+        std::uint32_t kmer;
+
+        /// Number of occurrences of the kmer.
+        std::uint32_t count;
+    };
+
     /// Returns the number of weakly connected components.
     size_t components() const { return this->header.top_level_chains; }
 
@@ -147,7 +167,16 @@ public:
     Header header;
     std::vector<TopLevelChain> chains;
 
-    // FIXME: a function that returns a map (canonical KFF kmer as uint64_t) -> (chain, subchain, offset, count)
+    /// Returns a mapping from canonical KFF kmers to their counts in the
+    /// given file.
+    ///
+    /// A canonical KFF kmer is the minimum of a kmer and its reverse
+    /// complement when the encoded kmers are interpreted as big-endian
+    /// integers.
+    ///
+    /// Exits with `std::exit()` if the file cannot be opened and throws
+    /// `std::runtime_error` if the kmer counts cannot be used.
+    std::unordered_map<std::uint64_t, KMerCount> kmer_counts(const std::string& kff_file) const;
 
     /// Serializes the object to a stream in the simple-sds format.
     void simple_sds_serialize(std::ostream& out) const;
@@ -285,9 +314,13 @@ private:
     // a single occurrence in the graph.
     std::vector<kmer_type> unique_minimizers(gbwt::size_type sequence_id) const;
 
-    // Count the number of minimizers in the sequence over the subchain with a single occurrence in the graph.
-    // Return the sorted set of kmers that are minimizers in the sequence over the
-    // subchain and have a single occurrence in the graph.
+    // Count the number of minimizers in the sequence over the subchain with a single
+    // occurrence in the graph. Return the sorted set of kmers that are minimizers in
+    // the sequence over the subchain and have a single occurrence in the graph.
+    //
+    // To avoid using kmers shared between all haplotypes in the subchain, and
+    // potentially with neighboring subchains, this does not include kmers contained
+    // entirely in the shared initial/final nodes.
     std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain) const;
 
     // Build subchains for a specific top-level chain.

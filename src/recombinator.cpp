@@ -1,5 +1,7 @@
 #include "recombinator.hpp"
 
+#include "kff.hpp"
+
 #include <algorithm>
 #include <map>
 #include <unordered_set>
@@ -30,6 +32,55 @@ handle_t empty_handle() {
 std::string to_string(handle_t handle) {
     gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(handle);
     return std::string("(") + std::to_string(gbwt::Node::id(node)) + std::string(", ") + std::to_string(gbwt::Node::is_reverse(node)) + std::string(")");
+}
+
+//------------------------------------------------------------------------------
+
+// Returns the big-endian interger representation of the kmer in the canonical orientation.
+std::uint64_t kff_to_key(const std::uint8_t* kmer, size_t k, size_t bytes, const std::uint8_t* encoding) {
+    std::vector<std::uint8_t> rc = kff_reverse_complement(kmer, k, encoding);
+    return std::min(kff_parse(kmer, bytes), kff_parse(rc.data(), bytes));
+}
+
+std::unordered_map<std::uint64_t, Haplotypes::KMerCount> Haplotypes::kmer_counts(const std::string& kff_file) const {
+    // Open and validate the kmer count file.
+    Kff_reader reader(kff_file);
+    std::uint64_t kff_k = reader.get_var("k");
+    if (kff_k != this->k()) {
+        throw std::runtime_error("Haplotypes::kmer_counts(): expected " + std::to_string(this->k()) +
+            "-mers but KFF file " + kff_file + " contains " + std::to_string(kff_k) + "-mers");
+    }
+    const std::uint8_t* encoding = reader.get_encoding();
+    size_t bytes = kff_bytes(this->k());
+    size_t data_bytes = reader.get_var("data_size");
+
+    // Build the map.
+    std::unordered_map<std::uint64_t, KMerCount> result;
+    for (size_t chain_id = 0; chain_id < this->chains.size(); chain_id++) {
+        const TopLevelChain& chain = this->chains[chain_id];
+        for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+            const Subchain& subchain = chain.subchains[subchain_id];
+            for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
+                std::vector<std::uint8_t> kmer = kff_recode(subchain.kmers[kmer_id], this->k(), encoding);
+                std::uint64_t key = kff_to_key(kmer.data(), this->k(), bytes, encoding);
+                result[key] = { std::uint32_t(chain_id), std::uint32_t(subchain_id), std::uint32_t(kmer_id), 0 };
+            }
+        }
+    }
+
+    // Add the counts.
+    std::uint8_t* kmer;
+    std::uint8_t* data;
+    while (reader.has_next()) {
+        reader.next_kmer(kmer, data);
+        std::uint64_t key = kff_to_key(kmer, this->k(), bytes, encoding);
+        auto iter = result.find(key);
+        if (iter != result.end()) {
+            iter->second.count += kff_parse(data, data_bytes);
+        }
+    }
+
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -401,28 +452,39 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
 
 //------------------------------------------------------------------------------
 
-void append_to(std::string& haplotype, handle_t handle, const gbwtgraph::GBWTGraph& graph) {
-    gbwtgraph::view_type view = graph.get_sequence_view(handle);
-    haplotype.append(view.first, view.second);
-}
-
 // Generate a haplotype over the closed range from `pos` to `end`.
-// Set `end = empty_handle()` to continue until the end.
-std::string generate_haplotype(gbwt::edge_type pos, handle_t end, const gbwtgraph::GBWTGraph& graph) {
+// Take at most start_max and end_max characters from the initial and the final
+// node, respectively
+// Returns an empty haplotype if there is only one node.
+// Set `end = empty_handle()` to continue until the end without a final node.
+std::string generate_haplotype(gbwt::edge_type pos, handle_t end, size_t start_max, size_t end_max, const gbwtgraph::GBWTGraph& graph) {
     std::string haplotype;
     if (pos == gbwt::invalid_edge() || pos.first == gbwt::ENDMARKER) {
         return haplotype;
     }
 
+    // Handle the initial node.
     handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
-    append_to(haplotype, curr, graph);
-    while (curr != end) {
+    if (curr == end) {
+        return haplotype;
+    }
+    gbwtgraph::view_type view = graph.get_sequence_view(curr);
+    size_t offset = (view.second > start_max ? view.second - start_max : 0);
+    haplotype.append(view.first + offset, view.second - offset);
+
+    while (true) {
         pos = graph.index->LF(pos);
         if (pos.first == gbwt::ENDMARKER) {
             break;
         }
         curr = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
-        append_to(haplotype, curr, graph);
+        view = graph.get_sequence_view(curr);
+        if (curr == end) {
+            haplotype.append(view.first, std::min(view.second, end_max));
+            break;
+        } else {
+            haplotype.append(view.first, view.second);
+        }
     }
 
     return haplotype;
@@ -445,18 +507,21 @@ std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(const std::s
 
 std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimizers(gbwt::size_type sequence_id) const {
     gbwt::edge_type pos = this->gbz.index.start(sequence_id);
-    std::string haplotype = generate_haplotype(pos, empty_handle(), this->gbz.graph);
+    size_t limit = std::numeric_limits<size_t>::max();
+    std::string haplotype = generate_haplotype(pos, empty_handle(), limit, limit, this->gbz.graph);
     return take_unique_minimizers(haplotype, this->minimizer_index);
 }
 
 std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimizers(sequence_type sequence, Subchain subchain) const {
     gbwt::edge_type pos;
+    size_t start_max = std::numeric_limits<size_t>::max(), end_max = this->minimizer_index.k() - 1;
     if (subchain.has_start()) {
         pos = gbwt::edge_type(gbwtgraph::GBWTGraph::handle_to_node(subchain.start), sequence.second);
+        start_max = this->minimizer_index.k() - 1;
     } else {
         pos = this->gbz.index.start(sequence.first);
     }
-    std::string haplotype = generate_haplotype(pos, subchain.end, this->gbz.graph);
+    std::string haplotype = generate_haplotype(pos, subchain.end, start_max, end_max, this->gbz.graph);
     return take_unique_minimizers(haplotype, this->minimizer_index);
 }
 
