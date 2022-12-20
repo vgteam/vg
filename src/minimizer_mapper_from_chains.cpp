@@ -1773,9 +1773,17 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
     
-    // And make sure it's a DAG
+    // And make sure it's a DAG of the stuff reachable from our anchors
     bdsg::HashGraph dagified_graph;
-    auto dagified_to_split = handlegraph::algorithms::dagify(&split_graph, &dagified_graph, max_path_length);
+    // For which we need the handles that anchor the graph, facing inwards
+    std::vector<handle_t> bounding_handles;
+    if (!is_empty(left_anchor)) {
+        bounding_handles.push_back(split_graph.get_handle(id(left_anchor), is_rev(left_anchor)));
+    }
+    if (!is_empty(right_anchor)) {
+        bounding_handles.push_back(split_graph.get_handle(id(right_anchor), !is_rev(right_anchor)));
+    }
+    auto dagified_to_split = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
     
     // Make an accessor for getting back to the base graph space
     auto dagified_handle_to_base = [&](const handle_t& h) -> pair<nid_t, bool> {
@@ -1847,8 +1855,8 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         // to go from a source to a sink.
         aligner->align_global_banded(alignment, dagified_graph);
     } else {
-        // Do pinned alignment off the anchor we actually have
-        aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor));
+        // Do pinned alignment off the anchor we actually have, with x-drop
+        aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true);
     }
     
     // And translate back into original graph space
