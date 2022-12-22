@@ -1789,14 +1789,22 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     auto dagified_handle_to_base = [&](const handle_t& h) -> pair<nid_t, bool> {
         nid_t dagified_id = dagified_graph.get_id(h);
         bool dagified_is_reverse = dagified_graph.get_is_reverse(h);
-        nid_t split_id = dagified_to_split.at(dagified_id);
+        auto found_in_split = dagified_to_split.find(dagified_id);
+        if (found_in_split == dagified_to_split.end()) {
+            throw std::runtime_error("ID " + std::to_string(dagified_id) + " from dagified graph not found in strand-split graph");
+        }
+        nid_t split_id = found_in_split->second;
         handle_t split_handle = split_graph.get_handle(split_id, dagified_is_reverse);
         // We rely on get_underlying_handle understanding reversed handles in the split graph
-        handle_t connecting_handle = split_graph.get_underlying_handle(split_handle);
-        nid_t connecting_id = local_graph.get_id(connecting_handle);
-        bool connecting_is_reverse = local_graph.get_is_reverse(connecting_handle);
-        nid_t base_id = local_to_base.at(connecting_id);
-        return std::make_pair(base_id, connecting_is_reverse);
+        handle_t local_handle = split_graph.get_underlying_handle(split_handle);
+        nid_t local_id = local_graph.get_id(local_handle);
+        bool local_is_reverse = local_graph.get_is_reverse(local_handle);
+        auto found_in_base = local_to_base.find(local_id);
+        if (found_in_base == local_to_base.end()) {
+            throw std::runtime_error("ID " + std::to_string(local_id) + " from local graph not found in full base graph");
+        }
+        nid_t base_id = found_in_base->second;
+        return std::make_pair(base_id, local_is_reverse);
     };
     
     // Then trim off the tips that are either in the wrong orientation relative
