@@ -12,6 +12,8 @@
 
 #include "bdsg/hash_graph.hpp"
 
+#include "handlegraph/algorithms/find_tips.hpp"
+
 namespace vg {
 namespace unittest {
 
@@ -416,6 +418,87 @@ namespace unittest {
             
             REQUIRE(handlealgs::is_acyclic(&direct_dagified));
             REQUIRE(handlealgs::is_acyclic(&dagified));
+        }
+    }
+
+    TEST_CASE("dagify_from can avoid extraneous tips") {
+            
+            bdsg::HashGraph graph;
+            
+            handle_t n1 = graph.create_handle("GATTACA");
+            handle_t n2 = graph.create_handle("CATTAG");
+            handle_t n3 = graph.create_handle("AGAGAGAG");
+            handle_t n4 = graph.create_handle("CCC");
+            handle_t n5 = graph.create_handle("TATATATA");
+            
+            graph.create_edge(n1, n2);
+            graph.create_edge(n2, n2);
+            graph.create_edge(n2, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n5, n4);
+            
+            bdsg::HashGraph dagified;
+            
+            // Make places to put the heads and tails to check
+            std::unordered_set<handle_t> heads, tails;
+            auto sort_tips = [&](const std::vector<handle_t>& tip_handles) {
+                for (auto& h : tip_handles) {
+                    if (dagified.get_is_reverse(h)) {
+                        tails.insert(dagified.flip(h));
+                    } else {
+                        heads.insert(h);
+                    }
+                }
+            };
+            
+            SECTION("dagify from n1") {
+                // Dagify from n1
+                unordered_map<id_t, id_t> trans = handlealgs::dagify_from(&graph, {n1}, &dagified, 100);
+                
+                // Must actually be a DAG
+                REQUIRE(handlealgs::is_acyclic(&dagified));
+
+                std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified);
+                sort_tips(tip_handles);
+                
+                // Must have just one head of n1
+                REQUIRE(heads.size() == 1);
+                for (auto& head : heads) {
+                    REQUIRE(trans[dagified.get_id(head)] == graph.get_id(n1));
+                    REQUIRE(dagified.get_is_reverse(head) == graph.is_reverse(n1));
+                }
+                // n1 can go to tails of either n3 or n4, forward
+                std::unordered_map<nid_t> acceptable_tails {graph.get_id(n3), graph.get_id(n4)};
+                for (auto& tail : tails) {
+                    REQUIRE(acceptable_tails.count(trans[dagified.get_id(tail)]));
+                    REQUIRE(dagified.get_is_reverse(tail) == false);
+                }
+            }
+
+            SECTION("dagify from n3 reverse") {
+                // Dagify from n3 reverse
+                unordered_map<id_t, id_t> trans = handlealgs::dagify_from(&graph, {graph.flip(n3)}, &dagified, 100);
+                
+                // Must actually be a DAG
+                REQUIRE(handlealgs::is_acyclic(&dagified));
+
+                std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified);
+                sort_tips(tip_handles);
+
+                // Must have just one tail of n3
+                REQUIRE(tails.size() == 1);
+                for (auto& tail : tails) {
+                    REQUIRE(trans[dagified.get_id(tail)] == graph.get_id(n3));
+                    REQUIRE(dagified.get_is_reverse(tail) == graph.is_reverse(n3));
+                }
+                // n3 can only come from head n1
+                for (auto& head : heads) {
+                    REQUIRE(trans[dagified.get_id(head)] == graph.get_id(n1));
+                    REQUIRE(dagified.get_is_reverse(head) == graph.is_reverse(n1));
+                }
+            }
+            
+            
         }
     }
 }
