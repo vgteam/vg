@@ -82,5 +82,14 @@ using namespace std;
         return graph->get_handle(get_id(handle) >> 1,
                                  ((get_id(handle) & 1) == 1) != get_is_reverse(handle));
     }
+
+    handle_t StrandSplitGraph::get_overlay_handle(const handle_t& handle) const {
+        id_t node_id = graph->get_id(handle);
+        if (graph->get_is_reverse(handle)) {
+            return get_handle((node_id << 1) | 1);
+        } else {
+            return get_handle(node_id << 1);
+        }
+    }
 }
 

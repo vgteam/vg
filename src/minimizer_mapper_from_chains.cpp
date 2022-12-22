@@ -1778,12 +1778,18 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     // For which we need the handles that anchor the graph, facing inwards
     std::vector<handle_t> bounding_handles;
     if (!is_empty(left_anchor)) {
-        bounding_handles.push_back(split_graph.get_handle(id(left_anchor), is_rev(left_anchor)));
+        // Dagify from the forward version of the left anchor
+        bounding_handles.push_back(split_graph.get_overlay_handle(local_graph.get_handle(id(left_anchor), is_rev(left_anchor))));
     }
     if (!is_empty(right_anchor)) {
-        bounding_handles.push_back(split_graph.get_handle(id(right_anchor), !is_rev(right_anchor)));
+        // Dagify from the reverse version of the node for the forward version of the right anchor
+        bounding_handles.push_back(split_graph.flip(split_graph.get_overlay_handle(local_graph.get_handle(id(right_anchor), is_rev(right_anchor)))));
     }
     auto dagified_to_split = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
+
+#ifdef debug
+    std::cerr << "Dagified from " << bounding_handles.size() << " bounding handles in " << split_graph.get_node_count() << " node strand-split graph to " << dagified_graph.get_node_count() << " node DAG" << std::endl;
+#endif
     
     // Make an accessor for getting back to the base graph space
     auto dagified_handle_to_base = [&](const handle_t& h) -> pair<nid_t, bool> {
@@ -1825,13 +1831,22 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 // Tip is inward forward, so it's a source.
                 // This is a head in the subgraph, and either matches a left
                 // anchoring node or we don't have any, so keep it.
+#ifdef debug
+                std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+#endif
             } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
                 // Tip is inward reverse, so it's a sink.
                 // This is a tail in the subgraph, and either matches a right
                 // anchoring node or we don't have any, so keep it.
+#ifdef debug
+                std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+#endif
             } else {
                 // This is a wrong orientation of an anchoring node, or some other tip.
                 // We don't want to keep this handle
+#ifdef debug
+                std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+#endif
                 nid_t dagified_id = dagified_graph.get_id(h);
                 if (!to_remove_ids.count(dagified_id)) {
                     to_remove_ids.insert(dagified_id);
@@ -1855,7 +1870,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     } while (trimmed);
     if (trim_count > 0) {
         #pragma omp critical (cerr)
-        std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " << tip_handles.size() << " tips" << std::endl;
+        std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips" << std::endl;
     }
     
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {

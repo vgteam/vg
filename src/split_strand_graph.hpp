@@ -91,6 +91,18 @@ using namespace std;
          * overlay
          */
         handle_t get_underlying_handle(const handle_t& handle) const;
+
+        ///////////////////////////////////
+        /// Extra methods
+        ///////////////////////////////////
+
+        /**
+         * Returns the handle in the overlay graph that corresponds to a handle
+         * and orientation in the underlying graph. Reverse versions of
+         * underlying graph nodes become the locally-forward overlay node that
+         * represents them.
+         */
+        handle_t get_overlay_handle(const handle_t& handle) const;
         
     private:
         /// The underlying graph we're making splitting
