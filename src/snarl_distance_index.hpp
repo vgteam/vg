@@ -268,25 +268,25 @@ struct MIPayload {
     }
     static bool is_reversed(const gbwtgraph::payload_type code) {
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> IS_REVERSED_OFFSET & 1);
     }
     static bool is_trivial_chain (const gbwtgraph::payload_type code) { 
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> IS_TRIVIAL_CHAIN_OFFSET   & 1);
     }
     static bool parent_is_chain(const gbwtgraph::payload_type code) { 
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> PARENT_IS_CHAIN_OFFSET    & 1);
     }
     static bool parent_is_root (const gbwtgraph::payload_type code) { 
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> PARENT_IS_ROOT_OFFSET     & 1);
     }
