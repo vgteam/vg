@@ -26,6 +26,11 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     //Build the temporary distance index from the graph
     SnarlDistanceIndex::TemporaryDistanceIndex temp_index = make_temporary_distance_index(graph, snarl_finder, size_limit);
 
+    if (temp_index.use_oversized_snarls) {
+        cerr << "warning: distance index uses oversized snarls, which may make mapping slow" << endl;
+        cerr << "\ttry increasing --snarl-limit when building the distance index" << endl;
+    }
+
     //And fill in the permanent distance index
     vector<const SnarlDistanceIndex::TemporaryDistanceIndex*> indexes;
     indexes.emplace_back(&temp_index);
@@ -765,6 +770,10 @@ void populate_snarl_index(
             ? temp_snarl_record.node_count * 2
             : temp_snarl_record.node_count * temp_snarl_record.node_count);
 
+    if (size_limit != 0 && temp_snarl_record.node_count > size_limit) {
+        temp_index.use_oversized_snarls = true;
+    }
+
     if (!temp_snarl_record.is_root_snarl) {
 
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id);
@@ -1035,10 +1044,9 @@ void populate_snarl_index(
 
                     if (visited_nodes.count(make_pair(next_index, next_rev)) == 0 &&
                         graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
-                        graph->get_id(next_handle) != temp_snarl_record.end_node_id &&
-                        ((start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.start_node_id)
-                         || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id))) {
-                        //If this isn't leaving the snarl, and the distance is either small enough to consider or came from a boundary node, 
+                        graph->get_id(next_handle) != temp_snarl_record.end_node_id
+                        ) {
+                        //If this isn't leaving the snarl,
                         //then add the next node to the queue, along with the distance to traverse it
                         size_t next_node_length = next_index.first == SnarlDistanceIndex::TEMP_NODE ? graph->get_length(next_handle) :
                                         temp_index.temp_chain_records[next_index.second].min_length;
@@ -1059,9 +1067,8 @@ void populate_snarl_index(
                         if (loop_distance != std::numeric_limits<size_t>::max() &&
                             visited_nodes.count(make_pair(next_index, !next_rev)) == 0 &&
                             graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
-                            graph->get_id(next_handle) != temp_snarl_record.end_node_id &&
-                            ((start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.start_node_id)
-                         || (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id))) {
+                            graph->get_id(next_handle) != temp_snarl_record.end_node_id
+                            ) {
                             //If the next node can loop back on itself, then add the next node in the opposite direction
                             size_t next_node_len = loop_distance + 2 * graph->get_length(next_handle);
                             queue.push(make_pair(current_distance + next_node_len, 
