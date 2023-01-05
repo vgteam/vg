@@ -1738,9 +1738,6 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         throw std::runtime_error("Cannot align sequence between two unset positions");
     }
     
-    ProblemDumpExplainer explainer("extraction");
-    explainer.object_start();
-    
     // We need to get the graph to align to.
     bdsg::HashGraph local_graph;
     unordered_map<id_t, id_t> local_to_base;
@@ -1787,14 +1784,8 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         // TODO: Stop early when we found them all.
     }
     
-    explainer.key("local_graph");
-    explainer.value(local_graph);
-    
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
-    
-    explainer.key("split_graph");
-    explainer.value(split_graph);
     
     // And make sure it's a DAG of the stuff reachable from our anchors
     bdsg::HashGraph dagified_graph;
@@ -1808,9 +1799,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         handle_t local_handle = local_graph.get_handle(local_left_anchor_id, is_rev(left_anchor));
         
         // And get the node that that orientation of it is in the strand-split graph
-        assert(split_graph.has_overlay_node_for(local_graph.get_id(local_handle)));
         handle_t overlay_handle = split_graph.get_overlay_handle(local_handle);
-        assert(split_graph.has_node(split_graph.get_id(overlay_handle)));
         
         // And use that
         bounding_handles.push_back(overlay_handle);
@@ -1823,33 +1812,19 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         handle_t local_handle = local_graph.get_handle(local_right_anchor_id, is_rev(right_anchor));
         
         // And get the node that that orientation of it is in the strand-split graph
-        assert(split_graph.has_overlay_node_for(local_graph.get_id(local_handle)));
         // But flip it because we want to dagify going inwards from the right
         handle_t overlay_handle = split_graph.flip(split_graph.get_overlay_handle(local_handle));
-        assert(split_graph.has_node(split_graph.get_id(overlay_handle)));
         
         // And use that
         bounding_handles.push_back(overlay_handle);
     }
     
-    explainer.key("bounding_handles");
-    explainer.array_start();
-    for (auto& h : bounding_handles) {
-        explainer.value(h, split_graph);
-    }
-    explainer.array_end();
-    
     auto dagified_to_split = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
     
-    explainer.key("dagified_graph");
-    explainer.value(dagified_graph);
-
 #ifdef debug
     std::cerr << "Dagified from " << bounding_handles.size() << " bounding handles in " << split_graph.get_node_count() << " node strand-split graph to " << dagified_graph.get_node_count() << " node DAG" << std::endl;
 #endif
 
-    explainer.object_end();
-    
     // Make an accessor for getting back to the base graph space
     auto dagified_handle_to_base = [&](const handle_t& h) -> pair<nid_t, bool> {
         nid_t dagified_id = dagified_graph.get_id(h);
