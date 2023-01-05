@@ -442,6 +442,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         seen_seeds.emplace(minimizers[seed.source].forward_offset(), seed.pos);
     }
     
+    // Connections don't appear in the funnel so we track them ourselves.
+    size_t precluster_connection_explored_count = 0;
+    
     process_until_threshold_a(precluster_connections.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
         // Best pairs to connect are those with the highest average coverage
         if (precluster_connections[i].first == std::numeric_limits<size_t>::max()) {
@@ -456,13 +459,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     min_precluster_connections,
     max_precluster_connections,
     rng,
-    [&](size_t precluster_num) -> bool {
+    [&](size_t connection_num) -> bool {
         // This connection is good enough
         
         // TODO: Add provenance tracking/stage for connections?
     
         // Reseed between each pair of preclusters and dump into seeds
-        auto& connected = precluster_connections[precluster_num];
+        auto& connected = precluster_connections[connection_num];
         
         // Where should we start in the read
         size_t left_read;
@@ -560,6 +563,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 this->dump_debug_seeds(minimizers, seeds, new_seeds);
             }
         }
+        
+        precluster_connection_explored_count++;
         
         return true;
     }, [&](size_t connection_num) -> void {
@@ -1220,6 +1225,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
         set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
+        
+        set_annotation(mappings[0], "precluster_connections_explored", (double)precluster_connection_explored_count);
+        set_annotation(mappings[0], "precluster_connections_total", (double)precluster_connections.size());
     }
     
 #ifdef print_minimizer_table
