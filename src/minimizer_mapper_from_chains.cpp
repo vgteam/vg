@@ -1731,7 +1731,6 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     }
 }
 
-#define debug
 void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
     
     if (is_empty(left_anchor) && is_empty(right_anchor)) {
@@ -1850,7 +1849,6 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     // Show the graph we made and the translation function
     callback(dagified_graph, dagified_handle_to_base);
 }
-#undef debug
 
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
     

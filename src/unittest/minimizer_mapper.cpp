@@ -254,8 +254,6 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
 }
 
 TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph without extraneous tips", "[giraffe][mapping]") {
-    Explainer::save_explanations = true;
-
     // Make the graph that was causing trouble (it's just a stick)
     std::string graph_json = R"(
         {
@@ -286,11 +284,13 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
         // The graph started as a stick
         // We strand-split it to two disconnected sticks, and then dagify from the one start node in the one orientation, so it should go back to being one stick, with 2 tips.
         auto tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+#ifdef debug
         for (auto& h : tip_handles) {
             // Dump all the tips for debugging
             auto original = dagified_handle_to_base(h);
             std::cerr << "Found tip handle " << dagified_graph.get_id(h) << (dagified_graph.get_is_reverse(h) ? "-" : "+") << " representing " << original.first << (original.second ? "-" : "+") << std::endl;
         }
+#endif
         for (auto& h : tip_handles) {
             auto original = dagified_handle_to_base(h);
             if (!dagified_graph.get_is_reverse(h)) {
@@ -302,9 +302,6 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
         // There should be that head and also some tail where we ran out of search bases.
         REQUIRE(tip_handles.size() == 2);
     });
-    
-    
-    Explainer::save_explanations = false;
 }
 
 
