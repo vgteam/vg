@@ -1678,7 +1678,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp right tail in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail in " << aln.name() << endl;
             }
             
             Alignment tail_aln;
@@ -1921,8 +1921,11 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             // to go from a source to a sink.
             aligner->align_global_banded(alignment, dagified_graph);
         } else {
-            // Do pinned alignment off the anchor we actually have, with x-drop
-            aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true);
+            // Do pinned alignment off the anchor we actually have.
+            // Don't use X-Drop because Dozeu is known to just overwrite the
+            // stack with garbage whenever alignments are "too big", and these
+            // alignments are probably often too big.
+            aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), false);
         }
         
         // And translate back into original graph space
