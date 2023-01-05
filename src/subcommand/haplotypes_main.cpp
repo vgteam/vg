@@ -75,6 +75,7 @@ void help_haplotypes(char** argv) {
     std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate the information)" << std::endl;
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
     std::cerr << std::endl;
+    // TODO: Expose other computational parameters?
     std::cerr << "Computational parameters:" << std::endl;
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
@@ -300,7 +301,8 @@ int main_haplotypes(int argc, char** argv) {
 
         // Partition the haplotypes.
         HaplotypePartitioner partitioner(gbz, r_index, distance_index, minimizer_index, verbosity);
-        haplotypes = partitioner.partition_haplotypes();
+        HaplotypePartitioner::Parameters parameters;
+        haplotypes = partitioner.partition_haplotypes(parameters);
         if (verbosity >= HaplotypePartitioner::verbosity_basic) {
             double seconds = gbwt::readTimer() - checkpoint;
             std::cerr << "Generated haplotype information in " << seconds << " seconds" << std::endl;
@@ -330,10 +332,10 @@ int main_haplotypes(int argc, char** argv) {
     }
 
     // Generate haplotypes.
-    // TODO: Set number of jobs as a parameter?
     omp_set_num_threads(threads_to_jobs(threads));
     Recombinator recombinator(gbz, verbosity);
-    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes);
+    Recombinator::Parameters recombinator_parameters;
+    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, recombinator_parameters);
     omp_set_num_threads(threads); // Restore the number of threads.
 
     // Build GBWTGraph.

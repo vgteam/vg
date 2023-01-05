@@ -208,7 +208,9 @@ HaplotypePartitioner::HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
 
 //------------------------------------------------------------------------------
 
-Haplotypes HaplotypePartitioner::partition_haplotypes() const {
+Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& parameters) const {
+    // FIXME parameter sanity checks
+
     Haplotypes result;
     result.header.k = this->minimizer_index.k();
 
@@ -217,7 +219,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes() const {
     if (this->verbosity >= verbosity_basic) {
         std::cerr << "Determining construction jobs" << std::endl;
     }
-    size_t size_bound = this->gbz.graph.get_node_count() / APPROXIMATE_JOBS;
+    size_t size_bound = this->gbz.graph.get_node_count() / parameters.approximate_jobs;
     gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
     auto chains_by_job = gbwtgraph::partition_chains(this->distance_index, this->gbz.graph, jobs);
     result.header.top_level_chains = jobs.components;
@@ -238,7 +240,6 @@ Haplotypes HaplotypePartitioner::partition_haplotypes() const {
         std::cerr << "Partitioned " << result.components() << " components into " << result.jobs() << " jobs in " << seconds << " seconds" << std::endl;
     }
 
-    // FIXME number of construction jobs
     // Determine the subchains and sequences for each top-level chain.
     if (verbosity >= verbosity_basic) {
         std::cerr << "Running " << omp_get_max_threads() << " jobs in parallel" << std::endl;
@@ -249,7 +250,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes() const {
         const std::vector<gbwtgraph::TopLevelChain>& chains = chains_by_job[job];
         for (auto& chain : chains) {
             try {
-                this->build_subchains(chain, result.chains[chain.offset]);
+                this->build_subchains(chain, result.chains[chain.offset], parameters);
             } catch (const std::runtime_error& e) {
                 std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -281,7 +282,7 @@ size_t HaplotypePartitioner::get_distance(handle_t from, handle_t to) const {
 }
 
 std::vector<HaplotypePartitioner::Subchain>
-HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain) const {
+HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const {
     std::vector<Subchain> result;
 
     // First pass: take all snarls as subchains.
@@ -562,8 +563,8 @@ void present_kmers(std::vector<std::vector<HaplotypePartitioner::kmer_type>>& se
     }
 }
 
-void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output) const {
-    std::vector<Subchain> subchains = this->get_subchains(chain);
+void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const {
+    std::vector<Subchain> subchains = this->get_subchains(chain, parameters);
     for (const Subchain& subchain : subchains) {
         std::vector<std::pair<Subchain, std::vector<sequence_type>>> to_process;
         auto sequences = this->get_sequences(subchain);
@@ -775,7 +776,9 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, HaplotypePartitioner::Verb
 
 //------------------------------------------------------------------------------
 
-gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes) const {
+gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const Parameters& parameters) const {
+    // FIXME sanity checks for parameters
+
     double start = gbwt::readTimer();
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Building GBWT" << std::endl;
@@ -798,13 +801,12 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes) const
     Statistics statistics;
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t job = 0; job < jobs.size(); job++) {
-        // FIXME buffer size?
-        gbwt::GBWTBuilder builder(sdsl::bits::length(this->gbz.index.sigma() - 1));
+        gbwt::GBWTBuilder builder(sdsl::bits::length(this->gbz.index.sigma() - 1), parameters.buffer_size);
         builder.index.addMetadata();
         Statistics job_statistics;
         for (auto chain_id : jobs[job]) {
             try {
-                Statistics chain_statistics = this->generate_haplotypes(haplotypes.chains[chain_id], builder);
+                Statistics chain_statistics = this->generate_haplotypes(haplotypes.chains[chain_id], builder, parameters);
                 job_statistics.combine(chain_statistics);
             } catch (const std::runtime_error& e) {
                 std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
@@ -845,9 +847,9 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes) const
     return merged;
 }
 
-Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const {
+Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder, const Parameters& parameters) const {
     std::vector<Haplotype> haplotypes;
-    for (size_t i = 0; i < NUM_HAPLOTYPES; i++) {
+    for (size_t i = 0; i < parameters.num_haplotypes; i++) {
         haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_edge(), {} });
     }
 

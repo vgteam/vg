@@ -263,17 +263,25 @@ public:
         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
         Verbosity verbosity);
 
-    // FIXME parameters
+    /// Parameters for `partition_haplotypes()`.
+    struct Parameters {
+        /// Target length for subchains (in bp).
+        size_t subchain_length = SUBCHAIN_LENGTH;
+
+        /// Generate approximately this many  jobs.
+        size_t approximate_jobs = APPROXIMATE_JOBS;
+    };
+
     /**
      * Creates a `Haplotypes` representation of the haplotypes in the GBWT index.
      *
      * Top-level chains (weakly connected components in the graph) are assigned to
-     * approximately `APPROXIMATE_JOBS` jobs that can be later used as GBWT
-     * construction jobs. Multiple jobs are run in parallel using OpenMP threads.
+     * a number of jobs that can be later used as GBWT construction jobs. Multiple
+     * jobs are run in parallel using OpenMP threads.
      *
      * Each top-level chain is partitioned into subchains that consist of one or
      * more snarls. Multiple snarls are combined into the same subchain if the
-     * minimum distance over the subchain is at most `SUBCHAIN_LENGTH` and there
+     * minimum distance over the subchain is at most the target length and there
      * are GBWT haplotypes that cross the subchain. If there are no snarls in a
      * top-level chain, it is represented as a single subchain without boundary
      * nodes.
@@ -283,7 +291,7 @@ public:
      *
      * TODO: Are all chains in the right orientation?
      */
-    Haplotypes partition_haplotypes() const;
+    Haplotypes partition_haplotypes(const Parameters& parameters) const;
 
     const gbwtgraph::GBZ& gbz;
     const gbwt::FastLocate& r_index;
@@ -297,7 +305,7 @@ private:
     size_t get_distance(handle_t from, handle_t to) const;
 
     // Partition the top-level chain into subchains.
-    std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain) const;
+    std::vector<Subchain> get_subchains(const gbwtgraph::TopLevelChain& chain, const Parameters& parameters) const;
 
     // Return (SA[i], i) for all GBWT sequences visiting a handle, sorted by sequence id
     // and the number of the visit.
@@ -324,7 +332,7 @@ private:
     std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain) const;
 
     // Build subchains for a specific top-level chain.
-    void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output) const;
+    void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
 };
 
 //------------------------------------------------------------------------------
@@ -438,12 +446,22 @@ public:
     /// Creates a new `Recombinator`.
     Recombinator(const gbwtgraph::GBZ& gbz, HaplotypePartitioner::Verbosity verbosity);
 
-    // FIXME parameters, kmer input
+    /// Parameters for `generate_haplotypes()`.
+    struct Parameters {
+        /// Number of haplotypes to be generated.
+        size_t num_haplotypes = NUM_HAPLOTYPES;
+
+        /// Buffer size (in nodes) for GBWT construction.
+        gbwt::size_type buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
+    };
+
+    // FIXME kmer input
     /**
      * Generates haplotypes based on the given `Haplotypes` representation.
      *
      * Runs multiple GBWT construction jobs in parallel using OpenMP threads and
-     * generates `NUM_HAPLOTYPES` haplotypes in each top-level chain / component.
+     * generates the specified number of haplotypes in each top-level chain
+     * (component).
      *
      * Each generated haplotype has a single source haplotype in each subchain.
      * The subchains are connected by unary paths. Suffix / prefix subchains in
@@ -453,14 +471,14 @@ public:
      *
      * TODO: Include reference paths?
      */
-    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes) const;
+    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const Parameters& parameters) const;
 
     const gbwtgraph::GBZ& gbz;
     HaplotypePartitioner::Verbosity verbosity;
 
 private:
     // Generate haplotypes for the given chain.
-    Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder) const;
+    Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder, const Parameters& parameters) const;
 };
 
 //------------------------------------------------------------------------------
