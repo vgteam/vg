@@ -645,7 +645,20 @@ protected:
      * the vg Alignment has been set.
      */
     void wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const;
-    
+   
+    /**
+     * Clip out the part of the graph between the given positions, and dagify
+     * it from the perspective of the anchors. If a left anchor is set, all
+     * heads should correspond to the left anchor, and if a right anchor is
+     * set, all tails should correspond to the right anchor. At least one
+     * anchor must be set.
+     *
+     * Calls the callback with an extracted, strand-split, dagified graph, and
+     * a function that translates from handle in the dagified graph to node ID
+     * and orientation in the base graph.
+     */
+    static void with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback);
+   
     /**
      * Clip out the part of the graph between the given positions and
      * global-align the sequence of the given Alignment to it. Populate the

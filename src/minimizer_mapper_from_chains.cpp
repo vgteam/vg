@@ -1731,7 +1731,7 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     }
 }
 
-void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
+void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
     
     if (is_empty(left_anchor) && is_empty(right_anchor)) {
         throw std::runtime_error("Cannot align sequence between two unset positions");
@@ -1743,7 +1743,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
         // We want a graph actually between two positions
         local_to_base = algorithms::extract_connecting_graph(
-            graph,
+            &graph,
             &local_graph,
             max_path_length,
             left_anchor, right_anchor
@@ -1751,7 +1751,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     } else if (!is_empty(left_anchor)) {
         // We only have the left anchor
         local_to_base = algorithms::extract_extending_graph(
-            graph,
+            &graph,
             &local_graph,
             max_path_length,
             left_anchor,
@@ -1761,7 +1761,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     } else {
         // We only have the right anchor
         local_to_base = algorithms::extract_extending_graph(
-            graph,
+            &graph,
             &local_graph,
             max_path_length,
             right_anchor,
@@ -1813,94 +1813,105 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         return std::make_pair(base_id, local_is_reverse);
     };
     
-    // Then trim off the tips that are either in the wrong orientation relative
-    // to whether we want them to be a source or a sink, or extraneous
+    // Show the graph we made and the translation function
+    callback(dagified_graph, dagified_handle_to_base);
+}
+
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
     
-    std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
-    bool trimmed;
-    size_t trim_count = 0;
-    do {
-        trimmed = false;
-        // We need to make sure to remove only one orientation of each handle
-        // we remove.
-        std::unordered_set<nid_t> to_remove_ids;
-        std::vector<handle_t> to_remove_handles;
-        for (auto& h : tip_handles) {
-            auto base_coords = dagified_handle_to_base(h);
-            if (!dagified_graph.get_is_reverse(h) && (is_empty(left_anchor) || base_coords.first == id(left_anchor))) {
-                // Tip is inward forward, so it's a source.
-                // This is a head in the subgraph, and either matches a left
-                // anchoring node or we don't have any, so keep it.
-#ifdef debug
-                std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
-#endif
-            } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
-                // Tip is inward reverse, so it's a sink.
-                // This is a tail in the subgraph, and either matches a right
-                // anchoring node or we don't have any, so keep it.
-#ifdef debug
-                std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
-#endif
-            } else {
-                // This is a wrong orientation of an anchoring node, or some other tip.
-                // We don't want to keep this handle
-#ifdef debug
-                std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
-#endif
-                nid_t dagified_id = dagified_graph.get_id(h);
-                if (!to_remove_ids.count(dagified_id)) {
-                    to_remove_ids.insert(dagified_id);
-                    to_remove_handles.push_back(h);
+    // Get the dagified local graph, and the back translation
+    MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
+        [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
+    
+        // Then trim off the tips that are either in the wrong orientation relative
+        // to whether we want them to be a source or a sink, or extraneous
+        
+        std::vector<handle_t> tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+        bool trimmed;
+        size_t trim_count = 0;
+        do {
+            trimmed = false;
+            // We need to make sure to remove only one orientation of each handle
+            // we remove.
+            std::unordered_set<nid_t> to_remove_ids;
+            std::vector<handle_t> to_remove_handles;
+            for (auto& h : tip_handles) {
+                auto base_coords = dagified_handle_to_base(h);
+                if (!dagified_graph.get_is_reverse(h) && (is_empty(left_anchor) || base_coords.first == id(left_anchor))) {
+                    // Tip is inward forward, so it's a source.
+                    // This is a head in the subgraph, and either matches a left
+                    // anchoring node or we don't have any, so keep it.
+    #ifdef debug
+                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+    #endif
+                } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
+                    // Tip is inward reverse, so it's a sink.
+                    // This is a tail in the subgraph, and either matches a right
+                    // anchoring node or we don't have any, so keep it.
+    #ifdef debug
+                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+    #endif
+                } else {
+                    // This is a wrong orientation of an anchoring node, or some other tip.
+                    // We don't want to keep this handle
+    #ifdef debug
+                    std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
+    #endif
+                    nid_t dagified_id = dagified_graph.get_id(h);
+                    if (!to_remove_ids.count(dagified_id)) {
+                        to_remove_ids.insert(dagified_id);
+                        to_remove_handles.push_back(h);
+                    }
                 }
             }
+            for (auto& h : to_remove_handles) {
+                dagified_graph.destroy_handle(h);
+                trimmed = true;
+            }
+            if (trimmed) {
+                // TODO: This is going to be O(slow) if we actually have to
+                // prune back a dangling run. We should look at what is
+                // connected to the tip and the tip only, and make that the new
+                // tip. Or keep some kind of online tip info. Or use an
+                // algorithm function that we make actually good.
+                tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+                trim_count++;
+            }
+        } while (trimmed);
+        if (trim_count > 0) {
+            #pragma omp critical (cerr)
+            std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips" << std::endl;
         }
-        for (auto& h : to_remove_handles) {
-            dagified_graph.destroy_handle(h);
-            trimmed = true;
-        }
-        if (trimmed) {
-            // TODO: This is going to be O(slow) if we actually have to
-            // prune back a dangling run. We should look at what is
-            // connected to the tip and the tip only, and make that the new
-            // tip. Or keep some kind of online tip info. Or use an
-            // algorithm function that we make actually good.
-            tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
-            trim_count++;
-        }
-    } while (trimmed);
-    if (trim_count > 0) {
-        #pragma omp critical (cerr)
-        std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips" << std::endl;
-    }
-    
-    if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
-        // Then align the linking bases, with global alignment so they have
-        // to go from a source to a sink.
-        aligner->align_global_banded(alignment, dagified_graph);
-    } else {
-        // Do pinned alignment off the anchor we actually have, with x-drop
-        aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true);
-    }
-    
-    // And translate back into original graph space
-    for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
-        // Translate each mapping's ID and orientation down to the base graph
-        Mapping* m = alignment.mutable_path()->mutable_mapping(i);
         
-        handle_t dagified_handle = dagified_graph.get_handle(m->position().node_id(), m->position().is_reverse());
-        auto base_coords = dagified_handle_to_base(dagified_handle); 
+        if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
+            // Then align the linking bases, with global alignment so they have
+            // to go from a source to a sink.
+            aligner->align_global_banded(alignment, dagified_graph);
+        } else {
+            // Do pinned alignment off the anchor we actually have, with x-drop
+            aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true);
+        }
         
-        m->mutable_position()->set_node_id(base_coords.first);
-        m->mutable_position()->set_is_reverse(base_coords.second);
-    }
-    if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0) {
-        // Get the positions of the leftmost mapping
-        Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
-        // Add on the offset for the missing piece of the left anchor node
-        left_pos->set_offset(left_pos->offset() + offset(left_anchor));
-    }
+        // And translate back into original graph space
+        for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
+            // Translate each mapping's ID and orientation down to the base graph
+            Mapping* m = alignment.mutable_path()->mutable_mapping(i);
+            
+            handle_t dagified_handle = dagified_graph.get_handle(m->position().node_id(), m->position().is_reverse());
+            auto base_coords = dagified_handle_to_base(dagified_handle); 
+            
+            m->mutable_position()->set_node_id(base_coords.first);
+            m->mutable_position()->set_is_reverse(base_coords.second);
+        }
+        if (!is_empty(left_anchor) && alignment.path().mapping_size() > 0 && offset(left_anchor) != 0) {
+            // Get the positions of the leftmost mapping
+            Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
+            // Add on the offset for the missing piece of the left anchor node
+            left_pos->set_offset(left_pos->offset() + offset(left_anchor));
+        }
     
-    // Now the alignment is filled in!
+        // Now the alignment is filled in!
+    });
 }
 
 std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {

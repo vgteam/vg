@@ -421,7 +421,7 @@ namespace unittest {
         }
     }
 
-    TEST_CASE("dagify_from can avoid extraneous tips") {
+    TEST_CASE("dagify_from can avoid extraneous tips in a tiny graph") {
             
         bdsg::HashGraph graph;
         
@@ -499,4 +499,5 @@ namespace unittest {
         }
     }
 }
+
 }
