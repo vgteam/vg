@@ -1774,6 +1774,19 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         );
     }
     
+    // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
+    nid_t local_left_anchor_id = 0;
+    nid_t local_right_anchor_id = 0;
+    for (auto& kv : local_to_base) {
+        if (kv.second == id(left_anchor)) {
+            local_left_anchor_id = kv.first;
+        }
+        if (kv.second == id(right_anchor)) {
+            local_right_anchor_id = kv.first;
+        }
+        // TODO: Stop early when we found them all.
+    }
+    
     explainer.key("local_graph");
     explainer.value(local_graph);
     
@@ -1789,13 +1802,34 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     std::vector<handle_t> bounding_handles;
     if (!is_empty(left_anchor)) {
         // Dagify from the forward version of the left anchor
-        bounding_handles.push_back(split_graph.get_overlay_handle(local_graph.get_handle(id(left_anchor), is_rev(left_anchor))));
-        assert(split_graph.has_node(split_graph.get_id(bounding_handles.back())));
+        
+        // Grab the left anchor in the local graph
+        assert(local_graph.has_node(local_left_anchor_id));
+        handle_t local_handle = local_graph.get_handle(local_left_anchor_id, is_rev(left_anchor));
+        
+        // And get the node that that orientation of it is in the strand-split graph
+        assert(split_graph.has_overlay_node_for(local_graph.get_id(local_handle)));
+        handle_t overlay_handle = split_graph.get_overlay_handle(local_handle);
+        assert(split_graph.has_node(split_graph.get_id(overlay_handle)));
+        
+        // And use that
+        bounding_handles.push_back(overlay_handle);
     }
     if (!is_empty(right_anchor)) {
         // Dagify from the reverse version of the node for the forward version of the right anchor
-        bounding_handles.push_back(split_graph.flip(split_graph.get_overlay_handle(local_graph.get_handle(id(right_anchor), is_rev(right_anchor)))));
-        assert(split_graph.has_node(split_graph.get_id(bounding_handles.back())));
+        
+        // Grab the right anchor from the local graph
+        assert(local_graph.has_node(local_right_anchor_id));
+        handle_t local_handle = local_graph.get_handle(local_right_anchor_id, is_rev(right_anchor));
+        
+        // And get the node that that orientation of it is in the strand-split graph
+        assert(split_graph.has_overlay_node_for(local_graph.get_id(local_handle)));
+        // But flip it because we want to dagify going inwards from the right
+        handle_t overlay_handle = split_graph.flip(split_graph.get_overlay_handle(local_handle));
+        assert(split_graph.has_node(split_graph.get_id(overlay_handle)));
+        
+        // And use that
+        bounding_handles.push_back(overlay_handle);
     }
     
     explainer.key("bounding_handles");
