@@ -1731,11 +1731,15 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
     }
 }
 
+#define debug
 void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
     
     if (is_empty(left_anchor) && is_empty(right_anchor)) {
         throw std::runtime_error("Cannot align sequence between two unset positions");
     }
+    
+    ProblemDumpExplainer explainer("extraction");
+    explainer.object_start();
     
     // We need to get the graph to align to.
     bdsg::HashGraph local_graph;
@@ -1770,8 +1774,14 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         );
     }
     
+    explainer.key("local_graph");
+    explainer.value(local_graph);
+    
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
+    
+    explainer.key("split_graph");
+    explainer.value(split_graph);
     
     // And make sure it's a DAG of the stuff reachable from our anchors
     bdsg::HashGraph dagified_graph;
@@ -1780,16 +1790,31 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     if (!is_empty(left_anchor)) {
         // Dagify from the forward version of the left anchor
         bounding_handles.push_back(split_graph.get_overlay_handle(local_graph.get_handle(id(left_anchor), is_rev(left_anchor))));
+        assert(split_graph.has_node(split_graph.get_id(bounding_handles.back())));
     }
     if (!is_empty(right_anchor)) {
         // Dagify from the reverse version of the node for the forward version of the right anchor
         bounding_handles.push_back(split_graph.flip(split_graph.get_overlay_handle(local_graph.get_handle(id(right_anchor), is_rev(right_anchor)))));
+        assert(split_graph.has_node(split_graph.get_id(bounding_handles.back())));
     }
+    
+    explainer.key("bounding_handles");
+    explainer.array_start();
+    for (auto& h : bounding_handles) {
+        explainer.value(h, split_graph);
+    }
+    explainer.array_end();
+    
     auto dagified_to_split = handlegraph::algorithms::dagify_from(&split_graph, bounding_handles, &dagified_graph, max_path_length);
+    
+    explainer.key("dagified_graph");
+    explainer.value(dagified_graph);
 
 #ifdef debug
     std::cerr << "Dagified from " << bounding_handles.size() << " bounding handles in " << split_graph.get_node_count() << " node strand-split graph to " << dagified_graph.get_node_count() << " node DAG" << std::endl;
 #endif
+
+    explainer.object_end();
     
     // Make an accessor for getting back to the base graph space
     auto dagified_handle_to_base = [&](const handle_t& h) -> pair<nid_t, bool> {
@@ -1816,6 +1841,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     // Show the graph we made and the translation function
     callback(dagified_graph, dagified_handle_to_base);
 }
+#undef debug
 
 void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
     
@@ -1841,22 +1867,22 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                     // Tip is inward forward, so it's a source.
                     // This is a head in the subgraph, and either matches a left
                     // anchoring node or we don't have any, so keep it.
-    #ifdef debug
+#ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable source (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
-    #endif
+#endif
                 } else if (dagified_graph.get_is_reverse(h) && (is_empty(right_anchor) || base_coords.first == id(right_anchor))) {
                     // Tip is inward reverse, so it's a sink.
                     // This is a tail in the subgraph, and either matches a right
                     // anchoring node or we don't have any, so keep it.
-    #ifdef debug
+#ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an acceptable sink (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
-    #endif
+#endif
                 } else {
                     // This is a wrong orientation of an anchoring node, or some other tip.
                     // We don't want to keep this handle
-    #ifdef debug
+#ifdef debug
                     std::cerr << "Dagified graph node " << dagified_graph.get_id(h) << " " << dagified_graph.get_is_reverse(h) << " is an unacceptable tip (" << base_coords.first << " " << base_coords.second << ")" << std::endl;
-    #endif
+#endif
                     nid_t dagified_id = dagified_graph.get_id(h);
                     if (!to_remove_ids.count(dagified_id)) {
                         to_remove_ids.insert(dagified_id);

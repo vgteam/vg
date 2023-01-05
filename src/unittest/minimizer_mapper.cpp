@@ -254,6 +254,8 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
 }
 
 TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph without extraneous tips", "[giraffe][mapping]") {
+    Explainer::save_explanations = true;
+
     // Make the graph that was causing trouble (it's just a stick)
     std::string graph_json = R"(
         {
@@ -302,7 +304,7 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
     });
     
     
-    
+    Explainer::save_explanations = false;
 }
 
 

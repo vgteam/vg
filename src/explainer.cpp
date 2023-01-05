@@ -23,11 +23,11 @@ Explainer::~Explainer() {
     // Nothing to do!
 }
 
-ProblemDumpExplainer::ProblemDumpExplainer() : Explainer() {
+ProblemDumpExplainer::ProblemDumpExplainer(const std::string& name) : Explainer() {
     if (!Explainer::save_explanations) {
         return;
     }
-    out.open("problem" + std::to_string(explanation_number) + ".json");
+    out.open(name + std::to_string(explanation_number) + ".json");
 }
 
 ProblemDumpExplainer::~ProblemDumpExplainer() {
@@ -184,6 +184,14 @@ void ProblemDumpExplainer::value(const HandleGraph& v) {
     });
     array_end();
     object_end();
+}
+
+void ProblemDumpExplainer::value(const handle_t& v, const HandleGraph& context) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    // Implement via pos_t serialization.
+    this->value(make_pos_t(context.get_id(v), context.get_is_reverse(v), 0));
 }
 
 const size_t DiagramExplainer::MAX_DISPLAYED_SUGGESTIONS_PER_CATEGORY {5};
