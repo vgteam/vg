@@ -257,6 +257,21 @@ public:
     static constexpr size_t default_max_indel_bases = 50;
     size_t max_indel_bases = default_max_indel_bases;
     
+    /// If a chain's score is smaller than the best 
+    /// chain's score by more than this much, don't align it
+    static constexpr double default_chain_score_threshold = 200;
+    double chain_score_threshold = default_chain_score_threshold;
+    
+    /// Disregard the chain score thresholds when they would give us
+    /// fewer than this many chains.
+    static constexpr int default_min_chains = 2;
+    int min_chains = default_min_chains;
+    
+    /// Even if we would have fewer than min_chains results, don't
+    /// process anything with a score smaller than this.
+    static constexpr int default_chain_min_score = 1000;
+    int chain_min_score = default_chain_min_score;
+    
     /////////////////
     // More shared parameters:
     /////////////////

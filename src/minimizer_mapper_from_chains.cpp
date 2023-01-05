@@ -943,11 +943,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Go through the processed clusters in estimated-score order.
     process_until_threshold_b<int>(cluster_alignment_score_estimates,
-        extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t processed_num) -> bool {
+        chain_score_threshold, min_chains, max_alignments, rng, [&](size_t processed_num) -> bool {
             // This processed cluster is good enough.
             // Called in descending score order.
             
-            if (cluster_alignment_score_estimates[processed_num] < extension_set_min_score) {
+            if (cluster_alignment_score_estimates[processed_num] < chain_min_score) {
                 // Actually discard by score
                 discard_processed_cluster_by_score(processed_num);
                 return false;
@@ -988,7 +988,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 best_alignments[0] = find_chain_alignment(aln, {seed_anchors, eligible_seeds}, chain);
                     
                 // TODO: Come up with a good secondary for the cluster somehow.
-                // Traceback over the remaining extensions?
             } else {
                 // We would do base-level alignment but it is disabled.
                 // Leave best_alignment unaligned
@@ -1224,7 +1223,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
         set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
         set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
+        set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
+        set_annotation(mappings[0], "param_chain-score", (double) chain_score_threshold);
+        set_annotation(mappings[0], "param_chain-min-score", (double) chain_min_score);
+        set_annotation(mappings[0], "param_min-chains", (double) min_chains);
         
         set_annotation(mappings[0], "precluster_connections_explored", (double)precluster_connection_explored_count);
         set_annotation(mappings[0], "precluster_connections_total", (double)precluster_connections.size());

@@ -243,6 +243,29 @@ static GroupedOptionGroup get_options() {
         MinimizerMapper::default_min_lookback_items,
         "minimum items to look back when chaining"
     );
+    
+    chaining_opts.add_range(
+        "chain-score-threshold",
+        &MinimizerMapper::chain_score_threshold,
+        MinimizerMapper::default_chain_score_threshold,
+        "only align chains if their score is within this many points of the best score",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "min-chains",
+        &MinimizerMapper::min_chains,
+        MinimizerMapper::default_min_chains,
+        "ignore score threshold to get this many chains aligned",
+        int_is_nonnegative
+    );
+   chaining_opts.add_range(
+        "chain-min-score",
+        &MinimizerMapper::chain_min_score,
+        MinimizerMapper::default_chain_min_score,
+        "do not align chains with less than this score",
+        int_is_nonnegative
+    );
+    
     chaining_opts.add_range(
         "max-chain-connection",
         &MinimizerMapper::max_chain_connection,
