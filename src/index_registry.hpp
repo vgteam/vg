@@ -50,13 +50,6 @@ using RecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*
                                                    const IndexGroup&)>;
 
 /**
- * Is a recipe to create the files (returned by name) associated with some
- * indexes, from a series of input indexes, given the plan they are being
- * generated for.
- */
-using JointRecipeFunc = function<vector<vector<vector<string>>>(const vector<const IndexFile*>&,const IndexingPlan*)>;
-
-/**
  * A struct namespace for global handling of parameters used by
  * the IndexRegistry
  */
@@ -135,6 +128,8 @@ struct VGIndexes {
     static vector<IndexName> get_default_map_indexes();
     /// A list of the identifiers of the default indexes to run vg mpmap
     static vector<IndexName> get_default_mpmap_indexes();
+    /// A list of the identifiers of the default indexes to run rpvg
+    static vector<IndexName> get_default_rpvg_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe
     static vector<IndexName> get_default_giraffe_indexes();
 };
@@ -233,20 +228,9 @@ public:
                                const vector<IndexName>& input_identifiers,
                                const RecipeFunc& exec);
                         
-//    /// Register a recipe to produce multiple indexes.
-//    /// Individual index recipes must still be registered; this recipe will be
-//    /// used to simplify the plan when the individual recipes with the same
-//    /// input set are all called.
-//    ///
-//    /// Joint recipes may also be used to generate single indexes if they have
-//    /// higher priority than other recipes.
-//    ///
-//    /// All output identifiers must be distinct, and there must be at least
-//    /// one. Only one multi-index recipe can be applied to simplify the
-//    /// production of any given index in a plan.
-//    void register_joint_recipe(const vector<IndexName>& identifiers,
-//                               const vector<IndexName>& input_identifiers,
-//                               const JointRecipeFunc& exec);
+    /// Indicate one recipe is a broadened version of another. The indexes consumed and produced
+    /// by the generalization must be semantically identical to those of the generalizee
+    void register_generalization(const RecipeName& generalizer, const RecipeName& generalizee);
     
     /// Indicate a serialized file that contains some identified index
     void provide(const IndexName& identifier, const string& filename);
@@ -334,9 +318,8 @@ protected:
     /// The storage struct for recipes, which may make index
     map<IndexGroup, vector<IndexRecipe>> recipe_registry;
     
-    /// Record that, when the given input indexes are available, this
-    /// collection of recipes is efficient to run together.
-    vector<pair<vector<IndexName>, vector<RecipeName>>> simplifications;
+    /// Map from generalizees to generalizers
+    map<RecipeName, RecipeName> generalizations;
     
     /// Temporary directory in which indexes will live
     string work_dir;
