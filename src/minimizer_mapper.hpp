@@ -208,7 +208,7 @@ public:
     size_t min_precluster_connections = default_min_precluster_connections;
     
     /// How many connections between preclusters should we reseed over, maximum?
-    static constexpr size_t default_max_precluster_connections = 100;
+    static constexpr size_t default_max_precluster_connections = 50;
     size_t max_precluster_connections = default_max_precluster_connections;
     
     /// When connecting subclusters for reseeding, how far should we search?
@@ -259,17 +259,17 @@ public:
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it
-    static constexpr double default_chain_score_threshold = 200;
+    static constexpr double default_chain_score_threshold = 100;
     double chain_score_threshold = default_chain_score_threshold;
     
     /// Disregard the chain score thresholds when they would give us
     /// fewer than this many chains.
-    static constexpr int default_min_chains = 2;
+    static constexpr int default_min_chains = 1;
     int min_chains = default_min_chains;
     
     /// Even if we would have fewer than min_chains results, don't
     /// process anything with a score smaller than this.
-    static constexpr int default_chain_min_score = 1000;
+    static constexpr int default_chain_min_score = 100;
     int chain_min_score = default_chain_min_score;
     
     /////////////////
