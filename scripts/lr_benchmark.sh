@@ -20,24 +20,24 @@ INPUT_MIN_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graph
 INPUT_XG_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg
 
 # Make a work directory
-WORKDIR="$(mktemp -d)"
-echo "Working in ${WORKDIR}"
+WORK_DIR="$(mktemp -d)"
+echo "Working in ${WORK_DIR}"
 
 # Map reads using correctness tracking.
 # Make sure to apply multi-position annotation which Giraffe won't do.
-vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track_correctness --progress | vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position >"${WORK_DIR}/annotated.gam"
+vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position >"${WORK_DIR}/annotated.gam"
 # Compute general stats
 vg stats -a "${WORK_DIR}/annotated.gam" >"${OUT_DIR}/stats.txt"
 # See if they get close enough to be correct
-vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv "${WORKDIR}/benchmark.tsv"
+vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv "${WORK_DIR}/benchmark.tsv"
 # Compute a correctness rate
-TOTAL_READS="(cat "${WORKDIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
-CORRECT_READS="(cat "${WORKDIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
+TOTAL_READS="(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
+CORRECT_READS="(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
 CORRECT_FRACTION="$(echo "${CORRECT_READS}/${TOTAL_READS}" | bc -l)"
 echo "Correct fraction: ${CORRECT_FRACTION}" >"${OUT_DIR}/results.txt"
 cat "${OUT_DIR}/results.txt"
 # Make a QQ plot
-scripts/plot-qq.R "${WORKDIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
+scripts/plot-qq.R "${WORK_DIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
 # Clean up the work directory
-rm -Rf "${WORKDIR}"
+rm -Rf "${WORK_DIR}"
 
