@@ -29,15 +29,15 @@ vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GB
 # Compute general stats
 vg stats -a "${WORK_DIR}/annotated.gam" >"${OUT_DIR}/stats.txt"
 # See if they get close enough to be correct
-vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv "${OUT_DIR}/benchmark.tsv"
+vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv "${WORKDIR}/benchmark.tsv"
 # Compute a correctness rate
-TOTAL_READS="(cat "${OUT_DIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
-CORRECT_READS="(cat "${OUT_DIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
+TOTAL_READS="(cat "${WORKDIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
+CORRECT_READS="(cat "${WORKDIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
 CORRECT_FRACTION="$(echo "${CORRECT_READS}/${TOTAL_READS}" | bc -l)"
 echo "Correct fraction: ${CORRECT_FRACTION}" >"${OUT_DIR}/results.txt"
 cat "${OUT_DIR}/results.txt"
 # Make a QQ plot
-scripts/plot-qq.R "${OUT_DIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
+scripts/plot-qq.R "${WORKDIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
 # Clean up the work directory
 rm -Rf "${WORKDIR}"
 
