@@ -131,6 +131,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa6379c95c71b6a6682311733de098d1f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StrandSplitGraph.html#aa6379c95c71b6a6682311733de098d1f">get_underlying_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
 <tr class="memdesc:aa6379c95c71b6a6682311733de098d1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">ExpandingOverlayGraph interface.  <a href="classvg_1_1StrandSplitGraph.html#aa6379c95c71b6a6682311733de098d1f">More...</a><br /></td></tr>
 <tr class="separator:aa6379c95c71b6a6682311733de098d1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a66d77e125b056b19273bb037fef6012c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StrandSplitGraph.html#a66d77e125b056b19273bb037fef6012c">has_overlay_node_for</a> (const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;underlying_id) const</td></tr>
+<tr class="memdesc:a66d77e125b056b19273bb037fef6012c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extra methods.  <a href="classvg_1_1StrandSplitGraph.html#a66d77e125b056b19273bb037fef6012c">More...</a><br /></td></tr>
+<tr class="separator:a66d77e125b056b19273bb037fef6012c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab60c1d256ba23abea598861ca7cf7f42"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StrandSplitGraph.html#ab60c1d256ba23abea598861ca7cf7f42">get_overlay_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;underlying_handle) const</td></tr>
+<tr class="separator:ab60c1d256ba23abea598861ca7cf7f42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1ExpandingOverlayGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1ExpandingOverlayGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1ExpandingOverlayGraph.html">handlegraph::ExpandingOverlayGraph</a></td></tr>
 <tr class="memitem:a9d7cac3cf3b289fe1980d0575e70be72 inherit pub_methods_classhandlegraph_1_1ExpandingOverlayGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1ExpandingOverlayGraph.html#a9d7cac3cf3b289fe1980d0575e70be72">~ExpandingOverlayGraph</a> ()=default</td></tr>
 <tr class="separator:a9d7cac3cf3b289fe1980d0575e70be72 inherit pub_methods_classhandlegraph_1_1ExpandingOverlayGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -513,6 +518,25 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="ab60c1d256ba23abea598861ca7cf7f42"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab60c1d256ba23abea598861ca7cf7f42">&#9670;&nbsp;</a></span>get_overlay_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::StrandSplitGraph::get_overlay_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>underlying_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the handle in the overlay graph that corresponds to a handle and orientation in the underlying graph. Reverse versions of underlying graph nodes become the locally-forward overlay node that represents them. </p>
+
+</div>
+</div>
 <a id="a878c4be6f6ad6652d3b33f2691bbb570"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a878c4be6f6ad6652d3b33f2691bbb570">&#9670;&nbsp;</a></span>get_sequence()</h2>
 
@@ -600,6 +624,27 @@ Additional Inherited Members</h2></td></tr>
 <p>HandleGraph interface. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a6e58a79001cd7d839ac1f1adaff34dfb">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="a66d77e125b056b19273bb037fef6012c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a66d77e125b056b19273bb037fef6012c">&#9670;&nbsp;</a></span>has_overlay_node_for()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::StrandSplitGraph::has_overlay_node_for </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>underlying_id</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Extra methods. </p>
+<p>Returns true if any nodes in the overlay correspond to the given node in the underlying graph. </p>
 
 </div>
 </div>

@@ -206,6 +206,9 @@ $(function() {
 <li>chain_info_to_seed()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#ab19f157dd4654012f36303b3d6490199">vg::MinimizerMapper</a>
 </li>
+<li>chain_min_score
+: <a class="el" href="classvg_1_1MinimizerMapper.html#ab217ad6159147701442ddbacefc1e172">vg::MinimizerMapper</a>
+</li>
 <li>chain_of()
 : <a class="el" href="classvg_1_1SnarlManager.html#a411e51927a6f65513e55b8efc02237a8">vg::SnarlManager</a>
 </li>
@@ -214,6 +217,9 @@ $(function() {
 </li>
 <li>chain_rank_of()
 : <a class="el" href="classvg_1_1SnarlManager.html#a7fcb9d66d4de93aa61ceb6d01e2efd4e">vg::SnarlManager</a>
+</li>
+<li>chain_score_threshold
+: <a class="el" href="classvg_1_1MinimizerMapper.html#a012d6c74e5b277ee2e6367cf23bfd080">vg::MinimizerMapper</a>
 </li>
 <li>chain_start
 : <a class="el" href="structvg_1_1ChainIterator.html#a61e019f94f481b190d14bebe51264c09">vg::ChainIterator</a>
@@ -529,7 +535,7 @@ $(function() {
 : <a class="el" href="classvg_1_1IndexRegistry.html#a1a39419b55745505a20ee70bfdc43f48">vg::IndexRegistry</a>
 </li>
 <li>CompletedTranscriptPath()
-: <a class="el" href="structvg_1_1CompletedTranscriptPath.html#a159b9e750c37a9bbe1b1509e3ebca344">vg::CompletedTranscriptPath</a>
+: <a class="el" href="structvg_1_1CompletedTranscriptPath.html#a2ccd3feaa958a813a2121d99cc7283f3">vg::CompletedTranscriptPath</a>
 </li>
 <li>component_min_dist
 : <a class="el" href="classvg_1_1MultipathMapper.html#a0e4207de854cc470b9bd734b459e1b9c">vg::MultipathMapper</a>
@@ -574,7 +580,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#a84bcb00f3e4cb834cdbc62beaec8f894">vg::GSSWAligner</a>
 </li>
 <li>compute_mapping_qualities()
-: <a class="el" href="classvg_1_1Mapper.html#ad062cafbbb49bc4960e59b3ffd499ca8">vg::Mapper</a>
+: <a class="el" href="classvg_1_1Mapper.html#af4905e4355e1132811a974cb5cb42e95">vg::Mapper</a>
 </li>
 <li>compute_mapping_quality()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a627256abe48089a54509400db8916ff3">vg::GSSWAligner</a>
@@ -642,7 +648,7 @@ $(function() {
 : <a class="el" href="classvg_1_1subpath__t.html#ac69a45141f2de5117178e2b000ec9507">vg::subpath_t</a>
 </li>
 <li>connection_t()
-: <a class="el" href="classvg_1_1connection__t.html#ae8ba824a4323fa99471a02d908df41c0">vg::connection_t</a>
+: <a class="el" href="classvg_1_1connection__t.html#abd98927a5c23d95159667eba540b4646">vg::connection_t</a>
 </li>
 <li>connectivity
 : <a class="el" href="classvg_1_1NetGraph.html#aa1014dccd8e1bfa54a434a6caf0c4d40">vg::NetGraph</a>
@@ -698,7 +704,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#ae4a5790fef0070239e02d0f14bab68c3">vg::GraphSynchronizer::Lock</a>
 </li>
 <li>context_jaccard()
-: <a class="el" href="classvg_1_1Deconstructor.html#a0703ac63708300fccecc4443a5436985">vg::Deconstructor</a>
+: <a class="el" href="classvg_1_1Deconstructor.html#a524f479f34e1ea8cf64f6a95819af1a5">vg::Deconstructor</a>
 </li>
 <li>context_length
 : <a class="el" href="structGBWTConfig.html#acc79271b2d7fe244bb008277aa3564ec">GBWTConfig</a>
@@ -775,11 +781,11 @@ $(function() {
 <li>count_threads
 : <a class="el" href="structGBWTConfig.html#a31e7a91a5698d2561b555bcdc1cf59d7">GBWTConfig</a>
 </li>
-<li>counts
-: <a class="el" href="structvg_1_1Counts.html#ada1e3e24df7c078970806cb6da1fce51">vg::Counts</a>
-</li>
 <li>Counts()
 : <a class="el" href="structvg_1_1Counts.html#a87773870a3b04302bec59e41e5bdbc2e">vg::Counts</a>
+</li>
+<li>counts
+: <a class="el" href="structvg_1_1Counts.html#ada1e3e24df7c078970806cb6da1fce51">vg::Counts</a>
 </li>
 <li>cov_bin_size
 : <a class="el" href="classvg_1_1Packer.html#a63fd3c0a6d18bbb64f18e3afbecd552c">vg::Packer</a>
@@ -821,21 +827,21 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a3316b8a1a84bdc728bdfe9cf2064f727">vg::MultipathAlignmentEmitter</a>
 </li>
 <li>create_edge()
-: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a34a5e01f270713ba856a93c55039faf0">handlegraph::MutableHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a3ff0a0f9497da3498170fdfc2ce97797">handlegraph::MutableHandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>
 </li>
 <li>create_gssw_graph()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a46733f8704aeffeca98904240c774823">vg::GSSWAligner</a>
 </li>
 <li>create_handle()
-: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a292614805cec28a1d863bbdb494d1c04">vg::VG</a>
+: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">handlegraph::MutableHandleGraph</a>
+, <a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">vg::VG</a>
 </li>
 <li>create_identity_projection_trans()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af626a9a7a96800aa13aa257a5781fffe">vg::MultipathAlignmentGraph</a>
 </li>
 <li>create_injection_trans()
-: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a00d9d6f3a0995aabf9d09204dd6a4ac9">vg::MultipathAlignmentGraph</a>
+: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8cbd1429036d9f365bd361ffbc8aa855">vg::MultipathAlignmentGraph</a>
 </li>
 <li>create_item()
 : <a class="el" href="classvg_1_1Funnel.html#a9d28d3fee3f8658d59a63c52338644e2">vg::Funnel</a>
@@ -844,7 +850,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ad8f0e93b7dd5db8e92e7889629784c70">vg::MultipathAlignmentGraph</a>
 </li>
 <li>create_node()
-: <a class="el" href="classvg_1_1VG.html#a8cb95ac1c24c5263a962c13f3d6bc0c3">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#aefa25ac8acfa9407e8489b402f6317dc">vg::VG</a>
 </li>
 <li>create_path()
 : <a class="el" href="classhandlegraph_1_1MutablePathMetadata.html#a8c430d07cbfe89f05b374bb818ce0885">handlegraph::MutablePathMetadata</a>
@@ -863,7 +869,7 @@ $(function() {
 : <a class="el" href="classhandlegraph_1_1PathMetadata.html#aab22165da25ce2036f708203039760c4">handlegraph::PathMetadata</a>
 </li>
 <li>create_progress()
-: <a class="el" href="classvg_1_1Progressive.html#a1cce3f715516ed2bbb4ce3a312b01e02">vg::Progressive</a>
+: <a class="el" href="classvg_1_1Progressive.html#a75d4e92a36a277be5bc0cee5d01f5ca1">vg::Progressive</a>
 </li>
 <li>create_projector()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a4f4f566eaf695fac8c08dc6e5c2083a7">vg::MultipathAlignmentGraph</a>

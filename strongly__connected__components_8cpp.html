@@ -73,7 +73,8 @@ $(function() {
 <div class="title">strongly_connected_components.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;handlegraph/algorithms/strongly_connected_components.hpp&quot;</code><br />
+<div class="textblock"><code>#include &quot;handlegraph/algorithms/internal/dfs.hpp&quot;</code><br />
+<code>#include &quot;handlegraph/algorithms/strongly_connected_components.hpp&quot;</code><br />
 <code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 </div><table class="memberdecls">
@@ -86,12 +87,6 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a0a48bf63991e72bdfdadeae1dd71598d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a0a48bf63991e72bdfdadeae1dd71598d">handlegraph::algorithms::dfs</a> (const HandleGraph &amp;graph, const function&lt; void(const handle_t &amp;)&gt; &amp;handle_begin_fn, const function&lt; void(const handle_t &amp;)&gt; &amp;handle_end_fn, const function&lt; bool(void)&gt; &amp;break_fn, const function&lt; void(const edge_t &amp;)&gt; &amp;edge_fn, const function&lt; void(const edge_t &amp;)&gt; &amp;tree_fn, const function&lt; void(const edge_t &amp;)&gt; &amp;edge_curr_fn, const function&lt; void(const edge_t &amp;)&gt; &amp;edge_cross_fn, const vector&lt; handle_t &gt; &amp;sources, const unordered_set&lt; handle_t &gt; &amp;sinks)</td></tr>
-<tr class="separator:a0a48bf63991e72bdfdadeae1dd71598d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae28021b83c634fe45849fa51d932796c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#ae28021b83c634fe45849fa51d932796c">handlegraph::algorithms::dfs</a> (const HandleGraph &amp;graph, const function&lt; void(const handle_t &amp;)&gt; &amp;handle_begin_fn, const function&lt; void(const handle_t &amp;)&gt; &amp;handle_end_fn, const vector&lt; handle_t &gt; &amp;sources, const unordered_set&lt; handle_t &gt; &amp;sinks)</td></tr>
-<tr class="separator:ae28021b83c634fe45849fa51d932796c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aafa1c9cc8a5035576a29a5f313adfd8e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#aafa1c9cc8a5035576a29a5f313adfd8e">handlegraph::algorithms::dfs</a> (const HandleGraph &amp;graph, const function&lt; void(const handle_t &amp;)&gt; &amp;handle_begin_fn, const function&lt; void(const handle_t &amp;)&gt; &amp;handle_end_fn, const function&lt; bool(void)&gt; &amp;break_fn)</td></tr>
-<tr class="separator:aafa1c9cc8a5035576a29a5f313adfd8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3c63833d51eac5a3141211367935e9e5"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; nid_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a3c63833d51eac5a3141211367935e9e5">handlegraph::algorithms::strongly_connected_components</a> (const HandleGraph *handle_graph)</td></tr>
 <tr class="separator:a3c63833d51eac5a3141211367935e9e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
