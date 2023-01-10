@@ -2016,12 +2016,12 @@ map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const
     return offsets;
 }
 
-void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base) {
+void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base, const unordered_map<string, string>* translation) {
     auto base_offsets = alignment_refpos_to_path_offsets(base);
-    return alignment_set_distance_to_correct(aln, base_offsets);
+    return alignment_set_distance_to_correct(aln, base_offsets, translation);
 }
 
-void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets) {
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets, const unordered_map<string, string>* translation) {
     auto aln_offsets = alignment_refpos_to_path_offsets(aln);
     // bail out if we can't compare
     if (!(aln_offsets.size() && base_offsets.size())) return;
@@ -2029,7 +2029,15 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     Position result;
     size_t min_distance = std::numeric_limits<size_t>::max();
     for (auto& path : aln_offsets) {
-        auto& name = path.first;
+        auto name = path.first;
+        if (translation) {
+            // See if we need to translate the name of the path
+            auto found = translation->find(name);
+            if (found != translation->end()) {
+                // We have a replacement so apply it.
+                name = found->second;
+            }
+        }
         auto& aln_positions = path.second;
         auto f = base_offsets.find(name);
         if (f == base_offsets.end()) continue;

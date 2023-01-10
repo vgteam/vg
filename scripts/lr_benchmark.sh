@@ -20,25 +20,50 @@ INPUT_DIST_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/grap
 INPUT_MIN_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.min
 INPUT_XG_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg
 
-# Make a work directory
-WORK_DIR="$(mktemp -d)"
+if [[ "${WORK_DIR}" == "" ]] ; then
+    # Make a work directory
+    WORK_DIR="$(mktemp -d)"
+    CLEAN_WORK_DIR=1
+else
+    # Let the user send one in in the environment.
+    CLEAN_WORK_DIR=0
+fi
+
 echo "Working in ${WORK_DIR}"
 
-# Map reads using correctness tracking.
-# Make sure to apply multi-position annotation which Giraffe won't do.
-vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position >"${WORK_DIR}/annotated.gam"
+if [[ ! -e "${WORK_DIR}/annotated.gam" ]] ; then
+    # Map reads using correctness tracking.
+    # Make sure to apply multi-position annotation which Giraffe won't do.
+    vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position >"${WORK_DIR}/annotated.gam"
+fi
+
 # Compute general stats
 vg stats -a "${WORK_DIR}/annotated.gam" >"${OUT_DIR}/stats.txt"
-# See if they get close enough to be correct
-vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv "${WORK_DIR}/benchmark.tsv"
+
+# Our truth reads are bare contigs but our graph includes assembly and "chr".
+# TODO: Is this the right mitochondria name? Is chrM even in the reads?
+RENAMES=(--rename GRCh38.chrM=MT)
+for CONTIG in {1..22} X Y ; do
+    RENAMES+=(--rename "GRCh38.chr${CONTIG}=${CONTIG}")
+done
+
+if [[ ! -e "${WORK_DIR}/benchmark.tsv" ]] ; then
+    # See if reads get close enough to be correct
+    vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv >"${WORK_DIR}/benchmark.tsv" "${RENAMES[@]}"
+fi
+
+# Make a QQ plot
+scripts/plot-qq.R "${WORK_DIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
+
 # Compute a correctness rate
-TOTAL_READS="(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
-CORRECT_READS="(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
+TOTAL_READS="$(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
+CORRECT_READS="$(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
 CORRECT_FRACTION="$(echo "${CORRECT_READS}/${TOTAL_READS}" | bc -l)"
 echo "Correct fraction: ${CORRECT_FRACTION}" >"${OUT_DIR}/results.txt"
 cat "${OUT_DIR}/results.txt"
-# Make a QQ plot
-scripts/plot-qq.R "${WORK_DIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
-# Clean up the work directory
-rm -Rf "${WORK_DIR}"
+
+if [[ "${CLEAN_WORK_DIR}" == "1" ]] ; then
+    # Clean up the work directory
+    rm -Rf "${WORK_DIR}"
+fi
 

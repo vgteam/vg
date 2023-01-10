@@ -26,6 +26,7 @@ void help_gamcompare(char** argv) {
          << "options:" << endl
          << "    -d, --distance-index FILE  use distances from this distance index instead of path position annotations" << endl
          << "    -r, --range N              distance within which to consider reads correct" << endl
+         << "    -n, --rename Q=T           interpret the given query contig name as the given truth contig (may repeat)" << endl
          << "    -T, --tsv                  output TSV (correct, mq, aligner, read) compatible with plot-qq.R instead of GAM" << endl
          << "    -a, --aligner              aligner name for TSV output [\"vg\"]" << endl
          << "    -s, --score-alignment      get a correctness score of the alignment (higher is better)" << endl
@@ -95,6 +96,8 @@ int main_gamcompare(int argc, char** argv) {
     string aligner_name = "vg";
     bool score_alignment = false;
     string distance_name;
+    // Map from query contigs to corresponding truth contigs
+    std::unordered_map<string, string> renames;
 
     int c;
     optind = 2;
@@ -104,6 +107,7 @@ int main_gamcompare(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"distance-index", required_argument, 0, 'd'},
             {"range", required_argument, 0, 'r'},
+            {"rename", required_argument, 0, 'n'},
             {"tsv", no_argument, 0, 'T'},
             {"aligner", required_argument, 0, 'a'},
             {"score-alignment", no_argument, 0, 's'},
@@ -112,7 +116,7 @@ int main_gamcompare(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:r:Ta:st:",
+        c = getopt_long (argc, argv, "hd:r:n:Ta:st:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -123,6 +127,23 @@ int main_gamcompare(int argc, char** argv) {
 
         case 'r':
             range = parse<int>(optarg);
+            break;
+            
+        case 'n':
+            {
+                // Parse the rename old=new
+                string key_value(optarg);
+                auto found = key_value.find('=');
+                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
+                    cerr << "error:[vg gamcompare] could not parse rename " << key_value << endl;
+                    exit(1);
+                }
+                // Parse out the two parts
+                string query_contig = key_value.substr(0, found);
+                string truth_contig = key_value.substr(found + 1);
+                // Add the name mapping
+                renames.emplace(query_contig, truth_contig);
+            }
             break;
 
         case 'd':
@@ -269,7 +290,7 @@ int main_gamcompare(int argc, char** argv) {
             //If the distance index isn't used
             auto iter = true_path_positions.find(aln.name());
             if (iter != true_path_positions.end()) {
-                alignment_set_distance_to_correct(aln, iter->second);
+                alignment_set_distance_to_correct(aln, iter->second, &renames);
                 found = true;
             }
         } else {
