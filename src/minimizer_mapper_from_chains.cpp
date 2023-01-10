@@ -1191,7 +1191,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (track_provenance) {
         if (track_correctness) {
-            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, funnel);
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, old_seed_count, funnel);
         }
         // Annotate with parameters used for the filters and algorithms.
         
