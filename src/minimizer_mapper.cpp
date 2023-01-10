@@ -1263,7 +1263,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 }
 
-// For paired-end alignment we use a bunch of structures indexed by clustering fragment, then read, then alignment of the read. So we define some insex types and lookup functions to deal with these.
+// For paired-end alignment we use a bunch of structures indexed by clustering
+// fragment, then read, then alignment of the read. So we define some index
+// types and lookup functions to deal with these.
 // TODO: Make these local classes when C++ learns to let you use template members in local classes.
 
 /// Type to point to an alignment of a known read
@@ -1276,6 +1278,11 @@ struct read_alignment_index_t {
     template<typename NestedArray>
     auto lookup_for_read_in(bool read, NestedArray& a) const -> typename std::add_lvalue_reference<decltype(a[0][0][0])>::type {
         return a[fragment][read][alignment]; 
+    }
+    
+    template<typename NestedArray>
+    void check_for_read_in(bool read, NestedArray& a) const {
+        a.at(fragment).at(read).at(alignment); 
     }
     
     // Allow comparison
@@ -1961,6 +1968,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     for (auto r : {0, 1}) {
                         paired_alignments.back()[r] = read_alignment_index_t {fragment_num, aln_index[r]};
                     }
+                    for (auto r : {0, 1}) {
+                        // Make sure we refer to things that exist.
+                        paired_alignments.back().at(r).check_for_read_in(r, alignments);
+                    }
                     
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_distance);
@@ -2111,6 +2122,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     paired_alignments.back()[r] = best_index[r].without_read();
                     winners[r] = &best_index[r].lookup_in(alignments);
                 }
+                for (auto r : {0, 1}) {
+                    // Make sure we refer to things that exist.
+                    paired_alignments.back().at(r).check_for_read_in(r, alignments);
+                }
                 
                 //Assume the distance between them is infinite
                 double pair_score = score_alignment_pair(*winners[0], *winners[1], std::numeric_limits<int64_t>::max());
@@ -2187,6 +2202,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     index_pair[1 - index.read] = rescued_index;
                     
                     paired_alignments.emplace_back(std::move(index_pair));
+                    for (auto r : {0, 1}) {
+                        // Make sure we refer to things that exist.
+                        paired_alignments.back().at(r).check_for_read_in(r, alignments);
+                    }
+                    
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
                     pair_types.push_back(index.read == 0 ? rescued_from_first : rescued_from_second); 
