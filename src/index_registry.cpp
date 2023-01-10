@@ -423,7 +423,14 @@ bool execute_in_fork(const function<void(void)>& exec) {
     // pass through signal-based exits
     if (WIFSIGNALED(child_stat)) {
         cerr << "error:[IndexRegistry] child process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
-        raise(WTERMSIG(child_stat));
+        if (raise(WTERMSIG(child_stat)) == 0) {
+            // TODO: on Mac, raise isn't guaranteed to not return before the handler if it succeeds.
+            // Also the signal might not be one that necessarily kills us.
+            exit(1);
+        } else {
+            // We couldn't send ourselves the signal.
+            exit(1);
+        }
     }
     
     assert(WIFEXITED(child_stat));

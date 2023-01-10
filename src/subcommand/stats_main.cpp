@@ -630,6 +630,8 @@ int main_stats(int argc, char** argv) {
             // ("0"). A read only counts if it visits a node that's on one allele
             // and not any others in that site.
             map<string, map<string, size_t>> reads_on_allele;
+            
+            double total_time_seconds = 0.0;
         
             inline ReadStats& operator+=(const ReadStats& other) {
                 total_alignments += other.total_alignments;
@@ -665,6 +667,8 @@ int main_stats(int argc, char** argv) {
                         dest[kv2.first] += kv2.second;
                     }
                 }
+                
+                total_time_seconds += other.total_time_seconds;
                 
                 return *this;
             }
@@ -772,6 +776,9 @@ int main_stats(int argc, char** argv) {
                         stats.total_proper_paired++;
                     }
                 }
+                
+                // Record the number of thread-seconds used. Time is only counted on the primaries.
+                stats.total_time_seconds += aln.time_used(); 
 
                 // Which sites and alleles does this read support. TODO: if we hit
                 // unique nodes from multiple alleles of the same site, we should...
@@ -868,7 +875,6 @@ int main_stats(int argc, char** argv) {
                 
                 // If there's no non-softclip indel edits, the alignment is gapless
                 stats.total_gapless += !has_non_softclip_indel_edits && has_alignment;
-            
             }
 
         };
@@ -1014,6 +1020,12 @@ int main_stats(int argc, char** argv) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
+        }
+        
+        if (combined.total_time_seconds > 0.0) {
+            // Time was recorded
+            cout << "Total time: " << combined.total_time_seconds << " seconds" << endl;
+            cout << "Speed: " << (combined.total_primary / combined.total_time_seconds) << " reads/second" << endl;
         }
         
         if (graph.get() != nullptr) {

@@ -344,7 +344,9 @@ then
     # as binaries only to avoid wasting CI time building some slightly nicer
     # version Pip prefers.
     pip3 install pytest timeout_decorator requests dateutils
-    pip3 install numpy scipy scikit-learn --only-binary :all:
+    # TODO: To upgrade to Numpy 1.24+, we need to remove usages of `numpy.int`
+    # AKA `np.int` from toil-vg. See <https://stackoverflow.com/a/74946903>
+    pip3 install 'numpy==1.23.5' scipy scikit-learn --only-binary :all:
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
