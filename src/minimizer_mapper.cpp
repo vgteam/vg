@@ -2191,11 +2191,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     //add the new alignment to the list of alignments 
                     //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
                     //
-                    read_alignment_index_t mapped_index {index.read, index.alignment}; 
+                    read_alignment_index_t mapped_index = index.without_read();
                     read_alignment_index_t rescued_index {alignments.size() - 1, alignments.back()[1 - index.read].size()};
                     alignments.back()[1 - index.read].emplace_back(std::move(rescued_aln));
                     rescued_count[index.read]++;
-
+                    
                     alignment_groups.back()[1 - index.read].emplace_back();
                     std::array<read_alignment_index_t, 2> index_pair;
                     index_pair[index.read] = mapped_index;
