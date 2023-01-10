@@ -3459,10 +3459,28 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
 
 void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const {
     // Annotate with fraction covered by correct (and necessarily located) seed hits.
-    // Now that the funnel tracks tagging through stages, we can just ask it
-    // directly. It may make approximations, but that is OK.
-    std::vector<std::pair<size_t, size_t>> bounds = funnel.where_is_tagged(
-   
+    
+    // First make the set of minimizers that got correct seeds
+    std::unordered_set<size_t> seeded;
+    for (size_t i = 0; i < seeds.size(); i++) {
+        // We need to get correctness out of the funnel, since we don't tag the seed or minimizer.
+        // Correctness is assessed per seed, not per minimizer.
+        // We know seed finding was always stage 1.
+        if (funnel.was_correct(1, "seed", i)) {
+            seeded.insert(seeds[i].source);
+        }
+    }
+    
+    // Then we make a table of all the ranges covered by correct minimizers
+    std::vector<std::pair<size_t, size_t>> bounds;
+    bounds.reserve(seeded.size());
+    for(auto& minimizer_number : seeded) {
+        // For each minimizer with correct seeds
+        auto& minimizer = minimizers[minimizer_number];
+        // Cover the minimizer k-mer itself.
+        size_t start = minimizer.forward_offset();
+        bounds.emplace_back(start, start + minimizer.length);
+    }
     // Then we count the positions covered
     size_t covered_count = algorithms::count_covered(bounds);
     // And turn it into a fraction

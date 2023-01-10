@@ -342,18 +342,7 @@ bool Funnel::was_correct(size_t prev_stage_index, const string& prev_stage_name,
     assert(stages.size() > prev_stage_index);
     auto& prev_stage = stages[prev_stage_index];
     assert(prev_stage.name == prev_stage_name);
-    return prev_stage.items.at(prev_stage_item).tag >= State::CORRECT;
-}
-
-std::vector<std::pair<size_t, size_t>> Funnel::where_is_tagged(State state, size_t item) const {
-    auto& item = stages.back().items[item];
-    if (item.tag >= state) {
-        // Tagged with this or better. Return the stored region.
-        return {{item.tag_start, item.tag_start + item.tag_length}};
-    } else {
-        // Nowhere tagged with this
-        return {};
-    }
+    return prev_stage.items[prev_stage_item].tag >= State::CORRECT;
 }
 
 string Funnel::last_tagged_stage(State tag, size_t tag_start, size_t tag_length) const {

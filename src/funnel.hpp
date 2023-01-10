@@ -185,11 +185,6 @@ public:
     /// Needs a hint about what number the stage was in the order, to make
     /// lookup fast.
     bool was_correct(size_t prev_stage_index, const string& prev_stage_name, size_t prev_stage_item) const;
-    
-    /// Get the tagged regions with the given tag (or better) for the given item in the current stage.
-    /// Regions are returned as start inclusive, end exclusive.
-    /// TODO: Right now there are always 0 or 1 regions.
-    std::vector<std::pair<size_t, size_t>> where_is_tagged(State state, size_t item) const;
 
     /// Get the name of the most recent stage that had a correct-tagged item
     /// survive into it, or "none" if no items were ever tagged correct.
