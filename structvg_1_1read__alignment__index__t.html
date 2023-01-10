@@ -83,6 +83,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:add622e2d97706e4ad842ed27d2a93726"><td class="memTemplParams" colspan="2">template&lt;typename NestedArray &gt; </td></tr>
 <tr class="memitem:add622e2d97706e4ad842ed27d2a93726"><td class="memTemplItemLeft" align="right" valign="top">auto&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1read__alignment__index__t.html#add622e2d97706e4ad842ed27d2a93726">lookup_for_read_in</a> (bool read, NestedArray &amp;a) const -&gt; typename std::add_lvalue_reference&lt; decltype(a[0][0][0])&gt;::type</td></tr>
 <tr class="separator:add622e2d97706e4ad842ed27d2a93726"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acabc585a1b0aba09a1c8f03b4a9ce740"><td class="memTemplParams" colspan="2">template&lt;typename NestedArray &gt; </td></tr>
+<tr class="memitem:acabc585a1b0aba09a1c8f03b4a9ce740"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="structvg_1_1read__alignment__index__t.html#acabc585a1b0aba09a1c8f03b4a9ce740">check_for_read_in</a> (bool read, NestedArray &amp;a) const</td></tr>
+<tr class="separator:acabc585a1b0aba09a1c8f03b4a9ce740"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a194c254826c92dcbf90f2d08fb805245"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1read__alignment__index__t.html#a194c254826c92dcbf90f2d08fb805245">operator==</a> (const <a class="el" href="structvg_1_1read__alignment__index__t.html">read_alignment_index_t</a> &amp;other)</td></tr>
 <tr class="separator:a194c254826c92dcbf90f2d08fb805245"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac967a7e4d2339bf2ab83208991b0ce69"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1read__alignment__index__t.html#ac967a7e4d2339bf2ab83208991b0ce69">operator!=</a> (const <a class="el" href="structvg_1_1read__alignment__index__t.html">read_alignment_index_t</a> &amp;other)</td></tr>
@@ -98,6 +101,45 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Type to point to an alignment of a known read. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="acabc585a1b0aba09a1c8f03b4a9ce740"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acabc585a1b0aba09a1c8f03b4a9ce740">&#9670;&nbsp;</a></span>check_for_read_in()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename NestedArray &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::read_alignment_index_t::check_for_read_in </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>read</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">NestedArray &amp;&#160;</td>
+          <td class="paramname"><em>a</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Make sure that this index actually points to an alignment of the given read in the given structure. Throws if not. </p>
+
+</div>
+</div>
 <a id="add622e2d97706e4ad842ed27d2a93726"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#add622e2d97706e4ad842ed27d2a93726">&#9670;&nbsp;</a></span>lookup_for_read_in()</h2>
 
