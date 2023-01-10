@@ -36,6 +36,8 @@
 //#define debug_fragment_distr
 //Do a brute force check that clusters are correct
 //#define debug_validate_clusters
+// Make sure by-index references are correct
+//#define debug_validate_index_references
 
 namespace vg {
 
@@ -1280,6 +1282,8 @@ struct read_alignment_index_t {
         return a[fragment][read][alignment]; 
     }
     
+    /// Make sure that this index actually points to an alignment of the given
+    /// read in the given structure. Throws if not.
     template<typename NestedArray>
     void check_for_read_in(bool read, NestedArray& a) const {
         a.at(fragment).at(read).at(alignment); 
@@ -1968,10 +1972,12 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     for (auto r : {0, 1}) {
                         paired_alignments.back()[r] = read_alignment_index_t {fragment_num, aln_index[r]};
                     }
+#ifdef debug_validate_index_references
                     for (auto r : {0, 1}) {
                         // Make sure we refer to things that exist.
                         paired_alignments.back().at(r).check_for_read_in(r, alignments);
                     }
+#endif
                     
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_distance);
@@ -2122,10 +2128,12 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     paired_alignments.back()[r] = best_index[r].without_read();
                     winners[r] = &best_index[r].lookup_in(alignments);
                 }
+#ifdef debug_validate_index_references
                 for (auto r : {0, 1}) {
                     // Make sure we refer to things that exist.
                     paired_alignments.back().at(r).check_for_read_in(r, alignments);
                 }
+#endif
                 
                 //Assume the distance between them is infinite
                 double pair_score = score_alignment_pair(*winners[0], *winners[1], std::numeric_limits<int64_t>::max());
@@ -2202,10 +2210,12 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     index_pair[1 - index.read] = rescued_index;
                     
                     paired_alignments.emplace_back(std::move(index_pair));
+#ifdef debug_validate_index_references
                     for (auto r : {0, 1}) {
                         // Make sure we refer to things that exist.
                         paired_alignments.back().at(r).check_for_read_in(r, alignments);
                     }
+#endif
                     
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
