@@ -53,7 +53,7 @@ protected:
 class ProblemDumpExplainer : public Explainer {
 public:
     /// Construct a ProblemDumpExplainer that will save a dump of a problem to a file.
-    ProblemDumpExplainer();
+    ProblemDumpExplainer(const std::string& name = "problem");
     /// Close out the file being explained to
     ~ProblemDumpExplainer();
     
@@ -90,6 +90,9 @@ public:
     /// Put a value after a key or in an array.
     /// Represents the graph as a single chunk vg Protobuf Graph.
     void value(const HandleGraph& v);
+    /// Put a value after a key or in an array.
+    /// Represents a handle as a vg Protobuf Position.
+    void value(const handle_t& v, const HandleGraph& context);
     
 protected:
     /// Stream being written to

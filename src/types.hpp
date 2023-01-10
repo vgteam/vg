@@ -69,6 +69,11 @@ inline bool is_empty(const pos_t& pos) {
     return (id(pos) == 0);
 }
 
+/// Get an unset pos_t
+inline pos_t empty_pos_t() {
+    return {0, false, 0};
+}
+
 /// Reverse a pos_t and get a pos_t at the same **point between bases**, going the other direction.
 /// To get a pos_t to the same *base*, subtract 1 from the resulting offset or call reverse_base_pos().
 inline pos_t reverse(const pos_t& pos, size_t node_length) {
