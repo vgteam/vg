@@ -695,9 +695,10 @@ protected:
      * Add annotations to an Alignment with statistics about the minimizers.
      *
      * old_seed_count is the number of seeds in the seed vector actually
-     * created at the "seed" stage of the alignment process.
+     * created at the "seed" stage of the alignment process. new_seed_offset is
+     * where the first of thos eseeds appears in the funnel at the reseed stage.
      */
-    void annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t old_seed_count, const Funnel& funnel) const;
+    void annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t old_seed_count, size_t new_seed_offset, const Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 

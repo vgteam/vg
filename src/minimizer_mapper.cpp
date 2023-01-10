@@ -1096,7 +1096,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     
     if (track_provenance) {
         if (track_correctness) {
-            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), funnel);
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, seeds.size(), 0, funnel);
         }
         // Annotate with parameters used for the filters.
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
@@ -2557,7 +2557,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     
         if (track_provenance) {
             if (track_correctness) {
-                annotate_with_minimizer_statistics(mappings[r].front(), minimizers_by_read[r], seeds_by_read[r], seeds_by_read[r].size(), funnels[r]);
+                annotate_with_minimizer_statistics(mappings[r].front(), minimizers_by_read[r], seeds_by_read[r], seeds_by_read[r].size(), 0, funnels[r]);
             }
             // Annotate with parameters used for the filters.
             set_annotation(mappings[r].front(), "param_hit-cap", (double) hit_cap);
@@ -3457,7 +3457,7 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
     }
 }
 
-void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t old_seed_count, const Funnel& funnel) const {
+void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t old_seed_count, size_t new_seed_offset, const Funnel& funnel) const {
     // Annotate with fraction covered by correct (and necessarily located) seed hits.
     
     // First make the set of minimizers that got correct seeds
@@ -3476,7 +3476,9 @@ void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, cons
             // This seed must have been created at the reseed stage in the
             // align_from_chains codepath. We happen to know the magic stager
             // number for it.
-            if (funnel.was_correct(3, "reseed", i)) {
+            // Make sure to translate seed number to funnel number in the reseed stage.
+            // TODO: This is a tightly coupled hack, do we even need this annotation anymore? And does it really need to include the reseeded seeds?
+            if (funnel.was_correct(3, "reseed", i - old_seed_count + new_seed_offset)) {
                 seeded.insert(seeds[i].source);
             }
         }

@@ -3,6 +3,7 @@
 # Meant to be run on UCSC Courtyard/Plaza
 
 set -e
+set -o pipefail
 
 # Where should output go?
 OUT_DIR="./lr_benchmark"
