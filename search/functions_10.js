@@ -152,7 +152,7 @@ var searchData=
   ['pop_5fback_5fstep_9376',['pop_back_step',['../classhandlegraph_1_1MutablePathHandleGraph.html#a2db5e7a66ccee26fa257c50e0d084c59',1,'handlegraph::MutablePathHandleGraph']]],
   ['pop_5ffront_5fstep_9377',['pop_front_step',['../classhandlegraph_1_1MutablePathHandleGraph.html#a67c8bfd58c5ed8136c9324f427037a7a',1,'handlegraph::MutablePathHandleGraph']]],
   ['populate_5fpath_5ffrom_5ftraceback_9378',['populate_path_from_traceback',['../namespacevg.html#a191bf7b238ea717afbf8118df0afa999',1,'vg']]],
-  ['populate_5fsnarl_5findex_9379',['populate_snarl_index',['../namespacevg.html#a2e81a7d0f05b823897ecefe1f694e957',1,'vg']]],
+  ['populate_5fsnarl_5findex_9379',['populate_snarl_index',['../namespacevg.html#a909f1da1c571aa4c8a82b2e48ac915b2',1,'vg']]],
   ['pos_9380',['pos',['../structvg_1_1WFAPoint.html#a4ea055d164ce5425235ec19d65a7073f',1,'vg::WFAPoint']]],
   ['pos_5fat_9381',['pos_at',['../structMappingRun.html#ac8d70e01cbc733abc3612693b39a465c',1,'MappingRun']]],
   ['pos_5fchar_9382',['pos_char',['../classvg_1_1Sampler.html#a72d922b802775f51f2b02046398d3417',1,'vg::Sampler::pos_char()'],['../classxg_1_1XG.html#abf551ac03c1db6030da1cedb81efc779',1,'xg::XG::pos_char()']]],

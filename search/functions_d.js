@@ -85,7 +85,7 @@ var searchData=
   ['make_5fsnarl_5fmap_8928',['make_snarl_map',['../classvg_1_1MCMCGenotyper.html#a5e31dd64fad5dfb14d38be487fc14e59',1,'vg::MCMCGenotyper']]],
   ['make_5fsubset_5fgraph_8929',['make_subset_graph',['../classvg_1_1Genotyper.html#ab11a87f5f21d3a7122ec85f6d853f336',1,'vg::Genotyper']]],
   ['make_5fsupport_8930',['make_support',['../namespacevg.html#a1c0ae5cc687e77bb7cee28e975a005b3',1,'vg']]],
-  ['make_5ftemporary_5fdistance_5findex_8931',['make_temporary_distance_index',['../namespacevg.html#add43cf1ef02485c049fd77af34f796c9',1,'vg']]],
+  ['make_5ftemporary_5fdistance_5findex_8931',['make_temporary_distance_index',['../namespacevg.html#a7eec172f798f421f4d059e5c51d6d9ce',1,'vg']]],
   ['make_5ftranslation_8932',['make_translation',['../namespacevg.html#a028aa842a68b6993a37a82c7645e0633',1,'vg']]],
   ['make_5funlocalized_5finsertion_8933',['make_unlocalized_insertion',['../structvg_1_1WFAAlignment.html#aee475e8a07f1e06f61411f581813252e',1,'vg::WFAAlignment']]],
   ['make_5fvariant_5fid_8934',['make_variant_id',['../namespacevg.html#aa74ef603900cf05ce35dbab813d21deb',1,'vg']]],
