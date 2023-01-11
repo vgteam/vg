@@ -68,6 +68,16 @@ std::unordered_map<nid_t, std::pair<std::string, size_t>> load_translation_back_
 
 //------------------------------------------------------------------------------
 
+/// Returns an empty GBWTGraph handle corresponding to the GBWT endmarker.
+inline handle_t empty_gbwtgraph_handle() {
+    return gbwtgraph::GBWTGraph::node_to_handle(0);
+}
+
+/// Returns a string representation of a GBWTGraph handle.
+std::string to_string_gbwtgraph(handle_t handle);
+
+//------------------------------------------------------------------------------
+
 } // namespace vg
 
 #endif // VG_GBWTGRAPH_HELPER_HPP_INCLUDED

@@ -23,11 +23,6 @@ constexpr size_t Recombinator::NUM_HAPLOTYPES;
 
 //------------------------------------------------------------------------------
 
-// An empty handle.
-handle_t empty_handle() {
-    return gbwtgraph::GBWTGraph::node_to_handle(0);
-}
-
 // Returns a GBWTGraph handle as a string (id, orientation).
 std::string to_string(handle_t handle) {
     gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(handle);
@@ -287,7 +282,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
 
     // First pass: take all snarls as subchains.
     std::vector<Subchain> snarls;
-    handle_t snarl_start = empty_handle();
+    handle_t snarl_start = empty_gbwtgraph_handle();
     bool has_start = false;
     bool was_snarl = false;
     net_handle_t curr = this->distance_index.get_bound(chain.chain, false, true);
@@ -298,7 +293,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
             if (was_snarl) {
                 if (!has_start) {
                     // If the chain starts with a snarl, we take it as a prefix.
-                    snarls.push_back({ Haplotypes::Subchain::prefix, empty_handle(), handle });
+                    snarls.push_back({ Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), handle });
                 } else {
                     size_t distance = this->get_distance(snarl_start, handle);
                     if (distance < std::numeric_limits<size_t>::max()) {
@@ -306,8 +301,8 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
                         snarls.push_back({ Haplotypes::Subchain::normal, snarl_start, handle });
                     } else {
                         // The snarl is not connected, so we break it into two.
-                        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_handle() });
-                        snarls.push_back({ Haplotypes::Subchain::prefix, empty_handle(), handle });
+                        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle() });
+                        snarls.push_back({ Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), handle });
                     }
                 }
             }
@@ -330,7 +325,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
     }
     if (was_snarl && has_start) {
         // If the chain ends with a snarl, we take it as a suffix.
-        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_handle() });
+        snarls.push_back({ Haplotypes::Subchain::suffix, snarl_start, empty_gbwtgraph_handle() });
     }
 
     // Second pass: Combine snarls into subchains.
@@ -457,7 +452,7 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
 // Take at most start_max and end_max characters from the initial and the final
 // node, respectively
 // Returns an empty haplotype if there is only one node.
-// Set `end = empty_handle()` to continue until the end without a final node.
+// Set `end = empty_gbwtgraph_handle()` to continue until the end without a final node.
 std::string generate_haplotype(gbwt::edge_type pos, handle_t end, size_t start_max, size_t end_max, const gbwtgraph::GBWTGraph& graph) {
     std::string haplotype;
     if (pos == gbwt::invalid_edge() || pos.first == gbwt::ENDMARKER) {
@@ -509,7 +504,7 @@ std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(const std::s
 std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimizers(gbwt::size_type sequence_id) const {
     gbwt::edge_type pos = this->gbz.index.start(sequence_id);
     size_t limit = std::numeric_limits<size_t>::max();
-    std::string haplotype = generate_haplotype(pos, empty_handle(), limit, limit, this->gbz.graph);
+    std::string haplotype = generate_haplotype(pos, empty_gbwtgraph_handle(), limit, limit, this->gbz.graph);
     return take_unique_minimizers(haplotype, this->minimizer_index);
 }
 
@@ -571,8 +566,8 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         if (sequences.empty()) {
             // There are no haplotypes crossing the subchain, so we break it into
             // a suffix and a prefix.
-            to_process.push_back({ { Haplotypes::Subchain::suffix, subchain.start, empty_handle() }, this->get_sequences(subchain.start) });
-            to_process.push_back({ { Haplotypes::Subchain::prefix, empty_handle(), subchain.end }, this->get_sequences(subchain.end) });
+            to_process.push_back({ { Haplotypes::Subchain::suffix, subchain.start, empty_gbwtgraph_handle() }, this->get_sequences(subchain.start) });
+            to_process.push_back({ { Haplotypes::Subchain::prefix, empty_gbwtgraph_handle(), subchain.end }, this->get_sequences(subchain.end) });
         } else {
             to_process.push_back({ subchain, std::move(sequences) });
         }
@@ -598,6 +593,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
     }
 
     // Take entire sequences if we could not generate any haplotypes.
+    // TODO: Maybe we don't need kmers here, as the sequences should be identical.
     if (subchains.empty()) {
         output.subchains.push_back({
             Haplotypes::Subchain::full_haplotype,
@@ -699,7 +695,7 @@ void Recombinator::Haplotype::connect(gbwt::node_type until, const gbwtgraph::GB
             throw std::runtime_error("Haplotype::connect(): the path contains a cycle");
         }
         visited.insert(curr);
-        handle_t successor = empty_handle();
+        handle_t successor = empty_gbwtgraph_handle();
         size_t successors = 0;
         graph.follow_edges(curr, false, [&](const handle_t& next) {
             successor = next;

@@ -5,8 +5,6 @@
  * This is currently highly experimental.
  */
 
-// FIXME tests
-
 #include "subcommand.hpp"
 
 #include "../recombinator.hpp"
@@ -15,6 +13,8 @@
 #include <functional>
 #include <iostream>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <getopt.h>
@@ -83,7 +83,7 @@ void help_haplotypes(char** argv) {
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
     std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_default_threads() << ")" << std::endl;
-    std::cerr << "        --validate            check that the output graph is a subgraph of the input" << std::endl;
+    std::cerr << "        --validate            validate the generated information (may be slow)" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -108,6 +108,12 @@ std::string get_name(const std::string& graph_name, const std::string& extension
     }
     return graph_name.substr(0, length) + extension;
 }
+
+void validate_haplotypes(const Haplotypes& haplotypes,
+                         const gbwtgraph::GBWTGraph& graph,
+                         const gbwt::FastLocate& r_index,
+                         size_t expected_k, size_t expected_chains,
+                         HaplotypePartitioner::Verbosity verbosity);
 
 void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, HaplotypePartitioner::Verbosity verbosity);
 
@@ -269,6 +275,10 @@ int main_haplotypes(int argc, char** argv) {
             std::cerr << "Loading distance index from " << distance_name << std::endl;
         }
         distance_index.deserialize(distance_name);
+        size_t expected_chains = 0;
+        distance_index.for_each_child(distance_index.get_root(), [&](const handlegraph::net_handle_t&) {
+            expected_chains++;
+        });
 
         // Minimizer index.
         gbwtgraph::DefaultMinimizerIndex minimizer_index(k, w, false);
@@ -306,6 +316,11 @@ int main_haplotypes(int argc, char** argv) {
         if (verbosity >= HaplotypePartitioner::verbosity_basic) {
             double seconds = gbwt::readTimer() - checkpoint;
             std::cerr << "Generated haplotype information in " << seconds << " seconds" << std::endl;
+        }
+
+        // Validate the haplotypes.
+        if (validate) {
+            validate_haplotypes(haplotypes, gbz.graph, r_index, minimizer_index.k(), expected_chains, verbosity);
         }
     } else {
         if (verbosity >= HaplotypePartitioner::verbosity_basic) {
@@ -351,6 +366,7 @@ int main_haplotypes(int argc, char** argv) {
 
     // Validate and serialize the graph.
     if (validate) {
+        // FIXME validate haplotypes
         validate_subgraph(gbz.graph, output_graph, verbosity);
     }
     save_gbz(merged, output_graph, gbz_output, verbosity >= HaplotypePartitioner::verbosity_basic);
@@ -368,10 +384,241 @@ static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype samplin
 
 //----------------------------------------------------------------------------
 
-// Returns a GBWTGraph handle as a string (id, orientation).
-std::string to_string(handle_t handle) {
-    gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(handle);
-    return std::string("(") + std::to_string(gbwt::Node::id(node)) + std::string(", ") + std::to_string(gbwt::Node::is_reverse(node)) + std::string(")");
+void validate_error(const std::string& header, const std::string& message) {
+    std::cerr << "error: [vg haplotypes]";
+    if (!header.empty()) {
+        std::cerr << header << ": ";
+    }
+    std::cerr << message << std::endl;
+    std::exit(EXIT_FAILURE);
+}
+
+template<typename T>
+std::string expected_got(T expected, T got) {
+    return "expected " + std::to_string(expected) + ", got " + std::to_string(got);
+}
+
+template<typename T>
+std::string pair_to_string(std::pair<T, T> value) {
+    return "(" + std::to_string(value.first) + ", " + std::to_string(value.second) + ")";
+}
+
+template<typename T>
+std::string expected_got_pair(std::pair<T, T> expected, std::pair<T, T> got) {
+    return "expected " + pair_to_string(expected) + ", got " + pair_to_string(got);
+}
+
+void validate_error_chain(size_t chain_id, const std::string& message) {
+    validate_error("chain " + std::to_string(chain_id), message);
+}
+
+void validate_error_subchain(size_t chain_id, size_t subchain_id, const std::string& message) {
+    validate_error("chain " + std::to_string(chain_id) + ", subchain " + std::to_string(subchain_id), message);
+}
+
+void validate_error_sequence(size_t chain_id, size_t subchain_id, size_t sequence_id, const std::string& message) {
+    std::string header = "chain " + std::to_string(chain_id) + ", subchain " + std::to_string(subchain_id) + ", sequence " + std::to_string(sequence_id);
+    validate_error(header, message);
+}
+
+std::string validate_unary_path(const HandleGraph& graph, handle_t from, handle_t to) {
+    std::unordered_set<handle_t> visited;
+    handle_t curr = from;
+    while (curr != to) {
+        if (visited.find(curr) != visited.end()) {
+            return "incoming path contains a cycle";
+        }
+        visited.insert(curr);
+        handle_t successor = empty_gbwtgraph_handle();
+        size_t successors = 0;
+        graph.follow_edges(curr, false, [&](const handle_t& next) {
+            successor = next;
+            successors++;
+        });
+        if (successors != 1) {
+            return "incoming path is not unary";
+        }
+        curr = successor;
+    }
+    return "";
+}
+
+// Returns true if the path from (start, offset) reaches end without revisiting start.
+bool trace_path(const gbwt::GBWT& index, gbwt::node_type start, gbwt::size_type offset, gbwt::node_type end) {
+    gbwt::edge_type pos(start, offset);
+    while (pos.first != end) {
+        pos = index.LF(pos);
+        if (pos.first == gbwt::ENDMARKER || pos.first == start) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void validate_chain(const Haplotypes::TopLevelChain& chain,
+                    const gbwtgraph::GBWTGraph& graph,
+                    const gbwt::FastLocate& r_index,
+                    size_t chain_id,
+                    HaplotypePartitioner::Verbosity verbosity) {
+    if (chain.offset != chain_id) {
+        validate_error_chain(chain_id, "stored id is " + std::to_string(chain.offset));
+    }
+    if (chain.subchains.empty()) {
+        validate_error_chain(chain_id, "the chain is empty");
+    }
+
+    const Haplotypes::Subchain* prev = nullptr;
+    for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+        const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
+
+        // Check that the subchain is of an appropriate type.
+        switch (subchain.type) {
+        case Haplotypes::Subchain::normal:
+            break;
+        case Haplotypes::Subchain::prefix:
+            if (subchain_id > 0 && prev->type != Haplotypes::Subchain::suffix) {
+                validate_error_subchain(chain_id, subchain_id, "a prefix inside a fragment");
+            }
+            break;
+        case Haplotypes::Subchain::suffix:
+            break;
+        case Haplotypes::Subchain::full_haplotype:
+            if (chain.subchains.size() != 1) {
+                validate_error_subchain(chain_id, subchain_id, "full haplotypes in a nontrivial chain");
+            }
+            break;
+        }
+
+        // Check that the boundary nodes have been defined.
+        if (subchain.has_start() && subchain.start == gbwt::ENDMARKER) {
+            validate_error_subchain(chain_id, subchain_id, "missing start node");
+        }
+        if (subchain.has_end() && subchain.end == gbwt::ENDMARKER) {
+            validate_error_subchain(chain_id, subchain_id, "missing end node");
+        }
+
+        // Check that there is a unary path from the previous subchain if the
+        // appropriate boundary nodes are present.
+        if (subchain_id > 0 && prev->has_end() && subchain.has_start()) {
+            std::string message = validate_unary_path(graph, gbwtgraph::GBWTGraph::node_to_handle(prev->end), gbwtgraph::GBWTGraph::node_to_handle(subchain.start));
+            if (!message.empty()) {
+                validate_error_subchain(chain_id, subchain_id, message);
+            }
+        }
+
+        // Sequences: normal subchains.
+        if (subchain.type == Haplotypes::Subchain::normal) {
+            std::vector<gbwt::size_type> da = r_index.decompressDA(subchain.start);
+            std::unordered_set<Haplotypes::sequence_type> selected;
+            for (size_t i = 0; i < da.size(); i++) {
+                if (trace_path(*(graph.index), subchain.start, i, subchain.end)) {
+                    selected.insert(Haplotypes::sequence_type(da[i], i));
+                }
+            }
+            if (subchain.sequences.size() != selected.size()) {
+                std::string message = expected_got(selected.size(), subchain.sequences.size()) + " sequences (normal)";
+                validate_error_subchain(chain_id, subchain_id, message);
+            }
+            for (size_t i = 0; i < subchain.sequences.size(); i++) {
+                if (selected.find(subchain.sequences[i]) == selected.end()) {
+                    validate_error_sequence(chain_id, subchain_id, i, "invalid value " + pair_to_string(subchain.sequences[i]));
+                }
+            }
+        }
+
+        // Sequences: prefixes and suffixes.
+        if (subchain.type == Haplotypes::Subchain::prefix || subchain.type == Haplotypes::Subchain::suffix) {
+            gbwt::node_type node = (subchain.has_start() ? subchain.start : subchain.end);
+            std::vector<gbwt::size_type> da = r_index.decompressDA(node);
+            if (subchain.sequences.size() != da.size()) {
+                std::string message = expected_got(da.size(), subchain.sequences.size()) + " sequences (prefix / suffix)";
+                validate_error_subchain(chain_id, subchain_id, message);
+            }
+            for (size_t i = 0; i < subchain.sequences.size(); i++) {
+                Haplotypes::sequence_type expected(da[i], i);
+                if (subchain.sequences[i] != expected) {
+                    std::string message = expected_got_pair(expected, subchain.sequences[i]);
+                    validate_error_sequence(chain_id, subchain_id, i, message);
+                }
+            }
+        }
+
+        // Sequences: full haplotypes.
+        if (subchain.type == Haplotypes::Subchain::full_haplotype) {
+            if (subchain.sequences.empty()) {
+                validate_error_subchain(chain_id, subchain_id, "full haplotypes without sequences");
+            }
+        }
+
+        prev = &subchain;
+    }
+
+    // FIXME
+    // 5. each haplotype contains the minimizers it claims to contain
+}
+
+void validate_haplotypes(const Haplotypes& haplotypes,
+                         const gbwtgraph::GBWTGraph& graph,
+                         const gbwt::FastLocate& r_index,
+                         size_t expected_k, size_t expected_chains,
+                         HaplotypePartitioner::Verbosity verbosity) {
+    if (verbosity >= HaplotypePartitioner::verbosity_basic) {
+        std::cerr << "Validating the haplotype information" << std::endl;
+    }
+    double start = gbwt::readTimer();
+
+    // Header information.
+    if (haplotypes.k() != expected_k) {
+        validate_error("k-mer length", expected_got(expected_k, haplotypes.k()));
+    }
+    if (haplotypes.components() != expected_chains) {
+        validate_error("graph components", expected_got(expected_chains, haplotypes.components()));
+    }
+    if (haplotypes.components() != haplotypes.chains.size()) {
+        validate_error("top-level chains", expected_got(haplotypes.components(), haplotypes.chains.size()));
+    }
+    std::vector<size_t> chains_per_job(haplotypes.jobs(), 0);
+    for (size_t chain = 0; chain < haplotypes.components(); chain++) {
+        size_t job_id = haplotypes.chains[chain].job_id;
+        if (job_id >= haplotypes.jobs()) {
+            validate_error_chain(chain, "job id " + std::to_string(job_id) + " >= " + std::to_string(haplotypes.jobs()));
+        }
+        chains_per_job[job_id]++;
+    }
+    for (size_t job_id = 0; job_id < chains_per_job.size(); job_id++) {
+        if (chains_per_job[job_id] == 0) {
+            validate_error("", "job " + std::to_string(job_id) + " is empty");
+        }
+    }
+
+    // Haplotype information is valid
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (size_t chain = 0; chain < haplotypes.components(); chain++) {
+        validate_chain(haplotypes.chains[chain], graph, r_index, chain, verbosity);
+    }
+
+    // Kmers are globally unique.
+    std::unordered_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
+    for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
+        const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
+        for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+            const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
+            for (size_t i = 0; i < subchain.kmers.size(); i++) {
+                auto iter = kmers.find(subchain.kmers[i]);
+                if (iter != kmers.end()) {
+                    std::string message = "kmer " + std::to_string(i) + " also found in chain " + std::to_string(iter->second.first) + ", subchain " + std::to_string(iter->second.second);
+                    validate_error_subchain(chain_id, subchain_id, message);
+                }
+                kmers[subchain.kmers[i]] = { chain_id, subchain_id };
+            }
+        }
+    }
+    kmers.clear();
+
+    if (verbosity >= HaplotypePartitioner::verbosity_basic) {
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Validated the haplotype information in " << seconds << " seconds" << std::endl;
+    }
 }
 
 void validate_nodes(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph) {
@@ -381,7 +628,7 @@ void validate_nodes(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGrap
         return graph.has_node(last_node);
     });
     if (!nodes_ok) {
-        std::cerr << "error: [vg haplotypes] subgraph node " << last_node << " is not in the original graph" << std::endl;
+        validate_error("", "invalid node " + std::to_string(last_node));
     }
 }
 
@@ -392,7 +639,7 @@ void validate_edges(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGrap
         return graph.has_edge(edge.first, edge.second);
     });
     if (!edges_ok) {
-        std::cerr << "error: [vg haplotypes] subgraph edge from " << to_string(last_edge.first) << " to " << to_string(last_edge.second) << " is not in the original graph" << std::endl;
+        validate_error("", "invalid edge " + to_string_gbwtgraph(last_edge.first) + " to " + to_string_gbwtgraph(last_edge.second));
     }
 }
 
