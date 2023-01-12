@@ -4528,7 +4528,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         int expected = 0, desired = 1;
         bool exchanged = warned_about_chunking.compare_exchange_strong(expected, desired);
         if (exchanged) {
-            cerr << "warning: Thread " << omp_get_thread_num() << " encountered sequence of length " << aln.sequence().size() << ", which is longer than the non-chunked limit of " << band_width << ". Alignments may be discontiguous. To adjust this behavior, change the band width parameter. Suppressing further warnings. " << endl;
+            stringstream strm;
+            strm << "warning: Thread " << omp_get_thread_num() << " encountered sequence of length " << aln.sequence().size() << ", which is longer than the non-chunked limit of " << band_width << ". Alignments may be discontiguous. To adjust this behavior, change the band width parameter. Suppressing further warnings. " << endl;
+            cerr << strm.str();
         }
         
 #ifdef debug_mapper
