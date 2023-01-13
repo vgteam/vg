@@ -1340,7 +1340,7 @@ namespace vg {
                     
                     // Set up read info and MAPQ
                     // TODO: MAPQ on secondaries?
-                    transfer_read_metadata(multipath_aln, aln_out);\
+                    transfer_read_metadata(multipath_aln, aln_out);
                     
                     // Populate path
                     populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
