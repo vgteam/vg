@@ -44,8 +44,12 @@ int64_t parse_memory_usage(const string& mem_arg) {
         base = 1024 * 1024 * 1024;
         mem.pop_back();
     }
-    else {
+    else if (isdigit(mem.back())) {
         base = 1;
+    }
+    else {
+        cerr << "error:[vg autoindex] unrecognized unit for target memory usage: " << mem.back() << endl;
+        exit(1);
     }
     return parse<int64_t>(mem) * base;
 }
