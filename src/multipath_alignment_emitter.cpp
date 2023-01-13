@@ -308,14 +308,6 @@ void MultipathAlignmentEmitter::convert_to_alignment(const multipath_alignment_t
     }
     // at one point vg call needed these, maybe it doesn't anymore though
     aln.set_identity(identity(aln.path()));
-    
-    // transfer over annotation that has a special field in GAM
-    if (mp_aln.has_annotation("secondary")) {
-        auto anno = mp_aln.get_annotation("secondary");
-        assert(anno.first == multipath_alignment_t::Bool);
-        bool secondary = *((bool*) anno.second);
-        aln.set_is_secondary(secondary);
-    }
 }
 
 void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const multipath_alignment_t& mp_aln,
