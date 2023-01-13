@@ -322,10 +322,6 @@ namespace vg {
 
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to);
 
-    void transfer_proto_metadata(const Alignment& from, MultipathAlignment& to);
-
-    void transfer_proto_metadata(const MultipathAlignment& from, Alignment& to);
-
     /// Merges non-branching paths in a multipath alignment in place
     /// Does not assume topological order among subpaths
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln,
