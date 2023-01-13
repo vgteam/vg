@@ -605,6 +605,7 @@ int main_view(int argc, char** argv) {
                     to_multipath_alignment(aln, mp_aln);
                     buf.emplace_back();
                     to_proto_multipath_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(aln, buf.back());
                     vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
@@ -685,6 +686,7 @@ int main_view(int argc, char** argv) {
                     from_proto_multipath_alignment(proto_mp_aln, mp_aln);
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(proto_mp_aln, buf.back());
                     if (!proto_mp_aln.paired_read_name().empty()) {
                         // alternate using next/prev
                         if (which_read_in_pair) {
@@ -750,6 +752,7 @@ int main_view(int argc, char** argv) {
                     from_proto_multipath_alignment(proto_mp_aln, mp_aln);
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(proto_mp_aln, buf.back());
                     vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {

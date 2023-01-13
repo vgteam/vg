@@ -2343,6 +2343,28 @@ namespace vg {
             *to.mutable_annotation() = from.annotation();
         }
     }
+
+    void transfer_proto_metadata(const Alignment& from, MultipathAlignment& to) {
+        // transfer over the fields that are included only in the protobuf object
+        to.set_name(from.name());
+        to.set_read_group(from.read_group());
+        to.set_sample_name(from.sample_name());
+        if (from.has_fragment_prev()) {
+            to.set_paired_read_name(from.fragment_prev().name());
+        }
+        else if (from.has_fragment_next()) {
+            to.set_paired_read_name(from.fragment_next().name());
+        }
+    }
+
+    void transfer_proto_metadata(const MultipathAlignment& from, Alignment& to) {
+        // transfer over the fields that are included only in the protobuf object
+        to.set_name(from.name());
+        to.set_read_group(from.read_group());
+        to.set_sample_name(from.sample_name());
+        
+        // not doing paired name because need extra logic to decide if it's prev or next
+    }
     
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln,
                                       const unordered_set<size_t>* prohibited_merges) {
