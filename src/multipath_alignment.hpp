@@ -286,44 +286,22 @@ namespace vg {
     
     // TODO: these metadata functions should also transfer annotations
 
-    /// Copies metadata from an Alignment object and transfers it to a multipath_alignment_t
-    ///
-    ///  Args:
-    ///    from    copy metadata from this
-    ///    to      into this
-    ///
+    /// All functions of this form transfer:
+    /// - sequence
+    /// - base quality
+    /// - mapping quality
+    /// - read annotations (including multiple encodings of secondary)
     void transfer_read_metadata(const Alignment& from, multipath_alignment_t& to);
-    
-    /// Copies metadata from an multipath_alignment_t object and transfers it to a Alignment
-    ///
-    ///  Args:
-    ///    from    copy metadata from this
-    ///    to      into this
-    ///
     void transfer_read_metadata(const multipath_alignment_t& from, Alignment& to);
-    
-    /// Copies metadata from an multipath_alignment_t object and transfers it to another multipath_alignment_t
-    ///
-    ///  Args:
-    ///    from    copy metadata from this
-    ///    to      into this
-    ///
     void transfer_read_metadata(const multipath_alignment_t& from, multipath_alignment_t& to);
-    
-    /// Copies metadata from an Alignment object and transfers it to another Alignment
-    ///
-    ///  Args:
-    ///    from    copy metadata from this
-    ///    to      into this
-    ///
     void transfer_read_metadata(const Alignment& from, Alignment& to);
-
     void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to);
-
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to);
 
+    /// Transfer the annotations that are carried with the Protobuf formats but not
+    /// the internal multipath_alignment_t (and which therefore get lost when using
+    /// it as an intermediate format).
     void transfer_proto_metadata(const Alignment& from, MultipathAlignment& to);
-
     void transfer_proto_metadata(const MultipathAlignment& from, Alignment& to);
 
     /// Merges non-branching paths in a multipath alignment in place
