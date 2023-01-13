@@ -1622,6 +1622,18 @@ Functions</h2></td></tr>
 <tr class="memitem:a92c7d384c096b813501b23730e308796"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a92c7d384c096b813501b23730e308796">convert_Ts_to_Us</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:a92c7d384c096b813501b23730e308796"><td class="mdescLeft">&#160;</td><td class="mdescRight">Replaces all T's in the sequence and the aligned <a class="el" href="classvg_1_1Paths.html">Paths</a> with U's.  <a href="namespacevg.html#a92c7d384c096b813501b23730e308796">More...</a><br /></td></tr>
 <tr class="separator:a92c7d384c096b813501b23730e308796"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57c3f88ce9f85ceae2d77c32fd9de04d"><td class="memTemplParams" colspan="2">template&lt;class ProtoAlignment &gt; </td></tr>
+<tr class="memitem:a57c3f88ce9f85ceae2d77c32fd9de04d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a57c3f88ce9f85ceae2d77c32fd9de04d">transfer_from_proto_annotation</a> (const ProtoAlignment &amp;from, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;to)</td></tr>
+<tr class="separator:a57c3f88ce9f85ceae2d77c32fd9de04d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90a76dfce70406755151cf45e6990848"><td class="memTemplParams" colspan="2">template&lt;class ProtoAlignment &gt; </td></tr>
+<tr class="memitem:a90a76dfce70406755151cf45e6990848"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a90a76dfce70406755151cf45e6990848">transfer_to_proto_annotation</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;from, ProtoAlignment &amp;to)</td></tr>
+<tr class="separator:a90a76dfce70406755151cf45e6990848"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac0534767a787eae1a5f93444bf21b2a1"><td class="memTemplParams" colspan="2">template&lt;class ProtoAlignment1 , class ProtoAlignment2 &gt; </td></tr>
+<tr class="memitem:ac0534767a787eae1a5f93444bf21b2a1"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac0534767a787eae1a5f93444bf21b2a1">transfer_between_proto_annotation</a> (const ProtoAlignment1 &amp;from, ProtoAlignment2 &amp;to)</td></tr>
+<tr class="separator:ac0534767a787eae1a5f93444bf21b2a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adbf827b04e42865ece378b51482df898"><td class="memTemplParams" colspan="2">template&lt;class Alignment1 , class Alignment2 &gt; </td></tr>
+<tr class="memitem:adbf827b04e42865ece378b51482df898"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#adbf827b04e42865ece378b51482df898">transfer_uniform_metadata</a> (const Alignment1 &amp;from, Alignment2 &amp;to)</td></tr>
+<tr class="separator:adbf827b04e42865ece378b51482df898"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8f8f0e54cfa0c3279c18748c503ccbe9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8f8f0e54cfa0c3279c18748c503ccbe9">to_proto_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;proto_multipath_aln_out)</td></tr>
 <tr class="memdesc:a8f8f0e54cfa0c3279c18748c503ccbe9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert an STL-based <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> to a protobuf <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>.  <a href="namespacevg.html#a8f8f0e54cfa0c3279c18748c503ccbe9">More...</a><br /></td></tr>
 <tr class="separator:a8f8f0e54cfa0c3279c18748c503ccbe9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1630,12 +1642,6 @@ Functions</h2></td></tr>
 <tr class="separator:a8630566250dfefc57ec84cbf6c22c3e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a27656a1e271730b6a62263dc2af8055d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a27656a1e271730b6a62263dc2af8055d">to_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out)</td></tr>
 <tr class="separator:a27656a1e271730b6a62263dc2af8055d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57c3f88ce9f85ceae2d77c32fd9de04d"><td class="memTemplParams" colspan="2">template&lt;class ProtoAlignment &gt; </td></tr>
-<tr class="memitem:a57c3f88ce9f85ceae2d77c32fd9de04d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a57c3f88ce9f85ceae2d77c32fd9de04d">transfer_from_proto_annotation</a> (const ProtoAlignment &amp;from, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;to)</td></tr>
-<tr class="separator:a57c3f88ce9f85ceae2d77c32fd9de04d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a90a76dfce70406755151cf45e6990848"><td class="memTemplParams" colspan="2">template&lt;class ProtoAlignment &gt; </td></tr>
-<tr class="memitem:a90a76dfce70406755151cf45e6990848"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a90a76dfce70406755151cf45e6990848">transfer_to_proto_annotation</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;from, ProtoAlignment &amp;to)</td></tr>
-<tr class="separator:a90a76dfce70406755151cf45e6990848"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a195fc7fa6da6fecfa7e9fa31e5cf6f0c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a195fc7fa6da6fecfa7e9fa31e5cf6f0c">transfer_read_metadata</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;from, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;to)</td></tr>
 <tr class="separator:a195fc7fa6da6fecfa7e9fa31e5cf6f0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acac375591689f0066f6c723dc25fb834"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acac375591689f0066f6c723dc25fb834">transfer_read_metadata</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;from, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;to)</td></tr>
@@ -23155,6 +23161,36 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
+<a id="ac0534767a787eae1a5f93444bf21b2a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac0534767a787eae1a5f93444bf21b2a1">&#9670;&nbsp;</a></span>transfer_between_proto_annotation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class ProtoAlignment1 , class ProtoAlignment2 &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::transfer_between_proto_annotation </td>
+          <td>(</td>
+          <td class="paramtype">const ProtoAlignment1 &amp;&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ProtoAlignment2 &amp;&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a82a83d7c54d733abee06d328f91ef5ee"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a82a83d7c54d733abee06d328f91ef5ee">&#9670;&nbsp;</a></span>transfer_boundary_info()</h2>
 
@@ -23248,6 +23284,7 @@ template&lt;class ProtoAlignment &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Transfer the annotations that are carried with the Protobuf formats but not the internal <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> (and which therefore get lost when using it as an intermediate format). </p>
 
 </div>
 </div>
@@ -23304,8 +23341,6 @@ template&lt;class ProtoAlignment &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Copies metadata from an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object and transfers it to another <a class="el" href="structvg_1_1Alignment.html">Alignment</a></p>
-<p>Args: from copy metadata from this to into this </p>
 
 </div>
 </div>
@@ -23334,8 +23369,12 @@ template&lt;class ProtoAlignment &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Copies metadata from an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object and transfers it to a <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a></p>
-<p>Args: from copy metadata from this to into this </p>
+<p>All functions of this form transfer:</p><ul>
+<li>sequence</li>
+<li>base quality</li>
+<li>mapping quality</li>
+<li>read annotations (including multiple encodings of secondary) </li>
+</ul>
 
 </div>
 </div>
@@ -23364,8 +23403,6 @@ template&lt;class ProtoAlignment &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Copies metadata from an <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> object and transfers it to a <a class="el" href="structvg_1_1Alignment.html">Alignment</a></p>
-<p>Args: from copy metadata from this to into this </p>
 
 </div>
 </div>
@@ -23394,8 +23431,6 @@ template&lt;class ProtoAlignment &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Copies metadata from an <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> object and transfers it to another <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a></p>
-<p>Args: from copy metadata from this to into this </p>
 
 </div>
 </div>
@@ -23473,6 +23508,36 @@ template&lt;class ProtoAlignment &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">ProtoAlignment &amp;&#160;</td>
+          <td class="paramname"><em>to</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="adbf827b04e42865ece378b51482df898"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adbf827b04e42865ece378b51482df898">&#9670;&nbsp;</a></span>transfer_uniform_metadata()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class Alignment1 , class Alignment2 &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::transfer_uniform_metadata </td>
+          <td>(</td>
+          <td class="paramtype">const Alignment1 &amp;&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Alignment2 &amp;&#160;</td>
           <td class="paramname"><em>to</em>&#160;</td>
         </tr>
         <tr>
