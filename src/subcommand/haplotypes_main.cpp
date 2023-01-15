@@ -112,7 +112,8 @@ std::string get_name(const std::string& graph_name, const std::string& extension
 void validate_haplotypes(const Haplotypes& haplotypes,
                          const gbwtgraph::GBWTGraph& graph,
                          const gbwt::FastLocate& r_index,
-                         size_t expected_k, size_t expected_chains,
+                         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+                         size_t expected_chains,
                          HaplotypePartitioner::Verbosity verbosity);
 
 void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, HaplotypePartitioner::Verbosity verbosity);
@@ -320,7 +321,7 @@ int main_haplotypes(int argc, char** argv) {
 
         // Validate the haplotypes.
         if (validate) {
-            validate_haplotypes(haplotypes, gbz.graph, r_index, minimizer_index.k(), expected_chains, verbosity);
+            validate_haplotypes(haplotypes, gbz.graph, r_index, minimizer_index, expected_chains, verbosity);
         }
     } else {
         if (verbosity >= HaplotypePartitioner::verbosity_basic) {
@@ -455,9 +456,47 @@ bool trace_path(const gbwt::GBWT& index, gbwt::node_type start, gbwt::size_type 
     return true;
 }
 
+// Returns the given haplotype over the given subchain.
+std::string get_haplotype(const gbwtgraph::GBWTGraph& graph, Haplotypes::sequence_type sequence,
+                          gbwt::node_type from, gbwt::node_type to, size_t k) {
+    std::string haplotype;
+    gbwt::edge_type pos;
+
+    // Initial node with three cases (from start, suffix of a long `from`, short `from`).
+    if (from == gbwt::ENDMARKER) {
+        pos = graph.index->start(sequence.first);
+        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
+        haplotype.append(view.first, view.second);
+    } else {
+        pos = gbwt::edge_type(from, sequence.second);
+        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
+        if (view.second >= k) {
+            haplotype.append(view.first + view.second - (k - 1), k - 1);
+        } else {
+            haplotype.append(view.first, view.second);
+        }
+    }
+
+    while (true) {
+        pos = graph.index->LF(pos);
+        if (pos.first == gbwt::ENDMARKER) {
+            break;
+        }
+        gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
+        if (pos.first == to) {
+            haplotype.append(view.first, std::min(view.second, k - 1));
+        } else {
+            haplotype.append(view.first, view.second);
+        }
+    }
+
+    return haplotype;
+}
+
 void validate_chain(const Haplotypes::TopLevelChain& chain,
                     const gbwtgraph::GBWTGraph& graph,
                     const gbwt::FastLocate& r_index,
+                    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
                     size_t chain_id,
                     HaplotypePartitioner::Verbosity verbosity) {
     if (chain.offset != chain_id) {
@@ -495,6 +534,13 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
         }
         if (subchain.has_end() && subchain.end == gbwt::ENDMARKER) {
             validate_error_subchain(chain_id, subchain_id, "missing end node");
+        }
+
+        // Check that the kmer presence bitvector is of appropriate length.
+        size_t total_kmers = subchain.sequences.size() * subchain.kmers.size();
+        if (subchain.kmers_present.size() != total_kmers) {
+            std::string message = expected_got(total_kmers, subchain.kmers_present.size()) + " kmer occurrences";
+            validate_error_subchain(chain_id, subchain_id, message);
         }
 
         // Check that there is a unary path from the previous subchain if the
@@ -550,17 +596,56 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
             }
         }
 
+        // Kmers.
+        if (subchain.type != Haplotypes::Subchain::full_haplotype) {
+            std::unordered_set<Haplotypes::Subchain::kmer_type> all_kmers;
+            for (size_t i = 0; i < subchain.kmers.size(); i++) {
+                all_kmers.insert(subchain.kmers[i]);
+            }
+            if (all_kmers.size() != subchain.kmers.size()) {
+                std::string message = expected_got(subchain.kmers.size(), all_kmers.size()) + " kmers";
+                validate_error_subchain(chain_id, subchain_id, message);
+            }
+            for (size_t i = 0; i < subchain.sequences.size(); i++) {
+                std::string haplotype = get_haplotype(graph, subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k());
+                auto minimizers = minimizer_index.minimizers(haplotype);
+                std::unordered_set<Haplotypes::Subchain::kmer_type> kmers_present;
+                for (auto& minimizer : minimizers) {
+                    if (minimizer_index.count(minimizer) == 1) {
+                        kmers_present.insert(minimizer.key.get_key());
+                    }
+                }
+                size_t found_kmers = 0;
+                for (size_t j = 0, offset = i * subchain.kmers.size(); j < subchain.kmers.size(); j++, offset++) {
+                    if (subchain.kmers_present[offset]) {
+                        if (kmers_present.find(subchain.kmers[j]) == kmers_present.end()) {
+                            std::string message = "kmer " + std::to_string(j) + " not present in the haplotype";
+                            validate_error_sequence(chain_id, subchain_id, i, message);
+                        }
+                        found_kmers++;
+                    } else {
+                        if (kmers_present.find(subchain.kmers[j]) != kmers_present.end()) {
+                            std::string message = "kmer " + std::to_string(j) + " is present in the haplotype";
+                            validate_error_sequence(chain_id, subchain_id, i, message);
+                        }
+                    }
+                }
+                if (found_kmers != kmers_present.size()) {
+                    std::string message = expected_got(kmers_present.size(), found_kmers) + " kmers";
+                    validate_error_sequence(chain_id, subchain_id, i, message);
+                }
+            }
+        }
+
         prev = &subchain;
     }
-
-    // FIXME
-    // 5. each haplotype contains the minimizers it claims to contain
 }
 
 void validate_haplotypes(const Haplotypes& haplotypes,
                          const gbwtgraph::GBWTGraph& graph,
                          const gbwt::FastLocate& r_index,
-                         size_t expected_k, size_t expected_chains,
+                         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+                         size_t expected_chains,
                          HaplotypePartitioner::Verbosity verbosity) {
     if (verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Validating the haplotype information" << std::endl;
@@ -568,8 +653,8 @@ void validate_haplotypes(const Haplotypes& haplotypes,
     double start = gbwt::readTimer();
 
     // Header information.
-    if (haplotypes.k() != expected_k) {
-        validate_error("k-mer length", expected_got(expected_k, haplotypes.k()));
+    if (haplotypes.k() != minimizer_index.k()) {
+        validate_error("k-mer length", expected_got(minimizer_index.k(), haplotypes.k()));
     }
     if (haplotypes.components() != expected_chains) {
         validate_error("graph components", expected_got(expected_chains, haplotypes.components()));
@@ -594,7 +679,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
     // Haplotype information is valid
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t chain = 0; chain < haplotypes.components(); chain++) {
-        validate_chain(haplotypes.chains[chain], graph, r_index, chain, verbosity);
+        validate_chain(haplotypes.chains[chain], graph, r_index, minimizer_index, chain, verbosity);
     }
 
     // Kmers are globally unique.
@@ -620,6 +705,8 @@ void validate_haplotypes(const Haplotypes& haplotypes,
         std::cerr << "Validated the haplotype information in " << seconds << " seconds" << std::endl;
     }
 }
+
+//----------------------------------------------------------------------------
 
 void validate_nodes(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph) {
     nid_t last_node = 0;
