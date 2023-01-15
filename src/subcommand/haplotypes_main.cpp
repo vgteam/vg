@@ -386,7 +386,7 @@ static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype samplin
 //----------------------------------------------------------------------------
 
 void validate_error(const std::string& header, const std::string& message) {
-    std::cerr << "error: [vg haplotypes]";
+    std::cerr << "error: [vg haplotypes] ";
     if (!header.empty()) {
         std::cerr << header << ": ";
     }
@@ -485,6 +485,7 @@ std::string get_haplotype(const gbwtgraph::GBWTGraph& graph, Haplotypes::sequenc
         gbwtgraph::view_type view = graph.get_sequence_view(gbwtgraph::GBWTGraph::node_to_handle(pos.first));
         if (pos.first == to) {
             haplotype.append(view.first, std::min(view.second, k - 1));
+            break;
         } else {
             haplotype.append(view.first, view.second);
         }
@@ -539,7 +540,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
         // Check that the kmer presence bitvector is of appropriate length.
         size_t total_kmers = subchain.sequences.size() * subchain.kmers.size();
         if (subchain.kmers_present.size() != total_kmers) {
-            std::string message = expected_got(total_kmers, subchain.kmers_present.size()) + " kmer occurrences";
+            std::string message = expected_got<size_t>(total_kmers, subchain.kmers_present.size()) + " kmer occurrences";
             validate_error_subchain(chain_id, subchain_id, message);
         }
 
