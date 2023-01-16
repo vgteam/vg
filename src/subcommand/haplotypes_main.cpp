@@ -404,11 +404,6 @@ std::string pair_to_string(std::pair<T, T> value) {
     return "(" + std::to_string(value.first) + ", " + std::to_string(value.second) + ")";
 }
 
-template<typename T>
-std::string expected_got_pair(std::pair<T, T> expected, std::pair<T, T> got) {
-    return "expected " + pair_to_string(expected) + ", got " + pair_to_string(got);
-}
-
 void validate_error_chain(size_t chain_id, const std::string& message) {
     validate_error("chain " + std::to_string(chain_id), message);
 }
@@ -568,7 +563,8 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
             }
             for (size_t i = 0; i < subchain.sequences.size(); i++) {
                 if (selected.find(subchain.sequences[i]) == selected.end()) {
-                    validate_error_sequence(chain_id, subchain_id, i, "invalid value " + pair_to_string(subchain.sequences[i]));
+                    std::string message = "invalid value " + pair_to_string(subchain.sequences[i]);
+                    validate_error_sequence(chain_id, subchain_id, i, message);
                 }
             }
         }
@@ -581,10 +577,13 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
                 std::string message = expected_got(da.size(), subchain.sequences.size()) + " sequences (prefix / suffix)";
                 validate_error_subchain(chain_id, subchain_id, message);
             }
+            std::unordered_set<Haplotypes::sequence_type> truth;
+            for (size_t i = 0; i < da.size(); i++) {
+                truth.insert({ da[i], i });
+            }
             for (size_t i = 0; i < subchain.sequences.size(); i++) {
-                Haplotypes::sequence_type expected(da[i], i);
-                if (subchain.sequences[i] != expected) {
-                    std::string message = expected_got_pair(expected, subchain.sequences[i]);
+                if (truth.find(subchain.sequences[i]) == truth.end()) {
+                    std::string message = "invalid value " + pair_to_string(subchain.sequences[i]);
                     validate_error_sequence(chain_id, subchain_id, i, message);
                 }
             }
