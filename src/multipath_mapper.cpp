@@ -1241,8 +1241,8 @@ namespace vg {
         if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
             // measure the distance in both directions and choose the minimum (or the only) absolute distance
-            size_t forward_dist = minimum_distance(*distance_index,pos_1, pos_2);
-            size_t reverse_dist = minimum_distance(*distance_index,pos_2, pos_1);
+            size_t forward_dist = minimum_distance(*distance_index,pos_1, pos_2, false, xindex);
+            size_t reverse_dist = minimum_distance(*distance_index,pos_2, pos_1, false, xindex);
             if (forward_dist == std::numeric_limits<size_t>::max() && reverse_dist == std::numeric_limits<size_t>::max()) {
                 // unreachable both ways, convert to the sentinel that the client code expects
                 dist = numeric_limits<int64_t>::max();
@@ -1264,7 +1264,7 @@ namespace vg {
 
     int64_t MultipathMapper::distance(const pos_t& pos_1, const pos_t& pos_2) const {
         if (distance_index) {
-            size_t distance = minimum_distance(*distance_index, pos_1, pos_2);
+            size_t distance = minimum_distance(*distance_index, pos_1, pos_2, false, xindex);
             return distance == std::numeric_limits<size_t>::max() ? -1 : (int64_t)distance;
         }
         else {
@@ -2750,7 +2750,7 @@ namespace vg {
                 
                 if (distance_index) {
                     // check if these regions can reach each other
-                    size_t test_dist = minimum_distance(*distance_index, left_seed_pos, right_seed_pos);
+                    size_t test_dist = minimum_distance(*distance_index, left_seed_pos, right_seed_pos, false, xindex);
 #ifdef debug_multipath_mapper
                     cerr << "got distance index test distance " << test_dist << " between seed positions " << left_seed_pos << " and " << right_seed_pos << endl;
 #endif

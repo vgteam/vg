@@ -758,7 +758,7 @@ int main_stats(int argc, char** argv) {
 
             // Now do all the non-mapping stats
             stats.total_alignments++;
-            if(aln.is_secondary()) {
+            if(aln.is_secondary() || (has_annotation(aln, "secondary") && get_annotation<bool>(aln, "secondary"))) {
                 stats.total_secondary++;
             } else {
                 stats.total_primary++;

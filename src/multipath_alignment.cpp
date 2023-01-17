@@ -826,7 +826,6 @@ namespace vg {
 
         // transfer read information over to alignment
         transfer_read_metadata(multipath_aln, aln_out);
-        aln_out.set_mapping_quality(multipath_aln.mapping_quality());
         
         // do dynamic programming and traceback the optimal alignment
         int32_t score = optimal_alignment_internal(multipath_aln, &aln_out, subpath_global);
@@ -1102,7 +1101,6 @@ namespace vg {
                 // Set up read info and MAPQ
                 // TODO: MAPQ on secondaries?
                 transfer_read_metadata(multipath_aln, aln_out);
-                aln_out.set_mapping_quality(multipath_aln.mapping_quality());
                 
                 // Populate path
                 populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
@@ -1343,7 +1341,6 @@ namespace vg {
                     // Set up read info and MAPQ
                     // TODO: MAPQ on secondaries?
                     transfer_read_metadata(multipath_aln, aln_out);
-                    aln_out.set_mapping_quality(multipath_aln.mapping_quality());
                     
                     // Populate path
                     populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
@@ -1813,7 +1810,6 @@ namespace vg {
                 // Set up read info and MAPQ
                 // TODO: MAPQ on secondaries?
                 transfer_read_metadata(multipath_aln, aln_out);
-                aln_out.set_mapping_quality(multipath_aln.mapping_quality());
                 
                 // Populate path
                 populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
@@ -2152,82 +2148,6 @@ namespace vg {
         convert_multipath_alignment_char(multipath_aln, 'T', 'U');
     }
 
-    void to_proto_multipath_alignment(const multipath_alignment_t& multipath_aln,
-                                      MultipathAlignment& proto_multipath_aln_out) {
-        proto_multipath_aln_out.clear_subpath();
-        proto_multipath_aln_out.clear_start();
-        transfer_read_metadata(multipath_aln, proto_multipath_aln_out);
-        proto_multipath_aln_out.set_mapping_quality(multipath_aln.mapping_quality());
-        for (const auto& subpath : multipath_aln.subpath()) {
-            auto subpath_copy = proto_multipath_aln_out.add_subpath();
-            subpath_copy->set_score(subpath.score());
-            for (auto next : subpath.next()) {
-                subpath_copy->add_next(next);
-            }
-            for (const auto& connection : subpath.connection()) {
-                auto connection_copy = subpath_copy->add_connection();
-                connection_copy->set_next(connection.next());
-                connection_copy->set_score(connection.score());
-            }
-            if (subpath.has_path()) {
-                const auto& path = subpath.path();
-                auto path_copy = subpath_copy->mutable_path();
-                to_proto_path(path, *path_copy);
-            }
-        }
-        for (auto start : multipath_aln.start()) {
-            proto_multipath_aln_out.add_start(start);
-        }
-    }
-
-    void from_proto_multipath_alignment(const MultipathAlignment& proto_multipath_aln,
-                                        multipath_alignment_t& multipath_aln_out) {
-        multipath_aln_out.clear_subpath();
-        multipath_aln_out.clear_start();
-        transfer_read_metadata(proto_multipath_aln, multipath_aln_out);
-        multipath_aln_out.set_mapping_quality(proto_multipath_aln.mapping_quality());
-        for (auto subpath : proto_multipath_aln.subpath()) {
-            auto subpath_copy = multipath_aln_out.add_subpath();
-            subpath_copy->set_score(subpath.score());
-            for (auto next : subpath.next()) {
-                subpath_copy->add_next(next);
-            }
-            for (const auto& connection : subpath.connection()) {
-                auto connection_copy = subpath_copy->add_connection();
-                connection_copy->set_next(connection.next());
-                connection_copy->set_score(connection.score());
-            }
-            if (subpath.has_path()) {
-                auto path = subpath.path();
-                auto path_copy = subpath_copy->mutable_path();
-                from_proto_path(path, *path_copy);
-            }
-        }
-        
-        for (auto start : proto_multipath_aln.start()) {
-            multipath_aln_out.add_start(start);
-        }
-    }
-    
-    void to_multipath_alignment(const Alignment& aln, multipath_alignment_t& multipath_aln_out) {
-        
-        // clear repeated fields
-        multipath_aln_out.clear_subpath();
-        multipath_aln_out.clear_start();
-        
-        // transfer read and alignment metadata
-        transfer_read_metadata(aln, multipath_aln_out);
-        multipath_aln_out.set_mapping_quality(aln.mapping_quality());
-        
-        // transfer alignment and score
-        if (aln.has_path() || aln.score()) {
-            subpath_t* subpath = multipath_aln_out.add_subpath();
-            subpath->set_score(aln.score());
-            from_proto_path(aln.path(), *subpath->mutable_path());
-        }
-        identify_start_subpaths(multipath_aln_out);
-    }
-
     template<class ProtoAlignment>
     void transfer_from_proto_annotation(const ProtoAlignment& from, multipath_alignment_t& to) {
         for_each_basic_annotation(from,
@@ -2260,21 +2180,109 @@ namespace vg {
         });
     }
 
-    void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to) {
+    // TODO: our proto annotation system actually doesn't seem to allow null annotations...
+    template<class ProtoAlignment1, class ProtoAlignment2>
+    void transfer_between_proto_annotation(const ProtoAlignment1& from, ProtoAlignment2& to) {
+        for_each_basic_annotation(from,
+                                  [&to](const string& name) { return; },
+                                  [&to](const string& name, double value) { set_annotation(to, name, value); },
+                                  [&to](const string& name, bool value) { set_annotation(to, name, value); },
+                                  [&to](const string& name, const string& value) { set_annotation(to, name, value); });
+    }
+
+    // transfers the metadata that is shared across all formats
+    template<class Alignment1, class Alignment2>
+    void transfer_uniform_metadata(const Alignment1& from, Alignment2& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
+        to.set_mapping_quality(from.mapping_quality());
+    }
+
+    void to_proto_multipath_alignment(const multipath_alignment_t& multipath_aln,
+                                      MultipathAlignment& proto_multipath_aln_out) {
+        proto_multipath_aln_out.clear_subpath();
+        proto_multipath_aln_out.clear_start();
+        transfer_read_metadata(multipath_aln, proto_multipath_aln_out);
+        for (const auto& subpath : multipath_aln.subpath()) {
+            auto subpath_copy = proto_multipath_aln_out.add_subpath();
+            subpath_copy->set_score(subpath.score());
+            for (auto next : subpath.next()) {
+                subpath_copy->add_next(next);
+            }
+            for (const auto& connection : subpath.connection()) {
+                auto connection_copy = subpath_copy->add_connection();
+                connection_copy->set_next(connection.next());
+                connection_copy->set_score(connection.score());
+            }
+            if (subpath.has_path()) {
+                const auto& path = subpath.path();
+                auto path_copy = subpath_copy->mutable_path();
+                to_proto_path(path, *path_copy);
+            }
+        }
+        for (auto start : multipath_aln.start()) {
+            proto_multipath_aln_out.add_start(start);
+        }
+    }
+
+    void from_proto_multipath_alignment(const MultipathAlignment& proto_multipath_aln,
+                                        multipath_alignment_t& multipath_aln_out) {
+        multipath_aln_out.clear_subpath();
+        multipath_aln_out.clear_start();
+        transfer_read_metadata(proto_multipath_aln, multipath_aln_out);
+        for (auto subpath : proto_multipath_aln.subpath()) {
+            auto subpath_copy = multipath_aln_out.add_subpath();
+            subpath_copy->set_score(subpath.score());
+            for (auto next : subpath.next()) {
+                subpath_copy->add_next(next);
+            }
+            for (const auto& connection : subpath.connection()) {
+                auto connection_copy = subpath_copy->add_connection();
+                connection_copy->set_next(connection.next());
+                connection_copy->set_score(connection.score());
+            }
+            if (subpath.has_path()) {
+                auto path = subpath.path();
+                auto path_copy = subpath_copy->mutable_path();
+                from_proto_path(path, *path_copy);
+            }
+        }
+        
+        for (auto start : proto_multipath_aln.start()) {
+            multipath_aln_out.add_start(start);
+        }
+    }
+    
+    void to_multipath_alignment(const Alignment& aln, multipath_alignment_t& multipath_aln_out) {
+        
+        // clear repeated fields
+        multipath_aln_out.clear_subpath();
+        multipath_aln_out.clear_start();
+        
+        // transfer read and alignment metadata
+        transfer_read_metadata(aln, multipath_aln_out);
+        
+        // transfer alignment and score
+        if (aln.has_path() || aln.score()) {
+            subpath_t* subpath = multipath_aln_out.add_subpath();
+            subpath->set_score(aln.score());
+            from_proto_path(aln.path(), *subpath->mutable_path());
+        }
+        identify_start_subpaths(multipath_aln_out);
+    }
+
+    void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to) {
+        transfer_uniform_metadata(from, to);
         transfer_from_proto_annotation(from, to);
     }
 
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to) {
-        to.set_sequence(from.sequence());
-        to.set_quality(from.quality());
+        transfer_uniform_metadata(from, to);
         transfer_to_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, multipath_alignment_t& to) {
-        to.set_sequence(from.sequence());
-        to.set_quality(from.quality());
+        transfer_uniform_metadata(from, to);
         from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
             switch (type) {
                 case multipath_alignment_t::Null:
@@ -2298,25 +2306,33 @@ namespace vg {
     }
     
     void transfer_read_metadata(const Alignment& from, multipath_alignment_t& to) {
-        to.set_sequence(from.sequence());
-        to.set_quality(from.quality());
+        transfer_uniform_metadata(from, to);
         transfer_from_proto_annotation(from, to);
+        if (from.is_secondary()) {
+            to.set_annotation("secondary", true);
+        }
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, Alignment& to) {
-        to.set_sequence(from.sequence());
-        to.set_quality(from.quality());
+        transfer_uniform_metadata(from, to);
         transfer_to_proto_annotation(from, to);
+        if (from.has_annotation("secondary")) {
+            auto annotation = from.get_annotation("secondary");
+            assert(annotation.first == multipath_alignment_t::Bool);
+            to.set_is_secondary(*((bool*) annotation.second));
+        }
     }
 
     void transfer_read_metadata(const Alignment& from, Alignment& to) {
-        to.set_sequence(from.sequence());
-        to.set_quality(from.quality());
-        // TODO: do I still care about these fields now that they're taken out
-        // of multipath_alignment_t?
+        transfer_uniform_metadata(from, to);
+        
         to.set_read_group(from.read_group());
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
+        to.set_is_secondary(from.is_secondary());
+        
+        transfer_between_proto_annotation(from, to);
+        
         if (from.has_fragment_prev()) {
             *to.mutable_fragment_prev() = from.fragment_prev();
         }

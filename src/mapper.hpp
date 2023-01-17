@@ -658,6 +658,8 @@ public:
     // Keep track of fragment length distribution statistics
     FragmentLengthStatistics frag_stats;
 
+    atomic<int> warned_about_chunking{0};
+    
     // bench_t bench[4];
     // uint64_t counter[6];
 };

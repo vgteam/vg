@@ -631,7 +631,6 @@ int main_view(int argc, char** argv) {
                     to_multipath_alignment(aln, mp_aln);
                     buf.emplace_back();
                     to_proto_multipath_alignment(mp_aln, buf.back());
-                    transfer_proto_metadata(aln, buf.back());
                     vg::io::write_buffered(std::cout, buf, 1000);
                 }
                 vg::io::write_buffered(cout, buf, 0);
