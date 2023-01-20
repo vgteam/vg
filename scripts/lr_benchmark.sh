@@ -53,8 +53,8 @@ fi
 scripts/plot-qq.R "${WORK_DIR}/benchmark.tsv" "${OUT_DIR}/qq.png"
 
 # Compute a correctness rate
-TOTAL_READS="$(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | wc -l)"
-CORRECT_READS="$(cat "${WORK_DIR}/benchmark.tsv" | grep -v "^#" | grep "^1" | wc -l)"
+TOTAL_READS="$(cat "${WORK_DIR}/benchmark.tsv" | tail -n +2 | wc -l)"
+CORRECT_READS="$(cat "${WORK_DIR}/benchmark.tsv" | tail -n +2 | grep "^1" | wc -l)"
 CORRECT_FRACTION="$(echo "${CORRECT_READS}/${TOTAL_READS}" | bc -l)"
 echo "Correct fraction: ${CORRECT_FRACTION}" >"${OUT_DIR}/results.txt"
 cat "${OUT_DIR}/results.txt"
