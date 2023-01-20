@@ -10,9 +10,11 @@ OUT_DIR="./lr_benchmark"
 echo "Writing to ${OUT_DIR}"
 mkdir -p "${OUT_DIR}"
 
-# Stephen Hwang's simulated reads, from /public/groups/vg/sjhwang/data/reads/sim_HiFi/sim_10k_reads.gam.
-# Assumed to be annotated already.
-INPUT_READ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim_HiFi/sim_10k_reads.gam
+# Adam Novak's simulated reads, loosely following Stephen Hwang's method.
+# Annotated with GRCh38.chr1 style path names.
+# Also available in 100 and 10000 read versions
+INPUT_READ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim_HiFi/HG00741/HG00741-sim-hifi-1000.gam
+
 # An HPRC graph, linked to /public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz
 INPUT_GBZ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz
 # Its indexes
@@ -26,6 +28,7 @@ if [[ "${WORK_DIR}" == "" ]] ; then
     CLEAN_WORK_DIR=1
 else
     # Let the user send one in in the environment.
+    mkdir -p "${WORK_DIR}"
     CLEAN_WORK_DIR=0
 fi
 
@@ -34,22 +37,16 @@ echo "Working in ${WORK_DIR}"
 if [[ ! -e "${WORK_DIR}/annotated.gam" ]] ; then
     # Map reads using correctness tracking.
     # Make sure to apply multi-position annotation which Giraffe won't do.
-    vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position >"${WORK_DIR}/annotated.gam"
+    vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position -l 100 >"${WORK_DIR}/annotated.gam"
 fi
 
 # Compute general stats
 vg stats -a "${WORK_DIR}/annotated.gam" >"${OUT_DIR}/stats.txt"
 
-# Our truth reads are bare contigs but our graph includes assembly and "chr".
-# TODO: Is this the right mitochondria name? Is chrM even in the reads?
-RENAMES=(--rename GRCh38.chrM=MT)
-for CONTIG in {1..22} X Y ; do
-    RENAMES+=(--rename "GRCh38.chr${CONTIG}=${CONTIG}")
-done
-
 if [[ ! -e "${WORK_DIR}/benchmark.tsv" ]] ; then
     # See if reads get close enough to be correct
-    vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv >"${WORK_DIR}/benchmark.tsv" "${RENAMES[@]}"
+    # TODO: vg gamcompare announces a correctness count, which we should save
+    vg gamcompare -r 200 "${WORK_DIR}/annotated.gam" "${INPUT_READ_PATH}" --aligner lrgiraffe --tsv >"${WORK_DIR}/benchmark.tsv" 
 fi
 
 # Make a QQ plot
