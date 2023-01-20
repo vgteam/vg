@@ -21,12 +21,12 @@ using namespace std;
         public:
     
         //Add an integer value to the end of the varint vector
-        void add_value(int64_t value);
+        void add_value(size_t value);
     
         //Get the integer at the given index. 
         //Index refers to the index in the vector of bytes, not the nth value stored in the vector
         //Also return the index of the next value
-        const inline std::pair<int64_t, size_t> get_value_and_next_index(size_t index);
+        const inline std::pair<size_t, size_t> get_value_and_next_index(size_t index);
     
         private:
         //The actual data stored in the vector
@@ -38,7 +38,7 @@ using namespace std;
     
     };
 
-void write_byte_as_bits_to_stderr(int64_t value) {
+void write_byte_as_bits_to_stderr(size_t value) {
     cerr << ((value & (1<<7)) ? "1" : "0") 
          << ((value & (1<<6)) ? "1" : "0") 
          << ((value & (1<<5)) ? "1" : "0") 
@@ -55,9 +55,12 @@ void write_byte_as_bits_to_stderr(int64_t value) {
      * TODO: This assumes that everything is big-endian, which may not be true?
      */
     
-    void varint_vector_t::add_value(int64_t value) {
+    void varint_vector_t::add_value(size_t value) {
         if (value == 0) {
             //If the value is 0, then the 0 tag to end the integer and 0 for the value 
+#ifdef DEBUG_VARINT
+                cerr <<"adding " << data.size() << ": 0" << endl;
+#endif
             data.push_back(0);
             return;
         }
@@ -90,13 +93,13 @@ void write_byte_as_bits_to_stderr(int64_t value) {
     }
     
     //TODO: What to do if its empty?
-    const inline std::pair<int64_t, size_t> varint_vector_t::get_value_and_next_index(size_t index) {
+    const inline std::pair<size_t, size_t> varint_vector_t::get_value_and_next_index(size_t index) {
         if (index >= data.size()) {
             throw runtime_error("Accessing value past the end of a varint vector");
         }
 
         //Value to return
-        int64_t value = 0;
+        size_t value = 0;
         //How many chunks have we seen so far
         size_t chunk_count = 0;
 
@@ -108,7 +111,9 @@ void write_byte_as_bits_to_stderr(int64_t value) {
             cerr << endl;
 #endif
             //For each chunk, add the 7 bits from the current index to value
-            value |= ((data[index] & MAX_VALUE) << (USABLE_BITS*chunk_count));
+            //TODO: I'd like to not have to explicitly make a new size_t but reinterpret_cast doesn't compile and it'll cut off after 32 bits otherwise
+            size_t to_add = (data[index] & MAX_VALUE);
+            value |= (to_add << (USABLE_BITS*chunk_count));
 
             //Increment the current index and the number of things we've added
             index++;
@@ -124,7 +129,8 @@ void write_byte_as_bits_to_stderr(int64_t value) {
         write_byte_as_bits_to_stderr((data[index] & MAX_VALUE));
         cerr << " " << (USABLE_BITS*chunk_count) << endl;
 #endif
-        value |= ((data[index] & MAX_VALUE) << (USABLE_BITS*chunk_count));
+            size_t to_add = (data[index] & MAX_VALUE);
+            value |= (to_add << (USABLE_BITS*chunk_count));
 
         index++;
 
