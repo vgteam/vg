@@ -404,36 +404,19 @@ std::vector<HaplotypePartitioner::sequence_type> HaplotypePartitioner::get_seque
         gbwt::size_type from_id = this->r_index.seqId(from_iter->first);
         gbwt::size_type to_id = this->r_index.seqId(to_iter->first);
         if (from_id == to_id) {
-            // To avoid weird situations, we only consider the first time a haplotype crosses this
-            // subchain. We combine the first exit from the subchain and the last entry before it.
-            // These situations should be rare.
-            // TODO: Should we consider all minimal crossings?
-            bool multiple_visits = false;
+            // If a haplotype crosses the subchain multiple times, we take the last entry before
+            // each exit.
             gbwt::size_type to_offset = this->r_index.seqOffset(to_iter->first);
-            if (this->r_index.seqOffset(from_iter->first) >= this->r_index.seqOffset(to_iter->first)) {
-                auto peek = from_iter + 1;
+            if (this->r_index.seqOffset(from_iter->first) >= to_offset) {
+                auto peek = from_iter +1;
                 while (peek != from.end() && this->r_index.seqId(peek->first) == from_id && this->r_index.seqOffset(peek->first) >= to_offset) {
                     from_iter = peek;
                     ++peek;
-                    multiple_visits = true;
                 }
                 result.push_back(*from_iter);
-            }
-            ++from_iter;
-            while (from_iter != from.end() && this->r_index.seqId(from_iter->first) == from_id) {
-                ++from_iter;
-                multiple_visits = true;
-            }
-            ++to_iter;
-            while (to_iter != to.end() && this->r_index.seqId(to_iter->first) == to_id) {
+                ++from_iter; ++to_iter;
+            } else {
                 ++to_iter;
-                multiple_visits = true;
-            }
-            if (multiple_visits && this->verbosity >= verbosity_debug) {
-                #pragma omp critical
-                {
-                    std::cerr << "Taking the first visit of sequence " << from_id << " to subchain " << to_string(subchain.start) << " to " << to_string(subchain.end) << std::endl;
-                }
             }
         } else if (from_id < to_id) {
             ++from_iter;

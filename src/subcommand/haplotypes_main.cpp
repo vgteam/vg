@@ -128,6 +128,7 @@ int main_haplotypes(int argc, char** argv) {
     }
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
     size_t max_threads = omp_get_max_threads();
+    omp_set_num_threads(haplotypes_default_threads());
 
     // Parse options into these.
     std::string graph_name, gbz_output, haplotype_output;
