@@ -642,6 +642,10 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
     }
 }
 
+std::string subchain_to_string(size_t chain_id, size_t subchain_id, const Haplotypes::Subchain& subchain) {
+    return "chain " + std::to_string(chain_id) + ", subchain " + std::to_string(subchain_id) + " (" + subchain.type_of() + ")";
+}
+
 void validate_haplotypes(const Haplotypes& haplotypes,
                          const gbwtgraph::GBWTGraph& graph,
                          const gbwt::FastLocate& r_index,
@@ -692,8 +696,13 @@ void validate_haplotypes(const Haplotypes& haplotypes,
             for (size_t i = 0; i < subchain.kmers.size(); i++) {
                 auto iter = kmers.find(subchain.kmers[i]);
                 if (iter != kmers.end()) {
-                    std::string message = "kmer " + std::to_string(i) + " also found in chain " + std::to_string(iter->second.first) + ", subchain " + std::to_string(iter->second.second);
-                    validate_error_subchain(chain_id, subchain_id, message);
+                    const Haplotypes::Subchain& prev = haplotypes.chains[iter->second.first].subchains[iter->second.second];
+                    if (chain_id == iter->second.first && subchain_id == iter->second.second + 1 && subchain.type == Haplotypes::Subchain::prefix && prev.type == Haplotypes::Subchain::suffix) {
+                        // TODO: Maybe warn that there are shared kmers in a snarl broken into a suffix and a prefix.
+                    } else {
+                        std::string message = "kmer " + std::to_string(i) + " also found in " + subchain_to_string(iter->second.first, iter->second.second, prev);
+                        validate_error_subchain(chain_id, subchain_id, message);
+                    }
                 }
                 kmers[subchain.kmers[i]] = { chain_id, subchain_id };
             }

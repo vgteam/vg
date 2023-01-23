@@ -30,7 +30,8 @@ namespace vg {
  *
  * At the moment, the kmers are minimizers with a single occurrence in the graph.
  * The requirement is that each kmer is specific to a single subchain and does
- * not occur anywhere else.
+ * not occur anywhere else. (If no haplotype crosses a snarl, that snarl is
+ * broken into a suffix and a prefix, and those subchains may share kmers.)
  */
 class Haplotypes {
 public:
@@ -108,6 +109,9 @@ public:
 
         /// Returns `true` if the subchain has an end node.
         bool has_end() const { return (this->type == normal || this->type == prefix); }
+
+        /// Returns the type of the subchain as a string.
+        std::string type_of() const;
 
         /// Serializes the object to a stream in the simple-sds format.
         void simple_sds_serialize(std::ostream& out) const;

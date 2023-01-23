@@ -80,6 +80,21 @@ std::unordered_map<std::uint64_t, Haplotypes::KMerCount> Haplotypes::kmer_counts
 
 //------------------------------------------------------------------------------
 
+std::string Haplotypes::Subchain::type_of() const {
+    switch (this->type) {
+    case normal:
+        return "normal";
+    case prefix:
+        return "prefix";
+    case suffix:
+        return "suffix";
+    case full_haplotype:
+        return "full";
+    default:
+        return "invalid";
+    }
+}
+
 void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<std::uint64_t>(this->type, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->start, out);
