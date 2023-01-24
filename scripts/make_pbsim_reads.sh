@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# make_ccs_reads.sh: script to simulate PacBio CCS reads.
+# make_pbsim_reads.sh: script to simulate reads with pbsim2.
 # Mostly theoretical; records commands that would have worked better than what was actually run
 # Intended to run on UCSC Courtyard/Plaza systems
 # You may also need to CFLAGS=-fPIC pip3 install --user bioconvert
