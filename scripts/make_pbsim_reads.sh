@@ -146,6 +146,18 @@ done
 # Wait on all jobs
 wait
 
+if [[ "$(ls "${WORK_DIR}/${SAMPLE_NAME}-reads"/sim_*.tmp | wc -l)" != "0" ]] ; then
+    # Make sure all the per-file temp files got moved 
+    echo "Loose temp files; failure detected."
+    exit 1
+fi
+
+if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam" ]] ; then
+    # Combine all the BAM files
+    time samtools merge -n "${WORK_DIR}/${SAMPLE_NAME}-reads"/sim_*.renamed.bam -o "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam.tmp" --threads 14
+    mv "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam"
+fi
+
 if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam" ]] ; then
     # Move reads into graph space
     time vg inject -x "${WORK_DIR}/${GRAPH_NAME}-${SAMPLE_NAME}-as-ref.gbz" "${WORK_DIR}/${SAMPLE_NAME}-reads/merged.bam" -t 16 >"${WORK_DIR}/${SAMPLE_NAME}-reads/injected.gam.tmp"
@@ -159,9 +171,11 @@ if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam
 fi
 
 # Subset to manageable sizes (always)
+set -o pipefail
 vg filter -d 1.0004 "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n100 | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-100.gam"
 vg filter -d 2.004 "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n1000 | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-1000.gam"
 vg filter -d 3.04 "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n10000 | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-10000.gam"
+set +o pipefail
 
 # Output them
 mkdir -p "${OUT_DIR}"
