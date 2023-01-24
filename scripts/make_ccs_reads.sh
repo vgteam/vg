@@ -6,29 +6,33 @@
 
 set -ex
 
+# Here we use : and := to set variables to default values if not present in the environment.
+# You can set these in the environment ot override them and I don't have to write a CLI option parser.
+# See https://stackoverflow.com/a/28085062
 
 # Graph to simulate from
-GRAPH_XG_URL="s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.xg"
-GRAPH_GBWT_URL="s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.gbwt"
+: "${GRAPH_XG_URL:=s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.xg}"
+: "${GRAPH_GBWT_URL:=s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.gbwt}"
 # Name to use for graph when downloaded
-GRAPH_NAME="hprc-v1.0-mc-grch38"
+: "${GRAPH_NAME:=hprc-v1.0-mc-grch38}"
 # Sample to simulate from
-SAMPLE_NAME="HG00741"
+: "${SAMPLE_NAME:=HG00741}"
 # Technology name to use in output filenames
-TECH_NAME="hifi"
+: "${TECH_NAME:=hifi}"
 # FASTQ to use as a template
-SAMPLE_FASTQ="/public/groups/vg/sjhwang/data/reads/real_HiFi/tmp/HiFi_reads_100k_real.fq"
+: "${SAMPLE_FASTQ:=/public/groups/vg/sjhwang/data/reads/real_HiFi/tmp/HiFi_reads_100k_real.fq}"
 # This needs to be the pbsim2 command, which isn't assumed to be in $PATH
-PBSIM="/public/groups/vg/sjhwang/tools/bin/pbsim"
-# Parameters to use with pbsim for simulating reads for each contig
-PBSIM_PARAMS=(--depth 1 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54)
+: "${PBSIM:=/public/groups/vg/sjhwang/tools/bin/pbsim}"
+# Parameters to use with pbsim for simulating reads for each contig. Parameters are space-separated and internal spaces must be escaped.
+: "${PBSIM_PARAMS:=--depth 1 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
 # This needs to be a command line which can execute Stephen's script that adds qualities from a FASTQ back into a SAM that is missing them.
+# Arguments are space-separated and internal spaces must be escaped.
 # TODO: Put the script up somewhere so it can be run!
-ADD_QUALITIES=(python /public/groups/vg/sjhwang/vg_scripts/bin/readers/sam_reader.py)
+: "${ADD_QUALITIES:=python /public/groups/vg/sjhwang/vg_scripts/bin/readers/sam_reader.py}"
 # Directory to save results in
-OUT_DIR="./reads/sim_HiFi/${SAMPLE_NAME}"
+: "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME}}"
 # Number of MAFs to convert at once
-MAX_JOBS=10
+: "${MAX_JOBS:=10}"
 
 if [[ "${WORK_DIR}" == "" ]] ; then
     # Make a work directory
@@ -83,7 +87,7 @@ if [[ ! -d "${WORK_DIR}/${SAMPLE_NAME}-reads" ]] ; then
     
     # Simulate reads
     time "${PBSIM}" \
-        "${PBSIM_PARAMS[@]}" \
+        ${PBSIM_PARAMS} \
        --sample-fastq "${SAMPLE_FASTQ}" \
        --prefix "${WORK_DIR}/${SAMPLE_NAME}-reads.tmp/sim" \
        "${WORK_DIR}/${SAMPLE_NAME}.fa"
@@ -117,7 +121,7 @@ for MAF_NAME in "${WORK_DIR}"/${SAMPLE_NAME}-reads/sim_*.maf ; do
                 bioconvert maf2sam "${MAF_NAME}" "${SAM_NAME}.tmp"
                 mv "${SAM_NAME}.tmp" "${SAM_NAME}"
             fi
-            "${ADD_QUALITIES[@]}" -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
+            ${ADD_QUALITIES} -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
             mv "${RENAMED_BAM_NAME}.tmp" "${RENAMED_BAM_NAME}"
         else
             echo "Already have ${RENAMED_BAM_NAME}..."

@@ -13,7 +13,7 @@ mkdir -p "${OUT_DIR}"
 # Adam Novak's simulated reads, loosely following Stephen Hwang's method.
 # Annotated with GRCh38.chr1 style path names.
 # Also available in 100 and 10000 read versions
-INPUT_READ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim_HiFi/HG00741/HG00741-sim-hifi-1000.gam
+INPUT_READ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim/hifi/HG00741/HG00741-sim-hifi-1000.gam
 
 # An HPRC graph, linked to /public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz
 INPUT_GBZ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz
