@@ -19,8 +19,10 @@ set -ex
 : "${SAMPLE_NAME:=HG00741}"
 # Technology name to use in output filenames
 : "${TECH_NAME:=hifi}"
-# FASTQ to use as a template
+# FASTQ to use as a template, or "/dev/null"
 : "${SAMPLE_FASTQ:=/public/groups/vg/sjhwang/data/reads/real_HiFi/tmp/HiFi_reads_100k_real.fq}"
+# HMM model to use instead of a FASTQ, or "/dev/null"
+: "${PBSIM_HMM:=/dev/null}"
 # This needs to be the pbsim2 command, which isn't assumed to be in $PATH
 : "${PBSIM:=/public/groups/vg/sjhwang/tools/bin/pbsim}"
 # Parameters to use with pbsim for simulating reads for each contig. Parameters are space-separated and internal spaces must be escaped.
@@ -81,14 +83,32 @@ if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}.fa" ]] ; then
     mv "${WORK_DIR}/${SAMPLE_NAME}.fa.tmp" "${WORK_DIR}/${SAMPLE_NAME}.fa"
 fi
 
+if [[ -d "${WORK_DIR}/${SAMPLE_NAME}-reads" && "$(ls "${WORK_DIR}/${SAMPLE_NAME}-reads/"sim_*.maf | wc -l)" == "0" ]] ; then
+    # Sim directory exists but has no MAFs. Shouldn't have any files at all.
+    rmdir "${WORK_DIR}/${SAMPLE_NAME}-reads"
+fi
+
 if [[ ! -d "${WORK_DIR}/${SAMPLE_NAME}-reads" ]] ; then
     rm -Rf "${WORK_DIR}/${SAMPLE_NAME}-reads.tmp"
     mkdir "${WORK_DIR}/${SAMPLE_NAME}-reads.tmp"
     
+    if [[ "${PBSIM_HMM}" != "/dev/null" ]] ; then
+        if [[ "${SAMPLE_FASTQ}" != "/dev/null" ]] ; then
+            echo "Can't use both a PBSIM_HMM and a SAMPLE_FASTQ"
+            exit 1
+        fi
+        # Using an HMM to make qualities.
+        QUAL_SOURCE_ARGS=(--hmm_model "${SAMPLE_FASTQ}")
+    else
+        # Using a FASTQ to make qualities.
+        # No read may be over 1 megabase or pbsim2 will crash.
+        QUAL_SOURCE_ARGS=(--sample-fastq "${SAMPLE_FASTQ}")
+    fi
+    
     # Simulate reads
     time "${PBSIM}" \
         ${PBSIM_PARAMS} \
-       --sample-fastq "${SAMPLE_FASTQ}" \
+       "${QUAL_SOURCE_ARGS[@]}" \
        --prefix "${WORK_DIR}/${SAMPLE_NAME}-reads.tmp/sim" \
        "${WORK_DIR}/${SAMPLE_NAME}.fa"
     
@@ -125,8 +145,9 @@ function do_job() {
     fi
 }
 
+
 # Convert all the reads to BAM in the space of the sample as a primary reference
-for MAF_NAME in "${WORK_DIR}"/${SAMPLE_NAME}-reads/sim_*.maf ; do
+for MAF_NAME in "${WORK_DIR}/${SAMPLE_NAME}-reads/"sim_*.maf ; do
     if [[ "${MAX_JOBS}" == "1" ]] ; then
         # Serial mode
         do_job
