@@ -28,7 +28,7 @@ set -ex
 # This needs to be a command line which can execute Stephen's script that adds qualities from a FASTQ back into a SAM that is missing them.
 # Arguments are space-separated and internal spaces must be escaped.
 # TODO: Put the script up somewhere so it can be run!
-: "${ADD_QUALITIES:=python /public/groups/vg/sjhwang/vg_scripts/bin/readers/sam_reader.py}"
+: "${ADD_QUALITIES:=python3 /public/groups/vg/sjhwang/vg_scripts/bin/readers/sam_reader.py}"
 # Directory to save results in
 : "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME}}"
 # Number of MAFs to convert at once
@@ -95,39 +95,53 @@ if [[ ! -d "${WORK_DIR}/${SAMPLE_NAME}-reads" ]] ; then
     mv "${WORK_DIR}/${SAMPLE_NAME}-reads.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads"
 fi
 
+function do_job() {
+    # Run this file in a job
+    set -e
+    
+    SAM_NAME="${MAF_NAME%.maf}.sam"
+    FASTQ_NAME="${MAF_NAME%.maf}.fastq"
+    REF_NAME="${MAF_NAME%.maf}.ref"
+    RENAMED_BAM_NAME="${MAF_NAME%.maf}.renamed.bam"
+    # Get the contig name in the format it would be as a reference sense path.
+    # It may already be a reference sense path.
+    # Can't run under pipefail because some of these may not match.
+    CONTIG_NAME="$(cat "${REF_NAME}" | head -n1 | sed 's/^>//' | sed 's/ .*//' | sed 's/#\([0-9]*\)$/[\1]/')"
+    # Haplotype paths can end in a 0 offset/fragment but reference paths don't include that in the name.
+    CONTIG_NAME="${CONTIG_NAME%\[0\]}"
+    if [[ ! -e "${RENAMED_BAM_NAME}" ]] ; then
+        echo "Making ${RENAMED_BAM_NAME}..."
+        if [[ ! -e "${SAM_NAME}" ]] ; then
+            echo "Making SAM ${SAM_NAME}..."
+            /usr/bin/time -v bioconvert maf2sam "${MAF_NAME}" "${SAM_NAME}.tmp" 
+            mv "${SAM_NAME}.tmp" "${SAM_NAME}"
+        fi
+        set -o pipefail
+        ${ADD_QUALITIES} -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
+        set +o pipefail
+        mv "${RENAMED_BAM_NAME}.tmp" "${RENAMED_BAM_NAME}"
+    else
+        echo "Already have ${RENAMED_BAM_NAME}..."
+    fi
+}
+
 # Convert all the reads to BAM in the space of the sample as a primary reference
 for MAF_NAME in "${WORK_DIR}"/${SAMPLE_NAME}-reads/sim_*.maf ; do
-    while [[ "$(jobs -p | wc -l)" == "${MAX_JOBS}" ]] ; do
-        # Don't do too much in parallel
-        # Fake wait on any job without wait -n
-        sleep 0.5
-    done
-    (
-        # Run this file in a job
-        
-        SAM_NAME="${MAF_NAME%.maf}.sam"
-        FASTQ_NAME="${MAF_NAME%.maf}.fastq"
-        REF_NAME="${MAF_NAME%.maf}.ref"
-        RENAMED_BAM_NAME="${MAF_NAME%.maf}.renamed.bam"
-        # Get the contig name in the format it would be as a reference sense path.
-        # It may already be a reference sense path.
-        CONTIG_NAME="$(cat "${REF_NAME}" | head -n1 | sed 's/^>//' | sed 's/ .*//' | sed 's/#\([0-9]*\)$/[\1]/')"
-        # Haplotype paths can end in a 0 offset/fragment but reference paths don't include that in the name.
-        CONTIG_NAME="${CONTIG_NAME%\[0\]}"
-        if [[ ! -e "${RENAMED_BAM_NAME}" ]] ; then
-            echo "Making ${RENAMED_BAM_NAME}..."
-            if [[ ! -e "${SAM_NAME}" ]] ; then
-                echo "Making SAM ${SAM_NAME}..."
-                bioconvert maf2sam "${MAF_NAME}" "${SAM_NAME}.tmp"
-                mv "${SAM_NAME}.tmp" "${SAM_NAME}"
-            fi
-            ${ADD_QUALITIES} -s "${SAM_NAME}" -f "${FASTQ_NAME}" | sed "s/ref/${CONTIG_NAME}/g" | samtools view -b - > "${RENAMED_BAM_NAME}.tmp"
-            mv "${RENAMED_BAM_NAME}.tmp" "${RENAMED_BAM_NAME}"
-        else
-            echo "Already have ${RENAMED_BAM_NAME}..."
-        fi
-    ) &
-    ((RUNNING_JOBS += 1))
+    if [[ "${MAX_JOBS}" == "1" ]] ; then
+        # Serial mode
+        do_job
+    else
+        # Parallel mode
+        while [[ "$(jobs -p | wc -l)" == "${MAX_JOBS}" ]] ; do
+            # Don't do too much in parallel
+            # Fake wait on any job without wait -n
+            sleep 0.5
+        done
+        (
+            do_job
+        ) &
+        ((RUNNING_JOBS += 1))
+    fi
 done
 # Wait on all jobs
 wait
