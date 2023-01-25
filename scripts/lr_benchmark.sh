@@ -25,7 +25,7 @@ mkdir -p "${OUT_DIR}"
 # Its indexes
 : "${INPUT_DIST_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist}"
 : "${INPUT_MIN_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.min}"
-: "${INPUT_XG_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg}"
+: "${INPUT_XG_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg}"
 
 if [[ "${WORK_DIR}" == "" ]] ; then
     # Make a work directory
