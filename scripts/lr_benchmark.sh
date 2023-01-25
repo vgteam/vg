@@ -5,22 +5,27 @@
 set -e
 set -o pipefail
 
+# Here we use : and := to set variables to default values if not present in the environment.
+# You can set these in the environment to override them and I don't have to write a CLI option parser.
+# See https://stackoverflow.com/a/28085062
+
 # Where should output go?
-OUT_DIR="./lr_benchmark"
+: "${OUT_DIR:="./lr_benchmark"}"
 echo "Writing to ${OUT_DIR}"
 mkdir -p "${OUT_DIR}"
 
 # Adam Novak's simulated reads, loosely following Stephen Hwang's method.
 # Annotated with GRCh38.chr1 style path names.
 # Also available in 100 and 10000 read versions
-INPUT_READ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim/hifi/HG00741/HG00741-sim-hifi-1000.gam
+# Also available: /public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim/r9.5-acc0.95/HG00741/HG00741-sim-r9.5-acc0.95-1000.gam
+: "${INPUT_READ_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/reads/sim/hifi/HG00741/HG00741-sim-hifi-1000.gam}"
 
 # An HPRC graph, linked to /public/groups/cgl/graph-genomes/xhchang/hprc_graph/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz
-INPUT_GBZ_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz
+: "${INPUT_GBZ_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.giraffe.gbz}"
 # Its indexes
-INPUT_DIST_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist
-INPUT_MIN_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.min
-INPUT_XG_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg
+: "${INPUT_DIST_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.dist}"
+: "${INPUT_MIN_PATH:=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.min}"
+: "${INPUT_XG_PATH=/public/groups/cgl/graph-genomes/anovak/data/hprc-lrgiraffe/graphs/GRCh38-f1g-90-mc-aug11-clip.d9.m1000.D10M.m1000.xg}"
 
 if [[ "${WORK_DIR}" == "" ]] ; then
     # Make a work directory
