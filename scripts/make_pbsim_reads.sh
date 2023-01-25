@@ -7,7 +7,7 @@
 set -ex
 
 # Here we use : and := to set variables to default values if not present in the environment.
-# You can set these in the environment ot override them and I don't have to write a CLI option parser.
+# You can set these in the environment to override them and I don't have to write a CLI option parser.
 # See https://stackoverflow.com/a/28085062
 
 # Graph to simulate from
@@ -191,16 +191,29 @@ if [[ ! -e "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam
     mv "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam.tmp" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam"
 fi
 
-# Subset to manageable sizes (always)
-set -o pipefail
-vg filter -d 1.0004 "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n100 | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-100.gam"
-vg filter -d 2.004 "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n1000 | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-1000.gam"
-vg filter -d 3.04 "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n10000 | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-10000.gam"
-set +o pipefail
+# Work out howe many reads there are
+TOTAL_READS="$(vg stats -a "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
+
+if [[ "${TOTAL_READS}" -lt 11000 ]] ; then
+    echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 10000 reads with 10% buffer!"
+    exit 1
+fi
+echo "Simulated ${TOTAL_READS} reads overall"
+
+SUBSAMPLE_SEED=1
+for READ_COUNT in 100 1000 10000 ; do
+    # Subset to manageable sizes (always)
+    # Get the fraction of reads to keep, overestimated, with no leading 0, to paste onto subsample seed.
+    FRACTION="$(echo "${READ_COUNT}/${TOTAL_READS} * 1.1" | bc -l | sed 's/^[0-9]*//g')"
+    set -o pipefail
+    vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n"${READ_COUNT}" | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam"
+    set +o pipefail
+    ((SUBSAMPLE_SEED+=1))    
+done
 
 # Output them
 mkdir -p "${OUT_DIR}"
-cp "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-100.gam" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-1000.gam" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-10000.gam" "${OUT_DIR}/"
+cp "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-"*".gam" "${OUT_DIR}/"
 
 if [[ "${CLEAN_WORK_DIR}" == "1" ]] ; then
     # Clean up the work directory
