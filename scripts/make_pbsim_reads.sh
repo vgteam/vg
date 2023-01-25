@@ -133,7 +133,7 @@ function do_job() {
         echo "Making ${RENAMED_BAM_NAME}..."
         if [[ ! -e "${SAM_NAME}" ]] ; then
             echo "Making SAM ${SAM_NAME}..."
-            /usr/bin/time -v bioconvert maf2sam "${MAF_NAME}" "${SAM_NAME}.tmp" 
+            /usr/bin/time -v bioconvert maf2sam --force "${MAF_NAME}" "${SAM_NAME}.tmp" 
             mv "${SAM_NAME}.tmp" "${SAM_NAME}"
         fi
         set -o pipefail
@@ -153,7 +153,7 @@ for MAF_NAME in "${WORK_DIR}/${SAMPLE_NAME}-reads/"sim_*.maf ; do
         do_job
     else
         # Parallel mode
-        while [[ "$(jobs -p | wc -l)" == "${MAX_JOBS}" ]] ; do
+        while [[ "$(jobs -p | wc -l)" -ge "${MAX_JOBS}" ]] ; do
             # Don't do too much in parallel
             # Fake wait on any job without wait -n
             sleep 0.5
@@ -167,7 +167,7 @@ done
 # Wait on all jobs
 wait
 
-if [[ "$(ls "${WORK_DIR}/${SAMPLE_NAME}-reads"/sim_*.tmp | wc -l)" != "0" ]] ; then
+if [[ "$(ls "${WORK_DIR}/${SAMPLE_NAME}-reads"/sim_*.tmp 2>/dev/null | wc -l)" != "0" ]] ; then
     # Make sure all the per-file temp files got moved 
     echo "Loose temp files; failure detected."
     exit 1
