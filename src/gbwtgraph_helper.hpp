@@ -76,6 +76,9 @@ inline handle_t empty_gbwtgraph_handle() {
 /// Returns a string representation of a GBWTGraph handle.
 std::string to_string_gbwtgraph(handle_t handle);
 
+/// Returns a string representation of a GBWTGraph node.
+std::string to_string_gbwtgraph(gbwt::node_type node);
+
 //------------------------------------------------------------------------------
 
 } // namespace vg

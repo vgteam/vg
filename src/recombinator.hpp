@@ -110,8 +110,8 @@ public:
         /// Returns `true` if the subchain has an end node.
         bool has_end() const { return (this->type == normal || this->type == prefix); }
 
-        /// Returns the type of the subchain as a string.
-        std::string type_of() const;
+        /// Returns a string representation of the type and the boundary nodes.
+        std::string to_string() const;
 
         /// Serializes the object to a stream in the simple-sds format.
         void simple_sds_serialize(std::ostream& out) const;
