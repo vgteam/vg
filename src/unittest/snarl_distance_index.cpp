@@ -7066,7 +7066,7 @@ namespace vg {
             
             default_random_engine generator(test_seed_source());
             
-            for (size_t repeat = 0; repeat < 0; repeat++) {
+            for (size_t repeat = 0; repeat < 1000; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
@@ -7140,6 +7140,7 @@ namespace vg {
                         size_t max_distance = distance_index.maximum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
@@ -7198,6 +7199,7 @@ namespace vg {
                         size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
+                            cerr << "Snarl size limit: " << size_limit << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
