@@ -194,7 +194,7 @@ fi
 # Work out howe many reads there are
 TOTAL_READS="$(vg stats -a "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
 
-if [[ "${TOTAL_READS}" -lt 10001 ]] ; then
+if [[ "${TOTAL_READS}" -lt 10500 ]] ; then
     echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 10000 reads with buffer!"
     exit 1
 fi
@@ -204,7 +204,7 @@ SUBSAMPLE_SEED=1
 for READ_COUNT in 100 1000 10000 ; do
     # Subset to manageable sizes (always)
     # Get the fraction of reads to keep, overestimated, with no leading 0, to paste onto subsample seed.
-    FRACTION="$(echo "(${READ_COUNT} + 1)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
+    FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"
     # Can't use pipefail here because head will cut off the pipe and fail the previous command
     vg filter -d "${SUBSAMPLE_SEED}${FRACTION}" "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | vg view -aj - | shuf | head -n"${READ_COUNT}" | vg view -JGa - > "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}-${READ_COUNT}.gam"
     ((SUBSAMPLE_SEED+=1))    
