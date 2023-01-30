@@ -1012,11 +1012,10 @@ Functions</h2></td></tr>
 <tr class="memitem:a3ad13bf14c3488a2d7a86931831ce25d"><td class="memItemLeft" align="right" valign="top">map&lt; string,vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ad13bf14c3488a2d7a86931831ce25d">alignment_refpos_to_path_offsets</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="memdesc:a3ad13bf14c3488a2d7a86931831ce25d"><td class="mdescLeft">&#160;</td><td class="mdescRight">return the path offsets as cached in the alignment  <a href="namespacevg.html#a3ad13bf14c3488a2d7a86931831ce25d">More...</a><br /></td></tr>
 <tr class="separator:a3ad13bf14c3488a2d7a86931831ce25d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aac05a70ed0313422bd481c7bec32f830"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aac05a70ed0313422bd481c7bec32f830">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;base)</td></tr>
-<tr class="memdesc:aac05a70ed0313422bd481c7bec32f830"><td class="mdescLeft">&#160;</td><td class="mdescRight">annotate the first alignment with its minimum distance to the second in their annotated paths  <a href="namespacevg.html#aac05a70ed0313422bd481c7bec32f830">More...</a><br /></td></tr>
-<tr class="separator:aac05a70ed0313422bd481c7bec32f830"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acc99c5b394f220a3280d632cc8e3d528"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc99c5b394f220a3280d632cc8e3d528">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;base_offsets)</td></tr>
-<tr class="separator:acc99c5b394f220a3280d632cc8e3d528"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c45c724ede7f4892b24ad654d68fbef"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c45c724ede7f4892b24ad654d68fbef">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;base, const unordered_map&lt; string, string &gt; *translation)</td></tr>
+<tr class="separator:a6c45c724ede7f4892b24ad654d68fbef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab7c6a6b96f1c4c2ca04b0b6df8f384b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab7c6a6b96f1c4c2ca04b0b6df8f384b3">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;base_offsets, const unordered_map&lt; string, string &gt; *translation)</td></tr>
+<tr class="separator:ab7c6a6b96f1c4c2ca04b0b6df8f384b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7b9365497bbf0bc45a9fbae2530397fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7b9365497bbf0bc45a9fbae2530397fe">alignment_is_valid</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *hgraph)</td></tr>
 <tr class="memdesc:a7b9365497bbf0bc45a9fbae2530397fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">check to make sure edits on the alignment's path don't assume incorrect node lengths or ids  <a href="namespacevg.html#a7b9365497bbf0bc45a9fbae2530397fe">More...</a><br /></td></tr>
 <tr class="separator:a7b9365497bbf0bc45a9fbae2530397fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1034,6 +1033,8 @@ Functions</h2></td></tr>
 <tr class="separator:a598379872a84d4be8ff74df6242abf10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a083d5edb5192697a269a3e5b8815bccd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a083d5edb5192697a269a3e5b8815bccd">append_cigar_operation</a> (const int length, const char operation, vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar)</td></tr>
 <tr class="separator:a083d5edb5192697a269a3e5b8815bccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c59e7d46046fad0d349a3c747ffd6b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c59e7d46046fad0d349a3c747ffd6b3">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; &amp;base_offsets, const unordered_map&lt; string, string &gt; *translation=nullptr)</td></tr>
+<tr class="separator:a6c59e7d46046fad0d349a3c747ffd6b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34f4e73b242fa5b34d30ecc4da496835"><td class="memTemplParams" colspan="2">template&lt;typename Annotated &gt; </td></tr>
 <tr class="memitem:a34f4e73b242fa5b34d30ecc4da496835"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a34f4e73b242fa5b34d30ecc4da496835">has_annotation</a> (const Annotated &amp;annotated, const string &amp;name)</td></tr>
 <tr class="memdesc:a34f4e73b242fa5b34d30ecc4da496835"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the Protobuf object has an annotation with this name.  <a href="namespacevg.html#a34f4e73b242fa5b34d30ecc4da496835">More...</a><br /></td></tr>
@@ -3875,8 +3876,8 @@ template&lt;typename Iter &gt; </div>
 
 </div>
 </div>
-<a id="aac05a70ed0313422bd481c7bec32f830"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aac05a70ed0313422bd481c7bec32f830">&#9670;&nbsp;</a></span>alignment_set_distance_to_correct() <span class="overload">[1/2]</span></h2>
+<a id="a6c45c724ede7f4892b24ad654d68fbef"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c45c724ede7f4892b24ad654d68fbef">&#9670;&nbsp;</a></span>alignment_set_distance_to_correct() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3891,7 +3892,13 @@ template&lt;typename Iter &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>base</em>&#160;</td>
+          <td class="paramname"><em>base</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; string, string &gt; *&#160;</td>
+          <td class="paramname"><em>translation</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3900,13 +3907,12 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>annotate the first alignment with its minimum distance to the second in their annotated paths </p>
+<p>Annotate the first alignment with its minimum distance to the second in their annotated paths. If translation is set, replace path names in aln using that mapping, if they are found in it. </p>
 
 </div>
 </div>
-<a id="acc99c5b394f220a3280d632cc8e3d528"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acc99c5b394f220a3280d632cc8e3d528">&#9670;&nbsp;</a></span>alignment_set_distance_to_correct() <span class="overload">[2/2]</span></h2>
+<a id="ab7c6a6b96f1c4c2ca04b0b6df8f384b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab7c6a6b96f1c4c2ca04b0b6df8f384b3">&#9670;&nbsp;</a></span>alignment_set_distance_to_correct() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3921,7 +3927,47 @@ template&lt;typename Iter &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;&#160;</td>
-          <td class="paramname"><em>base_offsets</em>&#160;</td>
+          <td class="paramname"><em>base_offsets</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; string, string &gt; *&#160;</td>
+          <td class="paramname"><em>translation</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6c59e7d46046fad0d349a3c747ffd6b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c59e7d46046fad0d349a3c747ffd6b3">&#9670;&nbsp;</a></span>alignment_set_distance_to_correct() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::alignment_set_distance_to_correct </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const map&lt; string, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>base_offsets</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; string, string &gt; *&#160;</td>
+          <td class="paramname"><em>translation</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

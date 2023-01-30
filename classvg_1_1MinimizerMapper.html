@@ -467,8 +467,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a597914c2167ca2b06a3dccbb23e21340"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4493ab0315512da6b10a7cde3754afe2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4493ab0315512da6b10a7cde3754afe2">pair_all</a> (std::array&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, 2 &gt; &amp;mappings) const</td></tr>
 <tr class="separator:a4493ab0315512da6b10a7cde3754afe2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1fe27e283ed663503de526545e27b25d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1fe27e283ed663503de526545e27b25d">annotate_with_minimizer_statistics</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;target, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
-<tr class="separator:a1fe27e283ed663503de526545e27b25d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2da9c99842bd5e1fac26b7f6fc358fcc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2da9c99842bd5e1fac26b7f6fc358fcc">annotate_with_minimizer_statistics</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;target, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a> &gt; &amp;seeds, size_t old_seed_count, size_t new_seed_offset, const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a2da9c99842bd5e1fac26b7f6fc358fcc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0a9d591551601ea3699b8a1b2347e81"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ad0a9d591551601ea3699b8a1b2347e81">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="structvg_1_1VectorView.html">VectorView</a>&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;explored)</td></tr>
 <tr class="separator:ad0a9d591551601ea3699b8a1b2347e81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afdbaa5b2938d0050476d078d336286cf"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#afdbaa5b2938d0050476d078d336286cf">get_tail_forest</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extended_seed, size_t read_length, bool left_tails, size_t *longest_detectable_gap=nullptr) const</td></tr>
@@ -805,8 +805,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a1fe27e283ed663503de526545e27b25d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1fe27e283ed663503de526545e27b25d">&#9670;&nbsp;</a></span>annotate_with_minimizer_statistics()</h2>
+<a id="a2da9c99842bd5e1fac26b7f6fc358fcc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2da9c99842bd5e1fac26b7f6fc358fcc">&#9670;&nbsp;</a></span>annotate_with_minimizer_statistics()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -835,6 +835,18 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>old_seed_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>new_seed_offset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
           <td class="paramname"><em>funnel</em>&#160;</td>
         </tr>
@@ -850,7 +862,8 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Add annotations to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with statistics about the minimizers. </p>
+<p>Add annotations to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with statistics about the minimizers.</p>
+<p>old_seed_count is the number of seeds in the seed vector actually created at the "seed" stage of the alignment process. new_seed_offset is where the first of thos eseeds appears in the funnel at the reseed stage. </p>
 
 </div>
 </div>
