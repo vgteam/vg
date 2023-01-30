@@ -86,7 +86,7 @@ uint8_t kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, size_t chars, co
 
 std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, const uint8_t* encoding) {
     std::vector<uint8_t> result;
-    result.reserve(kff_bytes(3));
+    result.reserve(kff_bytes(k));
 
     size_t remainder = k & 3;
     if (remainder > 0) {
@@ -94,6 +94,27 @@ std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, con
     }
     for (size_t i = remainder; i < k; i += 4) {
         result.push_back(kff_recode(kmer, k - i, 4, encoding));
+    }
+
+    return result;
+}
+
+gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std::string& decoding) {
+    gbwtgraph::Key64::value_type result = 0;
+
+    size_t bytes = kff_bytes(k);
+    size_t chars = k & 3;
+    if (chars == 0) {
+        chars = 4;
+    }
+    for (size_t i = 0; i < bytes; i++) {
+        size_t offset = 2 * chars;
+        for (size_t j = 0; j < chars; j++) {
+            offset -= 2;
+            unsigned char c = decoding[(kmer[i] >> offset) & 3];
+            result = (result << 2) | gbwtgraph::CHAR_TO_PACK[c];
+        }
+        chars = 4;
     }
 
     return result;

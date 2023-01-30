@@ -37,7 +37,7 @@ std::uint64_t kff_to_key(const std::uint8_t* kmer, size_t k, size_t bytes, const
     return std::min(kff_parse(kmer, bytes), kff_parse(rc.data(), bytes));
 }
 
-std::unordered_map<std::uint64_t, Haplotypes::KMerCount> Haplotypes::kmer_counts(const std::string& kff_file) const {
+std::unordered_map<Haplotypes::Subchain::kmer_type, Haplotypes::KMerCount> Haplotypes::kmer_counts(const std::string& kff_file) const {
     // Open and validate the kmer count file.
     Kff_reader reader(kff_file);
     std::uint64_t kff_k = reader.get_var("k");
@@ -46,19 +46,18 @@ std::unordered_map<std::uint64_t, Haplotypes::KMerCount> Haplotypes::kmer_counts
             "-mers but KFF file " + kff_file + " contains " + std::to_string(kff_k) + "-mers");
     }
     const std::uint8_t* encoding = reader.get_encoding();
+    std::string decoding = kff_invert(encoding);
     size_t bytes = kff_bytes(this->k());
     size_t data_bytes = reader.get_var("data_size");
 
     // Build the map.
-    std::unordered_map<std::uint64_t, KMerCount> result;
+    std::unordered_map<Subchain::kmer_type, KMerCount> result;
     for (size_t chain_id = 0; chain_id < this->chains.size(); chain_id++) {
         const TopLevelChain& chain = this->chains[chain_id];
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Subchain& subchain = chain.subchains[subchain_id];
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-                std::vector<std::uint8_t> kmer = kff_recode(subchain.kmers[kmer_id], this->k(), encoding);
-                std::uint64_t key = kff_to_key(kmer.data(), this->k(), bytes, encoding);
-                result[key] = { std::uint32_t(chain_id), std::uint32_t(subchain_id), std::uint32_t(kmer_id), 0 };
+                result[subchain.kmers[kmer_id]] = { std::uint32_t(chain_id), std::uint32_t(subchain_id), std::uint32_t(kmer_id), 0 };
             }
         }
     }
@@ -68,10 +67,18 @@ std::unordered_map<std::uint64_t, Haplotypes::KMerCount> Haplotypes::kmer_counts
     std::uint8_t* data;
     while (reader.has_next()) {
         reader.next_kmer(kmer, data);
-        std::uint64_t key = kff_to_key(kmer, this->k(), bytes, encoding);
-        auto iter = result.find(key);
+        Subchain::kmer_type recoded = kff_recode(kmer, this->k(), decoding);
+        auto iter = result.find(recoded);
         if (iter != result.end()) {
             iter->second.count += kff_parse(data, data_bytes);
+        } else {
+            // TODO: Would it be faster to reverse complement `recoded`?
+            std::vector<uint8_t> rc = kff_reverse_complement(kmer, this->k(), encoding);
+            recoded = kff_recode(rc.data(), this->k(), decoding);
+            iter = result.find(recoded);
+            if (iter != result.end()) {
+                iter->second.count += kff_parse(data, data_bytes);
+            }
         }
     }
 

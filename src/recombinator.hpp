@@ -30,8 +30,9 @@ namespace vg {
  *
  * At the moment, the kmers are minimizers with a single occurrence in the graph.
  * The requirement is that each kmer is specific to a single subchain and does
- * not occur anywhere else. (If no haplotype crosses a snarl, that snarl is
- * broken into a suffix and a prefix, and those subchains may share kmers.)
+ * not occur anywhere else in either orientation. (If no haplotype crosses a
+ * snarl, that snarl is broken into a suffix and a prefix, and those subchains
+ * may share kmers.)
  */
 class Haplotypes {
 public:
@@ -171,16 +172,12 @@ public:
     Header header;
     std::vector<TopLevelChain> chains;
 
-    /// Returns a mapping from canonical KFF kmers to their counts in the
-    /// given file.
-    ///
-    /// A canonical KFF kmer is the minimum of a kmer and its reverse
-    /// complement when the encoded kmers are interpreted as big-endian
-    /// integers.
+    /// Returns a mapping from kmers to their counts in the given KFF file.
+    /// The counts include both the kmer and the reverse complement.
     ///
     /// Exits with `std::exit()` if the file cannot be opened and throws
     /// `std::runtime_error` if the kmer counts cannot be used.
-    std::unordered_map<std::uint64_t, KMerCount> kmer_counts(const std::string& kff_file) const;
+    std::unordered_map<Subchain::kmer_type, KMerCount> kmer_counts(const std::string& kff_file) const;
 
     /// Serializes the object to a stream in the simple-sds format.
     void simple_sds_serialize(std::ostream& out) const;
