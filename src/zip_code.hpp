@@ -7,6 +7,12 @@
 namespace vg{
 using namespace std;
 
+//A decoded zip code as a vector of pair<is_chain, index>
+//where is_chain indicates whether it's a chain/node, and index
+//is the index of the node/snarl/chain code in the varint_vector_t
+typedef std::vector<pair<bool, size_t>> zip_code_decoder_t;
+
+
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
  * A zip code will contain all the information necessary to compute the minimum distance between two 
  * positions, with minimal queries to the distance index
@@ -18,6 +24,8 @@ struct zip_code_t {
 
         //Constructor for a position and a distance index
         void fill_in_zip_code (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
+
+        zip_code_decoder_t decode() const;
 
         //Get the exact minimum distance between two positions and their zip codes
         static inline size_t minimum_distance_between(const zip_code_t& zip1, const pos_t& pos1, 
@@ -43,7 +51,6 @@ struct zip_code_t {
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
 };
-
 
 }
 
