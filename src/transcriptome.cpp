@@ -15,7 +15,7 @@ using namespace vg::io;
 
 using namespace std;
 
-// #define transcriptome_debug
+#define transcriptome_debug
 
 bool operator==(const Exon & lhs, const Exon & rhs) { 
 
@@ -464,59 +464,70 @@ void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron
 
     while (intron_stream->good()) {
 
+        cerr << "# " << line_number << endl;
+
         line_number += 1;
-        getline(*intron_stream, chrom, '\t');
+
+        string intron_line;
+        getline(*intron_stream, intron_line);
 
         // Skip header.
-        if (chrom.empty() || chrom.front() == '#') {
+        if (intron_line.empty() || intron_line.front() == '#') {
 
-            intron_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
+
+        stringstream intron_line_ss = stringstream(intron_line); 
+        getline(intron_line_ss, chrom, '\t');
 
         assert(_graph->has_path(chrom) == graph_path_pos_overlay.has_path(chrom));
 
         if (!_graph->has_path(chrom)) {
 
             if (error_on_missing_path) {
+
                 cerr << "\tERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
                 exit(1);
-            }
-            else {
+            
+            } else {
+
                 // seek to the end of the line
-                intron_stream->ignore(numeric_limits<streamsize>::max(), '\n');
                 continue;
             }
         }
 
         // Parse start and end intron position and convert end to inclusive.
-        assert(getline(*intron_stream, pos, '\t'));
-        int32_t spos = stoi(pos);
-        
-        assert(getline(*intron_stream, end));
-        auto end_ss = stringstream(end);
-        assert(getline(end_ss, pos, '\t'));
+        assert(getline(intron_line_ss, pos, '\t'));
+        int32_t spos = stoi(pos);   
+        assert(getline(intron_line_ss, pos, '\t'));
         int32_t epos = stoi(pos) - 1;
 
         assert(spos <= epos);
 
-        getline(end_ss, strand, '\t');
-        getline(end_ss, strand, '\t');
+        getline(intron_line_ss, strand, '\t');
+        getline(intron_line_ss, strand, '\t');
+
+        cerr << spos << " " << epos << endl;
 
         bool is_reverse = false;
 
-        if (getline(end_ss, strand, '\t')) {
+        if (getline(intron_line_ss, strand, '\t')) {
 
             assert(strand == "+" || strand == "-");
             is_reverse = (strand == "-") ? true : false;
         }
 
         // Create "intron" transcript.
-        introns->emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
+        introns->emplace_back(Transcript("intron", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
 
         // Add intron boundaries as flanking exons to current "intron" transcript.
         add_exon(&(introns->back()), make_pair(spos - 1, spos - 1), graph_path_pos_overlay);
         add_exon(&(introns->back()), make_pair(epos + 1, epos + 1), graph_path_pos_overlay);
+
+        if (line_number == 10) {
+
+            break;
+        }
     }
 }
 
@@ -569,14 +580,23 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
     while (transcript_stream->good()) {
 
         line_number += 1;
-        getline(*transcript_stream, chrom, '\t');
+
+        cerr << "# " << line_number << endl;
+
+        string transcript_line;
+        getline(*transcript_stream, transcript_line);
 
         // Skip header.
-        if (chrom.empty() || chrom.front() == '#') {
+        if (transcript_line.empty() || transcript_line.front() == '#') {
 
-            transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
+
+        stringstream transcript_line_ss = stringstream(transcript_line); 
+        getline(transcript_line_ss, chrom, '\t');
+
+        cerr << chrom << endl;
+
         parsed_lines += 1;
 
         auto chrom_lengths_it = chrom_lengths.find(chrom);
@@ -591,47 +611,44 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
             } else {
 
                 // Seek to the end of the line.
-                transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
                 continue;
             }
         }
 
-        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');         
-        assert(getline(*transcript_stream, feature, '\t'));
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');         
+        assert(getline(transcript_line_ss, feature, '\t'));
+
+        cerr << feature << endl;
 
         // Select only relevant feature types.
         if (feature != feature_type && !feature_type.empty()) {
 
-            transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');  
             continue;
         }
 
         // Parse start and end exon position and convert to 0-base.
-        assert(getline(*transcript_stream, pos, '\t'));
+        assert(getline(transcript_line_ss, pos, '\t'));
         int32_t spos = stoi(pos) - 1;
-        assert(getline(*transcript_stream, pos, '\t'));
+        assert(getline(transcript_line_ss, pos, '\t'));
         int32_t epos = stoi(pos) - 1;
 
         assert(spos <= epos);
 
         // Skip score column.
-        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');  
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');  
         
         // Parse strand and set whether it is reverse.
-        assert(getline(*transcript_stream, strand, '\t'));
+        assert(getline(transcript_line_ss, strand, '\t'));
         assert(strand == "+" || strand == "-");
         bool is_reverse = (strand == "-") ? true : false;
 
         // Skip frame column.
-        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');  
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');  
 
         string transcript_id = "";
-        int32_t exon_number = -1;
+        int32_t exon_number = -1;  
 
-        assert(getline(*transcript_stream, attributes, '\n'));
-        stringstream attributes_ss(attributes);    
-
-        while (getline(attributes_ss, attribute, ';')) {
+        while (getline(transcript_line_ss, attribute, ';')) {
 
             if (attribute.empty()) {
 
@@ -688,6 +705,8 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
             exit(1);
         }
 
+        cerr << transcript_id << " " << spos << " " << epos << endl;
+
         auto transcripts_index_it = transcripts_index.emplace(transcript_id, transcripts->size());
 
         // Is this a new transcript.
@@ -728,6 +747,11 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
                 cerr << "\tERROR: Exons are not in correct order according to attributes (line " << line_number << ")." << endl;
                 exit(1); 
             } 
+        }
+
+        if (line_number == 10) {
+
+            break;
         }
     }
 

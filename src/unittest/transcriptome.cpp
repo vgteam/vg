@@ -120,6 +120,8 @@ namespace vg {
             unique_ptr<gbwt::GBWT> empty_haplotype_index(new gbwt::GBWT());
 
             stringstream transcript_stream;
+            transcript_stream << "# header 1" << endl;
+            transcript_stream << "# header      2" << endl;
             transcript_stream << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 1;" << endl;
             transcript_stream << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 2;" << endl;
             transcript_stream << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 3;" << endl;
