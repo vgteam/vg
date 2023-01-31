@@ -65,8 +65,7 @@ size_t haplotypes_default_coverage() {
 void help_haplotypes(char** argv) {
     std::cerr << "Usage: " << argv[0] << " " << argv[1] << " [options] (-k counts.kff -g output.gbz | -H output.hapl) graph.gbz" << std::endl;
     std::cerr << std::endl;
-    // FIXME description
-    std::cerr << "Some experiments with haplotype sampling." << std::endl;
+    std::cerr << "Haplotype sampling based on kmer counts." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Output files:" << std::endl;
     std::cerr << "    -g, --gbz-output X        write the output GBZ to X" << std::endl;
@@ -395,8 +394,7 @@ int main_haplotypes(int argc, char** argv) {
     return 0;
 }
 
-// FIXME description
-static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling experiments", vg::subcommand::DEVELOPMENT, main_haplotypes);
+static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::DEVELOPMENT, main_haplotypes);
 
 //----------------------------------------------------------------------------
 

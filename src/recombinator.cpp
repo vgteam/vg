@@ -908,7 +908,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     Statistics statistics;
     statistics.chains = 1; statistics.haplotypes = parameters.num_haplotypes;
     if (chain.subchains.size() == 1 && chain.subchains.front().type == Haplotypes::Subchain::full_haplotype) {
-        // FIXME: Full haplotypes should all be identical, because there are no snarls. Therefore we do not need kmers.
+        // TODO: Full haplotypes should all be identical, because there are no snarls. Therefore we do not need kmers.
         auto& subchain = chain.subchains.front();
         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
             assert(!subchain.sequences.empty());
