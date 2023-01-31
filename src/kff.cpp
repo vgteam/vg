@@ -149,6 +149,15 @@ std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const
     return result;
 }
 
+gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::value_type kmer, size_t k) {
+    gbwtgraph::Key64::value_type result = 0;
+    for (size_t i = 0; i < k; i++) {
+        result = (result << 2) | ((kmer & 3) ^ 3);
+        kmer >>= 2;
+    }
+    return result;
+}
+
 //------------------------------------------------------------------------------
 
 uint64_t kff_parse(const uint8_t* data, size_t bytes) {

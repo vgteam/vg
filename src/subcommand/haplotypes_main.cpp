@@ -58,6 +58,10 @@ size_t haplotypes_default_w() {
     return gbwtgraph::Key64::WINDOW_LENGTH;
 }
 
+size_t haplotypes_default_coverage() {
+    return Recombinator::COVERAGE;
+}
+
 void help_haplotypes(char** argv) {
     std::cerr << "Usage: " << argv[0] << " " << argv[1] << " [options] (-k counts.kff -g output.gbz | -H output.hapl) graph.gbz" << std::endl;
     std::cerr << std::endl;
@@ -79,6 +83,7 @@ void help_haplotypes(char** argv) {
     std::cerr << "Computational parameters:" << std::endl;
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
+    std::cerr << "        --coverage N          read coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = none, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
@@ -134,12 +139,14 @@ int main_haplotypes(int argc, char** argv) {
     std::string graph_name, gbz_output, haplotype_output;
     std::string distance_name, minimizer_name, r_index_name, haplotype_input, kmer_input;
     size_t k = haplotypes_default_k(), w = haplotypes_default_w();
+    Recombinator::Parameters recombinator_parameters;
     HaplotypePartitioner::Verbosity verbosity = HaplotypePartitioner::verbosity_silent;
     size_t threads = haplotypes_default_threads();
     bool validate = false;
 
     constexpr int OPT_KMER_LENGTH = 1200;
     constexpr int OPT_WINDOW_LENGTH = 1201;
+    constexpr int OPT_COVERAGE = 1202;
     constexpr int OPT_VALIDATE = 1300;
 
     static struct option long_options[] =
@@ -152,6 +159,7 @@ int main_haplotypes(int argc, char** argv) {
         { "haplotype-input", required_argument, 0, 'i' },
         { "kmer-input", required_argument, 0, 'k' },
         { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
+        { "coverage", required_argument, 0, OPT_COVERAGE },
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
@@ -203,6 +211,13 @@ int main_haplotypes(int argc, char** argv) {
             w = parse<size_t>(optarg);
             if (w == 0) {
                 std::cerr << "error: [vg haplotypes] window length cannot be 0" << std::endl;
+                return 1;
+            }
+            break;
+        case OPT_COVERAGE:
+            recombinator_parameters.coverage = parse<size_t>(optarg);
+            if (recombinator_parameters.coverage == 0) {
+                std::cerr << "error: [vg haplotypes] read coverage cannot be 0" << std::endl;
                 return 1;
             }
             break;
@@ -351,8 +366,7 @@ int main_haplotypes(int argc, char** argv) {
     // Generate haplotypes.
     omp_set_num_threads(threads_to_jobs(threads));
     Recombinator recombinator(gbz, verbosity);
-    Recombinator::Parameters recombinator_parameters;
-    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, recombinator_parameters);
+    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, kmer_input, recombinator_parameters);
     omp_set_num_threads(threads); // Restore the number of threads.
 
     // Build GBWTGraph.

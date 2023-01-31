@@ -42,12 +42,22 @@ void minimizer_recode(const std::string& kmer, const uint8_t* encoding) {
 }
 
 void rev_comp(const std::string& kmer, const uint8_t* encoding) {
-    std::vector<uint8_t> encoded = kff_encode(kmer, encoding);
-    std::vector<uint8_t> complemented = kff_reverse_complement(encoded.data(), kmer.length(), encoding);
-    std::string decoding = kff_invert(encoding);
-    std::string decoded = kff_decode(complemented.data(), kmer.length(), decoding);
     std::string expected = reverse_complement(kmer);
-    REQUIRE(decoded == expected);
+
+    {
+        std::vector<uint8_t> encoded = kff_encode(kmer, encoding);
+        std::vector<uint8_t> complemented = kff_reverse_complement(encoded.data(), kmer.length(), encoding);
+        std::string decoding = kff_invert(encoding);
+        std::string kff_decoded = kff_decode(complemented.data(), kmer.length(), decoding);
+        REQUIRE(kff_decoded == expected);
+    }
+
+    {
+        gbwtgraph::Key64 encoded = gbwtgraph::Key64::encode(kmer);
+        gbwtgraph::Key64::value_type complemented = minimizer_reverse_complement(encoded.get_key(), kmer.length());
+        std::string minimizer_decoded = gbwtgraph::Key64(complemented).decode(kmer.length());
+        REQUIRE(minimizer_decoded == expected);
+    }
 }
 
 } // Anonymous namespace.

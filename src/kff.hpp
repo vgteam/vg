@@ -38,6 +38,9 @@ gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std
 /// Returns the reverse complement of a KFF kmer.
 std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const uint8_t* encoding);
 
+/// Returns the reverse complement of a minimizer index kmer.
+gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::value_type kmer, size_t k);
+
 /// Parses a big-endian integer from KFF data.
 uint64_t kff_parse(const uint8_t* data, size_t bytes);
 

@@ -145,21 +145,6 @@ public:
         size_t simple_sds_size() const;
     };
 
-    /// Kmer count for a kmer used for defining haplotypes in a subchain.
-    struct KMerCount {
-        /// Offset of the top-level chain in `Haplotypes::chains`.
-        std::uint32_t chain;
-
-        /// Offset of the subchain in `TopLevelChain::subchains`.
-        std::uint32_t subchain;
-
-        /// Offset of the kmer in `Subchain::kmers`.
-        std::uint32_t kmer;
-
-        /// Number of occurrences of the kmer.
-        std::uint32_t count;
-    };
-
     /// Returns the number of weakly connected components.
     size_t components() const { return this->header.top_level_chains; }
 
@@ -177,7 +162,7 @@ public:
     ///
     /// Exits with `std::exit()` if the file cannot be opened and throws
     /// `std::runtime_error` if the kmer counts cannot be used.
-    std::unordered_map<Subchain::kmer_type, KMerCount> kmer_counts(const std::string& kff_file) const;
+    std::unordered_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file) const;
 
     /// Serializes the object to a stream in the simple-sds format.
     void simple_sds_serialize(std::ostream& out) const;
@@ -348,6 +333,9 @@ public:
     /// Number of haplotypes to be generated.
     constexpr static size_t NUM_HAPLOTYPES = 16;
 
+    /// Expected read coverage.
+    constexpr static size_t COVERAGE = 30;
+
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
 
@@ -437,6 +425,15 @@ public:
         /// Number of top-level chains where full haplotypes were taken.
         size_t full_haplotypes = 0;
 
+        /// Number of haplotypes generated.
+        size_t haplotypes = 0;
+
+        /// Number of kmers selected.
+        size_t kmers = 0;
+
+        /// Total score for selected sequences.
+        std::int64_t score = 0;
+
         /// Combines the statistics into this object.
         void combine(const Statistics& another);
 
@@ -452,13 +449,16 @@ public:
         /// Number of haplotypes to be generated.
         size_t num_haplotypes = NUM_HAPLOTYPES;
 
+        /// Read coverage.
+        size_t coverage = COVERAGE;
+
         /// Buffer size (in nodes) for GBWT construction.
         gbwt::size_type buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
     };
 
-    // FIXME kmer input
     /**
-     * Generates haplotypes based on the given `Haplotypes` representation.
+     * Generates haplotypes based on the given `Haplotypes` representation and
+     * the kmer counts in the given KFF file.
      *
      * Runs multiple GBWT construction jobs in parallel using OpenMP threads and
      * generates the specified number of haplotypes in each top-level chain
@@ -472,14 +472,17 @@ public:
      *
      * TODO: Include reference paths?
      */
-    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const Parameters& parameters) const;
+    gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
 
     const gbwtgraph::GBZ& gbz;
     HaplotypePartitioner::Verbosity verbosity;
 
 private:
     // Generate haplotypes for the given chain.
-    Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain, gbwt::GBWTBuilder& builder, const Parameters& parameters) const;
+    Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
+        const std::unordered_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
+        gbwt::GBWTBuilder& builder,
+        const Parameters& parameters) const;
 };
 
 //------------------------------------------------------------------------------
