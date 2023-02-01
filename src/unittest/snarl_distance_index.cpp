@@ -345,6 +345,14 @@ namespace vg {
                 net_handle_t snarl4 = distance_index.get_parent(chain4);
                 REQUIRE(distance_index.is_simple_snarl(snarl4));
             }
+            SECTION("Get child from its rank in the snarl") {
+                net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                net_handle_t snarl4 = distance_index.get_parent(chain4);
+                size_t rank = distance_index.get_rank_in_parent(chain4);
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl4, rank)) ==
+                        distance_index.canonical(chain4));
+            }
 
             //Handle for first node facing in
             net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
@@ -563,6 +571,25 @@ namespace vg {
                 REQUIRE(distance_index.is_root(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id()))))); 
 
 
+
+            }
+            SECTION("Get children of a snarl from their ranks") {
+                net_handle_t node6 = distance_index.get_net(graph.get_handle(n6->id(), false), &graph); 
+                net_handle_t n6_as_chain = distance_index.get_parent(node6);
+                net_handle_t snarl27 = distance_index.get_parent(n6_as_chain);
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+
+                net_handle_t chain35 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(n6_as_chain))) ==
+                        distance_index.canonical(n6_as_chain));
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain35))) ==
+                        distance_index.canonical(chain35));
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl18, distance_index.get_rank_in_parent(chain27))) ==
+                        distance_index.canonical(chain27));
 
             }
             SECTION("Minimum distances are correct") {
@@ -3468,6 +3495,57 @@ namespace vg {
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                SECTION ("Snarl has the right children") {
+                    net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                    net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+                    net_handle_t chain5 = distance_index.get_parent(distance_index.get_node_net_handle(n5->id()));
+                    net_handle_t chain6 = distance_index.get_parent(distance_index.get_node_net_handle(n6->id()));
+                    net_handle_t chain9 = distance_index.get_parent(distance_index.get_node_net_handle(n9->id()));
+
+                    net_handle_t snarl27 = distance_index.get_parent(chain3);
+                    size_t child_count = 0;
+                    distance_index.for_each_child(snarl27, [&](const net_handle_t& child) {
+                        child_count++;
+                    });
+                    REQUIRE(child_count == 5);
+
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain3))) ==
+                            distance_index.canonical(chain3));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain4))) ==
+                            distance_index.canonical(chain4));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain5))) ==
+                            distance_index.canonical(chain5));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain6))) ==
+                            distance_index.canonical(chain6));
+                    REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl27, distance_index.get_rank_in_parent(chain9))) ==
+                            distance_index.canonical(chain9));
+                    
+                }
+                SECTION ("Distances in snarl using child ranks") {
+                    net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+                    size_t rank3 = distance_index.get_rank_in_parent(chain3);
+                    net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+                    size_t rank4 = distance_index.get_rank_in_parent(chain4);
+                    net_handle_t chain5 = distance_index.get_parent(distance_index.get_node_net_handle(n5->id()));
+                    size_t rank5 = distance_index.get_rank_in_parent(chain5);
+                    net_handle_t chain6 = distance_index.get_parent(distance_index.get_node_net_handle(n6->id()));
+                    size_t rank6 = distance_index.get_rank_in_parent(chain6);
+                    net_handle_t chain9 = distance_index.get_parent(distance_index.get_node_net_handle(n9->id()));
+                    size_t rank9 = distance_index.get_rank_in_parent(chain9);
+
+                    net_handle_t snarl27 = distance_index.get_parent(chain3);
+
+                    bool snarl_is_reversed = distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n2->id()));
+                    
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank3, true, rank4, false) == 0); 
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank3, true, rank5, false) == 4); 
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank9, true, rank3, true) == std::numeric_limits<size_t>::max()); 
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, rank9, false, rank3, true) == 4);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, false, rank4, false) == 0);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, false, rank5, false) == 4);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, false, snarl_is_reversed ? 0 : 1, false) == 5);
+                    REQUIRE(distance_index.distance_in_snarl(snarl27, snarl_is_reversed ? 1 : 0, true, snarl_is_reversed ? 0 : 1, false) == 5);
+                }
 
         }
         
