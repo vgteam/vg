@@ -60,6 +60,18 @@ void rev_comp(const std::string& kmer, const uint8_t* encoding) {
     }
 }
 
+void recode_block(const std::string& block, const std::vector<std::string>& true_kmers, const uint8_t* encoding) {
+    size_t k = true_kmers.front().length();
+    std::vector<uint8_t> encoded = kff_encode(block, encoding);
+    std::string decoding = kff_invert(encoding);
+    std::vector<gbwtgraph::Key64::value_type> recoded = kff_recode(encoded.data(), true_kmers.size(), k, decoding);
+    REQUIRE(recoded.size() == true_kmers.size());
+    for (size_t i = 0; i < recoded.size(); i++) {
+        std::string decoded = gbwtgraph::Key64(recoded[i]).decode(k);
+        REQUIRE(decoded == true_kmers[i]);
+    }
+}
+
 } // Anonymous namespace.
 
 //------------------------------------------------------------------------------
@@ -131,6 +143,48 @@ TEST_CASE("Reverse complements", "[kff]") {
         uint8_t encoding[4] = { 0, 1, 3, 2 };
         for (auto& kmer : kmers) {
             rev_comp(kmer, encoding);
+        }
+    }
+}
+
+TEST_CASE("Recode blocks", "[kff]") {
+    SECTION("single kmer, default encoding") {
+        uint8_t encoding[4] = { 0, 1, 2, 3 };
+        for (auto& block : kmers) {
+            std::vector<std::string> true_kmers { block };
+            recode_block(block, true_kmers, encoding);
+        }
+    }
+
+    SECTION("single kmer, kff encoding") {
+        uint8_t encoding[4] = { 0, 1, 3, 2 };
+        for (auto& block : kmers) {
+            std::vector<std::string> true_kmers { block };
+            recode_block(block, true_kmers, encoding);
+        }
+    }
+
+    SECTION("4-mers, default encoding") {
+        uint8_t encoding[4] = { 0, 1, 2, 3 };
+        size_t k = 4;
+        for (auto& block : kmers) {
+            std::vector<std::string> true_kmers;
+            for (size_t start = 0; start + k <= block.length(); start++) {
+                true_kmers.push_back(block.substr(start, k));
+            }
+            recode_block(block, true_kmers, encoding);
+        }
+    }
+
+    SECTION("4-mers, kff encoding") {
+        uint8_t encoding[4] = { 0, 1, 3, 2 };
+        size_t k = 4;
+        for (auto& block : kmers) {
+            std::vector<std::string> true_kmers;
+            for (size_t start = 0; start + k <= block.length(); start++) {
+                true_kmers.push_back(block.substr(start, k));
+            }
+            recode_block(block, true_kmers, encoding);
         }
     }
 }

@@ -120,6 +120,35 @@ gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std
     return result;
 }
 
+std::vector<gbwtgraph::Key64::value_type> kff_recode(const uint8_t* kmers, size_t n, size_t k, const std::string& decoding) {
+    std::vector<gbwtgraph::Key64::value_type> result;
+    result.reserve(n);
+
+    size_t total_chars = n + k - 1;
+    size_t bytes = kff_bytes(total_chars);
+    size_t chars = total_chars & 3;
+    if (chars == 0) {
+        chars = 4;
+    }
+
+    gbwtgraph::Key64::value_type curr = 0;
+    for (size_t i = 0, processed = 0; i < bytes; i++) {
+        size_t offset = 2 * chars;
+        for (size_t j = 0; j < chars; j++) {
+            offset -= 2;
+            unsigned char c = decoding[(kmers[i] >> offset) & 3];
+            curr = (curr << 2) | gbwtgraph::CHAR_TO_PACK[c];
+            processed++;
+            if (processed >= k) {
+                result.push_back(curr & sdsl::bits::lo_set[2 * k]);
+            }
+        }
+        chars = 4;
+    }
+
+    return result;
+}
+
 //------------------------------------------------------------------------------
 
 uint8_t kff_get(const uint8_t* kmer, size_t i) {

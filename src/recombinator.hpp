@@ -8,10 +8,10 @@
 
 #include "gbwt_helper.hpp"
 #include "gbwtgraph_helper.hpp"
+#include "hash_map.hpp"
 #include "snarl_distance_index.hpp"
 
 #include <iostream>
-#include <unordered_map>
 
 #include <gbwtgraph/algorithms.h>
 
@@ -33,6 +33,8 @@ namespace vg {
  * not occur anywhere else in either orientation. (If no haplotype crosses a
  * snarl, that snarl is broken into a suffix and a prefix, and those subchains
  * may share kmers.)
+ *
+ * NOTE: This assumes that the top-level chains are linear, not cyclical.
  */
 class Haplotypes {
 public:
@@ -94,7 +96,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<sequence_type> sequences;
 
-        // TODO: This could be compressed
+        // TODO: This could be compressed. We could also add an option for removing duplicates.
         /// Concatenated bitvectors for each sequence that mark the presence of each kmer
         /// in that sequence.
         sdsl::bit_vector kmers_present;
@@ -162,7 +164,7 @@ public:
     ///
     /// Exits with `std::exit()` if the file cannot be opened and throws
     /// `std::runtime_error` if the kmer counts cannot be used.
-    std::unordered_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file) const;
+    hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, bool verbose) const;
 
     /// Serializes the object to a stream in the simple-sds format.
     void simple_sds_serialize(std::ostream& out) const;
@@ -274,8 +276,6 @@ public:
      *
      * Haplotypes crossing each subchain are represented using minimizers with a
      * single occurrence in the graph.
-     *
-     * TODO: Are all chains in the right orientation?
      */
     Haplotypes partition_haplotypes(const Parameters& parameters) const;
 
@@ -480,7 +480,7 @@ public:
 private:
     // Generate haplotypes for the given chain.
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
-        const std::unordered_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
+        const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
         gbwt::GBWTBuilder& builder,
         const Parameters& parameters) const;
 };

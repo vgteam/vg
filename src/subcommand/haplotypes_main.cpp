@@ -7,14 +7,13 @@
 
 #include "subcommand.hpp"
 
+#include "../hash_map.hpp"
 #include "../recombinator.hpp"
 
 #include <cmath>
 #include <functional>
 #include <iostream>
 #include <thread>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <getopt.h>
@@ -368,7 +367,7 @@ int main_haplotypes(int argc, char** argv) {
     gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, kmer_input, recombinator_parameters);
     omp_set_num_threads(threads); // Restore the number of threads.
 
-    // Build GBWTGraph.
+    // Build and serialize GBWTGraph.
     if (verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Building GBWTGraph" << std::endl;
     }
@@ -378,13 +377,13 @@ int main_haplotypes(int argc, char** argv) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Built the GBWTGraph in " << seconds << " seconds" << std::endl;
     }
+    save_gbz(merged, output_graph, gbz_output, verbosity >= HaplotypePartitioner::verbosity_basic);
 
-    // Validate and serialize the graph.
+    // Validate the graph.
     if (validate) {
         // FIXME validate haplotypes
         validate_subgraph(gbz.graph, output_graph, verbosity);
     }
-    save_gbz(merged, output_graph, gbz_output, verbosity >= HaplotypePartitioner::verbosity_basic);
 
     if (verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
@@ -431,7 +430,7 @@ void validate_error_sequence(size_t chain_id, size_t subchain_id, size_t sequenc
 }
 
 std::string validate_unary_path(const HandleGraph& graph, handle_t from, handle_t to) {
-    std::unordered_set<handle_t> visited;
+    hash_set<handle_t> visited;
     handle_t curr = from;
     while (curr != to) {
         if (visited.find(curr) != visited.end()) {
@@ -564,7 +563,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
         // Sequences: normal subchains.
         if (subchain.type == Haplotypes::Subchain::normal) {
             std::vector<gbwt::size_type> da = r_index.decompressDA(subchain.start);
-            std::unordered_set<Haplotypes::sequence_type> selected;
+            hash_set<Haplotypes::sequence_type> selected;
             for (size_t i = 0; i < da.size(); i++) {
                 if (trace_path(*(graph.index), subchain.start, i, subchain.end)) {
                     selected.insert(Haplotypes::sequence_type(da[i], i));
@@ -590,7 +589,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
                 std::string message = expected_got(da.size(), subchain.sequences.size()) + " sequences (prefix / suffix)";
                 validate_error_subchain(chain_id, subchain_id, message);
             }
-            std::unordered_set<Haplotypes::sequence_type> truth;
+            hash_set<Haplotypes::sequence_type> truth;
             for (size_t i = 0; i < da.size(); i++) {
                 truth.insert({ da[i], i });
             }
@@ -611,7 +610,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
 
         // Kmers.
         if (subchain.type != Haplotypes::Subchain::full_haplotype) {
-            std::unordered_set<Haplotypes::Subchain::kmer_type> all_kmers;
+            hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
             for (size_t i = 0; i < subchain.kmers.size(); i++) {
                 all_kmers.insert(subchain.kmers[i]);
             }
@@ -622,7 +621,7 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
             for (size_t i = 0; i < subchain.sequences.size(); i++) {
                 std::string haplotype = get_haplotype(graph, subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k());
                 auto minimizers = minimizer_index.minimizers(haplotype);
-                std::unordered_set<Haplotypes::Subchain::kmer_type> kmers_present;
+                hash_set<Haplotypes::Subchain::kmer_type> kmers_present;
                 for (auto& minimizer : minimizers) {
                     if (minimizer_index.count(minimizer) == 1) {
                         kmers_present.insert(minimizer.key.get_key());
@@ -700,7 +699,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
     }
 
     // Kmers are globally unique.
-    std::unordered_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
+    hash_map<Haplotypes::Subchain::kmer_type, std::pair<size_t, size_t>> kmers;
     for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
         const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {

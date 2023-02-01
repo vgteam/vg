@@ -35,6 +35,10 @@ std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, con
 /// Will fail silently if `k` is too large or `decoding` is not from `kff_invert()`.
 gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std::string& decoding);
 
+/// Recodes `n` KFF kmers in the minimizer index format according to the given encoding.
+/// Will fail silently if `k` is too large or `decoding` is not from `kff_invert()`.
+std::vector<gbwtgraph::Key64::value_type> kff_recode(const uint8_t* kmers, size_t n, size_t k, const std::string& decoding);
+
 /// Returns the reverse complement of a KFF kmer.
 std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const uint8_t* encoding);
 

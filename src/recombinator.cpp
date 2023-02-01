@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <map>
-#include <unordered_set>
 
 namespace vg {
 
@@ -38,7 +37,7 @@ std::uint64_t kff_to_key(const std::uint8_t* kmer, size_t k, size_t bytes, const
     return std::min(kff_parse(kmer, bytes), kff_parse(rc.data(), bytes));
 }
 
-std::unordered_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const std::string& kff_file) const {
+hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const std::string& kff_file, bool verbose) const {
     // Open and validate the kmer count file.
     Kff_reader reader(kff_file);
     std::uint64_t kff_k = reader.get_var("k");
@@ -48,12 +47,12 @@ std::unordered_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_cou
     }
     const std::uint8_t* encoding = reader.get_encoding();
     std::string decoding = kff_invert(encoding);
-    size_t bytes = kff_bytes(this->k());
+    size_t max_kmers = reader.get_var("max");
     size_t data_bytes = reader.get_var("data_size");
 
     // Populate the map with the kmers we are interested in.
-    // FIXME: Faster hash table?
-    std::unordered_map<Subchain::kmer_type, size_t> result;
+    // TODO: Maybe this is faster if we reserve enough space in advance?
+    hash_map<Subchain::kmer_type, size_t> result;
     for (size_t chain_id = 0; chain_id < this->chains.size(); chain_id++) {
         const TopLevelChain& chain = this->chains[chain_id];
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
@@ -63,24 +62,33 @@ std::unordered_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_cou
             }
         }
     }
+    if (verbose) {
+        std::cerr << "Initialized the hash map with " << result.size() << " kmers" << std::endl;
+    }
 
-    // Add the counts.
-    std::uint8_t* kmer;
-    std::uint8_t* data;
+    // Add the counts. We read the kmers by blocks to reduce overhead.
+    uint8_t* block = new uint8_t[kff_bytes(max_kmers + this->k() - 1)];
+    uint8_t* data = new uint8_t[max_kmers * data_bytes];
     while (reader.has_next()) {
-        reader.next_kmer(kmer, data);
-        Subchain::kmer_type recoded = kff_recode(kmer, this->k(), decoding);
-        auto iter = result.find(recoded);
-        if (iter != result.end()) {
-            iter->second += kff_parse(data, data_bytes);
-        } else {
-            Subchain::kmer_type rc = minimizer_reverse_complement(recoded, this->k());
-            iter = result.find(rc);
+        // This function call takes references to the pointers but assumes that the
+        // underlying buffers have been pre-allocated.
+        size_t n = reader.next_block(block, data);
+        std::vector<Subchain::kmer_type> kmers = kff_recode(block, n, this->k(), decoding);
+        for (size_t i = 0; i < n; i++) {
+            auto iter = result.find(kmers[i]);
             if (iter != result.end()) {
-                iter->second += kff_parse(data, data_bytes);
+                iter->second += kff_parse(data + i * data_bytes, data_bytes);
+            } else {
+                Subchain::kmer_type rc = minimizer_reverse_complement(kmers[i], this->k());
+                iter = result.find(rc);
+                if (iter != result.end()) {
+                    iter->second += kff_parse(data + i * data_bytes, data_bytes);
+                }
             }
         }
     }
+    delete[] block; block = nullptr;
+    delete[] data; data = nullptr;
 
     return result;
 }
@@ -590,10 +598,6 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             to_process.push_back({ subchain, std::move(sequences) });
         }
         for (auto iter = to_process.begin(); iter != to_process.end(); ++iter) {
-            // TODO: It will eventually be faster to find all unique minimizers in the relevant subgraph,
-            // align them to the haplotypes, and use the r-index to determine which haplotypes contain
-            // that minimizer. On the other hand, that will cause some issues with haplotypes that visit
-            // the same subchain multiple times.
             output.subchains.push_back({
                 iter->first.type,
                 gbwtgraph::GBWTGraph::handle_to_node(iter->first.start), gbwtgraph::GBWTGraph::handle_to_node(iter->first.end),
@@ -707,7 +711,7 @@ void Recombinator::Haplotype::connect(gbwt::node_type until, const gbwtgraph::GB
     handle_t curr = gbwtgraph::GBWTGraph::node_to_handle(this->position.first);
     handle_t end = gbwtgraph::GBWTGraph::node_to_handle(until);
     this->position = gbwt::invalid_edge();
-    std::unordered_set<handle_t> visited;
+    hash_set<handle_t> visited;
     while (curr != end) {
         if (visited.find(curr) != visited.end()) {
             throw std::runtime_error("Haplotype::connect(): the path contains a cycle");
@@ -779,13 +783,11 @@ void Recombinator::Statistics::combine(const Statistics& another) {
 }
 
 std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
-    size_t normal_chains = this->chains - this->full_haplotypes;
-    out << normal_chains << " chains with " << this->subchains << " subchains and " << this->fragments << " fragments; "
-        << this->full_haplotypes << " chains with full haplotypes; generated "
-        << this->haplotypes << " haplotypes";
+    out << this->haplotypes << " haplotypes for " << this->chains << " chains ("
+        << this->full_haplotypes << " full, " << this->subchains << " subchains, " << this->fragments << " fragments)";
     if (this->kmers > 0) {
         double average_score = static_cast<double>(this->score) / (this->kmers * this->haplotypes);
-        out << " with " << this->kmers << " kmers and average score " << average_score;
+        out << "; used " << this->kmers << " kmers with average score " << average_score;
     }
     return out;
 }
@@ -801,27 +803,26 @@ Recombinator::Recombinator(const gbwtgraph::GBZ& gbz, HaplotypePartitioner::Verb
 
 gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const {
 
-    double start = gbwt::readTimer();
-
     // FIXME sanity checks for parameters
 
     // Get kmer counts.
-    double checkpoint = gbwt::readTimer();
+    double start = gbwt::readTimer();
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Reading kmer counts" << std::endl;
     }
-    std::unordered_map<Haplotypes::Subchain::kmer_type, size_t> counts;
+    hash_map<Haplotypes::Subchain::kmer_type, size_t> counts;
     try {
-        counts = haplotypes.kmer_counts(kff_file);
+        counts = haplotypes.kmer_counts(kff_file, this->verbosity >= HaplotypePartitioner::verbosity_detailed);
     } catch (const std::runtime_error& e) {
         std::cerr << "error: " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
-        double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Read the kmer counts in " << seconds << " seconds";
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Read the kmer counts in " << seconds << " seconds" << std::endl;
     }
 
+    start = gbwt::readTimer();
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Building GBWT" << std::endl;
     }
@@ -835,7 +836,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     }
 
     // Build partial indexes.
-    checkpoint = gbwt::readTimer();
+    double checkpoint = gbwt::readTimer();
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         std::cerr << "Running " << omp_get_max_threads() << " GBWT construction jobs in parallel" << std::endl;
     }
@@ -867,7 +868,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     }
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Processed "; statistics.print(std::cerr) << std::endl;
+        std::cerr << "Total: "; statistics.print(std::cerr) << std::endl;
         std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
     }
 
@@ -890,7 +891,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
 }
 
 Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain,
-    const std::unordered_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
     gbwt::GBWTBuilder& builder,
     const Parameters& parameters) const {
 
@@ -931,10 +932,12 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 double count = kmer_counts.at(subchain.kmers[kmer_id]);
                 if (count < absent_threshold) {
                     kmer_types.push_back(absent);
+                    statistics.kmers++;
                 } else if (count < heterozygous_threshold) {
                     kmer_types.push_back(ignore);
                 } else if (count < homozygous_threshold) {
                     kmer_types.push_back(present);
+                    statistics.kmers++;
                 } else {
                     kmer_types.push_back(ignore);
                 }
@@ -944,16 +947,14 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::vector<std::pair<size_t, std::int64_t>> sequence_scores;
             for (size_t sequence_id = 0; sequence_id < subchain.sequences.size(); sequence_id++) {
                 size_t offset = sequence_id * subchain.kmers.size();
-                std::int64_t score = 0.0;
+                std::int64_t score = 0;
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                     switch (kmer_types[kmer_id]) {
                     case present:
                         score += (subchain.kmers_present[offset + kmer_id] ? 1 : -1);
-                        statistics.kmers++;
                         break;
                     case absent:
                         score += (subchain.kmers_present[offset + kmer_id] ? -1 : 1);
-                        statistics.kmers++;
                         break;
                     default:
                         break;
@@ -967,7 +968,9 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 
             // Extend the haplotypes with the highest-scoring sequences.
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                size_t seq_id = sequence_scores[haplotype % sequence_scores.size()].first;
+                size_t offset = haplotype % sequence_scores.size();
+                size_t seq_id = sequence_scores[offset].first;
+                statistics.score += sequence_scores[offset].second;
                 haplotypes[haplotype].extend(subchain.sequences[seq_id], subchain, *this, builder);
             }
             have_haplotypes = subchain.has_end();
