@@ -1,6 +1,6 @@
 #include "zip_code.hpp"
 
-//#define DEBUG_ZIP_CODE
+#define DEBUG_ZIP_CODE
 
 namespace vg{
 using namespace std;
@@ -163,6 +163,51 @@ zip_code_decoder_t zip_code_t::decode() const {
     return result;
 }
 
+decoded_code_t zip_code_t::decode_one_code(size_t index, const code_type_t& code_type) const {
+    if (code_type == ROOT_CHAIN || code_type == ROOT_SNARL || 
+        ((code_type == CHAIN || code_type == REGULAR_SNARL || code_type == IRREGULAR_SNARL) && index == 0)) {
+        //Only need the rank
+        return decoded_code_t { std::numeric_limits<size_t>::max(),
+                    zip_code.get_value_and_next_index(zip_code.get_value_and_next_index(index).second).first,
+                    (code_type == CHAIN || code_type == ROOT_CHAIN) ? ROOT_CHAIN : ROOT_SNARL, 
+                    false};
+    } else if (code_type == ROOT_NODE || (code_type == NODE || index == 0)) {
+        size_t rank;
+        //Get the second thing (rank) and the index of the next thing (length)
+        std::tie(rank, index) = zip_code.get_value_and_next_index(zip_code.get_value_and_next_index(index).second);
+        return decoded_code_t { zip_code.get_value_and_next_index(index).first,
+                    rank,
+                    code_type, false};
+    } else if (code_type == NODE) {
+        size_t length; 
+        std::tie(length, index) = zip_code.get_value_and_next_index(index);
+        bool is_rev = zip_code.get_value_and_next_index(index).first;
+        return decoded_code_t {length, 
+                               std::numeric_limits<size_t>::max(), 
+                               code_type, is_rev}; 
+    } else if (code_type == CHAIN) {
+        return decoded_code_t {zip_code.get_value_and_next_index(index).first, 
+                               std::numeric_limits<size_t>::max(), 
+                               code_type, false}; 
+    } else if (code_type == REGULAR_SNARL || code_type == IRREGULAR_SNARL) {
+        bool is_regular; 
+        size_t rank;
+        size_t length = std::numeric_limits<size_t>::max(); 
+        std::tie(is_regular, index) = zip_code.get_value_and_next_index(index);
+        std::tie(rank, index) = zip_code.get_value_and_next_index(index);
+        if (is_regular) {
+            std::tie(length, index) = zip_code.get_value_and_next_index(index);
+        }
+        bool is_rev = zip_code.get_value_and_next_index(index).first;
+        return decoded_code_t {length, 
+                               rank, 
+                               is_regular ? REGULAR_SNARL : IRREGULAR_SNARL, 
+                               is_rev}; 
+    } else {
+        throw std::runtime_error("zipcode: invalid code type");
+    }
+}
+
 vector<size_t> zip_code_t::get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index) {
 #ifdef DEBUG_ZIP_CODE
     assert(!distance_index.is_trivial_chain(node));
@@ -224,6 +269,63 @@ vector<size_t> zip_code_t::get_irregular_snarl_code(const net_handle_t& snarl, c
 
 size_t zip_code_t::minimum_distance_between(const zip_code_t& zip1, const pos_t& pos1,   
     const zip_code_t& zip2, const pos_t& pos2, const SnarlDistanceIndex& distance_index){
+
+    //Helper function to update the distances to the ends of the parent
+    //distance_start and distance_end get updated
+    auto update_distances_to_ends_of_parent = [&] (const decoded_code_t& child_code, const decoded_code_t& parent_code, 
+                                            size_t& distance_to_start, size_t& distance_to_end) {
+        //The distances from the start/end of current child to the start/end(left/right) of the parent
+        size_t distance_start_left, distance_start_right, distance_end_left, distance_end_right;
+        if (parent_code.code_type == IRREGULAR_SNARL) {
+            net_handle_t parent_snarl_handle = distance_index.get_net_handle_from_values(
+                parent_code.rank_or_offset, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
+            distance_start_left = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    child_code.rank_or_offset, true, 0, false);
+            distance_start_right = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    child_code.rank_or_offset, false, 0, false);
+            distance_end_right = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    child_code.rank_or_offset, false, 1, false);
+            distance_end_left = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    child_code.rank_or_offset, true, 1, false);
+        } else if (parent_code.code_type == REGULAR_SNARL) {
+            //If its a regular snarl, then the distances to the ends are either 0 or inf
+            if (parent_code.is_reversed) {
+                distance_start_left = std::numeric_limits<size_t>::max();
+                distance_start_right = 0;
+                distance_end_right = std::numeric_limits<size_t>::max();
+                distance_end_left = 0;
+            } else {
+                distance_start_left = 0;
+                distance_start_right = std::numeric_limits<size_t>::max();
+                distance_end_right = 0;
+                distance_end_left = std::numeric_limits<size_t>::max();
+            }
+        } else if (parent_code.code_type == CHAIN) {
+            if (child_code.is_reversed){ 
+                distance_start_left = std::numeric_limits<size_t>::max();
+                distance_end_right = std::numeric_limits<size_t>::max();
+                //Prefix sum of the child
+                distance_end_left = child_code.rank_or_offset;
+                //Length of the chain - prefix sum of the child - length of the child
+                distance_start_right = SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(
+                        parent_code.length, child_code.rank_or_offset), child_code.length);
+            } else {
+                distance_end_left = std::numeric_limits<size_t>::max();
+                distance_start_right = std::numeric_limits<size_t>::max();
+                //Prefix sum of the child
+                distance_start_left = child_code.rank_or_offset;
+                //Length of the chain - prefix sum of the child - length of the child
+                distance_end_right = SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(
+                        parent_code.length, child_code.rank_or_offset), child_code.length);
+            }
+        }
+
+        distance_to_start = std::min(SnarlDistanceIndex::sum(distance_start_left, distance_to_start),
+                                      SnarlDistanceIndex::sum(distance_end_left, distance_to_end));
+        distance_to_end = std::min(SnarlDistanceIndex::sum(distance_start_right, distance_to_start),
+                                      SnarlDistanceIndex::sum(distance_end_right, distance_to_end));
+
+    };
     size_t zip_index1 = 0; size_t zip_index2 = 0;
     size_t zip_value1 = std::numeric_limits<size_t>::max();
     size_t zip_value2 = std::numeric_limits<size_t>::max();
@@ -241,10 +343,213 @@ size_t zip_code_t::minimum_distance_between(const zip_code_t& zip1, const pos_t&
     }
 
     //The two positions are in the same connected component so now try to find the distance
-    zip_code_decoder_t decoded_zip1 = zip1.decode();
-    zip_code_decoder_t decoded_zip2 = zip2.decode();
+    zip_code_decoder_t zip1_decoder = zip1.decode();
+    zip_code_decoder_t zip2_decoder = zip2.decode();
 
-    return std::numeric_limits<size_t>::max();
+    //Now find the lowest common ancestor of the two zipcodes
+    size_t lowest_common_ancestor_index;
+    for (size_t i = 0 ; i < zip1_decoder.size() ; i++) {
+        if (i >= zip2_decoder.size()) {
+            //Don't go beyond the end of the second zip code
+            break;
+        } if (zip1_decoder[i] == zip2_decoder[i]){
+            lowest_common_ancestor_index = i;
+        } else {
+            //If they are different, stop looking
+            break;
+        }
+    }
+
+    //Get the decoded node (or technically chain if it's a trivial chain in a snarl)
+    decoded_code_t current_code1 = zip1.decode_one_code(zip1_decoder.back().second, 
+                zip1_decoder.size() == 1 ? ROOT_NODE : (
+                    zip1_decoder[zip1_decoder.size()-2].first ? NODE : CHAIN));
+    decoded_code_t current_code2 = zip2.decode_one_code(zip2_decoder.back().second, 
+                zip2_decoder.size() == 1 ? ROOT_NODE : (
+                    zip2_decoder[zip2_decoder.size()-2].first ? NODE : CHAIN)); 
+
+    size_t distance_to_start1 = is_rev(pos1) ? current_code1.length - offset(pos1) : offset(pos1) + 1;
+    size_t distance_to_end1 = is_rev(pos1) ? offset(pos1) + 1 : current_code1.length - offset(pos1);
+    size_t distance_to_start2 = is_rev(pos2) ? current_code2.length - offset(pos2) : offset(pos2) + 1;
+    size_t distance_to_end2 = is_rev(pos2) ? offset(pos2) + 1 : current_code2.length - offset(pos2);
+
+
+    //Now walk up the snarl tree from each position to one level below the lowest common ancestor
+    for (int i = zip1_decoder.size()-2 ; i > 0 && i > lowest_common_ancestor_index ; i--) {
+        //current_code1 is the child of parent_code1, which is at index i
+        //The distances are currently to the ends of current_code1
+        //FInd the distances to the ends of parent_code1
+
+        decoded_code_t parent_code1 = zip1.decode_one_code(zip1_decoder[i].second,
+            zip1_decoder[i].first ? CHAIN : REGULAR_SNARL);
+#ifdef DEBUG_ZIP_CODE
+        assert(parent_code1.code_type != NODE);
+        assert(parent_code1.code_type != ROOT_NODE);
+        assert(parent_code1.code_type != ROOT_SNARL);
+        assert(parent_code1.code_type != ROOT_CHAIN);
+#endif
+        update_distances_to_ends_of_parent(current_code1, parent_code1, distance_to_start1, distance_to_end1);
+        current_code1 = std::move(parent_code1);
+    }
+    //The same thing for the second position
+    for (int i = zip2_decoder.size()-2 ; i > 0 && i > lowest_common_ancestor_index ; i--) {
+        //current_code2 is the child of parent_code2, which is at index i
+        //The distances are currently to the ends of current_code2
+        //FInd the distances to the ends of parent_code2
+
+        decoded_code_t parent_code2 = zip2.decode_one_code(zip2_decoder[i].second,
+            zip2_decoder[i].first ? CHAIN : REGULAR_SNARL);
+#ifdef DEBUG_ZIP_CODE
+        assert(parent_code2.code_type != NODE);
+        assert(parent_code2.code_type != ROOT_NODE);
+        assert(parent_code2.code_type != ROOT_SNARL);
+        assert(parent_code2.code_type != ROOT_CHAIN);
+#endif
+        update_distances_to_ends_of_parent(current_code2, parent_code2, distance_to_start2, distance_to_end2);
+        current_code2 = std::move(parent_code2);
+    }
+
+
+    //Distances are now the distances to the ends of a child of the common ancestor
+#ifdef DEBUG_ZIP_CODE
+    //Check that the current nodes are actually children of the lca
+    if (lowest_common_ancestor_index != zip1_decoder.size() - 1) { 
+        pair<bool, size_t> zip1_index = zip1_decoder[lowest_common_ancestor_index+1];
+        assert(current_code1 == zip1.decode_one_code(zip1_index.second,
+                 zip1_index.first ? (zip1_decoder[lowest_common_ancestor_index].first ? NODE : CHAIN) : REGULAR_SNARL));
+                                
+    }
+    if (lowest_common_ancestor_index != zip2_decoder.size() - 1) { 
+        pair<bool, size_t> zip2_index = zip2_decoder[lowest_common_ancestor_index+1];
+        assert(current_code2 == zip2.decode_one_code(zip2_index.second,
+                 zip2_index.first ? (zip2_decoder[lowest_common_ancestor_index].first ? NODE : CHAIN) : REGULAR_SNARL));
+                                
+    }
+#endif
+
+    //Find the distance between them in the lowest common ancestor
+
+    size_t distance_between = std::numeric_limits<size_t>::max();
+
+    //Walk up the snarl tree from the lca and find the distance between the common ancestor
+    for (int i = lowest_common_ancestor_index ; i > 0 ; i--) {
+        decoded_code_t parent_code;
+        if (i == zip1_decoder.size()-1) {
+            //If the lca is a node that both positions are on
+#ifdef DEBUG_ZIP_CODE
+            //If the lca is a node, then both the current_codex's should be the same node
+            assert(current_code1 == current_code2);
+            assert(i == zip2_decoder.size()-1);
+#endif
+            size_t d1 = SnarlDistanceIndex::sum(distance_to_end1, distance_to_start2);
+            size_t d2 = SnarlDistanceIndex::sum(distance_to_end2, distance_to_start1);
+            if (d1 > current_code1.length) {
+                distance_between = std::min(distance_between,
+                                            SnarlDistanceIndex::minus(d1, current_code1.length));
+            } 
+            if (d2 > current_code1.length) {
+                distance_between = std::min(distance_between,
+                                            SnarlDistanceIndex::minus(d2, current_code1.length));
+            }
+            parent_code = std::move(current_code1); 
+        } else if ( zip1_decoder[i].first) {
+            //If this ancestor is a chain
+            parent_code = zip1.decode_one_code(i, CHAIN);
+            if (current_code1.rank_or_offset < current_code2.rank_or_offset ||
+                (current_code1.rank_or_offset == current_code2.rank_or_offset &&
+                 (current_code1.code_type == REGULAR_SNARL || current_code1.code_type == IRREGULAR_SNARL)
+                 && current_code2.code_type == NODE)) {
+                //First child comes first in the chain
+                
+                if (current_code1.code_type == REGULAR_SNARL || current_code1.code_type == IRREGULAR_SNARL) {
+                    //If the first thing is a snarl, then we need to take into account the length of the snarl
+                    //(prefix sum 2 + distance left 2) - (prefix sum 1 + length 1) + distance right 1
+                    distance_between = std::min(distance_between,
+                                                SnarlDistanceIndex::sum(
+                                                    SnarlDistanceIndex::minus(
+                                                        SnarlDistanceIndex::sum(current_code2.rank_or_offset, 
+                                                                                distance_to_start2), 
+                                                        SnarlDistanceIndex::sum(current_code1.rank_or_offset,
+                                                                                current_code1.length)),
+                                                     distance_to_end1));
+                } else {
+                    //Otherwise, all that matters is the prefix sums
+                    //(Prefix sum 2  + distance left 2 - prefix sum1) - distance left 1
+                    distance_between = std::min(distance_between,
+                                                SnarlDistanceIndex::minus(
+                                                    SnarlDistanceIndex::minus(
+                                                        SnarlDistanceIndex::sum(current_code2.rank_or_offset, 
+                                                                                distance_to_start2),
+                                                        current_code1.rank_or_offset), 
+                                                    distance_to_start1) );
+                }
+            } else {
+                //Second child comes first in the chain, or they are the same (doesn't matter)
+                if (current_code2.code_type == REGULAR_SNARL || current_code2.code_type == IRREGULAR_SNARL) {
+                    //If the first thing is a snarl, then we need to take into account the length of the snarl
+                    //(prefix sum 1 + distance left 1) - (prefix sum 2 + length 2) + distance right 2
+                    distance_between = std::min(distance_between,
+                                                SnarlDistanceIndex::sum(
+                                                    SnarlDistanceIndex::minus(
+                                                        SnarlDistanceIndex::sum(current_code1.rank_or_offset, 
+                                                                                distance_to_start1), 
+                                                        SnarlDistanceIndex::sum(current_code2.rank_or_offset,
+                                                                                current_code2.length)),
+                                                     distance_to_end2));
+                } else {
+                    //Otherwise, all that matters is the prefix sums
+                    //(Prefix sum 1  + distance left 1 - prefix sum2) - distance left 2
+                    distance_between = std::min(distance_between,
+                                                SnarlDistanceIndex::minus(
+                                                    SnarlDistanceIndex::minus(
+                                                        SnarlDistanceIndex::sum(current_code1.rank_or_offset, 
+                                                                                distance_to_start1),
+                                                        current_code2.rank_or_offset), 
+                                                    distance_to_start2));
+                }
+            }
+        } else {
+            //If the ancestor is a snarl
+            parent_code = zip1.decode_one_code(i, REGULAR_SNARL);
+            
+            //If the parent is a regular snarl, then there is no path between them so
+            //just update the distances to the ends of the parent 
+            if (parent_code.code_type != REGULAR_SNARL) {
+                //Parent may be an irregular snarl or a root snarl (which is also irregular)
+                net_handle_t parent_snarl_handle = distance_index.get_net_handle_from_values(
+                parent_code.rank_or_offset, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
+
+                size_t distance_start_start = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    current_code1.rank_or_offset, true, current_code2.rank_or_offset, true);
+                size_t distance_start_end = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    current_code1.rank_or_offset, true, current_code2.rank_or_offset, false);
+                size_t distance_end_start = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    current_code1.rank_or_offset, false, current_code2.rank_or_offset, true);
+                size_t distance_end_end = distance_index.distance_in_snarl(parent_snarl_handle, 
+                                    current_code1.rank_or_offset, false, current_code2.rank_or_offset, false);
+
+                distance_between = std::min(distance_between,
+                                   std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                distance_to_start1, distance_to_start2), distance_start_start),
+                                   std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                distance_to_start1, distance_to_end2), distance_start_end),
+                                   std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                distance_to_end1, distance_to_start2), distance_end_start),
+                                             SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                                                distance_to_end1, distance_to_end2), distance_end_end)))));
+            }
+            update_distances_to_ends_of_parent(current_code1, parent_code, distance_to_start1, distance_to_end1);
+            update_distances_to_ends_of_parent(current_code2, parent_code, distance_to_start2, distance_to_end2);
+        }
+        current_code1 = parent_code;
+        current_code2 = std::move(parent_code);
+    }
+
+    
+                                        
+
+
+    return distance_between;
 
 
 }
