@@ -272,6 +272,10 @@ public:
     static constexpr int default_chain_min_score = 100;
     int chain_min_score = default_chain_min_score;
     
+    /// How long of a DP can we do before GSSW crashes due to 16-bit score
+    /// overflow?
+    static constexpr int MAX_DP_LENGTH = 30000;
+    
     /////////////////
     // More shared parameters:
     /////////////////
