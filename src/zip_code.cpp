@@ -171,34 +171,39 @@ decoded_code_t zip_code_t::decode_one_code(size_t index, const code_type_t& code
                     zip_code.get_value_and_next_index(zip_code.get_value_and_next_index(index).second).first,
                     (code_type == CHAIN || code_type == ROOT_CHAIN) ? ROOT_CHAIN : ROOT_SNARL, 
                     false};
-    } else if (code_type == ROOT_NODE || (code_type == NODE || index == 0)) {
+    } else if (code_type == ROOT_NODE || (code_type == NODE && index == 0)) {
         size_t rank;
         //Get the second thing (rank) and the index of the next thing (length)
         std::tie(rank, index) = zip_code.get_value_and_next_index(zip_code.get_value_and_next_index(index).second);
         return decoded_code_t { zip_code.get_value_and_next_index(index).first,
                     rank,
-                    code_type, false};
+                    ROOT_NODE, false};
     } else if (code_type == NODE) {
+        size_t prefix_sum;
+        std::tie(prefix_sum, index) = zip_code.get_value_and_next_index(index);
         size_t length; 
         std::tie(length, index) = zip_code.get_value_and_next_index(index);
         bool is_rev = zip_code.get_value_and_next_index(index).first;
         return decoded_code_t {length, 
-                               std::numeric_limits<size_t>::max(), 
+                               prefix_sum, 
                                code_type, is_rev}; 
     } else if (code_type == CHAIN) {
+        size_t rank;
+        std::tie(rank, index) = zip_code.get_value_and_next_index(index);
         return decoded_code_t {zip_code.get_value_and_next_index(index).first, 
-                               std::numeric_limits<size_t>::max(), 
+                               rank, 
                                code_type, false}; 
     } else if (code_type == REGULAR_SNARL || code_type == IRREGULAR_SNARL) {
         bool is_regular; 
         size_t rank;
         size_t length = std::numeric_limits<size_t>::max(); 
+        bool is_rev = false;
         std::tie(is_regular, index) = zip_code.get_value_and_next_index(index);
         std::tie(rank, index) = zip_code.get_value_and_next_index(index);
         if (is_regular) {
             std::tie(length, index) = zip_code.get_value_and_next_index(index);
+            is_rev = zip_code.get_value_and_next_index(index).first;
         }
-        bool is_rev = zip_code.get_value_and_next_index(index).first;
         return decoded_code_t {length, 
                                rank, 
                                is_regular ? REGULAR_SNARL : IRREGULAR_SNARL, 
