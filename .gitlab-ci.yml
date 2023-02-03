@@ -61,7 +61,11 @@ local-build-test-job:
     # and don't clobber sources with the cache. We want to have a dirty state
     # with the correct source files.
     - scripts/restore-deps.sh
+    # We need to make sure we have nvm for testing the tube map
+    - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+    - export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
   script:
+    - nvm version
     - python3 ./configure.py
     - source ./source_me.sh
     - make get-deps
@@ -76,7 +80,10 @@ local-build-test-job:
     - cd sequenceTubeMap
     # Tube map expects local IPv6 but Kubernetes won't let us have it
     - 'sed -i "s/^}$/,\"serverBindAddress\": \"127.0.0.1\"}/" src/config.json'
-    - npm install
+    # Tube map expects to have its specified version of Node
+    - nvm install
+    - nvm use
+    - npm ci
     - CI=true npm run test
   variables:
     VG_FULL_TRACEBACK: "1"

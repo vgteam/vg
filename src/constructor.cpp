@@ -2243,7 +2243,10 @@ namespace vg {
 
                     // Decide what FASTA contig that is and make sure we have it
                     string fasta_contig = vcf_to_fasta(vcf_contig);
-                    assert(reference_for.count(fasta_contig));
+                    if (!reference_for.count(fasta_contig)) {
+                        cerr << "[vg::Constructor] Error: Reference contig \"" << vcf_contig << "\" in VCF not found in FASTA." << endl;
+                        exit(1);
+                    }
                     auto* reference = reference_for[fasta_contig];
 
                     // Construct on it with the appropriate FastaReference for that contig
