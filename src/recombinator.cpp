@@ -69,6 +69,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
     // Add the counts. We read the kmers by blocks to reduce overhead.
     uint8_t* block = new uint8_t[kff_bytes(max_kmers + this->k() - 1)];
     uint8_t* data = new uint8_t[max_kmers * data_bytes];
+    size_t kmer_count = 0, block_count = 0;
     while (reader.has_next()) {
         // This function call takes references to the pointers but assumes that the
         // underlying buffers have been pre-allocated.
@@ -86,9 +87,13 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
                 }
             }
         }
+        kmer_count += n; block_count++;
     }
     delete[] block; block = nullptr;
     delete[] data; data = nullptr;
+    if (verbose) {
+        std::cerr << "Read " << kmer_count << " kmers in " << block_count << " blocks" << std::endl;
+    }
 
     return result;
 }
@@ -523,7 +528,7 @@ std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(const std::s
             result.push_back(minimizer.key.get_key());
         }
     }
-    std::sort(result.begin(), result.end());
+    gbwt::removeDuplicates(result, false);
     return result;
 }
 
@@ -549,37 +554,56 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
 
 //------------------------------------------------------------------------------
 
+// TODO: Return the number of skipped non-informative kmers.
 /*
   Take a set of sequences defined by the sorted set of kmers that are present.
   Output a sorted vector of all kmers and the concatenated bitvectors that mark
   the presence of kmers in the sequences. The output vectors are assumed to be
   empty.
 */
-void present_kmers(std::vector<std::vector<HaplotypePartitioner::kmer_type>>& sequences,
+void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& sequences,
     std::vector<HaplotypePartitioner::kmer_type>& all_kmers,
     sdsl::bit_vector& kmers_present) {
 
-    // Determine the distinct kmers and their ranks.
-    std::map<HaplotypePartitioner::kmer_type, size_t> present;
-    for (auto& sequence : sequences) {
+    // Build a map of distinct kmers. For each kmer, record the largest sequence
+    // id containing the kmer and the number of sequences containing it.
+    std::map<HaplotypePartitioner::kmer_type, std::pair<size_t, size_t>> present;
+    for (size_t sequence_id = 0; sequence_id < sequences.size(); sequence_id++) {
+        auto& sequence = sequences[sequence_id];
         for (auto kmer : sequence) {
-            present[kmer] = 0;
+            auto iter = present.find(kmer);
+            if (iter != present.end()) {
+                if (iter->second.first < sequence_id) {
+                    iter->second.first = sequence_id;
+                    iter->second.second++;
+                }
+            } else {
+                present[kmer] = std::pair<size_t, size_t>(sequence_id, 1);
+            }
         }
     }
+
+    // Now take those kmers that occur in some but not in all sequences.
+    // Use the first field for storing the offset of the kmer in the vector.
     all_kmers.reserve(present.size());
     size_t offset = 0;
     for (auto iter = present.begin(); iter != present.end(); ++iter) {
-        all_kmers.push_back(iter->first);
-        iter->second = offset;
-        offset++;
+        if (iter->second.second < sequences.size()) {
+            all_kmers.push_back(iter->first);
+            iter->second.first = offset;
+            offset++;
+        }
     }
 
     // Transform the sequences into kmer presence bitvectors.
-    kmers_present = sdsl::bit_vector(sequences.size() * present.size());
+    kmers_present = sdsl::bit_vector(sequences.size() * all_kmers.size());
     for (size_t i = 0; i < sequences.size(); i++) {
-        size_t start = i * present.size();
+        size_t start = i * all_kmers.size();
         for (auto kmer : sequences[i]) {
-            kmers_present[start + present[kmer]] = 1;
+            auto iter = present.find(kmer);
+            if (iter->second.second < sequences.size()) {
+                kmers_present[start + iter->second.first] = 1;
+            }
         }
     }
 }
@@ -607,7 +631,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             std::vector<std::vector<kmer_type>> kmers_by_sequence;
             kmers_by_sequence.reserve(iter->second.size());
             for (sequence_type sequence : iter->second) {
-                kmers_by_sequence.push_back(this->unique_minimizers(sequence, iter->first));
+                kmers_by_sequence.emplace_back(this->unique_minimizers(sequence, iter->first));
             }
             present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmers_present);
             subchain.sequences = std::move(iter->second);
@@ -628,7 +652,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         std::vector<std::vector<kmer_type>> kmers_by_sequence;
         kmers_by_sequence.reserve(sequences.size());
         for (auto seq_id : sequences) {
-            kmers_by_sequence.push_back(this->unique_minimizers(seq_id));
+            kmers_by_sequence.emplace_back(this->unique_minimizers(seq_id));
         }
         present_kmers(kmers_by_sequence, subchain.kmers, subchain.kmers_present);
         subchain.sequences.reserve(sequences.size());

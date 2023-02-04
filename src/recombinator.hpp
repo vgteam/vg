@@ -96,9 +96,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<sequence_type> sequences;
 
-        // TODO: This could be compressed. We could also add an option for removing duplicates.
-        /// Concatenated bitvectors for each sequence that mark the presence of each kmer
-        /// in that sequence.
+        // TODO: This could be compressed by removing duplicate haplotypes.
         sdsl::bit_vector kmers_present;
 
         /// Returns the start node as a GBWTGraph handle.
