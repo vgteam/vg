@@ -51,8 +51,8 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
     size_t data_bytes = reader.get_var("data_size");
 
     // Populate the map with the kmers we are interested in.
-    // TODO: Maybe this is faster if we reserve enough space in advance?
     hash_map<Subchain::kmer_type, size_t> result;
+    result.reserve(this->header.total_kmers);
     for (size_t chain_id = 0; chain_id < this->chains.size(); chain_id++) {
         const TopLevelChain& chain = this->chains[chain_id];
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
@@ -291,6 +291,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t job = 0; job < chains_by_job.size(); job++) {
         const std::vector<gbwtgraph::TopLevelChain>& chains = chains_by_job[job];
+        size_t total_subchains = 0, total_kmers = 0;
         for (auto& chain : chains) {
             try {
                 this->build_subchains(chain, result.chains[chain.offset], parameters);
@@ -298,11 +299,17 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
                 std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
                 std::exit(EXIT_FAILURE);
             }
+            total_subchains += result.chains[chain.offset].subchains.size();
+            for (auto& subchain : result.chains[chain.offset].subchains) {
+                total_kmers += subchain.kmers.size();
+            }
         }
-        if (this->verbosity >= verbosity_detailed) {
-            #pragma omp critical
-            {
-                std::cerr << "Finished job " << job << " with " << chains.size() << " chains" << std::endl;
+        #pragma omp critical
+        {
+            result.header.total_subchains += total_subchains;
+            result.header.total_kmers += total_kmers;
+            if (this->verbosity >= verbosity_detailed) {
+                std::cerr << "Finished job " << job << " with " << chains.size() << " chains, " << total_subchains << " subchains, and " << total_kmers << " kmers" << std::endl;
             }
         }
     }

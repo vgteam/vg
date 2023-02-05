@@ -56,6 +56,12 @@ public:
         /// Number of GBWT construction jobs for the chains.
         std::uint64_t construction_jobs = 0;
 
+        /// Total number of subchains in all chains.
+        std::uint64_t total_subchains = 0;
+
+        /// Total number of kmers in all subchains.
+        std::uint64_t total_kmers = 0;
+
         /// Length of the kmers.
         std::uint64_t k = DEFAULT_K;
     };
