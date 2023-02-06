@@ -95,7 +95,8 @@ fi
 if [[ ! -e "${WORK_DIR}/annotated.gam" ]] ; then
     # Map reads using correctness tracking.
     # Make sure to apply multi-position annotation which Giraffe won't do.
-    /usr/bin/time -v vg giraffe -G "${INPUT_READ_PATH}" -t 8 -B 1 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | /usr/bin/time -v vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position -l 100 >"${WORK_DIR}/annotated.gam.tmp"
+    ulimit -v 300000000
+    /usr/bin/time -v vg giraffe -G "${INPUT_READ_PATH}" -t 1 -B 2 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | /usr/bin/time -v vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position -l 100 >"${WORK_DIR}/annotated.gam.tmp"
     mv "${WORK_DIR}/annotated.gam.tmp" "${WORK_DIR}/annotated.gam"
 fi
 

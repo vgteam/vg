@@ -64,7 +64,7 @@ static GroupedOptionGroup get_options() {
         "produce up to INT alignments for each read"
     );
     
-    // Configure normal Giraffe mapping compoutation
+    // Configure normal Giraffe mapping computation
     auto& comp_opts = parser.add_group<MinimizerMapper>("computational parameters");
     comp_opts.add_range(
         "hit-cap", 'c',
@@ -277,6 +277,12 @@ static GroupedOptionGroup get_options() {
         &MinimizerMapper::max_tail_length,
         MinimizerMapper::default_max_tail_length,
         "maximum length of a tail to align before forcing softclipping when aligning a chain"
+    );
+    chaining_opts.add_range(
+        "max-dp-cells",
+        &MinimizerMapper::max_dp_cells,
+        MinimizerMapper::default_max_dp_cells,
+        "maximum number of alignment cells to allow in a tail with GSSW"
     );
     return parser;
 }
