@@ -28,6 +28,11 @@ using namespace std;
         //Returns std::numeric_limits<size_t>::max() as the next index if the current index is the 
         //last thing in the vector
         std::pair<size_t, size_t> get_value_and_next_index(size_t index) const;
+
+        ///Equality operator
+        inline bool operator== (const varint_vector_t& other ) const{
+            return data == other.data;
+        }
     
         private:
         //The actual data stored in the vector
@@ -36,6 +41,8 @@ using namespace std;
         const static size_t USABLE_BITS = 7;
         //01111111
         const static uint8_t MAX_VALUE = (1 << USABLE_BITS) - 1;
+
+
     
     };
 }

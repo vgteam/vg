@@ -13,19 +13,33 @@ using namespace std;
 typedef std::vector<pair<bool, size_t>> zip_code_decoder_t;
 
 enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE};
+
 /// A struct that represents a decoded node/snarl/chain code
+/// Not all fields may be filled, code_type is always filled
+/// node: length, rank_or_offset = prefix sum, is_reversed
+/// chain: length, rank_or_offset = rank in snarl
+/// regular_snarl: length, rank_or_offset = prefix sum, is_reversed (of the child)
+/// irregular snarl: net_handle, length, rank_or_offset = prefix sum
+/// root snarl: net_handle, rank or offset = connected component number
+/// root chain: rank or offset = connected component number
+/// root node: length, rank_or_offset = connected component number
 struct decoded_code_t {
+    net_handle_t net_handle;
     size_t length;
     size_t rank_or_offset;
     code_type_t code_type;
     bool is_reversed;
 
     /// Equality operator
-    inline bool operator== (const decoded_code_t& other) {
-        return length == other.length &&
+    /// Do the two decoded_code_t's represent the same snarl tree node, assuming that all ancestors were the same
+    /// All values must be the same, except for is_reversed in regular snarls, since this value refers to the 
+    /// child of the regular snarl
+    inline bool operator== (const decoded_code_t& other) const {
+        return net_handle == net_handle &&
+               length == other.length &&
                rank_or_offset == other.rank_or_offset &&
                code_type == other.code_type &&
-               is_reversed == other.is_reversed;
+               (code_type == REGULAR_SNARL || is_reversed == other.is_reversed);
     }
 
 };
@@ -51,10 +65,10 @@ struct zip_code_t {
         //It should be able to figure out what it is from NODE, SNARL, or CHAIN- if the index is
         //0 then it is assumed to be a root
         //It doesn't matter if it's given REGULAR or IRREGULAR_SNARL, the correct code type will be inferred from the actual code
-        decoded_code_t decode_one_code(size_t index, const code_type_t& code_type) const;
+        decoded_code_t decode_one_code(size_t index, const code_type_t& code_type, const SnarlDistanceIndex& distance_index) const;
 
         //Get the exact minimum distance between two positions and their zip codes
-        static inline size_t minimum_distance_between(const zip_code_t& zip1, const pos_t& pos1, 
+        static size_t minimum_distance_between(const zip_code_t& zip1, const pos_t& pos1, 
                                        const zip_code_t& zip2, const pos_t& pos2,
                                        const SnarlDistanceIndex& distance_index);
 
@@ -64,6 +78,12 @@ struct zip_code_t {
 
     //TODO: Make this private:
         varint_vector_t zip_code;
+
+
+        /// Equality operator
+        inline bool operator== (const zip_code_t& other) const {
+            return zip_code == other.zip_code;
+    }
 
     private:
 

@@ -54,11 +54,19 @@ using namespace std;
             net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
 
             zip_code_decoder_t decoder = zip_code.decode();
-            decoded_code_t decoded = zip_code.decode_one_code(0, NODE);
+            decoded_code_t decoded = zip_code.decode_one_code(0, NODE, distance_index);
 
             REQUIRE(decoded.length == distance_index.minimum_length(chain1));
             REQUIRE(decoded.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded.code_type == ROOT_NODE);
+        }
+        SECTION("Distances within one node") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            REQUIRE(zip_code_t::minimum_distance_between(zip_code, make_pos_t(n1->id(), false, 0),
+                                                         zip_code, make_pos_t(n1->id(), false, 3),
+                                                         distance_index)
+                    == 3);
         }
     }
     TEST_CASE("Simple chain zipcode", "[zipcode]") {
@@ -131,14 +139,14 @@ using namespace std;
 
             zip_code_decoder_t decoder = zip_code.decode();
 
-            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN);
+            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN, distance_index);
             REQUIRE(decoded_chain.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain.code_type == ROOT_CHAIN);
 
 
             //Next is the node code
             //Third value is the prefix sum of the node
-            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[1].second, NODE);
+            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[1].second, NODE, distance_index);
             REQUIRE(decoded_node.length == distance_index.minimum_length(node1));
             REQUIRE(decoded_node.rank_or_offset == distance_index.get_prefix_sum_value(node1));
             REQUIRE(decoded_node.code_type == NODE);
@@ -178,8 +186,11 @@ using namespace std;
 
             //node is reversed in the snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(distance_index.get_parent(
-                                                distance_index.get_node_net_handle(n4->id()))));
+            net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+            net_handle_t snarl = distance_index.get_parent(chain4);
+            bool is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(chain4)) != 0;
+            REQUIRE(value_and_index.first == is_rev);
 
             //Next is the chain code
             //rank of the chain in the snarl
@@ -208,21 +219,67 @@ using namespace std;
             net_handle_t chain1 = distance_index.get_parent(snarl36);
 
 
-            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN);
+            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN, distance_index);
             REQUIRE(decoded_chain.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain.code_type == ROOT_CHAIN);
 
             //THis is a regular snarl but it should figure that out even if it's given IRREGULAR
-            decoded_code_t decoded_snarl = zip_code.decode_one_code(decoder[1].second, IRREGULAR_SNARL);
+            decoded_code_t decoded_snarl = zip_code.decode_one_code(decoder[1].second, IRREGULAR_SNARL, distance_index);
             REQUIRE(decoded_snarl.length == distance_index.minimum_length(snarl36));
             REQUIRE(decoded_snarl.rank_or_offset == (chain_is_reversed ? 5 : 6));
             REQUIRE(decoded_snarl.code_type == REGULAR_SNARL);
-            REQUIRE(decoded_snarl.is_reversed == distance_index.is_reversed_in_parent(chain4));
+            bool is_rev = distance_index.distance_in_parent(snarl36, distance_index.get_bound(snarl36, false, true),
+                                                                   distance_index.flip(chain4)) != 0;
+            REQUIRE(decoded_snarl.is_reversed == is_rev);
 
-            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[2].second, CHAIN);
+            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[2].second, CHAIN, distance_index);
             REQUIRE(decoded_node.length == distance_index.minimum_length(chain4));
             REQUIRE(decoded_node.rank_or_offset == distance_index.get_rank_in_parent(chain4));
             REQUIRE(decoded_node.code_type == CHAIN);
+        }
+        SECTION("Distances") {
+            zip_code_t zip1;
+            zip1.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            zip_code_t zip2;
+            zip2.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            zip_code_t zip3;
+            zip3.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            zip_code_t zip4;
+            zip4.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            zip_code_t zip5;
+            zip5.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            zip_code_t zip6;
+            zip6.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip3, make_pos_t(n3->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 2),
+                                                         zip1, make_pos_t(n1->id(), true, 2),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == 6);
+            REQUIRE(zip_code_t::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(zip_code_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 1),
+                                                         distance_index)
+                    == 1);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip6, make_pos_t(n6->id(), false, 0),
+                                                         distance_index)
+                    == 7);
         }
     }
     TEST_CASE("Nested snarl zipcode", "[zipcode]") {
@@ -305,11 +362,11 @@ using namespace std;
 
             zip_code_decoder_t decoder = zip_code.decode();
 
-            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN);
+            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN, distance_index);
             REQUIRE(decoded_chain.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain.code_type == ROOT_CHAIN);
 
-            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[1].second, NODE);
+            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[1].second, NODE, distance_index);
 
             REQUIRE(decoded_node.length == distance_index.minimum_length(node1));
             REQUIRE(decoded_node.rank_or_offset == distance_index.get_prefix_sum_value(node1));
@@ -350,8 +407,11 @@ using namespace std;
 
             //Is the chain is reversed in the snarl 
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(
-                                                distance_index.get_parent(distance_index.get_node_net_handle(n2->id()))));
+            net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+            net_handle_t snarl = distance_index.get_parent(chain2);
+            bool is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain2))) != 0;
+            REQUIRE(value_and_index.first == is_rev);
             //Next is the chain code
             REQUIRE(decoder[2] == std::make_pair(true, value_and_index.second));
             //rank in snarl
@@ -393,22 +453,24 @@ using namespace std;
 
             zip_code_decoder_t decoder = zip_code.decode();
 
-            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN);
+            decoded_code_t decoded_chain = zip_code.decode_one_code(0, CHAIN, distance_index);
             REQUIRE(decoded_chain.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain.code_type == ROOT_CHAIN);
 
-            decoded_code_t decoded_snarl1 = zip_code.decode_one_code(decoder[1].second, IRREGULAR_SNARL);
+            decoded_code_t decoded_snarl1 = zip_code.decode_one_code(decoder[1].second, IRREGULAR_SNARL, distance_index);
             REQUIRE(decoded_snarl1.length == 0);
             REQUIRE(decoded_snarl1.rank_or_offset == (chain_is_reversed ? 4 : 3));
             REQUIRE(decoded_snarl1.code_type == REGULAR_SNARL);
-            REQUIRE(decoded_snarl1.is_reversed == distance_index.is_reversed_in_parent(chain2));
+            bool is_rev = distance_index.distance_in_parent(snarl1, distance_index.get_bound(snarl1, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain2))) != 0;
+            REQUIRE(decoded_snarl1.is_reversed == is_rev);
 
-            decoded_code_t decoded_chain2 = zip_code.decode_one_code(decoder[2].second, CHAIN);
+            decoded_code_t decoded_chain2 = zip_code.decode_one_code(decoder[2].second, CHAIN, distance_index);
             REQUIRE(decoded_chain2.length == 3);
             REQUIRE(decoded_chain2.rank_or_offset == distance_index.get_rank_in_parent(chain2));
             REQUIRE(decoded_chain2.code_type == CHAIN);
 
-            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[3].second, NODE);
+            decoded_code_t decoded_node = zip_code.decode_one_code(decoder[3].second, NODE, distance_index);
             REQUIRE(decoded_node.length == 1);
             REQUIRE(decoded_node.rank_or_offset == distance_index.get_prefix_sum_value(node2));
             REQUIRE(decoded_node.code_type == NODE);
@@ -448,8 +510,11 @@ using namespace std;
 
             //Is the chain is reversed in the snarl 
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(
-                                                distance_index.get_parent(distance_index.get_node_net_handle(n2->id()))));
+            net_handle_t chain2 = distance_index.get_parent(distance_index.get_node_net_handle(n2->id()));
+            net_handle_t snarl = distance_index.get_parent(chain2);
+            bool is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain2))) != 0;
+            REQUIRE(value_and_index.first == is_rev);
             //Next is the chain code for chain 2-7
             REQUIRE(decoder[2] == std::make_pair(true, value_and_index.second));
             //rank in snarl
@@ -477,7 +542,11 @@ using namespace std;
 
             //is_reversed
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))) );
+            net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+            snarl = distance_index.get_parent(chain3);
+            is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain3))) != 0;
+            REQUIRE(value_and_index.first == is_rev);
 
             //Chain code for chain 3-5
             REQUIRE(decoder[4] == std::make_pair(true, value_and_index.second));
@@ -504,7 +573,11 @@ using namespace std;
 
             //is_reversed
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n4->id()))));
+            net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
+            snarl = distance_index.get_parent(chain4);
+            is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain4))) != 0;
+            REQUIRE(value_and_index.first == is_rev);
 
             //Chain code for node 4
             REQUIRE(decoder[6] == std::make_pair(true, value_and_index.second));
@@ -537,46 +610,112 @@ using namespace std;
 
             zip_code_decoder_t decoder = zip_code.decode();
 
-            decoded_code_t decoded_chain1 = zip_code.decode_one_code(0, CHAIN);
+            decoded_code_t decoded_chain1 = zip_code.decode_one_code(0, CHAIN, distance_index);
             REQUIRE(decoded_chain1.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain1.code_type == ROOT_CHAIN);
 
-            decoded_code_t decoded_snarl1 = zip_code.decode_one_code(decoder[1].second, REGULAR_SNARL);
+            decoded_code_t decoded_snarl1 = zip_code.decode_one_code(decoder[1].second, REGULAR_SNARL, distance_index);
             REQUIRE(decoded_snarl1.length == 0);
             REQUIRE(decoded_snarl1.rank_or_offset == (chain_is_reversed ? 4 : 3));
             REQUIRE(decoded_snarl1.code_type == REGULAR_SNARL);
-            REQUIRE(decoded_snarl1.is_reversed == distance_index.is_reversed_in_parent(chain2));
+            net_handle_t snarl = distance_index.get_parent(chain2);
+            bool is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain2))) != 0;
+            REQUIRE(decoded_snarl1.is_reversed == is_rev);
 
 
-            decoded_code_t decoded_chain2 = zip_code.decode_one_code(decoder[2].second, CHAIN);
+            decoded_code_t decoded_chain2 = zip_code.decode_one_code(decoder[2].second, CHAIN, distance_index);
             REQUIRE(decoded_chain2.length == 3);
             REQUIRE(decoded_chain2.rank_or_offset == distance_index.get_rank_in_parent(chain2));
             REQUIRE(decoded_chain2.code_type == CHAIN);
 
 
-            decoded_code_t decoded_snarl2 = zip_code.decode_one_code(decoder[3].second, REGULAR_SNARL);
+            decoded_code_t decoded_snarl2 = zip_code.decode_one_code(decoder[3].second, REGULAR_SNARL, distance_index);
             REQUIRE(decoded_snarl2.length == 1);
             REQUIRE(decoded_snarl2.rank_or_offset == 1);
             REQUIRE(decoded_snarl2.code_type == REGULAR_SNARL);
-            REQUIRE(decoded_snarl2.is_reversed == distance_index.is_reversed_in_parent(chain3));
+            snarl = distance_index.get_parent(chain3);
+            is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain3))) != 0;
+            REQUIRE(decoded_snarl2.is_reversed == is_rev);
 
-            decoded_code_t decoded_chain3 = zip_code.decode_one_code(decoder[4].second, CHAIN);
+            decoded_code_t decoded_chain3 = zip_code.decode_one_code(decoder[4].second, CHAIN, distance_index);
             REQUIRE(decoded_chain3.length == distance_index.minimum_length(chain3));
             REQUIRE(decoded_chain3.rank_or_offset == distance_index.get_rank_in_parent(chain3));
             REQUIRE(decoded_chain3.code_type == CHAIN);
 
 
-            decoded_code_t decoded_snarl3 = zip_code.decode_one_code(decoder[5].second, REGULAR_SNARL);
+            decoded_code_t decoded_snarl3 = zip_code.decode_one_code(decoder[5].second, REGULAR_SNARL, distance_index);
             REQUIRE(decoded_snarl3.length == 0);
             REQUIRE(decoded_snarl3.rank_or_offset == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 3 : 1));
             REQUIRE(decoded_snarl3.code_type == REGULAR_SNARL);
-            REQUIRE(decoded_snarl3.is_reversed == distance_index.is_reversed_in_parent(chain4));
+            snarl = distance_index.get_parent(chain4);
+            is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
+                                                                   distance_index.flip(distance_index.canonical(chain4))) != 0;
+            REQUIRE(decoded_snarl3.is_reversed == is_rev);
 
-            decoded_code_t decoded_chain4 = zip_code.decode_one_code(decoder[6].second, CHAIN);
+            decoded_code_t decoded_chain4 = zip_code.decode_one_code(decoder[6].second, CHAIN, distance_index);
             REQUIRE(decoded_chain4.length == 4);
             REQUIRE(decoded_chain4.rank_or_offset == distance_index.get_rank_in_parent(chain4));
             REQUIRE(decoded_chain4.code_type == CHAIN);
 
+        }
+        SECTION("Distances") {
+            zip_code_t zip1;
+            zip1.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            zip_code_t zip2;
+            zip2.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            zip_code_t zip3;
+            zip3.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            zip_code_t zip4;
+            zip4.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            zip_code_t zip5;
+            zip5.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            zip_code_t zip6;
+            zip6.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            zip_code_t zip7;
+            zip7.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+            zip_code_t zip8;
+            zip8.fill_in_zip_code(distance_index, make_pos_t(n8->id(), 0, false));
+
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip6, make_pos_t(n6->id(), false, 0),
+                                                         distance_index)
+                    == 4);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip7, make_pos_t(n7->id(), false, 0),
+                                                         distance_index)
+                    == 5);
+            REQUIRE(zip_code_t::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+                                                         zip7, make_pos_t(n7->id(), false, 0),
+                                                         distance_index)
+                    == 2);
+            REQUIRE(zip_code_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+                                                         zip8, make_pos_t(n8->id(), false, 0),
+                                                         distance_index)
+                    == 8);
+            REQUIRE(zip_code_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+                                                         zip6, make_pos_t(n6->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(zip_code_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+                                                         zip8, make_pos_t(n8->id(), true, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(zip_code_t::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
+                                                         zip6, make_pos_t(n6->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(zip_code_t::minimum_distance_between(zip7, make_pos_t(n7->id(), true, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 2);
         }
     }
     TEST_CASE("Irregular snarl zipcode", "[zipcode]") {
@@ -659,19 +798,87 @@ using namespace std;
 
             zip_code_decoder_t decoder = zip_code.decode();
 
-            decoded_code_t decoded_chain1 = zip_code.decode_one_code(0, CHAIN);
+            decoded_code_t decoded_chain1 = zip_code.decode_one_code(0, CHAIN, distance_index);
             REQUIRE(decoded_chain1.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain1.code_type == ROOT_CHAIN);
 
-            decoded_code_t decoded_snarl1 = zip_code.decode_one_code(decoder[1].second, REGULAR_SNARL);
-            REQUIRE(decoded_snarl1.rank_or_offset == distance_index.get_record_offset(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())))));
+            decoded_code_t decoded_snarl1 = zip_code.decode_one_code(decoder[1].second, REGULAR_SNARL, distance_index);
+            REQUIRE(decoded_snarl1.rank_or_offset == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 6 : 3));
             REQUIRE(decoded_snarl1.code_type == IRREGULAR_SNARL);
 
-            decoded_code_t decoded_chain3 = zip_code.decode_one_code(decoder[2].second, CHAIN);
+            decoded_code_t decoded_chain3 = zip_code.decode_one_code(decoder[2].second, CHAIN, distance_index);
             //Rank in snarl
             REQUIRE(decoded_chain3.length == 1);
             REQUIRE(decoded_chain3.rank_or_offset == distance_index.get_rank_in_parent(chain3));
             REQUIRE(decoded_chain3.code_type == CHAIN);
+        }
+        SECTION("Distances") {
+            zip_code_t zip1;
+            zip1.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            zip_code_t zip2;
+            zip2.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            zip_code_t zip3;
+            zip3.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            zip_code_t zip4;
+            zip4.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            zip_code_t zip5;
+            zip5.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            zip_code_t zip6;
+            zip6.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            zip_code_t zip7;
+            zip7.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip3, make_pos_t(n3->id(), false, 0),
+                                                         distance_index)
+                    == 4);
+            REQUIRE(zip_code_t::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip1, make_pos_t(n1->id(), true, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+
+            //Shouldn't take the loop in the chain
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
+                                                         zip1, make_pos_t(n1->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 5);
+            REQUIRE(zip_code_t::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == 1);
+            REQUIRE(zip_code_t::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 2);
+            REQUIRE(zip_code_t::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 0),
+                                                         zip2, make_pos_t(n2->id(), true, 0),
+                                                         distance_index)
+                    == 1);
+            REQUIRE(zip_code_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 1),
+                                                         zip4, make_pos_t(n4->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
         }
     }
 
@@ -737,11 +944,11 @@ using namespace std;
             net_handle_t root_snarl = distance_index.get_parent(chain1);
 
 
-            decoded_code_t decoded_top_snarl = zip_code.decode_one_code(0, ROOT_SNARL);
+            decoded_code_t decoded_top_snarl = zip_code.decode_one_code(0, ROOT_SNARL, distance_index);
             REQUIRE(decoded_top_snarl.rank_or_offset == distance_index.get_connected_component_number(chain1));
             REQUIRE(decoded_top_snarl.code_type == ROOT_SNARL);
 
-            decoded_code_t decoded_chain1 = zip_code.decode_one_code(decoder[1].second, CHAIN);
+            decoded_code_t decoded_chain1 = zip_code.decode_one_code(decoder[1].second, CHAIN, distance_index);
             REQUIRE(decoded_chain1.length == 3);
             REQUIRE(decoded_chain1.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded_chain1.code_type == CHAIN);
@@ -792,20 +999,62 @@ using namespace std;
 
             zip_code_decoder_t decoder = zip_code.decode();
 
-            decoded_code_t decoded_top_snarl = zip_code.decode_one_code(0, ROOT_SNARL);
+            decoded_code_t decoded_top_snarl = zip_code.decode_one_code(0, ROOT_SNARL, distance_index);
             REQUIRE(decoded_top_snarl.rank_or_offset == distance_index.get_connected_component_number(node3));
             REQUIRE(decoded_top_snarl.code_type == ROOT_SNARL);
 
-            decoded_code_t decoded_chain2 = zip_code.decode_one_code(decoder[1].second, CHAIN);
+            decoded_code_t decoded_chain2 = zip_code.decode_one_code(decoder[1].second, CHAIN, distance_index);
             REQUIRE(decoded_chain2.length == 2);
             REQUIRE(decoded_chain2.rank_or_offset == distance_index.get_rank_in_parent(chain2));
             REQUIRE(decoded_chain2.code_type == CHAIN);
 
-            decoded_code_t decoded_node3 = zip_code.decode_one_code(decoder[2].second, NODE);
+            decoded_code_t decoded_node3 = zip_code.decode_one_code(decoder[2].second, NODE, distance_index);
             REQUIRE(decoded_node3.length == 1);
             REQUIRE(decoded_node3.rank_or_offset == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1));
             REQUIRE(decoded_node3.code_type == NODE);
             REQUIRE(decoded_node3.is_reversed == distance_index.is_reversed_in_parent(node3));
+        }
+        SECTION("Distances") {
+            zip_code_t zip1;
+            zip1.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            zip_code_t zip2;
+            zip2.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            zip_code_t zip3;
+            zip3.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            zip_code_t zip4;
+            zip4.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            zip_code_t zip5;
+            zip5.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            zip_code_t zip6;
+            zip6.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            zip_code_t zip7;
+            zip7.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), true, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip3, make_pos_t(n3->id(), false, 0),
+                                                         distance_index)
+                    == 4);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip3, make_pos_t(n3->id(), true, 0),
+                                                         distance_index)
+                    == 8);
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip6, make_pos_t(n6->id(), false, 0),
+                                                         distance_index)
+                    == std::numeric_limits<size_t>::max());
+            REQUIRE(zip_code_t::minimum_distance_between(zip6, make_pos_t(n6->id(), false, 0),
+                                                         zip7, make_pos_t(n7->id(), false, 0),
+                                                         distance_index)
+                    == 1);
         }
     }
 }
