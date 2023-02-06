@@ -320,7 +320,7 @@ var searchData=
   ['augment_2ecpp_352',['augment.cpp',['../augment_8cpp.html',1,'']]],
   ['augment_2ehpp_353',['augment.hpp',['../augment_8hpp.html',1,'']]],
   ['augment_5ffrom_5falignment_5fedits_354',['augment_from_alignment_edits',['../structvg_1_1AugmentedGraph.html#a56ecda832a62dd3a22424bb8720a4601',1,'vg::AugmentedGraph']]],
-  ['augment_5fgraph_355',['augment_graph',['../classvg_1_1Transcriptome.html#a3b7f7abbfe03b3393955ed9a70adaab7',1,'vg::Transcriptome']]],
+  ['augment_5fgraph_355',['augment_graph',['../classvg_1_1Transcriptome.html#ac4eff095379bd9ab5691704de1ddc293',1,'vg::Transcriptome']]],
   ['augment_5fimpl_356',['augment_impl',['../namespacevg.html#a5be4fdda1799c2f6876f2ac4937da349',1,'vg']]],
   ['augment_5fmain_2ecpp_357',['augment_main.cpp',['../augment__main_8cpp.html',1,'']]],
   ['augmented_358',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],

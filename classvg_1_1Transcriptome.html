@@ -194,8 +194,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:abfa196d9f2e46f6f72f71a80a6063c36"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf34b6da5110fa44f787994be4ea2791"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#aaf34b6da5110fa44f787994be4ea2791">has_novel_exon_boundaries</a> (const list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt; &amp;edited_transcript_paths, const bool include_transcript_ends) const</td></tr>
 <tr class="separator:aaf34b6da5110fa44f787994be4ea2791"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3b7f7abbfe03b3393955ed9a70adaab7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a3b7f7abbfe03b3393955ed9a70adaab7">augment_graph</a> (const list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt; &amp;edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr&lt; gbwt::GBWT &gt; &amp;haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths)</td></tr>
-<tr class="separator:a3b7f7abbfe03b3393955ed9a70adaab7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac4eff095379bd9ab5691704de1ddc293"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ac4eff095379bd9ab5691704de1ddc293">augment_graph</a> (const list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt; &amp;edited_transcript_paths, const bool is_introns, unique_ptr&lt; gbwt::GBWT &gt; &amp;haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths)</td></tr>
+<tr class="separator:ac4eff095379bd9ab5691704de1ddc293"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5b33f790ea79988af1d05ba0b1fd1cea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a5b33f790ea79988af1d05ba0b1fd1cea">update_haplotype_index</a> (unique_ptr&lt; gbwt::GBWT &gt; &amp;haplotype_index, const spp::sparse_hash_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; pair&lt; int32_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt; &amp;update_index) const</td></tr>
 <tr class="memdesc:a5b33f790ea79988af1d05ba0b1fd1cea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Update threads in gbwt index using graph translations.  <a href="classvg_1_1Transcriptome.html#a5b33f790ea79988af1d05ba0b1fd1cea">More...</a><br /></td></tr>
 <tr class="separator:a5b33f790ea79988af1d05ba0b1fd1cea"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -587,8 +587,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a3b7f7abbfe03b3393955ed9a70adaab7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3b7f7abbfe03b3393955ed9a70adaab7">&#9670;&nbsp;</a></span>augment_graph()</h2>
+<a id="ac4eff095379bd9ab5691704de1ddc293"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac4eff095379bd9ab5691704de1ddc293">&#9670;&nbsp;</a></span>augment_graph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -606,7 +606,7 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>break_at_transcript_ends</em>, </td>
+          <td class="paramname"><em>is_introns</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
