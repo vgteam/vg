@@ -282,7 +282,7 @@ int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_stre
     if (has_novel_exon_boundaries(edited_transcript_paths, false)) {
 
         // Augment graph with new exon boundaries and splice-junction edges. 
-        augment_graph(edited_transcript_paths, false, haplotype_index, update_haplotypes, false);
+        augment_graph(edited_transcript_paths, true, haplotype_index, update_haplotypes, false);
     
     } else {
 
@@ -372,7 +372,7 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
 
         // Augment graph with new exon boundaries and splice-junction edges. 
         // Adds the edited transcript paths as reference transcript paths.
-        augment_graph(edited_transcript_paths, true, haplotype_index, update_haplotypes, true);
+        augment_graph(edited_transcript_paths, false, haplotype_index, update_haplotypes, true);
     
     } else {
 
@@ -465,54 +465,56 @@ void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron
     while (intron_stream->good()) {
 
         line_number += 1;
-        getline(*intron_stream, chrom, '\t');
+
+        string intron_line;
+        getline(*intron_stream, intron_line);
 
         // Skip header.
-        if (chrom.empty() || chrom.front() == '#') {
+        if (intron_line.empty() || intron_line.front() == '#') {
 
-            intron_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
+
+        stringstream intron_line_ss = stringstream(intron_line); 
+        getline(intron_line_ss, chrom, '\t');
 
         assert(_graph->has_path(chrom) == graph_path_pos_overlay.has_path(chrom));
 
         if (!_graph->has_path(chrom)) {
 
             if (error_on_missing_path) {
+
                 cerr << "\tERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
                 exit(1);
-            }
-            else {
+            
+            } else {
+
                 // seek to the end of the line
-                intron_stream->ignore(numeric_limits<streamsize>::max(), '\n');
                 continue;
             }
         }
 
         // Parse start and end intron position and convert end to inclusive.
-        assert(getline(*intron_stream, pos, '\t'));
-        int32_t spos = stoi(pos);
-        
-        assert(getline(*intron_stream, end));
-        auto end_ss = stringstream(end);
-        assert(getline(end_ss, pos, '\t'));
+        assert(getline(intron_line_ss, pos, '\t'));
+        int32_t spos = stoi(pos);   
+        assert(getline(intron_line_ss, pos, '\t'));
         int32_t epos = stoi(pos) - 1;
 
         assert(spos <= epos);
 
-        getline(end_ss, strand, '\t');
-        getline(end_ss, strand, '\t');
+        getline(intron_line_ss, strand, '\t');
+        getline(intron_line_ss, strand, '\t');
 
         bool is_reverse = false;
 
-        if (getline(end_ss, strand, '\t')) {
+        if (getline(intron_line_ss, strand, '\t')) {
 
             assert(strand == "+" || strand == "-");
             is_reverse = (strand == "-") ? true : false;
         }
 
         // Create "intron" transcript.
-        introns->emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
+        introns->emplace_back(Transcript("intron", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
 
         // Add intron boundaries as flanking exons to current "intron" transcript.
         add_exon(&(introns->back()), make_pair(spos - 1, spos - 1), graph_path_pos_overlay);
@@ -569,14 +571,19 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
     while (transcript_stream->good()) {
 
         line_number += 1;
-        getline(*transcript_stream, chrom, '\t');
+
+        string transcript_line;
+        getline(*transcript_stream, transcript_line);
 
         // Skip header.
-        if (chrom.empty() || chrom.front() == '#') {
+        if (transcript_line.empty() || transcript_line.front() == '#') {
 
-            transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
+
+        stringstream transcript_line_ss = stringstream(transcript_line); 
+        getline(transcript_line_ss, chrom, '\t');
+
         parsed_lines += 1;
 
         auto chrom_lengths_it = chrom_lengths.find(chrom);
@@ -591,47 +598,42 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
             } else {
 
                 // Seek to the end of the line.
-                transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
                 continue;
             }
         }
 
-        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');         
-        assert(getline(*transcript_stream, feature, '\t'));
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');         
+        assert(getline(transcript_line_ss, feature, '\t'));
 
         // Select only relevant feature types.
         if (feature != feature_type && !feature_type.empty()) {
 
-            transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');  
             continue;
         }
 
         // Parse start and end exon position and convert to 0-base.
-        assert(getline(*transcript_stream, pos, '\t'));
+        assert(getline(transcript_line_ss, pos, '\t'));
         int32_t spos = stoi(pos) - 1;
-        assert(getline(*transcript_stream, pos, '\t'));
+        assert(getline(transcript_line_ss, pos, '\t'));
         int32_t epos = stoi(pos) - 1;
 
         assert(spos <= epos);
 
         // Skip score column.
-        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');  
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');  
         
         // Parse strand and set whether it is reverse.
-        assert(getline(*transcript_stream, strand, '\t'));
+        assert(getline(transcript_line_ss, strand, '\t'));
         assert(strand == "+" || strand == "-");
         bool is_reverse = (strand == "-") ? true : false;
 
         // Skip frame column.
-        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');  
+        transcript_line_ss.ignore(numeric_limits<streamsize>::max(), '\t');  
 
         string transcript_id = "";
-        int32_t exon_number = -1;
+        int32_t exon_number = -1;  
 
-        assert(getline(*transcript_stream, attributes, '\n'));
-        stringstream attributes_ss(attributes);    
-
-        while (getline(attributes_ss, attribute, ';')) {
+        while (getline(transcript_line_ss, attribute, ';')) {
 
             if (attribute.empty()) {
 
@@ -1995,7 +1997,7 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
     return false;
 }
 
-void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths) {
+void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool is_introns, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths) {
 
 #ifdef transcriptome_debug
     double time_convert_1 = gcsa::readTimer();
@@ -2004,32 +2006,45 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
     // Create set of exon boundary paths to augment graph with.
     vector<Path> exon_boundary_paths;
-    spp::sparse_hash_set<Mapping, MappingHash> exon_boundary_mapping_index;
 
-    for (auto & transcript_path: edited_transcript_paths) {
+    if (is_introns) {
 
-        for (size_t j = 0; j < transcript_path.path.mapping_size(); ++j) {
+        exon_boundary_paths.reserve(edited_transcript_paths.size());
 
-            const Mapping & mapping = transcript_path.path.mapping(j);
+        for (auto & transcript_path: edited_transcript_paths) {
 
-            const auto mapping_length = mapping_to_length(mapping);
-            assert(mapping_length == mapping_from_length(mapping));
-
-            // Add exon boundary path.
-            if (mapping.position().offset() > 0 || mapping.position().offset() + mapping_length < _graph->get_length(_graph->get_handle(mapping.position().node_id(), false))) {
-
-                exon_boundary_paths.emplace_back(Path());
-                *(exon_boundary_paths.back().add_mapping()) = mapping; 
-                exon_boundary_paths.back().mutable_mapping(0)->set_rank(1);
-
-                // Remove if already added.
-                if (!exon_boundary_mapping_index.emplace(exon_boundary_paths.back().mapping(0)).second) {
-                
-                    exon_boundary_paths.pop_back();
-                }
-            }  
+            exon_boundary_paths.emplace_back(transcript_path.path);
         }
-    }   
+
+    } else {
+
+        spp::sparse_hash_set<Mapping, MappingHash> exon_boundary_mapping_index;
+
+        for (auto & transcript_path: edited_transcript_paths) {
+
+            for (size_t j = 0; j < transcript_path.path.mapping_size(); ++j) {
+
+                const Mapping & mapping = transcript_path.path.mapping(j);
+
+                const auto mapping_length = mapping_to_length(mapping);
+                assert(mapping_length == mapping_from_length(mapping));
+
+                // Add exon boundary path.
+                if (mapping.position().offset() > 0 || mapping.position().offset() + mapping_length < _graph->get_length(_graph->get_handle(mapping.position().node_id(), false))) {
+
+                    exon_boundary_paths.emplace_back(Path());
+                    *(exon_boundary_paths.back().add_mapping()) = mapping; 
+                    exon_boundary_paths.back().mutable_mapping(0)->set_rank(1);
+
+                    // Remove if already added.
+                    if (!exon_boundary_mapping_index.emplace(exon_boundary_paths.back().mapping(0)).second) {
+                    
+                        exon_boundary_paths.pop_back();
+                    }
+                }  
+            }
+        }   
+    }
 
 #ifdef transcriptome_debug
     cerr << "\t\tDEBUG Created " << exon_boundary_paths.size() << " exon boundary paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -2043,7 +2058,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     vector<Translation> translations;
 
     // Augment graph with edited paths. 
-    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), exon_boundary_paths, "GAM", &translations, "", false, break_at_transcript_ends);
+    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), exon_boundary_paths, "GAM", &translations, "", false, !is_introns);
 
 #ifdef transcriptome_debug
     cerr << "\t\tDEBUG Augmented graph with " << translations.size() << " translations: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
