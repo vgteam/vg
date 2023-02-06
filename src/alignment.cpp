@@ -397,8 +397,26 @@ void parse_tid_path_handle_map(const bam_hdr_t* hts_header, const PathHandleGrap
         // Pre-look-up all the paths mentioned in the header
         string target_name(hts_header->target_name[i]);
         if (graph->has_path(target_name)) {
-            // Store the handles for the paths we find, under their HTSlib target numbers.
-            tid_path_handle.emplace(i, graph->get_path_handle(target_name));
+            path_handle_t target = graph->get_path_handle(target_name);
+            if (graph->get_sense(target) != PathSense::HAPLOTYPE) {
+                // Non-haplotype paths are allowed in the mapping because they
+                // are always path-position indexed.
+                
+                // Store the handles for the paths we find, under their HTSlib target numbers.
+                tid_path_handle.emplace(i, target);
+            } else {
+                // TODO: Decide we need to positional-index this path? Make
+                // PackedReferencePathOverlay take a collection of paths to
+                // index and use this one?
+                #pragma omp critical (cerr)
+                std::cerr << "error[vg::parse_tid_path_handle_map] Path " << target_name
+                          << " referenced in header exists in graph, but as a haplotype."
+                          << " It is probably not indexed for positional lookup. Make the"
+                          << " path a reference path"
+                          << " <https://github.com/vgteam/vg/wiki/Changing-References>"
+                          << " and try again." << std::endl;
+                exit(1);
+            }
         }
     }
 }
@@ -2016,12 +2034,12 @@ map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const
     return offsets;
 }
 
-void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base) {
+void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base, const unordered_map<string, string>* translation) {
     auto base_offsets = alignment_refpos_to_path_offsets(base);
-    return alignment_set_distance_to_correct(aln, base_offsets);
+    return alignment_set_distance_to_correct(aln, base_offsets, translation);
 }
 
-void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets) {
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets, const unordered_map<string, string>* translation) {
     auto aln_offsets = alignment_refpos_to_path_offsets(aln);
     // bail out if we can't compare
     if (!(aln_offsets.size() && base_offsets.size())) return;
@@ -2029,7 +2047,15 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     Position result;
     size_t min_distance = std::numeric_limits<size_t>::max();
     for (auto& path : aln_offsets) {
-        auto& name = path.first;
+        auto name = path.first;
+        if (translation) {
+            // See if we need to translate the name of the path
+            auto found = translation->find(name);
+            if (found != translation->end()) {
+                // We have a replacement so apply it.
+                name = found->second;
+            }
+        }
         auto& aln_positions = path.second;
         auto f = base_offsets.find(name);
         if (f == base_offsets.end()) continue;
@@ -2079,6 +2105,9 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                            const string& feature, bool is_reverse, Mapping& cigar_mapping) {
     Alignment aln;
     
+    // How long is the path?
+    auto path_len = graph->get_path_length(path);
+    
     if (pos2 < pos1) {
         // Looks like we want to span the origin of a circular path
         if (!graph->get_is_circular(path)) {
@@ -2087,9 +2116,6 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                                 " to " + to_string(pos2) + " across the junction of non-circular path " +
                                 graph->get_path_name(path));
         }
-        
-        // How long is the path?
-        auto path_len = graph->get_path_length(path);
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
@@ -2125,6 +2151,16 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
     
     // Otherwise, the base case is that we don't go over the circular path junction
     
+    if (pos1 >= path_len) {
+        throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+                            " which is past end " + to_string(path_len) + " of path " +
+                            graph->get_path_name(path));
+    }
+    if (pos2 > path_len) {
+        throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+                            " which is past end " + to_string(path_len) + " of path " +
+                            graph->get_path_name(path));
+    }
     
     step_handle_t step = graph->get_step_at_position(path, pos1);
     size_t step_start = graph->get_position_of_step(step);

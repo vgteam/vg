@@ -10,6 +10,7 @@
 
 #include <subcommand.hpp>
 
+#include "../utility.hpp"
 #include "../alignment.hpp"
 #include "../vg.hpp"
 #include "../xg.hpp"
@@ -36,7 +37,7 @@ int main_inject(int argc, char** argv) {
     }
 
     string xg_name;
-    int threads = 1;
+    int threads = get_thread_count();
 
     int c;
     optind = 2;
@@ -65,7 +66,6 @@ int main_inject(int argc, char** argv) {
 
         case 't':
           threads = parse<int>(optarg);
-          omp_set_num_threads(threads);
           break;
 
         case 'h':
@@ -78,6 +78,8 @@ int main_inject(int argc, char** argv) {
           abort ();
         }
     }
+    
+    omp_set_num_threads(threads);
 
     string file_name = get_input_file_name(optind, argc, argv);
 
