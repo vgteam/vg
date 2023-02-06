@@ -166,20 +166,20 @@ public:
     static constexpr size_t default_max_local_extensions = numeric_limits<size_t>::max();
     size_t max_local_extensions = default_max_local_extensions;
 
-    //If a cluster's score is smaller than the best score of any cluster by more than
-    //this much, then don't extend it
+    /// If a cluster's score is smaller than the best score of any cluster by more than
+    /// this much, then don't extend it
     static constexpr double default_cluster_score_threshold = 50;
     double cluster_score_threshold = default_cluster_score_threshold;
     
-    //If the second best cluster's score is no more than this many points below
-    //the cutoff set by cluster_score_threshold, snap that cutoff down to the
-    //second best cluster's score, to avoid throwing away promising
-    //secondaries.
+    /// If the second best cluster's score is no more than this many points below
+    /// the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    /// second best cluster's score, to avoid throwing away promising
+    /// secondaries.
     static constexpr double default_pad_cluster_score_threshold = 20;
     double pad_cluster_score_threshold = default_pad_cluster_score_threshold;
 
-    //If the read coverage of a cluster is less than the best coverage of any cluster
-    //by more than this much, don't extend it
+    /// If the read coverage of a cluster is less than the best coverage of any cluster
+    /// by more than this much, don't extend it
     static constexpr double default_cluster_coverage_threshold = 0.3;
     double cluster_coverage_threshold = default_cluster_coverage_threshold;
     
@@ -195,8 +195,21 @@ public:
     bool align_from_chains = default_align_from_chains;
     
     /// What read-length-independent distance threshold do we want to use for clustering?
-    static constexpr size_t default_chaining_cluster_distance = 80;
+    static constexpr size_t default_chaining_cluster_distance = 100;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
+    
+    /// If the read coverage of a precluster connection is less than the best of any
+    /// by more than this much, don't extend it
+    static constexpr double default_precluster_connection_coverage_threshold = 0.3;
+    double precluster_connection_coverage_threshold = default_precluster_connection_coverage_threshold;
+    
+    /// How many connections between preclusters should we reseed over, minimum?
+    static constexpr size_t default_min_precluster_connections = 10;
+    size_t min_precluster_connections = default_min_precluster_connections;
+    
+    /// How many connections between preclusters should we reseed over, maximum?
+    static constexpr size_t default_max_precluster_connections = 50;
+    size_t max_precluster_connections = default_max_precluster_connections;
     
     /// When connecting subclusters for reseeding, how far should we search?
     static constexpr size_t default_reseed_search_distance = 10000;
@@ -214,7 +227,7 @@ public:
     /// items we will actually try to align? Passing strings longer than ~100bp
     /// can cause WFAAligner to run for a pathologically long amount of time.
     /// May not be 0.
-    static constexpr size_t default_max_chain_connection = 80;
+    static constexpr size_t default_max_chain_connection = 100;
     size_t max_chain_connection = default_max_chain_connection;
     /// Similarly, what is the maximum tail length we will try to align?
     static constexpr size_t default_max_tail_length = 100;
@@ -223,7 +236,7 @@ public:
     /// How many bases should we look back when chaining? Needs to be about the
     /// same as the clustering distance or we will be able to cluster but not
     /// chain.
-    static constexpr size_t default_max_lookback_bases = 80;
+    static constexpr size_t default_max_lookback_bases = 100;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many chaining sources should we make sure to consider regardless of distance?
     static constexpr size_t default_min_lookback_items = 1;
@@ -243,6 +256,21 @@ public:
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 50;
     size_t max_indel_bases = default_max_indel_bases;
+    
+    /// If a chain's score is smaller than the best 
+    /// chain's score by more than this much, don't align it
+    static constexpr double default_chain_score_threshold = 100;
+    double chain_score_threshold = default_chain_score_threshold;
+    
+    /// Disregard the chain score thresholds when they would give us
+    /// fewer than this many chains.
+    static constexpr int default_min_chains = 1;
+    int min_chains = default_min_chains;
+    
+    /// Even if we would have fewer than min_chains results, don't
+    /// process anything with a score smaller than this.
+    static constexpr int default_chain_min_score = 100;
+    int chain_min_score = default_chain_min_score;
     
     /////////////////
     // More shared parameters:
@@ -498,7 +526,9 @@ protected:
     void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_precluster, const std::vector<Cluster>& preclusters, size_t seq_length, Funnel& funnel) const;
     
     /**
-     * Reseed between the given positions in the read and graph.
+     * Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
+     *  Up to one end of the graph region can be a read end, with a pos_t matching is_empty().
+     * The read region always needs to be fully defined.
      */
     std::vector<Seed> reseed_between(
         size_t read_region_start,
@@ -630,13 +660,29 @@ protected:
      * the vg Alignment has been set.
      */
     void wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const;
-    
+   
+    /**
+     * Clip out the part of the graph between the given positions, and dagify
+     * it from the perspective of the anchors. If a left anchor is set, all
+     * heads should correspond to the left anchor, and if a right anchor is
+     * set, all tails should correspond to the right anchor. At least one
+     * anchor must be set.
+     *
+     * Calls the callback with an extracted, strand-split, dagified graph, and
+     * a function that translates from handle in the dagified graph to node ID
+     * and orientation in the base graph.
+     */
+    static void with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback);
+   
     /**
      * Clip out the part of the graph between the given positions and
      * global-align the sequence of the given Alignment to it. Populate the
      * Alignment's path and score.
      *
      * Finds an alignment against a graph path if it is <= max_path_length.
+     *
+     * If one of the anchor positions is empty, does pinned alighnment against
+     * the other position.
      */
     static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment);
     
@@ -647,8 +693,12 @@ protected:
     
     /**
      * Add annotations to an Alignment with statistics about the minimizers.
+     *
+     * old_seed_count is the number of seeds in the seed vector actually
+     * created at the "seed" stage of the alignment process. new_seed_offset is
+     * where the first of thos eseeds appears in the funnel at the reseed stage.
      */
-    void annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const;
+    void annotate_with_minimizer_statistics(Alignment& target, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t old_seed_count, size_t new_seed_offset, const Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 

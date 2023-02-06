@@ -28,6 +28,7 @@ public:
     using MinimizerMapper::Minimizer;
     using MinimizerMapper::fragment_length_distr;
     using MinimizerMapper::faster_cap;
+    using MinimizerMapper::with_dagified_local_graph;
     using MinimizerMapper::align_sequence_between;
 };
 
@@ -250,6 +251,57 @@ TEST_CASE("MinimizerMapper can map an empty string between odd points", "[giraff
         REQUIRE(aln.path().mapping(2).position().node_id() == 55511925);
         REQUIRE(aln.path().mapping(2).position().is_reverse() == false);
         REQUIRE(aln.path().mapping(2).position().offset() == 0);
+}
+
+TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph without extraneous tips", "[giraffe][mapping]") {
+    // Make the graph that was causing trouble (it's just a stick)
+    std::string graph_json = R"(
+        {
+            "edge": [{"from": "60245280", "to": "60245281"},
+                     {"from": "60245283", "to": "60245284"},
+                     {"from": "60245282", "to": "60245283"},
+                     {"from": "60245277", "to": "60245278"},
+                     {"from": "60245279", "to": "60245280"},
+                     {"from": "60245284", "to": "60245285"},
+                     {"from": "60245281", "to": "60245282"},
+                     {"from": "60245278", "to": "60245279"}],
+            "node": [{"id": "60245280", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245283", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245282", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245277", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245285", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245279", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245284", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245281", "sequence": "GATTACAGATTACA"},
+                     {"id": "60245278", "sequence": "GATTACAGATTACA"}]
+        }
+    )";
+    vg::Graph graph_chunk;
+    json2pb(graph_chunk, graph_json.c_str(), graph_json.size());
+    vg::VG graph(graph_chunk);
+    
+    TestMinimizerMapper::with_dagified_local_graph(make_pos_t(60245283, false, 10), empty_pos_t(), 50, graph, [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
+        // The graph started as a stick
+        // We strand-split it to two disconnected sticks, and then dagify from the one start node in the one orientation, so it should go back to being one stick, with 2 tips.
+        auto tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
+#ifdef debug
+        for (auto& h : tip_handles) {
+            // Dump all the tips for debugging
+            auto original = dagified_handle_to_base(h);
+            std::cerr << "Found tip handle " << dagified_graph.get_id(h) << (dagified_graph.get_is_reverse(h) ? "-" : "+") << " representing " << original.first << (original.second ? "-" : "+") << std::endl;
+        }
+#endif
+        for (auto& h : tip_handles) {
+            auto original = dagified_handle_to_base(h);
+            if (!dagified_graph.get_is_reverse(h)) {
+                // Any head must correspond to the anchoring node
+                REQUIRE(original.first == 60245283);
+                REQUIRE(original.second == false);
+            }
+        }
+        // There should be that head and also some tail where we ran out of search bases.
+        REQUIRE(tip_handles.size() == 2);
+    });
 }
 
 

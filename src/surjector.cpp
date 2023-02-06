@@ -346,7 +346,6 @@ using namespace std;
                     aln_surjections[surj_record.first] = make_pair(Alignment(), path_range);
                     auto& surjected_aln = aln_surjections[surj_record.first].first;
                     optimal_alignment(surjection, surjected_aln, allow_negative_scores);
-                    transfer_read_metadata(*source_aln, surjected_aln);
                 }
             }
             else {

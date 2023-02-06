@@ -91,6 +91,23 @@ using namespace std;
          * overlay
          */
         handle_t get_underlying_handle(const handle_t& handle) const;
+
+        ///////////////////////////////////
+        /// Extra methods
+        ///////////////////////////////////
+        
+        /**
+         * Returns true if any nodes in the overlay correspond to the given node in the underlying graph.
+         */
+        bool has_overlay_node_for(const nid_t& underlying_id) const;
+        
+        /**
+         * Returns the handle in the overlay graph that corresponds to a handle
+         * and orientation in the underlying graph. Reverse versions of
+         * underlying graph nodes become the locally-forward overlay node that
+         * represents them.
+         */
+        handle_t get_overlay_handle(const handle_t& underlying_handle) const;
         
     private:
         /// The underlying graph we're making splitting

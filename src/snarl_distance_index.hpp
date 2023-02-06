@@ -22,14 +22,13 @@ size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
 
 //Fill in the index
 //size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
-//distance_limit is a limit on the length of a path after which the index won't continue to traverse a snarl looking for distances
-void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000, size_t distance_limit = std::numeric_limits<size_t>::max());
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 5000);
 
 //Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
-    pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, size_t distance_limit, const HandleGraph* graph) ;
+    pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, const HandleGraph* graph) ;
 
-SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit);
+SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit);
 
 //Define wang_hash for net_handle_t's so that we can use a hash_map
 template<> struct wang_hash<handlegraph::net_handle_t> {
@@ -268,25 +267,25 @@ struct MIPayload {
     }
     static bool is_reversed(const gbwtgraph::payload_type code) {
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> IS_REVERSED_OFFSET & 1);
     }
     static bool is_trivial_chain (const gbwtgraph::payload_type code) { 
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> IS_TRIVIAL_CHAIN_OFFSET   & 1);
     }
     static bool parent_is_chain(const gbwtgraph::payload_type code) { 
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> PARENT_IS_CHAIN_OFFSET    & 1);
     }
     static bool parent_is_root (const gbwtgraph::payload_type code) { 
         if (code == NO_CODE) {
-            false;
+            return false;
         }
         return (bool) (code.second >> PARENT_IS_ROOT_OFFSET     & 1);
     }

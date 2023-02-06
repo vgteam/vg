@@ -82,5 +82,18 @@ using namespace std;
         return graph->get_handle(get_id(handle) >> 1,
                                  ((get_id(handle) & 1) == 1) != get_is_reverse(handle));
     }
+    
+    bool StrandSplitGraph::has_overlay_node_for(const nid_t& underlying_id) const {
+        return this->has_node(underlying_id << 1);
+    }
+    
+    handle_t StrandSplitGraph::get_overlay_handle(const handle_t& underlying_handle) const {
+        // Get the ID of the node in the underlyign graph
+        id_t underlying_id = graph->get_id(underlying_handle);
+        // Get the ID of the named orientation of that node, in our graph.
+        id_t overlay_id = (underlying_id << 1) | (graph->get_is_reverse(underlying_handle) ? 1 : 0);
+        // Get a handle to the forward orientation of our node
+        return get_handle(overlay_id, false);
+    }
 }
 

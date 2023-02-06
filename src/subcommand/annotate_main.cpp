@@ -187,7 +187,7 @@ int main_annotate(int argc, char** argv) {
     
     PathPositionHandleGraph* xg_index = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
 
     if (!xg_name.empty()) {
         // Read in the XG index

@@ -20,7 +20,7 @@ namespace algorithms {
     /// Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes
     /// that contain the two positions will be 'cut' at the position and will be tips in the returned graph. The
     /// algorithm guarantees that 'into' contains all walks between pos_1 and pos_2 under the maximum length
-    /// except walks that include a cycle involving either position If no walk between the two positions under
+    /// except walks that include a cycle involving either position. If no walk between the two positions under
     /// the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when
     /// passed to function.
     ///

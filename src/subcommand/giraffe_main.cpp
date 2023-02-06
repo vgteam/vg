@@ -55,7 +55,7 @@ using namespace vg::subcommand;
 static GroupedOptionGroup get_options() {
     GroupedOptionGroup parser;
     
-    // COnfigure output settings on the MinimizerMapper
+    // Configure output settings on the MinimizerMapper
     auto& result_opts = parser.add_group<MinimizerMapper>("result options");
     result_opts.add_range(
         "max-multimaps", 'M',
@@ -208,6 +208,30 @@ static GroupedOptionGroup get_options() {
         "maximum distance to cluster over before chaining"
     );
     chaining_opts.add_range(
+        "precluster-connection-coverage-threshold",
+        &MinimizerMapper::precluster_connection_coverage_threshold,
+        MinimizerMapper::default_precluster_connection_coverage_threshold,
+        "threshold of precluster pair coverage below the base, after which to stop reseeding between preclusters"
+    );
+    chaining_opts.add_range(
+        "min-precluster-connections",
+        &MinimizerMapper::min_precluster_connections,
+        MinimizerMapper::default_min_precluster_connections,
+        "minimum number of precluster connections to reseed over"
+    );
+    chaining_opts.add_range(
+        "max-precluster-connections",
+        &MinimizerMapper::max_precluster_connections,
+        MinimizerMapper::default_max_precluster_connections,
+        "maximum number of precluster connections to reseed over"
+    );
+    chaining_opts.add_range(
+        "max-lookback-bases",
+        &MinimizerMapper::max_lookback_bases,
+        MinimizerMapper::default_max_lookback_bases,
+        "maximum distance to look back when chaining"
+    );
+    chaining_opts.add_range(
         "max-lookback-bases",
         &MinimizerMapper::max_lookback_bases,
         MinimizerMapper::default_max_lookback_bases,
@@ -219,6 +243,29 @@ static GroupedOptionGroup get_options() {
         MinimizerMapper::default_min_lookback_items,
         "minimum items to look back when chaining"
     );
+    
+    chaining_opts.add_range(
+        "chain-score-threshold",
+        &MinimizerMapper::chain_score_threshold,
+        MinimizerMapper::default_chain_score_threshold,
+        "only align chains if their score is within this many points of the best score",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "min-chains",
+        &MinimizerMapper::min_chains,
+        MinimizerMapper::default_min_chains,
+        "ignore score threshold to get this many chains aligned",
+        int_is_nonnegative
+    );
+   chaining_opts.add_range(
+        "chain-min-score",
+        &MinimizerMapper::chain_min_score,
+        MinimizerMapper::default_chain_min_score,
+        "do not align chains with less than this score",
+        int_is_nonnegative
+    );
+    
     chaining_opts.add_range(
         "max-chain-connection",
         &MinimizerMapper::max_chain_connection,

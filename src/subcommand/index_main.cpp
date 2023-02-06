@@ -79,8 +79,7 @@ void help_index(char** argv) {
          << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes (default 3000)" << endl
-         << "    -w  --distance-limit N cap beyond which the minimum distance is no longer accurate (default inf)" << endl;
+         << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes (default 5000)" << endl;
 }
 
 void multiple_thread_sources() {
@@ -135,8 +134,7 @@ int main_index(int argc, char** argv) {
     bool xg_alts = false;
 
     //Distance index
-    size_t snarl_limit = 3000;
-    size_t distance_limit = std::numeric_limits<size_t>::max();
+    size_t snarl_limit = 5000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -190,12 +188,11 @@ int main_index(int argc, char** argv) {
             //Snarl distance index
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
-            {"max-dist", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:w:h",
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vlj:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -374,10 +371,6 @@ int main_index(int argc, char** argv) {
             break;
         case OPT_DISTANCE_SNARL_LIMIT:
             snarl_limit = parse<int>(optarg);
-            break;
-        case 'w':
-            build_dist = true;
-            distance_limit = parse<int>(optarg);
             break;
 
         case 'h':
@@ -707,7 +700,7 @@ int main_index(int argc, char** argv) {
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, distance_limit);
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit);
                 // Save it
                 distance_index.serialize(dist_name);
             } else {
@@ -723,7 +716,7 @@ int main_index(int argc, char** argv) {
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, distance_limit);
+                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else if (get<1>(options)) {
@@ -735,7 +728,7 @@ int main_index(int argc, char** argv) {
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, distance_limit);
+                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else {

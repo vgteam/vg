@@ -120,6 +120,8 @@ namespace vg {
             unique_ptr<gbwt::GBWT> empty_haplotype_index(new gbwt::GBWT());
 
             stringstream transcript_stream;
+            transcript_stream << "# header 1" << endl;
+            transcript_stream << "# header\t2\t" << endl;
             transcript_stream << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 1;" << endl;
             transcript_stream << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 2;" << endl;
             transcript_stream << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 3;" << endl;
@@ -146,6 +148,20 @@ namespace vg {
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path2")) == 10);
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 12);
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 10);
+
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(1)) == "A");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(2)) == "AAA");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(3)) == "CC");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(4)) == "G");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(5)) == "T");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(6)) == "T");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(7)) == "TT");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(8)) == "T");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(9)) == "TTT");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(10)) == "C");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(11)) == "CC");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(12)) == "A");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(13)) == "AAA");
 
                 auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
@@ -719,6 +735,45 @@ namespace vg {
                     REQUIRE(seq_ref_transcript_paths.at(3) == "TTTAAAA");
                     REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
+            }
+
+            SECTION("Transcriptome can parse intron BED file and add splice-junctions") {
+
+                stringstream intron_stream;
+                intron_stream << "# header 1" << endl;
+                intron_stream << "# header\t2\t" << endl;
+                intron_stream << "path1\t7\t8" << endl;
+                intron_stream << "path1\t10\t18\texon\t0" << endl;
+                intron_stream << "path1\t7\t15\texon\t0\t-" << endl;
+                intron_stream << "path1\t11\t17\texon\t0\t+\t.\t." << endl;
+
+                transcriptome.add_intron_splice_junctions(vector<istream *>({&intron_stream}), empty_haplotype_index, false);
+
+                REQUIRE(transcriptome.transcript_paths().empty());
+
+                REQUIRE(transcriptome.sort_compact_nodes());
+
+                REQUIRE(transcriptome.graph().get_node_count() == 12);
+                REQUIRE(transcriptome.graph().get_edge_count() == 17);
+                REQUIRE(transcriptome.graph().get_path_count() == 4);
+
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path1")) == 11);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path2")) == 9);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 11);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 9);
+
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(1)) == "AAAA");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(2)) == "CC");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(3)) == "G");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(4)) == "T");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(5)) == "T");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(6)) == "TT");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(7)) == "T");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(8)) == "TTT");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(9)) == "C");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(10)) == "CC");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(11)) == "A");
+                REQUIRE(transcriptome.graph().get_sequence(transcriptome.graph().get_handle(12)) == "AAA");             
             }
         }
     }

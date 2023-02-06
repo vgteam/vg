@@ -7077,7 +7077,6 @@ namespace vg {
 
                 uniform_int_distribution<size_t> snarl_size_limit_dist(500, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
-                size_t distance_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
                 cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
@@ -7087,7 +7086,7 @@ namespace vg {
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
                 SnarlDistanceIndex distance_index;
-                fill_in_distance_index(&distance_index, &graph, &finder, size_limit, distance_limit);
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
                 //Make sure that the distance index found all the nodes
                 for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
@@ -7155,11 +7154,7 @@ namespace vg {
                             graph.serialize_to_file("test_graph.vg");
                             REQUIRE(false);
                         }
-                        if (dijkstra_distance <= distance_limit) {
-                            REQUIRE(snarl_distance == dijkstra_distance);
-                        } else {
-                            REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
-                        }
+                        REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
                             graph.serialize_to_file("test_graph.vg");
                         if (!traceback.first.empty() && ! traceback.second.empty()) {
                             size_t traceback_distance = 0;
@@ -7209,11 +7204,7 @@ namespace vg {
                             graph.serialize_to_file("test_graph.vg");
                             REQUIRE(false);
                         }
-                        if (dijkstra_distance < distance_limit) {
-                            REQUIRE(snarl_distance == dijkstra_distance);
-                        } else {
-                            REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
-                        }
+                        REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
                     }
                     
 
@@ -7318,7 +7309,6 @@ namespace vg {
 
                 uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
-                size_t distance_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
                 cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
@@ -7328,7 +7318,7 @@ namespace vg {
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
                 SnarlDistanceIndex distance_index;
-                fill_in_distance_index(&distance_index, &graph, &finder, size_limit, distance_limit);
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
                 graph.serialize_to_file("test_graph.vg");
                 for (size_t repeat_positions = 0 ; repeat_positions < 500 ; repeat_positions++) {
