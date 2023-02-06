@@ -19,7 +19,6 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
-// FIXME tests
 /**
  * A representation of the haplotypes in a graph.
  *
@@ -182,7 +181,6 @@ public:
 
 //------------------------------------------------------------------------------
 
-// FIXME tests
 /**
  * A tool for transforming the haplotypes in a GBWT index into a `Haplotypes`
  * representation. Requires a GBZ graph, an r-index, a distance index, and a
@@ -327,7 +325,6 @@ private:
 
 //------------------------------------------------------------------------------
 
-// FIXME tests
 /**
  * A class that creates synthetic haplotypes from a `Haplotypes` representation of
  * local haplotypes.

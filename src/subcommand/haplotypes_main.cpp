@@ -57,6 +57,10 @@ size_t haplotypes_default_w() {
     return gbwtgraph::Key64::WINDOW_LENGTH;
 }
 
+size_t haplotypes_default_subchain_length() {
+    return HaplotypePartitioner::SUBCHAIN_LENGTH;
+}
+
 size_t haplotypes_default_n() {
     return Recombinator::NUM_HAPLOTYPES;
 }
@@ -85,10 +89,10 @@ void help_haplotypes(char** argv) {
     std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate the information)" << std::endl;
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
     std::cerr << std::endl;
-    // TODO: Expose other computational parameters?
     std::cerr << "Computational parameters:" << std::endl;
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
+    std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "        --coverage N          read coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
     std::cerr << std::endl;
@@ -146,6 +150,7 @@ int main_haplotypes(int argc, char** argv) {
     std::string graph_name, gbz_output, haplotype_output;
     std::string distance_name, minimizer_name, r_index_name, haplotype_input, kmer_input;
     size_t k = haplotypes_default_k(), w = haplotypes_default_w();
+    HaplotypePartitioner::Parameters partitioner_parameters;
     Recombinator::Parameters recombinator_parameters;
     HaplotypePartitioner::Verbosity verbosity = HaplotypePartitioner::verbosity_silent;
     size_t threads = haplotypes_default_threads();
@@ -153,9 +158,10 @@ int main_haplotypes(int argc, char** argv) {
 
     constexpr int OPT_KMER_LENGTH = 1200;
     constexpr int OPT_WINDOW_LENGTH = 1201;
-    constexpr int OPT_NUM_HAPLOTYPES = 1202;
-    constexpr int OPT_COVERAGE = 1203;
-    constexpr int OPT_VALIDATE = 1300;
+    constexpr int OPT_SUBCHAIN_LENGTH = 1202;
+    constexpr int OPT_COVERAGE = 1300;
+    constexpr int OPT_NUM_HAPLOTYPES = 1301;
+    constexpr int OPT_VALIDATE = 1400;
 
     static struct option long_options[] =
     {
@@ -167,6 +173,7 @@ int main_haplotypes(int argc, char** argv) {
         { "haplotype-input", required_argument, 0, 'i' },
         { "kmer-input", required_argument, 0, 'k' },
         { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
+        { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
         { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
@@ -223,10 +230,10 @@ int main_haplotypes(int argc, char** argv) {
                 return 1;
             }
             break;
-        case OPT_NUM_HAPLOTYPES:
-            recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
-            if (recombinator_parameters.num_haplotypes == 0) {
-                std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
+        case OPT_SUBCHAIN_LENGTH:
+            partitioner_parameters.subchain_length = parse<size_t>(optarg);
+            if (partitioner_parameters.subchain_length == 0) {
+                std::cerr << "error: [vg haplotypes] subchain length cannot be 0" << std::endl;
                 return 1;
             }
             break;
@@ -234,6 +241,13 @@ int main_haplotypes(int argc, char** argv) {
             recombinator_parameters.coverage = parse<size_t>(optarg);
             if (recombinator_parameters.coverage == 0) {
                 std::cerr << "error: [vg haplotypes] read coverage cannot be 0" << std::endl;
+                return 1;
+            }
+            break;
+        case OPT_NUM_HAPLOTYPES:
+            recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
+            if (recombinator_parameters.num_haplotypes == 0) {
+                std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
                 return 1;
             }
             break;
@@ -344,8 +358,7 @@ int main_haplotypes(int argc, char** argv) {
 
         // Partition the haplotypes.
         HaplotypePartitioner partitioner(gbz, r_index, distance_index, minimizer_index, verbosity);
-        HaplotypePartitioner::Parameters parameters;
-        haplotypes = partitioner.partition_haplotypes(parameters);
+        haplotypes = partitioner.partition_haplotypes(partitioner_parameters);
         if (verbosity >= HaplotypePartitioner::verbosity_basic) {
             double seconds = gbwt::readTimer() - checkpoint;
             std::cerr << "Generated haplotype information in " << seconds << " seconds" << std::endl;

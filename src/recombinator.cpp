@@ -398,7 +398,7 @@ HaplotypePartitioner::get_subchains(const gbwtgraph::TopLevelChain& chain, const
                 break;
             }
             size_t candidate = this->get_distance(snarls[head].start, snarls[tail + 1].end);
-            if (candidate <= SUBCHAIN_LENGTH) {
+            if (candidate <= parameters.subchain_length) {
                 tail++;
             } else {
                 break;
