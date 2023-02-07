@@ -241,6 +241,9 @@ public:
     /// How many chaining sources should we make sure to consider regardless of distance?
     static constexpr size_t default_min_lookback_items = 1;
     size_t min_lookback_items = default_min_lookback_items;
+    /// How many chaining sources should we allow ourselves to consider ever?
+    static constexpr size_t default_lookback_item_hard_cap = 15;
+    size_t lookback_item_hard_cap = lookback_item_hard_cap;
     /// How many bases should we try to look back initially when chaining?
     static constexpr size_t default_initial_lookback_threshold = 10;
     size_t initial_lookback_threshold = default_initial_lookback_threshold;
@@ -271,6 +274,15 @@ public:
     /// process anything with a score smaller than this.
     static constexpr int default_chain_min_score = 100;
     int chain_min_score = default_chain_min_score;
+    
+    /// How long of a DP can we do before GSSW crashes due to 16-bit score
+    /// overflow?
+    static constexpr int MAX_DP_LENGTH = 30000;
+    
+    /// How many DP cells should we be willing to do in GSSW for an end-pinned
+    /// alignment? If we want to do more than this, just leave tail unaligned.
+    static constexpr size_t default_max_dp_cells = 16UL * 1024UL * 1024UL;
+    size_t max_dp_cells = default_max_dp_cells;
     
     /////////////////
     // More shared parameters:
@@ -679,12 +691,12 @@ protected:
      * global-align the sequence of the given Alignment to it. Populate the
      * Alignment's path and score.
      *
-     * Finds an alignment against a graph path if it is <= max_path_length.
+     * Finds an alignment against a graph path if it is <= max_path_length, and uses <= max_dp_cells GSSW cells.
      *
      * If one of the anchor positions is empty, does pinned alighnment against
      * the other position.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment);
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max());
     
     /**
      * Set pair partner references for paired mapping results.

@@ -10,7 +10,7 @@ set -ex
 # You can set these in the environment to override them and I don't have to write a CLI option parser.
 # See https://stackoverflow.com/a/28085062
 
-# Graph to simulate from
+# Graph to simulate from. Can be S3 URLs or local file paths.
 : "${GRAPH_XG_URL:=s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.xg}"
 : "${GRAPH_GBWT_URL:=s3://human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.gbwt}"
 # Name to use for graph when downloaded
@@ -51,12 +51,25 @@ mkdir -p "${WORK_DIR}"
 
 # Fetch graph
 if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.xg" ]] ; then
-    aws s3 cp "${GRAPH_XG_URL}" "${WORK_DIR}/${GRAPH_NAME}.xg.tmp"
-    mv "${WORK_DIR}/${GRAPH_NAME}.xg.tmp" "${WORK_DIR}/${GRAPH_NAME}.xg"
+    # This comparison require Bash 3 or later. See <https://stackoverflow.com/a/2172365>
+    if [[ ${GRAPH_XG_URL} =~ ^s3:.* ]]; then
+        # Download from S3
+        aws s3 cp "${GRAPH_XG_URL}" "${WORK_DIR}/${GRAPH_NAME}.xg.tmp"
+        mv "${WORK_DIR}/${GRAPH_NAME}.xg.tmp" "${WORK_DIR}/${GRAPH_NAME}.xg"
+    else
+        # Use local symlink
+        ln -s "$(realpath "${GRAPH_XG_URL}")" "${WORK_DIR}/${GRAPH_NAME}.xg"
+    fi
 fi
 if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbwt" ]] ; then
-    aws s3 cp "${GRAPH_GBWT_URL}" "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp"
-    mv "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
+    if [[ ${GRAPH_GBWT_URL} =~ ^s3:.* ]]; then
+        # Download from S3
+        aws s3 cp "${GRAPH_GBWT_URL}" "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp"
+        mv "${WORK_DIR}/${GRAPH_NAME}.gbwt.tmp" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
+    else
+        # Use local symlink
+        ln -s "$(realpath "${GRAPH_GBWT_URL}")" "${WORK_DIR}/${GRAPH_NAME}.gbwt"
+    fi
 fi
 
 if [[ ! -e "${WORK_DIR}/${GRAPH_NAME}.gbz" ]] ; then

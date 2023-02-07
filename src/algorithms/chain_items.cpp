@@ -126,6 +126,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
                            int gap_extension,
                            size_t max_lookback_bases,
                            size_t min_lookback_items,
+                           size_t lookback_item_hard_cap,
                            size_t initial_lookback_threshold,
                            double lookback_scale_factor,
                            double min_good_transition_score_per_base,
@@ -223,6 +224,13 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
             // How far do we go in the read?
             size_t read_distance = get_read_distance(source, here);
             
+            if (item_number > lookback_item_hard_cap) {
+                // This would be too many
+#ifdef debug_chaining
+                cerr << "\t\tDisregard due to hitting lookback item hard cap" << endl;
+#endif
+                break;
+            }
             if (item_number >= min_lookback_items) {
                 // We have looked at enough predecessors that we might consider stopping.
                 // See if we should look back this far.
@@ -403,6 +411,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int gap_extension,
                                           size_t max_lookback_bases,
                                           size_t min_lookback_items,
+                                          size_t lookback_item_hard_cap,
                                           size_t initial_lookback_threshold,
                                           double lookback_scale_factor,
                                           double min_good_transition_score_per_base,
@@ -423,6 +432,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                                                  gap_extension,
                                                                  max_lookback_bases,
                                                                  min_lookback_items,
+                                                                 lookback_item_hard_cap,
                                                                  initial_lookback_threshold,
                                                                  lookback_scale_factor,
                                                                  min_good_transition_score_per_base,
