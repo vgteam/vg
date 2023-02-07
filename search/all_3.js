@@ -59,7 +59,7 @@ var searchData=
   ['chain_5finfo_5fto_5fseed_588',['chain_info_to_seed',['../classvg_1_1MinimizerMapper.html#ab19f157dd4654012f36303b3d6490199',1,'vg::MinimizerMapper']]],
   ['chain_5fitems_2ecpp_589',['chain_items.cpp',['../chain__items_8cpp.html',1,'']]],
   ['chain_5fitems_2ehpp_590',['chain_items.hpp',['../chain__items_8hpp.html',1,'']]],
-  ['chain_5fitems_5fdp_591',['chain_items_dp',['../namespacevg_1_1algorithms.html#a13271c564442add9f9923ee9f103e2c6',1,'vg::algorithms']]],
+  ['chain_5fitems_5fdp_591',['chain_items_dp',['../namespacevg_1_1algorithms.html#a05bafa99c51765b72bf17b91538fcff5',1,'vg::algorithms']]],
   ['chain_5fitems_5ftraceback_592',['chain_items_traceback',['../namespacevg_1_1algorithms.html#ab0147b2932e3f053cc2f2b0912390978',1,'vg::algorithms']]],
   ['chain_5fmain_2ecpp_593',['chain_main.cpp',['../chain__main_8cpp.html',1,'']]],
   ['chain_5fmin_5fscore_594',['chain_min_score',['../classvg_1_1MinimizerMapper.html#ab217ad6159147701442ddbacefc1e172',1,'vg::MinimizerMapper']]],
