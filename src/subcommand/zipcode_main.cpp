@@ -267,7 +267,7 @@ int main_zipcode(int argc, char** argv) {
                     zip_code_t zip1;
                     zip1.fill_in_zip_code(*distance_index, pos1);
                     zip_code_t zip2;
-                    zip1.fill_in_zip_code(*distance_index, pos2);
+                    zip2.fill_in_zip_code(*distance_index, pos2);
 
                     //Time finding distance with the zip codes
                     start = std::chrono::system_clock::now();
