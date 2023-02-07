@@ -36,7 +36,7 @@ void varint_vector_t::add_value(size_t value) {
         return;
     }
     while (value != 0) {
-        if (value < MAX_VALUE) {
+        if (value <= MAX_VALUE) {
             //If the remainder of the integer can be stored in 7 bits
             //then it gets stored with a 0 as the first bit
 #ifdef DEBUG_VARINT
