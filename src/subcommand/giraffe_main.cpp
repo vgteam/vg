@@ -232,16 +232,16 @@ static GroupedOptionGroup get_options() {
         "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
-        "max-lookback-bases",
-        &MinimizerMapper::max_lookback_bases,
-        MinimizerMapper::default_max_lookback_bases,
-        "maximum distance to look back when chaining"
-    );
-    chaining_opts.add_range(
         "min-lookback-items",
         &MinimizerMapper::min_lookback_items,
         MinimizerMapper::default_min_lookback_items,
-        "minimum items to look back when chaining"
+        "minimum items to consider coming from when chaining"
+    );
+    chaining_opts.add_range(
+        "lookback-item-hard-cap",
+        &MinimizerMapper::lookback_item_hard_cap,
+        MinimizerMapper::default_lookback_item_hard_cap,
+        "maximum items to consider coming from when chaining"
     );
     
     chaining_opts.add_range(

@@ -2,7 +2,7 @@
 # lr_benchmark.sh: Run a benchmark for vg long read mapping
 # Meant to be run on UCSC Courtyard/Plaza
 
-set -e
+set -ex
 set -o pipefail
 
 # Here we use : and := to set variables to default values if not present in the environment.
@@ -95,9 +95,6 @@ fi
 if [[ ! -e "${WORK_DIR}/annotated.gam" ]] ; then
     # Map reads using correctness tracking.
     # Make sure to apply multi-position annotation which Giraffe won't do.
-    # Also limit max virtual memory because we can't limit RSS and this usually stays constant at like 120 G
-    # So if it gets up here something is going wrong and we'd rather stop now before the OOM Killer gets us (or worse someone else)
-    ulimit -v 300000000
     /usr/bin/time -v vg giraffe -G "${INPUT_READ_PATH}" -t 16 -B 8 --align-from-chains -Z "${INPUT_GBZ_PATH}" -d "${INPUT_DIST_PATH}" -m "${INPUT_MIN_PATH}" -x "${INPUT_XG_PATH}" --track-provenance --track-correctness --progress | /usr/bin/time -v vg annotate -x "${INPUT_XG_PATH}" -a - --multi-position -l 100 >"${WORK_DIR}/annotated.gam.tmp"
     mv "${WORK_DIR}/annotated.gam.tmp" "${WORK_DIR}/annotated.gam"
 fi
