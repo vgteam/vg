@@ -907,7 +907,8 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 
 
 .pre-build:
-	@protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
+	# Make directories before quitting target due to missing protoc.
+	# If we run the rest of the build without these, lib and include can become files.
 	@if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
 	@if [ ! -d $(UNITTEST_BIN_DIR) ]; then mkdir -p $(UNITTEST_BIN_DIR); fi
 	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
@@ -922,6 +923,8 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(UNITTEST_SUPPORT_OBJ_DIR) ]; then mkdir -p $(UNITTEST_SUPPORT_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
+	# Quit if no protoc. TODO: Doesn't reliably stop the build.
+	@protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
 	@if [ -e $(INC_DIR)/vg/vg.pb.h ] ; then \
 		HEADER_VER=$$(cat $(INC_DIR)/vg/vg.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
 		WORKDIR=$$(pwd); \
@@ -984,7 +987,7 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
 	cd $(DEP_DIR) && cd tabixpp && rm -f tabix.o libtabixpp.a
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
-	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
+	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean || true
 	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
