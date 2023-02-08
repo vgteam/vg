@@ -604,14 +604,17 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         cerr << "First child comes first in the chain and it is a snarl" << endl;
                         cerr << "Find distances from : " << current_code2.rank_or_offset << " " << distance_to_start2 << " " << current_code1.rank_or_offset << " " << current_code1.length  << " " << distance_to_end1 << endl;
 #endif
-                        distance_between = std::min(distance_between,
-                                                    SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(
-                                                        SnarlDistanceIndex::minus(
-                                                            SnarlDistanceIndex::sum(current_code2.rank_or_offset, 
-                                                                                    distance_to_start2), 
-                                                            SnarlDistanceIndex::sum(current_code1.rank_or_offset,
-                                                                                    current_code1.length)),
-                                                         distance_to_end1),1));
+                        if (distance_to_start2 != std::numeric_limits<size_t>::max()
+                            && distance_to_end1 != std::numeric_limits<size_t>::max()) {
+                            distance_between = std::min(distance_between,
+                                                        SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(
+                                                            SnarlDistanceIndex::minus(
+                                                                SnarlDistanceIndex::sum(current_code2.rank_or_offset, 
+                                                                                        distance_to_start2), 
+                                                                SnarlDistanceIndex::sum(current_code1.rank_or_offset,
+                                                                                        current_code1.length)),
+                                                             distance_to_end1),1));
+                        }
                     } else {
                         //Otherwise, all that matters is the prefix sums
                         //(Prefix sum 2  + distance left 2) - (prefix sum1+ length 1) + distance right 1
@@ -619,16 +622,19 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         cerr << "First child comes first in the chain and it isn't a snarl" << endl;
                         cerr << "Find distances from : " << current_code2.rank_or_offset << " " << distance_to_start2 << " " << current_code1.rank_or_offset << " " << distance_to_start1 << endl;
 #endif
-                        distance_between = std::min(distance_between,
-                                                    SnarlDistanceIndex::minus(
-                                                    SnarlDistanceIndex::sum(
-                                                    SnarlDistanceIndex::minus(
-                                                        SnarlDistanceIndex::sum(current_code2.rank_or_offset, 
-                                                                                distance_to_start2),
-                                                        SnarlDistanceIndex::sum(current_code1.rank_or_offset,
-                                                                                current_code1.length)), 
+                        if (distance_to_start2 != std::numeric_limits<size_t>::max()
+                            && distance_to_end1 != std::numeric_limits<size_t>::max()) {
+                            distance_between = std::min(distance_between,
+                                                        SnarlDistanceIndex::minus(
+                                                        SnarlDistanceIndex::sum(
+                                                        SnarlDistanceIndex::minus(
+                                                            SnarlDistanceIndex::sum(current_code2.rank_or_offset, 
+                                                                                    distance_to_start2),
+                                                            SnarlDistanceIndex::sum(current_code1.rank_or_offset,
+                                                                                    current_code1.length)), 
 
-                                                        distance_to_end1),1) );
+                                                            distance_to_end1),1) );
+                        }
                     }
                 } else {
                     //Second child comes first in the chain, or they are the same (doesn't matter)
@@ -639,14 +645,17 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         cerr << "Second child comes first in the chain and it is a snarl" << endl;
                         cerr << "Find distances from : " << current_code1.rank_or_offset << " " << distance_to_start1 << " " << current_code2.rank_or_offset << " " << current_code2.length  << " " << distance_to_end2 << endl;
 #endif
-                        distance_between = std::min(distance_between,
-                                                    SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(
-                                                        SnarlDistanceIndex::minus(
-                                                            SnarlDistanceIndex::sum(current_code1.rank_or_offset, 
-                                                                                    distance_to_start1), 
-                                                            SnarlDistanceIndex::sum(current_code2.rank_or_offset,
-                                                                                    current_code2.length)),
-                                                         distance_to_end2), 1));
+                        if (distance_to_start1 != std::numeric_limits<size_t>::max() 
+                             && distance_to_end2 != std::numeric_limits<size_t>::max() ){
+                            distance_between = std::min(distance_between,
+                                                        SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(
+                                                            SnarlDistanceIndex::minus(
+                                                                SnarlDistanceIndex::sum(current_code1.rank_or_offset, 
+                                                                                        distance_to_start1), 
+                                                                SnarlDistanceIndex::sum(current_code2.rank_or_offset,
+                                                                                        current_code2.length)),
+                                                             distance_to_end2), 1));
+                        }
                     } else {
                         //Otherwise, all that matters is the prefix sums
                         //(Prefix sum 1  + distance left 1) - (prefix sum2 + length 2) + distance right 2
@@ -654,16 +663,19 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         cerr << "Second child comes first in the chain and it isn't a snarl" << endl;
                         cerr << "Find distances from : " << current_code1.rank_or_offset << " " << distance_to_start1 << " " << current_code2.rank_or_offset << " " << distance_to_start2 << endl;
 #endif
-                        distance_between = std::min(distance_between,
-                                                    SnarlDistanceIndex::minus(
-                                                    SnarlDistanceIndex::sum(
-                                                    SnarlDistanceIndex::minus(
-                                                        SnarlDistanceIndex::sum(current_code1.rank_or_offset, 
-                                                                                distance_to_start1),
-                                                        SnarlDistanceIndex::sum(current_code2.rank_or_offset,
-                                                                                current_code2.length)), 
+                        if (distance_to_start1 != std::numeric_limits<size_t>::max() 
+                             && distance_to_end2 != std::numeric_limits<size_t>::max() ){
+                            distance_between = std::min(distance_between,
+                                                        SnarlDistanceIndex::minus(
+                                                        SnarlDistanceIndex::sum(
+                                                        SnarlDistanceIndex::minus(
+                                                            SnarlDistanceIndex::sum(current_code1.rank_or_offset, 
+                                                                                    distance_to_start1),
+                                                            SnarlDistanceIndex::sum(current_code2.rank_or_offset,
+                                                                                    current_code2.length)), 
 
-                                                        distance_to_end2),1) );
+                                                            distance_to_end2),1) );
+                        }
                     }
                 }
             }
