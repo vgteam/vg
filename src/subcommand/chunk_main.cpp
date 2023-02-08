@@ -339,7 +339,7 @@ int main_chunk(int argc, char** argv) {
     // Load our index
     PathPositionHandleGraph* graph = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionOverlayHelper overlay_helper;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
 
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0) || components) {
         if (xg_file.empty()) {
