@@ -1967,8 +1967,6 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips" << std::endl;
         }
         
-        #pragma omp critical (cerr)
-        std::cerr << "info[MinimizerMapper::align_sequence_between]: Alignment happening!" << std::endl;
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
             // Then align the linking bases, with global alignment so they have
             // to go from a source to a sink. Banded alignment means we can safely do big problems.
@@ -1996,13 +1994,13 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 e->set_sequence(alignment.sequence());
                 return;
             } else {
+#ifdef debug_chaining
                 #pragma omp critical (cerr)
-                std::cerr << "info[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
+                std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
+#endif
                 aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), false);
             }
         }
-        #pragma omp critical (cerr)
-        std::cerr << "info[MinimizerMapper::align_sequence_between]: Alignment done!" << std::endl;
         
         // And translate back into original graph space
         for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
