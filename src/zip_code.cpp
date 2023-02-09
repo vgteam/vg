@@ -589,7 +589,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
             }
 
             //If they are the same child, then there is no path between them in the chain because we don't allow loops
-            if (!(current_code1 == current_code2) || (current_code1.code_type == NODE && id(pos1) == id(pos2))) {
+            if (!(current_code1 == current_code2 || (current_code1.code_type == NODE && id(pos1) == id(pos2)))) {
                 if (current_code1.rank_or_offset < current_code2.rank_or_offset ||
                     (current_code1.rank_or_offset == current_code2.rank_or_offset &&
                      (current_code1.code_type == REGULAR_SNARL || current_code1.code_type == IRREGULAR_SNARL)
@@ -620,7 +620,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         //(Prefix sum 2  + distance left 2) - (prefix sum1+ length 1) + distance right 1
 #ifdef DEBUG_ZIP_CODE
                         cerr << "First child comes first in the chain and it isn't a snarl" << endl;
-                        cerr << "Find distances from : " << current_code2.rank_or_offset << " " << distance_to_start2 << " " << current_code1.rank_or_offset << " " << distance_to_start1 << endl;
+                        cerr << "Find distances from : " << current_code2.rank_or_offset << " " << distance_to_start2 << " " << current_code1.rank_or_offset << " " << distance_to_end1 << endl;
 #endif
                         if (distance_to_start2 != std::numeric_limits<size_t>::max()
                             && distance_to_end1 != std::numeric_limits<size_t>::max()) {
@@ -661,7 +661,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         //(Prefix sum 1  + distance left 1) - (prefix sum2 + length 2) + distance right 2
 #ifdef DEBUG_ZIP_CODE
                         cerr << "Second child comes first in the chain and it isn't a snarl" << endl;
-                        cerr << "Find distances from : " << current_code1.rank_or_offset << " " << distance_to_start1 << " " << current_code2.rank_or_offset << " " << distance_to_start2 << endl;
+                        cerr << "Find distances from : " << current_code1.rank_or_offset << " " << distance_to_start1 << " " << current_code2.rank_or_offset << " " << distance_to_end2 << endl;
 #endif
                         if (distance_to_start1 != std::numeric_limits<size_t>::max() 
                              && distance_to_end2 != std::numeric_limits<size_t>::max() ){
