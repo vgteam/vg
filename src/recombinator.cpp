@@ -31,10 +31,12 @@ std::string to_string(handle_t handle) {
 
 //------------------------------------------------------------------------------
 
-// Returns the big-endian interger representation of the kmer in the canonical orientation.
-std::uint64_t kff_to_key(const std::uint8_t* kmer, size_t k, size_t bytes, const std::uint8_t* encoding) {
-    std::vector<std::uint8_t> rc = kff_reverse_complement(kmer, k, encoding);
-    return std::min(kff_parse(kmer, bytes), kff_parse(rc.data(), bytes));
+hash_map<Haplotypes::Subchain::kmer_type, size_t>::iterator
+find_kmer(hash_map<Haplotypes::Subchain::kmer_type, size_t>& counts, Haplotypes::Subchain::kmer_type kmer, size_t k) {
+    Haplotypes::Subchain::kmer_type rc = minimizer_reverse_complement(kmer, k);
+    auto forward = counts.find(kmer);
+    auto reverse = counts.find(rc);
+    return (forward != counts.end() ? forward : reverse);
 }
 
 hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const std::string& kff_file, bool verbose) const {
@@ -51,6 +53,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
     size_t data_bytes = reader.get_var("data_size");
 
     // Populate the map with the kmers we are interested in.
+    double checkpoint = gbwt::readTimer();
     hash_map<Subchain::kmer_type, size_t> result;
     result.reserve(this->header.total_kmers);
     for (size_t chain_id = 0; chain_id < this->chains.size(); chain_id++) {
@@ -63,28 +66,31 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         }
     }
     if (verbose) {
-        std::cerr << "Initialized the hash map with " << result.size() << " kmers" << std::endl;
+        double seconds = gbwt::readTimer() - checkpoint;
+        std::cerr << "Initialized the hash map with " << result.size() << " kmers in " << seconds << " seconds" << std::endl;
     }
 
-    // Add the counts. We read the kmers by blocks to reduce overhead.
+    // Add the counts. We read the kmers by blocks, which requires us to preallocate
+    // the buffers.
+    checkpoint = gbwt::readTimer();
     uint8_t* block = new uint8_t[kff_bytes(max_kmers + this->k() - 1)];
     uint8_t* data = new uint8_t[max_kmers * data_bytes];
     size_t kmer_count = 0, block_count = 0;
     while (reader.has_next()) {
-        // This function call takes references to the pointers but assumes that the
-        // underlying buffers have been pre-allocated.
         size_t n = reader.next_block(block, data);
-        std::vector<Subchain::kmer_type> kmers = kff_recode(block, n, this->k(), decoding);
-        for (size_t i = 0; i < n; i++) {
-            auto iter = result.find(kmers[i]);
-            if (iter != result.end()) {
-                iter->second += kff_parse(data + i * data_bytes, data_bytes);
-            } else {
-                Subchain::kmer_type rc = minimizer_reverse_complement(kmers[i], this->k());
-                iter = result.find(rc);
+        if (n > 1) {
+            std::vector<Subchain::kmer_type> kmers = kff_recode(block, n, this->k(), decoding);
+            for (size_t i = 0; i < n; i++) {
+                auto iter = find_kmer(result, kmers[i], this->k());
                 if (iter != result.end()) {
                     iter->second += kff_parse(data + i * data_bytes, data_bytes);
                 }
+            }
+        } else {
+            Subchain::kmer_type kmer = kff_recode(block, this->k(), decoding);
+            auto iter = find_kmer(result, kmer, this->k());
+            if (iter != result.end()) {
+                iter->second += kff_parse(data, data_bytes);
             }
         }
         kmer_count += n; block_count++;
@@ -92,7 +98,8 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
     delete[] block; block = nullptr;
     delete[] data; data = nullptr;
     if (verbose) {
-        std::cerr << "Read " << kmer_count << " kmers in " << block_count << " blocks" << std::endl;
+        double seconds = gbwt::readTimer() - checkpoint;
+        std::cerr << "Read " << kmer_count << " kmers in " << block_count << " blocks in " << seconds << " seconds" << std::endl;
     }
 
     return result;
