@@ -284,13 +284,13 @@ int main_zipcode(int argc, char** argv) {
 
                     bool is_irregular = false;
                     while(!distance_index->is_root(net1)){
-                        if (!distance_index->is_regular_snarl(net1)) {
+                        if (distance_index->is_snarl(net1) && !distance_index->is_regular_snarl(net1)) {
                             is_irregular = true;
                         }
                         net1 = distance_index->get_parent(net1);
                     }
                     while(!distance_index->is_root(net2)){
-                        if (!distance_index->is_regular_snarl(net2)) {
+                        if (distance_index->is_snarl(net2) && !distance_index->is_regular_snarl(net2)) {
                             is_irregular = true;
                         }
                         net2 = distance_index->get_parent(net2);
