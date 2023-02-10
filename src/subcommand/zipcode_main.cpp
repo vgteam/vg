@@ -255,14 +255,6 @@ int main_zipcode(int argc, char** argv) {
                 for (pos_t pos2 : seeds) {
                     count++;
 
-                    //Time finding the distance with the index
-                    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                    size_t index_distance = minimum_distance(*distance_index, pos1, pos2);
-                    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-                    std::chrono::duration<double> elapsed_seconds = end-start;
-
-                    elapsed_seconds_index.emplace_back(elapsed_seconds.count());
-
                     //Get zip codes
                     zip_code_t zip1;
                     zip1.fill_in_zip_code(*distance_index, pos1);
@@ -270,12 +262,20 @@ int main_zipcode(int argc, char** argv) {
                     zip2.fill_in_zip_code(*distance_index, pos2);
 
                     //Time finding distance with the zip codes
-                    start = std::chrono::system_clock::now();
+                    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
                     size_t zip_distance = zip_code_t::minimum_distance_between(zip1, pos1, zip2, pos2, *distance_index);
-                    end = std::chrono::system_clock::now();
-                    elapsed_seconds = end-start;
+                    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
                     elapsed_seconds_zip.emplace_back(elapsed_seconds.count());
 
+
+                    //Time finding the distance with the index
+                    start = std::chrono::system_clock::now();
+                    size_t index_distance = minimum_distance(*distance_index, pos1, pos2);
+                    end = std::chrono::system_clock::now();
+                    elapsed_seconds = end-start;
+
+                    elapsed_seconds_index.emplace_back(elapsed_seconds.count());
                     net_handle_t net1 = distance_index->get_node_net_handle(id(pos1));
                     net_handle_t net2 = distance_index->get_node_net_handle(id(pos2));
                     size_t depth = std::max(distance_index->get_depth(net1), 
