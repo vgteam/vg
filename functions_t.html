@@ -122,6 +122,7 @@ $(function() {
 <li>take()
 : <a class="el" href="classvg_1_1io_1_1MessageIterator.html#ab97d50a333e4f27419f0d661e8669774">vg::io::MessageIterator</a>
 , <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a32bfe2fea01e8bae7759dff71eb64db8">vg::io::ProtobufIterator&lt; T &gt;</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1Haplotype.html#a828c2f887a5bb3d2829009cffa7733ac">vg::Recombinator::Haplotype</a>
 </li>
 <li>target
 : <a class="el" href="classvg_1_1InsufficientInputException.html#aa40303513d2f82efe6690afe9b8a75ce">vg::InsufficientInputException</a>
@@ -326,6 +327,7 @@ $(function() {
 </li>
 <li>to_string()
 : <a class="el" href="structvg_1_1BREAKPOINT.html#a889fc9b9ff7feec9847c28eaf17ae6ee">vg::BREAKPOINT</a>
+, <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#aa409e312b588c1b48f3855bf8dfbb3c1">vg::Haplotypes::Subchain</a>
 </li>
 <li>to_swap
 : <a class="el" href="structvg_1_1SwapHaplotypesCommand.html#a89b3e32d9f79d7e50bce707c47a18962">vg::SwapHaplotypesCommand</a>
@@ -361,6 +363,9 @@ $(function() {
 <li>top_k
 : <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a4610e26e36319f7b2620566c7b655c63">vg::PoissonSupportSnarlCaller</a>
 </li>
+<li>top_level_chains
+: <a class="el" href="structvg_1_1Haplotypes_1_1Header.html#a8223ce0e3fe99009151debc39caf9c0b">vg::Haplotypes::Header</a>
+</li>
 <li>top_level_snarls()
 : <a class="el" href="classvg_1_1SnarlManager.html#af31a29d8e7836bca46b389c01c625339">vg::SnarlManager</a>
 </li>
@@ -380,6 +385,9 @@ $(function() {
 <li>TOTAL_BITS
 : <a class="el" href="classvg_1_1BitString.html#a881dbf42b0dc52a67f0c1edfa4e971f8">vg::BitString</a>
 </li>
+<li>total_kmers
+: <a class="el" href="structvg_1_1Haplotypes_1_1Header.html#a491f20acd55ad36b6b9b3c24f5b6a39e">vg::Haplotypes::Header</a>
+</li>
 <li>total_node_quality()
 : <a class="el" href="classvg_1_1Packer.html#a67a80245fcdbc4f5788b1062ee6b55f9">vg::Packer</a>
 </li>
@@ -390,6 +398,9 @@ $(function() {
 </li>
 <li>total_size
 : <a class="el" href="structvg_1_1RebuildJob.html#aefe022edfe253c6c08690bd0e41dbaa1">vg::RebuildJob</a>
+</li>
+<li>total_subchains
+: <a class="el" href="structvg_1_1Haplotypes_1_1Header.html#a64217b5f412fcf46e65dee628abec4dc">vg::Haplotypes::Header</a>
 </li>
 <li>total_supports()
 : <a class="el" href="structvg_1_1BREAKPOINT.html#afc10d66ae6dad31e2086963bc6e34a06">vg::BREAKPOINT</a>
@@ -623,7 +634,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1VPKG.html#ad5d2bad9c95479a3f1520c5fadcba1b2">vg::io::VPKG</a>
 </li>
 <li>try_load_encapsulated()
-: <a class="el" href="classvg_1_1io_1_1VPKG.html#a695e5a53bfbc9a5b36c5ea2306f253db">vg::io::VPKG</a>
+: <a class="el" href="classvg_1_1io_1_1VPKG.html#a860f50291f4b5a6be232e5312eb884ab">vg::io::VPKG</a>
 </li>
 <li>try_load_first()
 : <a class="el" href="classvg_1_1io_1_1VPKG.html#a504e965a2a019ce27267ea85c106a91b">vg::io::VPKG</a>
@@ -632,10 +643,10 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1VPKG.html#acfc929254f523522f369c4a17c8f0941">vg::io::VPKG</a>
 </li>
 <li>try_load_first_encapsulated()
-: <a class="el" href="classvg_1_1io_1_1VPKG.html#a186f277ebf475632f1b4d1eac4c48139">vg::io::VPKG</a>
+: <a class="el" href="classvg_1_1io_1_1VPKG.html#a12f9922d4b17194d248dc3f19a449f60">vg::io::VPKG</a>
 </li>
 <li>try_load_one()
-: <a class="el" href="classvg_1_1io_1_1VPKG.html#a0d7f96d4dd7fe5b1fe47b330ca617623">vg::io::VPKG</a>
+: <a class="el" href="classvg_1_1io_1_1VPKG.html#ab3a2026ac79ee1539271ba1791108c66">vg::io::VPKG</a>
 </li>
 <li>TSVAlignmentEmitter()
 : <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#aa8778347f51972fcb03f74565c5e3117">vg::io::TSVAlignmentEmitter</a>
@@ -666,6 +677,8 @@ $(function() {
 , <a class="el" href="structhandlegraph_1_1return__type__of_3_01Returns_07Owner_1_1_5_08_07Args_8_8_8_08_01const_01_4.html#ac5175c5d84e3de42bbf69d38196d8026">handlegraph::return_type_of&lt; Returns(Owner::*)(Args...) const &gt;</a>
 , <a class="el" href="structhandlegraph_1_1return__type__of_3_01Returns_07Owner_1_1_5_08_07Args_8_8_8_08_4.html#aea61ef0da1a01e10576a705d6d1605ac">handlegraph::return_type_of&lt; Returns(Owner::*)(Args...)&gt;</a>
 , <a class="el" href="structvg_1_1GFFRecord.html#a0cc4e99f9e73fafafa9be311151ef0d7">vg::GFFRecord</a>
+, <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html#a22b9b6cfc7735eedf7a813234b606761">vg::HaplotypePartitioner::Subchain</a>
+, <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a2710528f0d6c0e15f824b38963a9ffe6">vg::Haplotypes::Subchain</a>
 , <a class="el" href="structvg_1_1Range.html#a5ea713fb16f3d49d94278914668503a9">vg::Range&lt; Number &gt;</a>
 , <a class="el" href="structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6">vg::Snarl</a>
 </li>
