@@ -53,8 +53,24 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+/// Options struct for options for the Giraffe driver (i.e. this file)
+struct GiraffeMainOptions {
+    /// How long should we wait while mapping a read before complaining, in seconds.
+    static constexpr size_t default_watchdog_timeout = 10;
+    size_t watchdog_timeout = default_watchdog_timeout;
+};
+
 static GroupedOptionGroup get_options() {
     GroupedOptionGroup parser;
+    
+    // Configure Giraffe program settings
+    auto& main_opts = parser.add_group<GiraffeMainOptions>("program options");
+    main_opts.add_range(
+        "watchdog-timeout", 
+        &GiraffeMainOptions::watchdog_timeout,
+        GiraffeMainOptions::default_watchdog_timeout,
+        "complain after INT seconds working on a read or read pair"
+    );
     
     // Configure output settings on the MinimizerMapper
     auto& result_opts = parser.add_group<MinimizerMapper>("result options");
@@ -374,6 +390,9 @@ int main_giraffe(int argc, char** argv) {
     string report_name;
     bool show_progress = false;
     
+    // Main Giraffe program options struct
+    // Not really initialized until after we load all the indexes though...
+    GiraffeMainOptions main_options;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -459,7 +478,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("extension-score", 1);
     // And a default preset that doesn't.
     presets["default"];
-    
+    // And a chaining preset (TODO: make into PacBio and Nanopore)
+    presets["chaining"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<size_t>("watchdog-timeout", 30);
+   
     std::vector<struct option> long_options =
     {
         {"help", no_argument, 0, 'h'},
@@ -1046,6 +1069,7 @@ int main_giraffe(int argc, char** argv) {
             parser.print_options(cerr);
         }
         parser.apply(minimizer_mapper);
+        parser.apply(main_options);
         
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
@@ -1144,7 +1168,7 @@ int main_giraffe(int argc, char** argv) {
 
         // Establish a watchdog to find reads that take too long to map.
         // If we see any, we will issue a warning.
-        unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(minimizer_mapper.align_from_chains ? 300 : 60)));
+        unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(main_options.watchdog_timeout)));
 
         {
         
