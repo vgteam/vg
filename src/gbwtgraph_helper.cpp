@@ -182,5 +182,16 @@ unordered_map<nid_t, pair<string, size_t>> load_translation_back_map(const gbwtg
     return translation_back_map;
 }
 
+//------------------------------------------------------------------------------
+
+std::string to_string_gbwtgraph(handle_t handle) {
+    return to_string_gbwtgraph(gbwtgraph::GBWTGraph::handle_to_node(handle));
+}
+
+std::string to_string_gbwtgraph(gbwt::node_type node) {
+    return std::string("(") + std::to_string(gbwt::Node::id(node)) + std::string(", ") + std::to_string(gbwt::Node::is_reverse(node)) + std::string(")");
+}
+
+//------------------------------------------------------------------------------
 
 } // namespace vg

@@ -1,6 +1,6 @@
 /** \file
  *
- * Unit tests for gapless_extender.cpp, which implements haplotype-aware gapless seed extension.
+ * Unit tests for gbwt_extender.cpp, which implements haplotype-aware gapless seed extension.
  */
 
 #include "../gbwt_extender.hpp"
