@@ -21,7 +21,6 @@
 #include "../multipath_alignment_emitter.hpp"
 #include "../path.hpp"
 #include "../watchdog.hpp"
-#include "../watchdog.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <bdsg/packed_graph.hpp>
 #include <bdsg/hash_graph.hpp>
