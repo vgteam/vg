@@ -945,6 +945,16 @@ int main_giraffe(int argc, char** argv) {
     }
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
+    if (show_progress) {
+        cerr << "Paging in Distance Index v2" << endl;
+    }
+    std::chrono::time_point<std::chrono::system_clock> preload_start = std::chrono::system_clock::now();
+    // Make sure the distance index is paged in from disk.
+    // This does a blocking load; a nonblocking hint to the kernel doesn't seem to help at all.
+    distance_index->preload(true);
+    std::chrono::time_point<std::chrono::system_clock> preload_end = std::chrono::system_clock::now();
+    std::chrono::duration<double> di2_preload_seconds = preload_end - preload_start;
+    
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
@@ -983,6 +993,7 @@ int main_giraffe(int argc, char** argv) {
     std::chrono::duration<double> init_seconds = init - launch;
     if (show_progress) {
         cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
+        cerr << "Of which Distance Index v2 paging: " << di2_preload_seconds.count() << " seconds" << endl;
     }
     
     // Set up to write a report of mapping speed if requested, instead of just dumping to stderr.
