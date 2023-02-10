@@ -64,7 +64,7 @@ static GroupedOptionGroup get_options() {
         "produce up to INT alignments for each read"
     );
     
-    // Configure normal Giraffe mapping compoutation
+    // Configure normal Giraffe mapping computation
     auto& comp_opts = parser.add_group<MinimizerMapper>("computational parameters");
     comp_opts.add_range(
         "hit-cap", 'c',
@@ -232,16 +232,16 @@ static GroupedOptionGroup get_options() {
         "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
-        "max-lookback-bases",
-        &MinimizerMapper::max_lookback_bases,
-        MinimizerMapper::default_max_lookback_bases,
-        "maximum distance to look back when chaining"
-    );
-    chaining_opts.add_range(
         "min-lookback-items",
         &MinimizerMapper::min_lookback_items,
         MinimizerMapper::default_min_lookback_items,
-        "minimum items to look back when chaining"
+        "minimum items to consider coming from when chaining"
+    );
+    chaining_opts.add_range(
+        "lookback-item-hard-cap",
+        &MinimizerMapper::lookback_item_hard_cap,
+        MinimizerMapper::default_lookback_item_hard_cap,
+        "maximum items to consider coming from when chaining"
     );
     
     chaining_opts.add_range(
@@ -277,6 +277,12 @@ static GroupedOptionGroup get_options() {
         &MinimizerMapper::max_tail_length,
         MinimizerMapper::default_max_tail_length,
         "maximum length of a tail to align before forcing softclipping when aligning a chain"
+    );
+    chaining_opts.add_range(
+        "max-dp-cells",
+        &MinimizerMapper::max_dp_cells,
+        MinimizerMapper::default_max_dp_cells,
+        "maximum number of alignment cells to allow in a tail with GSSW"
     );
     return parser;
 }
@@ -939,6 +945,16 @@ int main_giraffe(int argc, char** argv) {
     }
     auto distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     
+    if (show_progress) {
+        cerr << "Paging in Distance Index v2" << endl;
+    }
+    std::chrono::time_point<std::chrono::system_clock> preload_start = std::chrono::system_clock::now();
+    // Make sure the distance index is paged in from disk.
+    // This does a blocking load; a nonblocking hint to the kernel doesn't seem to help at all.
+    distance_index->preload(true);
+    std::chrono::time_point<std::chrono::system_clock> preload_end = std::chrono::system_clock::now();
+    std::chrono::duration<double> di2_preload_seconds = preload_end - preload_start;
+    
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
@@ -977,6 +993,7 @@ int main_giraffe(int argc, char** argv) {
     std::chrono::duration<double> init_seconds = init - launch;
     if (show_progress) {
         cerr << "Loading and initialization: " << init_seconds.count() << " seconds" << endl;
+        cerr << "Of which Distance Index v2 paging: " << di2_preload_seconds.count() << " seconds" << endl;
     }
     
     // Set up to write a report of mapping speed if requested, instead of just dumping to stderr.
