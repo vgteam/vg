@@ -785,6 +785,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                                                get_regular_aligner()->gap_extension,
                                                                max_lookback_bases,
                                                                min_lookback_items,
+                                                               lookback_item_hard_cap,
                                                                initial_lookback_threshold,
                                                                lookback_scale_factor,
                                                                min_good_transition_score_per_base,
@@ -1385,33 +1386,48 @@ Alignment MinimizerMapper::find_chain_alignment(
         } else {
             // We need to fall back on alignment against the graph
             
-#ifdef debug_chaining
-            if (show_work) {
+            if (left_tail_length > MAX_DP_LENGTH) {
+                // Left tail is too long to align.
+                
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Start with long left tail fallback alignment" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << left_tail_length << " bp left tail against " << right_anchor << " in " << aln.name() << " to avoid overflow" << endl;
                 }
-            }
+                
+                // Make a softclip for it.
+                left_alignment = WFAAlignment::make_unlocalized_insertion(0, left_tail.size(), 0);
+                composed_path = left_alignment.to_path(this->gbwt_graph, aln.sequence());
+                composed_score = left_alignment.score;
+            } else {
+            
+#ifdef debug_chaining
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Start with long left tail fallback alignment" << endl;
+                    }
+                }
 #endif
-            
-            #pragma omp critical (cerr)
-            {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp left tail in " << aln.name() << endl;
+                
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp left tail against " << right_anchor << " in " << aln.name() << endl;
+                }
+                
+                Alignment tail_aln;
+                tail_aln.set_sequence(left_tail);
+                if (!aln.quality().empty()) {
+                    tail_aln.set_quality(aln.quality().substr(0, left_tail_length));
+                }
+                
+                // Work out how far the tail can see
+                size_t graph_horizon = left_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
+                // Align the left tail, anchoring the right end.
+                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells);
+                // Since it's the left tail we can just clobber the path
+                composed_path = tail_aln.path();
+                composed_score = tail_aln.score();
             }
-            
-            Alignment tail_aln;
-            tail_aln.set_sequence(left_tail);
-            if (!aln.quality().empty()) {
-                tail_aln.set_quality(aln.quality().substr(0, left_tail_length));
-            }
-            
-            // Work out how far the tail can see
-            size_t graph_horizon = left_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
-            // Align the left tail, anchoring the right end.
-            align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln);
-            // Since it's the left tail we can just clobber the path
-            composed_path = tail_aln.path();
-            composed_score = tail_aln.score();
         }
     }
         
@@ -1574,11 +1590,21 @@ Alignment MinimizerMapper::find_chain_alignment(
             // The sequence to the next thing is too long, or we couldn't reach it doing connect().
             // Fall back to another alignment method
             
+            if (linking_bases.size() > MAX_DP_LENGTH) {
+                // This would be too long for GSSW to handle and might overflow 16-bit scores in its matrix.
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
+                }
+                // Just jump to right tail
+                break;
+            }
+            
             // We can't actually do this alignment, we'd have to align too
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << graph_length << " apart in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
             
             Alignment link_aln;
@@ -1589,7 +1615,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             assert(graph_length != 0); // TODO: Can't handle abutting graph positions yet
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t path_length = std::max(graph_length, link_length) + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
-            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln);
+            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells);
             
 #ifdef debug_chaining
             if (show_work) {
@@ -1686,24 +1712,39 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
 #endif
 
-            #pragma omp critical (cerr)
-            {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail in " << aln.name() << endl;
+            if (right_tail.size() > MAX_DP_LENGTH) {
+                // Right tail is too long to align.
+                
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << right_tail.size() << " bp right tail against " << left_anchor << " in " << aln.name() << " to avoid overflow" << endl;
+                }
+                
+                // Make a softclip for it.
+                right_alignment = WFAAlignment::make_unlocalized_insertion((*here).read_end(), aln.sequence().size() - (*here).read_end(), 0);
+                append_path(composed_path, right_alignment.to_path(this->gbwt_graph, aln.sequence()));
+                composed_score += right_alignment.score;
+            } else {
+
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor << " in " << aln.name() << endl;
+                }
+                
+                Alignment tail_aln;
+                tail_aln.set_sequence(right_tail);
+                if (!aln.quality().empty()) {
+                    tail_aln.set_quality(aln.quality().substr((*here).read_end(), right_tail_length));
+                }
+                
+                // Work out how far the tail can see
+                size_t graph_horizon = right_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
+                // Align the right tail, anchoring the left end.
+                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells);
+                // Since it's the right tail we have to add it on
+                append_path(composed_path, tail_aln.path());
+                composed_score += tail_aln.score();
             }
-            
-            Alignment tail_aln;
-            tail_aln.set_sequence(right_tail);
-            if (!aln.quality().empty()) {
-                tail_aln.set_quality(aln.quality().substr((*here).read_end(), right_tail_length));
-            }
-            
-            // Work out how far the tail can see
-            size_t graph_horizon = right_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
-            // Align the right tail, anchoring the left end.
-            align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln);
-            // Since it's the right tail we have to add it on
-            append_path(composed_path, tail_aln.path());
-            composed_score += tail_aln.score();
         } 
     }
     
@@ -1860,7 +1901,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     callback(dagified_graph, dagified_handle_to_base);
 }
 
-void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment) {
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells) {
     
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
@@ -1928,14 +1969,37 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
             // Then align the linking bases, with global alignment so they have
-            // to go from a source to a sink.
+            // to go from a source to a sink. Banded alignment means we can safely do big problems.
             aligner->align_global_banded(alignment, dagified_graph);
         } else {
             // Do pinned alignment off the anchor we actually have.
             // Don't use X-Drop because Dozeu is known to just overwrite the
             // stack with garbage whenever alignments are "too big", and these
             // alignments are probably often too big.
-            aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), false);
+            // But if we don't use Dozeu this uses GSSW and that can *also* be too big.
+            // So work out how big it will be
+            size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
+            if (cell_count > max_dp_cells) {
+                #pragma omp critical (cerr)
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
+                // Fake a softclip right in input graph space
+                alignment.clear_path();
+                Mapping* m = alignment.mutable_path()->add_mapping();
+                // TODO: Is this fake position OK regardless of anchoring side?
+                m->mutable_position()->set_node_id(is_empty(left_anchor) ? id(right_anchor) : id(left_anchor));
+                m->mutable_position()->set_is_reverse(is_empty(left_anchor) ? is_rev(right_anchor) : is_rev(left_anchor));
+                m->mutable_position()->set_offset(is_empty(left_anchor) ? offset(right_anchor) : offset(left_anchor));
+                Edit* e = m->add_edit();
+                e->set_to_length(alignment.sequence().size());
+                e->set_sequence(alignment.sequence());
+                return;
+            } else {
+#ifdef debug_chaining
+                #pragma omp critical (cerr)
+                std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
+#endif
+                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), false);
+            }
         }
         
         // And translate back into original graph space

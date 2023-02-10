@@ -175,6 +175,7 @@ int main_zipcode(int argc, char** argv) {
         minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
     }
     unique_ptr<SnarlDistanceIndex> distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
+    distance_index->preload(true);
     
     // Make a Mapper to look up MEM seeds
     unique_ptr<Mapper> mapper;
