@@ -47,8 +47,10 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         throw std::runtime_error("Haplotypes::kmer_counts(): expected " + std::to_string(this->k()) +
             "-mers but KFF file " + kff_file + " contains " + std::to_string(kff_k) + "-mers");
     }
+    size_t kmer_bytes = kff_bytes(this->k());
     const std::uint8_t* encoding = reader.get_encoding();
-    std::string decoding = kff_invert(encoding);
+    kff_recoding_t recoding = kff_recoding(encoding);
+    bool trivial_encoding = kff_is_trivial(encoding);
     size_t max_kmers = reader.get_var("max");
     size_t data_bytes = reader.get_var("data_size");
 
@@ -79,7 +81,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
     while (reader.has_next()) {
         size_t n = reader.next_block(block, data);
         if (n > 1) {
-            std::vector<Subchain::kmer_type> kmers = kff_recode(block, n, this->k(), decoding);
+            std::vector<Subchain::kmer_type> kmers = kff_recode(block, n, this->k(), recoding);
             for (size_t i = 0; i < n; i++) {
                 auto iter = find_kmer(result, kmers[i], this->k());
                 if (iter != result.end()) {
@@ -87,7 +89,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
                 }
             }
         } else {
-            Subchain::kmer_type kmer = kff_recode(block, this->k(), decoding);
+            Subchain::kmer_type kmer = (trivial_encoding ? kff_recode_trivial(block, this->k(), kmer_bytes) : kff_recode(block, this->k(), recoding));
             auto iter = find_kmer(result, kmer, this->k());
             if (iter != result.end()) {
                 iter->second += kff_parse(data, data_bytes);

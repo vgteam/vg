@@ -4,6 +4,44 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+bool kff_is_trivial(const uint8_t* encoding) {
+    for (size_t i = 0; i < 4; i++) {
+        if (encoding[i] != i) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string kff_invert(const uint8_t* encoding) {
+    std::string result(4, ' ');
+    result[encoding[0]] = 'A';
+    result[encoding[1]] = 'C';
+    result[encoding[2]] = 'G';
+    result[encoding[3]] = 'T';
+    return result;
+}
+
+kff_recoding_t kff_recoding(const uint8_t* encoding) {
+    kff_recoding_t result;
+    for (size_t i = 0; i < 4; i++) {
+        result.data[encoding[i]] = i;
+    }
+    return result;
+}
+
+uint64_t kff_parse(const uint8_t* data, size_t bytes) {
+    uint64_t value = 0;
+    size_t shift = 8 * bytes;
+    for (size_t i = 0; i < bytes; i++) {
+        shift -= 8;
+        value |= static_cast<uint64_t>(data[i]) << shift;
+    }
+    return value;
+}
+
+//------------------------------------------------------------------------------
+
 // Encode up to 4 characters in one byte.
 uint8_t kff_encode(const std::string& kmer, size_t start, size_t limit, const uint8_t* encoding) {
     uint8_t val = 0;
@@ -31,17 +69,6 @@ std::vector<uint8_t> kff_encode(const std::string& kmer, const uint8_t* encoding
         result.push_back(kff_encode(kmer, i, i + 4, encoding));
     }
 
-    return result;
-}
-
-//------------------------------------------------------------------------------
-
-std::string kff_invert(const uint8_t* encoding) {
-    std::string result(4, ' ');
-    result[encoding[0]] = 'A';
-    result[encoding[1]] = 'C';
-    result[encoding[2]] = 'G';
-    result[encoding[3]] = 'T';
     return result;
 }
 
@@ -99,7 +126,7 @@ std::vector<uint8_t> kff_recode(gbwtgraph::Key64::value_type kmer, size_t k, con
     return result;
 }
 
-gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std::string& decoding) {
+gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, kff_recoding_t recoding) {
     gbwtgraph::Key64::value_type result = 0;
 
     size_t bytes = kff_bytes(k);
@@ -111,8 +138,7 @@ gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std
         size_t offset = 2 * chars;
         for (size_t j = 0; j < chars; j++) {
             offset -= 2;
-            unsigned char c = decoding[(kmer[i] >> offset) & 3];
-            result = (result << 2) | gbwtgraph::CHAR_TO_PACK[c];
+            result = (result << 2) | recoding.data[(kmer[i] >> offset) & 3];
         }
         chars = 4;
     }
@@ -120,7 +146,15 @@ gbwtgraph::Key64::value_type kff_recode(const uint8_t* kmer, size_t k, const std
     return result;
 }
 
-std::vector<gbwtgraph::Key64::value_type> kff_recode(const uint8_t* kmers, size_t n, size_t k, const std::string& decoding) {
+gbwtgraph::Key64::value_type kff_recode_trivial(const uint8_t* kmer, size_t k, size_t bytes) {
+    gbwtgraph::Key64::value_type result = 0;
+    for (size_t i = 0; i < bytes; i++) {
+        result = (result << 8) | kmer[i];
+    }
+    return result & sdsl::bits::lo_set[2 * k];
+}
+
+std::vector<gbwtgraph::Key64::value_type> kff_recode(const uint8_t* kmers, size_t n, size_t k, kff_recoding_t recoding) {
     std::vector<gbwtgraph::Key64::value_type> result;
     result.reserve(n);
 
@@ -136,8 +170,7 @@ std::vector<gbwtgraph::Key64::value_type> kff_recode(const uint8_t* kmers, size_
         size_t offset = 2 * chars;
         for (size_t j = 0; j < chars; j++) {
             offset -= 2;
-            unsigned char c = decoding[(kmers[i] >> offset) & 3];
-            curr = (curr << 2) | gbwtgraph::CHAR_TO_PACK[c];
+            curr = (curr << 2) | recoding.data[(kmers[i] >> offset) & 3];
             processed++;
             if (processed >= k) {
                 result.push_back(curr & sdsl::bits::lo_set[2 * k]);
@@ -185,18 +218,6 @@ gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::valu
         kmer >>= 2;
     }
     return result;
-}
-
-//------------------------------------------------------------------------------
-
-uint64_t kff_parse(const uint8_t* data, size_t bytes) {
-    uint64_t value = 0;
-    size_t shift = 8 * bytes;
-    for (size_t i = 0; i < bytes; i++) {
-        shift -= 8;
-        value |= static_cast<uint64_t>(data[i]) << shift;
-    }
-    return value;
 }
 
 //------------------------------------------------------------------------------
