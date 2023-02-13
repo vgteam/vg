@@ -35,9 +35,11 @@
 #include "../utility.hpp"
 #include "../handle.hpp"
 #include "../snarl_distance_index.hpp"
+#include "../zip_code.hpp"
 
 #include <gbwtgraph/index.h>
 
+//#define WRITE_MINIMIZER_ZIP_CODES
 using namespace vg;
 
 // Using too many threads just wastes CPU time without speeding up the construction.
@@ -264,6 +266,23 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+            #ifdef WRITE_MINIMIZER_ZIP_CODES
+                        //TODO: this is only for testing, can be taken out once the zip codes are done
+                        //This should only be used single threaded.
+                        //For each minimizer, writes the size of the zip code and then the zip code as a tsv
+                        zip_code_t zip_code;
+                        zip_code.fill_in_zip_code(*distance_index, pos);
+                        pair<size_t, size_t> value (0, 0);
+            
+                        //How many bytes get used
+                        cout << zip_code.zip_code.byte_count();
+                        //Each integer saved
+                        while (value.second != std::numeric_limits<size_t>::max()) {
+                            value = zip_code.zip_code.get_value_and_next_index(value.second);
+                            cout << "\t" << value.first;
+                        }
+                        cout << endl;
+            #endif
             return MIPayload::encode(get_minimizer_distances(*distance_index,pos));
         });
     }

@@ -31,7 +31,7 @@ using namespace std;
 
             //Third value is the length of the node
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 11);
+            REQUIRE(value_and_index.first == 11+1);
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -116,11 +116,11 @@ using namespace std;
 
             REQUIRE(decoder[1] == std::make_pair(true, value_and_index.second));
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id())));
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
 
             //Fourth is the node length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 3);
+            REQUIRE(value_and_index.first == 3+1);
 
             //Fifth is if the node is reversed
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -178,11 +178,11 @@ using namespace std;
 
             //prefix sum of the snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == (chain_is_reversed ? 5 : 6));
+            REQUIRE(value_and_index.first == (chain_is_reversed ? 5 : 6)+1);
 
             //length of the snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 1);
+            REQUIRE(value_and_index.first == 1+1);
 
             //node is reversed in the snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -201,7 +201,7 @@ using namespace std;
 
             //node length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 2);
+            REQUIRE(value_and_index.first == 2+1);
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -337,11 +337,11 @@ using namespace std;
             REQUIRE(decoder[1] == std::make_pair(true, value_and_index.second));
 
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id())));
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
 
             //Fourth is the node length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 3);
+            REQUIRE(value_and_index.first == 3+1);
 
             //Fifth is if the node is reversed
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -399,11 +399,11 @@ using namespace std;
 
             //Prefix sum of the snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == (chain_is_reversed ? 4 : 3));
+            REQUIRE(value_and_index.first == (chain_is_reversed ? 4 : 3)+1);
 
             //snarl length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 0);
+            REQUIRE(value_and_index.first == 0+1);
 
             //Is the chain is reversed in the snarl 
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -421,17 +421,17 @@ using namespace std;
             
             //chain length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 3);
+            REQUIRE(value_and_index.first == 3+1);
 
             //Next is the node code
             REQUIRE(decoder[3] == std::make_pair(true, value_and_index.second));
             //Offset of the node in the chain
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n2->id())));
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n2->id()))+1);
 
             //length of the node
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 1);
+            REQUIRE(value_and_index.first == 1+1);
 
             //is the node reversed in the parent
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -502,11 +502,11 @@ using namespace std;
 
             //Prefix sum of the snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == (chain_is_reversed ? 4 : 3));
+            REQUIRE(value_and_index.first == (chain_is_reversed ? 4 : 3)+1);
 
             //snarl length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 0);
+            REQUIRE(value_and_index.first == 0+1);
 
             //Is the chain is reversed in the snarl 
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -524,7 +524,7 @@ using namespace std;
             
             //chain length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 3);
+            REQUIRE(value_and_index.first == 3+1);
 
             //Next is the regular snarl code for snarl 2-7
             REQUIRE(decoder[3] == std::make_pair(false, value_and_index.second));
@@ -534,11 +534,11 @@ using namespace std;
 
             //offset in chain
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 1);
+            REQUIRE(value_and_index.first == 1+1);
 
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 1);
+            REQUIRE(value_and_index.first == 1+1);
 
             //is_reversed
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -556,7 +556,7 @@ using namespace std;
 
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.minimum_length(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))) );
+            REQUIRE(value_and_index.first == distance_index.minimum_length(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))) +1);
 
             //REgular snarl code for snarl 3-5
             REQUIRE(decoder[5] == std::make_pair(false, value_and_index.second));
@@ -565,11 +565,11 @@ using namespace std;
 
             //offset in chain
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 3 : 1));
+            REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 3 : 1)+1);
 
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 0);
+            REQUIRE(value_and_index.first == 0+1);
 
             //is_reversed
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
@@ -587,7 +587,7 @@ using namespace std;
 
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 4) ;
+            REQUIRE(value_and_index.first == 4+1) ;
 
 
             //That's it
@@ -783,7 +783,7 @@ using namespace std;
 
             //Length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 1);
+            REQUIRE(value_and_index.first == 1+1);
 
             //That's it
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
@@ -932,7 +932,7 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n1->id()))));
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 3);
+            REQUIRE(value_and_index.first == 3+1);
         }
         SECTION ("decoded zip code for node in top-level snarl") { 
             zip_code_t zip_code;
@@ -978,16 +978,16 @@ using namespace std;
             REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))));
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 2);
+            REQUIRE(value_and_index.first == 2+1);
 
             //Node 3
             REQUIRE(decoder[2] == std::make_pair(true, value_and_index.second));
             //rank in snarl
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1));
+            REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1)+1);
             //length
             value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == 1);
+            REQUIRE(value_and_index.first == 1+1);
         }
         SECTION ("decode zip code for node in chain in top-level snarl") { 
             net_handle_t node3 = distance_index.get_node_net_handle(n3->id());

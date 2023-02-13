@@ -87,6 +87,9 @@ struct zip_code_t {
 
     private:
 
+        /* Functions for getting the zip code for each snarl/chain/node
+         * Distances will be stored as distance+1, 0 will be reserved for inf
+         */
         //Return a vector of size_ts that will represent the node in the zip code
         inline vector<size_t> get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the chain in the zip code

@@ -33,6 +33,9 @@ using namespace std;
         inline bool operator== (const varint_vector_t& other ) const{
             return data == other.data;
         }
+        size_t byte_count() const {
+            return data.size();
+        }
     
         private:
         //The actual data stored in the vector
