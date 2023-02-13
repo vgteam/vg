@@ -87,7 +87,14 @@ const unordered_map<string, string> Version::codenames = {
     {"v1.42.0", "Obolo"},
     {"v1.43.0", "Barisano"},
     {"v1.44.0", "Solara"},
-    {"v1.45.0", "Alpicella"}
+    {"v1.45.0", "Alpicella"},
+    {"v1.46.0", "Altamura"},
+    {"v1.47.0", "Ostuni"},
+    {"v1.48.0", "Gallipoli"},
+    {"v1.49.0", "Peschici"},
+    {"v1.50.0", "Monopoli"},
+    {"v1.51.0", "Quellenhof"},
+    {"v1.52.0", "Bozen"}
     // Add more codenames here
 };
 
