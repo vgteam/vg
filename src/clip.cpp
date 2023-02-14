@@ -475,7 +475,7 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
     boomphf::mphf<edge_t, BBEdgeHash> edge_hash(edge_count, edges, get_thread_count(), 2.0, false, false);
     edges.clear();
     bdsg::PackedVector<> edge_depths;
-    edge_depths.resize(edge_count);
+    edge_depths.resize(edge_count + 1);
     
     graph->for_each_path_handle([&](path_handle_t path_handle) {
             bool is_ref_path = check_prefixes(graph->get_path_name(path_handle));
