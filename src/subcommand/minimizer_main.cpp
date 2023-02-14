@@ -246,6 +246,7 @@ int main_minimizer(int argc, char** argv) {
             std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
+        distance_index->preload(true);
     }
 
     // Build the index.

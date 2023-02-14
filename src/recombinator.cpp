@@ -101,7 +101,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
     delete[] data; data = nullptr;
     if (verbose) {
         double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Read " << kmer_count << " kmers in " << block_count << " blocks in " << seconds << " seconds" << std::endl;
+        std::cerr << "Read " << block_count << " blocks with " << kmer_count << " kmers in " << seconds << " seconds" << std::endl;
     }
 
     return result;
