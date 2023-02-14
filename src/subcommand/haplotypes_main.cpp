@@ -334,8 +334,8 @@ int main_haplotypes(int argc, char** argv) {
             if (verbosity >= HaplotypePartitioner::verbosity_basic) {
                 std::cerr << "Building minimizer index" << std::endl;
             }
-            gbwtgraph::index_haplotypes(gbz.graph, minimizer_index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-                return MIPayload::encode(get_minimizer_distances(distance_index, pos));
+            gbwtgraph::index_haplotypes(gbz.graph, minimizer_index, [&](const pos_t&) -> gbwtgraph::payload_type {
+                return gbwtgraph::DefaultMinimizerIndex::DEFAULT_PAYLOAD;
             });
             if (verbosity >= HaplotypePartitioner::verbosity_basic) {
                 double seconds = gbwt::readTimer() - minimizer;
