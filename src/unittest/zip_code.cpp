@@ -717,6 +717,28 @@ using namespace std;
                                                          distance_index)
                     == 2);
         }
+        SECTION("Distance is greater than") {
+            zip_code_t zip1;
+            zip1.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            zip_code_t zip2;
+            zip2.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            zip_code_t zip3;
+            zip3.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            zip_code_t zip4;
+            zip4.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            zip_code_t zip5;
+            zip5.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            zip_code_t zip6;
+            zip6.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            zip_code_t zip7;
+            zip7.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+            zip_code_t zip8;
+            zip8.fill_in_zip_code(distance_index, make_pos_t(n8->id(), 0, false));
+
+
+            REQUIRE(!zip_code_t::is_farther_than(zip1, zip2, 0));
+            REQUIRE(!zip_code_t::is_farther_than(zip2, zip7, 0));
+        }
     }
     TEST_CASE("Irregular snarl zipcode", "[zipcode]") {
  
@@ -1055,6 +1077,100 @@ using namespace std;
                                                          zip7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 1);
+        }
+    }
+    TEST_CASE("Top-level chain zipcode", "[zipcode]") {
+ 
+        VG graph;
+ 
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("TGCGT");
+        Node* n7 = graph.create_node("G");
+ 
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n7);
+
+ 
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION ("zip code for node on top-level chain") {
+            net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
+            net_handle_t parent = distance_index.get_parent(node1);
+            net_handle_t grandparent = distance_index.get_parent(parent);
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+
+            zip_code_decoder_t decoder = zip_code.decode();
+            REQUIRE(decoder.size() == 2);
+
+            //1st value is 1 to indicate that it's a chain
+            pair<size_t, size_t> value_and_index = zip_code.zip_code.get_value_and_next_index(0);
+            REQUIRE(value_and_index.first == 1);
+            REQUIRE(decoder[0] == std::make_pair(true, (size_t)0));
+
+            //Second value is the connected component number of the chain
+            value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 0);
+
+            //Next is the node code
+            //Third value is the prefix sum of the node
+
+            REQUIRE(decoder[1] == std::make_pair(true, value_and_index.second));
+            value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_prefix_sum_value(distance_index.get_node_net_handle(n1->id()))+1);
+
+            //Fourth is the node length
+            value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == 3+1);
+
+            //Fifth is if the node is reversed
+            value_and_index = zip_code.zip_code.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.is_reversed_in_parent(
+                                                distance_index.get_node_net_handle(n1->id())));
+
+            //That's it
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
+
+        }
+        SECTION("Distances") {
+            zip_code_t zip1;
+            zip1.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            zip_code_t zip2;
+            zip2.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            zip_code_t zip3;
+            zip3.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            zip_code_t zip4;
+            zip4.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            zip_code_t zip5;
+            zip5.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            zip_code_t zip6;
+            zip6.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            zip_code_t zip7;
+            zip7.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+
+
+            REQUIRE(zip_code_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+                                                         zip2, make_pos_t(n2->id(), false, 0),
+                                                         distance_index)
+                    == 3);
+            REQUIRE(zip_code_t::is_farther_than(zip1, zip6, 3));
+            REQUIRE(!zip_code_t::is_farther_than(zip1, zip6, 5));
+            REQUIRE(zip_code_t::is_farther_than(zip1, zip7, 8));
+            REQUIRE(!zip_code_t::is_farther_than(zip1, zip7, 10));
+            REQUIRE(!zip_code_t::is_farther_than(zip2, zip7, 10));
+            REQUIRE(zip_code_t::is_farther_than(zip2, zip7, 8));
         }
     }
 }

@@ -74,7 +74,7 @@ struct zip_code_t {
 
         //Return true if the minimum distance between the zip codes is definitely greater than limit
         //A false result is inconclusive
-        static inline bool is_farther_than(const zip_code_t& zip1, const zip_code_t& zip2, const size_t& limit);
+        static bool is_farther_than(const zip_code_t& zip1, const zip_code_t& zip2, const size_t& limit);
 
     //TODO: Make this private:
         varint_vector_t zip_code;

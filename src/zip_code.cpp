@@ -754,8 +754,171 @@ cerr << "Finding distances to ancestors of second position" << endl;
 
 
     return distance_between;
-
-
 }
+
+bool zip_code_t::is_farther_than(const zip_code_t& zip1, const zip_code_t& zip2, const size_t& limit){
+#ifdef DEBUG_ZIP_CODE
+    cerr << "Checking if two zip codes are farther than " << limit << endl;
+#endif
+
+    size_t zip_index1 = 0; size_t zip_index2 = 0;
+    size_t zip_value1 = std::numeric_limits<size_t>::max();
+    size_t zip_value2 = std::numeric_limits<size_t>::max();
+
+    //If the two positions aren't on the same connected component, then we're done
+    std::tie(zip_value1, zip_index1) = zip1.zip_code.get_value_and_next_index(0);
+    std::tie(zip_value2, zip_index2) = zip2.zip_code.get_value_and_next_index(0);
+    if (zip_value1 != zip_value2) {
+#ifdef DEBUG_ZIP_CODE
+        cerr << "Zip codes are on different connected components" << endl;
+#endif
+        return true;
+    }
+
+    bool is_top_level_chain = zip_value1;
+    std::tie(zip_value1, zip_index1) = zip1.zip_code.get_value_and_next_index(zip_index1);
+    std::tie(zip_value2, zip_index2) = zip2.zip_code.get_value_and_next_index(zip_index2);
+    if (zip_value1 != zip_value2) {
+#ifdef DEBUG_ZIP_CODE
+        cerr << "Zip codes are on different connected components" << endl;
+#endif
+        return true;
+    }
+
+    if (!is_top_level_chain) {
+        //If the top-level thing is a snarl, then check if the zips are in the same chain. 
+        //If they are, then proceed from the shared chain
+
+        //The next thing will be the identifier for the chain
+        std::tie(zip_value1, zip_index1) = zip1.zip_code.get_value_and_next_index(zip_index1);
+        std::tie(zip_value2, zip_index2) = zip2.zip_code.get_value_and_next_index(zip_index2);
+        if (zip_value1 != zip_value2) {
+            //We can't tell
+            return false;
+        }
+        //Next is the length of the chain
+        std::tie(zip_value1, zip_index1) = zip1.zip_code.get_value_and_next_index(zip_index1);
+        std::tie(zip_value2, zip_index2) = zip2.zip_code.get_value_and_next_index(zip_index2);
+        if (zip_value1 < limit) {
+            return true;
+        }
+
+        //The zips now point to the children of the shared chain, so we can proceed as if the top-level
+        //structure was a chain
+
+    }
+
+    //Both zips now point to a thing in a shared chain
+    //Get the minimum possible distance between the structures on the chain
+    //For a lower bound, this assumes that the positions are as close as they can be on the structure in the chain
+    size_t prefix_sum1, prefix_sum2, length1, length2;
+
+    //The next thing could either be a snarl or a node. If it is a node, 
+    vector<size_t> next_values;
+    for (size_t i = 0 ; i < 3 ; i++ ) {
+#ifdef DEBUG_ZIP_CODE
+        assert(zip_index1 != std::numeric_limits<size_t>::max());
+#endif
+        std::tie(zip_value1, zip_index1) = zip1.zip_code.get_value_and_next_index(zip_index1);
+        next_values.emplace_back(zip_value1);
+    }
+    if (zip_index1 == std::numeric_limits<size_t>::max()) {
+#ifdef DEBUG_ZIP_CODE
+        cerr << "zip1 is a node in a chain" << endl;
+#endif
+        //If the last thing was a node
+        prefix_sum1 = next_values[0];
+        length1 = next_values[1];
+        prefix_sum1 = prefix_sum1 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum1-1;
+        length1 = length1 == 0 ? std::numeric_limits<size_t>::max() : length1-1;
+    } else {
+#ifdef DEBUG_ZIP_CODE
+        cerr << "zip1 is in a snarl in a chain" << endl;
+#endif
+        //If the last thing was a snarl
+        if (next_values[0]) {
+            //If the next thing was a regular snarl
+            prefix_sum1 = next_values[1];
+            length1 = next_values[2];
+            prefix_sum1 = prefix_sum1 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum1-1;
+            length1 = length1 == 0 ? std::numeric_limits<size_t>::max() : length1-1;
+        } else {
+            //If the next thing was an irregular snarl
+            //TODO: If it's an irregular snarl, then we don't actually store the relevant values so we can't tell. Could look it up in the distance index or store it
+            return false;
+        }
+    }
+    
+    //Do the same for the other zip
+    next_values.clear();
+    for (size_t i = 0 ; i < 3 ; i++ ) {
+#ifdef DEBUG_ZIP_CODE
+        assert(zip_index2 != std::numeric_limits<size_t>::max());
+#endif
+        std::tie(zip_value2, zip_index2) = zip2.zip_code.get_value_and_next_index(zip_index2);
+        next_values.emplace_back(zip_value2);
+    }
+    if (zip_index2 == std::numeric_limits<size_t>::max()) {
+#ifdef DEBUG_ZIP_CODE
+        cerr << "zip2 is a node in a chain" << endl;
+#endif
+        //If the last thing was a node
+        prefix_sum2 = next_values[0];
+        length2 = next_values[1];
+        prefix_sum2 = prefix_sum2 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum2-1;
+        length2 = length2 == 0 ? std::numeric_limits<size_t>::max() : length2-1;
+    } else {
+#ifdef DEBUG_ZIP_CODE
+        cerr << "zip2 is in a snarl in a chain" << endl;
+#endif
+        //If the last thing was a snarl
+        if (next_values[0]) {
+            //If the next thing was a regular snarl
+            prefix_sum2 = next_values[1];
+            length2 = next_values[2];
+            prefix_sum2 = prefix_sum2 == 0 ? std::numeric_limits<size_t>::max() : prefix_sum2-1;
+            length2 = length2 == 0 ? std::numeric_limits<size_t>::max() : length2-1;
+        } else {
+            //If the next thing was an irregular snarl
+            //TODO: If it's an irregular snarl, then we don't actually store the relevant values so we can't tell. Could look it up in the distance index or store it
+            return false;
+        }
+    }
+#ifdef DEBUG_ZIP_CODE
+    cerr << "Finding distance in chain between " << prefix_sum1 << " " << length1 << " and " << prefix_sum2 << " and " << length2 << endl;
+#endif
+
+    if (prefix_sum1 == std::numeric_limits<size_t>::max() ||
+        prefix_sum2 == std::numeric_limits<size_t>::max() ||
+        length1 == std::numeric_limits<size_t>::max() ||
+        length2 == std::numeric_limits<size_t>::max()) {
+        //If anything is infinite, then we can't tell
+        return false;
+    }
+
+
+    if (prefix_sum1 < prefix_sum2) {
+        //If 1 comes first
+
+        if (prefix_sum1 + length1 > prefix_sum2) {
+            //They might be close
+            return false;
+        } else {
+            //Return true if the distance between is greater than the limit
+            return prefix_sum2 - (prefix_sum1 + length1) > limit; 
+        }
+    } else {
+        //If 2 comes first
+
+        if (prefix_sum2 + length2 > prefix_sum1) {
+            //They might be close
+            return false;
+        } else {
+            //Return true if the distance between is greater than the limit
+            return prefix_sum1 - (prefix_sum2 + length2) > limit; 
+        }
+    }
+}
+
 
 }
