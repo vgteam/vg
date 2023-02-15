@@ -29,6 +29,7 @@
 #include "xg.hpp"
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/converted_hash_graph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../gbzgraph.hpp"
@@ -264,19 +265,27 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    unique_ptr<PathHandleGraph> graph;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    PathHandleGraph* graph = nullptr; 
     string graph_file_name;
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
         // TODO: we can load any PathHandleGraph, but some operations still require a VG
         // In those cases, we convert back to vg::VG
         graph_file_name = get_input_file_name(optind, argc, argv);
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file_name);
+        if (dynamic_cast<GBZGraph*>(path_handle_graph.get()) != nullptr && !alignments_filename.empty()) {
+            // GBZ paths on handle lookups too slow without the overlay
+            graph = overlay_helper.apply(path_handle_graph.get());
+        } else {
+            graph = path_handle_graph.get();
+        }
     }
     
     // We have function to make sure the graph was passed and complain if not
     auto require_graph = [&graph]() {
-        if (graph.get() == nullptr) {
+        if (graph == nullptr) {
             cerr << "error[vg stats]: The selected operation requires passing a graph file to work on" << endl;
             exit(1);
         }
@@ -317,7 +326,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_heads) {
         require_graph();
-        vector<handle_t> heads = handlealgs::head_nodes(graph.get());
+        vector<handle_t> heads = handlealgs::head_nodes(graph);
         cout << "heads" << "\t";
         for (auto& h : heads) {
             cout << graph->get_id(h) << " ";
@@ -327,7 +336,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_tails) {
         require_graph();
-        vector<handle_t> tails = handlealgs::tail_nodes(graph.get());
+        vector<handle_t> tails = handlealgs::tail_nodes(graph);
         cout << "tails" << "\t";
         for (auto& t : tails) {
             cout << graph->get_id(t) << " ";
@@ -364,7 +373,7 @@ int main_stats(int argc, char** argv) {
         // but this isn't really explained.
         
         vector<pair<unordered_set<nid_t>, vector<handle_t>>> subgraphs_with_tips =
-            handlealgs::weakly_connected_components_with_tips(graph.get());
+            handlealgs::weakly_connected_components_with_tips(graph);
         
         for (auto& subgraph_and_tips : subgraphs_with_tips) {
             // For each subgraph set and its inward tip handles
@@ -406,7 +415,7 @@ int main_stats(int argc, char** argv) {
 
     if (show_components) {
         require_graph();
-        for (auto& c : handlealgs::strongly_connected_components(graph.get())) {
+        for (auto& c : handlealgs::strongly_connected_components(graph)) {
             for (auto& id : c) {
                 cout << id << ", ";
             }
@@ -416,7 +425,7 @@ int main_stats(int argc, char** argv) {
 
     if (is_acyclic) {
         require_graph();
-        if (handlealgs::is_acyclic(graph.get())) {
+        if (handlealgs::is_acyclic(graph)) {
             cout << "acyclic" << endl;
         } else {
             cout << "cyclic" << endl;
@@ -428,7 +437,7 @@ int main_stats(int argc, char** argv) {
         for (auto id : ids) {
             auto n = graph->get_handle(id, false);
             cout << id << " to head:\t"
-                 << distance_to_head(n, 1000, graph.get()) << endl;
+                 << distance_to_head(n, 1000, graph) << endl;
         }
     }
 
@@ -437,26 +446,26 @@ int main_stats(int argc, char** argv) {
         for (auto id : ids) {
             auto n = graph->get_handle(id, false);
             cout << id << " to tail:\t"
-                << distance_to_tail(n, 1000, graph.get()) << endl;
+                << distance_to_tail(n, 1000, graph) << endl;
         }
     }
 
     if (format) {
         require_graph();
         string format_string;
-        if (dynamic_cast<xg::XG*>(graph.get()) != nullptr) {
+        if (dynamic_cast<xg::XG*>(graph) != nullptr) {
             format_string = "XG";
-        } else if (dynamic_cast<GFAHandleGraph*>(graph.get()) != nullptr) {
+        } else if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
             // important this check comes before PackedGraph
             format_string = "GFA";
-        } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
+        } else if (dynamic_cast<bdsg::PackedGraph*>(graph) != nullptr) {
             format_string = "PackedGraph";
-        } else if (dynamic_cast<vg::io::ConvertedHashGraph*>(graph.get()) != nullptr) {
+        } else if (dynamic_cast<vg::io::ConvertedHashGraph*>(graph) != nullptr) {
             // Was Protobuf but we're using a HashGraph internally
             format_string = "VG-Protobuf";
-        } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
+        } else if (dynamic_cast<bdsg::HashGraph*>(graph) != nullptr) {
             format_string = "HashGraph";
-        } else if (dynamic_cast<GBZGraph*>(graph.get()) != nullptr) {
+        } else if (dynamic_cast<GBZGraph*>(graph) != nullptr) {
             format_string = "GBZ";
         } else {
             format_string = "Unknown";
@@ -491,13 +500,14 @@ int main_stats(int argc, char** argv) {
     if (!paths_to_overlap.empty() || overlap_all_paths) {
         require_graph();
         
-        VG* vg_graph = dynamic_cast<VG*>(graph.get());
+        VG* vg_graph = dynamic_cast<VG*>(graph);
         if (vg_graph == nullptr) {
             // TODO: This path overlap code can be handle-ified, and should be.
             vg_graph = new vg::VG();
-            handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
+            handlealgs::copy_path_handle_graph(graph, vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
-            graph.reset(vg_graph);
+            path_handle_graph.reset(vg_graph);
+            graph = path_handle_graph.get();
             // Make sure the paths are all synced up
             vg_graph->paths.to_graph(vg_graph->graph);
         }
@@ -684,7 +694,7 @@ int main_stats(int argc, char** argv) {
         // sites actually have 2 alleles and which only have 1 in the graph.
         ReadStats combined;
 
-        if (graph.get() != nullptr) {
+        if (graph != nullptr) {
             // We have a graph to work on
 
             // For each pair of allele paths in the graph, we need to find out
@@ -910,7 +920,7 @@ int main_stats(int argc, char** argv) {
         size_t total_hets = 0;
         size_t significantly_biased_hets = 0;
 
-        if (graph.get() != nullptr) {
+        if (graph != nullptr) {
 
             // Calculate stats about the reads per allele data
             for(auto& site_and_alleles : combined.reads_on_allele) {
@@ -1028,7 +1038,7 @@ int main_stats(int argc, char** argv) {
             cout << "Speed: " << (combined.total_primary / combined.total_time_seconds) << " reads/second" << endl;
         }
         
-        if (graph.get() != nullptr) {
+        if (graph != nullptr) {
             cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->get_node_count()
                 << " (" << unvisited_node_bases << " bp)" << endl;
             if(verbose) {
@@ -1130,7 +1140,7 @@ int main_stats(int argc, char** argv) {
             
             // Net graph info
             // Internal connectivity not important, we just want the size.
-            auto netGraph = manager.net_graph_of(snarl, graph.get(), false);
+            auto netGraph = manager.net_graph_of(snarl, graph, false);
             cout << netGraph.get_node_count() << endl;
         });
         
