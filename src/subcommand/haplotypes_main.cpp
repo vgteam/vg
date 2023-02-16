@@ -643,17 +643,18 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
         if (subchain.type != Haplotypes::Subchain::full_haplotype) {
             hash_set<Haplotypes::Subchain::kmer_type> all_kmers;
             for (size_t i = 0; i < subchain.kmers.size(); i++) {
-                all_kmers.insert(subchain.kmers[i]);
+                all_kmers.insert(subchain.kmers[i].first);
             }
             if (all_kmers.size() != subchain.kmers.size()) {
                 std::string message = expected_got(subchain.kmers.size(), all_kmers.size()) + " kmers";
                 validate_error_subchain(chain_id, subchain_id, message);
             }
+            hash_map<Haplotypes::Subchain::kmer_type, size_t> used_kmers; // (kmer used in haplotypes, number of sequences that contain it)
             hash_map<Haplotypes::Subchain::kmer_type, size_t> missing_kmers; // (kmer not used in haplotypes, number of sequences that contain it)
             for (size_t i = 0; i < subchain.sequences.size(); i++) {
                 std::string haplotype = get_haplotype(graph, subchain.sequences[i], subchain.start, subchain.end, minimizer_index.k());
                 auto minimizers = minimizer_index.minimizers(haplotype);
-                hash_map<Haplotypes::Subchain::kmer_type, bool> unique_minimizers; // (kmer, used in haplotypes)
+                hash_map<Haplotypes::Subchain::kmer_type, bool> unique_minimizers; // (kmer, used in the sequence)
                 for (auto& minimizer : minimizers) {
                     if (minimizer_index.count(minimizer) == 1) {
                         unique_minimizers[minimizer.key.get_key()] = false;
@@ -661,14 +662,15 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
                 }
                 for (size_t j = 0, offset = i * subchain.kmers.size(); j < subchain.kmers.size(); j++, offset++) {
                     if (subchain.kmers_present[offset]) {
-                        auto iter = unique_minimizers.find(subchain.kmers[j]);
+                        auto iter = unique_minimizers.find(subchain.kmers[j].first);
                         if (iter == unique_minimizers.end()) {
                             std::string message = "kmer " + std::to_string(j) + " not present in the haplotype";
                             validate_error_sequence(chain_id, subchain_id, i, message);
                         }
+                        used_kmers[subchain.kmers[j].first]++;
                         iter->second = true;
                     } else {
-                        if (unique_minimizers.find(subchain.kmers[j]) != unique_minimizers.end()) {
+                        if (unique_minimizers.find(subchain.kmers[j].first) != unique_minimizers.end()) {
                             std::string message = "kmer " + std::to_string(j) + " is present in the haplotype";
                             validate_error_sequence(chain_id, subchain_id, i, message);
                         }
@@ -679,6 +681,18 @@ void validate_chain(const Haplotypes::TopLevelChain& chain,
                         missing_kmers[iter->first]++;
                     }
                 }
+            }
+            size_t invalid_count = 0;
+            for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
+                size_t count = 0;
+                auto iter = used_kmers.find(subchain.kmers[kmer_id].first);
+                if (iter == used_kmers.end() || iter->second != subchain.kmers[kmer_id].second) {
+                    invalid_count++;
+                }
+            }
+            if (invalid_count > 0) {
+                std::string message = "invalid occurrence count for "+ std::to_string(invalid_count) + " kmers";
+                validate_error_subchain(chain_id, subchain_id, message);
             }
             size_t missing_informative_kmers = 0;
             for (auto iter = missing_kmers.begin(); iter != missing_kmers.end(); ++iter) {
@@ -754,7 +768,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
             for (size_t i = 0; i < subchain.kmers.size(); i++) {
-                auto iter = kmers.find(subchain.kmers[i]);
+                auto iter = kmers.find(subchain.kmers[i].first);
                 if (iter != kmers.end()) {
                     const Haplotypes::Subchain& prev = haplotypes.chains[iter->second.first].subchains[iter->second.second];
                     if (chain_id == iter->second.first && subchain_id == iter->second.second + 1 && subchain.type == Haplotypes::Subchain::prefix && prev.type == Haplotypes::Subchain::suffix) {
@@ -764,7 +778,7 @@ void validate_haplotypes(const Haplotypes& haplotypes,
                         validate_error_subchain(chain_id, subchain_id, message);
                     }
                 }
-                kmers[subchain.kmers[i]] = { chain_id, subchain_id };
+                kmers[subchain.kmers[i].first] = { chain_id, subchain_id };
             }
         }
     }

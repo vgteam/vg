@@ -63,7 +63,7 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
             const Subchain& subchain = chain.subchains[subchain_id];
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-                result[subchain.kmers[kmer_id]] = 0;
+                result[subchain.kmers[kmer_id].first] = 0;
             }
         }
     }
@@ -170,7 +170,7 @@ void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
         throw sdsl::simple_sds::InvalidData("Subchain end node " + std::to_string(this->end) + " does not match type" + std::to_string(temp));
     }
 
-    this->kmers = sdsl::simple_sds::load_vector<kmer_type>(in);
+    this->kmers = sdsl::simple_sds::load_vector<std::pair<kmer_type, size_t>>(in);
     this->sequences = sdsl::simple_sds::load_vector<sequence_type>(in);
     this->kmers_present.simple_sds_load(in);
     if (kmers_present.size() != kmers.size() * sequences.size()) {
@@ -578,7 +578,7 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
   empty.
 */
 void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& sequences,
-    std::vector<HaplotypePartitioner::kmer_type>& all_kmers,
+    std::vector<std::pair<HaplotypePartitioner::kmer_type, size_t>>& all_kmers,
     sdsl::bit_vector& kmers_present) {
 
     // Build a map of distinct kmers. For each kmer, record the largest sequence
@@ -605,7 +605,7 @@ void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type
     size_t offset = 0;
     for (auto iter = present.begin(); iter != present.end(); ++iter) {
         if (iter->second.second < sequences.size()) {
-            all_kmers.push_back(iter->first);
+            all_kmers.push_back({ iter->first, iter->second.second });
             iter->second.first = offset;
             offset++;
         }
@@ -969,7 +969,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Determine the type of each kmer in the sample.
             std::vector<kmer_presence> kmer_types;
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-                double count = kmer_counts.at(subchain.kmers[kmer_id]);
+                double count = kmer_counts.at(subchain.kmers[kmer_id].first);
                 if (count < absent_threshold) {
                     kmer_types.push_back(absent);
                     statistics.kmers++;

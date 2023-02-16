@@ -94,8 +94,9 @@ public:
         /// Boundary nodes, or `gbwt::ENDMARKER` if not present.
         gbwt::node_type start, end;
 
-        /// A vector of distinct kmers.
-        std::vector<kmer_type> kmers;
+        /// A vector of distinct kmers. For each kmer, list the kmer itself and the number
+        /// of haplotypes it appears in.
+        std::vector<std::pair<kmer_type, size_t>> kmers;
 
         // TODO: This could be smaller
         /// Sequences as (GBWT sequence id, offset in the relevant node).
