@@ -434,7 +434,7 @@ public:
         size_t kmers = 0;
 
         /// Total score for selected sequences.
-        std::int64_t score = 0;
+        double score = 0.0;
 
         /// Combines the statistics into this object.
         void combine(const Statistics& another);

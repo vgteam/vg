@@ -3,6 +3,7 @@
 #include "kff.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 
 namespace vg {
@@ -826,7 +827,7 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
     out << this->haplotypes << " haplotypes for " << this->chains << " chains ("
         << this->full_haplotypes << " full, " << this->subchains << " subchains, " << this->fragments << " fragments)";
     if (this->kmers > 0) {
-        double average_score = static_cast<double>(this->score) / (this->kmers * this->haplotypes);
+        double average_score = this->score / (this->kmers * this->haplotypes);
         out << "; used " << this->kmers << " kmers with average score " << average_score;
     }
     return out;
@@ -935,11 +936,11 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     gbwt::GBWTBuilder& builder,
     const Parameters& parameters) const {
 
-    // TODO: This is a placeholder.
+    // This kind of assumes that the coverage has Poisson distribution.
     enum kmer_presence { absent, present, ignore };
-    double absent_threshold = parameters.coverage * 0.2;
-    double heterozygous_threshold = parameters.coverage * 0.7;
-    double homozygous_threshold = parameters.coverage * 1.5;
+    double absent_threshold = parameters.coverage * 0.1;
+    double heterozygous_threshold = parameters.coverage / std::log(4.0);
+    double homozygous_threshold = parameters.coverage / std::log(2.0);
 
     std::vector<Haplotype> haplotypes;
     for (size_t i = 0; i < parameters.num_haplotypes; i++) {
@@ -965,36 +966,39 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             }
             assert(!subchain.sequences.empty());
 
-            // TODO: This is a placeholder.
-            // Determine the type of each kmer in the sample.
-            std::vector<kmer_presence> kmer_types;
+            // TODO: How to handle heterozygous kmers?
+            // Determine the type of each kmer in the sample and the score for getting that
+            // kmer right as -log prob.
+            std::vector<std::pair<kmer_presence, double>> kmer_types;
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                 double count = kmer_counts.at(subchain.kmers[kmer_id].first);
                 if (count < absent_threshold) {
-                    kmer_types.push_back(absent);
+                    double frequency = (subchain.sequences.size() - subchain.kmers[kmer_id].second) / static_cast<double>(subchain.sequences.size());
+                    kmer_types.push_back({ absent, -std::log(frequency) });
                     statistics.kmers++;
                 } else if (count < heterozygous_threshold) {
-                    kmer_types.push_back(ignore);
+                    kmer_types.push_back({ ignore, 0.0 });
                 } else if (count < homozygous_threshold) {
-                    kmer_types.push_back(present);
+                    double frequency = subchain.kmers[kmer_id].second / static_cast<double>(subchain.sequences.size());
+                    kmer_types.push_back({ present, -std::log(frequency) });
                     statistics.kmers++;
                 } else {
-                    kmer_types.push_back(ignore);
+                    kmer_types.push_back({ ignore, 0.0 });
                 }
             }
 
             // Score the sequences by kmer presence and sort them by score in descending order.
-            std::vector<std::pair<size_t, std::int64_t>> sequence_scores;
+            std::vector<std::pair<size_t, double>> sequence_scores;
             for (size_t sequence_id = 0; sequence_id < subchain.sequences.size(); sequence_id++) {
                 size_t offset = sequence_id * subchain.kmers.size();
-                std::int64_t score = 0;
+                double score = 0.0;
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-                    switch (kmer_types[kmer_id]) {
+                    switch (kmer_types[kmer_id].first) {
                     case present:
-                        score += (subchain.kmers_present[offset + kmer_id] ? 1 : -1);
+                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].first : -kmer_types[kmer_id].first);
                         break;
                     case absent:
-                        score += (subchain.kmers_present[offset + kmer_id] ? -1 : 1);
+                        score += (subchain.kmers_present[offset + kmer_id] ? -kmer_types[kmer_id].first : kmer_types[kmer_id].first);
                         break;
                     default:
                         break;
@@ -1002,7 +1006,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 }
                 sequence_scores.push_back({ sequence_id, score });
             }
-            std::sort(sequence_scores.begin(), sequence_scores.end(), [](std::pair<size_t, std::int64_t> a, std::pair<size_t, std::int64_t> b) -> bool {
+            std::sort(sequence_scores.begin(), sequence_scores.end(), [](std::pair<size_t, double> a, std::pair<size_t, double> b) -> bool {
                 return (a.second > b.second);
             });
 
