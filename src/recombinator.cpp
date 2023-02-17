@@ -936,11 +936,11 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     gbwt::GBWTBuilder& builder,
     const Parameters& parameters) const {
 
-    // This kind of assumes that the coverage has Poisson distribution.
+    // TODO: What are the proper thresholds?
     enum kmer_presence { absent, present, ignore };
     double absent_threshold = parameters.coverage * 0.1;
     double heterozygous_threshold = parameters.coverage / std::log(4.0);
-    double homozygous_threshold = parameters.coverage / std::log(2.0);
+    double homozygous_threshold = parameters.coverage * 2.0;
 
     std::vector<Haplotype> haplotypes;
     for (size_t i = 0; i < parameters.num_haplotypes; i++) {
@@ -995,10 +995,10 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                     switch (kmer_types[kmer_id].first) {
                     case present:
-                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].first : -kmer_types[kmer_id].first);
+                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].second : -kmer_types[kmer_id].second);
                         break;
                     case absent:
-                        score += (subchain.kmers_present[offset + kmer_id] ? -kmer_types[kmer_id].first : kmer_types[kmer_id].first);
+                        score += (subchain.kmers_present[offset + kmer_id] ? -kmer_types[kmer_id].second : kmer_types[kmer_id].second);
                         break;
                     default:
                         break;
