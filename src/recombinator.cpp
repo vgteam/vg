@@ -967,20 +967,21 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             assert(!subchain.sequences.empty());
 
             // TODO: How to handle heterozygous kmers?
+            // TODO: -log prob may be the right score once we have enough haplotypes, but
+            // right now +1 works better, because we don't have haplotypes with the right
+            // combination of rare kmers.
             // Determine the type of each kmer in the sample and the score for getting that
-            // kmer right as -log prob.
+            // kmer right.
             std::vector<std::pair<kmer_presence, double>> kmer_types;
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                 double count = kmer_counts.at(subchain.kmers[kmer_id].first);
                 if (count < absent_threshold) {
-                    double frequency = (subchain.sequences.size() - subchain.kmers[kmer_id].second) / static_cast<double>(subchain.sequences.size());
-                    kmer_types.push_back({ absent, -std::log(frequency) });
+                    kmer_types.push_back({ absent, 1.0 });
                     statistics.kmers++;
                 } else if (count < heterozygous_threshold) {
                     kmer_types.push_back({ ignore, 0.0 });
                 } else if (count < homozygous_threshold) {
-                    double frequency = subchain.kmers[kmer_id].second / static_cast<double>(subchain.sequences.size());
-                    kmer_types.push_back({ present, -std::log(frequency) });
+                    kmer_types.push_back({ present, 1.0 });
                     statistics.kmers++;
                 } else {
                     kmer_types.push_back({ ignore, 0.0 });
