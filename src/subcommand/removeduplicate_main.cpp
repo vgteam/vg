@@ -22,6 +22,9 @@
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../stream_sorter.hpp"
+#include <BooPHF.h>
+#include <bitset>
+#include "../hash_map.hpp"
 
 using namespace std;
 using namespace vg;
@@ -30,6 +33,66 @@ using namespace vg::subcommand;
 #include <iostream>
 #include <vector>
 #include <algorithm>
+
+
+//const uint64_t SEED = 0x9747b28c;
+//const uint64_t M = 0xc6a4a7935bd1e995;
+//const int R = 47;
+//
+//uint64_t murmurHash3(const void* key, size_t len, uint64_t seed) {
+//    const uint64_t *data = (const uint64_t *)key;
+//    const size_t nblocks = len / 8;
+//
+//    uint64_t h = seed;
+//
+//    for (size_t i = 0; i < nblocks; i++) {
+//        uint64_t k = data[i];
+//        k *= M;
+//        k ^= k >> R;
+//        k *= M;
+//        h ^= k;
+//        h *= M;
+//    }
+//
+//    const uint8_t *tail = (const uint8_t *)(data + nblocks);
+//    uint64_t k1 = 0;
+//
+//    switch (len & 7) {
+//        case 7: k1 ^= uint64_t(tail[6]) << 48;
+//        case 6: k1 ^= uint64_t(tail[5]) << 40;
+//        case 5: k1 ^= uint64_t(tail[4]) << 32;
+//        case 4: k1 ^= uint64_t(tail[3]) << 24;
+//        case 3: k1 ^= uint64_t(tail[2]) << 16;
+//        case 2: k1 ^= uint64_t(tail[1]) << 8;
+//        case 1: k1 ^= uint64_t(tail[0]);
+//            k1 *= M;
+//            k1 ^= k1 >> R;
+//            k1 *= M;
+//            h ^= k1;
+//    }
+//
+//    h ^= len;
+//    h ^= h >> 33;
+//    h *= 0xff51afd7ed558ccd;
+//    h ^= h >> 33;std::hash<string>
+//    h *= 0xc4ceb9fe1a85ec53;
+//    h ^= h >> 33;
+//
+//    return h;
+//}
+//
+class Custom_string_hasher {
+public:
+
+
+    uint64_t operator() (const string& s, uint64_t seed=0) const {
+        size_t hash = seed;
+        hash_combine(hash, s);
+        return hash;
+
+
+    }
+};
 
 vector <pair<long long, long long>> make_coalesced_sorted_intervals(const Alignment &aln) {
     /// return a vector of pairs of id-ts of the node ids that are themselves sorted and properly coalesced
@@ -114,8 +177,6 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
 }
 
 
-
-
 void help_rmvdup(char **argv) {
 // TODO: add whatever option is needed to this list. Change long_option and getopt_long if want to add an option.
 // TODO: see what input and output file formats is possible
@@ -126,10 +187,12 @@ void help_rmvdup(char **argv) {
 
 }
 
+typedef boomphf::mphf <string, Custom_string_hasher> boophf_t;
+
 int main_rmvdup(int argc, char *argv[]) {
     string filename;
     bool show_progress = false;
-    int threads = 1;
+    int threads = 8;
 
     int c;
     optind = 2;  // force optind past command positional argument
@@ -187,32 +250,53 @@ int main_rmvdup(int argc, char *argv[]) {
         });
     }
 
+    vector <string> keys;
+//    int i = 0;
+    function<void(Alignment & )> fill_hash = [&](const Alignment &aln) {
+
+        keys.push_back(aln.name());
+//        cout << aln.name() << ++i << endl;
+    };
+
+    get_input_file(sorted_gam_name, [&](istream &in) {
+        vg::io::for_each(in, fill_hash);
+    });
+
+//    bitset<keys.size()> checked;
+    cout << keys.size() << endl;
+    boophf_t *bphf = new boomphf::mphf<string, Custom_string_hasher>(keys.size(), keys, threads);
+
+
     function<void(Alignment & )> test = [&](const Alignment &aln) {
         if (gam_index.get() != nullptr) {
+            cout << bphf->lookup(aln.name()) << " " << aln.name() << endl;
 
             // This is a schema of what I am going to do
             // I mark all the reads that have to get deleted as duplicates. This means one read from each duplicate set remains unmarked.
             // This way we can remove all reads with duplicate flag and not worry about deleting them all
             // TODO: check if the above algorithm is logical
-            if (aln not in
-            checked
-            duplicates){ // TODO: handle this with hash
-                // make the alignment nodes list that can be use as input if .find function of the gam_index
-                vector <pair<long long, long long>> intervals = make_coalesced_sorted_intervals(aln);
-                // Find all alignments that share at least one node with the current working alignment
-                get_input_file(sorted_gam_name, [&](istream &input_gam) {
-                    vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
-                    // find all sharing nodes alignments and call the function to handle the result
-                    gam_index->find(gam_cursor, intervals, print_gam);
-                });
-
-
-            }
-
-            for (auto interval: intervals) {
-                std::cout << "[" << interval.first << ", " << interval.second << "]" << std::endl;
-            }
-            cout << "============================================" << endl;
+//            if (!checked.test(bphf->lookup(aln.name()))){
+//                // make the alignment nodes list that can be use as input if .find function of the gam_index
+//                vector <pair<long long, long long>> intervals = make_coalesced_sorted_intervals(aln);
+//                // Find all alignments that share at least one node with the current working alignment
+//                get_input_file(sorted_gam_name, [&](istream &input_gam) {
+//                    vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
+//                    vector <Alignment> alns;
+//                    // find all sharing nodes alignments and call the function to handle the result
+//                    gam_index->find(gam_cursor, intervals, [&](const Alignment &share_aln) {
+//
+//                        if (!checked.test(bphf->lookup(share_aln.name()))){
+//                        if (check_duplicate(aln, share_aln)) {
+//                            checked.set(bphf->lookup(share_aln.name()));
+//                            // these alignments are duplicate if we are here
+//
+//                        }
+//                    }
+//                    });
+//                });
+//
+//
+//            }
 
 
         }
@@ -231,6 +315,7 @@ int main_rmvdup(int argc, char *argv[]) {
     return 0;
 
 }
+
 
 // Register subcommand
 static Subcommand vg_removeduplicate("rmvdup", "Remove duplicate PCRs from the input file", WIDGET, main_rmvdup);
