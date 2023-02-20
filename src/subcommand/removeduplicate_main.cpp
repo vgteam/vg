@@ -85,7 +85,7 @@ class Custom_string_hasher {
 public:
 
 
-    uint64_t operator() (const string& s, uint64_t seed=0) const {
+    uint64_t operator()(const string &s, uint64_t seed = 0) const {
         size_t hash = seed;
         hash_combine(hash, s);
         return hash;
@@ -176,6 +176,19 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
 
 }
 
+string name_id(const Alignment &aln) {
+    string id;
+    if (aln.has_fragment_next()) {
+        id = aln.name() + "/1";
+    } else if (aln.has_fragment_prev()) {
+        id = aln.name() + "/2";
+    } else {
+        id = aln.name();
+    }
+    return id;
+
+}
+
 
 void help_rmvdup(char **argv) {
 // TODO: add whatever option is needed to this list. Change long_option and getopt_long if want to add an option.
@@ -186,6 +199,7 @@ void help_rmvdup(char **argv) {
          << "    -t, --threads N            number of threads to use" << endl;
 
 }
+
 
 typedef boomphf::mphf <string, Custom_string_hasher> boophf_t;
 
@@ -205,7 +219,7 @@ int main_rmvdup(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hpt",
+        c = getopt_long(argc, argv, "hpt:",
                         long_options, &option_index);
 
         if (c == -1) break;
@@ -251,57 +265,56 @@ int main_rmvdup(int argc, char *argv[]) {
     }
 
     vector <string> keys;
-//    int i = 0;
     function<void(Alignment & )> fill_hash = [&](const Alignment &aln) {
-
-        keys.push_back(aln.name());
-//        cout << aln.name() << ++i << endl;
+        keys.push_back(name_id(aln));
     };
 
     get_input_file(sorted_gam_name, [&](istream &in) {
         vg::io::for_each(in, fill_hash);
     });
 
-//    bitset<keys.size()> checked;
-    cout << keys.size() << endl;
-    boophf_t *bphf = new boomphf::mphf<string, Custom_string_hasher>(keys.size(), keys, threads);
+    vector<bool> checked(keys.size(), false);
+    boophf_t *bphf = new boomphf::mphf<string, Custom_string_hasher>(keys.size(), keys, threads, 2.0, false, false);
 
-
+//    vg::io::ProtobufEmitter<google::protobuf::Message> emitter(cout);
     function<void(Alignment & )> test = [&](const Alignment &aln) {
         if (gam_index.get() != nullptr) {
-            cout << bphf->lookup(aln.name()) << " " << aln.name() << endl;
-
-            // This is a schema of what I am going to do
             // I mark all the reads that have to get deleted as duplicates. This means one read from each duplicate set remains unmarked.
             // This way we can remove all reads with duplicate flag and not worry about deleting them all
             // TODO: check if the above algorithm is logical
-//            if (!checked.test(bphf->lookup(aln.name()))){
-//                // make the alignment nodes list that can be use as input if .find function of the gam_index
-//                vector <pair<long long, long long>> intervals = make_coalesced_sorted_intervals(aln);
-//                // Find all alignments that share at least one node with the current working alignment
-//                get_input_file(sorted_gam_name, [&](istream &input_gam) {
-//                    vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
-//                    vector <Alignment> alns;
-//                    // find all sharing nodes alignments and call the function to handle the result
-//                    gam_index->find(gam_cursor, intervals, [&](const Alignment &share_aln) {
-//
-//                        if (!checked.test(bphf->lookup(share_aln.name()))){
-//                        if (check_duplicate(aln, share_aln)) {
-//                            checked.set(bphf->lookup(share_aln.name()));
-//                            // these alignments are duplicate if we are here
-//
-//                        }
-//                    }
-//                    });
-//                });
-//
-//
-//            }
+            if (!checked[bphf->lookup(name_id(aln))]) {
+                // make the alignment nodes list that can be use as input if .find function of the gam_index
+                vector <pair<long long, long long>> intervals = make_coalesced_sorted_intervals(aln);
+                // Find all alignments that share at least one node with the current working alignment
+                get_input_file(sorted_gam_name, [&](istream &input_gam) {
+                    vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
+                    // find all sharing nodes alignments and call the function to handle the result
+                    gam_index->find(gam_cursor, intervals, [&](const Alignment &share_aln) {
 
+                        if (!checked[bphf->lookup(name_id(aln))]) {
+                            if (name_id(aln) != name_id(share_aln)) {
+                                if (check_duplicate(aln, share_aln)) {
+//                                    cout << aln.sequence() << "\t" << share_aln.sequence() << endl;
+//                                    cout << aln.name() << "\t" << share_aln.name() << endl;
+                                    checked[bphf->lookup(name_id(share_aln))] = true;
+                                    // these alignments are duplicate if we are here
+
+                                }
+
+                            }
+
+                        }
+                    });
+
+                });
+                cout << aln.sequence() << '\t' << aln.name() << endl;
+
+
+
+            }
 
         }
     };
-
 
     if (gam_index.get() != nullptr) {
         get_input_file(sorted_gam_name, [&](istream &in) {
