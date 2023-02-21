@@ -436,11 +436,17 @@ public:
         /// Total score for selected sequences.
         double score = 0.0;
 
+        /// Total score for sequences of each rank in sorted order.
+        std::vector<double> score_by_rank;
+
         /// Combines the statistics into this object.
         void combine(const Statistics& another);
 
         /// Prints the statistics and returns the output stream.
         std::ostream& print(std::ostream& out) const;
+
+        /// Prints the average score per kmer for each sequence rank in sorted order.
+        void print_scores(std::ostream& out) const;
     };
 
     /// Creates a new `Recombinator`.

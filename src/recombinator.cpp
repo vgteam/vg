@@ -821,6 +821,13 @@ void Recombinator::Statistics::combine(const Statistics& another) {
     this->haplotypes = std::max(this->haplotypes, another.haplotypes);
     this->kmers += another.kmers;
     this->score += another.score;
+
+    if (another.score_by_rank.size() > this->score_by_rank.size()) {
+        this->score_by_rank.resize(another.score_by_rank.size(), 0.0);
+    }
+    for (size_t i = 0; i < another.score_by_rank.size(); i++) {
+        this->score_by_rank[i] += another.score_by_rank[i];
+    }
 }
 
 std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
@@ -831,6 +838,12 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
         out << "; used " << this->kmers << " kmers with average score " << average_score;
     }
     return out;
+}
+
+void Recombinator::Statistics::print_scores(std::ostream& out) const {
+    for (size_t i = 0; i < this->score_by_rank.size(); i++) {
+        out << i << "\t" << (this->score_by_rank[i] / this->kmers) << std::endl;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -910,6 +923,10 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Total: "; statistics.print(std::cerr) << std::endl;
+        if (this->verbosity >= HaplotypePartitioner::verbosity_debug) {
+            std::cerr << "Average kmer score for each sequence rank in sorted order:" << std::endl;
+            statistics.print_scores(std::cerr);
+        }
         std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
     }
 
@@ -973,20 +990,22 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Determine the type of each kmer in the sample and the score for getting that
             // kmer right.
             std::vector<std::pair<kmer_presence, double>> kmer_types;
+            size_t selected_kmers = 0;
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                 double count = kmer_counts.at(subchain.kmers[kmer_id].first);
                 if (count < absent_threshold) {
                     kmer_types.push_back({ absent, 1.0 });
-                    statistics.kmers++;
+                    selected_kmers++;
                 } else if (count < heterozygous_threshold) {
                     kmer_types.push_back({ ignore, 0.0 });
                 } else if (count < homozygous_threshold) {
                     kmer_types.push_back({ present, 1.0 });
-                    statistics.kmers++;
+                    selected_kmers++;
                 } else {
                     kmer_types.push_back({ ignore, 0.0 });
                 }
             }
+            statistics.kmers += selected_kmers;
 
             // Score the sequences by kmer presence and sort them by score in descending order.
             std::vector<std::pair<size_t, double>> sequence_scores;
@@ -1010,6 +1029,12 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             std::sort(sequence_scores.begin(), sequence_scores.end(), [](std::pair<size_t, double> a, std::pair<size_t, double> b) -> bool {
                 return (a.second > b.second);
             });
+            if (sequence_scores.size() > statistics.score_by_rank.size()) {
+                statistics.score_by_rank.resize(sequence_scores.size(), 0.0);
+            }
+            for (size_t i = 0; i < sequence_scores.size(); i++) {
+                statistics.score_by_rank[i] += sequence_scores[i].second;
+            }
 
             // Extend the haplotypes with the highest-scoring sequences.
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
