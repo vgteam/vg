@@ -462,6 +462,9 @@ public:
 
         /// Buffer size (in nodes) for GBWT construction.
         gbwt::size_type buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
+
+        /// Sample randomly instead of by score.
+        bool random_sampling = false;
     };
 
     /**

@@ -93,8 +93,9 @@ void help_haplotypes(char** argv) {
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
-    std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "        --coverage N          read coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
+    std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
+    std::cerr << "        --random-sampling     sample randomly instead of using the kmer counts" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = silent, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
@@ -161,6 +162,7 @@ int main_haplotypes(int argc, char** argv) {
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
     constexpr int OPT_COVERAGE = 1300;
     constexpr int OPT_NUM_HAPLOTYPES = 1301;
+    constexpr int OPT_RANDOM_SAMPLING = 1302;
     constexpr int OPT_VALIDATE = 1400;
 
     static struct option long_options[] =
@@ -173,10 +175,11 @@ int main_haplotypes(int argc, char** argv) {
         { "haplotype-input", required_argument, 0, 'i' },
         { "kmer-input", required_argument, 0, 'k' },
         { "kmer-length", required_argument, 0, OPT_KMER_LENGTH },
+        { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
-        { "window-length", required_argument, 0, OPT_WINDOW_LENGTH },
+        { "random-sampling", no_argument, 0, OPT_RANDOM_SAMPLING },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -250,6 +253,9 @@ int main_haplotypes(int argc, char** argv) {
                 std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
                 return 1;
             }
+            break;
+        case OPT_RANDOM_SAMPLING:
+            recombinator_parameters.random_sampling = true;
             break;
 
         case 'v':

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <random>
 
 namespace vg {
 
@@ -878,7 +879,11 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
 
     start = gbwt::readTimer();
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
-        std::cerr << "Building GBWT" << std::endl;
+        if (parameters.random_sampling) {
+            std::cerr << "Building GBWT (random sampling)" << std::endl;
+        } else {
+            std::cerr << "Building GBWT" << std::endl;
+        }
     }
 
     // Determine construction jobs.
@@ -964,6 +969,9 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
         haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_edge(), {} });
     }
 
+    // TODO: Random seed.
+    std::mt19937_64 rng(0xACDCABBA);
+
     Statistics statistics;
     statistics.chains = 1; statistics.haplotypes = parameters.num_haplotypes;
     if (chain.subchains.size() == 1 && chain.subchains.front().type == Haplotypes::Subchain::full_haplotype) {
@@ -1038,7 +1046,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 
             // Extend the haplotypes with the highest-scoring sequences.
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                size_t offset = haplotype % sequence_scores.size();
+                size_t offset = (parameters.random_sampling ? rng() : haplotype) % sequence_scores.size();
                 size_t seq_id = sequence_scores[offset].first;
                 statistics.score += sequence_scores[offset].second;
                 haplotypes[haplotype].extend(subchain.sequences[seq_id], subchain, *this, builder);
