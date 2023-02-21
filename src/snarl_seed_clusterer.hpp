@@ -3,6 +3,7 @@
 
 #include "snarls.hpp"
 #include "snarl_distance_index.hpp"
+#include "zip_code.hpp"
 #include "hash_map.hpp"
 #include "small_bitset.hpp"
 #include <structures/union_find.hpp>
@@ -57,7 +58,7 @@ class SnarlDistanceIndexClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
-            gbwtgraph::payload_type minimizer_cache = MIPayload::NO_CODE; //minimizer payload
+            gbwtgraph::payload_type minimizer_cache = zip_code_t::NO_PAYLOAD; //minimizer payload
         };
 
         /// Seed information used for clustering
@@ -70,8 +71,7 @@ class SnarlDistanceIndexClusterer {
             pos_t pos;
 
             //TODO: This gets copied because it needs to be mutable
-            //Cached values from the minimizer
-            //Use MIPayload::node_record_offset(minimizer_cache), etc to get values
+            //Cached values (zip codes) from the minimizer
             gbwtgraph::payload_type minimizer_cache;
 
             //The distances to the left and right of whichever cluster this seed represents

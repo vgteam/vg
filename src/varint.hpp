@@ -17,10 +17,19 @@ using namespace std;
      * Values can only be accessed in order, and only added to the end of the vector
      */
     struct varint_vector_t {
+    
+
         public:
     
+        //The actual data stored in the vector
+        //TODO :Should be private
+        std::vector<uint8_t> data;
+
         //Add an integer value to the end of the varint vector
         void add_value(size_t value);
+
+        //Add a byte directly (don't encode it)
+        void add_one_byte (const uint8_t& byte) { data.emplace_back(byte);}
     
         //Get the integer at the given index. 
         //Index refers to the index in the vector of bytes, not the nth value stored in the vector
@@ -36,10 +45,11 @@ using namespace std;
         size_t byte_count() const {
             return data.size();
         }
-    
+        
+        void print_self() const;
+
+        
         private:
-        //The actual data stored in the vector
-        std::vector<uint8_t> data;
 
         const static size_t USABLE_BITS = 7;
         //01111111

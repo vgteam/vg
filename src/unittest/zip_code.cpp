@@ -60,6 +60,16 @@ using namespace std;
             REQUIRE(decoded.rank_or_offset == distance_index.get_rank_in_parent(chain1));
             REQUIRE(decoded.code_type == ROOT_NODE);
         }
+        SECTION("n1 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            }
+        }
         SECTION("Distances within one node") {
             zip_code_t zip_code;
             zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
@@ -280,6 +290,66 @@ using namespace std;
                                                          zip6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == 7);
+        }
+        SECTION("n1 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n2 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n3 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n4 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+           if (zip_code.byte_count() <= 15) {
+               REQUIRE(zip_code == decoded);
+           }
+        }
+        SECTION("n5 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n6 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
         }
     }
     TEST_CASE("Nested snarl zipcode", "[zipcode]") {
@@ -739,6 +809,86 @@ using namespace std;
             REQUIRE(!zip_code_t::is_farther_than(zip1, zip2, 0));
             REQUIRE(!zip_code_t::is_farther_than(zip2, zip7, 0));
         }
+        SECTION("n1 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n2 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n3 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n4 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n5 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n6 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n7 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n8 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n8->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
     }
     TEST_CASE("Irregular snarl zipcode", "[zipcode]") {
  
@@ -901,6 +1051,76 @@ using namespace std;
                                                          zip4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
+        }
+        SECTION("n1 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n2 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n3 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n4 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n5 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n6 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n7 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
         }
     }
 
@@ -1078,6 +1298,76 @@ using namespace std;
                                                          distance_index)
                     == 1);
         }
+        SECTION("n1 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n2 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n3 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n4 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n5 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n6 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n7 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
     }
     TEST_CASE("Top-level chain zipcode", "[zipcode]") {
  
@@ -1171,6 +1461,76 @@ using namespace std;
             REQUIRE(!zip_code_t::is_farther_than(zip1, zip7, 10));
             REQUIRE(!zip_code_t::is_farther_than(zip2, zip7, 10));
             REQUIRE(zip_code_t::is_farther_than(zip2, zip7, 8));
+        }
+        SECTION("n1 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n1->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n2 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n2->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n3 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n3->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n4 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n4->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n5 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n5->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n6 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n6->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
+        }
+        SECTION("n7 as payload") {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(distance_index, make_pos_t(n7->id(), 0, false));
+            gbwtgraph::payload_type payload = zip_code.get_payload_from_zip();
+            zip_code_t decoded;
+            decoded.fill_in_zip_code_from_payload(payload);
+            if (zip_code.byte_count() <= 15) {
+                REQUIRE(zip_code == decoded);
+            };
         }
     }
 }

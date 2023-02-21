@@ -262,16 +262,16 @@ int main_minimizer(int argc, char** argv) {
     }
     if (distance_name.empty()) {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::payload_type {
-            return MIPayload::NO_CODE;
+            return zip_code_t::NO_PAYLOAD;
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+            zip_code_t zip_code;
+            zip_code.fill_in_zip_code(*distance_index, pos);
             #ifdef WRITE_MINIMIZER_ZIP_CODES
                         //TODO: this is only for testing, can be taken out once the zip codes are done
                         //This should only be used single threaded.
                         //For each minimizer, writes the size of the zip code and then the zip code as a tsv
-                        zip_code_t zip_code;
-                        zip_code.fill_in_zip_code(*distance_index, pos);
                         pair<size_t, size_t> value (0, 0);
             
                         //How many bytes get used
@@ -283,7 +283,7 @@ int main_minimizer(int argc, char** argv) {
                         }
                         cout << endl;
             #endif
-            return MIPayload::encode(get_minimizer_distances(*distance_index,pos));
+            return zip_code.get_payload_from_zip();
         });
     }
 

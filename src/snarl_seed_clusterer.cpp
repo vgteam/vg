@@ -363,11 +363,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
             //Get the net_handle for the node the seed is on
-            net_handle_t node_net_handle = !has_cached_values ? distance_index.get_node_net_handle(id) 
-                                            : distance_index.get_net_handle_from_values(MIPayload::record_offset(old_cache), 
-                                                             SnarlDistanceIndex::START_END, 
-                                                             SnarlDistanceIndex::NODE_HANDLE, 
-                                                             MIPayload::node_record_offset(old_cache)); 
+            net_handle_t node_net_handle = distance_index.get_node_net_handle(id);
 
 
             //Get the parent of the node

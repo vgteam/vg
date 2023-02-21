@@ -113,4 +113,18 @@ std::pair<size_t, size_t> varint_vector_t::get_value_and_next_index(size_t index
 
     return std::make_pair(value, index);
 }
+
+void varint_vector_t::print_self() const {
+    for (const auto& byte : data) {
+        cerr << (static_cast<size_t>(byte)) <<  ":  "
+             << ((byte & (1<<7)) ? "1" : "0") 
+             << ((byte & (1<<6)) ? "1" : "0") 
+             << ((byte & (1<<5)) ? "1" : "0") 
+             << ((byte & (1<<4)) ? "1" : "0") 
+             << ((byte & (1<<3)) ? "1" : "0") 
+             << ((byte & (1<<2)) ? "1" : "0") 
+             << ((byte & (1<<1)) ? "1" : "0") 
+             << ((byte & (1<<0)) ? "1" : "0") << endl;
+    }
+}
 }

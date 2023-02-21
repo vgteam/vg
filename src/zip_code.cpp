@@ -920,5 +920,195 @@ bool zip_code_t::is_farther_than(const zip_code_t& zip1, const zip_code_t& zip2,
     }
 }
 
+gbwtgraph::payload_type zip_code_t::get_payload_from_zip() const {
+    if (byte_count() > 15) {
+        //If there aren't enough bits to represent the zip code
+        return NO_PAYLOAD;
+    }
+    
+    //Index and value as we walk through the zip code
+    size_t index = 0;
+    size_t value;
+    
+    //The values that get returned
+    code_type encoded1 = 0;
+    code_type encoded2 = 0;
+
+    encoded1 |= byte_count();
+
+    for (size_t i = 0 ; i < zip_code.data.size() ; i++ ) {
+       size_t byte = static_cast<size_t> (zip_code.data[i]); 
+       if ( i < 7 ) {
+            //Add to first code
+            encoded1 |= (byte << ((i+1)*8));
+
+        } else {
+            //Add to second code
+            encoded2 |= (byte << ((i-7)*8));
+        }
+    
+    }
+    return {encoded1, encoded2};
+
+}
+
+void zip_code_t::fill_in_zip_code_from_payload(const gbwtgraph::payload_type& payload) {
+
+    //get one byte at a time from the payload and add it to the zip code
+    size_t bit_mask = (1 << 8) - 1;
+    size_t byte_count = payload.first & bit_mask;
+    for (size_t i = 1 ; i <= byte_count ; i++) {
+        if (i < 8) {
+            zip_code.add_one_byte((payload.first >> (i*8)) & bit_mask);
+        } else {
+            zip_code.add_one_byte((payload.second >> ((i-8)*8)) & bit_mask);
+        }
+
+    }
+}
+
+gbwtgraph::payload_type zip_code_t::get_old_payload_from_zipcode(const SnarlDistanceIndex& distance_index,
+                                                                const nid_t& id) {
+
+    gbwtgraph::payload_type payload;
+
+    zip_code_decoder_t decoder = decode();
+
+    net_handle_t node_handle = distance_index.get_node_net_handle(id);
+    MIPayload::set_record_offset(payload, distance_index.get_record_offset(node_handle));
+    MIPayload::set_node_record_offset(payload, distance_index.get_node_record_offset(node_handle));
+    bool root_is_chain = decoder.front().first;
+
+    if (decoder.size() == 1) {
+        //If the root-level structure is a node
+        //The values in the zip code are: 1, chain_id, node_length
+
+        size_t zip_index, zip_value;
+        //Value is 1
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(0);
+        //Value is chain_id
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        //Value is node length
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+
+        MIPayload::set_parent_record_offset(payload, 0);
+        MIPayload::set_node_length(payload, zip_value);
+        MIPayload::set_is_reversed(payload, false);
+        MIPayload::set_is_trivial_chain(payload, true);
+        MIPayload::set_parent_is_chain(payload, true);
+        MIPayload::set_parent_is_root(payload, true);
+        MIPayload::set_prefix_sum(payload, std::numeric_limits<size_t>::max());
+        MIPayload::set_chain_component(payload, std::numeric_limits<size_t>::max());
+    } else if (decoder.size() == 2 && root_is_chain) {
+        //If this is a node in the top-level chain
+        //The values in the zip code are: 1, chain_id, prefix_sum, length, is_reversed
+        size_t zip_index, zip_value;
+        //Value is 1
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(0);
+        //Value is chain_id
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        MIPayload::set_parent_record_offset(payload, distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)));
+        //Value is prefix_sum
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        MIPayload::set_prefix_sum(payload, zip_value);
+
+        //Value is length
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        MIPayload::set_node_length(payload, zip_value);
+
+        //Value is is_reversed
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        MIPayload::set_is_reversed(payload, zip_value);
+
+
+        MIPayload::set_is_trivial_chain(payload, false);
+        MIPayload::set_parent_is_chain(payload, true);
+        MIPayload::set_parent_is_root(payload, false);
+        MIPayload::set_chain_component(payload, 0);
+    
+    } else if (decoder.size() == 2 && !root_is_chain) {
+        //If the node is the child of the root snarl
+
+        //The values in the zip code are: 0, snarl_id, rank in snarl, node length
+        size_t zip_index, zip_value;
+        //Value is 0
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(0);
+        //Value is snarl_id
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        MIPayload::set_parent_record_offset(payload, distance_index.get_record_offset(distance_index.get_handle_from_connected_component(zip_value)));
+        //Value is rank in snarl
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        //Value is node length
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        MIPayload::set_node_length(payload, zip_value);
+
+        MIPayload::set_prefix_sum(payload, std::numeric_limits<size_t>::max());
+        MIPayload::set_is_reversed(payload, false);
+        MIPayload::set_is_trivial_chain(payload, true);
+        MIPayload::set_parent_is_chain(payload, false);
+        MIPayload::set_parent_is_root(payload, true);
+        MIPayload::set_chain_component(payload, std::numeric_limits<size_t>::max());
+    } else {
+        //Otherwise, check the last thing in the zipcode to get the node values
+        size_t zip_index, zip_value;
+
+        zip_index = decoder.back().second;
+
+        //If the last thing is a node in a chain, then it will have 3 values. If it is a trivial chain, then it will have 2
+        size_t prefix_sum;
+        std::tie(prefix_sum, zip_index) = zip_code.get_value_and_next_index(zip_index);
+        std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+
+        if (zip_index == std::numeric_limits<size_t>::max() ) {
+            //If this was a trivial chain in a snarl
+            MIPayload::set_is_trivial_chain(payload, false);
+            MIPayload::set_node_length(payload, zip_value);
+
+            //Now check the second-to-last thing in the zipcode, the parent snarl
+            zip_index = decoder[decoder.size()-2].second;
+            std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+            if (zip_value) {
+                //Snarl is regular
+
+                //prefix sum
+                std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+                MIPayload::set_prefix_sum(payload, zip_value);
+                std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+                std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+                MIPayload::set_is_reversed(payload, zip_value);
+                //TODO: I'm not sure about what to do about this, I don't like doing it here
+                net_handle_t parent = distance_index.get_parent(distance_index.get_parent(node_handle));
+                MIPayload::set_parent_record_offset(payload, distance_index.get_record_offset(parent));
+            } else {
+                //Snarl is irregular
+                MIPayload::set_is_reversed(payload, false);
+                std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+                MIPayload::set_parent_record_offset(payload, zip_value);
+                net_handle_t snarl =  distance_index.get_net_handle_from_values(
+                    zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
+                net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
+                MIPayload::set_prefix_sum(payload, distance_index.get_prefix_sum_value(bound) + distance_index.minimum_length(bound));
+            }
+        } else {
+            //If this was a node in a chain
+            MIPayload::set_is_trivial_chain(payload, true);
+            MIPayload::set_prefix_sum(payload, prefix_sum);
+
+            MIPayload::set_node_length(payload, zip_value);
+
+            std::tie(zip_value, zip_index) = zip_code.get_value_and_next_index(zip_index);
+            MIPayload::set_is_reversed(payload, zip_value);
+        }
+
+
+        MIPayload::set_parent_is_root(payload, false);
+        MIPayload::set_chain_component(payload, 0);
+    }
+    
+
+    return payload;
+}
+
+
 
 }

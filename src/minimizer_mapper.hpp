@@ -442,7 +442,7 @@ protected:
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
     inline static gbwtgraph::payload_type no_chain_info() {
-        return MIPayload::NO_CODE;  
+        return zip_code_t::NO_PAYLOAD;  
     } 
     
     /// How do we convert chain info to an actual seed of the type we are using?

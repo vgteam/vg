@@ -3400,7 +3400,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
                 gbwtgraph::payload_type chain_info = no_chain_info();
-                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
+                if (minimizer.occs[j].payload != zip_code_t::NO_PAYLOAD) {
                     chain_info = minimizer.occs[j].payload;
                 }
                 seeds.push_back(chain_info_to_seed(hit, i, chain_info));
