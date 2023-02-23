@@ -1354,7 +1354,7 @@ namespace vg {
                         << inv_end_cursor << endl;
                     #endif
                     
-                    if (inv_end_cursor == inv_start) {
+                    if (inv_end_cursor != inv_start) {
                         // Make sure we did it right
                         #pragma omp critical (cerr)
                         cerr << "error:[vg::Constructor] On " << reference_path_name << " near " << reference_cursor
