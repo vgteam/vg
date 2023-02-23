@@ -1809,7 +1809,7 @@ namespace vg {
                 // Update the mapping lengths on the mutable first node.
                 // First we find the primary path
                 Path* path = chunk.graph.mutable_path(0);
-                if (path->name() == reference_contig) {
+                if (path->name() != reference_contig) {
                     #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] Expected path " << reference_contig
                          << " but found path " << path->name() << endl;
@@ -1865,7 +1865,7 @@ namespace vg {
 
                 // Find the primary path
                 Path* path = chunk.graph.mutable_path(0);
-                if (path->name() == reference_contig) {
+                if (path->name() != reference_contig) {
                     #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] Expected path " << reference_contig
                          << " but found path " << path->name() << endl;
