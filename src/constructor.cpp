@@ -411,8 +411,20 @@ namespace vg {
             #endif
 
             // Don't get out of the chunk
-            assert(target_position <= reference_sequence.size());
-            assert(reference_cursor <= reference_sequence.size());
+            if (target_position > reference_sequence.size()) {
+                #pragma omp critical (cerr)
+                cerr << "error:[vg::Constructor] On " << reference_path_name
+                     << ", attempted to add reference nodes until position " << target_position
+                     << " but reference is only " << reference_sequence.size() << " long" << endl;
+                exit(1);
+            }
+            if (reference_cursor > reference_sequence.size()) {
+                #pragma omp critical (cerr)
+                cerr << "error:[vg::Constructor] On " << reference_path_name
+                     << ", reference cursor is at " << reference_cursor
+                     << " but reference is only " << reference_sequence.size() << " long" << endl;
+                exit(1);
+            }
             
             if (target_position < reference_cursor) {
                 // TODO: should this ever happen? Should we be asked to go backward?
@@ -459,8 +471,13 @@ namespace vg {
             cerr << "Advanced reference cursor for next unmade base to " << reference_cursor << "/" << reference_sequence.size() << endl;
             #endif
             
-            assert(reference_cursor <= reference_sequence.size());
-            
+            if (reference_cursor > reference_sequence.size()) {
+                #pragma omp critical (cerr)
+                cerr << "error:[vg::Constructor] On " << reference_path_name
+                     << ", after adding reference nodes, reference cursor is at " << reference_cursor
+                     << " but reference is only " << reference_sequence.size() << " long" << endl;
+                exit(1);
+            }
         };
 
         while (next_variant != variants.end() || !clump.empty()) {
@@ -525,7 +542,15 @@ namespace vg {
                 
                     // No variants should still be symbolic at this point.
                     // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
-                    assert(!variant->isSymbolicSV());
+                    if (variant->isSymbolicSV()) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << "error:[vg::Constructor] On " << reference_path_name << " @ " << variant->zeroBasedPosition()
+                                 << ", variant appears to be a symbolic SV, but all variants should have already been converted to explicit sequence edits." << endl;
+                            cerr << "error:[vg::Constructor] Offending variant: " << *variant << endl;
+                        }
+                        exit(1);
+                    }
                     // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
                     // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib get mad)
@@ -1195,8 +1220,20 @@ namespace vg {
                         << next_end << "/" << reference_sequence.size() << endl;
                     #endif
                     
-                    assert(reference_cursor <= reference_sequence.size());
-                    assert(next_end <= reference_sequence.size());
+                    if (reference_cursor > reference_sequence.size()) {
+                        #pragma omp critical (cerr)
+                        cerr << "error:[vg::Constructor] On " << reference_path_name
+                             << ", adding reference to last edit end, reference cursor is at " << reference_cursor
+                             << " but reference is only " << reference_sequence.size() << " long" << endl;
+                        exit(1);
+                    }
+                    if (next_end > reference_sequence.size()) {
+                        #pragma omp critical (cerr)
+                        cerr << "error:[vg::Constructor] On " << reference_path_name
+                             << ", adding reference to last edit end, next end is at " << next_end
+                             << " but reference is only " << reference_sequence.size() << " long" << endl;
+                        exit(1);
+                    }
 
                     // We need to have a reference node/run of nodes (which may have
                     // already been created by a reference match) between where the
@@ -1260,8 +1297,14 @@ namespace vg {
                     // Advance the reference cursor to after this run of reference nodes
                     reference_cursor = next_end + 1;
                     
-                    assert(reference_cursor <= reference_sequence.size());
-
+                    if (reference_cursor > reference_sequence.size()) {
+                        #pragma omp critical (cerr)
+                        cerr << "error:[vg::Constructor] On " << reference_path_name
+                             << ", after adding reference to last edit end, reference cursor is at " << reference_cursor
+                             << " but reference is only " << reference_sequence.size() << " long" << endl;
+                        exit(1);
+                    }
+                    
                     // Keep going until we have created reference nodes through to
                     // the end of the clump's interior edits.
                 }
@@ -1311,8 +1354,13 @@ namespace vg {
                         << inv_end_cursor << endl;
                     #endif
                     
-                    // Make sure we did it right
-                    assert(inv_end_cursor == inv_start);
+                    if (inv_end_cursor == inv_start) {
+                        // Make sure we did it right
+                        #pragma omp critical (cerr)
+                        cerr << "error:[vg::Constructor] On " << reference_path_name << " near " << reference_cursor
+                             << ", inversion end cursor " << inv_end_cursor << " did not reach inversion start " << inv_start << endl;
+                        exit(1);
+                    }
                 
                 }
 
@@ -1652,8 +1700,13 @@ namespace vg {
         // together
         auto emit_reference_node = [&](Node& node) {
 
-            // Don't emit nonexistent nodes
-            assert(node.id() != 0);
+            if (node.id() == 0) {
+                // Don't emit nonexistent nodes
+                #pragma omp critical (cerr)
+                cerr << "error:[vg::Constructor] On " << vcf_contig << " near " << chunk_start
+                     << ", tried to produce a reference node without an ID" << endl;
+                exit(1);
+            }
 
             // Make a single node chunk for the node
             Graph chunk;
@@ -1712,8 +1765,13 @@ namespace vg {
                     }
                 }
                 
-                // Make sure we found it
-                assert(mutable_first_node != nullptr && mutable_first_node->id() == wanted_id);
+                if (mutable_first_node == nullptr || mutable_first_node->id() != wanted_id) {
+                    // Make sure we found it
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] On " << reference_contig
+                         << ", could not find node " << wanted_id << endl;
+                    exit(1);
+                }
 
                 // Combine the sequences for the two nodes
                 string combined_sequence = last_node_buffer.sequence() + mutable_first_node->sequence();
@@ -1751,11 +1809,28 @@ namespace vg {
                 // Update the mapping lengths on the mutable first node.
                 // First we find the primary path
                 Path* path = chunk.graph.mutable_path(0);
-                assert(path->name() == reference_contig);
+                if (path->name() == reference_contig) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] Expected path " << reference_contig
+                         << " but found path " << path->name() << endl;
+                    exit(1);
+                }
                 // Then the first mapping
                 Mapping* mapping = path->mutable_mapping(0);
-                assert(mapping->position().node_id() == mutable_first_node->id());
-                assert(mapping->edit_size() == 1);
+                if (mapping->position().node_id() != mutable_first_node->id()) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] On " << reference_contig
+                         << ", expected node " << mutable_first_node->id()
+                         << " but found node " << mapping->position().node_id() << endl;
+                    exit(1);
+                }
+                if (mapping->edit_size() != 1) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] On " << reference_contig
+                         << " at node " << mapping->position().node_id()
+                         << ", expected 1 edit but found " << mapping->edit_size() << endl;
+                    exit(1);
+                }
                 // Then the only edit
                 Edit* edit = mapping->mutable_edit(0);
                 // Correct its length
@@ -1778,17 +1853,38 @@ namespace vg {
                 // We know it's the last node in the graph
                 last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
                 
-                assert(chunk.right_ends.count(last_node_buffer.id()));
+                if (!chunk.right_ends.count(last_node_buffer.id())) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] On " << reference_contig
+                         << ", could not find right end for node " << last_node_buffer.id() << endl;
+                    exit(1);
+                }
 
                 // Remove it
                 chunk.graph.mutable_node()->RemoveLast();
 
                 // Find the primary path
                 Path* path = chunk.graph.mutable_path(0);
-                assert(path->name() == reference_contig);
+                if (path->name() == reference_contig) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] Expected path " << reference_contig
+                         << " but found path " << path->name() << endl;
+                    exit(1);
+                }
                 // Then drop last mapping, which has to be to this node
-                assert(path->mapping_size() > 0);
-                assert(path->mapping(path->mapping_size() - 1).position().node_id() == last_node_buffer.id());
+                if (path->mapping_size() == 0) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] On " << reference_contig
+                         << ", found empty path" << endl;
+                    exit(1);
+                }
+                if (path->mapping(path->mapping_size() - 1).position().node_id() != last_node_buffer.id()) {
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] On " << reference_contig
+                         << ", expected last node" << last_node_buffer.id()
+                         << " but found " << path->mapping(path->mapping_size() - 1).position().node_id() << endl;
+                    exit(1);
+                }
                 path->mutable_mapping()->RemoveLast();
 
                 // Update its ID separately, since it's no longer in the graph.
@@ -2116,7 +2212,11 @@ namespace vg {
         for (size_t i = 0; i < references.size(); i++) {
             // For every FASTA reference, make sure it has an index
             auto* reference = references[i];
-            assert(reference->index);
+            if (!reference->index) {
+                #pragma omp critical (cerr)
+                cerr << "error:[vg::Constructor] Reference #" << i << " is missing its index" << endl;
+                exit(1);
+            }
             for (auto& kv : *(reference->index)) {
                 // For every sequence name and index entry, point to this reference
                 reference_for[kv.first] = reference;
