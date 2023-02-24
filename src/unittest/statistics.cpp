@@ -14,6 +14,30 @@
 namespace vg {
 namespace unittest {
 
+TEST_CASE("Summary statistics", "[statistics]") {
+    SECTION("Even number of integers") {
+        std::map<size_t, size_t> values { { 0, 1 }, { 1, 2 }, { 3, 1 }, { 4, 1 }, { 6, 1 } };
+        SummaryStatistics statistics = summary_statistics(values);
+        REQUIRE(statistics.mean == 2.5);
+        REQUIRE(statistics.median == 2.0);
+        REQUIRE(statistics.stdev == std::sqrt(25.5 / 6));
+        REQUIRE(statistics.number_of_values == 6);
+        REQUIRE(statistics.max_value == 6.0);
+        REQUIRE(statistics.count_of_max == 1);
+    }
+
+    SECTION("Odd number of doubles") {
+        std::map<double, size_t> values { { 1.0, 2 }, { 3.0, 2 }, { 5.0, 3 }, { 10.0, 1 }, { 12.0, 1 } };
+        SummaryStatistics statistics = summary_statistics(values);
+        REQUIRE(statistics.mean == 5.0);
+        REQUIRE(statistics.median == 5.0);
+        REQUIRE(statistics.stdev == std::sqrt(114.0 / 9));
+        REQUIRE(statistics.number_of_values == 9);
+        REQUIRE(statistics.max_value == 12.0);
+        REQUIRE(statistics.count_of_max == 1);
+    }
+}
+
 TEST_CASE("Matrix algebra functions work correctly", "[matrix][statistics]") {
     
     SECTION("Transpose produces correct output") {

@@ -618,6 +618,10 @@ int main_stats(int argc, char** argv) {
             size_t total_paired = 0;
             size_t total_proper_paired = 0;
 
+            // Alignment and mapping quality score distributions.
+            std::map<std::int64_t, size_t> alignment_scores;
+            std::map<std::int64_t, size_t> mapping_qualities;
+
             // In verbose mode we want to report details of insertions, deletions,
             // and substitutions, and soft clips.
             vector<pair<vg::id_t, Edit>> insertions;
@@ -655,7 +659,14 @@ int main_stats(int argc, char** argv) {
                 total_softclipped_bases += other.total_softclipped_bases;
                 total_paired += other.total_paired;
                 total_proper_paired += other.total_proper_paired;
-                
+
+                for (auto iter = other.alignment_scores.begin(); iter != other.alignment_scores.end(); ++iter) {
+                    this->alignment_scores[iter->first] += iter->second;
+                }
+                for (auto iter = other.mapping_qualities.begin(); iter != other.mapping_qualities.end(); ++iter) {
+                    this->mapping_qualities[iter->first] += iter->second;
+                }
+
                 std::copy(other.insertions.begin(), other.insertions.end(), std::back_inserter(insertions));
                 std::copy(other.deletions.begin(), other.deletions.end(), std::back_inserter(deletions));
                 std::copy(other.substitutions.begin(), other.substitutions.end(), std::back_inserter(substitutions));
@@ -768,6 +779,8 @@ int main_stats(int argc, char** argv) {
                     // the primary can't be unaligned if the secondary is
                     // aligned.
                     stats.total_aligned++;
+                    stats.alignment_scores[aln.score()]++;
+                    stats.mapping_qualities[aln.mapping_quality()]++;
                 }
                 
                 if (aln.has_fragment_next() || aln.has_fragment_prev() || has_annotation(aln, "proper_pair")) {
@@ -992,6 +1005,17 @@ int main_stats(int argc, char** argv) {
         cout << "Total gapless (softclips allowed): " << combined.total_gapless << endl;
         cout << "Total paired: " << combined.total_paired << endl;
         cout << "Total properly paired: " << combined.total_proper_paired << endl;
+
+        SummaryStatistics score_stats = summary_statistics(combined.alignment_scores);
+        cout << "Alignment scores: mean " << score_stats.mean
+             << ", median " << score_stats.median
+             << ", stdev " << score_stats.stdev
+             << ", max " << score_stats.max_value << " for " << score_stats.count_of_max << " reads" << endl;
+        SummaryStatistics mapq_stats = summary_statistics(combined.mapping_qualities);
+        cout << "Mapping qualities: mean " << mapq_stats.mean
+             << ", median " << mapq_stats.median
+             << ", stdev " << mapq_stats.stdev
+             << ", max " << mapq_stats.max_value << " for " << mapq_stats.count_of_max << " reads" << endl;
 
         cout << "Insertions: " << combined.total_inserted_bases << " bp in " << combined.total_insertions << " read events" << endl;
         if(verbose) {
