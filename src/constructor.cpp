@@ -200,6 +200,119 @@ namespace vg {
 
         return make_pair(variable_start, variable_stop);
     }
+    
+    bool Constructor::sanitize_sequence_in_place(string& sequence, const string* sequence_name, size_t sequence_start_offset, const vcflib::Variant* variant) const {
+        
+        bool made_change = false;
+        
+        // Make sure the input sequence is upper-case
+        string uppercase_sequence = toUppercase(sequence);
+        if (uppercase_sequence != sequence) {
+            // We had to make a change
+            if (warn_on_lowercase) {
+                if (variant) {
+                    // We are warning about a variant (alt)
+                    if (!lowercase_warned_alt) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << "warning:[vg::Constructor] Lowercase characters found in "
+                                 << "variant; coercing to uppercase:\n" << *const_cast<vcflib::Variant*>(variant) << endl;
+                            lowercase_warned_alt = true;
+                        }
+                    }
+                } else {
+                    // What sequence are we complaining about?
+                    string name_to_warn = sequence_name ? *sequence_name : "DNA sequence";
+                    #pragma omp critical (cerr)
+                    {
+                        // Note that the pragma also protects this mutable map that we update
+                        if (!lowercase_warned_sequences.count(name_to_warn)) {
+                            // We haven't warned about this sequence yet
+                            cerr << "warning:[vg::Constructor] Lowercase characters found in "
+                                << name_to_warn << "; coercing to uppercase." << endl;
+                            lowercase_warned_sequences.insert(name_to_warn);
+                        }    
+                    }
+                }
+            }
+            // Replace the original
+            sequence = std::move(uppercase_sequence);
+            made_change = true;
+        }
+        
+        // Make sure all IUPAC codes are Ns
+        string n_sequence = allAmbiguousToN(sequence);
+        if (n_sequence != sequence) {
+            // We had to make a change
+            if (warn_on_ambiguous) {
+                if (variant) {
+                    // We are warning about a variant (alt).
+                    // TODO: We used to always bail for IUPAC codes in a
+                    // variant allele; do we really want to not?
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << "warning:[vg::Constructor] Unsupported IUPAC ambiguity codes found in "
+                             << "variant; coercing to N:\n" << *const_cast<vcflib::Variant*>(variant) << endl;
+                    }
+                } else {
+                    // What sequence are we complaining about?
+                    string name_to_warn = sequence_name ? *sequence_name : "DNA sequence";
+                    #pragma omp critical (cerr)
+                    {
+                        // Note that the pragma also protects this mutable map that we update
+                        if (!ambiguous_warned_sequences.count(name_to_warn)) {
+                            // We haven't warned about this sequence yet
+                            cerr << "warning:[vg::Constructor] Unsupported IUPAC ambiguity codes found in "
+                                << name_to_warn << "; coercing to N." << endl;
+                            ambiguous_warned_sequences.insert(name_to_warn);
+                        }    
+                    }
+                }
+            }
+            // Replace the original
+            sequence = std::move(n_sequence);
+            made_change = true;
+        }
+        
+        // TODO: this is like the forth scan of the whole string we do; can we
+        // condense this all into one pass?
+        if (!allATGCN(sequence)) {
+            // We don't know what to do with gaps, and we want to catch
+            // complete garbage.
+            
+            // We would like an example.
+            auto it = sequence.begin();
+            while (it != sequence.end() && (*it == 'A' || *it == 'T' || *it == 'G' || *it == 'C' || *it == 'N')) {
+                ++it;
+            }
+            
+            #pragma omp critical (cerr)
+            {
+                cerr << "error:[vg::Constructor] unacceptable character ";
+                if (it != sequence.end()) {
+                    cerr << "\"" << *it << "\" ";
+                }
+                cerr << "found in ";
+                if (sequence_name) {
+                    cerr << *sequence_name;
+                } else {
+                    cerr << "DNA sequence";
+                }
+                if (it != sequence.end()) {
+                    cerr << " at index " << (it - sequence.begin() + sequence_start_offset);
+                }
+                if (variant) {
+                    cerr << " in variant:\n" << *const_cast<vcflib::Variant*>(variant);
+                } else {
+                    cerr << ".";
+                }
+                cerr << endl;
+                exit(1);
+            }
+        }
+        
+        return made_change;
+    }
 
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
         vector<vcflib::Variant> variants, size_t chunk_offset) const {
@@ -208,53 +321,9 @@ namespace vg {
         cerr << "constructing chunk " << reference_path_name << ":" << chunk_offset << " length " << reference_sequence.size() << endl;
         #endif
         
-        // Make sure the input sequence is upper-case
-        string uppercase_sequence = toUppercase(reference_sequence);
+        // Make sure the input sequence is upper-case and all IUPAC codes are Ns
+        sanitize_sequence_in_place(reference_sequence, &reference_path_name);
         
-        if (uppercase_sequence != reference_sequence && warn_on_lowercase) {
-            #pragma omp critical (cerr)
-            {
-                // Note that the pragma also protects this mutable map that we update
-                if (!lowercase_warned_sequences.count(reference_path_name)) {
-                    // We haven't warned about this sequence yet
-                    cerr << "warning:[vg::Constructor] Lowercase characters found in "
-                        << reference_path_name << "; coercing to uppercase." << endl;
-                    lowercase_warned_sequences.insert(reference_path_name);
-                }    
-            }
-        }
-        reference_sequence = std::move(uppercase_sequence);
-        
-        // Make sure all IUPAC codes are Ns
-        string n_sequence = allAmbiguousToN(reference_sequence);
-        
-        if (n_sequence != reference_sequence && warn_on_ambiguous) {
-            #pragma omp critical (cerr)
-            {
-                // Note that the pragma also protects this mutable map that we update
-                if (!ambiguous_warned_sequences.count(reference_path_name)) {
-                    // We haven't warned about this sequence yet
-                    cerr << "warning:[vg::Constructor] Unsupported IUPAC ambiguity codes found in "
-                        << reference_path_name << "; coercing to N." << endl;
-                    ambiguous_warned_sequences.insert(reference_path_name);
-                }    
-            }
-        }
-        reference_sequence = std::move(n_sequence);
-
-        // TODO: this is like the forth scan of the whole string we do; can we
-        // condense this all into one pass?
-        if (!allATGCN(reference_sequence)) {
-            // We don't know what to do with gaps, and we want to catch
-            // complete garbage.
-            #pragma omp critical (cerr)
-            {
-                cerr << "error:[vg::Constructor] unacceptable characters found in " 
-                    << reference_path_name << "." << endl;
-                exit(1);
-            }
-        }
-
         // Construct a chunk for this sequence with these variants.
         ConstructedChunk to_return;
 
@@ -540,38 +609,14 @@ namespace vg {
                     cerr << "Handling clump variant " << var_num << "/" << clump.size() << " @ " << variant->zeroBasedPosition() << endl;
 #endif
                 
-                    // No variants should still be symbolic at this point.
-                    // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
-                    if (variant->isSymbolicSV()) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << "error:[vg::Constructor] On " << reference_path_name << " @ " << variant->zeroBasedPosition()
-                                 << ", variant appears to be a symbolic SV, but all variants should have already been converted to explicit sequence edits." << endl;
-                            cerr << "error:[vg::Constructor] Offending variant: " << *variant << endl;
-                        }
-                        exit(1);
-                    }
-                    // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
-
-                    // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib get mad)
+                    // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib gets mad).
                     // We set this if we modify the variant and vcflib needs to reindex it.
                     bool reindex = false;
                     // We set this if we skipped the variant
                     bool skip_variant = false;
-                    for (auto& alt : variant->alt) {
-                        string upper_case_alt = toUppercase(alt);
-                        if (alt != upper_case_alt) {
-                            if (!lowercase_warned_alt && warn_on_lowercase) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << "warning:[vg::Constructor] Lowercase characters found in "
-                                         << "variant, coercing to uppercase:\n" << *variant << endl;
-                                    lowercase_warned_alt = true;
-                                }
-                            }
-                            swap(alt, upper_case_alt);
-                            reindex = true;
-                        }
+                    for (size_t i = 0; i < variant->alt.size(); i++) {
+                        auto& alt = variant->alt[i];
+                        // Process all the alts and not the ref
                         if (alt == "*") {
                             // This is a newer VCF feature we don't support,
                             // but not a broken file.
@@ -584,30 +629,28 @@ namespace vg {
                             skip_variant = true;
                             break;
                         }
-                        if (!allATGCN(alt)) {
-                            // We don't know what to do with gaps or IUPAC ambiguity codes, and
-                            // we want to catch complete garbage.
-                            #pragma omp critical (cerr)
-                            {
-                                cerr << "error:[vg::Constructor] non-ATGCN characters found in " 
-                                    << "variant:\n" << *variant << endl;
-                                exit(1);
-                            }
+                        // Sanitize the alt of Ns and lower case characters,
+                        // and ensure what remains is something we can use, not
+                        // a symbolic SV.
+                        bool modified = sanitize_sequence_in_place(alt, nullptr, 0, variant);
+                        if (modified) {
+                            // Also update the copy in alleles
+                            variant->alleles[i + 1] = alt;
                         }
+                        reindex |= modified;
                     }
                     if (skip_variant) {
                         // Move to the next variant
                         continue;
                     }
-                    for (auto& allele : variant->alleles) {
-                        allele = toUppercase(allele);
-                    }
-                    string upper_case_var_ref = toUppercase(variant->ref);
-                    if (upper_case_var_ref != variant->ref) {
-                        swap(variant->ref, upper_case_var_ref);
+                    // Also process the reference, but blame problems on the reference
+                    if (sanitize_sequence_in_place(variant->ref, &reference_path_name, variant->zeroBasedPosition())) {
+                        // Also update the copy in alleles
+                        variant->alleles[0] = variant->ref;
                         reindex = true;
                     }
                     if (reindex) {
+                        // Redo the indexing
                         variant->updateAlleleIndexes();
                     }
 
@@ -622,6 +665,20 @@ namespace vg {
                             cerr << "zero ind: " << variant->zeroBasedPosition() << " 1-indexed: " << variant->position << endl;
                         exit(1);
                     }
+                    
+                    // No variants should still be symbolic at this point.
+                    // Either we canonicalized them into base-level sequence, or we rejected them when making the clump.
+                    // If they had IUPAC codes in them we should have fixed that already too.
+                    if (variant->isSymbolicSV()) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << "error:[vg::Constructor] On " << reference_path_name << " @ " << variant->zeroBasedPosition()
+                                 << ", variant appears to be a symbolic SV, but all variants should have already been converted to explicit sequence edits." << endl;
+                            cerr << "error:[vg::Constructor] Offending variant: " << *variant << endl;
+                        }
+                        exit(1);
+                    }
+                    // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
@@ -2028,24 +2085,38 @@ namespace vg {
                 if (vvar->isSymbolicSV()) {
                     // We have a symbolic not-all-filled-in alt.
                     // We need to be processed as a symbolic SV
+                    // It also might just have IUPAC codes in it and an SVTYPE and thus look symbolic.
                 
                     if (this->do_svs) {
                         // We are actually going to try to handle this SV.
                         
-                        // Canonicalize the variant and see if that disqualifies it.
-                        // This also takes care of setting the variant's alt sequences.
-                        variant_acceptable = vvar->canonicalizable() && vvar->canonicalize(reference, insertions, true);
-         
+                        if (vvar->alt.size() > 1) {
+                            // vcflib will refuse to canonicalize multi-alt SVs.
+                            #pragma omp critical (cerr)
+                            {
+                                if (!multiallelic_sv_warned) {
+                                    cerr << "warning:[vg::Constructor] Multiallelic SVs cannot be canonicalized by vcflib; skipping variants like: " << *vvar << endl;
+                                    multiallelic_sv_warned = true;
+                                }
+                            }
+                            variant_acceptable = false;
+                        }
+                        
                         if (variant_acceptable) {
-                            // Worth checking for multiple alts.
-                            if (vvar->alt.size() > 1) {
-                                // We can't handle multiallelic SVs yet.
+                            // Canonicalize the variant and see if that disqualifies it.
+                            // This also takes care of setting the variant's alt sequences.
+                            variant_acceptable = vvar->canonicalizable() && vvar->canonicalize(reference, insertions, true);
+                            if (!variant_acceptable) {
                                 #pragma omp critical (cerr)
-                                cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
-                                variant_acceptable = false;
+                                {
+                                    if (!uncanonicalizable_sv_warned) {
+                                        cerr << "warning:[vg::Constructor] vcflib could not canonicalize some SVs to base-level sequence; skipping variants like: " << *vvar << endl;
+                                        uncanonicalizable_sv_warned = true;
+                                    }
+                                }
                             }
                         }
-                            
+         
                         if (variant_acceptable) {
                             // Worth checking for bounds problems.
                             // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
@@ -2064,13 +2135,13 @@ namespace vg {
                         variant_acceptable = false;
                         
                         // Figure out exactly what to complain about.
-                        
                         for (string& alt : vvar->alt) {
                             // Validate each alt of the variant
 
                             if(!allATGCN(alt)) {
                                 // This is our problem alt here.
                                 // Either it's a symbolic alt or it is somehow lower case or something.
+                                // It could be an IUPAC code, which we can't handle usually.
                                 #pragma omp critical (cerr)
                                 {
                                     bool warn = true;
@@ -2083,7 +2154,7 @@ namespace vg {
                                     }
                                     if (warn) {
                                         cerr << "warning:[vg::Constructor] Unsupported variant allele \""
-                                            << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
+                                            << alt << "\"; skipping variants like: " << *vvar <<" !" << endl;
                                     }
                                 }
                                 break;
