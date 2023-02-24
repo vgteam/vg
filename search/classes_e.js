@@ -1,12 +1,12 @@
 var searchData=
 [
-  ['option_6473',['Option',['../classvg_1_1Option.html',1,'vg']]],
-  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e_6474',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
-  ['optiongroup_6475',['OptionGroup',['../structvg_1_1subcommand_1_1OptionGroup.html',1,'vg::subcommand']]],
-  ['optioninterface_6476',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
-  ['optionvalueparser_6477',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
-  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e_6478',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
-  ['orderedgraph_6479',['OrderedGraph',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html',1,'vg::DozeuInterface']]],
-  ['orienteddistanceclusterer_6480',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
-  ['orienteddistancemeasurer_6481',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
+  ['option_6476',['Option',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e_6477',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
+  ['optiongroup_6478',['OptionGroup',['../structvg_1_1subcommand_1_1OptionGroup.html',1,'vg::subcommand']]],
+  ['optioninterface_6479',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
+  ['optionvalueparser_6480',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
+  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e_6481',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
+  ['orderedgraph_6482',['OrderedGraph',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html',1,'vg::DozeuInterface']]],
+  ['orienteddistanceclusterer_6483',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
+  ['orienteddistancemeasurer_6484',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
 ];

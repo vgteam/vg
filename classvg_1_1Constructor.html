@@ -70,6 +70,7 @@ $(function() {
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
+<a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-static-methods">Static Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1Constructor-members.html">List of all members</a>  </div>
@@ -174,6 +175,11 @@ Protected Attributes</h2></td></tr>
 <tr class="memdesc:ad908156325375d8008c9ac68790b71e8 inherit pro_attribs_classvg_1_1NameMapper"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is the reverse map from FASTA sequence name to VCF sequence name.  <a href="classvg_1_1NameMapper.html#ad908156325375d8008c9ac68790b71e8">More...</a><br /></td></tr>
 <tr class="separator:ad908156325375d8008c9ac68790b71e8 inherit pro_attribs_classvg_1_1NameMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
+Private Member Functions</h2></td></tr>
+<tr class="memitem:a1d90ed36989b851bb3c072f4d67b52dd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a1d90ed36989b851bb3c072f4d67b52dd">sanitize_sequence_in_place</a> (string &amp;sequence, const string *sequence_name=nullptr, size_t sequence_start_offset=0, const vcflib::Variant *variant=nullptr) const</td></tr>
+<tr class="separator:a1d90ed36989b851bb3c072f4d67b52dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
 Static Private Member Functions</h2></td></tr>
 <tr class="memitem:a428cf1b27e402a304c18e40f87e9dc02"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02">trim_to_variable</a> (vector&lt; list&lt; vcflib::VariantAllele &gt;&gt; &amp;parsed_alleles)</td></tr>
@@ -193,6 +199,12 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:af296f5e32632a4fee39ac4bc11589c09"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#af296f5e32632a4fee39ac4bc11589c09">lowercase_warned_alt</a> = false</td></tr>
 <tr class="memdesc:af296f5e32632a4fee39ac4bc11589c09"><td class="mdescLeft">&#160;</td><td class="mdescRight">Have we given a warning yet about lowercase alt alleles?  <a href="classvg_1_1Constructor.html#af296f5e32632a4fee39ac4bc11589c09">More...</a><br /></td></tr>
 <tr class="separator:af296f5e32632a4fee39ac4bc11589c09"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad4a4e56154c62990a784f7e51e7368cd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#ad4a4e56154c62990a784f7e51e7368cd">multiallelic_sv_warned</a> = false</td></tr>
+<tr class="memdesc:ad4a4e56154c62990a784f7e51e7368cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Have we given a warning yet about multiallelic SVs?  <a href="classvg_1_1Constructor.html#ad4a4e56154c62990a784f7e51e7368cd">More...</a><br /></td></tr>
+<tr class="separator:ad4a4e56154c62990a784f7e51e7368cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac7747658550e74b383a491a06e04ea99"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#ac7747658550e74b383a491a06e04ea99">uncanonicalizable_sv_warned</a> = false</td></tr>
+<tr class="memdesc:ac7747658550e74b383a491a06e04ea99"><td class="mdescLeft">&#160;</td><td class="mdescRight">Have we given a warning yet about uncanonicalizable SVs?  <a href="classvg_1_1Constructor.html#ac7747658550e74b383a491a06e04ea99">More...</a><br /></td></tr>
+<tr class="separator:ac7747658550e74b383a491a06e04ea99"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab4733354328ad88166206d95680570f1"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#ab4733354328ad88166206d95680570f1">ambiguous_warned_sequences</a></td></tr>
 <tr class="memdesc:ab4733354328ad88166206d95680570f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">What sequences have we warned about containing unsupported ambiguity codes?  <a href="classvg_1_1Constructor.html#ab4733354328ad88166206d95680570f1">More...</a><br /></td></tr>
 <tr class="separator:ab4733354328ad88166206d95680570f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -544,6 +556,60 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a1d90ed36989b851bb3c072f4d67b52dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d90ed36989b851bb3c072f4d67b52dd">&#9670;&nbsp;</a></span>sanitize_sequence_in_place()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Constructor::sanitize_sequence_in_place </td>
+          <td>(</td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string *&#160;</td>
+          <td class="paramname"><em>sequence_name</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>sequence_start_offset</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vcflib::Variant *&#160;</td>
+          <td class="paramname"><em>variant</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Given a sequence, get rid of all the lowercase characters and all the ambiguity codes. Warn if configured, and the sequence has a name assigned, and no warning has yet been issued for that name, or if a variant is specified.</p>
+<p>Will error if this results in a string with anything other than A, C, G, T, and N.</p>
+<p>sequence_start_offset can be set to produce useful messages if the sequence we are looking at is an excerpt from a longer sequence.</p>
+<p>Santitizing may move the stored string data in memory.</p>
+<p>Returns true if the string was modified.</p>
+<p>We need this as a function because vcflib reaches back and reads the FASTA files directly, so we can't <em>just</em> preprocess the reference and we need to constantly clean up the variants. </p>
+
+</div>
+</div>
 <a id="a428cf1b27e402a304c18e40f87e9dc02"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a428cf1b27e402a304c18e40f87e9dc02">&#9670;&nbsp;</a></span>trim_to_variable()</h2>
 
@@ -822,6 +888,30 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ad4a4e56154c62990a784f7e51e7368cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad4a4e56154c62990a784f7e51e7368cd">&#9670;&nbsp;</a></span>multiallelic_sv_warned</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Constructor::multiallelic_sv_warned = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Have we given a warning yet about multiallelic SVs? </p>
+
+</div>
+</div>
 <a id="a245d775942ede32387b95497803e114c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a245d775942ede32387b95497803e114c">&#9670;&nbsp;</a></span>symbolic_allele_warnings</h2>
 
@@ -856,6 +946,30 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac7747658550e74b383a491a06e04ea99"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac7747658550e74b383a491a06e04ea99">&#9670;&nbsp;</a></span>uncanonicalizable_sv_warned</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Constructor::uncanonicalizable_sv_warned = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Have we given a warning yet about uncanonicalizable SVs? </p>
 
 </div>
 </div>
