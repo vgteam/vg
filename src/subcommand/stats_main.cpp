@@ -1007,15 +1007,15 @@ int main_stats(int argc, char** argv) {
         cout << "Total properly paired: " << combined.total_proper_paired << endl;
 
         SummaryStatistics score_stats = summary_statistics(combined.alignment_scores);
-        cout << "Alignment scores: mean " << score_stats.mean
+        cout << "Alignment score: mean " << score_stats.mean
              << ", median " << score_stats.median
              << ", stdev " << score_stats.stdev
-             << ", max " << score_stats.max_value << " for " << score_stats.count_of_max << " reads" << endl;
+             << ", max " << score_stats.max_value << " (" << score_stats.count_of_max << " reads)" << endl;
         SummaryStatistics mapq_stats = summary_statistics(combined.mapping_qualities);
-        cout << "Mapping qualities: mean " << mapq_stats.mean
+        cout << "Mapping quality: mean " << mapq_stats.mean
              << ", median " << mapq_stats.median
              << ", stdev " << mapq_stats.stdev
-             << ", max " << mapq_stats.max_value << " for " << mapq_stats.count_of_max << " reads" << endl;
+             << ", max " << mapq_stats.max_value << " (" << mapq_stats.count_of_max << " reads)" << endl;
 
         cout << "Insertions: " << combined.total_inserted_bases << " bp in " << combined.total_insertions << " read events" << endl;
         if(verbose) {

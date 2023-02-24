@@ -5,6 +5,9 @@
  * Tools for working with the Kmer File Format (KFF).
  */
 
+#include <deque>
+#include <mutex>
+
 #include <kff_io.hpp>
 
 #include <gbwtgraph/minimizer.h>
@@ -68,6 +71,53 @@ std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const
 
 /// Returns the reverse complement of a minimizer index kmer.
 gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::value_type kmer, size_t k);
+
+//------------------------------------------------------------------------------
+
+/**
+ * A wrapper over `Kff_reader` that allows reading kmers safely from multiple threads.
+ */
+class ParallelKFFReader {
+public:
+    typedef gbwtgraph::Key64::value_type kmer_type;
+
+    /// Creates a new reader for the given file. Throws `std::runtime_error` if the
+    /// sanity checks fail.
+    ParallelKFFReader(const std::string& filename);
+
+    /// Reads the next `n` kmers and counts from the file. This can be called safely
+    /// from multiple threads. If the returned vector contains fewer than `n` kmers
+    /// this indicates that the reader has reached the end of the file.
+    std::vector<std::pair<kmer_type, size_t>> read(size_t n);
+
+    /// KFF reader.
+    Kff_reader reader;
+
+    /// Buffer from unused kmers from the latest block.
+    std::deque<std::pair<kmer_type, size_t>> buffer;
+
+    /// Mutex for accessing `reader` and `buffer`.
+    std::mutex mtx;
+
+    /// Length of the kmers.
+    size_t k;
+
+    /// Maximum number of kmers per block.
+    size_t max_kmers_per_block;
+
+    /// Number of bytes reserved for each kmer count.
+    size_t data_bytes;
+
+    /// Encoding used for the kmers.
+    std::uint8_t encoding[4];
+
+    /// Recoding from KFF kmers to minimizer index kmers.
+    kff_recoding_t recoding;
+
+private:
+    ParallelKFFReader(const ParallelKFFReader&) = delete;
+    ParallelKFFReader& operator= (const ParallelKFFReader&) = delete;
+};
 
 //------------------------------------------------------------------------------
 

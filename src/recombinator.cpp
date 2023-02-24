@@ -22,6 +22,7 @@ constexpr size_t HaplotypePartitioner::APPROXIMATE_JOBS;
 
 constexpr size_t Recombinator::NUM_HAPLOTYPES;
 constexpr size_t Recombinator::COVERAGE;
+constexpr size_t Recombinator::KFF_BLOCK_SIZE;
 
 //------------------------------------------------------------------------------
 
@@ -43,18 +44,7 @@ find_kmer(hash_map<Haplotypes::Subchain::kmer_type, size_t>& counts, Haplotypes:
 
 hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const std::string& kff_file, bool verbose) const {
     // Open and validate the kmer count file.
-    Kff_reader reader(kff_file);
-    std::uint64_t kff_k = reader.get_var("k");
-    if (kff_k != this->k()) {
-        throw std::runtime_error("Haplotypes::kmer_counts(): expected " + std::to_string(this->k()) +
-            "-mers but KFF file " + kff_file + " contains " + std::to_string(kff_k) + "-mers");
-    }
-    size_t kmer_bytes = kff_bytes(this->k());
-    const std::uint8_t* encoding = reader.get_encoding();
-    kff_recoding_t recoding = kff_recoding(encoding);
-    bool trivial_encoding = kff_is_trivial(encoding);
-    size_t max_kmers = reader.get_var("max");
-    size_t data_bytes = reader.get_var("data_size");
+    ParallelKFFReader reader(kff_file);
 
     // Populate the map with the kmers we are interested in.
     double checkpoint = gbwt::readTimer();
@@ -74,36 +64,38 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
         std::cerr << "Initialized the hash map with " << result.size() << " kmers in " << seconds << " seconds" << std::endl;
     }
 
-    // Add the counts. We read the kmers by blocks, which requires us to preallocate
-    // the buffers.
+    // Read the KFF file and add the counts using multiple threads.
     checkpoint = gbwt::readTimer();
-    uint8_t* block = new uint8_t[kff_bytes(max_kmers + this->k() - 1)];
-    uint8_t* data = new uint8_t[max_kmers * data_bytes];
-    size_t kmer_count = 0, block_count = 0;
-    while (reader.has_next()) {
-        size_t n = reader.next_block(block, data);
-        if (n > 1) {
-            std::vector<Subchain::kmer_type> kmers = kff_recode(block, n, this->k(), recoding);
-            for (size_t i = 0; i < n; i++) {
-                auto iter = find_kmer(result, kmers[i], this->k());
-                if (iter != result.end()) {
-                    iter->second += kff_parse(data + i * data_bytes, data_bytes);
+    size_t kmer_count = 0;
+    #pragma omp parallel
+    {
+        #pragma omp task
+        {
+            while (true) {
+                std::vector<std::pair<ParallelKFFReader::kmer_type, size_t>> block = reader.read(Recombinator::KFF_BLOCK_SIZE);
+                if (block.empty()) {
+                    break;
+                }
+                std::vector<std::pair<hash_map<Subchain::kmer_type, size_t>::iterator, size_t>> buffer;
+                for (auto kmer_count : block) {
+                    auto iter = find_kmer(result, kmer_count.first, this->k());
+                    if (iter != result.end()) {
+                        buffer.push_back({ iter, kmer_count.second });
+                    }
+                }
+                #pragma omp critical
+                {
+                    for (auto to_update : buffer) {
+                        to_update.first->second += to_update.second;
+                    }
+                    kmer_count += block.size();
                 }
             }
-        } else {
-            Subchain::kmer_type kmer = (trivial_encoding ? kff_recode_trivial(block, this->k(), kmer_bytes) : kff_recode(block, this->k(), recoding));
-            auto iter = find_kmer(result, kmer, this->k());
-            if (iter != result.end()) {
-                iter->second += kff_parse(data, data_bytes);
-            }
         }
-        kmer_count += n; block_count++;
     }
-    delete[] block; block = nullptr;
-    delete[] data; data = nullptr;
     if (verbose) {
         double seconds = gbwt::readTimer() - checkpoint;
-        std::cerr << "Read " << block_count << " blocks with " << kmer_count << " kmers in " << seconds << " seconds" << std::endl;
+        std::cerr << "Read " << kmer_count << " kmers in " << seconds << " seconds" << std::endl;
     }
 
     return result;

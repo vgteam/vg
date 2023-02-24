@@ -222,4 +222,67 @@ gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::valu
 
 //------------------------------------------------------------------------------
 
+ParallelKFFReader::ParallelKFFReader(const std::string& filename) :
+    reader(filename)
+{
+    this->k = this->reader.get_var("k");
+    if (this->k > gbwtgraph::Key64::KMER_MAX_LENGTH) {
+        throw std::runtime_error("ParallelKFFReader: file " + filename + " contains " + std::to_string(this->k) +
+            "-mers; cannot use k > " + std::to_string(gbwtgraph::Key64::KMER_MAX_LENGTH));
+    }
+
+    this->max_kmers_per_block = this->reader.get_var("max");
+    this->data_bytes = this->reader.get_var("data_size");
+
+    std::uint8_t* buf = this->reader.get_encoding();
+    for (size_t i = 0; i < 4; i++) {
+        this->encoding[i] = buf[i];
+    }
+    this->recoding = kff_recoding(this->encoding);
+}
+
+std::vector<std::pair<ParallelKFFReader::kmer_type, size_t>> ParallelKFFReader::read(size_t n) {
+    std::vector<std::pair<kmer_type, size_t>> result;
+    result.reserve(n);
+
+    std::lock_guard<std::mutex> lock(this->mtx);
+
+    while (!this->buffer.empty() && result.size() < n) {
+        result.push_back(this->buffer.front());
+        this->buffer.pop_front();
+    }
+    if (result.size() >= n) {
+        return result;
+    }
+
+    // Because we read kmers by blocks, we have to preallocate the buffers.
+    uint8_t* block = new uint8_t[kff_bytes(this->max_kmers_per_block + this->k - 1)];
+    uint8_t* data = new uint8_t[this->max_kmers_per_block * this->data_bytes];
+    size_t kmer_bytes = kff_bytes(this->k);
+    bool trivial_encoding(kff_is_trivial(this->encoding));
+    while (this->reader.has_next() && result.size() < n) {
+        size_t block_size = this->reader.next_block(block, data);
+        if (block_size > 1) {
+            std::vector<kmer_type> kmers = kff_recode(block, block_size, this->k, this->recoding);
+            for (size_t i = 0; i < block_size; i++) {
+                std::pair<kmer_type, size_t> kmer(kmers[i], kff_parse(data + i * data_bytes, data_bytes));
+                if (result.size() < n) {
+                    result.push_back(kmer);
+                } else {
+                    buffer.push_back(kmer);
+                }
+            }
+        } else {
+            kmer_type kmer = (trivial_encoding ? kff_recode_trivial(block, this->k, kmer_bytes) : kff_recode(block, this->k, this->recoding));
+            result.push_back({ kmer, kff_parse(data, data_bytes) });
+        }
+    }
+    delete[] block; block = nullptr;
+    delete[] data; data = nullptr;
+
+    return result;
+}
+
+//------------------------------------------------------------------------------
+
 } // namespace vg

@@ -163,11 +163,14 @@ public:
     Header header;
     std::vector<TopLevelChain> chains;
 
-    /// Returns a mapping from kmers to their counts in the given KFF file.
-    /// The counts include both the kmer and the reverse complement.
-    ///
-    /// Exits with `std::exit()` if the file cannot be opened and throws
-    /// `std::runtime_error` if the kmer counts cannot be used.
+    /**
+      * Returns a mapping from kmers to their counts in the given KFF file.
+      * The counts include both the kmer and the reverse complement.
+      *
+      * Reads the KFF file using OpenMP threads. Exits with `std::exit()` if
+      * the file cannot be opened and throws `std::runtime_error` if the kmer
+      * counts cannot be used.
+     */
     hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, bool verbose) const;
 
     /// Serializes the object to a stream in the simple-sds format.
@@ -337,6 +340,9 @@ public:
 
     /// Expected read coverage.
     constexpr static size_t COVERAGE = 30;
+
+    /// Block size (in kmers) for reading KFF files.
+    constexpr static size_t KFF_BLOCK_SIZE = 1000000;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
