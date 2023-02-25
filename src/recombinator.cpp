@@ -77,10 +77,10 @@ hash_map<Haplotypes::Subchain::kmer_type, size_t> Haplotypes::kmer_counts(const 
                     break;
                 }
                 std::vector<std::pair<hash_map<Subchain::kmer_type, size_t>::iterator, size_t>> buffer;
-                for (auto kmer_count : block) {
-                    auto iter = find_kmer(result, kmer_count.first, this->k());
+                for (auto kmer : block) {
+                    auto iter = find_kmer(result, kmer.first, this->k());
                     if (iter != result.end()) {
-                        buffer.push_back({ iter, kmer_count.second });
+                        buffer.push_back({ iter, kmer.second });
                     }
                 }
                 #pragma omp critical
