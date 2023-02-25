@@ -35,52 +35,6 @@ using namespace vg::subcommand;
 #include <algorithm>
 
 
-//const uint64_t SEED = 0x9747b28c;
-//const uint64_t M = 0xc6a4a7935bd1e995;
-//const int R = 47;
-//
-//uint64_t murmurHash3(const void* key, size_t len, uint64_t seed) {
-//    const uint64_t *data = (const uint64_t *)key;
-//    const size_t nblocks = len / 8;
-//
-//    uint64_t h = seed;
-//
-//    for (size_t i = 0; i < nblocks; i++) {
-//        uint64_t k = data[i];
-//        k *= M;
-//        k ^= k >> R;
-//        k *= M;
-//        h ^= k;
-//        h *= M;
-//    }
-//
-//    const uint8_t *tail = (const uint8_t *)(data + nblocks);
-//    uint64_t k1 = 0;
-//
-//    switch (len & 7) {
-//        case 7: k1 ^= uint64_t(tail[6]) << 48;
-//        case 6: k1 ^= uint64_t(tail[5]) << 40;
-//        case 5: k1 ^= uint64_t(tail[4]) << 32;
-//        case 4: k1 ^= uint64_t(tail[3]) << 24;
-//        case 3: k1 ^= uint64_t(tail[2]) << 16;
-//        case 2: k1 ^= uint64_t(tail[1]) << 8;
-//        case 1: k1 ^= uint64_t(tail[0]);
-//            k1 *= M;
-//            k1 ^= k1 >> R;
-//            k1 *= M;
-//            h ^= k1;
-//    }
-//
-//    h ^= len;
-//    h ^= h >> 33;
-//    h *= 0xff51afd7ed558ccd;
-//    h ^= h >> 33;std::hash<string>
-//    h *= 0xc4ceb9fe1a85ec53;
-//    h ^= h >> 33;
-//
-//    return h;
-//}
-//
 class Custom_string_hasher {
 public:
 
@@ -274,10 +228,14 @@ int main_rmvdup(int argc, char *argv[]) {
     });
 
     vector<bool> checked(keys.size(), false);
+    vector<bool> are_used(keys.size(), false);
+
     boophf_t *bphf = new boomphf::mphf<string, Custom_string_hasher>(keys.size(), keys, threads, 2.0, false, false);
 
 //    vg::io::ProtobufEmitter<google::protobuf::Message> emitter(cout);
-    function<void(Alignment & )> test = [&](const Alignment &aln) {
+    std::unique_ptr<vg::io::ProtobufEmitter<Alignment>> emitter;
+    emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
+    function<void(Alignment & )> pcr_removal = [&](Alignment &aln) {
         if (gam_index.get() != nullptr) {
             // I mark all the reads that have to get deleted as duplicates. This means one read from each duplicate set remains unmarked.
             // This way we can remove all reads with duplicate flag and not worry about deleting them all
@@ -291,12 +249,16 @@ int main_rmvdup(int argc, char *argv[]) {
                     // find all sharing nodes alignments and call the function to handle the result
                     gam_index->find(gam_cursor, intervals, [&](const Alignment &share_aln) {
 
-                        if (!checked[bphf->lookup(name_id(aln))]) {
+                        if (!checked[bphf->lookup(name_id(share_aln))]) {
                             if (name_id(aln) != name_id(share_aln)) {
                                 if (check_duplicate(aln, share_aln)) {
 //                                    cout << aln.sequence() << "\t" << share_aln.sequence() << endl;
 //                                    cout << aln.name() << "\t" << share_aln.name() << endl;
+
+//                                    emitter->write(std::move(aln));
                                     checked[bphf->lookup(name_id(share_aln))] = true;
+
+
                                     // these alignments are duplicate if we are here
 
                                 }
@@ -307,7 +269,16 @@ int main_rmvdup(int argc, char *argv[]) {
                     });
 
                 });
-                cout << aln.sequence() << '\t' << aln.name() << endl;
+
+#pragma omp critical (cerr)
+                if (!checked[bphf->lookup(name_id(aln))]){
+                    emitter->write(std::move(aln));
+//                    cout << aln.name() << endl;
+//                    checked[bphf->lookup(name_id(aln))] = true;
+                }
+
+
+
 
 
 
@@ -318,8 +289,8 @@ int main_rmvdup(int argc, char *argv[]) {
 
     if (gam_index.get() != nullptr) {
         get_input_file(sorted_gam_name, [&](istream &in) {
-            vg::io::for_each(in, test);
-//            vg::io::for_each_parallel(in, test);
+//            vg::io::for_each(in, pcr_removal);
+            vg::io::for_each_parallel(in, pcr_removal);
 
         });
     }
