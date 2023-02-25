@@ -131,9 +131,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:af3baaf52c08ac684ac2571a9f4f56ec0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4d6a1ceb7bfeca4656781b8e2a1ece8"><td class="memItemLeft" align="right" valign="top">gbwt::node_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#af4d6a1ceb7bfeca4656781b8e2a1ece8">end</a></td></tr>
 <tr class="separator:af4d6a1ceb7bfeca4656781b8e2a1ece8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57018e7275a6afc9ba8548391b670c3a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a57018e7275a6afc9ba8548391b670c3a">kmers</a></td></tr>
-<tr class="memdesc:a57018e7275a6afc9ba8548391b670c3a"><td class="mdescLeft">&#160;</td><td class="mdescRight">A vector of distinct kmers.  <a href="structvg_1_1Haplotypes_1_1Subchain.html#a57018e7275a6afc9ba8548391b670c3a">More...</a><br /></td></tr>
-<tr class="separator:a57018e7275a6afc9ba8548391b670c3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a49f3702ae058d31abd6480770cb188dd"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a>, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a49f3702ae058d31abd6480770cb188dd">kmers</a></td></tr>
+<tr class="separator:a49f3702ae058d31abd6480770cb188dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a79ecd7d8893cb88a4d2a5c76a2a4ab4e"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a79ecd7d8893cb88a4d2a5c76a2a4ab4e">sequences</a></td></tr>
 <tr class="memdesc:a79ecd7d8893cb88a4d2a5c76a2a4ab4e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sequences as (GBWT sequence id, offset in the relevant node).  <a href="structvg_1_1Haplotypes_1_1Subchain.html#a79ecd7d8893cb88a4d2a5c76a2a4ab4e">More...</a><br /></td></tr>
 <tr class="separator:a79ecd7d8893cb88a4d2a5c76a2a4ab4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -388,19 +387,18 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a57018e7275a6afc9ba8548391b670c3a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a57018e7275a6afc9ba8548391b670c3a">&#9670;&nbsp;</a></span>kmers</h2>
+<a id="a49f3702ae058d31abd6480770cb188dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a49f3702ae058d31abd6480770cb188dd">&#9670;&nbsp;</a></span>kmers</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt;<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a>&gt; vg::Haplotypes::Subchain::kmers</td>
+          <td class="memname">std::vector&lt;std::pair&lt;<a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">kmer_type</a>, size_t&gt; &gt; vg::Haplotypes::Subchain::kmers</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>A vector of distinct kmers. </p>
+<p>A vector of distinct kmers. For each kmer, list the kmer itself and the number of haplotypes it appears in. </p>
 
 </div>
 </div>

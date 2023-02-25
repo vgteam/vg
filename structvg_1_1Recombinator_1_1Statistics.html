@@ -88,6 +88,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8cc215e629110af71f6d35da557eb0e8"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#a8cc215e629110af71f6d35da557eb0e8">print</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:a8cc215e629110af71f6d35da557eb0e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Prints the statistics and returns the output stream.  <a href="structvg_1_1Recombinator_1_1Statistics.html#a8cc215e629110af71f6d35da557eb0e8">More...</a><br /></td></tr>
 <tr class="separator:a8cc215e629110af71f6d35da557eb0e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba55dd3ed4c28f1542dd02720bf8dcdf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#aba55dd3ed4c28f1542dd02720bf8dcdf">print_scores</a> (std::ostream &amp;out) const</td></tr>
+<tr class="memdesc:aba55dd3ed4c28f1542dd02720bf8dcdf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Prints the average score per kmer for each sequence rank in sorted order.  <a href="structvg_1_1Recombinator_1_1Statistics.html#aba55dd3ed4c28f1542dd02720bf8dcdf">More...</a><br /></td></tr>
+<tr class="separator:aba55dd3ed4c28f1542dd02720bf8dcdf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -109,9 +112,12 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a5a5878a01bd909e752eb99795da76a1f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#a5a5878a01bd909e752eb99795da76a1f">kmers</a> = 0</td></tr>
 <tr class="memdesc:a5a5878a01bd909e752eb99795da76a1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of kmers selected.  <a href="structvg_1_1Recombinator_1_1Statistics.html#a5a5878a01bd909e752eb99795da76a1f">More...</a><br /></td></tr>
 <tr class="separator:a5a5878a01bd909e752eb99795da76a1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae3b88a6deb3202b8d672a6169ded025b"><td class="memItemLeft" align="right" valign="top">std::int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#ae3b88a6deb3202b8d672a6169ded025b">score</a> = 0</td></tr>
-<tr class="memdesc:ae3b88a6deb3202b8d672a6169ded025b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Total score for selected sequences.  <a href="structvg_1_1Recombinator_1_1Statistics.html#ae3b88a6deb3202b8d672a6169ded025b">More...</a><br /></td></tr>
-<tr class="separator:ae3b88a6deb3202b8d672a6169ded025b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a348046df697bf6a89261ecfcb6ac6765"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#a348046df697bf6a89261ecfcb6ac6765">score</a> = 0.0</td></tr>
+<tr class="memdesc:a348046df697bf6a89261ecfcb6ac6765"><td class="mdescLeft">&#160;</td><td class="mdescRight">Total score for selected sequences.  <a href="structvg_1_1Recombinator_1_1Statistics.html#a348046df697bf6a89261ecfcb6ac6765">More...</a><br /></td></tr>
+<tr class="separator:a348046df697bf6a89261ecfcb6ac6765"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a63f237c22b7f0a15aadc3c3a7ab348c0"><td class="memItemLeft" align="right" valign="top">std::vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#a63f237c22b7f0a15aadc3c3a7ab348c0">score_by_rank</a></td></tr>
+<tr class="memdesc:a63f237c22b7f0a15aadc3c3a7ab348c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Total score for sequences of each rank in sorted order.  <a href="structvg_1_1Recombinator_1_1Statistics.html#a63f237c22b7f0a15aadc3c3a7ab348c0">More...</a><br /></td></tr>
+<tr class="separator:a63f237c22b7f0a15aadc3c3a7ab348c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="structvg_1_1Recombinator_1_1Statistics.html" title="Statistics on the generated haplotypes.">Statistics</a> on the generated haplotypes. </p>
@@ -153,6 +159,26 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Prints the statistics and returns the output stream. </p>
+
+</div>
+</div>
+<a id="aba55dd3ed4c28f1542dd02720bf8dcdf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba55dd3ed4c28f1542dd02720bf8dcdf">&#9670;&nbsp;</a></span>print_scores()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Recombinator::Statistics::print_scores </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Prints the average score per kmer for each sequence rank in sorted order. </p>
 
 </div>
 </div>
@@ -237,19 +263,35 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae3b88a6deb3202b8d672a6169ded025b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae3b88a6deb3202b8d672a6169ded025b">&#9670;&nbsp;</a></span>score</h2>
+<a id="a348046df697bf6a89261ecfcb6ac6765"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a348046df697bf6a89261ecfcb6ac6765">&#9670;&nbsp;</a></span>score</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::int64_t vg::Recombinator::Statistics::score = 0</td>
+          <td class="memname">double vg::Recombinator::Statistics::score = 0.0</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 <p>Total score for selected sequences. </p>
+
+</div>
+</div>
+<a id="a63f237c22b7f0a15aadc3c3a7ab348c0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a63f237c22b7f0a15aadc3c3a7ab348c0">&#9670;&nbsp;</a></span>score_by_rank</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;double&gt; vg::Recombinator::Statistics::score_by_rank</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Total score for sequences of each rank in sorted order. </p>
 
 </div>
 </div>

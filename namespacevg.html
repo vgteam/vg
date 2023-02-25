@@ -328,6 +328,9 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1JoinedSpliceGraph.html">JoinedSpliceGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A mapping of character values from KFF encoding to minimizer index encoding.  <a href="structvg_1_1kff__recoding__t.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1kmer__t.html">kmer_t</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1KmerMatch.html">KmerMatch</a></td></tr>
@@ -447,6 +450,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1pair__hash__set.html">pair_hash_set</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PairedEndMapper.html">PairedEndMapper</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ParallelKFFReader.html">ParallelKFFReader</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Path.html">Path</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -610,6 +615,8 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A non-branching path of a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>.  <a href="structvg_1_1Subpath.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1subpath__t.html">subpath_t</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SummaryStatistics.html">SummaryStatistics</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Support.html">Support</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Aggregates information about the reads supporting an allele.  <a href="structvg_1_1Support.html#details">More...</a><br /></td></tr>
@@ -1520,13 +1527,22 @@ Functions</h2></td></tr>
 <tr class="separator:a691144860bc63559aaf088d2e052af62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac302dd262b1fc457d0711c914a216aef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac302dd262b1fc457d0711c914a216aef">execute_in_fork</a> (const function&lt; void(void)&gt; &amp;exec)</td></tr>
 <tr class="separator:ac302dd262b1fc457d0711c914a216aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab293dcf09c223de43976346c70763cd8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab293dcf09c223de43976346c70763cd8">kff_is_trivial</a> (const uint8_t *encoding)</td></tr>
+<tr class="memdesc:ab293dcf09c223de43976346c70763cd8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns <code>true</code> if the encoding is trivial (0, 1, 2, 3).  <a href="namespacevg.html#ab293dcf09c223de43976346c70763cd8">More...</a><br /></td></tr>
+<tr class="separator:ab293dcf09c223de43976346c70763cd8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afff8c68e07248aa6b304c3b9f45f8e4b"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afff8c68e07248aa6b304c3b9f45f8e4b">kff_invert</a> (const uint8_t *encoding)</td></tr>
+<tr class="memdesc:afff8c68e07248aa6b304c3b9f45f8e4b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inverts the KFF encoding into a packed -&gt; char table.  <a href="namespacevg.html#afff8c68e07248aa6b304c3b9f45f8e4b">More...</a><br /></td></tr>
+<tr class="separator:afff8c68e07248aa6b304c3b9f45f8e4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1429f1c00018d575e753609329896f31"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1429f1c00018d575e753609329896f31">kff_recoding</a> (const uint8_t *encoding)</td></tr>
+<tr class="memdesc:a1429f1c00018d575e753609329896f31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a recoding for the given encoding.  <a href="namespacevg.html#a1429f1c00018d575e753609329896f31">More...</a><br /></td></tr>
+<tr class="separator:a1429f1c00018d575e753609329896f31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3021a605be981221a7454ed41329abb"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac3021a605be981221a7454ed41329abb">kff_parse</a> (const uint8_t *data, size_t bytes)</td></tr>
+<tr class="memdesc:ac3021a605be981221a7454ed41329abb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parses a big-endian integer from KFF data.  <a href="namespacevg.html#ac3021a605be981221a7454ed41329abb">More...</a><br /></td></tr>
+<tr class="separator:ac3021a605be981221a7454ed41329abb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a703f0e894fc3faab71d1f56963a1b1f2"><td class="memItemLeft" align="right" valign="top">uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a703f0e894fc3faab71d1f56963a1b1f2">kff_encode</a> (const std::string &amp;kmer, size_t start, size_t limit, const uint8_t *encoding)</td></tr>
 <tr class="separator:a703f0e894fc3faab71d1f56963a1b1f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8ec52a5e105f9ff5dc0ee6a882f11ef"><td class="memItemLeft" align="right" valign="top">std::vector&lt; uint8_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad8ec52a5e105f9ff5dc0ee6a882f11ef">kff_encode</a> (const std::string &amp;kmer, const uint8_t *encoding)</td></tr>
 <tr class="separator:ad8ec52a5e105f9ff5dc0ee6a882f11ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afff8c68e07248aa6b304c3b9f45f8e4b"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afff8c68e07248aa6b304c3b9f45f8e4b">kff_invert</a> (const uint8_t *encoding)</td></tr>
-<tr class="memdesc:afff8c68e07248aa6b304c3b9f45f8e4b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inverts the KFF encoding into a packed -&gt; char table.  <a href="namespacevg.html#afff8c68e07248aa6b304c3b9f45f8e4b">More...</a><br /></td></tr>
-<tr class="separator:afff8c68e07248aa6b304c3b9f45f8e4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adbd931ab5e8c6d8549262292b5fd1bdb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adbd931ab5e8c6d8549262292b5fd1bdb">kff_decode</a> (uint8_t byte, size_t chars, const std::string &amp;decoding, std::string &amp;output)</td></tr>
 <tr class="separator:adbd931ab5e8c6d8549262292b5fd1bdb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a508b66314d777de73b671860cc1ba66f"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a508b66314d777de73b671860cc1ba66f">kff_decode</a> (const uint8_t *kmer, size_t k, const std::string &amp;decoding)</td></tr>
@@ -1537,10 +1553,12 @@ Functions</h2></td></tr>
 <tr class="memitem:acc31374a96e3cd653324ab57eb9714ff"><td class="memItemLeft" align="right" valign="top">std::vector&lt; uint8_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc31374a96e3cd653324ab57eb9714ff">kff_recode</a> (gbwtgraph::Key64::value_type kmer, size_t k, const uint8_t *encoding)</td></tr>
 <tr class="memdesc:acc31374a96e3cd653324ab57eb9714ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Recodes a kmer from a minimizer index in KFF format according to the given encoding.  <a href="namespacevg.html#acc31374a96e3cd653324ab57eb9714ff">More...</a><br /></td></tr>
 <tr class="separator:acc31374a96e3cd653324ab57eb9714ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac365f4ebd2e41bdca7cfee4f636b43cd"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Key64::value_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac365f4ebd2e41bdca7cfee4f636b43cd">kff_recode</a> (const uint8_t *kmer, size_t k, const std::string &amp;decoding)</td></tr>
-<tr class="separator:ac365f4ebd2e41bdca7cfee4f636b43cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0564f6649863a3f82ce782080c276eb1"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwtgraph::Key64::value_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0564f6649863a3f82ce782080c276eb1">kff_recode</a> (const uint8_t *kmers, size_t n, size_t k, const std::string &amp;decoding)</td></tr>
-<tr class="separator:a0564f6649863a3f82ce782080c276eb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6b770ea79c9b74e89ecff6f5e347bf6"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Key64::value_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab6b770ea79c9b74e89ecff6f5e347bf6">kff_recode</a> (const uint8_t *kmer, size_t k, <a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a> recoding)</td></tr>
+<tr class="separator:ab6b770ea79c9b74e89ecff6f5e347bf6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad52eac0801905a9d5f2ba805f1387213"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Key64::value_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad52eac0801905a9d5f2ba805f1387213">kff_recode_trivial</a> (const uint8_t *kmer, size_t k, size_t bytes)</td></tr>
+<tr class="separator:ad52eac0801905a9d5f2ba805f1387213"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92ba361b3ec6a01bac17e71af08d2223"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwtgraph::Key64::value_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a92ba361b3ec6a01bac17e71af08d2223">kff_recode</a> (const uint8_t *kmers, size_t n, size_t k, <a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a> recoding)</td></tr>
+<tr class="separator:a92ba361b3ec6a01bac17e71af08d2223"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a971fa4f581aa13c4d3a29728485a496a"><td class="memItemLeft" align="right" valign="top">uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a971fa4f581aa13c4d3a29728485a496a">kff_get</a> (const uint8_t *kmer, size_t i)</td></tr>
 <tr class="separator:a971fa4f581aa13c4d3a29728485a496a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad78d3175e64e6a9c019275b5b3e17fe5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad78d3175e64e6a9c019275b5b3e17fe5">kff_set</a> (std::vector&lt; uint8_t &gt; &amp;kmer, size_t i, uint8_t value)</td></tr>
@@ -1551,9 +1569,6 @@ Functions</h2></td></tr>
 <tr class="memitem:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Key64::value_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae4b8625853b4a17f731c9fbd5a040fd7">minimizer_reverse_complement</a> (gbwtgraph::Key64::value_type kmer, size_t k)</td></tr>
 <tr class="memdesc:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the reverse complement of a minimizer index kmer.  <a href="namespacevg.html#ae4b8625853b4a17f731c9fbd5a040fd7">More...</a><br /></td></tr>
 <tr class="separator:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac3021a605be981221a7454ed41329abb"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac3021a605be981221a7454ed41329abb">kff_parse</a> (const uint8_t *data, size_t bytes)</td></tr>
-<tr class="memdesc:ac3021a605be981221a7454ed41329abb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parses a big-endian integer from KFF data.  <a href="namespacevg.html#ac3021a605be981221a7454ed41329abb">More...</a><br /></td></tr>
-<tr class="separator:ac3021a605be981221a7454ed41329abb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8290bb0f46f4410bd8d19a9214f42d9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae8290bb0f46f4410bd8d19a9214f42d9">kff_bytes</a> (size_t k)</td></tr>
 <tr class="memdesc:ae8290bb0f46f4410bd8d19a9214f42d9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of bytes required for a kmer in KFF format.  <a href="namespacevg.html#ae8290bb0f46f4410bd8d19a9214f42d9">More...</a><br /></td></tr>
 <tr class="separator:ae8290bb0f46f4410bd8d19a9214f42d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2015,8 +2030,8 @@ Functions</h2></td></tr>
 <tr class="separator:a117021c748aad14cfa190bbd2452405d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc64443321ef5b17233dac0ca11e98ed"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afc64443321ef5b17233dac0ca11e98ed">take_unique_minimizers</a> (const std::string &amp;sequence, const gbwtgraph::DefaultMinimizerIndex &amp;minimizer_index)</td></tr>
 <tr class="separator:afc64443321ef5b17233dac0ca11e98ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a83db63ac37d8043b89c705af4cdde916"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a83db63ac37d8043b89c705af4cdde916">present_kmers</a> (const std::vector&lt; std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&gt; &amp;sequences, std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt; &amp;all_kmers, sdsl::bit_vector &amp;kmers_present)</td></tr>
-<tr class="separator:a83db63ac37d8043b89c705af4cdde916"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a348af3d255543b4880fc1240e8ef442f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a348af3d255543b4880fc1240e8ef442f">present_kmers</a> (const std::vector&lt; std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&gt; &amp;sequences, std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a>, size_t &gt;&gt; &amp;all_kmers, sdsl::bit_vector &amp;kmers_present)</td></tr>
+<tr class="separator:a348af3d255543b4880fc1240e8ef442f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a253257615743a1cfb948b749be7700e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a253257615743a1cfb948b749be7700e2">parse_region</a> (const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)</td></tr>
 <tr class="separator:a253257615743a1cfb948b749be7700e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fd1e3436d98304996aaecece048cb45"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8fd1e3436d98304996aaecece048cb45">parse_bed_regions</a> (const string &amp;bed_path, vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;out_regions, vector&lt; string &gt; *out_names)</td></tr>
@@ -2219,6 +2234,10 @@ Functions</h2></td></tr>
 <tr class="memitem:a11df8bd14dab3c0cfb7ecfa377a362f5"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a11df8bd14dab3c0cfb7ecfa377a362f5"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5">stdev</a> (const T &amp;v)</td></tr>
 <tr class="separator:a11df8bd14dab3c0cfb7ecfa377a362f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8afe82a05092bbf4bc31c8ead079fe3"><td class="memTemplParams" colspan="2">template&lt;typename Number &gt; </td></tr>
+<tr class="memitem:ae8afe82a05092bbf4bc31c8ead079fe3"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SummaryStatistics.html">SummaryStatistics</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae8afe82a05092bbf4bc31c8ead079fe3">summary_statistics</a> (const std::map&lt; Number, size_t &gt; &amp;values)</td></tr>
+<tr class="memdesc:ae8afe82a05092bbf4bc31c8ead079fe3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns summary statistics for a multiset of numbers.  <a href="namespacevg.html#ae8afe82a05092bbf4bc31c8ead079fe3">More...</a><br /></td></tr>
+<tr class="separator:ae8afe82a05092bbf4bc31c8ead079fe3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d4ce16064ad3986381aeead6afe317f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0d4ce16064ad3986381aeead6afe317f">add_log</a> (double log_x, double log_y)</td></tr>
 <tr class="separator:a0d4ce16064ad3986381aeead6afe317f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a33c8f5153ad0766df2c72bbec623aa19"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a33c8f5153ad0766df2c72bbec623aa19">subtract_log</a> (double log_x, double log_y)</td></tr>
@@ -12560,6 +12579,26 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
+<a id="ab293dcf09c223de43976346c70763cd8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab293dcf09c223de43976346c70763cd8">&#9670;&nbsp;</a></span>kff_is_trivial()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::kff_is_trivial </td>
+          <td>(</td>
+          <td class="paramtype">const uint8_t *&#160;</td>
+          <td class="paramname"><em>encoding</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns <code>true</code> if the encoding is trivial (0, 1, 2, 3). </p>
+
+</div>
+</div>
 <a id="ac3021a605be981221a7454ed41329abb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac3021a605be981221a7454ed41329abb">&#9670;&nbsp;</a></span>kff_parse()</h2>
 
@@ -12590,8 +12629,8 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a id="ac365f4ebd2e41bdca7cfee4f636b43cd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac365f4ebd2e41bdca7cfee4f636b43cd">&#9670;&nbsp;</a></span>kff_recode() <span class="overload">[1/4]</span></h2>
+<a id="ab6b770ea79c9b74e89ecff6f5e347bf6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab6b770ea79c9b74e89ecff6f5e347bf6">&#9670;&nbsp;</a></span>kff_recode() <span class="overload">[1/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -12611,8 +12650,8 @@ template&lt;class Element &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>decoding</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a>&#160;</td>
+          <td class="paramname"><em>recoding</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -12621,12 +12660,12 @@ template&lt;class Element &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Recodes a KFF kmer in the minimizer index format according to the given encoding. Will fail silently if <code>k</code> is too large or <code>decoding</code> is not from <code><a class="el" href="namespacevg.html#afff8c68e07248aa6b304c3b9f45f8e4b" title="Inverts the KFF encoding into a packed -&gt; char table.">kff_invert()</a></code>. </p>
+<p>Recodes a KFF kmer in the minimizer index format according to the given encoding. Will fail silently if <code>k</code> is too large or <code>recoding</code> is not from <code><a class="el" href="namespacevg.html#a1429f1c00018d575e753609329896f31" title="Returns a recoding for the given encoding.">kff_recoding()</a></code>. </p>
 
 </div>
 </div>
-<a id="a0564f6649863a3f82ce782080c276eb1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0564f6649863a3f82ce782080c276eb1">&#9670;&nbsp;</a></span>kff_recode() <span class="overload">[2/4]</span></h2>
+<a id="a92ba361b3ec6a01bac17e71af08d2223"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92ba361b3ec6a01bac17e71af08d2223">&#9670;&nbsp;</a></span>kff_recode() <span class="overload">[2/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -12652,8 +12691,8 @@ template&lt;class Element &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>decoding</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a>&#160;</td>
+          <td class="paramname"><em>recoding</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -12662,7 +12701,7 @@ template&lt;class Element &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Recodes <code>n</code> KFF kmers in the minimizer index format according to the given encoding. Will fail silently if <code>k</code> is too large or <code>decoding</code> is not from <code><a class="el" href="namespacevg.html#afff8c68e07248aa6b304c3b9f45f8e4b" title="Inverts the KFF encoding into a packed -&gt; char table.">kff_invert()</a></code>. </p>
+<p>Recodes <code>n</code> KFF kmers in the minimizer index format according to the given encoding. Will fail silently if <code>k</code> is too large or <code>recoding</code> is not from <code><a class="el" href="namespacevg.html#a1429f1c00018d575e753609329896f31" title="Returns a recoding for the given encoding.">kff_recoding()</a></code>. </p>
 
 </div>
 </div>
@@ -12739,6 +12778,61 @@ template&lt;class Element &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad52eac0801905a9d5f2ba805f1387213"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad52eac0801905a9d5f2ba805f1387213">&#9670;&nbsp;</a></span>kff_recode_trivial()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwtgraph::Key64::value_type vg::kff_recode_trivial </td>
+          <td>(</td>
+          <td class="paramtype">const uint8_t *&#160;</td>
+          <td class="paramname"><em>kmer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>k</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>bytes</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Recodes a KFF kmer in the minimizer index format, assuming that the encoding is the same. Will fail silently if <code>k</code> or <code>bytes</code> is too large. </p>
+
+</div>
+</div>
+<a id="a1429f1c00018d575e753609329896f31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1429f1c00018d575e753609329896f31">&#9670;&nbsp;</a></span>kff_recoding()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1kff__recoding__t.html">kff_recoding_t</a> vg::kff_recoding </td>
+          <td>(</td>
+          <td class="paramtype">const uint8_t *&#160;</td>
+          <td class="paramname"><em>encoding</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns a recoding for the given encoding. </p>
 
 </div>
 </div>
@@ -19215,8 +19309,8 @@ template&lt;typename TracebackIterator &gt; </div>
 
 </div>
 </div>
-<a id="a83db63ac37d8043b89c705af4cdde916"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a83db63ac37d8043b89c705af4cdde916">&#9670;&nbsp;</a></span>present_kmers()</h2>
+<a id="a348af3d255543b4880fc1240e8ef442f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a348af3d255543b4880fc1240e8ef442f">&#9670;&nbsp;</a></span>present_kmers()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19230,7 +19324,7 @@ template&lt;typename TracebackIterator &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a>, size_t &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>all_kmers</em>, </td>
         </tr>
         <tr>
@@ -22604,6 +22698,28 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Compute the sum of the values in a collection. Values must be default- constructable (like numbers are). </p>
+
+</div>
+</div>
+<a id="ae8afe82a05092bbf4bc31c8ead079fe3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8afe82a05092bbf4bc31c8ead079fe3">&#9670;&nbsp;</a></span>summary_statistics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Number &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1SummaryStatistics.html">SummaryStatistics</a> vg::summary_statistics </td>
+          <td>(</td>
+          <td class="paramtype">const std::map&lt; Number, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>values</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns summary statistics for a multiset of numbers. </p>
 
 </div>
 </div>

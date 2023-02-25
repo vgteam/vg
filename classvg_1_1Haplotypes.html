@@ -257,7 +257,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Returns a mapping from kmers to their counts in the given KFF file. The counts include both the kmer and the reverse complement.</p>
-<p>Exits with <code>std::exit()</code> if the file cannot be opened and throws <code>std::runtime_error</code> if the kmer counts cannot be used. </p>
+<p>Reads the KFF file using OpenMP threads. Exits with <code>std::exit()</code> if the file cannot be opened and throws <code>std::runtime_error</code> if the kmer counts cannot be used. </p>
 
 </div>
 </div>

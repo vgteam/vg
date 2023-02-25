@@ -76,7 +76,9 @@ $(function() {
 <div class="textblock"><code>#include &quot;<a class="el" href="recombinator_8hpp.html">recombinator.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="kff_8hpp.html">kff.hpp</a>&quot;</code><br />
 <code>#include &lt;algorithm&gt;</code><br />
+<code>#include &lt;cmath&gt;</code><br />
 <code>#include &lt;map&gt;</code><br />
+<code>#include &lt;random&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -95,8 +97,8 @@ Functions</h2></td></tr>
 <tr class="separator:a117021c748aad14cfa190bbd2452405d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc64443321ef5b17233dac0ca11e98ed"><td class="memItemLeft" align="right" valign="top">std::vector&lt; HaplotypePartitioner::kmer_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afc64443321ef5b17233dac0ca11e98ed">vg::take_unique_minimizers</a> (const std::string &amp;sequence, const gbwtgraph::DefaultMinimizerIndex &amp;minimizer_index)</td></tr>
 <tr class="separator:afc64443321ef5b17233dac0ca11e98ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a83db63ac37d8043b89c705af4cdde916"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a83db63ac37d8043b89c705af4cdde916">vg::present_kmers</a> (const std::vector&lt; std::vector&lt; HaplotypePartitioner::kmer_type &gt;&gt; &amp;sequences, std::vector&lt; HaplotypePartitioner::kmer_type &gt; &amp;all_kmers, sdsl::bit_vector &amp;kmers_present)</td></tr>
-<tr class="separator:a83db63ac37d8043b89c705af4cdde916"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a348af3d255543b4880fc1240e8ef442f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a348af3d255543b4880fc1240e8ef442f">vg::present_kmers</a> (const std::vector&lt; std::vector&lt; HaplotypePartitioner::kmer_type &gt;&gt; &amp;sequences, std::vector&lt; std::pair&lt; HaplotypePartitioner::kmer_type, size_t &gt;&gt; &amp;all_kmers, sdsl::bit_vector &amp;kmers_present)</td></tr>
+<tr class="separator:a348af3d255543b4880fc1240e8ef442f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
