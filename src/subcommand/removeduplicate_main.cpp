@@ -149,7 +149,7 @@ void help_rmvdup(char **argv) {
 // TODO: see what input and output file formats is possible
     cerr << "usage: " << argv[0] << " rmvdup [options] inputfile.gam > output.gam " << endl
          << "Remove duplicate PCRs from the input file. A gam index file (.gam.gai) must exists." << endl
-         << "  -p, --progress               Show progress." << endl
+         << "  -o, --output_type               prints the pairs of (sequence, name) as strings in the output" << endl
          << "    -t, --threads N            number of threads to use" << endl;
 
 }
@@ -159,7 +159,7 @@ typedef boomphf::mphf <string, Custom_string_hasher> boophf_t;
 
 int main_rmvdup(int argc, char *argv[]) {
     string filename;
-    bool show_progress = false;
+    bool output_t = false;
     int threads = 8;
 
     int c;
@@ -167,7 +167,7 @@ int main_rmvdup(int argc, char *argv[]) {
     while (true) {
         static struct option long_options[] = {
                 {"help",     no_argument,       0, 'h'},
-                {"progress", no_argument,       0, 'p'},
+                {"output_type", no_argument,       0, 'o'},
                 {"threads",  required_argument, 0, 't'},
                 {0,          0,                 0, 0}
         };
@@ -180,8 +180,8 @@ int main_rmvdup(int argc, char *argv[]) {
 
         switch (c) {
 
-            case 'p':
-                show_progress = true;
+            case 'o':
+                output_t = true;
                 break;
 
             case 't':
@@ -272,7 +272,10 @@ int main_rmvdup(int argc, char *argv[]) {
 
 #pragma omp critical (cerr)
                 if (!checked[bphf->lookup(name_id(aln))]){
-                    emitter->write(std::move(aln));
+                    if (output_t)
+                        cout << aln.sequence() << "\t" << aln.name() << endl;
+                    else
+                        emitter->write(std::move(aln));
 //                    cout << aln.name() << endl;
 //                    checked[bphf->lookup(name_id(aln))] = true;
                 }
