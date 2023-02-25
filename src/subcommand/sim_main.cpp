@@ -657,7 +657,7 @@ int main_sim(int argc, char** argv) {
         std::cerr << "Creating path position overlay" << std::endl;
     }
     
-    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
+    bdsg::ReferencePathVectorizableOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     
     // We want to store the inserted paths as a set of handles, which are

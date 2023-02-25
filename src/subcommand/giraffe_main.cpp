@@ -26,6 +26,7 @@
 #include "../hts_alignment_emitter.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
+#include "../watchdog.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <gbwtgraph/gbz.h>
@@ -52,8 +53,24 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+/// Options struct for options for the Giraffe driver (i.e. this file)
+struct GiraffeMainOptions {
+    /// How long should we wait while mapping a read before complaining, in seconds.
+    static constexpr size_t default_watchdog_timeout = 10;
+    size_t watchdog_timeout = default_watchdog_timeout;
+};
+
 static GroupedOptionGroup get_options() {
     GroupedOptionGroup parser;
+    
+    // Configure Giraffe program settings
+    auto& main_opts = parser.add_group<GiraffeMainOptions>("program options");
+    main_opts.add_range(
+        "watchdog-timeout", 
+        &GiraffeMainOptions::watchdog_timeout,
+        GiraffeMainOptions::default_watchdog_timeout,
+        "complain after INT seconds working on a read or read pair"
+    );
     
     // Configure output settings on the MinimizerMapper
     auto& result_opts = parser.add_group<MinimizerMapper>("result options");
@@ -373,6 +390,9 @@ int main_giraffe(int argc, char** argv) {
     string report_name;
     bool show_progress = false;
     
+    // Main Giraffe program options struct
+    // Not really initialized until after we load all the indexes though...
+    GiraffeMainOptions main_options;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -458,7 +478,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("extension-score", 1);
     // And a default preset that doesn't.
     presets["default"];
-    
+    // And a chaining preset (TODO: make into PacBio and Nanopore)
+    presets["chaining"]
+        .add_entry<bool>("align-from-chains", true)
+        .add_entry<size_t>("watchdog-timeout", 30);
+   
     std::vector<struct option> long_options =
     {
         {"help", no_argument, 0, 'h'},
@@ -1045,6 +1069,7 @@ int main_giraffe(int argc, char** argv) {
             parser.print_options(cerr);
         }
         parser.apply(minimizer_mapper);
+        parser.apply(main_options);
         
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
@@ -1140,6 +1165,10 @@ int main_giraffe(int argc, char** argv) {
         
         // TODO: we won't count the output thread, but it will appear in CPU time!
 #endif
+
+        // Establish a watchdog to find reads that take too long to map.
+        // If we see any, we will issue a warning.
+        unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(main_options.watchdog_timeout)));
 
         {
         
@@ -1238,9 +1267,15 @@ int main_giraffe(int argc, char** argv) {
                 
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
+                    auto thread_num = omp_get_thread_num();
 #ifdef __linux__
                     ensure_perf_for_thread();
 #endif
+                    
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, aln1.name() + ", " + aln2.name());
+                    }
+                    
                     toUppercaseInPlace(*aln1.mutable_sequence());
                     toUppercaseInPlace(*aln2.mutable_sequence());
 
@@ -1263,7 +1298,7 @@ int main_giraffe(int argc, char** argv) {
                         // Emit it
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
                         // Record that we mapped a read.
-                        reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                        reads_mapped_by_thread.at(thread_num) += 2;
                     }
                     
                     if (!minimizer_mapper.fragment_distr_is_finalized() && ambiguous_pair_buffer.size() >= MAX_BUFFERED_PAIRS) {
@@ -1272,6 +1307,10 @@ int main_giraffe(int argc, char** argv) {
                              << "                      unambiguously-paired reads to learn fragment length distribution. Are you sure" << endl
                              << "                      your reads are paired and your graph is not a hairball?" << endl;
                         require_distribution_finalized();
+                    }
+                    
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
                     }
                 };
 
@@ -1315,15 +1354,24 @@ int main_giraffe(int argc, char** argv) {
             
                 // Define how to align and output a read, in a thread.
                 auto map_read = [&](Alignment& aln) {
+                    auto thread_num = omp_get_thread_num();
 #ifdef __linux__
                     ensure_perf_for_thread();
 #endif
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, aln.name());
+                    }
+                    
                     toUppercaseInPlace(*aln.mutable_sequence());
                 
                     // Map the read with the MinimizerMapper.
                     minimizer_mapper.map(aln, *alignment_emitter);
                     // Record that we mapped a read.
-                    reads_mapped_by_thread.at(omp_get_thread_num())++;
+                    reads_mapped_by_thread.at(thread_num)++;
+                    
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
                 };
                     
                 if (!gam_filename.empty()) {
