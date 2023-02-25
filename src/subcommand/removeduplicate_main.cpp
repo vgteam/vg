@@ -121,8 +121,13 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
     for (size_t i = 0; i < first_alignment_pos.size(); ++i) {
         if (id(first_alignment_pos[i]) == id(second_alignment_pos[i]) &&
             offset(first_alignment_pos[i]) == offset(second_alignment_pos[i]) &&
-            (is_rev(first_alignment_pos[i]) == is_rev(second_alignment_pos[i])))
-            return true;
+            (is_rev(first_alignment_pos[i]) == is_rev(second_alignment_pos[i]))){
+            size_t t = first_alignment_pos.size() - 1;
+            if (id(first_alignment_pos[t]) == id(second_alignment_pos[t]) &&
+                offset(first_alignment_pos[t]) == offset(second_alignment_pos[t]) &&
+                (is_rev(first_alignment_pos[t]) == is_rev(second_alignment_pos[t])))
+                return true;
+        }
 
     }
     return false;
@@ -173,7 +178,7 @@ int main_rmvdup(int argc, char *argv[]) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hpt:",
+        c = getopt_long(argc, argv, "hot:",
                         long_options, &option_index);
 
         if (c == -1) break;
