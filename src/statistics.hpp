@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <map>
 
 #include "utility.hpp"
 
@@ -33,6 +34,60 @@ double stdev(const T& v) {
     return std::sqrt(sq_sum / v.size());
 }
 
+struct SummaryStatistics {
+    double mean;
+    double median;
+    double stdev;
+    size_t number_of_values;
+    double max_value;
+    size_t count_of_max;
+};
+
+/// Returns summary statistics for a multiset of numbers.
+template<typename Number>
+SummaryStatistics summary_statistics(const std::map<Number, size_t>& values) {
+    SummaryStatistics result { 0.0, 0.0, 0.0, 0, 0.0, 0 };
+
+    double sum_of_values = 0.0;
+    for (auto iter = values.begin(); iter != values.end(); ++iter) {
+        sum_of_values += iter->first * iter->second;
+        result.number_of_values += iter->second;
+    }
+    if (result.number_of_values == 0) {
+        return result;
+    }
+    result.mean = sum_of_values / result.number_of_values;
+
+    double accumulator = 0.0;
+    for (auto iter = values.begin(); iter != values.end(); ++iter) {
+        double value = iter->first - result.mean;
+        accumulator += value * value * iter->second;
+    }
+    result.stdev = std::sqrt(accumulator / result.number_of_values);
+
+    size_t midpoint = result.number_of_values / 2;
+    size_t found = 0;
+    for (auto iter = values.begin(); iter != values.end(); ++iter) {
+        if (found + iter->second > midpoint) {
+            result.median = iter->first;
+            if (result.number_of_values % 2 == 0 && found >= midpoint) {
+                auto prev = iter;
+                do {
+                    --prev;
+                } while (prev->second == 0);
+                result.median = (result.median + prev->first) / 2.0;
+            }
+            break;
+        }
+        found += iter->second;
+    }
+
+    auto back = values.rbegin();
+    result.max_value = back->first;
+    result.count_of_max = back->second;
+
+    return result;
+}
 
 /// The standard normal cumulative distribution function
 double Phi(double x);

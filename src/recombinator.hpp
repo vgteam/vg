@@ -94,8 +94,9 @@ public:
         /// Boundary nodes, or `gbwt::ENDMARKER` if not present.
         gbwt::node_type start, end;
 
-        /// A vector of distinct kmers.
-        std::vector<kmer_type> kmers;
+        /// A vector of distinct kmers. For each kmer, list the kmer itself and the number
+        /// of haplotypes it appears in.
+        std::vector<std::pair<kmer_type, size_t>> kmers;
 
         // TODO: This could be smaller
         /// Sequences as (GBWT sequence id, offset in the relevant node).
@@ -162,11 +163,14 @@ public:
     Header header;
     std::vector<TopLevelChain> chains;
 
-    /// Returns a mapping from kmers to their counts in the given KFF file.
-    /// The counts include both the kmer and the reverse complement.
-    ///
-    /// Exits with `std::exit()` if the file cannot be opened and throws
-    /// `std::runtime_error` if the kmer counts cannot be used.
+    /**
+      * Returns a mapping from kmers to their counts in the given KFF file.
+      * The counts include both the kmer and the reverse complement.
+      *
+      * Reads the KFF file using OpenMP threads. Exits with `std::exit()` if
+      * the file cannot be opened and throws `std::runtime_error` if the kmer
+      * counts cannot be used.
+     */
     hash_map<Subchain::kmer_type, size_t> kmer_counts(const std::string& kff_file, bool verbose) const;
 
     /// Serializes the object to a stream in the simple-sds format.
@@ -337,6 +341,9 @@ public:
     /// Expected read coverage.
     constexpr static size_t COVERAGE = 30;
 
+    /// Block size (in kmers) for reading KFF files.
+    constexpr static size_t KFF_BLOCK_SIZE = 1000000;
+
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
 
@@ -433,13 +440,19 @@ public:
         size_t kmers = 0;
 
         /// Total score for selected sequences.
-        std::int64_t score = 0;
+        double score = 0.0;
+
+        /// Total score for sequences of each rank in sorted order.
+        std::vector<double> score_by_rank;
 
         /// Combines the statistics into this object.
         void combine(const Statistics& another);
 
         /// Prints the statistics and returns the output stream.
         std::ostream& print(std::ostream& out) const;
+
+        /// Prints the average score per kmer for each sequence rank in sorted order.
+        void print_scores(std::ostream& out) const;
     };
 
     /// Creates a new `Recombinator`.
@@ -455,6 +468,9 @@ public:
 
         /// Buffer size (in nodes) for GBWT construction.
         gbwt::size_type buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
+
+        /// Sample randomly instead of by score.
+        bool random_sampling = false;
     };
 
     /**

@@ -37,8 +37,22 @@ void minimizer_recode(const std::string& kmer, const uint8_t* encoding) {
     std::string decoded = kff_decode(recoded.data(), kmer.length(), decoding);
     REQUIRE(decoded == kmer);
 
-    gbwtgraph::Key64 round_trip = kff_recode(recoded.data(), kmer.length(), decoding);
+    kff_recoding_t recoding = kff_recoding(encoding);
+    gbwtgraph::Key64 round_trip = kff_recode(recoded.data(), kmer.length(), recoding);
     REQUIRE(round_trip == encoded);
+}
+
+void recode_trivial(const std::string& kmer) {
+    uint8_t encoding[4] = { 0, 1, 2, 3 };
+    REQUIRE(kff_is_trivial(encoding));
+    std::vector<uint8_t> encoded = kff_encode(kmer, encoding);
+
+    kff_recoding_t recoding = kff_recoding(encoding);
+    gbwtgraph::Key64::value_type truth = kff_recode(encoded.data(), kmer.length(), recoding);
+
+    size_t bytes = kff_bytes(kmer.length());
+    gbwtgraph::Key64::value_type recoded = kff_recode_trivial(encoded.data(), kmer.length(), bytes);
+    REQUIRE(recoded == truth);
 }
 
 void rev_comp(const std::string& kmer, const uint8_t* encoding) {
@@ -63,8 +77,8 @@ void rev_comp(const std::string& kmer, const uint8_t* encoding) {
 void recode_block(const std::string& block, const std::vector<std::string>& true_kmers, const uint8_t* encoding) {
     size_t k = true_kmers.front().length();
     std::vector<uint8_t> encoded = kff_encode(block, encoding);
-    std::string decoding = kff_invert(encoding);
-    std::vector<gbwtgraph::Key64::value_type> recoded = kff_recode(encoded.data(), true_kmers.size(), k, decoding);
+    kff_recoding_t recoding = kff_recoding(encoding);
+    std::vector<gbwtgraph::Key64::value_type> recoded = kff_recode(encoded.data(), true_kmers.size(), k, recoding);
     REQUIRE(recoded.size() == true_kmers.size());
     for (size_t i = 0; i < recoded.size(); i++) {
         std::string decoded = gbwtgraph::Key64(recoded[i]).decode(k);
@@ -79,6 +93,7 @@ void recode_block(const std::string& block, const std::vector<std::string>& true
 TEST_CASE("Encode and decode", "[kff]") {
     SECTION("default encoding") {
         uint8_t encoding[4] = { 0, 1, 2, 3 };
+        REQUIRE(kff_is_trivial(encoding));
         for (auto& kmer : kmers) {
             encode_decode(kmer, encoding);
         }
@@ -86,6 +101,7 @@ TEST_CASE("Encode and decode", "[kff]") {
 
     SECTION("kff encoding") {
         uint8_t encoding[4] = { 0, 1, 3, 2 };
+        REQUIRE(!kff_is_trivial(encoding));
         for (auto& kmer : kmers) {
             encode_decode(kmer, encoding);
         }
@@ -97,6 +113,12 @@ TEST_CASE("Recode minimizers", "[kff]") {
         uint8_t encoding[4] = { 0, 1, 2, 3 };
         for (auto& kmer : kmers) {
             minimizer_recode(kmer, encoding);
+        }
+    }
+
+    SECTION("trivial recoding") {
+        for (auto& kmer : kmers) {
+            recode_trivial(kmer);
         }
     }
 
