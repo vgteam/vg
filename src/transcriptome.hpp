@@ -273,7 +273,7 @@ class Transcriptome {
         void parse_introns(vector<Transcript> * introns, istream * intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Parse gtf/gff3 file of transcripts. Returns the number of non-header lines in the parsed file.
-        int32_t parse_transcripts(vector<Transcript> * transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
+        int32_t parse_transcripts(vector<Transcript> * transcripts, uint32_t * number_of_excluded_transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
 
         /// Parse gtf/gff3 attribute value.
         string parse_attribute_value(const string & attribute, const string & name) const;
@@ -292,6 +292,9 @@ class Transcriptome {
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
+        /// Checks whether any adjacent exons overlap.
+        bool has_overlapping_exons(const vector<Exon> & exons) const;
+
         /// Constructs edited reference transcript paths from a set of 
         /// transcripts using embedded graph paths.
         list<EditedTranscriptPath> construct_reference_transcript_paths_embedded(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
@@ -307,7 +310,7 @@ class Transcriptome {
         list<EditedTranscriptPath> construct_reference_transcript_paths_gbwt(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
 
         /// Threaded reference transcript path construction using GBWT haplotype paths.
-        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<handle_t, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
+        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<handle_t, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, uint32_t * excluded_transcripts, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 

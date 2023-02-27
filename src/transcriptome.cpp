@@ -317,12 +317,19 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
     }
 
     vector<Transcript> transcripts;
+    uint32_t number_of_excluded_transcripts = 0;
 
     int64_t lines_parsed = 0;
+
     for (auto & transcript_stream: transcript_streams) {
 
         // Parse transcripts in gtf/gff3 format.
-        lines_parsed += parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, *haplotype_index, use_haplotype_paths);
+        lines_parsed += parse_transcripts(&transcripts, &number_of_excluded_transcripts, transcript_stream, graph_path_pos_overlay, *haplotype_index, use_haplotype_paths);
+    }
+
+    if (number_of_excluded_transcripts > 0) {
+
+        cerr << "\tWARNING: Excluded " << number_of_excluded_transcripts << " transcripts with overlapping exons or incorrect exon order." << endl;
     }
 
     if (transcripts.empty() && lines_parsed != 0) {
@@ -403,12 +410,19 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
     bdsg::PositionOverlay graph_path_pos_overlay(_graph.get());
 
     vector<Transcript> transcripts;
+    uint32_t number_of_excluded_transcripts = 0;
 
     int64_t lines_parsed = 0;
+
     for (auto & transcript_stream: transcript_streams) {
 
         // Parse transcripts in gtf/gff3 format.
-        lines_parsed += parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, haplotype_index, false);
+        lines_parsed += parse_transcripts(&transcripts, &number_of_excluded_transcripts, transcript_stream, graph_path_pos_overlay, haplotype_index, false);
+    }
+
+    if (number_of_excluded_transcripts > 0) {
+
+        cerr << "\tWARNING: Excluded " << number_of_excluded_transcripts << " transcripts with overlapping exons or incorrect exon order." << endl;
     }
 
     if (transcripts.empty() && lines_parsed != 0) {
@@ -522,7 +536,7 @@ void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron
     }
 }
 
-int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const {
+int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint32_t * number_of_excluded_transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const {
 
     spp::sparse_hash_map<string, uint32_t> chrom_lengths;
 
@@ -542,7 +556,17 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
                 continue;
             }
 
-            chrom_lengths.emplace(haplotype_index.metadata.contig(haplotype_index.metadata.path(gbwt::Path::id(i)).contig), numeric_limits<uint32_t>::max());
+            auto gbwt_path_metadata = haplotype_index.metadata.path(gbwt::Path::id(i));
+
+            // Create haplotype path name without phaseblock and subrange (basename). 
+            string path_basename = PathMetadata::create_path_name(PathSense::REFERENCE, 
+                gbwtgraph::get_path_sample_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
+                gbwtgraph::get_path_locus_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
+                gbwtgraph::get_path_haplotype(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
+                PathMetadata::NO_PHASE_BLOCK, 
+                PathMetadata::NO_SUBRANGE);
+
+            chrom_lengths.emplace(path_basename, numeric_limits<uint32_t>::max());
         }      
 
     } else {
@@ -554,7 +578,8 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
         }));
     }
 
-    spp::sparse_hash_map<string, uint32_t> transcripts_index;
+    spp::sparse_hash_map<string, Transcript> parsed_transcripts;
+    spp::sparse_hash_set<string> excluded_transcripts;
 
     int32_t line_number = 0;
     int32_t parsed_lines = 0;
@@ -690,15 +715,9 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
             exit(1);
         }
 
-        auto transcripts_index_it = transcripts_index.emplace(transcript_id, transcripts->size());
+        auto parsed_transcripts_it = parsed_transcripts.emplace(transcript_id, Transcript(transcript_id, is_reverse, chrom, chrom_lengths_it->second));
 
-        // Is this a new transcript.
-        if (transcripts_index_it.second) {
-
-            transcripts->emplace_back(Transcript(transcript_id, is_reverse, chrom, chrom_lengths_it->second));
-        }
-
-        Transcript * transcript = &(transcripts->at(transcripts_index_it.first->second));
+        Transcript * transcript = &(parsed_transcripts_it.first->second);
 
         assert(transcript->name == transcript_id);
         assert(transcript->is_reverse == is_reverse);
@@ -720,25 +739,45 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istre
         if (exon_number >= 0) {
 
             // If first transcript and exon, set whether exon numbering is zero-based. 
-            if (transcripts_index.size() == 1 && transcript->exons.size() == 1) {
+            if (parsed_transcripts.size() == 1 && transcript->exons.size() == 1) {
 
                 zero_based_exon_number = (exon_number == 0) ? true : false;
             }
 
             if (transcript->exons.size() - static_cast<uint32_t>(zero_based_exon_number) != exon_number) {
 
-                cerr << "\tERROR: Exons are not in correct order according to attributes (line " << line_number << ")." << endl;
-                exit(1); 
+                // Exclude transcripts with exons in incorrect order according to attributes.
+                excluded_transcripts.emplace(transcript_id);
             } 
         }
     }
 
-    for (auto & transcript_idx: transcripts_index) {
+    for (auto & transcript: parsed_transcripts) {
 
-        // Reorder reversed order exons.
-        reorder_exons(&(transcripts->at(transcript_idx.second)));
+        // Exclude transcripts with overlapping exons.
+        if (has_overlapping_exons(transcript.second.exons)) {
+
+            excluded_transcripts.emplace(transcript.first);
+        }
     }
-    
+
+    assert(excluded_transcripts.size() <= parsed_transcripts.size());
+
+    transcripts->reserve(transcripts->size() + parsed_transcripts.size() - excluded_transcripts.size());
+
+    for (auto & transcript: parsed_transcripts) {
+
+        if (excluded_transcripts.find(transcript.first) == excluded_transcripts.end()) {
+
+            // Reorder reversed order exons.
+            reorder_exons(&(transcript.second));
+
+            transcripts->emplace_back(move(transcript.second));
+        }
+    }
+
+    *number_of_excluded_transcripts += excluded_transcripts.size();
+
     return parsed_lines;
 }
 
@@ -842,6 +881,30 @@ void Transcriptome::reorder_exons(Transcript * transcript) const {
             reverse(transcript->exons.begin(), transcript->exons.end()); 
         }
     }
+}
+
+bool Transcriptome::has_overlapping_exons(const vector<Exon> & exons) const {
+
+    for (size_t i = 1; i < exons.size(); ++i) {
+
+        // Is exons in reverse order.
+        if (exons.at(i - 1).coordinates.first <= exons.at(i).coordinates.first) {
+
+            if (exons.at(i - 1).coordinates.second >= exons.at(i).coordinates.first) {
+
+                return true;
+            }
+        
+        } else {
+
+            if (exons.at(i).coordinates.second >= exons.at(i - 1).coordinates.first) {
+
+                return true;
+            }     
+        }
+    }
+
+    return false;
 }
 
 list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_embedded(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const {
@@ -1233,15 +1296,25 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
             continue;
         }
 
-        const auto & path_metadata = haplotype_index.metadata.path(gbwt::Path::id(i));
+        const auto & gbwt_path_metadata = haplotype_index.metadata.path(gbwt::Path::id(i));
 
-        auto haplotype_name_index_it = haplotype_name_index.emplace(haplotype_index.metadata.contig(path_metadata.contig), map<uint32_t, uint32_t>());
-        assert(haplotype_name_index_it.first->second.emplace(path_metadata.count, i).second);
+        // Create haplotype path name without phaseblock and subrange (basename). 
+        string path_basename = PathMetadata::create_path_name(PathSense::REFERENCE, 
+                gbwtgraph::get_path_sample_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
+                gbwtgraph::get_path_locus_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
+                gbwtgraph::get_path_haplotype(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
+                PathMetadata::NO_PHASE_BLOCK, 
+                PathMetadata::NO_SUBRANGE);
+
+        auto haplotype_name_index_it = haplotype_name_index.emplace(path_basename, map<uint32_t, uint32_t>());
+
+        assert(haplotype_name_index_it.first->second.emplace(gbwt_path_metadata.count, i).second);
     }
 
     list<EditedTranscriptPath> edited_transcript_paths;
     spp::sparse_hash_map<handle_t, vector<EditedTranscriptPath *> > edited_transcript_paths_index;
 
+    uint32_t excluded_transcripts = 0;
     mutex edited_transcript_paths_mutex;
 
     vector<thread> construction_threads;
@@ -1250,7 +1323,7 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     // Spawn construction threads.
     for (size_t thread_idx = 0; thread_idx < num_threads; thread_idx++) {
 
-        construction_threads.push_back(thread(&Transcriptome::construct_reference_transcript_paths_gbwt_callback, this, &edited_transcript_paths, &edited_transcript_paths_index, &edited_transcript_paths_mutex, thread_idx, ref(chrom_transcript_sets), ref(transcripts), ref(haplotype_index), ref(haplotype_name_index)));
+        construction_threads.push_back(thread(&Transcriptome::construct_reference_transcript_paths_gbwt_callback, this, &edited_transcript_paths, &edited_transcript_paths_index, &excluded_transcripts, &edited_transcript_paths_mutex, thread_idx, ref(chrom_transcript_sets), ref(transcripts), ref(haplotype_index), ref(haplotype_name_index)));
     }
 
     // Join construction threads.   
@@ -1259,14 +1332,22 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
         thread.join();
     }
 
+    if (excluded_transcripts > 0) {
+
+        cerr << "\tWARNING: Excluded " << excluded_transcripts << " transcripts with exon overlapping a haplotype break." << endl;
+
+    }
+
     return edited_transcript_paths;
 }
 
-void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<handle_t, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const {
+void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<handle_t, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, uint32_t * excluded_transcripts, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const {
 
     int32_t chrom_transcript_sets_idx = thread_idx;
 
     while (chrom_transcript_sets_idx < chrom_transcript_sets.size()) {
+
+        uint32_t excluded_transcripts_local = 0;
 
         list<EditedTranscriptPath> thread_edited_transcript_paths;
 
@@ -1288,8 +1369,8 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
 
                 // Delete transcripts with exon overlapping haplotype break.
                 if (get<2>(incomplete_transcript_paths_it->second)) {
-                    
-                    cerr << "\tWARNING: Skipping transcript " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).name << " on " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).chrom << " since one of its exons overlap a haplotype break." << endl;
+
+                    excluded_transcripts_local++;
                     incomplete_transcript_paths_it = incomplete_transcript_paths.erase(incomplete_transcript_paths_it);
                 
                 } else {
@@ -1424,15 +1505,15 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                 break;
             }
         }
-    
-        for (auto & transcript_path: incomplete_transcript_paths) {
 
-            cerr << "\tWARNING: Skipping transcript " << transcripts.at(get<0>(transcript_path.second)).name << " on " << transcripts.at(get<0>(transcript_path.second)).chrom << " since one of its exons overlap a haplotype break." << endl;
-        }
+        excluded_transcripts_local += incomplete_transcript_paths.size();
 
         edited_transcript_paths_mutex->lock();
+
         remove_redundant_transcript_paths<EditedTranscriptPath>(&thread_edited_transcript_paths, edited_transcript_paths_index);
         edited_transcript_paths->splice(edited_transcript_paths->end(), thread_edited_transcript_paths);
+        *excluded_transcripts += excluded_transcripts_local;
+
         edited_transcript_paths_mutex->unlock();
 
         chrom_transcript_sets_idx += num_threads;
