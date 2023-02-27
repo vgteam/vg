@@ -121,7 +121,7 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
     for (size_t i = 0; i < first_alignment_pos.size(); ++i) {
         if (id(first_alignment_pos[i]) == id(second_alignment_pos[i]) &&
             offset(first_alignment_pos[i]) == offset(second_alignment_pos[i]) &&
-            (is_rev(first_alignment_pos[i]) == is_rev(second_alignment_pos[i]))){
+            (is_rev(first_alignment_pos[i]) == is_rev(second_alignment_pos[i]))) {
             size_t t = first_alignment_pos.size() - 1;
             if (id(first_alignment_pos[t]) == id(second_alignment_pos[t]) &&
                 offset(first_alignment_pos[t]) == offset(second_alignment_pos[t]) &&
@@ -155,7 +155,9 @@ void help_rmvdup(char **argv) {
     cerr << "usage: " << argv[0] << " rmvdup [options] inputfile.gam > output.gam " << endl
          << "Remove duplicate PCRs from the input file. A gam index file (.gam.gai) must exists." << endl
          << "  -o, --output_type               prints the pairs of (sequence, name) as strings in the output" << endl
-         << "    -t, --threads N            number of threads to use" << endl;
+         << "    -t, --threads N            number of threads to use" << endl
+         << "   -g --get_duplicates            prints the duplicate candidates in the output(can use with the -o)"
+         << endl;
 
 }
 
@@ -165,20 +167,22 @@ typedef boomphf::mphf <string, Custom_string_hasher> boophf_t;
 int main_rmvdup(int argc, char *argv[]) {
     string filename;
     bool output_t = false;
+    bool print_duplicates = false;
     int threads = 8;
 
     int c;
     optind = 2;  // force optind past command positional argument
     while (true) {
         static struct option long_options[] = {
-                {"help",     no_argument,       0, 'h'},
-                {"output_type", no_argument,       0, 'o'},
-                {"threads",  required_argument, 0, 't'},
-                {0,          0,                 0, 0}
+                {"help", no_argument, 0, 'h'},
+                {"output_type", no_argument, 0, 'o'},
+                {"get_duplicates", no_argument, 0, 'g'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hot:",
+        c = getopt_long(argc, argv, "hogt:",
                         long_options, &option_index);
 
         if (c == -1) break;
@@ -192,6 +196,10 @@ int main_rmvdup(int argc, char *argv[]) {
             case 't':
                 threads = parse<int>(optarg);
                 omp_set_num_threads(threads);
+                break;
+
+            case 'g':
+                print_duplicates = true;
                 break;
 
             case 'h':
@@ -257,6 +265,13 @@ int main_rmvdup(int argc, char *argv[]) {
                         if (!checked[bphf->lookup(name_id(share_aln))]) {
                             if (name_id(aln) != name_id(share_aln)) {
                                 if (check_duplicate(aln, share_aln)) {
+                                    if (print_duplicates) {
+#pragma omp critical (cerr)
+                                        if (output_t)
+                                            cout << share_aln.sequence() << endl;
+                                        else
+                                            emitter->write(std::move(const_cast<Alignment &>(share_aln)));
+                                    }
 //                                    cout << aln.sequence() << "\t" << share_aln.sequence() << endl;
 //                                    cout << aln.name() << "\t" << share_aln.name() << endl;
 
@@ -274,20 +289,16 @@ int main_rmvdup(int argc, char *argv[]) {
                     });
 
                 });
-
+                if (!print_duplicates) {
 #pragma omp critical (cerr)
-                if (!checked[bphf->lookup(name_id(aln))]){
-                    if (output_t)
-                        cout << aln.sequence() << "\t" << aln.name() << endl;
-                    else
-                        emitter->write(std::move(aln));
-//                    cout << aln.name() << endl;
-//                    checked[bphf->lookup(name_id(aln))] = true;
+
+                    if (!checked[bphf->lookup(name_id(aln))]) {
+                        if (output_t)
+                            cout << aln.sequence() << "\t" << aln.name() << endl;
+                        else
+                            emitter->write(std::move(aln));
+                    }
                 }
-
-
-
-
 
 
             }
