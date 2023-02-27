@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 44
+plan tests 45
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -42,6 +42,10 @@ vg minimizer -k 29 -b -s 18 -g x.gbwt -o x.sync x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
+
+chmod 400 x.dist
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
+is "${?}" "0" "a read can be mapped when the distance index is not writable"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
