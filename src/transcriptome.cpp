@@ -2341,8 +2341,6 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
         for (auto & node: cur_gbwt_thread) {
 
             auto handle = gbwt_to_handle(*_graph, node);
-            assert(_graph->get_is_reverse(handle) == 0);
-
             auto update_index_it = update_index.find(handle);
 
             if (update_index_it != update_index.end()) {
@@ -2357,7 +2355,7 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
                 // Add new nodes.
                 for (auto & new_node: update_index_it->second) {
 
-                    assert(_graph->get_is_reverse(new_node.second) == 0);
+                    assert(_graph->get_is_reverse(handle) == _graph->get_is_reverse(new_node.second));
                     new_gbwt_threads.emplace_back(handle_to_gbwt(*_graph, new_node.second));
                 }
 
