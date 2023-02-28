@@ -951,7 +951,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     const Parameters& parameters) const {
 
     // TODO: What are the proper thresholds?
-    enum kmer_presence { absent, present, ignore };
+    enum kmer_presence { absent, heterozygous, present, ignore };
     double absent_threshold = parameters.coverage * 0.1;
     double heterozygous_threshold = parameters.coverage / std::log(4.0);
     double homozygous_threshold = parameters.coverage * 2.0;
@@ -983,7 +983,6 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             }
             assert(!subchain.sequences.empty());
 
-            // TODO: How to handle heterozygous kmers?
             // TODO: -log prob may be the right score once we have enough haplotypes, but
             // right now +1 works better, because we don't have haplotypes with the right
             // combination of rare kmers.
@@ -997,7 +996,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                     kmer_types.push_back({ absent, 1.0 });
                     selected_kmers++;
                 } else if (count < heterozygous_threshold) {
-                    kmer_types.push_back({ ignore, 0.0 });
+                    kmer_types.push_back({ heterozygous, 1.0 });
+                    selected_kmers++;
                 } else if (count < homozygous_threshold) {
                     kmer_types.push_back({ present, 1.0 });
                     selected_kmers++;
@@ -1014,11 +1014,14 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 double score = 0.0;
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                     switch (kmer_types[kmer_id].first) {
-                    case present:
-                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].second : -kmer_types[kmer_id].second);
-                        break;
                     case absent:
                         score += (subchain.kmers_present[offset + kmer_id] ? -kmer_types[kmer_id].second : kmer_types[kmer_id].second);
+                        break;
+                    case heterozygous:
+                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].second : 0);
+                        break;
+                    case present:
+                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].second : -kmer_types[kmer_id].second);
                         break;
                     default:
                         break;
