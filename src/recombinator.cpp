@@ -1031,12 +1031,14 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                     switch (kmer_types[kmer_id].first) {
                     case heterozygous:
-                        kmer_types[kmer_id].second += (subchain.kmers_present[offset + kmer_id] ? -1.0 : 1.0) * HET_ADJUSTMENT;
+                        kmer_types[kmer_id].second += (subchain.kmers_present[offset + kmer_id] ? -1.0 : 1.0) * parameters.het_adjustment;
                         break;
                     case present:
                         if (subchain.kmers_present[offset + kmer_id]) {
-                            kmer_types[kmer_id].second *= PRESENT_DISCOUNT;
+                            kmer_types[kmer_id].second *= parameters.present_discount;
                         }
+                        break;
+                    default:
                         break;
                     }
                 }

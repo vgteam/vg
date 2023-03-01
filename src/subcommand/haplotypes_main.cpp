@@ -69,6 +69,14 @@ size_t haplotypes_default_coverage() {
     return Recombinator::COVERAGE;
 }
 
+double haplotypes_default_discount() {
+    return Recombinator::PRESENT_DISCOUNT;
+}
+
+double haplotypes_default_adjustment() {
+    return Recombinator::HET_ADJUSTMENT;
+}
+
 void help_haplotypes(char** argv) {
     std::string usage = "    " + std::string(argv[0]) + " " + std::string(argv[1]) + " [options] ";
     std::cerr << "Usage:" << std::endl;
@@ -95,6 +103,8 @@ void help_haplotypes(char** argv) {
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
     std::cerr << "        --coverage N          read coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
+    std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
+    std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --random-sampling     sample randomly instead of using the kmer counts" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
@@ -162,7 +172,9 @@ int main_haplotypes(int argc, char** argv) {
     constexpr int OPT_SUBCHAIN_LENGTH = 1202;
     constexpr int OPT_COVERAGE = 1300;
     constexpr int OPT_NUM_HAPLOTYPES = 1301;
-    constexpr int OPT_RANDOM_SAMPLING = 1302;
+    constexpr int OPT_PRESENT_DISCOUNT = 1302;
+    constexpr int OPT_HET_ADJUSTMENT = 1303;
+    constexpr int OPT_RANDOM_SAMPLING = 1304;
     constexpr int OPT_VALIDATE = 1400;
 
     static struct option long_options[] =
@@ -179,6 +191,8 @@ int main_haplotypes(int argc, char** argv) {
         { "subchain-length", required_argument, 0, OPT_SUBCHAIN_LENGTH },
         { "coverage", required_argument, 0, OPT_COVERAGE },
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
+        { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
+        { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "random-sampling", no_argument, 0, OPT_RANDOM_SAMPLING },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
@@ -244,6 +258,20 @@ int main_haplotypes(int argc, char** argv) {
             recombinator_parameters.coverage = parse<size_t>(optarg);
             if (recombinator_parameters.coverage == 0) {
                 std::cerr << "error: [vg haplotypes] read coverage cannot be 0" << std::endl;
+                return 1;
+            }
+            break;
+        case OPT_PRESENT_DISCOUNT:
+            recombinator_parameters.present_discount = parse<double>(optarg);
+            if (recombinator_parameters.present_discount < 0.0 || recombinator_parameters.present_discount > 1.0) {
+                std::cerr << "error: [vg haplotypes] discount factor must be between 0.0 and 1.0" << std::endl;
+                return 1;
+            }
+            break;
+        case OPT_HET_ADJUSTMENT:
+            recombinator_parameters.het_adjustment = parse<double>(optarg);
+            if (recombinator_parameters.het_adjustment < 0.0) {
+                std::cerr << "error: [vg haplotypes] adjustment term must be non-negative" << std::endl;
                 return 1;
             }
             break;

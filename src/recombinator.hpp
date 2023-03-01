@@ -474,6 +474,15 @@ public:
         /// Buffer size (in nodes) for GBWT construction.
         gbwt::size_type buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 
+        /// Multiplicative factor for discounting the scores for present kmers after
+        /// selecting a haplotype with that kmer.
+        double present_discount = PRESENT_DISCOUNT;
+
+        /// Additive term for adjusting the scores for heterozygous kmers after
+        /// each haplotype to encourage even sampling of haplotypes with and without
+        /// that kmer.
+        double het_adjustment = HET_ADJUSTMENT;
+
         /// Sample randomly instead of by score.
         bool random_sampling = false;
     };
