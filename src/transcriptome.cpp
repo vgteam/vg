@@ -1370,7 +1370,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                 // Delete transcripts with exon overlapping haplotype break.
                 if (get<2>(incomplete_transcript_paths_it->second)) {
 
-                    excluded_transcripts_local++;
+                    ++excluded_transcripts_local;
                     incomplete_transcript_paths_it = incomplete_transcript_paths.erase(incomplete_transcript_paths_it);
                 
                 } else {
@@ -1396,11 +1396,14 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                     if (cur_transcript.exons.front().coordinates.first >= node_start_pos && cur_transcript.exons.front().coordinates.first < node_start_pos + node_length) {
 
                         incomplete_transcript_paths.emplace_back(EditedTranscriptPath(cur_transcript.name, gbwt::Path::id(haplotype_idx.second), true, false), make_tuple(transcript_idx, 0, false));
-                    } 
-
-                    if (node_start_pos + node_length <= cur_transcript.exons.front().coordinates.first) {
+                    
+                    } else if (node_start_pos + node_length <= cur_transcript.exons.front().coordinates.first) {
 
                         break;
+                    
+                    } else {
+
+                        ++excluded_transcripts_local;
                     }
 
                     ++transcript_idx;
@@ -1507,6 +1510,11 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
         }
 
         excluded_transcripts_local += incomplete_transcript_paths.size();
+
+        assert(transcript_idx <= transcript_set.first + transcript_set.second);
+        excluded_transcripts_local += (transcript_set.first + transcript_set.second - transcript_idx);
+
+        assert(thread_edited_transcript_paths.size() == transcript_set.second - excluded_transcripts_local);
 
         edited_transcript_paths_mutex->lock();
 
