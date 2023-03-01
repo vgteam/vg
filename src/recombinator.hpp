@@ -344,6 +344,14 @@ public:
     /// Block size (in kmers) for reading KFF files.
     constexpr static size_t KFF_BLOCK_SIZE = 1000000;
 
+    /// Multiplier to the score of a present kmer every time a haplotype with that
+    /// kmer is selected.
+    constexpr static double PRESENT_DISCOUNT = 0.7;
+
+    /// Adjustment to the score of a heterozygous kmer every time a haplotype with
+    /// (-) or without (+) that kmer is selected.
+    constexpr static double HET_ADJUSTMENT = 0.2;
+
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
 
@@ -441,9 +449,6 @@ public:
 
         /// Total score for selected sequences.
         double score = 0.0;
-
-        /// Total score for sequences of each rank in sorted order.
-        std::vector<double> score_by_rank;
 
         /// Combines the statistics into this object.
         void combine(const Statistics& another);
