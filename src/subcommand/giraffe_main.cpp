@@ -225,22 +225,22 @@ static GroupedOptionGroup get_options() {
         "maximum distance to cluster over before chaining"
     );
     chaining_opts.add_range(
-        "precluster-connection-coverage-threshold",
-        &MinimizerMapper::precluster_connection_coverage_threshold,
-        MinimizerMapper::default_precluster_connection_coverage_threshold,
-        "threshold of precluster pair coverage below the base, after which to stop reseeding between preclusters"
+        "fragment-connection-coverage-threshold",
+        &MinimizerMapper::fragment_connection_coverage_threshold,
+        MinimizerMapper::default_fragment_connection_coverage_threshold,
+        "threshold of fragment pair coverage below the base, after which to stop reseeding between fragments"
     );
     chaining_opts.add_range(
-        "min-precluster-connections",
-        &MinimizerMapper::min_precluster_connections,
-        MinimizerMapper::default_min_precluster_connections,
-        "minimum number of precluster connections to reseed over"
+        "min-fragment-connections",
+        &MinimizerMapper::min_fragment_connections,
+        MinimizerMapper::default_min_fragment_connections,
+        "minimum number of fragment connections to reseed over"
     );
     chaining_opts.add_range(
-        "max-precluster-connections",
-        &MinimizerMapper::max_precluster_connections,
-        MinimizerMapper::default_max_precluster_connections,
-        "maximum number of precluster connections to reseed over"
+        "max-fragment-connections",
+        &MinimizerMapper::max_fragment_connections,
+        MinimizerMapper::default_max_fragment_connections,
+        "maximum number of fragment connections to reseed over"
     );
     chaining_opts.add_range(
         "max-lookback-bases",

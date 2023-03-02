@@ -194,26 +194,30 @@ public:
     static constexpr bool default_align_from_chains = false;
     bool align_from_chains = default_align_from_chains;
     
-    /// What read-length-independent distance threshold do we want to use for clustering?
-    static constexpr size_t default_chaining_cluster_distance = 100;
-    size_t chaining_cluster_distance = default_chaining_cluster_distance;
+    /// What multiple of the read length should we use for bucketing (coarse clustering/preclustering)?
+    static constexpr double default_bucket_scale = 2.0;
+    double bucket_scale = default_bucket_scale;
     
-    /// If the read coverage of a precluster connection is less than the best of any
+    /// If the read coverage of a fragment connection is less than the best of any
     /// by more than this much, don't extend it
-    static constexpr double default_precluster_connection_coverage_threshold = 0.3;
-    double precluster_connection_coverage_threshold = default_precluster_connection_coverage_threshold;
+    static constexpr double default_fragment_connection_coverage_threshold = 0.3;
+    double fragment_connection_coverage_threshold = default_fragment_connection_coverage_threshold;
     
-    /// How many connections between preclusters should we reseed over, minimum?
-    static constexpr size_t default_min_precluster_connections = 10;
-    size_t min_precluster_connections = default_min_precluster_connections;
+    /// How many connections between fragments should we reseed over, minimum?
+    static constexpr size_t default_min_fragment_connections = 10;
+    size_t min_fragment_connections = default_min_fragment_connections;
     
-    /// How many connections between preclusters should we reseed over, maximum?
-    static constexpr size_t default_max_precluster_connections = 50;
-    size_t max_precluster_connections = default_max_precluster_connections;
+    /// How many connections between fragments should we reseed over, maximum?
+    static constexpr size_t default_max_fragment_connections = 50;
+    size_t max_fragment_connections = default_max_fragment_connections;
     
     /// When connecting subclusters for reseeding, how far should we search?
     static constexpr size_t default_reseed_search_distance = 10000;
     size_t reseed_search_distance = default_reseed_search_distance;
+    
+    /// What read-length-independent distance threshold do we want to use for final clustering?
+    static constexpr size_t default_chaining_cluster_distance = 100;
+    size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
     // TODO: These will go away with cluster-merging chaining
     /// Accept at least this many clusters for chain generation
@@ -519,7 +523,7 @@ protected:
      *
      * Puts the cluster in the funnel as coming from its seeds.
      */
-    void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
+    void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length) const;
     
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
@@ -527,15 +531,14 @@ protected:
      * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
      *
-     * Thinks of the cluster as being made out of some previous clusters and
+     * Thinks of the cluster as being made out of some fragments and
      * some new seeds from the tail end of seeds, which are already in the
-     * funnel, clusters first. seed_to_precluster maps from seed to the old
+     * funnel, clusters first. seed_to_fragment maps from seed to the old
      * cluster it is part of, or std::numeric_limits<size_t>::max() if it isn't
      * from an old cluster.
      *
-     * Puts the cluster in the funnel.
      */
-    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_precluster, const std::vector<Cluster>& preclusters, size_t seq_length, Funnel& funnel) const;
+    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_fragment, const std::vector<Cluster>& fragments, size_t seq_length, Funnel& funnel) const;
     
     /**
      * Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
@@ -550,6 +553,28 @@ protected:
         const HandleGraph& graph,
         const VectorView<Minimizer>& minimizers,
         const std::function<void(const Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph) const;
+    
+    /// Represents a chaining result.
+    struct chain_set_t {
+        /// These are the chains for all the clusters, as score and sequence of visited seeds.
+        vector<pair<int, vector<size_t>>> cluster_chains;
+        /// What cluster seeds define the space for clusters' chosen chains?
+        vector<vector<size_t>> cluster_chain_seeds;
+        /// Chainable anchors in the same order as seeds
+        vector<algorithms::Anchor> seed_anchors;
+        /// To compute the windows for explored minimizers, we need to get
+        /// all the minimizers that are explored.
+        SmallBitset minimizer_explored;
+        /// How many hits of each minimizer ended up in each cluster we kept?
+        vector<vector<size_t>> minimizer_kept_cluster_count;
+        /// How many clusters were kept?
+        size_t kept_cluster_count;
+    };
+    
+    /**
+     * Run chaining on some clusters. Returns the chains and the context needed to interpret them.
+     */
+    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

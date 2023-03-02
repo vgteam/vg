@@ -48,8 +48,8 @@ void MinimizerMapper::score_merged_cluster(Cluster& cluster,
                                            const VectorView<Minimizer>& minimizers,
                                            const std::vector<Seed>& seeds,
                                            size_t first_new_seed,
-                                           const std::vector<size_t>& seed_to_precluster,
-                                           const std::vector<Cluster>& preclusters,
+                                           const std::vector<size_t>& seed_to_bucket,
+                                           const std::vector<Cluster>& buckets,
                                            size_t seq_length,
                                            Funnel& funnel) const {
     
@@ -68,7 +68,7 @@ void MinimizerMapper::score_merged_cluster(Cluster& cluster,
     // TODO: Skip if not tracking provenance?
     std::vector<size_t> to_combine;
     // Deduplicate old clusters with a bit set
-    SmallBitset preclusters_seen(preclusters.size());
+    SmallBitset buckets_seen(buckets.size());
     
 
     // Determine the minimizers that are present in the cluster.
@@ -79,20 +79,20 @@ void MinimizerMapper::score_merged_cluster(Cluster& cluster,
         if (hit_index < first_new_seed) {
             // An old seed.
             // We can also pick up an old cluster.
-            size_t old_cluster = seed_to_precluster.at(hit_index);
+            size_t old_cluster = seed_to_bucket.at(hit_index);
             if (old_cluster != std::numeric_limits<size_t>::max()) {
                 // This seed came form an old cluster, so we must have eaten it
-                if (!preclusters_seen.contains(old_cluster)) {
+                if (!buckets_seen.contains(old_cluster)) {
                     // Remember we used this old cluster
                     to_combine.push_back(old_cluster);
-                    preclusters_seen.insert(old_cluster);
+                    buckets_seen.insert(old_cluster);
                 }
             }
         } else {
             // Make sure we tell the funnel we took in this new seed.
             // Translate from a space that is old seeds and then new seeds to a
             // space that is old *clusters* and then new seeds
-            to_combine.push_back(hit_index - first_new_seed + preclusters.size());
+            to_combine.push_back(hit_index - first_new_seed + buckets.size());
         }
     }
     if (show_work) {
@@ -262,389 +262,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
                                         
 }
 
-vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        dump_debug_query(aln);
-    }
-    
-    // Make a new funnel instrumenter to watch us map this read.
-    Funnel funnel;
-    funnel.start(aln.name());
-    
-    // Prepare the RNG for shuffling ties, if needed
-    LazyRNG rng([&]() {
-        return aln.sequence();
-    });
+MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
 
-
-    // Minimizers sorted by position
-    std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
-    // Indexes of minimizers, sorted into score order, best score first
-    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
-    // Minimizers sorted by best score first
-    VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
-    // We may or may not need to invert this view, but if we do we will want to
-    // keep the result. So have a place to lazily keep an inverse.
-    std::unique_ptr<VectorViewInverse> minimizer_score_sort_inverse;
-    
-    // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
-    
-    // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
-    if (track_provenance) {
-        funnel.stage("precluster");
-        funnel.substage("compute-preclusters");
-    }
-
-    // Find the clusters up to a flat distance limit
-    std::vector<Cluster> preclusters = clusterer.cluster_seeds(seeds, chaining_cluster_distance);
-    
-    if (track_provenance) {
-        funnel.substage("score-preclusters");
-    }
-    for (size_t i = 0; i < preclusters.size(); i++) {
-        Cluster& precluster = preclusters[i];
-        this->score_cluster(precluster, i, minimizers, seeds, aln.sequence().length(), funnel);
-    }
-    
-    // Find pairs of "adjacent" preclusters
-    if (track_provenance) {
-        funnel.substage("pair-preclusters");
-    }
-    
-    // To do that, we need start end end positions for each precluster, in the read
-    std::vector<std::pair<size_t, size_t>> precluster_read_ranges(preclusters.size(), {std::numeric_limits<size_t>::max(), 0});
-    // And the lowest-numbered seeds in the precluster from those minimizers.
-    std::vector<std::pair<size_t, size_t>> precluster_bounding_seeds(preclusters.size(), {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()});
-    for (size_t i = 0; i < preclusters.size(); i++) {
-        // For each precluster
-        auto& precluster = preclusters[i];
-        // We will fill in the range it ocvcupies in the read
-        auto& read_range = precluster_read_ranges[i];
-        auto& graph_seeds = precluster_bounding_seeds[i];
-        for (auto& seed_index : precluster.seeds) {
-            // Which means we look at the minimizer for each seed
-            auto& minimizer = minimizers[seeds[seed_index].source];
-            
-            if (minimizer.forward_offset() < read_range.first) {
-                // Min all their starts to get the precluster start
-                read_range.first = minimizer.forward_offset();
-                if (seed_index < graph_seeds.first) {
-                    // And keep a seed hit
-                    graph_seeds.first = seed_index;
-                }
-            }
-            
-            if (minimizer.forward_offset() + minimizer.length > read_range.second) {
-                // Max all their past-ends to get the precluster past-end
-                read_range.second = minimizer.forward_offset() + minimizer.length;
-                if (seed_index < graph_seeds.second) {
-                    // And keep a seed hit
-                    graph_seeds.second = seed_index;
-                }
-            }
-        }
-    }
-    
-    // Now we want to find, for each interval, the next interval that starts after it ends
-    // So we put all the intervals in an ordered map by start position.
-    std::map<size_t, size_t> preclusters_by_start;
-    // We're also going to need to know which seeds went into which preclusters.
-    // TODO: We could get away with one seed per precluster here probably.
-    // TODO: Can we skip building this if not tracking provenance?
-    std::vector<size_t> seed_to_precluster(seeds.size(), std::numeric_limits<size_t>::max());
-    for (size_t i = 0; i < preclusters.size(); i++) {
-        auto found = preclusters_by_start.find(precluster_read_ranges[i].first);
-        if (found == preclusters_by_start.end()) {
-            // First thing we've found starting here
-            preclusters_by_start.emplace_hint(found, precluster_read_ranges[i].first, i);
-        } else {
-            // When multiple preclusters start at a position, we always pick the one with the most seeds.
-            // TODO: score the preclusters and use the scores?
-            if (preclusters[found->second].seeds.size() < preclusters[i].seeds.size()) {
-                // If the one in the map has fewer seeds, replace it.
-                found->second = i;
-            }
-        }
-        for (auto& seed : preclusters[i].seeds) {
-            // Record which precluster this seed went into.
-            seed_to_precluster.at(seed) = i;
-        }
-    }
-    // And we need to know the unconnected-to preclusters with nothing to their
-    // left, which also won the contest for most seeds at their start position
-    // (and so could have been connected to)
-    std::unordered_set<size_t> unconnected_preclusters;
-    for (auto& kv : preclusters_by_start) {
-        unconnected_preclusters.insert(kv.second);
-    }
-    // And then we do bound lookups for each cluster to find the next one
-    // And we put those pairs here.
-    using precluster_connection_t = std::pair<size_t, size_t>;
-    std::vector<precluster_connection_t> precluster_connections;
-    for (size_t i = 0; i < preclusters.size(); i++) {
-        size_t past_end = precluster_read_ranges[i].second;
-        // Find the cluster with the most seeds that starts the soonest after the last base in this cluster.
-        auto found = preclusters_by_start.lower_bound(past_end);
-        if (found != preclusters_by_start.end()) {
-            // We found one. Can we connect them?
-            precluster_connections.emplace_back(i, found->second);
-            // Something might connect to them
-            unconnected_preclusters.erase(found->second);
-        } else {
-            // There's nothing after us, so connect to nowhere.
-            precluster_connections.emplace_back(i, std::numeric_limits<size_t>::max());
-            if (show_work) {
-                #pragma omp critical (cerr)
-                std::cerr << log_name() << "Precluster at {R:" << precluster_read_ranges[i].first << "-" << precluster_read_ranges[i].second << "} has nowhere to reseed to" << std::endl;
-            }
-        }
-    }
-    for (auto& unconnected : unconnected_preclusters) {
-        // These preclusters could have been connected to but weren't, so look left off of them.
-        precluster_connections.emplace_back(std::numeric_limits<size_t>::max(), unconnected);
-    }
-    
-    if (track_provenance) {
-        funnel.stage("reseed");
-    }
-    
-    if (track_provenance) {
-        // We project all preclusters into the funnel
-        for (size_t i = 0; i < preclusters.size(); i++) {
-            funnel.project_group(i, preclusters[i].seeds.size());
-        }
-    }
-    
-    // Remember how many seeds we had before reseeding
-    size_t old_seed_count = seeds.size();
-    
-    // We are going to need a widget for finding minimizer hit
-    // positions in a subgraph, in the right orientation.
-    auto find_minimizer_hit_positions = [&](const Minimizer& m, const vector<id_t>& sorted_ids, const std::function<void(const pos_t)>& iteratee) -> void {
-        gbwtgraph::hits_in_subgraph(m.hits, m.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
-            if (m.value.is_reverse) {
-                // Convert to face along forward strand of read.
-                size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
-                pos = reverse_base_pos(pos, node_length);
-            }
-            // Show the properly stranded position to the iteratee.
-            iteratee(pos);
-        });
-    };
-    
-    // We are going to need our existing seeds in the form of something we can deduplicate.
-    // TODO: Also remove overlap?
-    std::unordered_set<std::pair<size_t, pos_t>> seen_seeds;
-    for (auto& seed : seeds) {
-        seen_seeds.emplace(minimizers[seed.source].forward_offset(), seed.pos);
-    }
-    
-    // Connections don't appear in the funnel so we track them ourselves.
-    size_t precluster_connection_explored_count = 0;
-    
-    process_until_threshold_a(precluster_connections.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
-        // Best pairs to connect are those with the highest average coverage
-        if (precluster_connections[i].first == std::numeric_limits<size_t>::max()) {
-            return preclusters[precluster_connections[i].second].coverage;
-        } else if (precluster_connections[i].second == std::numeric_limits<size_t>::max()) {
-            return preclusters[precluster_connections[i].first].coverage;
-        } else {
-            return (preclusters[precluster_connections[i].first].coverage + preclusters[precluster_connections[i].second].coverage) / 2;
-        }
-    },
-    precluster_connection_coverage_threshold,
-    min_precluster_connections,
-    max_precluster_connections,
-    rng,
-    [&](size_t connection_num) -> bool {
-        // This connection is good enough
-        
-        // TODO: Add provenance tracking/stage for connections?
-    
-        // Reseed between each pair of preclusters and dump into seeds
-        auto& connected = precluster_connections[connection_num];
-        
-        // Where should we start in the read
-        size_t left_read;
-        // And in the graph
-        pos_t left_pos;
-        if (connected.first == std::numeric_limits<size_t>::max()) {
-            // Nothing is on the left side of this connection
-            left_read = 0;
-            left_pos = empty_pos_t();
-        } else {
-            // Get the information from the precluster on the left side of this connection.
-            left_read = precluster_read_ranges[connected.first].second;
-            // Make sure graph position points forward along the read.
-            left_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.first].second), minimizers, this->gbwt_graph);
-        }
-        
-        // Where should we end in the read
-        size_t right_read;
-        // And in the graph
-        pos_t right_pos;
-        if (connected.second == std::numeric_limits<size_t>::max()) {
-            // Nothing is on the right side of this connection
-            right_read = aln.sequence().size();
-            right_pos = empty_pos_t();
-        } else {
-            // Get the information from the precluster on the right side of this connection.
-            right_read = precluster_read_ranges[connected.second].first;
-            // Make sure graph position points forward along the read.
-            right_pos = forward_pos(seeds.at(precluster_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
-        }
-        
-        if (show_work) {
-            if (connected.first == std::numeric_limits<size_t>::max()) {
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << log_name() << "Reseeding before precluster " << connected.second << " at {R:" << right_read << "-" << precluster_read_ranges[connected.second].second << " = G:" << right_pos
-                        << "}" << std::endl;
-                }
-            } else if (connected.second == std::numeric_limits<size_t>::max()) {
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << log_name() << "Reseeding after precluster " << connected.first << " at {R:" << precluster_read_ranges[connected.first].first << "-" << left_read << " = G:" << left_pos
-                        << "}" << std::endl;
-                }
-            } else {
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << log_name() << "Reseeding between preclusters " << connected.first << " at {R:" << precluster_read_ranges[connected.first].first << "-" << left_read << " = G:" << left_pos
-                        << "} and " << connected.second << " at {R:" << right_read << "-" << precluster_read_ranges[connected.second].second << " = G:" << right_pos
-                        << "}" << std::endl;
-                }
-            }
-                    
-            // Dump the minimizers in the region
-            this->dump_debug_minimizers(minimizers, aln.sequence(), nullptr, left_read, right_read - left_read);
-        }
-        
-        // Do the reseed
-        std::vector<Seed> new_seeds = reseed_between(left_read, right_read, left_pos, right_pos, this->gbwt_graph, minimizers, find_minimizer_hit_positions);
-        
-        // Concatenate and deduplicate with existing seeds
-        size_t seeds_before = seeds.size();
-        seeds.reserve(seeds_before + new_seeds.size());
-        for (auto& seed : new_seeds) {
-            // Check if we have seen it before
-            std::pair<size_t, pos_t> key {minimizers[seed.source].forward_offset(), seed.pos};
-            auto found = seen_seeds.find(key);
-            if (found == seen_seeds.end()) {
-                // Keep this new seed
-                seeds.emplace_back(std::move(seed));
-                seen_seeds.emplace_hint(found, std::move(key));
-                
-                if (this->track_provenance) {
-                    funnel.introduce();
-                    // Tell the funnel we came from these preclusters together
-                    if (connected.first != std::numeric_limits<size_t>::max()) {
-                        funnel.also_relevant(1, connected.first);
-                    }
-                    if (connected.second != std::numeric_limits<size_t>::max()) {
-                        funnel.also_relevant(1, connected.second);
-                    }
-                    // TODO: Tie these back to the minimizers, several stages ago.
-                }
-            }
-        }
-        
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                std::cerr << log_name() << "Found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
-                std::vector<size_t> new_seeds;
-                for (size_t i = seeds_before; i < seeds.size(); i++) {
-                    new_seeds.push_back(i);
-                } 
-                this->dump_debug_seeds(minimizers, seeds, new_seeds);
-            }
-        }
-        
-        precluster_connection_explored_count++;
-        
-        return true;
-    }, [&](size_t connection_num) -> void {
-        // There are too many sufficiently good connections
-        // TODO: Add provenance tracking
-    }, [&](size_t connection_num) -> void {
-        // This connection is not sufficiently good.
-        // TODO: Add provenance tracking
-    });
-    
-    if (this->track_provenance) {
-        // Make items in the funnel for all the new seeds, basically as one-seed preclusters.
-        if (this->track_correctness) {
-            // Tag newly introduced seed items with correctness 
-            funnel.substage("correct");
-        } else {
-            // We're just tagging them with read positions
-            funnel.substage("placed");
-        }
-        this->tag_seeds(aln, seeds.cbegin() + old_seed_count, seeds.cend(), minimizers, preclusters.size(), funnel);
-    }
-    
-    // Make the main clusters that include the recovered seeds
-    if (track_provenance) {
-        funnel.stage("cluster");
-    }
-    
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, chaining_cluster_distance);
-    
-    // Determine the scores and read coverages for each cluster.
-    // Also find the best and second-best cluster scores.
-    if (this->track_provenance) {
-        funnel.substage("score");
-    }
-    double best_cluster_score = 0.0, second_best_cluster_score = 0.0;
-    for (size_t i = 0; i < clusters.size(); i++) {
-        Cluster& cluster = clusters[i];
-        this->score_merged_cluster(cluster,
-                                   i,
-                                   minimizers,
-                                   seeds,
-                                   old_seed_count,
-                                   seed_to_precluster,
-                                   preclusters,
-                                   aln.sequence().length(),
-                                   funnel);
-        if (cluster.score > best_cluster_score) {
-            second_best_cluster_score = best_cluster_score;
-            best_cluster_score = cluster.score;
-        } else if (cluster.score > second_best_cluster_score) {
-            second_best_cluster_score = cluster.score;
-        }
-    }
-    
-    // Throw out some scratch
-    seed_to_precluster.clear();
-    seen_seeds.clear();
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Found " << clusters.size() << " clusters" << endl;
-        }
-    }
-    
-    // We will set a score cutoff based on the best, but move it down to the
-    // second best if it does not include the second best and the second best
-    // is within pad_cluster_score_threshold of where the cutoff would
-    // otherwise be. This ensures that we won't throw away all but one cluster
-    // based on score alone, unless it is really bad.
-    double cluster_score_cutoff = best_cluster_score - cluster_score_threshold;
-    if (cluster_score_cutoff - pad_cluster_score_threshold < second_best_cluster_score) {
-        cluster_score_cutoff = std::min(cluster_score_cutoff, second_best_cluster_score);
-    }
-
-    if (track_provenance) {
-        // Now we go from clusters to chains
-        funnel.stage("chain");
-    }
-    
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
     
@@ -672,7 +291,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }, cluster_coverage_threshold, min_clusters_to_chain, max_clusters_to_chain, rng, [&](size_t cluster_num) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
-            Cluster& cluster = clusters[cluster_num];
+            const Cluster& cluster = clusters[cluster_num];
             if (track_provenance) {
                 funnel.pass("cluster-coverage", cluster_num, cluster.coverage);
                 funnel.pass("max-clusters-to-chain", cluster_num);
@@ -783,8 +402,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                                                gbwt_graph,
                                                                get_regular_aligner()->gap_open,
                                                                get_regular_aligner()->gap_extension,
-                                                               max_lookback_bases,
-                                                               min_lookback_items,
+                                                               max_bases,
+                                                               min_items,
                                                                lookback_item_hard_cap,
                                                                initial_lookback_threshold,
                                                                lookback_scale_factor,
@@ -825,18 +444,25 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // Map each seed back to its canonical seed order
                     size_t seed_number = cluster_chain_seeds.back().at(sorted_seed_number);
                     if (seed_number < old_seed_count) {
-                        // Seed is original, from "seed" stage 4 stages ago
+                        // Seed is original, from "seed" stage
                         old_seed_ancestors.push_back(seed_number);
                     } else {
-                        // Seed is new, from "reseed" stage 2 stages ago. Came
-                        // after all the preclusters which also live in the reseed stage.
-                        new_seed_ancestors.push_back(seed_number - old_seed_count + preclusters.size());
+                        // Seed is new, from "reseed" stage. Came
+                        // after all the fragments which also live in the reseed stage.
+                        new_seed_ancestors.push_back(seed_number - old_seed_count + new_seed_start);
                     }
                 }
-                // We came from all the original seeds, 4 stages ago
-                funnel.also_merge_group(4, old_seed_ancestors.begin(), old_seed_ancestors.end());
-                // We came from all the new seeds, 2 stages ago
-                funnel.also_merge_group(2, new_seed_ancestors.begin(), new_seed_ancestors.end());
+                
+                if (!old_seed_ancestors.empty()) {
+                    // We came from all the original seeds
+                    funnel.also_merge_group(seed_stage_offset, old_seed_ancestors.begin(), old_seed_ancestors.end());
+                }
+                
+                if (!new_seed_ancestors.empty()) {
+                    // We came from all the new seeds
+                    funnel.also_merge_group(reseed_stage_offset, new_seed_ancestors.begin(), new_seed_ancestors.end());
+                }
+                
                 // We're also related to the source cluster from the
                 // immediately preceeding stage.
                 funnel.also_relevant(1, cluster_num);
@@ -849,7 +475,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             
         }, [&](size_t cluster_num) -> void {
             // There are too many sufficiently good clusters
-            Cluster& cluster = clusters[cluster_num];
+            const Cluster& cluster = clusters[cluster_num];
             if (track_provenance) {
                 funnel.pass("cluster-coverage", cluster_num, cluster.coverage);
                 funnel.fail("max-clusters-to-chain", cluster_num);
@@ -879,6 +505,470 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             }
         });
+   
+   // Now give back the chains and the context needed to interpret them.
+   return {cluster_chains, cluster_chain_seeds, seed_anchors, minimizer_explored, minimizer_kept_cluster_count, kept_cluster_count}; 
+    
+}
+    
+
+vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
+    
+    if (show_work) {
+        #pragma omp critical (cerr)
+        dump_debug_query(aln);
+    }
+    
+    // Make a new funnel instrumenter to watch us map this read.
+    Funnel funnel;
+    funnel.start(aln.name());
+    
+    // Prepare the RNG for shuffling ties, if needed
+    LazyRNG rng([&]() {
+        return aln.sequence();
+    });
+
+
+    // Minimizers sorted by position
+    std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
+    // Indexes of minimizers, sorted into score order, best score first
+    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
+    // Minimizers sorted by best score first
+    VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
+    // We may or may not need to invert this view, but if we do we will want to
+    // keep the result. So have a place to lazily keep an inverse.
+    std::unique_ptr<VectorViewInverse> minimizer_score_sort_inverse;
+    
+    // Find the seeds and mark the minimizers that were located.
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    
+    // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
+    if (track_provenance) {
+        funnel.stage("bucket");
+        funnel.substage("compute-buckets");
+    }
+
+    // Bucket the hits coarsely into sets that might be able to interact.
+    std::vector<Cluster> buckets = clusterer.cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
+    
+    // Score all the buckets
+    if (track_provenance) {
+        funnel.substage("score-buckets");
+    }
+    for (size_t i = 0; i < buckets.size(); i++) {
+        Cluster& bucket = buckets[i];
+        
+        if (this->track_provenance) {
+            // Say we're making it
+            funnel.producing_output(i);
+        } 
+        this->score_cluster(bucket, i, minimizers, seeds, aln.sequence().size());
+        if (this->track_provenance) {
+            // Record the cluster in the funnel as a group of the size of the number of items.
+            funnel.merge_group(bucket.seeds.begin(), bucket.seeds.end());
+            funnel.score(funnel.latest(), bucket.score);
+
+            // Say we made it.
+            funnel.produced_output();
+        }
+    }
+    
+    // Now we need to chain into fragments.
+    // Each fragment needs to end up with a seeds array of seed numbers, and a
+    // coverage float on the read, just like a cluster, for downstream
+    // processing.
+    if (track_provenance) {
+        funnel.stage("fragment");
+        funnel.substage("fragment");
+    }
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, 0.0, seeds.size(), 0, 50, 0, funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    
+    if (track_provenance) {
+        funnel.substage("translate-fragments");
+    }
+    
+    // Translate fragment chains into faked clusters, which downstream code expects. They need a seeds[] and a coverage.
+    std::vector<Cluster> fragments;
+    fragments.resize(fragment_results.cluster_chains.size());
+    assert(fragment_results.cluster_chains.size() == fragment_results.cluster_chain_seeds.size());
+    for (size_t i = 0; i < fragment_results.cluster_chains.size(); i++) {
+        
+        if (this->track_provenance) {
+            // Say we're making it
+            funnel.producing_output(i);
+        } 
+        // Copy all the seeds in the chain over
+        fragments[i].seeds.reserve(fragment_results.cluster_chains[i].second.size());
+        for (auto& chain_visited_index : fragment_results.cluster_chains[i].second) {
+            // Make sure to translate to real seed space
+            fragments[i].seeds.push_back(fragment_results.cluster_chain_seeds[i].at(chain_visited_index));
+        }
+        // Rescore as a cluster
+        this->score_cluster(fragments[i], i, minimizers, seeds, aln.sequence().size());
+        if (this->track_provenance) {
+            // Record the fragment in the funnel as coming from the bucket 
+            funnel.project(i);
+            funnel.score(funnel.latest(), fragments[i].score);
+
+            // Say we made it.
+            funnel.produced_output();
+        }
+    }
+    
+    // Find pairs of "adjacent" fragments
+    if (track_provenance) {
+        funnel.stage("reseed");
+        funnel.substage("pair-fragments");
+    }
+    
+    // To do that, we need start end end positions for each fragment, in the read
+    std::vector<std::pair<size_t, size_t>> fragment_read_ranges(fragments.size(), {std::numeric_limits<size_t>::max(), 0});
+    // And the lowest-numbered seeds in the fragment from those minimizers.
+    std::vector<std::pair<size_t, size_t>> fragment_bounding_seeds(fragments.size(), {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()});
+    for (size_t i = 0; i < fragments.size(); i++) {
+        // For each fragment
+        auto& fragment = fragments[i];
+        // We will fill in the range it ocvcupies in the read
+        auto& read_range = fragment_read_ranges[i];
+        auto& graph_seeds = fragment_bounding_seeds[i];
+        for (auto& seed_index : fragment.seeds) {
+            // Which means we look at the minimizer for each seed
+            auto& minimizer = minimizers[seeds[seed_index].source];
+            
+            if (minimizer.forward_offset() < read_range.first) {
+                // Min all their starts to get the fragment start
+                read_range.first = minimizer.forward_offset();
+                if (seed_index < graph_seeds.first) {
+                    // And keep a seed hit
+                    graph_seeds.first = seed_index;
+                }
+            }
+            
+            if (minimizer.forward_offset() + minimizer.length > read_range.second) {
+                // Max all their past-ends to get the fragment past-end
+                read_range.second = minimizer.forward_offset() + minimizer.length;
+                if (seed_index < graph_seeds.second) {
+                    // And keep a seed hit
+                    graph_seeds.second = seed_index;
+                }
+            }
+        }
+    }
+    
+    // Now we want to find, for each interval, the next interval that starts after it ends
+    // So we put all the intervals in an ordered map by start position.
+    std::map<size_t, size_t> fragments_by_start;
+    // We're also going to need to know which seeds went into which fragments.
+    // TODO: We could get away with one seed per fragment here probably.
+    // TODO: Can we skip building this if not tracking provenance?
+    std::vector<size_t> seed_to_fragment(seeds.size(), std::numeric_limits<size_t>::max());
+    for (size_t i = 0; i < fragments.size(); i++) {
+        auto found = fragments_by_start.find(fragment_read_ranges[i].first);
+        if (found == fragments_by_start.end()) {
+            // First thing we've found starting here
+            fragments_by_start.emplace_hint(found, fragment_read_ranges[i].first, i);
+        } else {
+            // When multiple fragments start at a position, we always pick the one with the most seeds.
+            // TODO: score the fragments and use the scores?
+            if (fragments[found->second].seeds.size() < fragments[i].seeds.size()) {
+                // If the one in the map has fewer seeds, replace it.
+                found->second = i;
+            }
+        }
+        for (auto& seed : fragments[i].seeds) {
+            // Record which fragment this seed went into.
+            seed_to_fragment.at(seed) = i;
+        }
+    }
+    // And we need to know the unconnected-to fragments with nothing to their
+    // left, which also won the contest for most seeds at their start position
+    // (and so could have been connected to)
+    std::unordered_set<size_t> unconnected_fragments;
+    for (auto& kv : fragments_by_start) {
+        unconnected_fragments.insert(kv.second);
+    }
+    // And then we do bound lookups for each cluster to find the next one
+    // And we put those pairs here.
+    using fragment_connection_t = std::pair<size_t, size_t>;
+    std::vector<fragment_connection_t> fragment_connections;
+    for (size_t i = 0; i < fragments.size(); i++) {
+        size_t past_end = fragment_read_ranges[i].second;
+        // Find the cluster with the most seeds that starts the soonest after the last base in this cluster.
+        auto found = fragments_by_start.lower_bound(past_end);
+        if (found != fragments_by_start.end()) {
+            // We found one. Can we connect them?
+            fragment_connections.emplace_back(i, found->second);
+            // Something might connect to them
+            unconnected_fragments.erase(found->second);
+        } else {
+            // There's nothing after us, so connect to nowhere.
+            fragment_connections.emplace_back(i, std::numeric_limits<size_t>::max());
+            if (show_work) {
+                #pragma omp critical (cerr)
+                std::cerr << log_name() << "Fragment at {R:" << fragment_read_ranges[i].first << "-" << fragment_read_ranges[i].second << "} has nowhere to reseed to" << std::endl;
+            }
+        }
+    }
+    for (auto& unconnected : unconnected_fragments) {
+        // These fragments could have been connected to but weren't, so look left off of them.
+        fragment_connections.emplace_back(std::numeric_limits<size_t>::max(), unconnected);
+    }
+    
+    if (track_provenance) {
+        funnel.substage("reseed");
+    }
+    
+    if (track_provenance) {
+        // We project all fragments into the funnel
+        for (size_t i = 0; i < fragments.size(); i++) {
+            funnel.project_group(i, fragments[i].seeds.size());
+        }
+    }
+    
+    // Remember how many seeds we had before reseeding
+    size_t old_seed_count = seeds.size();
+    
+    // We are going to need a widget for finding minimizer hit
+    // positions in a subgraph, in the right orientation.
+    auto find_minimizer_hit_positions = [&](const Minimizer& m, const vector<id_t>& sorted_ids, const std::function<void(const pos_t)>& iteratee) -> void {
+        gbwtgraph::hits_in_subgraph(m.hits, m.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+            if (m.value.is_reverse) {
+                // Convert to face along forward strand of read.
+                size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
+                pos = reverse_base_pos(pos, node_length);
+            }
+            // Show the properly stranded position to the iteratee.
+            iteratee(pos);
+        });
+    };
+    
+    // We are going to need our existing seeds in the form of something we can deduplicate.
+    // TODO: Also remove overlap?
+    std::unordered_set<std::pair<size_t, pos_t>> seen_seeds;
+    for (auto& seed : seeds) {
+        seen_seeds.emplace(minimizers[seed.source].forward_offset(), seed.pos);
+    }
+    
+    // Connections don't appear in the funnel so we track them ourselves.
+    size_t fragment_connection_explored_count = 0;
+    
+    process_until_threshold_a(fragment_connections.size(), (std::function<double(size_t)>) [&](size_t i) -> double {
+        // Best pairs to connect are those with the highest average coverage
+        if (fragment_connections[i].first == std::numeric_limits<size_t>::max()) {
+            return fragments[fragment_connections[i].second].coverage;
+        } else if (fragment_connections[i].second == std::numeric_limits<size_t>::max()) {
+            return fragments[fragment_connections[i].first].coverage;
+        } else {
+            return (fragments[fragment_connections[i].first].coverage + fragments[fragment_connections[i].second].coverage) / 2;
+        }
+    },
+    fragment_connection_coverage_threshold,
+    min_fragment_connections,
+    max_fragment_connections,
+    rng,
+    [&](size_t connection_num) -> bool {
+        // This connection is good enough
+        
+        // TODO: Add provenance tracking/stage for connections?
+    
+        // Reseed between each pair of fragments and dump into seeds
+        auto& connected = fragment_connections[connection_num];
+        
+        // Where should we start in the read
+        size_t left_read;
+        // And in the graph
+        pos_t left_pos;
+        if (connected.first == std::numeric_limits<size_t>::max()) {
+            // Nothing is on the left side of this connection
+            left_read = 0;
+            left_pos = empty_pos_t();
+        } else {
+            // Get the information from the fragment on the left side of this connection.
+            left_read = fragment_read_ranges[connected.first].second;
+            // Make sure graph position points forward along the read.
+            left_pos = forward_pos(seeds.at(fragment_bounding_seeds[connected.first].second), minimizers, this->gbwt_graph);
+        }
+        
+        // Where should we end in the read
+        size_t right_read;
+        // And in the graph
+        pos_t right_pos;
+        if (connected.second == std::numeric_limits<size_t>::max()) {
+            // Nothing is on the right side of this connection
+            right_read = aln.sequence().size();
+            right_pos = empty_pos_t();
+        } else {
+            // Get the information from the fragment on the right side of this connection.
+            right_read = fragment_read_ranges[connected.second].first;
+            // Make sure graph position points forward along the read.
+            right_pos = forward_pos(seeds.at(fragment_bounding_seeds[connected.second].first), minimizers, this->gbwt_graph);
+        }
+        
+        if (show_work) {
+            if (connected.first == std::numeric_limits<size_t>::max()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Reseeding before fragment " << connected.second << " at {R:" << right_read << "-" << fragment_read_ranges[connected.second].second << " = G:" << right_pos
+                        << "}" << std::endl;
+                }
+            } else if (connected.second == std::numeric_limits<size_t>::max()) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Reseeding after fragment " << connected.first << " at {R:" << fragment_read_ranges[connected.first].first << "-" << left_read << " = G:" << left_pos
+                        << "}" << std::endl;
+                }
+            } else {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Reseeding between fragments " << connected.first << " at {R:" << fragment_read_ranges[connected.first].first << "-" << left_read << " = G:" << left_pos
+                        << "} and " << connected.second << " at {R:" << right_read << "-" << fragment_read_ranges[connected.second].second << " = G:" << right_pos
+                        << "}" << std::endl;
+                }
+            }
+                    
+            // Dump the minimizers in the region
+            this->dump_debug_minimizers(minimizers, aln.sequence(), nullptr, left_read, right_read - left_read);
+        }
+        
+        // Do the reseed
+        std::vector<Seed> new_seeds = reseed_between(left_read, right_read, left_pos, right_pos, this->gbwt_graph, minimizers, find_minimizer_hit_positions);
+        
+        // Concatenate and deduplicate with existing seeds
+        size_t seeds_before = seeds.size();
+        seeds.reserve(seeds_before + new_seeds.size());
+        for (auto& seed : new_seeds) {
+            // Check if we have seen it before
+            std::pair<size_t, pos_t> key {minimizers[seed.source].forward_offset(), seed.pos};
+            auto found = seen_seeds.find(key);
+            if (found == seen_seeds.end()) {
+                // Keep this new seed
+                seeds.emplace_back(std::move(seed));
+                seen_seeds.emplace_hint(found, std::move(key));
+                
+                if (this->track_provenance) {
+                    funnel.introduce();
+                    // Tell the funnel we came from these fragments together
+                    if (connected.first != std::numeric_limits<size_t>::max()) {
+                        funnel.also_relevant(1, connected.first);
+                    }
+                    if (connected.second != std::numeric_limits<size_t>::max()) {
+                        funnel.also_relevant(1, connected.second);
+                    }
+                    // TODO: Tie these back to the minimizers, several stages ago.
+                }
+            }
+        }
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << log_name() << "Found " << new_seeds.size() << " seeds, of which " << (seeds.size() - seeds_before) << " are new" << std::endl;
+                std::vector<size_t> new_seeds;
+                for (size_t i = seeds_before; i < seeds.size(); i++) {
+                    new_seeds.push_back(i);
+                } 
+                this->dump_debug_seeds(minimizers, seeds, new_seeds);
+            }
+        }
+        
+        fragment_connection_explored_count++;
+        
+        return true;
+    }, [&](size_t connection_num) -> void {
+        // There are too many sufficiently good connections
+        // TODO: Add provenance tracking
+    }, [&](size_t connection_num) -> void {
+        // This connection is not sufficiently good.
+        // TODO: Add provenance tracking
+    });
+    
+    if (this->track_provenance) {
+        // Make items in the funnel for all the new seeds, basically as one-seed fragments.
+        if (this->track_correctness) {
+            // Tag newly introduced seed items with correctness 
+            funnel.substage("correct");
+        } else {
+            // We're just tagging them with read positions
+            funnel.substage("placed");
+        }
+        this->tag_seeds(aln, seeds.cbegin() + old_seed_count, seeds.cend(), minimizers, fragments.size(), funnel);
+    }
+    
+    // Make the main clusters that include the recovered seeds
+    if (track_provenance) {
+        funnel.stage("cluster");
+    }
+    
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, chaining_cluster_distance);
+    
+    // Determine the scores and read coverages for each cluster.
+    // Also find the best and second-best cluster scores.
+    if (this->track_provenance) {
+        funnel.substage("score");
+    }
+    double best_cluster_score = 0.0, second_best_cluster_score = 0.0;
+    for (size_t i = 0; i < clusters.size(); i++) {
+        Cluster& cluster = clusters[i];
+        
+        if (this->track_provenance) {
+            // Say we're making it
+            funnel.producing_output(i);
+        }
+        // Since buckets/chains don't straightforwardly merge into clusters we need to completely re-score.
+        this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().size());
+        // Tell the funnel about where the cluster came from.
+        if (this->track_provenance) {
+            // Record the cluster in the funnel.
+            funnel.introduce();
+            funnel.score(funnel.latest(), cluster.score);
+            
+            // TODO: add source links
+
+            // Say we made it.
+            funnel.produced_output();
+        }
+        if (cluster.score > best_cluster_score) {
+            second_best_cluster_score = best_cluster_score;
+            best_cluster_score = cluster.score;
+        } else if (cluster.score > second_best_cluster_score) {
+            second_best_cluster_score = cluster.score;
+        }
+    }
+    
+    // Throw out some scratch
+    seed_to_fragment.clear();
+    seen_seeds.clear();
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Found " << clusters.size() << " clusters" << endl;
+        }
+    }
+    
+    // We will set a score cutoff based on the best, but move it down to the
+    // second best if it does not include the second best and the second best
+    // is within pad_cluster_score_threshold of where the cutoff would
+    // otherwise be. This ensures that we won't throw away all but one cluster
+    // based on score alone, unless it is really bad.
+    double cluster_score_cutoff = best_cluster_score - cluster_score_threshold;
+    if (cluster_score_cutoff - pad_cluster_score_threshold < second_best_cluster_score) {
+        cluster_score_cutoff = std::min(cluster_score_cutoff, second_best_cluster_score);
+    }
+
+    if (track_provenance) {
+        // Now we go from clusters to chains
+        funnel.stage("chain");
+    }
+    
+    auto chain_results = this->chain_clusters(aln, minimizers, seeds, clusters, cluster_score_cutoff, old_seed_count, fragments.size(), max_lookback_bases, min_lookback_items, funnel, 5, 2, rng);
+    auto& cluster_chains = chain_results.cluster_chains;
+    auto& cluster_chain_seeds = chain_results.cluster_chain_seeds;
+    auto& seed_anchors = chain_results.seed_anchors;
+    auto& minimizer_explored = chain_results.minimizer_explored;
+    auto& minimizer_kept_cluster_count = chain_results.minimizer_kept_cluster_count;
+    auto& kept_cluster_count = chain_results.kept_cluster_count;
+    
         
     // We now estimate the best possible alignment score for each cluster.
     std::vector<int> cluster_alignment_score_estimates;
@@ -1192,7 +1282,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (track_provenance) {
         if (track_correctness) {
-            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, old_seed_count, preclusters.size(), funnel);
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, old_seed_count, fragments.size(), funnel);
         }
         // Annotate with parameters used for the filters and algorithms.
         
@@ -1204,9 +1294,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_exclude-overlapping-min", exclude_overlapping_min);
         set_annotation(mappings[0], "param_align-from-chains", align_from_chains);
         set_annotation(mappings[0], "param_chaining-cluster-distance", (double) chaining_cluster_distance);
-        set_annotation(mappings[0], "param_precluster-connection-coverage-threshold", precluster_connection_coverage_threshold);
-        set_annotation(mappings[0], "param_min-precluster-connections", (double) min_precluster_connections);
-        set_annotation(mappings[0], "param_max-precluster-connections", (double) max_precluster_connections);
+        set_annotation(mappings[0], "param_fragment-connection-coverage-threshold", fragment_connection_coverage_threshold);
+        set_annotation(mappings[0], "param_min-fragment-connections", (double) min_fragment_connections);
+        set_annotation(mappings[0], "param_max-fragment-connections", (double) max_fragment_connections);
         set_annotation(mappings[0], "param_min-clusters-to-chain", (double) min_clusters_to_chain);
         set_annotation(mappings[0], "param_max-clusters-to-chain", (double) max_clusters_to_chain);
         set_annotation(mappings[0], "param_reseed-search-distance", (double) reseed_search_distance);
@@ -1229,8 +1319,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_chain-min-score", (double) chain_min_score);
         set_annotation(mappings[0], "param_min-chains", (double) min_chains);
         
-        set_annotation(mappings[0], "precluster_connections_explored", (double)precluster_connection_explored_count);
-        set_annotation(mappings[0], "precluster_connections_total", (double)precluster_connections.size());
+        set_annotation(mappings[0], "fragment_connections_explored", (double)fragment_connection_explored_count);
+        set_annotation(mappings[0], "fragment_connections_total", (double)fragment_connections.size());
     }
     
 #ifdef print_minimizer_table

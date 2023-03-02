@@ -610,7 +610,20 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     double best_cluster_score = 0.0, second_best_cluster_score = 0.0;
     for (size_t i = 0; i < clusters.size(); i++) {
         Cluster& cluster = clusters[i];
-        this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().length(), funnel);
+        
+        if (this->track_provenance) {
+            // Say we're making it
+            funnel.producing_output(i);
+        }
+        this->score_cluster(cluster, i, minimizers, seeds, aln.sequence().length());
+        if (this->track_provenance) {
+            // Record the cluster in the funnel as a group of the size of the number of items.
+            funnel.merge_group(cluster.seeds.begin(), cluster.seeds.end());
+            funnel.score(funnel.latest(), cluster.score);
+
+            // Say we made it.
+            funnel.produced_output();
+        }
         if (cluster.score > best_cluster_score) {
             second_best_cluster_score = best_cluster_score;
             best_cluster_score = cluster.score;
@@ -1500,7 +1513,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         for (size_t i = 0; i < clusters.size(); i++) {
             // Determine cluster score and read coverage.
             Cluster& cluster = clusters[i];
-            this->score_cluster(cluster, i, minimizers, seeds_by_read[r], aln.sequence().length(), funnels[r]);
+            
+            if (this->track_provenance) {
+                // Say we're making it
+                funnels[r].producing_output(i);
+            }
+            this->score_cluster(cluster, i, minimizers, seeds_by_read[r], aln.sequence().length());
+            if (this->track_provenance) {
+                // Record the cluster in the funnel as a group of the size of the number of items.
+                funnels[r].merge_group(cluster.seeds.begin(), cluster.seeds.end());
+                funnels[r].score(funnels[r].latest(), cluster.score);
+
+                // Say we made it.
+                funnels[r].produced_output();
+            }
             size_t fragment = cluster.fragment;
             best_cluster_score[fragment] = std::max(best_cluster_score[fragment], cluster.score);
             best_cluster_coverage[fragment] = std::max(best_cluster_coverage[fragment], cluster.coverage);
@@ -3534,12 +3560,7 @@ void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, cons
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const {
-
-    if (this->track_provenance) {
-        // Say we're making it
-        funnel.producing_output(i);
-    }
+void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length) const {
 
     // Initialize the values.
     cluster.score = 0.0;
@@ -3572,15 +3593,6 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const VectorView
     }
     // Count up the covered positions and turn it into a fraction.
     cluster.coverage = sdsl::util::cnt_one_bits(covered) / static_cast<double>(seq_length);
-
-    if (this->track_provenance) {
-        // Record the cluster in the funnel as a group of the size of the number of items.
-        funnel.merge_group(cluster.seeds.begin(), cluster.seeds.end());
-        funnel.score(funnel.latest(), cluster.score);
-
-        // Say we made it.
-        funnel.produced_output();
-    }
 }
 
 //-----------------------------------------------------------------------------
