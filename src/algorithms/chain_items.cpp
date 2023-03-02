@@ -387,14 +387,14 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     return best_score;
 }
 
-vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
-                                             const VectorView<Anchor>& to_chain,
-                                             const TracedScore& best_past_ending_score_ever,
-                                             size_t num_tracebacks) {
+vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                                                        const VectorView<Anchor>& to_chain,
+                                                        const TracedScore& best_past_ending_score_ever,
+                                                        size_t max_tracebacks) {
     
     TracedScore traceback_from = best_past_ending_score_ever;
-    vector<vector<size_t>> tracebacks;
-    tracebacks.reserve(num_tracebacks);
+    vector<pair<vector<size_t>, int>> tracebacks;
+    tracebacks.reserve(max_tracebacks);
     
     // Keep lists of DP steps
     using step_list_t = structures::ImmutableList<size_t>;
@@ -415,7 +415,7 @@ vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& 
     // To see if an item is used we have this bit vector.
     vector<bool> item_is_used(chain_scores.size(), false);
     
-    while (!end_queue.empty() && tracebacks.size() < num_tracebacks) {
+    while (!end_queue.empty() && tracebacks.size() < max_tracebacks) {
         // We want more tracebacks and we can get them.
         if (item_is_used[end_queue.min().second.front()]) {
             // This starting point was visited aleady, so skip it.
@@ -452,11 +452,12 @@ vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& 
                 // Make sure to drop the sentinel
                 auto traceback = basis.pop_front();
                 tracebacks.emplace_back();
+                tracebacks.back().second = basis_score_difference;
                 for (auto& item : traceback) {
                     // Record the used-ness of all the items
                     item_is_used[item] = true;
                     // And put them in the returned traceback
-                    tracebacks.back().push_back(item);
+                    tracebacks.back().first.push_back(item);
                 }
                 
                 // Nothing else in the queue helps anymore, it all ends at the same place and we used that place.
@@ -502,6 +503,61 @@ vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& 
     return tracebacks;
 }
 
+vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_chain,
+                                                   const SnarlDistanceIndex& distance_index,
+                                                   const HandleGraph& graph,
+                                                   int gap_open,
+                                                   int gap_extension,
+                                                   size_t max_chains,
+                                                   size_t max_lookback_bases,
+                                                   size_t min_lookback_items,
+                                                   size_t lookback_item_hard_cap,
+                                                   size_t initial_lookback_threshold,
+                                                   double lookback_scale_factor,
+                                                   double min_good_transition_score_per_base,
+                                                   int item_bonus,
+                                                   size_t max_indel_bases) {
+                                                                         
+    if (to_chain.empty()) {
+        return {{0, vector<size_t>()}};
+    }
+        
+    // We actually need to do DP
+    vector<vector<TracedScore>> chain_scores;
+    TracedScore best_past_ending_score_ever = chain_items_dp(chain_scores,
+                                                             to_chain,
+                                                             distance_index,
+                                                             graph,
+                                                             gap_open,
+                                                             gap_extension,
+                                                             max_lookback_bases,
+                                                             min_lookback_items,
+                                                             lookback_item_hard_cap,
+                                                             initial_lookback_threshold,
+                                                             lookback_scale_factor,
+                                                             min_good_transition_score_per_base,
+                                                             item_bonus,
+                                                             max_indel_bases);
+    // Then do the tracebacks
+    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever);
+    
+    if (tracebacks.empty()) {
+        // Somehow we got nothing
+        return {{0, vector<size_t>()}};
+    }
+        
+    // Convert form traceback and penalty to score and traceback.
+    // Everything is already sorted.
+    vector<pair<int, vector<size_t>>> to_return;
+    to_return.reserve(tracebacks.size());
+    for (auto& traceback : tracebacks) {
+        // Move over the list of items and convert penalty to score
+        to_return.emplace_back(best_past_ending_score_ever.score - traceback.second, std::move(traceback.first));
+    }
+    
+    return to_return;
+}
+
 pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const SnarlDistanceIndex& distance_index,
                                           const HandleGraph& graph,
@@ -516,31 +572,22 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int item_bonus,
                                           size_t max_indel_bases) {
                                                                  
-    if (to_chain.empty()) {
-        return std::make_pair(0, vector<size_t>());
-    } else {
-        
-        // We actually need to do DP
-        vector<vector<TracedScore>> chain_scores;
-        TracedScore best_past_ending_score_ever = chain_items_dp(chain_scores,
-                                                                 to_chain,
-                                                                 distance_index,
-                                                                 graph,
-                                                                 gap_open,
-                                                                 gap_extension,
-                                                                 max_lookback_bases,
-                                                                 min_lookback_items,
-                                                                 lookback_item_hard_cap,
-                                                                 initial_lookback_threshold,
-                                                                 lookback_scale_factor,
-                                                                 min_good_transition_score_per_base,
-                                                                 item_bonus,
-                                                                 max_indel_bases);
-        // Then do the traceback and pair it up with the score.
-        return std::make_pair(
-            best_past_ending_score_ever.score,
-            chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever).front());
-    }
+    return find_best_chains(
+        to_chain,
+        distance_index,
+        graph,
+        gap_open,
+        gap_extension,
+        1,
+        max_lookback_bases,
+        min_lookback_items,
+        lookback_item_hard_cap,
+        initial_lookback_threshold,
+        lookback_scale_factor,
+        min_good_transition_score_per_base,
+        item_bonus,
+        max_indel_bases
+    ).front();
 }
 
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension) {

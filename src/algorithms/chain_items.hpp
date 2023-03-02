@@ -242,11 +242,40 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
 
 /**
  * Trace back through in the given DP table from the best chain score.
+ *
+ * Returns tracebacks that visit disjoint sets of items, in score order, along
+ * with their penalties from the optimal score. The best_past_ending_score_ever
+ * is *not* always the source of the first traceback, if there is a tie.
  */
-vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
-                                             const VectorView<Anchor>& to_chain,
-                                             const TracedScore& best_past_ending_score_ever,
-                                             size_t num_tracebacks = 1);
+vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                                                        const VectorView<Anchor>& to_chain,
+                                                        const TracedScore& best_past_ending_score_ever,
+                                                        size_t max_tracebacks = 1);
+
+
+/**
+ * Chain up the given group of items. Determines the best scores and
+ * tracebacks that can be obtained by chaining items together.
+ *
+ * Input items must be sorted by start position in the read.
+ *
+ * Returns the scores and the list of indexes of items visited to achieve
+ * that score, in order, with multiple tracebacks in descending score order.
+ */
+vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_chain,
+                                                   const SnarlDistanceIndex& distance_index,
+                                                   const HandleGraph& graph,
+                                                   int gap_open,
+                                                   int gap_extension,
+                                                   size_t max_chains = 1,
+                                                   size_t max_lookback_bases = 150,
+                                                   size_t min_lookback_items = 0,
+                                                   size_t lookback_item_hard_cap = 100,
+                                                   size_t initial_lookback_threshold = 10,
+                                                   double lookback_scale_factor = 2.0,
+                                                   double min_good_transition_score_per_base = -0.1,
+                                                   int item_bonus = 0,
+                                                   size_t max_indel_bases = 100);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -270,7 +299,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           double min_good_transition_score_per_base = -0.1,
                                           int item_bonus = 0,
                                           size_t max_indel_bases = 100);
-
+                                          
 /**
  * Score the given group of items. Determines the best score that can be
  * obtained by chaining items together.
