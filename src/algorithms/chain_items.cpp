@@ -174,7 +174,8 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     auto first_overlapping_it = read_end_order.begin();
     
     // Make our DP table big enough
-    chain_scores.resize(to_chain.size(), {TracedScore::unset()});
+    chain_scores.clear();
+    chain_scores.resize(to_chain.size(), {});
     
     // What's the winner so far?
     TracedScore best_score = TracedScore::unset();
@@ -447,6 +448,8 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
             std::tie(basis_score_difference, basis) = queue.min();
             queue.pop_min();
             
+            std::cerr << "Can reach " << basis.front() << " with penalty " << basis_score_difference << std::endl;
+            
             if (basis.front() == TracedScore::nowhere()) {
                 // The only winning move is not to play.
                 // Make sure to drop the sentinel
@@ -454,6 +457,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
                 tracebacks.emplace_back();
                 tracebacks.back().second = basis_score_difference;
                 for (auto& item : traceback) {
+                    std::cerr << "\tTraceback is via " << item << std::endl;
                     // Record the used-ness of all the items
                     item_is_used[item] = true;
                     // And put them in the returned traceback
@@ -481,12 +485,19 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
                 // If there is a place to come from and we haven't been there yet, or an option to stop...
                 
                 // Work out total penalty off optimal
-                int total_penalty = optimal - score_from_predecessor + basis_score_difference;
+                int total_penalty = (optimal - score_from_predecessor) + basis_score_difference;
                 
-                if (score_from_predecessor.source != TracedScore::nowhere() && min_penalty[score_from_predecessor.source] < total_penalty) {
-                    // This is a redundant path, so skip it.
-                    continue;
+                if (score_from_predecessor.source != TracedScore::nowhere()) {
+                    if (min_penalty[score_from_predecessor.source] <= total_penalty) {
+                        // This is a redundant path, so skip it.
+                        continue;
+                    } else {
+                        // This is the best path
+                        min_penalty[score_from_predecessor.source] = total_penalty;
+                    }
                 }
+                
+                std::cerr << "\tCould have come from " << score_from_predecessor << " with total penalty " << total_penalty << std::endl;
                 
                 // Make an extended path (with something that may be a nowhere)
                 auto extended_path = basis.push_front(score_from_predecessor.source);
@@ -539,7 +550,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              item_bonus,
                                                              max_indel_bases);
     // Then do the tracebacks
-    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever);
+    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever, max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing

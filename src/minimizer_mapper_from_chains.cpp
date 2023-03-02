@@ -403,9 +403,9 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
+                max_chains_per_cluster,
                 max_bases,
                 min_items,
-                max_chains_per_cluster,
                 lookback_item_hard_cap,
                 initial_lookback_threshold,
                 lookback_scale_factor,
@@ -414,6 +414,8 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 max_indel_bases
             );
             if (show_work) {
+                #pragma omp critical (cerr)
+                cerr << log_name() << "Asked for " << max_chains_per_cluster << " and found " << chains.size() << " chains in cluster " << cluster_num << std::endl;
                 for (auto& scored_chain : chains) {
                     if (!scored_chain.second.empty()) {
                         #pragma omp critical (cerr)
