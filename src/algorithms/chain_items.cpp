@@ -394,7 +394,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
                                                         size_t max_tracebacks) {
     
     TracedScore traceback_from = best_past_ending_score_ever;
-    vector<pair<vector<size_t>, int>> tracebacks;
+    vector<pair<vector<size_t>, int>> tracebacks; // TODO: keep sorted by penalty for insertion and top-k
     tracebacks.reserve(max_tracebacks);
     
     // Keep lists of DP steps
@@ -416,17 +416,25 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
     // To see if an item is used we have this bit vector.
     vector<bool> item_is_used(chain_scores.size(), false);
     
+    size_t penalty_threshold
+    
     while (!end_queue.empty() && tracebacks.size() < max_tracebacks) {
+        // TODO: We can be disappointed and pursue a promised low penalty and find out we can't get it while nonoverlapping.
+        // So we need to pursue everything down to a particular penalty level, and sort that, and *then* take the top n, and if we don't have enough at or above that penalty level, lower the bar and look again.
+        // We can't ever get something woith unexpectedly less penalty, but we can get something with unexpecteldy more penalty.
+    
         // We want more tracebacks and we can get them.
         if (item_is_used[end_queue.min().second.front()]) {
             // This starting point was visited aleady, so skip it.
             end_queue.pop_min();
             continue;
         }
-    
+        
         // Make a real queue for starting from it
         structures::MinMaxHeap<pair<int, step_list_t>> queue;
         queue.push(end_queue.min());
+        // Remember what we were supposed to be able to get from here.
+        int promised_penalty = end_queue.min().first;
         end_queue.pop_min();
         
         // To avoid constantly considering going to the same place by different
