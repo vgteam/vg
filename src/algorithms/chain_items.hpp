@@ -155,6 +155,11 @@ public:
         return score > other.score || (score == other.score && source > other.source);
     }
     
+    /// Subtraction to yield a difference in points
+    inline int operator-(const TracedScore& other) const {
+        return score - other.score;
+    }
+    
     // Number of points
     int score;
     // Index of source score among possibilities/traceback pointer
@@ -238,9 +243,10 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
 /**
  * Trace back through in the given DP table from the best chain score.
  */
-vector<size_t> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
-                                     const VectorView<Anchor>& to_chain,
-                                     const TracedScore& best_past_ending_score_ever);
+vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                                             const VectorView<Anchor>& to_chain,
+                                             const TracedScore& best_past_ending_score_ever,
+                                             size_t num_tracebacks = 1);
 
 /**
  * Chain up the given group of items. Determines the best score and

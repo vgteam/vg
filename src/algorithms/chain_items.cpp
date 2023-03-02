@@ -7,6 +7,8 @@
 #include "chain_items.hpp"
 
 #include <handlegraph/algorithms/dijkstra.hpp>
+#include <structures/immutable_list.hpp>
+#include <structures/min_max_heap.hpp>
 
 //#define debug_chaining
 
@@ -385,42 +387,119 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     return best_score;
 }
 
-vector<size_t> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
-                                     const VectorView<Anchor>& to_chain,
-                                     const TracedScore& best_past_ending_score_ever) {
+vector<vector<size_t>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+                                             const VectorView<Anchor>& to_chain,
+                                             const TracedScore& best_past_ending_score_ever,
+                                             size_t num_tracebacks) {
     
-    // Now we need to trace back.
-    vector<size_t> traceback;
-    size_t here = best_past_ending_score_ever.source;
-    if (here != TracedScore::nowhere()) {
-#ifdef debug_chaining
-        cerr << "Chain ends at #" << here << " " << to_chain[here]
-            << " with score " << best_past_ending_score_ever << endl;
-#endif
-        while(here != TracedScore::nowhere()) {
-            traceback.push_back(here);
-#ifdef debug_chaining
-            cerr << "Which gets score " << chain_scores[here][0] << endl;
-#endif
-            here = chain_scores[here][0].source;
-#ifdef debug_chaining
-            if (here != TracedScore::nowhere()) {
-                cerr << "And comes after #" << here
-                << " " << to_chain[here] << endl;
-            } else {
-                cerr << "And is first" << endl;
-            }
-#endif
-        }
-        // Flip it around front-ways
-        std::reverse(traceback.begin(), traceback.end());
+    TracedScore traceback_from = best_past_ending_score_ever;
+    vector<vector<size_t>> tracebacks;
+    tracebacks.reserve(num_tracebacks);
+    
+    // Keep lists of DP steps
+    using step_list_t = structures::ImmutableList<size_t>;
+    
+    // Have a queue just for end positions.
+    // This is number of points worse than the optimal, and the list of steps traced.
+    structures::MinMaxHeap<pair<int, step_list_t>> end_queue;
+    
+    // Fill it in with just everything and rely on the visited check to throw
+    // out used stuff.
+    for (size_t i = 0; i < chain_scores.size(); i++) {
+        // We can start here with some penalty from the optimum score, and a path that is just here.
+        int penalty = best_past_ending_score_ever - chain_scores[i][0];
+        step_list_t starting_path{i};
+        end_queue.push(std::make_pair(penalty, starting_path));
     }
     
-#ifdef debug_chaining
-    cerr << "Best score of chain overall: " << best_past_ending_score_ever << endl;
-#endif
+    // To see if an item is used we have this bit vector.
+    vector<bool> item_is_used(chain_scores.size(), false);
+    
+    while (!end_queue.empty() && tracebacks.size() < num_tracebacks) {
+        // We want more tracebacks and we can get them.
+        if (item_is_used[end_queue.min().second.front()]) {
+            // This starting point was visited aleady, so skip it.
+            end_queue.pop_min();
+            continue;
+        }
+    
+        // Make a real queue for starting from it
+        structures::MinMaxHeap<pair<int, step_list_t>> queue;
+        queue.push(end_queue.min());
+        end_queue.pop_min();
+        
+        // To avoid constantly considering going to the same place by different
+        // paths, we track the min penalty we enqueued things with. We
+        // shouldn't bother enquueuing them with larger penalties. This saves
+        // some queue operations.
+        vector<size_t> min_penalty(chain_scores.size(), numeric_limits<int>::max());
+        
+        // And to avoid actually processing the things that do go into the
+        // queue but later get beat out, we have another bit vector
+        vector<bool> item_is_visited(chain_scores.size(), false);
+        
+        while (!queue.empty()) {
+            // Until we dead-end (or find a path and emit it)
+            
+            // Grab the best list as our basis
+            int basis_score_difference;
+            step_list_t basis;
+            std::tie(basis_score_difference, basis) = queue.min();
+            queue.pop_min();
+            
+            if (basis.front() == TracedScore::nowhere()) {
+                // The only winning move is not to play.
+                // Make sure to drop the sentinel
+                auto traceback = basis.pop_front();
+                tracebacks.emplace_back();
+                for (auto& item : traceback) {
+                    // Record the used-ness of all the items
+                    item_is_used[item] = true;
+                    // And put them in the returned traceback
+                    tracebacks.back().push_back(item);
+                }
+                
+                // Nothing else in the queue helps anymore, it all ends at the same place and we used that place.
+                break;
+            }
+            
+            if (item_is_visited[basis.front()]) {
+                // We already found a better traceback up to here, so don't do here again.
+                continue;
+            }
+            
+            // Work out how good it is optimally
+            TracedScore optimal = chain_scores[basis.front()][0];
+            for (auto& score_from_predecessor : chain_scores[basis.front()]) {
+                // For each place it could come from
+                if (score_from_predecessor.source != TracedScore::nowhere() && item_is_used[score_from_predecessor.source]) {
+                    // Already used this so it isn't an option.
+                    continue;
+                }
+                
+                // If there is a place to come from and we haven't been there yet, or an option to stop...
+                
+                // Work out total penalty off optimal
+                int total_penalty = optimal - score_from_predecessor + basis_score_difference;
+                
+                if (score_from_predecessor.source != TracedScore::nowhere() && min_penalty[score_from_predecessor.source] < total_penalty) {
+                    // This is a redundant path, so skip it.
+                    continue;
+                }
+                
+                // Make an extended path (with something that may be a nowhere)
+                auto extended_path = basis.push_front(score_from_predecessor.source);
+                
+                // Put them in the priority queue
+                queue.push(make_pair(total_penalty, extended_path));
+            }
+            
+            // Record that we "visited" this item and considered its sources, so we don't go and do it again alogn a worse path to here.
+            item_is_visited[basis.front()] = true;
+        }
+    }
 
-    return traceback;
+    return tracebacks;
 }
 
 pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
@@ -460,7 +539,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         // Then do the traceback and pair it up with the score.
         return std::make_pair(
             best_past_ending_score_ever.score,
-            chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever));
+            chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever).front());
     }
 }
 
