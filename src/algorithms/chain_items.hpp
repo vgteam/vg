@@ -7,10 +7,6 @@
  *
  * To use these algorithms, decide on the type (Anchor) you want to chain up.
  *
- * Then, make a ChainingSpace<Anchor>, or a ChainingSpace<Anchor, Source> if your
- * Items need to be interpreted in the context of some source object (like a
- * seed hit needs to be interpreted in the context of its source minimizer).
- *
  * Then, make a dynamic programming table: vector<TracedScore>.
  *
  * Then, call chain_items_dp() to fill in the dynamic programming table and get
@@ -127,8 +123,14 @@ public:
     /// Max in a score from a DP table. If it wins, record provenance.
     void max_in(const vector<TracedScore>& options, size_t option_number);
     
-    /// Get a score from a table and record provenance in it.
+    /// Max in a score from a DP table of sorted score options. If it wins, record provenance.
+    void max_in(const vector<vector<TracedScore>>& options, size_t option_number);
+    
+    /// Get a score from a table of scores and record provenance in it.
     static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
+    
+    /// Get a score from a table of sorted score options and record provenance in it.
+    static TracedScore score_from(const vector<vector<TracedScore>>& options, size_t option_number);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
@@ -199,10 +201,13 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
 void sort_and_shadow(std::vector<Anchor>& items);
 
 /**
- * Fill in the given DP table for the best chain score ending with each
- * item. Returns the best observed score overall from that table,
+ * Fill in the given DP table for the explored chain scores ending with each
+ * item, best first. Returns the best observed score overall from that table,
  * with provenance to its location in the table, if tracked in the type.
  * Assumes some items exist.
+ *
+ * We keep all the options to allow us to do multiple tracebacks and find
+ * multiple good (ideally disjoint) chains.
  *
  * Input items must be sorted by start position in the read.
  *
@@ -215,7 +220,7 @@ void sort_and_shadow(std::vector<Anchor>& items);
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
+TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
@@ -233,7 +238,7 @@ TracedScore chain_items_dp(vector<TracedScore>& best_chain_score,
 /**
  * Trace back through in the given DP table from the best chain score.
  */
-vector<size_t> chain_items_traceback(const vector<TracedScore>& best_chain_score,
+vector<size_t> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                                      const VectorView<Anchor>& to_chain,
                                      const TracedScore& best_past_ending_score_ever);
 
