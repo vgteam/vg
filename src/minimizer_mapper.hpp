@@ -198,6 +198,10 @@ public:
     static constexpr double default_bucket_scale = 2.0;
     double bucket_scale = default_bucket_scale;
     
+    /// How many fragments should we try and make in every bucket?
+    static constexpr size_t default_max_fragments_per_bucket = 10;
+    size_t max_fragments_per_bucket = default_max_fragments_per_bucket;
+    
     /// If the read coverage of a fragment connection is less than the best of any
     /// by more than this much, don't extend it
     static constexpr double default_fragment_connection_coverage_threshold = 0.3;
@@ -556,8 +560,9 @@ protected:
     
     /// Represents a chaining result.
     struct chain_set_t {
-        /// These are the chains for all the clusters, as score and sequence of visited seeds.
-        vector<pair<int, vector<size_t>>> cluster_chains;
+        /// These are all the chains for all the clusters, as score and sequence of visited seeds.
+        /// Organized by cluster, and then best chain first.
+        vector<vector<pair<int, vector<size_t>>>> cluster_chains;
         /// What cluster seeds define the space for clusters' chosen chains?
         vector<vector<size_t>> cluster_chain_seeds;
         /// Chainable anchors in the same order as seeds
@@ -574,7 +579,7 @@ protected:
     /**
      * Run chaining on some clusters. Returns the chains and the context needed to interpret them.
      */
-    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
+    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, size_t max_chains_per_cluster, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

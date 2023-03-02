@@ -262,13 +262,13 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
                                         
 }
 
-MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
+MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, size_t max_chains_per_cluster, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
 
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
     
-    // These are the chains for all the clusters, as score and sequence of visited seeds.
-    vector<pair<int, vector<size_t>>> cluster_chains;
+    // These are the collections of chains for all the clusters, as score and sequence of visited seeds.
+    vector<vector<pair<int, vector<size_t>>>> cluster_chains;
     cluster_chains.reserve(clusters.size());
     
     // To compute the windows for explored minimizers, we need to get
@@ -281,6 +281,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
     
     // What cluster seeds define the space for clusters' chosen chains?
     vector<vector<size_t>> cluster_chain_seeds;
+    cluster_chain_seeds.reserve(clusters.size());
     
     //Process clusters sorted by both score and read coverage
     process_until_threshold_c<double>(clusters.size(), [&](size_t i) -> double {
@@ -392,80 +393,86 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             
             // Compute the best chain
             cluster_chains.emplace_back();
-            cluster_chains.back().first = std::numeric_limits<int>::min();
             cluster_chain_seeds.emplace_back();
                 
-            // Find a chain from this cluster
+            // Find chains from this cluster
             VectorView<algorithms::Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
-            auto candidate_chain = algorithms::find_best_chain(cluster_view,
-                                                               *distance_index,
-                                                               gbwt_graph,
-                                                               get_regular_aligner()->gap_open,
-                                                               get_regular_aligner()->gap_extension,
-                                                               max_bases,
-                                                               min_items,
-                                                               lookback_item_hard_cap,
-                                                               initial_lookback_threshold,
-                                                               lookback_scale_factor,
-                                                               min_good_transition_score_per_base,
-                                                               item_bonus,
-                                                               max_indel_bases);
-            if (show_work && !candidate_chain.second.empty()) {
-                #pragma omp critical (cerr)
-                {
-                    
-                    cerr << log_name() << "Cluster " << cluster_num << " running " << seed_anchors[cluster_seeds_sorted.front()] << " to " << seed_anchors[cluster_seeds_sorted.back()]
-                        << " has chain with score " << candidate_chain.first
-                        << " and length " << candidate_chain.second.size()
-                        << " running R" << cluster_view[candidate_chain.second.front()].read_start()
-                        << " to R" << cluster_view[candidate_chain.second.back()].read_end() << std::endl;
+            std::vector<std::pair<int, std::vector<size_t>>> chains = algorithms::find_best_chains(
+                cluster_view,
+                *distance_index,
+                gbwt_graph,
+                get_regular_aligner()->gap_open,
+                get_regular_aligner()->gap_extension,
+                max_bases,
+                min_items,
+                max_chains_per_cluster,
+                lookback_item_hard_cap,
+                initial_lookback_threshold,
+                lookback_scale_factor,
+                min_good_transition_score_per_base,
+                item_bonus,
+                max_indel_bases
+            );
+            if (show_work) {
+                for (auto& scored_chain : chains) {
+                    if (!scored_chain.second.empty()) {
+                        #pragma omp critical (cerr)
+                        {
+                            
+                            cerr << log_name() << "Cluster " << cluster_num << " running " << seed_anchors[cluster_seeds_sorted.front()] << " to " << seed_anchors[cluster_seeds_sorted.back()]
+                                << " has chain with score " << scored_chain.first
+                                << " and length " << scored_chain.second.size()
+                                << " running R" << cluster_view[scored_chain.second.front()].read_start()
+                                << " to R" << cluster_view[scored_chain.second.back()].read_end() << std::endl;
+                        }
+                    }
                 }
             }
-            if (candidate_chain.first > cluster_chains.back().first) {
-                // Keep it if it is better
-                cluster_chains.back() = std::move(candidate_chain);
-                cluster_chain_seeds.back() = cluster_seeds_sorted;
-            }
+            
+            cluster_chains.back() = std::move(chains);
+            cluster_chain_seeds.back() = std::move(cluster_seeds_sorted);
             
             if (track_provenance) {
                 funnel.substage_stop();
             }
             
             if (track_provenance) {
-                // Record with the funnel that there is now a chain that comes
-                // from all the seeds that participate in the chain.
-                funnel.introduce();
-                funnel.score(funnel.latest(), cluster_chains.back().first);
-                // Accumulate the old and new seed funnel numbers to connect to.
-                // TODO: should we just call into the funnel every time instead of allocating?
-                std::vector<size_t> old_seed_ancestors;
-                std::vector<size_t> new_seed_ancestors;
-                for (auto& sorted_seed_number : cluster_chains.back().second) {
-                    // Map each seed back to its canonical seed order
-                    size_t seed_number = cluster_chain_seeds.back().at(sorted_seed_number);
-                    if (seed_number < old_seed_count) {
-                        // Seed is original, from "seed" stage
-                        old_seed_ancestors.push_back(seed_number);
-                    } else {
-                        // Seed is new, from "reseed" stage. Came
-                        // after all the fragments which also live in the reseed stage.
-                        new_seed_ancestors.push_back(seed_number - old_seed_count + new_seed_start);
+                for (auto& chain : cluster_chains.back()) {
+                    // Record with the funnel that there is now a chain that comes
+                    // from all the seeds that participate in the chain.
+                    funnel.introduce();
+                    funnel.score(funnel.latest(), chain.first);
+                    // Accumulate the old and new seed funnel numbers to connect to.
+                    // TODO: should we just call into the funnel every time instead of allocating?
+                    std::vector<size_t> old_seed_ancestors;
+                    std::vector<size_t> new_seed_ancestors;
+                    for (auto& sorted_seed_number : chain.second) {
+                        // Map each seed back to its canonical seed order
+                        size_t seed_number = cluster_chain_seeds.back().at(sorted_seed_number);
+                        if (seed_number < old_seed_count) {
+                            // Seed is original, from "seed" stage
+                            old_seed_ancestors.push_back(seed_number);
+                        } else {
+                            // Seed is new, from "reseed" stage. Came
+                            // after all the fragments which also live in the reseed stage.
+                            new_seed_ancestors.push_back(seed_number - old_seed_count + new_seed_start);
+                        }
                     }
+                    
+                    if (!old_seed_ancestors.empty()) {
+                        // We came from all the original seeds
+                        funnel.also_merge_group(seed_stage_offset, old_seed_ancestors.begin(), old_seed_ancestors.end());
+                    }
+                    
+                    if (!new_seed_ancestors.empty()) {
+                        // We came from all the new seeds
+                        funnel.also_merge_group(reseed_stage_offset, new_seed_ancestors.begin(), new_seed_ancestors.end());
+                    }
+                    
+                    // We're also related to the source cluster from the
+                    // immediately preceeding stage.
+                    funnel.also_relevant(1, cluster_num);
                 }
-                
-                if (!old_seed_ancestors.empty()) {
-                    // We came from all the original seeds
-                    funnel.also_merge_group(seed_stage_offset, old_seed_ancestors.begin(), old_seed_ancestors.end());
-                }
-                
-                if (!new_seed_ancestors.empty()) {
-                    // We came from all the new seeds
-                    funnel.also_merge_group(reseed_stage_offset, new_seed_ancestors.begin(), new_seed_ancestors.end());
-                }
-                
-                // We're also related to the source cluster from the
-                // immediately preceeding stage.
-                funnel.also_relevant(1, cluster_num);
                 
                 // Say we finished with this cluster, for now.
                 funnel.processed_input();
@@ -581,7 +588,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("fragment");
         funnel.substage("fragment");
     }
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, 0.0, seeds.size(), 0, 50, 0, funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, 0.0, seeds.size(), 0, 50, 0, max_fragments_per_bucket, funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
         funnel.substage("translate-fragments");
@@ -589,29 +596,34 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Translate fragment chains into faked clusters, which downstream code expects. They need a seeds[] and a coverage.
     std::vector<Cluster> fragments;
-    fragments.resize(fragment_results.cluster_chains.size());
-    assert(fragment_results.cluster_chains.size() == fragment_results.cluster_chain_seeds.size());
     for (size_t i = 0; i < fragment_results.cluster_chains.size(); i++) {
+        // For each source bucket
+        for (auto& chain : fragment_results.cluster_chains[i]) {
+            // For each fragment found in the bucket
         
-        if (this->track_provenance) {
-            // Say we're making it
-            funnel.producing_output(i);
-        } 
-        // Copy all the seeds in the chain over
-        fragments[i].seeds.reserve(fragment_results.cluster_chains[i].second.size());
-        for (auto& chain_visited_index : fragment_results.cluster_chains[i].second) {
-            // Make sure to translate to real seed space
-            fragments[i].seeds.push_back(fragment_results.cluster_chain_seeds[i].at(chain_visited_index));
-        }
-        // Rescore as a cluster
-        this->score_cluster(fragments[i], i, minimizers, seeds, aln.sequence().size());
-        if (this->track_provenance) {
-            // Record the fragment in the funnel as coming from the bucket 
-            funnel.project(i);
-            funnel.score(funnel.latest(), fragments[i].score);
+            // Convert format
+            fragments.emplace_back();
+        
+            if (this->track_provenance) {
+                // Say we're making it
+                funnel.producing_output(fragments.size());
+            } 
+            // Copy all the seeds in the chain over
+            fragments.back().seeds.reserve(chain.second.size());
+            for (auto& chain_visited_index : chain.second) {
+                // Make sure to translate to real seed space
+                fragments.back().seeds.push_back(fragment_results.cluster_chain_seeds[i].at(chain_visited_index));
+            }
+            // Rescore as a cluster
+            this->score_cluster(fragments.back(), i, minimizers, seeds, aln.sequence().size());
+            if (this->track_provenance) {
+                // Record the fragment in the funnel as coming from the bucket 
+                funnel.project(i);
+                funnel.score(funnel.latest(), fragments.back().score);
 
-            // Say we made it.
-            funnel.produced_output();
+                // Say we made it.
+                funnel.produced_output();
+            }
         }
     }
     
@@ -961,8 +973,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("chain");
     }
     
-    auto chain_results = this->chain_clusters(aln, minimizers, seeds, clusters, cluster_score_cutoff, old_seed_count, fragments.size(), max_lookback_bases, min_lookback_items, funnel, 5, 2, rng);
-    auto& cluster_chains = chain_results.cluster_chains;
+    auto chain_results = this->chain_clusters(aln, minimizers, seeds, clusters, cluster_score_cutoff, old_seed_count, fragments.size(), max_lookback_bases, min_lookback_items, 1, funnel, 5, 2, rng);
+    // Throw out all but the best chain. There should be one chain per cluster, like we asked.
+    vector<pair<int, vector<size_t>>> cluster_chains;
+    cluster_chains.reserve(chain_results.cluster_chains.size());
+    for (auto& all_chains : chain_results.cluster_chains) {
+        cluster_chains.emplace_back(std::move(all_chains.front()));
+    }
     auto& cluster_chain_seeds = chain_results.cluster_chain_seeds;
     auto& seed_anchors = chain_results.seed_anchors;
     auto& minimizer_explored = chain_results.minimizer_explored;
