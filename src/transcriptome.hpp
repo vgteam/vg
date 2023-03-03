@@ -275,6 +275,9 @@ class Transcriptome {
         /// Parse gtf/gff3 file of transcripts. Returns the number of non-header lines in the parsed file.
         int32_t parse_transcripts(vector<Transcript> * transcripts, uint32_t * number_of_excluded_transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
 
+        /// Returns gbwt path name without phaseblock and subrange. 
+        string get_base_gbwt_path_name(const gbwt::GBWT & haplotype_index, const size_t path_id, const unordered_set<string> & gbwt_reference_samples) const;
+
         /// Parse gtf/gff3 attribute value.
         string parse_attribute_value(const string & attribute, const string & name) const;
 

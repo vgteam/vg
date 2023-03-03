@@ -547,7 +547,10 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
         
         assert(haplotype_index.metadata.hasPathNames());
         assert(haplotype_index.metadata.hasContigNames());
-        
+      
+        // Parse reference sample tags.
+        auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(haplotype_index);
+  
         for (size_t i = 0; i < haplotype_index.sequences(); i++) {
 
             // Skip reverse threads in bidirectional gbwt index.
@@ -556,17 +559,8 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
                 continue;
             }
 
-            auto gbwt_path_metadata = haplotype_index.metadata.path(gbwt::Path::id(i));
-
-            // Create haplotype path name without phaseblock and subrange (basename). 
-            string path_basename = PathMetadata::create_path_name(PathSense::REFERENCE, 
-                gbwtgraph::get_path_sample_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
-                gbwtgraph::get_path_locus_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
-                gbwtgraph::get_path_haplotype(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
-                PathMetadata::NO_PHASE_BLOCK, 
-                PathMetadata::NO_SUBRANGE);
-
-            chrom_lengths.emplace(path_basename, numeric_limits<uint32_t>::max());
+            auto base_gbwt_path_name = get_base_gbwt_path_name(haplotype_index, gbwt::Path::id(i), gbwt_reference_samples);
+            chrom_lengths.emplace(base_gbwt_path_name, numeric_limits<uint32_t>::max());
         }      
 
     } else {
@@ -779,6 +773,31 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
     *number_of_excluded_transcripts += excluded_transcripts.size();
 
     return parsed_lines;
+}
+
+string Transcriptome::get_base_gbwt_path_name(const gbwt::GBWT & haplotype_index, const size_t path_id, const unordered_set<string> & gbwt_reference_samples) const {
+
+    auto gbwt_path_metadata = haplotype_index.metadata.path(path_id);
+    PathSense sense = gbwtgraph::get_path_sense(haplotype_index.metadata, gbwt_path_metadata, gbwt_reference_samples);
+
+    string base_gbwt_path_name = "";
+    
+    if (sense == PathSense::HAPLOTYPE) {
+
+        // Create base gbwt path name without phaseblock and subrange. 
+        base_gbwt_path_name = PathMetadata::create_path_name(PathSense::REFERENCE, 
+            gbwtgraph::get_path_sample_name(haplotype_index.metadata, gbwt_path_metadata, sense), 
+            gbwtgraph::get_path_locus_name(haplotype_index.metadata, gbwt_path_metadata, sense), 
+            gbwtgraph::get_path_haplotype(haplotype_index.metadata, gbwt_path_metadata, sense), 
+            PathMetadata::NO_PHASE_BLOCK, 
+            PathMetadata::NO_SUBRANGE);
+
+    } else {
+
+        base_gbwt_path_name = gbwtgraph::compose_path_name(haplotype_index.metadata, gbwt_path_metadata, sense);
+    }
+
+    return base_gbwt_path_name;
 }
 
 string Transcriptome::parse_attribute_value(const string & attribute, const string & name) const {
@@ -1287,6 +1306,9 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
 
     spp::sparse_hash_map<string, map<uint32_t, uint32_t> > haplotype_name_index;
 
+    // Parse reference sample tags.
+    auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(haplotype_index);
+
     // Create index mapping haplotype contig names to GBWT sequence ids and offsets.
     for (size_t i = 0; i < haplotype_index.sequences(); i++) {
 
@@ -1296,19 +1318,10 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
             continue;
         }
 
-        const auto & gbwt_path_metadata = haplotype_index.metadata.path(gbwt::Path::id(i));
+        auto base_gbwt_path_name = get_base_gbwt_path_name(haplotype_index, gbwt::Path::id(i), gbwt_reference_samples);
 
-        // Create haplotype path name without phaseblock and subrange (basename). 
-        string path_basename = PathMetadata::create_path_name(PathSense::REFERENCE, 
-                gbwtgraph::get_path_sample_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
-                gbwtgraph::get_path_locus_name(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
-                gbwtgraph::get_path_haplotype(haplotype_index.metadata, gbwt_path_metadata, PathSense::HAPLOTYPE), 
-                PathMetadata::NO_PHASE_BLOCK, 
-                PathMetadata::NO_SUBRANGE);
-
-        auto haplotype_name_index_it = haplotype_name_index.emplace(path_basename, map<uint32_t, uint32_t>());
-
-        assert(haplotype_name_index_it.first->second.emplace(gbwt_path_metadata.count, i).second);
+        auto haplotype_name_index_it = haplotype_name_index.emplace(base_gbwt_path_name, map<uint32_t, uint32_t>());
+        assert(haplotype_name_index_it.first->second.emplace(haplotype_index.metadata.path(gbwt::Path::id(i)).count, i).second);
     }
 
     list<EditedTranscriptPath> edited_transcript_paths;
@@ -2861,7 +2874,7 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
 
     *tsv_ostream << "Name\tLength\tTranscripts\tHaplotypes" << endl; 
     
-    // Pre-parse GBWT metadata
+    // Parse reference sample tags.
     auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(haplotype_index);
 
     int32_t num_written_info = 0;
@@ -2941,8 +2954,7 @@ void Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBW
 
             is_first = false;             
 
-            PathSense sense = gbwtgraph::get_path_sense(haplotype_index, id.first, gbwt_reference_samples);
-            *tsv_ostream << gbwtgraph::compose_path_name(haplotype_index, id.first, sense);
+            *tsv_ostream << get_base_gbwt_path_name(haplotype_index, id.first, gbwt_reference_samples);
         }
 
         *tsv_ostream << endl;

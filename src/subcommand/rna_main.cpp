@@ -23,7 +23,7 @@ using namespace vg::subcommand;
 
 
 void help_rna(char** argv) {
-    cerr << "\nusage: " << argv[0] << " rna [options] graph.[vg|pg|hg|gfa|gbz] > splicing_graph.[vg|pg|hg|gfa]" << endl
+    cerr << "\nusage: " << argv[0] << " rna [options] graph.[vg|pg|hg|gbz] > splicing_graph.[vg|pg|hg]" << endl
 
          << "\nGeneral options:" << endl
 
