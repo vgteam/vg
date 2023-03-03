@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 //#define debug_distances
 namespace vg {
 
@@ -323,7 +323,9 @@ cerr << "Add all seeds to nodes: " << endl;
 
     for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++){ 
         vector<SeedCache>* seeds = clustering_problem.all_seeds->at(read_num);
+        cerr << "Go through all seeds: " << seeds->size() << endl;
         for (size_t i = 0; i < seeds->size(); i++) {
+            cerr << i << endl;
             SeedCache& seed = seeds->at(i);
             pos_t pos = seed.pos;
             id_t id = get_id(pos);
@@ -343,10 +345,16 @@ cerr << "Add all seeds to nodes: " << endl;
             //cached values are:
             //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
             // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
-            gbwtgraph::payload_type old_cache = seed.minimizer_cache;
 
             //TODO: For now, we're either storing all values or none
+            gbwtgraph::payload_type old_cache = seed.minimizer_cache;
             bool has_cached_values = old_cache != MIPayload::NO_CODE;
+            if (has_cached_values) {
+                zipcode_t zip;
+                zip.fill_in_zipcode_from_payload(seed.minimizer_cache);
+                old_cache = zip.get_old_payload_from_zipcode(distance_index, id);
+            }
+
 #ifdef DEBUG_CLUSTER
             if (has_cached_values) {
                 cerr << "Using cached values:" 
@@ -474,6 +482,7 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 #ifdef DEBUG_CLUSTER
                 //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
                 //                                  : distance_index.get_prefix_sum_value(node_net_handle)));
+                cerr << "Node length should be " << distance_index.minimum_length(node_net_handle) << " actually " << node_length << endl;
                 assert(node_length == distance_index.minimum_length(node_net_handle));
 
                 assert(is_reversed_in_parent == (is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
@@ -606,6 +615,8 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 //Create a new SnarlTreeNodeProblem for this node
                 bool new_node = false;
                 if (seen_nodes.count(id) == 0) {
+                    cerr << "ADD NEW NODE" << endl;
+                    cerr << "\t" << distance_index.net_handle_as_string(node_net_handle) << ": " << distance_index.get_record_offset(node_net_handle) << " " << distance_index.get_node_record_offset(node_net_handle) << endl;
                     new_node = true;
                     clustering_problem.net_handle_to_node_problem_index.emplace(node_net_handle, 
                                                                                 clustering_problem.all_node_problems.size());
@@ -619,11 +630,15 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 
                     seen_nodes.insert(id);
 
+                } else {
+                    cerr << "ALREADY SEEN " << endl;
+                    cerr << "\t" << distance_index.net_handle_as_string(node_net_handle) << ": " << distance_index.get_record_offset(node_net_handle) << " " << distance_index.get_node_record_offset(node_net_handle) << endl;
                 }
 
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
 
+cerr << clustering_problem.net_handle_to_node_problem_index.at(node_net_handle) << endl;
                 SnarlTreeNodeProblem& node_problem = clustering_problem.all_node_problems.at(clustering_problem.net_handle_to_node_problem_index.at(node_net_handle));
 
                 node_problem.children.emplace_back();

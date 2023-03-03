@@ -8,43 +8,15 @@
 namespace vg{
 using namespace std;
 
-//A decoded zip code as a vector of pair<is_chain, index>
-//where is_chain indicates whether it's a chain/node, and index
-//is the index of the node/snarl/chain code in the varint_vector_t
-typedef std::vector<pair<bool, size_t>> zip_code_decoder_t;
+//A decoder for interpreting a zipcode
+//Can interpret the values for a snarl tree node given the depth (index into the vector)
+struct zipcode_decoder_t;
 
 enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE};
 
-/// A struct that represents a decoded node/snarl/chain code
-/// Not all fields may be filled, code_type is always filled
-/// node: length, rank_or_offset = prefix sum, is_reversed
-/// chain: length, rank_or_offset = rank in snarl
-/// regular_snarl: length, rank_or_offset = prefix sum, is_reversed (of the child)
-/// irregular snarl: net_handle, length, rank_or_offset = prefix sum
-/// root snarl: net_handle, rank or offset = connected component number
-/// root chain: rank or offset = connected component number
-/// root node: length, rank_or_offset = connected component number
-struct decoded_code_t {
-    net_handle_t net_handle;
-    size_t length;
-    size_t rank_or_offset;
-    code_type_t code_type;
-    bool is_reversed;
-
-    /// Equality operator
-    /// Do the two decoded_code_t's represent the same snarl tree node, assuming that all ancestors were the same
-    /// All values must be the same, except for is_reversed in regular snarls, since this value refers to the 
-    /// child of the regular snarl
-    inline bool operator== (const decoded_code_t& other) const {
-        return net_handle == net_handle &&
-               length == other.length &&
-               rank_or_offset == other.rank_or_offset &&
-               code_type == other.code_type &&
-               (code_type == REGULAR_SNARL || is_reversed == other.is_reversed);
-    }
-
-};
-
+///A struct to interpret the minimizer payload
+///I want to use zipcodes as the payload but at the moment clustering still expects the old payload
+///This can interpret zipcodes to format them as the old payload
 struct MIPayload;
 
 /* Zip codes store the snarl decomposition location and distance information for a position on a graph
@@ -52,45 +24,38 @@ struct MIPayload;
  * positions, with minimal queries to the distance index
  */
 
-struct zip_code_t {
+struct zipcode_t {
 
     public:
         typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
         //Constructor for a position and a distance index
-        void fill_in_zip_code (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
-
-        //Get a decoder for interpreting the zip code
-        zip_code_decoder_t decode() const;
-
-        //Decode just one node/chain/snarl code given the index of its start in the varint_vector_t
-        //And the code type of the actual code (ie, a chain if it is a trivial chain thats really a node)
-        //It should be able to figure out what it is from NODE, SNARL, or CHAIN- if the index is
-        //0 then it is assumed to be a root
-        //It doesn't matter if it's given REGULAR or IRREGULAR_SNARL, the correct code type will be inferred from the actual code
-        decoded_code_t decode_one_code(size_t index, const code_type_t& code_type, const SnarlDistanceIndex& distance_index) const;
+        void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
 
         //Get the exact minimum distance between two positions and their zip codes
-        static size_t minimum_distance_between(const zip_code_t& zip1, const pos_t& pos1, 
-                                       const zip_code_t& zip2, const pos_t& pos2,
+        static size_t minimum_distance_between(const zipcode_t& zip1, const pos_t& pos1, 
+                                       const zipcode_t& zip2, const pos_t& pos2,
                                        const SnarlDistanceIndex& distance_index);
 
         //Return true if the minimum distance between the zip codes is definitely greater than limit
         //A false result is inconclusive
-        static bool is_farther_than(const zip_code_t& zip1, const zip_code_t& zip2, const size_t& limit);
+        static bool is_farther_than(const zipcode_t& zip1, const zipcode_t& zip2, const size_t& limit);
+
+        //Get a tuple of the top-level structure id, prefix sum of the child of the top-level chain, and 
+        //the length of the child of the top-level chain
+        //This gets used to quickly compare the two zip codes for is_farther_than
+        static tuple<size_t, size_t, size_t> get_top_level_chain_offset();
 
 
         //////////////////Functions to work with minimizer payloads for clustering 
         // Since we're sill using the old implementation, we need to be able to 
         // switch from zipcodes to payloads and back
 
-        constexpr static gbwtgraph::payload_type NO_PAYLOAD = {0,0};
-
         //Encode zip code so it can be stored in the payload
         gbwtgraph::payload_type get_payload_from_zip() const;
 
         //Decode the zip code that got stored in the payload
-        void fill_in_zip_code_from_payload(const gbwtgraph::payload_type& payload); 
+        void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
 
         //This re-formats the new payload into the old payload format so it can be used 
         //for clustering
@@ -99,17 +64,17 @@ struct zip_code_t {
 
 
         size_t byte_count() const {
-            return zip_code.byte_count();
+            return zipcode.byte_count();
         }
 
     //TODO: Make this private:
-        varint_vector_t zip_code;
+        varint_vector_t zipcode;
 
 
         /// Equality operator
-        inline bool operator== (const zip_code_t& other) const {
-            return zip_code == other.zip_code;
-    }
+        inline bool operator== (const zipcode_t& other) const {
+            return zipcode == other.zipcode;
+        }
 
     private:
 
@@ -125,8 +90,74 @@ struct zip_code_t {
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
+    friend class zipcode_decoder_t;
 };
 
+
+///A struct for decoding a zipcode
+struct zipcode_decoder_t {
+
+    ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
+    ///where is_chain indicates whether it's a chain/node, and index
+    ///is the index of the node/snarl/chain code in the varint_vector_t
+    std::vector<pair<bool, size_t>> decoder;
+
+    ///The zipcode that this is decoding
+    const zipcode_t* zipcode;
+
+
+    ///Constructor that goes through the zipcode and decodes it to fill in decoder
+    ///If a depth is given, then only fill in up to depth snarl tree nodes
+    ///Otherwise, fill in the whole zipcode
+    zipcode_decoder_t(const zipcode_t* zipcode, const size_t& depth=std::numeric_limits<size_t>::max());
+
+    //Go through the entire zipcode and fill in the decoder
+    void fill_in_full_decoder();
+
+    //Fill in one more item in the decoder
+    //Returns true if this is the last thing in the zipcode and false if there is more to decode
+    bool fill_in_next_decoder();
+    ///What type of snarl tree node is at the given depth (index into the zipcode)
+    code_type_t get_code_type(const size_t& depth) ;
+
+    ///Get the length of a snarl tree node given the depth in the snarl tree
+    ///This requires the distance index for irregular snarls (except for a top-level snarl)
+    ///Throws an exception if the distance index is not given when it is needed
+    ///Doesn't use a given distance index if it isn't needed
+    size_t get_length(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) ;
+
+    ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
+    size_t get_rank_in_snarl(const size_t& depth) ;
+
+    ///Get the prefix sum of a child of a chain
+    ///This requires the distance index for irregular snarls (except for a top-level snarl)
+    ///Throws an exception if the distance index is not given when it is needed
+    ///Doesn't use a given distance index if it isn't needed
+    size_t get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) ;
+
+    ///Get the handle of the thing at the given depth. This can only be used for
+    ///Root-level structures or irregular snarls
+    bool get_is_reversed_in_parent(const size_t& depth);
+
+    ///Get the handle of the thing at the given depth. This can only be used for
+    ///Root-level structures or irregular snarls
+    net_handle_t get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index) ;
+    ///Get the information that was stored to get the address in the distance index
+    ///This is the connected component number for a root structure, or the address of
+    ///an irregular snarl. Throws an error for anything else
+    ///This is used for checking equality without looking at the distance index.
+    ///Use get_net_handle for getting the actual handle
+    size_t get_distance_index_address(const size_t& depth) ;
+
+
+    ///Are the two decoders pointing to the same snarl tree node at the given depth
+    ///This only checks if the values in the zipcode are the same at the given depth, 
+    ///so if the preceeding snarl tree nodes are different, 
+    ///then this might actually refer to different things
+    static inline bool is_equal(zipcode_decoder_t& decoder1, zipcode_decoder_t& decoder2,
+                                const size_t& depth);
+
+};
 
 
 /**
