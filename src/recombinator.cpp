@@ -23,6 +23,8 @@ constexpr size_t HaplotypePartitioner::APPROXIMATE_JOBS;
 constexpr size_t Recombinator::NUM_HAPLOTYPES;
 constexpr size_t Recombinator::COVERAGE;
 constexpr size_t Recombinator::KFF_BLOCK_SIZE;
+constexpr double Recombinator::PRESENT_DISCOUNT;
+constexpr double Recombinator::HET_ADJUSTMENT;
 
 //------------------------------------------------------------------------------
 
@@ -814,13 +816,6 @@ void Recombinator::Statistics::combine(const Statistics& another) {
     this->haplotypes = std::max(this->haplotypes, another.haplotypes);
     this->kmers += another.kmers;
     this->score += another.score;
-
-    if (another.score_by_rank.size() > this->score_by_rank.size()) {
-        this->score_by_rank.resize(another.score_by_rank.size(), 0.0);
-    }
-    for (size_t i = 0; i < another.score_by_rank.size(); i++) {
-        this->score_by_rank[i] += another.score_by_rank[i];
-    }
 }
 
 std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
@@ -831,12 +826,6 @@ std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
         out << "; used " << this->kmers << " kmers with average score " << average_score;
     }
     return out;
-}
-
-void Recombinator::Statistics::print_scores(std::ostream& out) const {
-    for (size_t i = 0; i < this->score_by_rank.size(); i++) {
-        out << i << "\t" << (this->score_by_rank[i] / this->kmers) << std::endl;
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -920,10 +909,6 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - checkpoint;
         std::cerr << "Total: "; statistics.print(std::cerr) << std::endl;
-        if (this->verbosity >= HaplotypePartitioner::verbosity_debug) {
-            std::cerr << "Average kmer score for each sequence rank in sorted order:" << std::endl;
-            statistics.print_scores(std::cerr);
-        }
         std::cerr << "Finished the jobs in " << seconds << " seconds" << std::endl;
     }
 
@@ -951,7 +936,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     const Parameters& parameters) const {
 
     // TODO: What are the proper thresholds?
-    enum kmer_presence { absent, present, ignore };
+    enum kmer_presence { absent, heterozygous, present, ignore };
     double absent_threshold = parameters.coverage * 0.1;
     double heterozygous_threshold = parameters.coverage / std::log(4.0);
     double homozygous_threshold = parameters.coverage * 2.0;
@@ -983,21 +968,22 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             }
             assert(!subchain.sequences.empty());
 
-            // TODO: How to handle heterozygous kmers?
             // TODO: -log prob may be the right score once we have enough haplotypes, but
             // right now +1 works better, because we don't have haplotypes with the right
             // combination of rare kmers.
-            // Determine the type of each kmer in the sample and the score for getting that
-            // kmer right.
+            // Determine the type of each kmer in the sample and the score for the kmer.
+            // A haplotype with the kmer gets +1.0 * score, while a haplotype without it
+            // gets -1.0 * score.
             std::vector<std::pair<kmer_presence, double>> kmer_types;
             size_t selected_kmers = 0;
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                 double count = kmer_counts.at(subchain.kmers[kmer_id].first);
                 if (count < absent_threshold) {
-                    kmer_types.push_back({ absent, 1.0 });
+                    kmer_types.push_back({ absent, -1.0 });
                     selected_kmers++;
                 } else if (count < heterozygous_threshold) {
-                    kmer_types.push_back({ ignore, 0.0 });
+                    kmer_types.push_back({ heterozygous, 0.0 });
+                    selected_kmers++;
                 } else if (count < homozygous_threshold) {
                     kmer_types.push_back({ present, 1.0 });
                     selected_kmers++;
@@ -1007,40 +993,62 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             }
             statistics.kmers += selected_kmers;
 
-            // Score the sequences by kmer presence and sort them by score in descending order.
-            std::vector<std::pair<size_t, double>> sequence_scores;
+            // Select the haplotypes greedily.
+            std::vector<std::pair<size_t, double>> selected_haplotypes;
+            std::vector<std::pair<size_t, double>> remaining_haplotypes;
             for (size_t sequence_id = 0; sequence_id < subchain.sequences.size(); sequence_id++) {
-                size_t offset = sequence_id * subchain.kmers.size();
-                double score = 0.0;
+                remaining_haplotypes.push_back( { sequence_id, 0.0 });
+            }
+            while (selected_haplotypes.size() < haplotypes.size() && !remaining_haplotypes.empty()) {
+                // Score the remaining haplotypes.
+                for (size_t i = 0; i < remaining_haplotypes.size(); i++) {
+                    size_t offset = remaining_haplotypes[i].first * subchain.kmers.size();
+                    double score = 0.0;
+                    for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
+                        double multiplier = -1.0 + 2.0 * subchain.kmers_present[offset + kmer_id];
+                        score += multiplier * kmer_types[kmer_id].second;
+                    }
+                    remaining_haplotypes[i].second = score;
+                }
+
+                // Select the haplotype to use.
+                size_t selected = 0;
+                if (parameters.random_sampling) {
+                    selected = rng() % remaining_haplotypes.size();
+                } else {
+                    for (size_t i = 1; i < remaining_haplotypes.size(); i++) {
+                        if (remaining_haplotypes[i].second > remaining_haplotypes[selected].second) {
+                            selected = i;
+                        }
+                    }
+                }
+                selected_haplotypes.push_back(remaining_haplotypes[selected]);
+                remaining_haplotypes.erase(remaining_haplotypes.begin() + selected);
+
+                // Adjust kmer scores based on the selected haplotype.
+                size_t sequence_id = selected_haplotypes.back().first;
+                size_t offset = selected_haplotypes.back().first * subchain.kmers.size();
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                     switch (kmer_types[kmer_id].first) {
-                    case present:
-                        score += (subchain.kmers_present[offset + kmer_id] ? kmer_types[kmer_id].second : -kmer_types[kmer_id].second);
+                    case heterozygous:
+                        kmer_types[kmer_id].second += (subchain.kmers_present[offset + kmer_id] ? -1.0 : 1.0) * parameters.het_adjustment;
                         break;
-                    case absent:
-                        score += (subchain.kmers_present[offset + kmer_id] ? -kmer_types[kmer_id].second : kmer_types[kmer_id].second);
+                    case present:
+                        if (subchain.kmers_present[offset + kmer_id]) {
+                            kmer_types[kmer_id].second *= parameters.present_discount;
+                        }
                         break;
                     default:
                         break;
                     }
                 }
-                sequence_scores.push_back({ sequence_id, score });
-            }
-            std::sort(sequence_scores.begin(), sequence_scores.end(), [](std::pair<size_t, double> a, std::pair<size_t, double> b) -> bool {
-                return (a.second > b.second);
-            });
-            if (sequence_scores.size() > statistics.score_by_rank.size()) {
-                statistics.score_by_rank.resize(sequence_scores.size(), 0.0);
-            }
-            for (size_t i = 0; i < sequence_scores.size(); i++) {
-                statistics.score_by_rank[i] += sequence_scores[i].second;
             }
 
-            // Extend the haplotypes with the highest-scoring sequences.
+            // Extend the haplotypes with the selected sequences.
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                size_t offset = (parameters.random_sampling ? rng() : haplotype) % sequence_scores.size();
-                size_t seq_id = sequence_scores[offset].first;
-                statistics.score += sequence_scores[offset].second;
+                size_t offset = haplotype % selected_haplotypes.size();
+                size_t seq_id = selected_haplotypes[offset].first;
+                statistics.score += selected_haplotypes[offset].second;
                 haplotypes[haplotype].extend(subchain.sequences[seq_id], subchain, *this, builder);
             }
             have_haplotypes = subchain.has_end();
