@@ -90,6 +90,10 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:af3236201a75f6aab642971e426299d8f"><td class="memItemLeft" align="right" valign="top">gbwt::size_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#af3236201a75f6aab642971e426299d8f">buffer_size</a> = gbwt::DynamicGBWT::INSERT_BATCH_SIZE</td></tr>
 <tr class="memdesc:af3236201a75f6aab642971e426299d8f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Buffer size (in nodes) for GBWT construction.  <a href="structvg_1_1Recombinator_1_1Parameters.html#af3236201a75f6aab642971e426299d8f">More...</a><br /></td></tr>
 <tr class="separator:af3236201a75f6aab642971e426299d8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5f62e8ec5640f3d4d06bbda709b44bdc"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a5f62e8ec5640f3d4d06bbda709b44bdc">present_discount</a> = <a class="el" href="classvg_1_1Recombinator.html#a5c415fe934bb25c07068a2ca0291ea00">PRESENT_DISCOUNT</a></td></tr>
+<tr class="separator:a5f62e8ec5640f3d4d06bbda709b44bdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a652df2520fd051ebb03fd8494a6e0b11"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a652df2520fd051ebb03fd8494a6e0b11">het_adjustment</a> = <a class="el" href="classvg_1_1Recombinator.html#acfb904a0f73882a7d9140efe4e78108e">HET_ADJUSTMENT</a></td></tr>
+<tr class="separator:a652df2520fd051ebb03fd8494a6e0b11"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4137d5b31100bb0b63a3e9d659a31982"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a4137d5b31100bb0b63a3e9d659a31982">random_sampling</a> = false</td></tr>
 <tr class="memdesc:a4137d5b31100bb0b63a3e9d659a31982"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample randomly instead of by score.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a4137d5b31100bb0b63a3e9d659a31982">More...</a><br /></td></tr>
 <tr class="separator:a4137d5b31100bb0b63a3e9d659a31982"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -129,6 +133,21 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a652df2520fd051ebb03fd8494a6e0b11"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a652df2520fd051ebb03fd8494a6e0b11">&#9670;&nbsp;</a></span>het_adjustment</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Recombinator::Parameters::het_adjustment = <a class="el" href="classvg_1_1Recombinator.html#acfb904a0f73882a7d9140efe4e78108e">HET_ADJUSTMENT</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Additive term for adjusting the scores for heterozygous kmers after each haplotype to encourage even sampling of haplotypes with and without that kmer. </p>
+
+</div>
+</div>
 <a id="a253f1e11aa0a36a9f1cf0251de316066"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a253f1e11aa0a36a9f1cf0251de316066">&#9670;&nbsp;</a></span>num_haplotypes</h2>
 
@@ -142,6 +161,21 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Number of haplotypes to be generated. </p>
+
+</div>
+</div>
+<a id="a5f62e8ec5640f3d4d06bbda709b44bdc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5f62e8ec5640f3d4d06bbda709b44bdc">&#9670;&nbsp;</a></span>present_discount</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Recombinator::Parameters::present_discount = <a class="el" href="classvg_1_1Recombinator.html#a5c415fe934bb25c07068a2ca0291ea00">PRESENT_DISCOUNT</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Multiplicative factor for discounting the scores for present kmers after selecting a haplotype with that kmer. </p>
 
 </div>
 </div>

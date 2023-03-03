@@ -124,6 +124,10 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:aae3d85fd81e178aedb975015652a6cc4"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#aae3d85fd81e178aedb975015652a6cc4">KFF_BLOCK_SIZE</a> = 1000000</td></tr>
 <tr class="memdesc:aae3d85fd81e178aedb975015652a6cc4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Block size (in kmers) for reading KFF files.  <a href="classvg_1_1Recombinator.html#aae3d85fd81e178aedb975015652a6cc4">More...</a><br /></td></tr>
 <tr class="separator:aae3d85fd81e178aedb975015652a6cc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c415fe934bb25c07068a2ca0291ea00"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a5c415fe934bb25c07068a2ca0291ea00">PRESENT_DISCOUNT</a> = 0.7</td></tr>
+<tr class="separator:a5c415fe934bb25c07068a2ca0291ea00"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acfb904a0f73882a7d9140efe4e78108e"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#acfb904a0f73882a7d9140efe4e78108e">HET_ADJUSTMENT</a> = 0.2</td></tr>
+<tr class="separator:acfb904a0f73882a7d9140efe4e78108e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -306,6 +310,29 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="acfb904a0f73882a7d9140efe4e78108e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acfb904a0f73882a7d9140efe4e78108e">&#9670;&nbsp;</a></span>HET_ADJUSTMENT</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::Recombinator::HET_ADJUSTMENT = 0.2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Adjustment to the score of a heterozygous kmer every time a haplotype with (-) or without (+) that kmer is selected. </p>
+
+</div>
+</div>
 <a id="aae3d85fd81e178aedb975015652a6cc4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aae3d85fd81e178aedb975015652a6cc4">&#9670;&nbsp;</a></span>KFF_BLOCK_SIZE</h2>
 
@@ -351,6 +378,29 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Number of haplotypes to be generated. </p>
+
+</div>
+</div>
+<a id="a5c415fe934bb25c07068a2ca0291ea00"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5c415fe934bb25c07068a2ca0291ea00">&#9670;&nbsp;</a></span>PRESENT_DISCOUNT</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::Recombinator::PRESENT_DISCOUNT = 0.7</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Multiplier to the score of a present kmer every time a haplotype with that kmer is selected. </p>
 
 </div>
 </div>
