@@ -495,6 +495,78 @@ namespace vg {
                 REQUIRE(seq_ref_transcript_paths.at(1) == "TTTAAAA");
                 REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
             }
+            
+            SECTION("Transcriptome can parse gff3 file and exclude transcripts with incorrect exon order") {
+
+                stringstream transcript_stream2;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id=transcript1;exon_number=2" << endl;
+                transcript_stream2 << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id=transcript1;exon_number=1" << endl;
+                transcript_stream2 << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id=transcript1;exon_number=3" << endl;
+                transcript_stream2 << "path1\t.\texon\t16\t21\t.\t-\t.\tID=exon:transcript2:0;transcript_id=transcript2;" << endl;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t-\t.\tID=exon:transcript2:1;transcript_id=transcript2" << endl;
+                transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\texon_number=1;transcript_id=transcript3" << endl;
+                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\texon_number=2;transcript_id=transcript3" << endl;
+
+                transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2}), empty_haplotype_index, false, false);
+
+                REQUIRE(transcriptome.transcript_paths().size() == 1);
+                REQUIRE(transcriptome.reference_transcript_paths().size() == 1);
+
+                REQUIRE(transcriptome.sort_compact_nodes());
+
+                REQUIRE(transcriptome.graph().get_node_count() == 8);
+                REQUIRE(transcriptome.graph().get_edge_count() == 10);
+                REQUIRE(transcriptome.graph().get_path_count() == 4);
+
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path1")) == 7);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path2")) == 6);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 7);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 6);
+
+                auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
+
+                REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({10, 16}));
+
+                auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                REQUIRE(seq_ref_transcript_paths.front() == "TTTAAAA");
+            }
+
+            SECTION("Transcriptome can parse gff3 file and exclude transcripts with overlapping exons") {
+
+                stringstream transcript_stream2;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id=transcript1;exon_number=0" << endl;
+                transcript_stream2 << "path1\t.\texon\t7\t10\t.\t+\t.\ttranscript_id=transcript1;exon_number=1" << endl;
+                transcript_stream2 << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id=transcript1;exon_number=2" << endl;
+                transcript_stream2 << "path1\t.\texon\t16\t21\t.\t-\t.\tID=exon:transcript2:0;transcript_id=transcript2;" << endl;
+                transcript_stream2 << "path1\t.\texon\t2\t17\t.\t-\t.\tID=exon:transcript2:1;transcript_id=transcript2" << endl;
+                transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id=transcript3" << endl;
+                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id=transcript3" << endl;
+
+                transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2}), empty_haplotype_index, false, false);
+
+                REQUIRE(transcriptome.transcript_paths().size() == 1);
+                REQUIRE(transcriptome.reference_transcript_paths().size() == 1);
+
+                REQUIRE(transcriptome.sort_compact_nodes());
+
+                REQUIRE(transcriptome.graph().get_node_count() == 8);
+                REQUIRE(transcriptome.graph().get_edge_count() == 10);
+                REQUIRE(transcriptome.graph().get_path_count() == 4);
+
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path1")) == 7);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path2")) == 6);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 7);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 6);
+
+                auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
+
+                REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({10, 16}));
+
+                auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                REQUIRE(seq_ref_transcript_paths.front() == "TTTAAAA");
+            }
 
             SECTION("Transcriptome can add splice-junctions and update GBWT threads") {
 
@@ -590,11 +662,12 @@ namespace vg {
                 gbwt_builder.index.metadata.addPath(0, 1, 0, 0);
 
                 gbwt_builder.insert(gbwt_thread_3, true);
-                gbwt_builder.index.metadata.addPath(0, 2, 0, 0);
+                gbwt_builder.index.metadata.addPath(1, 2, 0, 0);
 
                 gbwt_builder.insert(gbwt_thread_4, true);
-                gbwt_builder.index.metadata.addPath(0, 2, 0, 17);
+                gbwt_builder.index.metadata.addPath(1, 2, 0, 17);
 
+                gbwt_builder.index.metadata.addSamples(vector<string>({"sample1", "sample2"}));
                 gbwt_builder.index.metadata.addContigs(vector<string>({"path1", "path2", "path3"}));
 
                 gbwt_builder.finish();
@@ -607,9 +680,18 @@ namespace vg {
                 haplotype_index->load(gbwt_stream);
                 REQUIRE(haplotype_index->bidirectional());
 
+                stringstream transcript_stream2;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 1;" << endl;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 2;" << endl;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 3;" << endl;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t2\t7\t.\t-\t.\texon_number 1; transcript_id \"transcript2\";" << endl;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t16\t21\t.\t-\t.\texon_number 2; transcript_id \"transcript2\";" << endl;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript3\";" << endl;
+                transcript_stream2 << "sample1#0#path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id \"transcript3\";" << endl;
+
                 SECTION("Transcriptome can add splice-junctions and reference transcript paths using GBWT haplotypes") {
 
-                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2}), haplotype_index, true, false);
 
                     REQUIRE(transcriptome.transcript_paths().size() == 3);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
@@ -641,14 +723,14 @@ namespace vg {
          
                 SECTION("Transcriptome can collapse redundant GBWT annotated reference transcript paths across haplotypes") {
 
-                    stringstream transcript_stream2;
-                    transcript_stream2 << "path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    stringstream transcript_stream3;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
 
-                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream, &transcript_stream2}), haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2, &transcript_stream3}), haplotype_index, true, false);
 
                     REQUIRE(transcriptome.transcript_paths().size() == 4);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 4);
@@ -673,16 +755,16 @@ namespace vg {
 
                 SECTION("Transcriptome can collapse redundant GBWT annotated reference transcript paths across haplotypes and transcripts") {
 
-                    stringstream transcript_stream2;
-                    transcript_stream2 << "path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream2 << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    stringstream transcript_stream3;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream3 << "sample1#0#path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
 
                     transcriptome.path_collapse_type = "all";
 
-                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream, &transcript_stream2}), haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2, &transcript_stream3}), haplotype_index, true, false);
 
                     REQUIRE(transcriptome.transcript_paths().size() == 3);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
@@ -705,13 +787,13 @@ namespace vg {
 
                 SECTION("Transcriptome can construct GBWT annotated reference transcript paths spanning multiple broken contigs") {
 
-                    transcript_stream << "path3\t.\texon\t9\t10\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path3\t.\texon\t19\t21\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path3\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
-                    transcript_stream << "path3\t.\texon\t16\t21\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
-                    transcript_stream << "path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript6\";" << endl;
+                    transcript_stream2 << "sample2#0#path3\t.\texon\t9\t10\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream2 << "sample2#0#path3\t.\texon\t19\t21\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream2 << "sample2#0#path3\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
+                    transcript_stream2 << "sample2#0#path3\t.\texon\t16\t21\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
+                    transcript_stream2 << "sample2#0#path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript6\";" << endl;
 
-                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2}), haplotype_index, true, false);
 
                     REQUIRE(transcriptome.transcript_paths().size() == 5);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 5);
