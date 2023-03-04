@@ -275,7 +275,7 @@ var searchData=
   ['construct_5freference_5ftranscript_5fpaths_5fembedded_806',['construct_reference_transcript_paths_embedded',['../classvg_1_1Transcriptome.html#aab8e9e4cf0cf855de888086388577d56',1,'vg::Transcriptome']]],
   ['construct_5freference_5ftranscript_5fpaths_5fembedded_5fcallback_807',['construct_reference_transcript_paths_embedded_callback',['../classvg_1_1Transcriptome.html#a342c0573251aa2839b7ea1ebbdd44db9',1,'vg::Transcriptome']]],
   ['construct_5freference_5ftranscript_5fpaths_5fgbwt_808',['construct_reference_transcript_paths_gbwt',['../classvg_1_1Transcriptome.html#a1a74c22fd6c47986e1dc4e7a68dad42d',1,'vg::Transcriptome']]],
-  ['construct_5freference_5ftranscript_5fpaths_5fgbwt_5fcallback_809',['construct_reference_transcript_paths_gbwt_callback',['../classvg_1_1Transcriptome.html#ab059a0713f2d0cf2324cafcc280796ff',1,'vg::Transcriptome']]],
+  ['construct_5freference_5ftranscript_5fpaths_5fgbwt_5fcallback_809',['construct_reference_transcript_paths_gbwt_callback',['../classvg_1_1Transcriptome.html#a162034e99f2ee027816af34776a9b3d6',1,'vg::Transcriptome']]],
   ['constructedchunk_810',['ConstructedChunk',['../structvg_1_1ConstructedChunk.html',1,'vg']]],
   ['construction_5fjobs_811',['construction_jobs',['../structvg_1_1Haplotypes_1_1Header.html#a3e2571325f5aaeabced578bc43c8533c',1,'vg::Haplotypes::Header']]],
   ['constructor_812',['Constructor',['../classvg_1_1Constructor.html',1,'vg']]],

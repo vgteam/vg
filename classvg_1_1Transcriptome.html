@@ -145,9 +145,12 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:ad040b82553e6b03ccd926c0fe622e84c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ad040b82553e6b03ccd926c0fe622e84c">parse_introns</a> (vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *introns, istream *intron_stream, const bdsg::PositionOverlay &amp;graph_path_pos_overlay) const</td></tr>
 <tr class="memdesc:ad040b82553e6b03ccd926c0fe622e84c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse BED file of introns.  <a href="classvg_1_1Transcriptome.html#ad040b82553e6b03ccd926c0fe622e84c">More...</a><br /></td></tr>
 <tr class="separator:ad040b82553e6b03ccd926c0fe622e84c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57e329cf9ecd49ee357de368b1afa0bb"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a57e329cf9ecd49ee357de368b1afa0bb">parse_transcripts</a> (vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *transcripts, istream *transcript_stream, const bdsg::PositionOverlay &amp;graph_path_pos_overlay, const gbwt::GBWT &amp;haplotype_index, const bool use_haplotype_paths) const</td></tr>
-<tr class="memdesc:a57e329cf9ecd49ee357de368b1afa0bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse gtf/gff3 file of transcripts. Returns the number of non-header lines in the parsed file.  <a href="classvg_1_1Transcriptome.html#a57e329cf9ecd49ee357de368b1afa0bb">More...</a><br /></td></tr>
-<tr class="separator:a57e329cf9ecd49ee357de368b1afa0bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae7b6c679e3d635342029bbc7cc39d75d"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae7b6c679e3d635342029bbc7cc39d75d">parse_transcripts</a> (vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *transcripts, uint32_t *number_of_excluded_transcripts, istream *transcript_stream, const bdsg::PositionOverlay &amp;graph_path_pos_overlay, const gbwt::GBWT &amp;haplotype_index, const bool use_haplotype_paths) const</td></tr>
+<tr class="memdesc:ae7b6c679e3d635342029bbc7cc39d75d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse gtf/gff3 file of transcripts. Returns the number of non-header lines in the parsed file.  <a href="classvg_1_1Transcriptome.html#ae7b6c679e3d635342029bbc7cc39d75d">More...</a><br /></td></tr>
+<tr class="separator:ae7b6c679e3d635342029bbc7cc39d75d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c9af6904f1f282a0782c1e34bc4b9ab"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a1c9af6904f1f282a0782c1e34bc4b9ab">get_base_gbwt_path_name</a> (const gbwt::GBWT &amp;haplotype_index, const size_t path_id, const unordered_set&lt; string &gt; &amp;gbwt_reference_samples) const</td></tr>
+<tr class="memdesc:a1c9af6904f1f282a0782c1e34bc4b9ab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns gbwt path name without phaseblock and subrange.  <a href="classvg_1_1Transcriptome.html#a1c9af6904f1f282a0782c1e34bc4b9ab">More...</a><br /></td></tr>
+<tr class="separator:a1c9af6904f1f282a0782c1e34bc4b9ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a401bd93346ea5e02f586823d8f3b458e"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a401bd93346ea5e02f586823d8f3b458e">parse_attribute_value</a> (const string &amp;attribute, const string &amp;name) const</td></tr>
 <tr class="memdesc:a401bd93346ea5e02f586823d8f3b458e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse gtf/gff3 attribute value.  <a href="classvg_1_1Transcriptome.html#a401bd93346ea5e02f586823d8f3b458e">More...</a><br /></td></tr>
 <tr class="separator:a401bd93346ea5e02f586823d8f3b458e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -161,6 +164,9 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:af764ab28d6d866807d09a4482dd96523"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae6f600db9b276fe332d4f14919bba983"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae6f600db9b276fe332d4f14919bba983">reorder_exons</a> (<a class="el" href="structvg_1_1Transcript.html">Transcript</a> *transcript) const</td></tr>
 <tr class="separator:ae6f600db9b276fe332d4f14919bba983"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a405f6a2b87ab7d919d0cb8780b1362a5">has_overlapping_exons</a> (const vector&lt; <a class="el" href="structvg_1_1Exon.html">Exon</a> &gt; &amp;exons) const</td></tr>
+<tr class="memdesc:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks whether any adjacent exons overlap.  <a href="classvg_1_1Transcriptome.html#a405f6a2b87ab7d919d0cb8780b1362a5">More...</a><br /></td></tr>
+<tr class="separator:a405f6a2b87ab7d919d0cb8780b1362a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab8e9e4cf0cf855de888086388577d56"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#aab8e9e4cf0cf855de888086388577d56">construct_reference_transcript_paths_embedded</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const bdsg::PositionOverlay &amp;graph_path_pos_overlay) const</td></tr>
 <tr class="separator:aab8e9e4cf0cf855de888086388577d56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a342c0573251aa2839b7ea1ebbdd44db9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a342c0573251aa2839b7ea1ebbdd44db9">construct_reference_transcript_paths_embedded_callback</a> (list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt; *edited_transcript_paths, spp::sparse_hash_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> * &gt; &gt; *edited_transcript_paths_index, mutex *edited_transcript_paths_mutex, const int32_t thread_idx, const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const bdsg::PositionOverlay &amp;graph_path_pos_overlay) const</td></tr>
@@ -171,9 +177,9 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a8e9f42b9d9f57b675856c7f766d3c710"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1a74c22fd6c47986e1dc4e7a68dad42d"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a1a74c22fd6c47986e1dc4e7a68dad42d">construct_reference_transcript_paths_gbwt</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index) const</td></tr>
 <tr class="separator:a1a74c22fd6c47986e1dc4e7a68dad42d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab059a0713f2d0cf2324cafcc280796ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ab059a0713f2d0cf2324cafcc280796ff">construct_reference_transcript_paths_gbwt_callback</a> (list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt; *edited_transcript_paths, spp::sparse_hash_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> * &gt; &gt; *edited_transcript_paths_index, mutex *edited_transcript_paths_mutex, const int32_t thread_idx, const vector&lt; pair&lt; uint32_t, uint32_t &gt; &gt; &amp;chrom_transcript_sets, const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const spp::sparse_hash_map&lt; string, map&lt; uint32_t, uint32_t &gt; &gt; &amp;haplotype_name_index) const</td></tr>
-<tr class="memdesc:ab059a0713f2d0cf2324cafcc280796ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Threaded reference transcript path construction using GBWT haplotype paths.  <a href="classvg_1_1Transcriptome.html#ab059a0713f2d0cf2324cafcc280796ff">More...</a><br /></td></tr>
-<tr class="separator:ab059a0713f2d0cf2324cafcc280796ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a162034e99f2ee027816af34776a9b3d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a162034e99f2ee027816af34776a9b3d6">construct_reference_transcript_paths_gbwt_callback</a> (list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt; *edited_transcript_paths, spp::sparse_hash_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> * &gt; &gt; *edited_transcript_paths_index, uint32_t *excluded_transcripts, mutex *edited_transcript_paths_mutex, const int32_t thread_idx, const vector&lt; pair&lt; uint32_t, uint32_t &gt; &gt; &amp;chrom_transcript_sets, const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const spp::sparse_hash_map&lt; string, map&lt; uint32_t, uint32_t &gt; &gt; &amp;haplotype_name_index) const</td></tr>
+<tr class="memdesc:a162034e99f2ee027816af34776a9b3d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Threaded reference transcript path construction using GBWT haplotype paths.  <a href="classvg_1_1Transcriptome.html#a162034e99f2ee027816af34776a9b3d6">More...</a><br /></td></tr>
+<tr class="separator:a162034e99f2ee027816af34776a9b3d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acaa534fdaa3f3926d7959255ab2f6feb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#acaa534fdaa3f3926d7959255ab2f6feb">project_haplotype_transcripts</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const bdsg::PositionOverlay &amp;graph_path_pos_overlay, const bool proj_emded_paths, const float <a class="el" href="classvg_1_1Transcriptome.html#af173c32d4ccfa7f94f68220e7e564895">mean_node_length</a>)</td></tr>
 <tr class="separator:acaa534fdaa3f3926d7959255ab2f6feb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae9f0bd481ee467f32d88be2b20c110c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae9f0bd481ee467f32d88be2b20c110c7">project_haplotype_transcripts_callback</a> (list&lt; <a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a> &gt; *completed_transcript_paths, spp::sparse_hash_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; <a class="el" href="structvg_1_1CompletedTranscriptPath.html">CompletedTranscriptPath</a> * &gt; &gt; *completed_transcript_paths_index, mutex *completed_transcript_paths_mutex, const int32_t thread_idx, const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts, const gbwt::GBWT &amp;haplotype_index, const bdsg::PositionOverlay &amp;graph_path_pos_overlay, const bool proj_emded_paths, const float <a class="el" href="classvg_1_1Transcriptome.html#af173c32d4ccfa7f94f68220e7e564895">mean_node_length</a>)</td></tr>
@@ -852,8 +858,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ab059a0713f2d0cf2324cafcc280796ff"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab059a0713f2d0cf2324cafcc280796ff">&#9670;&nbsp;</a></span>construct_reference_transcript_paths_gbwt_callback()</h2>
+<a id="a162034e99f2ee027816af34776a9b3d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a162034e99f2ee027816af34776a9b3d6">&#9670;&nbsp;</a></span>construct_reference_transcript_paths_gbwt_callback()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -872,6 +878,12 @@ Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">spp::sparse_hash_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> * &gt; &gt; *&#160;</td>
           <td class="paramname"><em>edited_transcript_paths_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t *&#160;</td>
+          <td class="paramname"><em>excluded_transcripts</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -953,6 +965,50 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Embeds transcriptome transcript paths in the graph. <br  />
  Returns the number of paths embedded. </p>
+
+</div>
+</div>
+<a id="a1c9af6904f1f282a0782c1e34bc4b9ab"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c9af6904f1f282a0782c1e34bc4b9ab">&#9670;&nbsp;</a></span>get_base_gbwt_path_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::Transcriptome::get_base_gbwt_path_name </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>haplotype_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t&#160;</td>
+          <td class="paramname"><em>path_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_reference_samples</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns gbwt path name without phaseblock and subrange. </p>
 
 </div>
 </div>
@@ -1081,6 +1137,34 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a405f6a2b87ab7d919d0cb8780b1362a5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a405f6a2b87ab7d919d0cb8780b1362a5">&#9670;&nbsp;</a></span>has_overlapping_exons()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Transcriptome::has_overlapping_exons </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Exon.html">Exon</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>exons</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Checks whether any adjacent exons overlap. </p>
+
+</div>
+</div>
 <a id="af173c32d4ccfa7f94f68220e7e564895"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af173c32d4ccfa7f94f68220e7e564895">&#9670;&nbsp;</a></span>mean_node_length()</h2>
 
@@ -1190,8 +1274,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a57e329cf9ecd49ee357de368b1afa0bb"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a57e329cf9ecd49ee357de368b1afa0bb">&#9670;&nbsp;</a></span>parse_transcripts()</h2>
+<a id="ae7b6c679e3d635342029bbc7cc39d75d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae7b6c679e3d635342029bbc7cc39d75d">&#9670;&nbsp;</a></span>parse_transcripts()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1204,6 +1288,12 @@ Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *&#160;</td>
           <td class="paramname"><em>transcripts</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t *&#160;</td>
+          <td class="paramname"><em>number_of_excluded_transcripts</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
