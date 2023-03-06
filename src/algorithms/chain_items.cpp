@@ -416,108 +416,162 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
     // To see if an item is used we have this bit vector.
     vector<bool> item_is_used(chain_scores.size(), false);
     
-    size_t penalty_threshold
+    // We can be disappointed and pursue a promised low penalty and find out we
+    // can't get it while nonoverlapping. So we need to pursue everything down
+    // to a particular penalty level, and sort that, and *then* take the top n,
+    // and if we don't have enough at or above that penalty level, lower the
+    // bar and look again.
+    //
+    // We can't ever get something with unexpectedly less penalty, but we can
+    // get something with unexpecteldy more penalty.
     
-    while (!end_queue.empty() && tracebacks.size() < max_tracebacks) {
-        // TODO: We can be disappointed and pursue a promised low penalty and find out we can't get it while nonoverlapping.
-        // So we need to pursue everything down to a particular penalty level, and sort that, and *then* take the top n, and if we don't have enough at or above that penalty level, lower the bar and look again.
-        // We can't ever get something woith unexpectedly less penalty, but we can get something with unexpecteldy more penalty.
+    // How far below optimal should we look?
+    int penalty_threshold = 0;
+    // Of the tracebacks we have found, how many have penalties at or under the threshold?
+    size_t passing_tracebacks = 0;
+    // Of the tracebacks we have found, how many have each penalty value over
+    // the currently selected threshold? When we raise the threshold, we can
+    // count the ones recorded here, and we don't have to sort or scan our list
+    // of the actual tracebacks until the end when we take the top
+    // max_tracebacks.
+    std::map<int, size_t> failing_tracebacks_by_penalty;
     
-        // We want more tracebacks and we can get them.
-        if (item_is_used[end_queue.min().second.front()]) {
-            // This starting point was visited aleady, so skip it.
-            end_queue.pop_min();
-            continue;
-        }
+    // TODO: This will let a traceback that appears better but actually had to take a second-best somewhere and is overall worse, steal an item needed for a traceback ending elsewhere that appeared a bit worse but actually didn't need a surprise internal second-best and thus is actually better.
+    
+    while (passing_tracebacks < max_tracebacks && (!end_queue.empty() || !failing_tracebacks_by_penalty.empty())) {
+        // We need to take more tracebacks, and we have some we can get.
         
-        // Make a real queue for starting from it
-        structures::MinMaxHeap<pair<int, step_list_t>> queue;
-        queue.push(end_queue.min());
-        // Remember what we were supposed to be able to get from here.
-        int promised_penalty = end_queue.min().first;
-        end_queue.pop_min();
-        
-        // To avoid constantly considering going to the same place by different
-        // paths, we track the min penalty we enqueued things with. We
-        // shouldn't bother enquueuing them with larger penalties. This saves
-        // some queue operations.
-        vector<size_t> min_penalty(chain_scores.size(), numeric_limits<int>::max());
-        
-        // And to avoid actually processing the things that do go into the
-        // queue but later get beat out, we have another bit vector
-        vector<bool> item_is_visited(chain_scores.size(), false);
-        
-        while (!queue.empty()) {
-            // Until we dead-end (or find a path and emit it)
+        if (!end_queue.empty() && failing_tracebacks_by_penalty.empty() || end_queue.min().first <= failing_tracebacks_by_penalty.begin()->first) {
+            // We need to compute more tracebacks, because the ones to be computed aren't known to be worse than the ones we did already.
             
-            // Grab the best list as our basis
-            int basis_score_difference;
-            step_list_t basis;
-            std::tie(basis_score_difference, basis) = queue.min();
-            queue.pop_min();
+            // Take anything we've already computed plus the new ones we will compute at this threshold.
+            penalty_threshold = end_queue.min().first;
             
-            std::cerr << "Can reach " << basis.front() << " with penalty " << basis_score_difference << std::endl;
-            
-            if (basis.front() == TracedScore::nowhere()) {
-                // The only winning move is not to play.
-                // Make sure to drop the sentinel
-                auto traceback = basis.pop_front();
-                tracebacks.emplace_back();
-                tracebacks.back().second = basis_score_difference;
-                for (auto& item : traceback) {
-                    std::cerr << "\tTraceback is via " << item << std::endl;
-                    // Record the used-ness of all the items
-                    item_is_used[item] = true;
-                    // And put them in the returned traceback
-                    tracebacks.back().first.push_back(item);
-                }
+            while (!end_queue.empty() && end_queue.min().first == penalty_threshold) {
+                // Until we've explored everything purporting to be this good, do the next one
                 
-                // Nothing else in the queue helps anymore, it all ends at the same place and we used that place.
-                break;
-            }
-            
-            if (item_is_visited[basis.front()]) {
-                // We already found a better traceback up to here, so don't do here again.
-                continue;
-            }
-            
-            // Work out how good it is optimally
-            TracedScore optimal = chain_scores[basis.front()][0];
-            for (auto& score_from_predecessor : chain_scores[basis.front()]) {
-                // For each place it could come from
-                if (score_from_predecessor.source != TracedScore::nowhere() && item_is_used[score_from_predecessor.source]) {
-                    // Already used this so it isn't an option.
+                // We want more tracebacks and we can get them.
+                if (item_is_used[end_queue.min().second.front()]) {
+                    // This starting point was visited aleady, so skip it.
+                    end_queue.pop_min();
                     continue;
                 }
                 
-                // If there is a place to come from and we haven't been there yet, or an option to stop...
+                // Make a real queue for starting from it
+                structures::MinMaxHeap<pair<int, step_list_t>> queue;
+                queue.push(end_queue.min());
+                // Remember what we were supposed to be able to get from here.
+                int promised_penalty = end_queue.min().first;
+                end_queue.pop_min();
                 
-                // Work out total penalty off optimal
-                int total_penalty = (optimal - score_from_predecessor) + basis_score_difference;
+                // To avoid constantly considering going to the same place by different
+                // paths, we track the min penalty we enqueued things with. We
+                // shouldn't bother enquueuing them with larger penalties. This saves
+                // some queue operations.
+                vector<size_t> min_penalty(chain_scores.size(), numeric_limits<int>::max());
                 
-                if (score_from_predecessor.source != TracedScore::nowhere()) {
-                    if (min_penalty[score_from_predecessor.source] <= total_penalty) {
-                        // This is a redundant path, so skip it.
-                        continue;
-                    } else {
-                        // This is the best path
-                        min_penalty[score_from_predecessor.source] = total_penalty;
+                // And to avoid actually processing the things that do go into the
+                // queue but later get beat out, we have another bit vector
+                vector<bool> item_is_visited(chain_scores.size(), false);
+                
+                while (!queue.empty()) {
+                    // Until we dead-end (or find a path and emit it)
+                    
+                    // Grab the best list as our basis
+                    int basis_score_difference;
+                    step_list_t basis;
+                    std::tie(basis_score_difference, basis) = queue.min();
+                    queue.pop_min();
+                    
+                    std::cerr << "Can reach " << basis.front() << " with penalty " << basis_score_difference << std::endl;
+                    
+                    if (basis.front() == TracedScore::nowhere()) {
+                        // We represent stopping here.
+                        
+                        // Make sure to drop the stop sentinel
+                        auto traceback = basis.pop_front();
+                        
+                        // And copy into the list of tracebacks found
+                        tracebacks.emplace_back();
+                        tracebacks.back().second = basis_score_difference;
+                        for (auto& item : traceback) {
+                            std::cerr << "\tTraceback is via " << item << std::endl;
+                            // Record the used-ness of all the items
+                            item_is_used[item] = true;
+                            // And put them in the returned traceback
+                            tracebacks.back().first.push_back(item);
+                        }
+                        if (basis_score_difference <= penalty_threshold) {
+                            // We want to include this result now.
+                            passing_tracebacks++;
+                        } else {
+                            // We may need to include this result later if we have to dig into the tranche it really is in
+                            failing_tracebacks_by_penalty[basis_score_difference]++;
+                        }
+                        
+                        // Nothing else in the queue helps anymore; ending here was better than all of it.
+                        break;
                     }
+                    
+                    if (item_is_visited[basis.front()]) {
+                        // We already found a better traceback up to here, so don't do here again.
+                        continue;
+                    }
+                    
+                    // Work out how good it is optimally
+                    TracedScore optimal = chain_scores[basis.front()][0];
+                    for (auto& score_from_predecessor : chain_scores[basis.front()]) {
+                        // For each place it could come from
+                        if (score_from_predecessor.source != TracedScore::nowhere() && item_is_used[score_from_predecessor.source]) {
+                            // Already used this so it isn't an option.
+                            continue;
+                        }
+                        
+                        // If there is a place to come from and we haven't been there yet, or an option to stop...
+                        
+                        // Work out total penalty off optimal
+                        int total_penalty = (optimal - score_from_predecessor) + basis_score_difference;
+                        
+                        if (score_from_predecessor.source != TracedScore::nowhere()) {
+                            if (min_penalty[score_from_predecessor.source] <= total_penalty) {
+                                // This is a redundant path, so skip it.
+                                continue;
+                            } else {
+                                // This is the best path
+                                min_penalty[score_from_predecessor.source] = total_penalty;
+                            }
+                        }
+                        
+                        std::cerr << "\tCould have come from " << score_from_predecessor << " with total penalty " << total_penalty << std::endl;
+                        
+                        // Make an extended path (with something that may be a nowhere)
+                        auto extended_path = basis.push_front(score_from_predecessor.source);
+                        
+                        // Put them in the priority queue
+                        queue.push(make_pair(total_penalty, extended_path));
+                    }
+                    
+                    // Record that we "visited" this item and considered its sources, so we don't go and do it again alogn a worse path to here.
+                    item_is_visited[basis.front()] = true;
                 }
-                
-                std::cerr << "\tCould have come from " << score_from_predecessor << " with total penalty " << total_penalty << std::endl;
-                
-                // Make an extended path (with something that may be a nowhere)
-                auto extended_path = basis.push_front(score_from_predecessor.source);
-                
-                // Put them in the priority queue
-                queue.push(make_pair(total_penalty, extended_path));
             }
-            
-            // Record that we "visited" this item and considered its sources, so we don't go and do it again alogn a worse path to here.
-            item_is_visited[basis.front()] = true;
+                
+            }
+        }
+        
+        // Now penalty_threshold has been increased; update passing_tracebacks by pulling out of failing_tracebacks_by_penalty.
+        // We won't have increased past anything actually in the map, so we only need one pass here.
+        if (!failing_tracebacks_by_penalty.empty()) {
+            // Find the penalty of the next tranche
+            auto available = failing_tracebacks_by_penalty.begin();
+            if (available->first <= penalty_threshold) {
+                // Count them as taken
+                passing_tracebacks += available->second;
+                failing_tracebacks_by_penalty.erase(available);
+            }
         }
     }
+    
 
     return tracebacks;
 }
