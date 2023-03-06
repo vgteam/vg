@@ -1021,9 +1021,7 @@ void clip_stubs_generic(MutablePathMutableHandleGraph* graph,
     // keep doing the same thing on the neighbours until none left, using
     // handle_in_range to make sure we don't step out of bounds (in the case we're doing BED regions)           
     unordered_map<handle_t, const Region*> stub_neighbours_2;
-    size_t iterations = 1;
     while (!stub_neighbours_1.empty()) {
-        ++iterations;
         stub_neighbours_2.clear();
         swap(stub_neighbours_1, stub_neighbours_2);
         for (const auto&  neighbour_pair : stub_neighbours_2) {
@@ -1033,7 +1031,7 @@ void clip_stubs_generic(MutablePathMutableHandleGraph* graph,
     }
         
     if (verbose) {
-        cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes from (non-reference) stubs in " << iterations << " iterations." << endl;
+        cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes from (non-reference) stubs." << endl;
     }
 
     // cut out the nodes and chop up paths

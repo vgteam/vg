@@ -235,11 +235,11 @@ int main_clip(int argc, char** argv) {
     unique_ptr<SnarlManager> snarl_manager;
     vector<Region> bed_regions;
 
-    // need the path positions unless we're doing depth or deletion clipping without regions
-    bool need_pp = !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0));
+    // need the path positions unless we're doing depth, deletion or stub clipping without regions
+    bool need_pp = !(bed_path.empty() && (min_depth >= 0 || max_deletion >= 0 || stub_clipping));
 
     // need snarls if input regions are provided, or doing snarl based clipping
-    bool need_snarls = !bed_path.empty() || (min_depth < 0 && max_deletion < 0);
+    bool need_snarls = !bed_path.empty() || (min_depth < 0 && max_deletion < 0 && !stub_clipping);
 
     if (need_pp) {
         pp_graph = overlay_helper.apply(graph.get());
