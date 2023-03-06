@@ -57,11 +57,6 @@ struct zipcode_t {
         //Decode the zip code that got stored in the payload
         void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
 
-        //This re-formats the new payload into the old payload format so it can be used 
-        //for clustering
-        gbwtgraph::payload_type get_old_payload_from_zipcode(const SnarlDistanceIndex& distance_index,
-                                                                    const nid_t& id);
-
 
         size_t byte_count() const {
             return zipcode.byte_count();
@@ -174,145 +169,26 @@ struct MIPayload {
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
 
-    //Static values for the offset from the right side of the uint64_t storing the values, the width of each value, and a bit mask for the value
-    const static size_t PARENT_RECORD_OFFSET = 0;
-    const static size_t PARENT_RECORD_WIDTH = 32;
-    const static code_type PARENT_RECORD_MASK = (static_cast<code_type>(1) << PARENT_RECORD_WIDTH) - 1;
+    //How do decode the zipcode to get the old payload values
+    static size_t record_offset(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    const static size_t NODE_RECORD_OFFSET = 32;
-    const static size_t NODE_RECORD_WIDTH = 32;
-    const static code_type NODE_RECORD_MASK = (static_cast<code_type>(1) << NODE_RECORD_WIDTH) - 1;
+    static size_t parent_record_offset(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
+    static size_t node_record_offset(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    const static size_t CHAIN_COMPONENT_OFFSET = 0;
-    const static size_t CHAIN_COMPONENT_WIDTH = 8;
-    const static code_type CHAIN_COMPONENT_MASK = (static_cast<code_type>(1) << CHAIN_COMPONENT_WIDTH) - 1;
-    
-    const static size_t PREFIX_SUM_OFFSET = 8;
-    const static size_t PREFIX_SUM_WIDTH = 32;
-    const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
+    static size_t node_length(const zipcode_t& zip);
 
-    const static size_t PARENT_IS_ROOT_OFFSET = 40;
-    const static size_t PARENT_IS_CHAIN_OFFSET = 41;
-    const static size_t IS_TRIVIAL_CHAIN_OFFSET = 42;
-    const static size_t IS_REVERSED_OFFSET = 43;
-    
-    const static size_t NODE_LENGTH_OFFSET = 44;
-    const static size_t NODE_LENGTH_WIDTH = 12;
-    const static code_type NODE_LENGTH_MASK = (static_cast<code_type>(1) << NODE_LENGTH_WIDTH) - 1;
-    
-    const static size_t NODE_RECORD_OFFSET_OFFSET = 56;
-    const static size_t NODE_RECORD_OFFSET_WIDTH = 8;
-    const static code_type NODE_RECORD_OFFSET_MASK = (static_cast<code_type>(1) << NODE_RECORD_OFFSET_WIDTH) - 1;
+    static bool is_reversed(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
+    static bool is_trivial_chain (const zipcode_t& zip);
 
-    //Set the values of a code. Mutate the given code 
-    static void set_record_offset(gbwtgraph::payload_type& code, size_t record_offset) {
-        //Set everything in node_record slot to 0's
-        code.first = code.first & ~(NODE_RECORD_MASK << NODE_RECORD_OFFSET); 
-        //And | with the value to set it
-        code.first = code.first | (static_cast<code_type>(record_offset) << NODE_RECORD_OFFSET); 
-    }
-    static void set_parent_record_offset(gbwtgraph::payload_type& code, size_t parent_record_offset) {
-        code.first = code.first & ~(PARENT_RECORD_MASK << PARENT_RECORD_OFFSET); 
-        code.first = code.first | (static_cast<code_type>(parent_record_offset) << PARENT_RECORD_OFFSET); 
-    }
-    static void set_node_record_offset(gbwtgraph::payload_type& code, size_t node_record_offset) {
-        code.second = code.second & ~(NODE_RECORD_OFFSET_MASK << NODE_RECORD_OFFSET_OFFSET);
-        code.second = code.second | (static_cast<code_type>(node_record_offset) << NODE_RECORD_OFFSET_OFFSET);
-    }
-    static void set_node_length(gbwtgraph::payload_type& code, size_t node_length) {
-        code.second = code.second & ~(NODE_LENGTH_MASK << NODE_LENGTH_OFFSET);
-        code.second = code.second | (static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET);
-    }
-    static void set_is_reversed(gbwtgraph::payload_type& code, bool is_reversed) {
-        code.second = code.second & ~(static_cast<code_type>(1) << IS_REVERSED_OFFSET);
-        code.second = code.second | (static_cast<code_type>(is_reversed) << IS_REVERSED_OFFSET);
-    }
-    static void set_is_trivial_chain(gbwtgraph::payload_type& code, bool is_trivial_chain) {
-        code.second = code.second & ~(static_cast<code_type>(1) << IS_TRIVIAL_CHAIN_OFFSET);
-        code.second = code.second | (static_cast<code_type>(is_trivial_chain)   << IS_TRIVIAL_CHAIN_OFFSET);
-    }
-    static void set_parent_is_chain(gbwtgraph::payload_type& code, bool parent_is_chain) {
-        code.second = code.second & ~(static_cast<code_type>(1) << PARENT_IS_CHAIN_OFFSET);
-        code.second = code.second | (static_cast<code_type>(parent_is_chain) << PARENT_IS_CHAIN_OFFSET);
-    }
-    static void set_parent_is_root(gbwtgraph::payload_type& code, bool parent_is_root) {
-        code.second = code.second & ~(static_cast<code_type>(1) << PARENT_IS_ROOT_OFFSET);
-        code.second = code.second | (static_cast<code_type>(parent_is_root) << PARENT_IS_ROOT_OFFSET);
-    }
-    static void set_prefix_sum(gbwtgraph::payload_type& code, size_t prefix_sum) {
-        code.second = code.second & ~(PREFIX_SUM_MASK << PREFIX_SUM_OFFSET);
-        code.second = code.second | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET);
-    }
-    static void set_chain_component(gbwtgraph::payload_type& code, size_t chain_component) {
-        code.second = code.second & ~(CHAIN_COMPONENT_MASK << CHAIN_COMPONENT_OFFSET);
-        code.second = code.second | (static_cast<code_type>(chain_component) << CHAIN_COMPONENT_OFFSET);
-    }
+    static bool parent_is_chain(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
+    static bool parent_is_root (const zipcode_t& zip);
 
-    //How do decode the code
-    static size_t record_offset(const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return NO_VALUE;
-        }
-        return (size_t) (code.first  >> NODE_RECORD_OFFSET & NODE_RECORD_MASK);
-    }
-    static size_t parent_record_offset(const gbwtgraph::payload_type code) {
-        if (code == NO_CODE) {
-            return NO_VALUE;
-        } 
-        return (size_t) (code.first  >> PARENT_RECORD_OFFSET & PARENT_RECORD_MASK);
-    }
+    static size_t prefix_sum (const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t node_record_offset(const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return NO_VALUE;
-        }
-        return (size_t) (code.second >> NODE_RECORD_OFFSET_OFFSET & NODE_RECORD_OFFSET_MASK);
-    }
-    static size_t node_length(const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return NO_VALUE;
-        }
-        return (size_t) (code.second >> NODE_LENGTH_OFFSET & NODE_LENGTH_MASK);
-    }
-    static bool is_reversed(const gbwtgraph::payload_type code) {
-        if (code == NO_CODE) {
-            return false;
-        }
-        return (bool) (code.second >> IS_REVERSED_OFFSET & 1);
-    }
-    static bool is_trivial_chain (const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return false;
-        }
-        return (bool) (code.second >> IS_TRIVIAL_CHAIN_OFFSET   & 1);
-    }
-    static bool parent_is_chain(const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return false;
-        }
-        return (bool) (code.second >> PARENT_IS_CHAIN_OFFSET    & 1);
-    }
-    static bool parent_is_root (const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return false;
-        }
-        return (bool) (code.second >> PARENT_IS_ROOT_OFFSET     & 1);
-    }
-    static size_t prefix_sum (const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return NO_VALUE;
-        }
-        return (size_t) (code.second >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK);
-    }
-    static size_t chain_component (const gbwtgraph::payload_type code) { 
-        if (code == NO_CODE) {
-            return NO_VALUE;
-        }
-        return (size_t) (code.second >> CHAIN_COMPONENT_OFFSET    & CHAIN_COMPONENT_MASK);
-    }
+    static size_t chain_component (const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
     
 }; 

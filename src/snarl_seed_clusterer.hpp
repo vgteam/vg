@@ -72,7 +72,7 @@ class SnarlDistanceIndexClusterer {
 
             //TODO: This gets copied because it needs to be mutable
             //Cached values (zip codes) from the minimizer
-            gbwtgraph::payload_type minimizer_cache;
+            zipcode_t minimizer_cache;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
