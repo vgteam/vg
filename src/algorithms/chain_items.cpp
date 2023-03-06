@@ -572,6 +572,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
         }
     }
     
+    // TODO: limit to top k
 
     return tracebacks;
 }
