@@ -246,10 +246,18 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
  * Returns tracebacks that visit disjoint sets of items, in score order, along
  * with their penalties from the optimal score. The best_past_ending_score_ever
  * is *not* always the source of the first traceback, if there is a tie.
+ *
+ *  Tracebacks are constrained to be nonoverlapping by stopping each traceback
+ *  when the optimum place to come from has already been used. The second-best
+ *  place to come from is *not* considered. It might be possible that two
+ *  returned tracebacks could be pasted together to get a higher score, but it
+ *  won't be possible to recombine two tracebacks to get a higher score; no
+ *  edges followed between items will ever need to be cut.
  */
 vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
+                                                        int item_bonus = 0,
                                                         size_t max_tracebacks = 1);
 
 
