@@ -123,14 +123,8 @@ public:
     /// Max in a score from a DP table. If it wins, record provenance.
     void max_in(const vector<TracedScore>& options, size_t option_number);
     
-    /// Max in a score from a DP table of sorted score options. If it wins, record provenance.
-    void max_in(const vector<vector<TracedScore>>& options, size_t option_number);
-    
     /// Get a score from a table of scores and record provenance in it.
     static TracedScore score_from(const vector<TracedScore>& options, size_t option_number);
-    
-    /// Get a score from a table of sorted score options and record provenance in it.
-    static TracedScore score_from(const vector<vector<TracedScore>>& options, size_t option_number);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
@@ -207,9 +201,9 @@ void sort_and_shadow(std::vector<Anchor>& items);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
- * item, best first. Returns the best observed score overall from that table,
- * with provenance to its location in the table, if tracked in the type.
- * Assumes some items exist.
+ * item. Returns the best observed score overall from that table, with
+ * provenance to its location in the table, if tracked in the type. Assumes
+ * some items exist.
  *
  * We keep all the options to allow us to do multiple tracebacks and find
  * multiple good (ideally disjoint) chains.
@@ -225,7 +219,7 @@ void sort_and_shadow(std::vector<Anchor>& items);
  * Limits transitions to those involving indels of the given size or less, to
  * avoid very bad transitions.
  */
-TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
@@ -254,7 +248,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
  *  won't be possible to recombine two tracebacks to get a higher score; no
  *  edges followed between items will ever need to be cut.
  */
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
                                                         int item_bonus = 0,

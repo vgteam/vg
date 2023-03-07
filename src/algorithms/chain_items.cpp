@@ -38,23 +38,8 @@ void TracedScore::max_in(const vector<TracedScore>& options, size_t option_numbe
     }
 }
 
-void TracedScore::max_in(const vector<vector<TracedScore>>& options, size_t option_number) {
-    auto& option = options[option_number].front();
-    if (option.score > this->score || this->source == nowhere()) {
-        // This is the new winner.
-        this->score = option.score;
-        this->source = option_number;
-    }
-}
-
 TracedScore TracedScore::score_from(const vector<TracedScore>& options, size_t option_number) {
     TracedScore got = options[option_number];
-    got.source = option_number;
-    return got;
-}
-
-TracedScore TracedScore::score_from(const vector<vector<TracedScore>>& options, size_t option_number) {
-    TracedScore got = options[option_number].front();
     got.source = option_number;
     return got;
 }
@@ -135,7 +120,7 @@ void sort_and_shadow(std::vector<Anchor>& items) {
     items = std::move(kept_items);
 }
 
-TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
+TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
@@ -175,7 +160,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     
     // Make our DP table big enough
     chain_scores.clear();
-    chain_scores.resize(to_chain.size(), {});
+    chain_scores.resize(to_chain.size(), TracedScore::unset());
     
     // What's the winner so far?
     TracedScore best_score = TracedScore::unset();
@@ -198,7 +183,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         std::string here_gvnode = "i" + std::to_string(i);
         
         // If we come from nowhere, we get those points.
-        chain_scores[i].push_back({item_points, TracedScore::nowhere()});
+        chain_scores[i] = std::max(chain_scores[i], {item_points, TracedScore::nowhere()});
         
 #ifdef debug_chaining
         cerr << "Look at transitions to #" << i
@@ -267,7 +252,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             
             // Now it's safe to make a distance query
 #ifdef debug_chaining
-            cerr << "\t\tCome from score " << chain_scores[*predecessor_index_it].front()
+            cerr << "\t\tCome from score " << chain_scores[*predecessor_index_it]
                 << " across " << source << " to " << here << endl;
 #endif
             
@@ -312,7 +297,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                 TracedScore from_source_score = source_score.add_points(jump_points + item_points);
                 
                 // Remember that we could make this jump
-                chain_scores[i].push_back(from_source_score);
+                chain_scores[i] = std::max(chain_scores[i], from_source_score);
                                                
 #ifdef debug_chaining
                 cerr << "\t\tWe can reach #" << i << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
@@ -345,17 +330,12 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             }
         }
         
-        std::sort(chain_scores[i].begin(), chain_scores[i].end(), [](const TracedScore& a, const TracedScore& b) {
-            // Sort descending
-            return a > b;
-        });
-        
 #ifdef debug_chaining
-        cerr << "\tBest way to reach #" << i << " is " << chain_scores[i].front() << endl;
+        cerr << "\tBest way to reach #" << i << " is " << chain_scores[i] << endl;
 #endif
         
         std::stringstream label_stream;
-        label_stream << "#" << i << " " << here << " = " << item_points << "/" << chain_scores[i].front().score;
+        label_stream << "#" << i << " " << here << " = " << item_points << "/" << chain_scores[i].score;
         diagram.add_node(here_gvnode, {
             {"label", label_stream.str()}
         });
@@ -388,7 +368,7 @@ TracedScore chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     return best_score;
 }
 
-vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
+vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore>& chain_scores,
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
                                                         int item_bonus,
@@ -406,7 +386,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
     }
     std::sort(starts_in_score_order.begin(), starts_in_score_order.end(), [&](const size_t& a, const size_t& b) {
         // Return true if item a has a better score than item b and should come first.
-        return chain_scores[a][0] > chain_scores[b][0];
+        return chain_scores[a] > chain_scores[b];
     });
     
     // To see if an item is used we have this bit vector.
@@ -420,17 +400,17 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<vector<Trac
         std::vector<size_t> traceback;
         traceback.push_back(trace_from);
         // Track the penalty we are off optimal for this traceback
-        int penalty = best_past_ending_score_ever - chain_scores[trace_from][0];
+        int penalty = best_past_ending_score_ever - chain_scores[trace_from];
         size_t here = trace_from;
         while (here != TracedScore::nowhere()) {
             // Mark here as used. Happens once per item, and so limits runtime.
             item_is_used[here] = true;
-            size_t next = chain_scores[here][0].source;
+            size_t next = chain_scores[here].source;
             if (next != TracedScore::nowhere()) {
                 if (item_is_used[next]) {
                     // We need to stop early and accrue an extra penalty.
                     // Take away all the points we got for coming from there and being ourselves.
-                    penalty += chain_scores[here][0].score;
+                    penalty += chain_scores[here].score;
                     // But then re-add our score for just us
                     penalty -= (to_chain[here].score() + item_bonus);
                     // TODO: Score this more simply.
@@ -484,7 +464,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
     }
         
     // We actually need to do DP
-    vector<vector<TracedScore>> chain_scores;
+    vector<TracedScore> chain_scores;
     TracedScore best_past_ending_score_ever = chain_items_dp(chain_scores,
                                                              to_chain,
                                                              distance_index,
@@ -557,7 +537,7 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
         return 0;
     } else {
         // Do the DP but without the traceback.
-        vector<vector<TracedScore>> chain_scores;
+        vector<TracedScore> chain_scores;
         TracedScore winner = algorithms::chain_items_dp(chain_scores, to_chain, distance_index, graph, gap_open, gap_extension);
         return winner.score;
     }
