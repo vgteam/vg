@@ -1390,7 +1390,13 @@ size_t MIPayload::parent_record_offset(const zipcode_t& zip, const SnarlDistance
             net_handle_t node_handle = distance_index.get_node_net_handle(id);
             net_handle_t parent = distance_index.get_parent(node_handle);
             if (distance_index.is_trivial_chain(parent)) {
-                return distance_index.get_record_offset(distance_index.get_parent(parent));
+                net_handle_t grandparent = distance_index.get_parent(parent);
+                if (distance_index.is_simple_snarl(grandparent)) {
+                    return distance_index.get_record_offset(distance_index.get_parent(grandparent));
+
+                } else {
+                    return distance_index.get_record_offset(grandparent);
+                }
             } else {
                 return distance_index.get_record_offset(parent);
             }
@@ -1543,7 +1549,11 @@ bool MIPayload::parent_is_chain(const zipcode_t& zip, const SnarlDistanceIndex& 
             net_handle_t node_handle = distance_index.get_node_net_handle(id);
             net_handle_t parent = distance_index.get_parent(node_handle);
             if (distance_index.is_trivial_chain(parent)) {
-                return false;
+                if (distance_index.is_simple_snarl(distance_index.get_parent(parent))) {
+                    return true;
+                } else {
+                    return false;
+                }
             } else {
                 return true;
             }

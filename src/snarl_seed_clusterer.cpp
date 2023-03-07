@@ -377,9 +377,9 @@ cerr << "Add all seeds to nodes: " << endl;
                 net_handle_t parent_handle = distance_index.get_parent(handle);
 
                 assert(MIPayload::record_offset(old_cache, distance_index, id) == distance_index.get_record_offset(handle)); 
-                assert(MIPayload::parent_record_offset(old_cache, distance_index, id) == 
-                    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
-                                                             :distance_index.get_record_offset(parent_handle))); 
+                //assert(MIPayload::parent_record_offset(old_cache, distance_index, id) == 
+                //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
+                //                                             :distance_index.get_record_offset(parent_handle))); 
                 assert(MIPayload::node_record_offset(old_cache, distance_index, id) == distance_index.get_node_record_offset(handle));
                 assert(MIPayload::node_length(old_cache) == distance_index.minimum_length(handle));
                 //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
@@ -562,7 +562,7 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
-                if (false) { // TODO new_parent) {
+                if ( new_parent) {
                     if (is_trivial_chain && !MIPayload::parent_is_root(old_cache)) {
                         bool grandparent_is_simple_snarl = MIPayload::parent_is_chain(old_cache, distance_index, id);
                         parent_problem.has_parent_handle = true;
@@ -574,6 +574,9 @@ cerr << "Add all seeds to nodes: " << endl;
                                   : distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
                                                                   SnarlDistanceIndex::START_END,
                                                                   SnarlDistanceIndex::SNARL_HANDLE);
+#ifdef DEBUG_CLUSTER
+                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
+#endif
 
                         if (grandparent_is_simple_snarl) {
                             //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
@@ -582,12 +585,18 @@ cerr << "Add all seeds to nodes: " << endl;
                                                                         MIPayload::parent_record_offset(old_cache, distance_index, id),
                                                                         SnarlDistanceIndex::START_END,
                                                                         SnarlDistanceIndex::CHAIN_HANDLE);
+#ifdef DEBUG_CLUSTER
+                                  cerr << "GRANDPARENT: " << distance_index.net_handle_as_string(parent_problem.grandparent_net_handle) << endl;
+#endif
                         }
-                    } else if (MIPayload::parent_is_root(old_cache) && MIPayload::parent_is_chain(old_cache, distance_index, id) && !is_trivial_chain, distance_index, id) {
+                    } else if (MIPayload::parent_is_root(old_cache) && MIPayload::parent_is_chain(old_cache, distance_index, id) && !is_trivial_chain) {
                         //The parent chain is a child of the root
                         parent_problem.has_parent_handle = true;
                         parent_problem.parent_net_handle = distance_index.get_net_handle_from_values(
                                     0, SnarlDistanceIndex::START_END, SnarlDistanceIndex::ROOT_HANDLE);
+#ifdef DEBUG_CLUSTER
+                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
+#endif
                     }
                 }
 
@@ -797,7 +806,10 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
                             : distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle));
 #ifdef DEBUG_CLUSTER
         cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
-        assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
+        if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
+            cerr << "Should be: " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle))) << endl;
+            assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
+        }
 #endif
         bool is_root = distance_index.is_root(parent);
         bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
