@@ -1189,6 +1189,12 @@ Functions</h2></td></tr>
 <tr class="separator:afca0783176bbca00f50e9c8f4b53515c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4f58b3aa775dcde39a1d511a9d838b97"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f58b3aa775dcde39a1d511a9d838b97">clip_deletion_edges</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_deletion, int64_t context_steps, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
 <tr class="separator:a4f58b3aa775dcde39a1d511a9d838b97"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba796b34b1f89333758ff6cb4271f708"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aba796b34b1f89333758ff6cb4271f708">clip_stubs_generic</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, function&lt; void(function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt; iterate_handles, function&lt; bool(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; handle_in_range, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:aba796b34b1f89333758ff6cb4271f708"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae596e7d9757cad372b5aaeb5e8a5146e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae596e7d9757cad372b5aaeb5e8a5146e">clip_stubs</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:ae596e7d9757cad372b5aaeb5e8a5146e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afc1766ad15ac6853f074a743d19873fc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afc1766ad15ac6853f074a743d19873fc">clip_contained_stubs</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *pp_graph, const vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;regions, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:afc1766ad15ac6853f074a743d19873fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">mem_node_start_positions</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
 <tr class="memdesc:aa65ea58e40ea30264407f9fdbce2a83d"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the handles that a mem covers  <a href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">More...</a><br /></td></tr>
 <tr class="separator:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -6184,6 +6190,64 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="afc1766ad15ac6853f074a743d19873fc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afc1766ad15ac6853f074a743d19873fc">&#9670;&nbsp;</a></span>clip_contained_stubs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::clip_contained_stubs </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>pp_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>regions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl_manager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>include_endpoints</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_fragment_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>verbose</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a4f58b3aa775dcde39a1d511a9d838b97"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4f58b3aa775dcde39a1d511a9d838b97">&#9670;&nbsp;</a></span>clip_deletion_edges()</h2>
 
@@ -6341,6 +6405,99 @@ template&lt;typename Annotated &gt; </div>
 </div><div class="memdoc">
 <p>Clip out nodes that don't pass depth threshold (depth &lt; min_depth). <br  />
  "depth" is the number of paths that step on the node. Nodes on path with given prefix ignored (todo: should really switch to regex or something) iterate_handles is a hack to generalize this function to whole graphs or snarls </p>
+
+</div>
+</div>
+<a id="ae596e7d9757cad372b5aaeb5e8a5146e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae596e7d9757cad372b5aaeb5e8a5146e">&#9670;&nbsp;</a></span>clip_stubs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::clip_stubs </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_prefixes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_fragment_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>verbose</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>clip out stubs </p>
+
+</div>
+</div>
+<a id="aba796b34b1f89333758ff6cb4271f708"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba796b34b1f89333758ff6cb4271f708">&#9670;&nbsp;</a></span>clip_stubs_generic()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::clip_stubs_generic </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, const <a class="el" href="structvg_1_1Region.html">Region</a> *)&gt;)&gt;&#160;</td>
+          <td class="paramname"><em>iterate_handles</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; bool(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt;&#160;</td>
+          <td class="paramname"><em>handle_in_range</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_prefixes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_fragment_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>verbose</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
