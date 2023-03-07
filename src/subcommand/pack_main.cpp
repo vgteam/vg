@@ -6,7 +6,6 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/handle_graph.hpp>
-#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -169,8 +168,7 @@ int main_pack(int argc, char** argv) {
     } else {
         handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
     }
-    bdsg::VectorizableOverlayHelper overlay_helper;
-    graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(handle_graph.get()));
+    graph = handle_graph.get();
 
     if (gam_in.empty() && packs_in.empty() && gaf_in.empty()) {
         cerr << "error [vg pack]: Input must be provided with -g, -a or -i" << endl;

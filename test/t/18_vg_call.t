@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 19
+plan tests 20
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -160,13 +160,21 @@ vg call x.vg -k x.pack -a > call.vcf
 vg call x.vg -k x.pack -g x.gbwt > callg.vcf
 is "$(grep -v 0/0 callg.vcf | grep -v lowad | wc -l)" "$(grep -v 0/0 call.vcf | grep -v lowad | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
 # try with gbz
-vg call x.gbz -k x.pack -z > callz.vcf
+vg pack -x x.gbz -o z.pack -g sim.gam
+vg call x.gbz -k z.pack -z > callz.vcf
 cat callg.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}' > callg.6
 cat callz.vcf | grep -v lowad | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6}' > callz.6
 diff callg.6 callz.6
 is $? 0 "call produces same output with gbwt and gbz"
 
-rm -f x.vg x.gbwt x.gg x.gbz sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6
+vg convert x.gbz -xH > x.xg
+vg pack -x x.xg -o X.pack -g sim.gam
+vg gbwt -Z x.gbz -o X.gbwt
+vg call x.xg -k X.pack -g X.gbwt > callx.vcf
+diff callz.vcf callx.vcf
+is $? 0 "call produces same output with gbz and vg"
+
+rm -f x.vg x.gbwt x.gg x.gbz sim.gam x.pack z.pack X.pack X.gbwt call.vcf callg.vcf callz.vcf callx.vcf callg.6 callz.6 
 
 
 # subpath test

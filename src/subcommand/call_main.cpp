@@ -25,10 +25,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-/// Helper to ensure that a PathHandleGraph has the VectorizableHandleGraph and PathPositionHandleGraph interfaces.
-typedef bdsg::PairOverlayHelper<PathPositionHandleGraph, bdsg::PackedReferencePathOverlay, PathHandleGraph,
-                                VectorizableHandleGraph, bdsg::PathPositionVectorizableOverlay, PathPositionHandleGraph> ReferencePathVectorizableOverlayHelper;
-
 void help_call(char** argv) {
   cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
        << "Call variants or genotype known variants" << endl
@@ -376,6 +372,12 @@ int main_call(int argc, char** argv) {
         cerr << "Error [vg call]: -z can only be used when input graph is in GBZ format" << endl;
         return 1;
     }
+
+    // We might need to apply an overlay to get good path position queries
+    // but we remember the raw graph for packer
+    PathHandleGraph* base_graph = graph;
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    graph = overlay_helper.apply(graph);
     
     // Read the translation
     unique_ptr<unordered_map<nid_t, pair<string, size_t>>> translation;
@@ -400,21 +402,7 @@ int main_call(int argc, char** argv) {
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(*graph, translation_file);
     }    
-    
-    // Apply overlays as necessary
-    bool need_path_positions = vcf_filename.empty();
-    bool need_vectorizable = !pack_filename.empty();
-    bdsg::ReferencePathOverlayHelper pp_overlay_helper;
-    ReferencePathVectorizableOverlayHelper ppv_overlay_helper;
-    bdsg::PathVectorizableOverlayHelper pv_overlay_helper;
-    if (need_path_positions && need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(ppv_overlay_helper.apply(graph));
-    } else if (need_path_positions && !need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(pp_overlay_helper.apply(graph));
-    } else if (!need_path_positions && need_vectorizable) {
-        graph = dynamic_cast<PathHandleGraph*>(pv_overlay_helper.apply(graph));
-    }
-    
+        
     // Check our offsets
     if (ref_path_offsets.size() != 0 && ref_path_offsets.size() != ref_paths.size()) {
         cerr << "error [vg call]: when using -o, the same number paths must be given with -p" << endl;
@@ -572,7 +560,7 @@ int main_call(int argc, char** argv) {
     unique_ptr<TraversalSupportFinder> support_finder;
     if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
+        packer = unique_ptr<Packer>(new Packer(base_graph));
         packer->load_from_file(pack_filename);
         if (nested) {
             // Make a nested packed traversal support finder (using cached veresion important for poisson caller)

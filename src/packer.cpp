@@ -28,10 +28,20 @@ size_t Packer::estimate_bin_count(size_t num_threads) {
     return pow(2, log2(num_threads) + 14);
 }
 
-Packer::Packer(const HandleGraph* graph) : graph(graph), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), node_quality_locks(nullptr), tmpfstream_locks(nullptr) { }
+Packer::Packer(const HandleGraph* base_graph) : base_graph(base_graph), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), node_quality_locks(nullptr), tmpfstream_locks(nullptr) {
+    if (base_graph) {
+        graph = dynamic_cast<const VectorizableHandleGraph*>(overlay_helper.apply(base_graph));
+        assert(graph != nullptr);
+    }    
+}
 
-Packer::Packer(const HandleGraph* graph, bool record_bases, bool record_edges, bool record_edits, bool record_qualities, size_t bin_size, size_t coverage_bins, size_t data_width) :
-    graph(graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits), record_qualities(record_qualities) {
+Packer::Packer(const HandleGraph* base_graph, bool record_bases, bool record_edges, bool record_edits, bool record_qualities, size_t bin_size, size_t coverage_bins, size_t data_width) :
+    base_graph(base_graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits), record_qualities(record_qualities) {
+    if (base_graph) {
+        graph = dynamic_cast<const VectorizableHandleGraph*>(overlay_helper.apply(base_graph));
+        assert(graph != nullptr);
+    }    
+
     // get the size of the base coverage counter
     num_bases_dynamic = 0;
     if (record_bases) {
@@ -39,11 +49,9 @@ Packer::Packer(const HandleGraph* graph, bool record_bases, bool record_edges, b
     }
     // get the size of the edge coverage counter
     num_edges_dynamic = 0;
-    if (record_edges) {
-        const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(graph);
-        assert(vec_graph != nullptr);      
+    if (record_edges) {        
         graph->for_each_edge([&](const edge_t& edge) {
-                auto edge_index = vec_graph->edge_index(edge);
+                auto edge_index = graph->edge_index(edge);
 #ifdef debug
                 cerr << "Observed edge at index " << edge_index << endl;
 #endif
@@ -415,6 +423,10 @@ bool Packer::is_dynamic(void) const {
 }
 
 const HandleGraph* Packer::get_graph() const {
+    return base_graph;
+}
+
+const VectorizableHandleGraph* Packer::get_vec_graph() const {
     return graph;
 }
 
@@ -929,18 +941,18 @@ size_t Packer::edge_index(const Edge& e) const {
         return 0;
     }
                                      
-    return dynamic_cast<const VectorizableHandleGraph*>(graph)->edge_index(edge);
+    return graph->edge_index(edge);
 }
 
 size_t Packer::node_index(nid_t node_id) const {
     if (!graph->has_node(node_id)) {
         return 0;
     }
-    return dynamic_cast<const VectorizableHandleGraph*>(graph)->id_to_rank(node_id);
+    return graph->id_to_rank(node_id);
 }
 
 nid_t Packer::index_to_node(size_t i) const {
-    return dynamic_cast<const VectorizableHandleGraph*>(graph)->rank_to_id(i);
+    return graph->rank_to_id(i);
 }
 
 ostream& Packer::as_table(ostream& out, bool show_edits, vector<vg::id_t> node_ids) {
@@ -956,11 +968,11 @@ ostream& Packer::as_table(ostream& out, bool show_edits, vector<vg::id_t> node_i
     out << endl;
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
-        nid_t node_id = dynamic_cast<const VectorizableHandleGraph*>(graph)->node_at_vector_offset(i+1);
+        nid_t node_id = graph->node_at_vector_offset(i+1);
         if (!node_ids.empty() && find(node_ids.begin(), node_ids.end(), node_id) == node_ids.end()) {
             continue;
         }
-        size_t offset = i - dynamic_cast<const VectorizableHandleGraph*>(graph)->node_vector_offset(node_id);
+        size_t offset = i - graph->node_vector_offset(node_id);
         out << i << "\t" << node_id << "\t" << offset << "\t" << coverage_civ[i];
         if (show_edits) {
             out << "\t" << count(edit_csas[bin_for_position(i)], pos_key(i));

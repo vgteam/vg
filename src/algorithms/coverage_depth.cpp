@@ -43,7 +43,7 @@ pair<double, double> packed_depth_of_bin(const Packer& packer,
     // coverage of each node via deletion (that's contained in the bin)
     unordered_map<nid_t, size_t> deletion_coverages;
     if (include_deletions) {
-        const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(packer.get_graph());
+        const VectorizableHandleGraph* vec_graph = packer.get_vec_graph();
         unordered_map<handle_t, step_handle_t> deletion_candidates;
         handle_t prev_handle;
         for (step_handle_t cur_step = start_step; cur_step != end_plus_one_step; cur_step = graph.get_next_step(cur_step)) {

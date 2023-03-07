@@ -177,20 +177,18 @@ int main_depth(int argc, char** argv) {
     string path_handle_graph_filename = get_input_file_name(optind, argc, argv);
     path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(path_handle_graph_filename);
     PathHandleGraph* graph = path_handle_graph.get();
+    PathHandleGraph* base_graph = graph;
     
-    // Apply the overlay if necessary
-    bdsg::PathVectorizableOverlayHelper overlay_helper;
-    if (!pack_filename.empty()) {
-        graph = dynamic_cast<PathHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
-        assert(graph != nullptr);
-    }
+    // Apply the overlay for faster gbz paths
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    graph = dynamic_cast<PathHandleGraph*>(overlay_helper.apply(graph));
 
     // Process the pack (or paths)
     unique_ptr<Packer> packer;
     if (!pack_filename.empty() || input_count == 0) {
         if (!pack_filename.empty()) {
             // Load our packed supports (they must have come from vg pack on graph)
-            packer = unique_ptr<Packer>(new Packer(graph));
+            packer = unique_ptr<Packer>(new Packer(base_graph));
             packer->load_from_file(pack_filename);
         }
 

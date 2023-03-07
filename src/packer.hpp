@@ -17,6 +17,7 @@
 #include "sdsl/csa_wt.hpp"
 #include "sdsl/suffix_arrays.hpp"
 #include "utility.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
 
 namespace vg {
 
@@ -37,7 +38,7 @@ public:
     static size_t estimate_bin_count(size_t num_threads);
 
     /// Create a Packer (to read from a file)
-    Packer(const HandleGraph* graph = nullptr);
+    Packer(const HandleGraph* base_graph = nullptr);
     
     /// Create a Packer (to write to)
     /// graph : Must implement the VectorizableHandleGraph interface
@@ -49,7 +50,7 @@ public:
     /// coverage_bins : Use this many coverage objects.  Using one / thread allows faster merge
     /// coverage_locks : Number of mutexes to use for each of node and edge coverage.
     /// data_width : Number of bits per entry in the dynamic coverage vector.  Higher values get stored in a map
-    Packer(const HandleGraph* graph, bool record_bases, bool record_edges, bool record_edits, bool record_qualities,
+    Packer(const HandleGraph* base_graph, bool record_bases, bool record_edges, bool record_edits, bool record_qualities,
            size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8);
     ~Packer();
     void clear();
@@ -87,6 +88,7 @@ public:
     size_t get_n_bins(void) const;
     bool is_dynamic(void) const;
     const HandleGraph* get_graph() const;
+    const VectorizableHandleGraph* get_vec_graph() const;
     size_t coverage_size(void) const ;
     void increment_coverage(size_t i);
     void increment_coverage(size_t i, size_t v);
@@ -133,7 +135,10 @@ private:
     bool is_compacted = false;
     
     // base graph
-    const HandleGraph* graph;
+    const HandleGraph* base_graph;
+    // vectorizable graph
+    bdsg::VectorizableOverlayHelper overlay_helper;
+    const VectorizableHandleGraph* graph;
 
     // data with for counter arrays
     size_t data_width;

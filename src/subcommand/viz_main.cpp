@@ -127,11 +127,9 @@ int main_viz(int argc, char** argv) {
     }
 
     // todo one packer per thread and merge
-    vector<vg::Packer> packs;
-    for (auto& f : packs_in) {
-        packs.emplace_back();
-        auto& p = packs.back();
-        p.load_from_file(f);
+    vector<vg::Packer> packs(packs_in.size());
+    for (size_t i = 0; i < packs_in.size(); ++i) {
+        packs[i].load_from_file(packs_in[i]);
     }
 
     // default to using the file names as the row names for the packs

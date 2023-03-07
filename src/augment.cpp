@@ -550,7 +550,7 @@ void find_packed_breakpoints(const Path& path, Packer& packed_breakpoints, bool 
 unordered_map<id_t, set<pos_t>> filter_breakpoints_by_coverage(const Packer& packed_breakpoints, size_t min_bp_coverage) {
     vector<unordered_map<id_t, set<pos_t>>> bp_maps(get_thread_count());
     size_t n = packed_breakpoints.coverage_size();
-    const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(packed_breakpoints.get_graph());
+    const VectorizableHandleGraph* vec_graph = packed_breakpoints.get_vec_graph();
     // we assume our position vector is much larger than the number of filtered breakpoints
     // and scan it in parallel in a first pass
 #pragma omp parallel for
