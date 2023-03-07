@@ -118,11 +118,12 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
     /// This function check if the two input alignments are duplicate or not, They are duplicate even if have one equal position on one base
     vector <pos_t> first_alignment_pos = alignment_position(aln1);
     vector <pos_t> second_alignment_pos = alignment_position(aln2);
-    for (size_t i = 0; i < first_alignment_pos.size(); ++i) {
+    for (size_t i = 1; i < first_alignment_pos.size(); ++i) {
         if (id(first_alignment_pos[i]) == id(second_alignment_pos[i]) &&
             offset(first_alignment_pos[i]) == offset(second_alignment_pos[i]) &&
             (is_rev(first_alignment_pos[i]) == is_rev(second_alignment_pos[i]))) {
             size_t t = first_alignment_pos.size() - 1;
+            // We check if the alignments end on the same position
             if (id(first_alignment_pos[t]) == id(second_alignment_pos[t]) &&
                 offset(first_alignment_pos[t]) == offset(second_alignment_pos[t]) &&
                 (is_rev(first_alignment_pos[t]) == is_rev(second_alignment_pos[t])))
@@ -136,6 +137,7 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
 }
 
 string name_id(const Alignment &aln) {
+    /// Make a unique name for each alignment base on the name and if they have next/prev fragment
     string id;
     if (aln.has_fragment_next()) {
         id = aln.name() + "/1";
@@ -245,14 +247,12 @@ int main_rmvdup(int argc, char *argv[]) {
 
     boophf_t *bphf = new boomphf::mphf<string, Custom_string_hasher>(keys.size(), keys, threads, 2.0, false, false);
 
-//    vg::io::ProtobufEmitter<google::protobuf::Message> emitter(cout);
     std::unique_ptr<vg::io::ProtobufEmitter<Alignment>> emitter;
     emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
     function<void(Alignment & )> pcr_removal = [&](Alignment &aln) {
         if (gam_index.get() != nullptr) {
             // I mark all the reads that have to get deleted as duplicates. This means one read from each duplicate set remains unmarked.
             // This way we can remove all reads with duplicate flag and not worry about deleting them all
-            // TODO: check if the above algorithm is logical
             if (!checked[bphf->lookup(name_id(aln))]) {
                 // make the alignment nodes list that can be use as input if .find function of the gam_index
                 vector <pair<long long, long long>> intervals = make_coalesced_sorted_intervals(aln);
@@ -272,15 +272,7 @@ int main_rmvdup(int argc, char *argv[]) {
                                         else
                                             emitter->write(std::move(const_cast<Alignment &>(share_aln)));
                                     }
-//                                    cout << aln.sequence() << "\t" << share_aln.sequence() << endl;
-//                                    cout << aln.name() << "\t" << share_aln.name() << endl;
-
-//                                    emitter->write(std::move(aln));
                                     checked[bphf->lookup(name_id(share_aln))] = true;
-
-
-                                    // these alignments are duplicate if we are here
-
                                 }
 
                             }
@@ -289,10 +281,10 @@ int main_rmvdup(int argc, char *argv[]) {
                     });
 
                 });
-                if (!print_duplicates) {
+                if (!checked[bphf->lookup(name_id(aln))]) {
 #pragma omp critical (cerr)
-
-                    if (!checked[bphf->lookup(name_id(aln))]) {
+                    checked[bphf->lookup(name_id(aln))] = true;
+                    if (!print_duplicates) {
                         if (output_t)
                             cout << aln.sequence() << "\t" << aln.name() << endl;
                         else
