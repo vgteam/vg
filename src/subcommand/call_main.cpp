@@ -76,7 +76,8 @@ int main_call(int argc, char** argv) {
     string snarl_filename;
     string gbwt_filename;
     bool   gbz_paths = false;
-    string translation_file_name;    
+    string translation_file_name;
+    bool   gbz_translation = false;
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
@@ -137,7 +138,8 @@ int main_call(int argc, char** argv) {
             {"snarls", required_argument, 0, 'r'},
             {"gbwt", required_argument, 0, 'g'},
             {"gbz", no_argument, 0, 'z'},
-            {"translation", required_argument, 0, 'N'},            
+            {"translation", required_argument, 0, 'N'},
+            {"gbz-translation", no_argument, 0, 'O'},
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
@@ -156,7 +158,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:p:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -215,6 +217,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'N':
             translation_file_name = optarg;
+            break;
+        case 'O':
+            gbz_translation = true;
             break;            
         case 'p':
             ref_paths.push_back(optarg);
@@ -376,10 +381,14 @@ int main_call(int argc, char** argv) {
         cerr << "Error [vg call]: -z can only be used when input graph is in GBZ format" << endl;
         return 1;
     }
+    if (gbz_translation && !gbz_graph) {
+        cerr << "Error [vg call]: -O can only be used when input graph is in GBZ format" << endl;
+        return 1;
+    }
     
     // Read the translation
     unique_ptr<unordered_map<nid_t, pair<string, size_t>>> translation;
-    if (gbz_graph.get() != nullptr) {
+    if (gbz_graph.get() != nullptr && gbz_translation) {
         // try to get the translation from the graph
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(gbz_graph->gbz.graph);
