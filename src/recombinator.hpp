@@ -161,6 +161,10 @@ public:
     size_t k() const { return this->header.k; }
 
     Header header;
+
+    // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
+    std::vector<size_t> jobs_for_cached_paths;
+
     std::vector<TopLevelChain> chains;
 
     /**
@@ -444,6 +448,9 @@ public:
         /// Number of haplotypes generated.
         size_t haplotypes = 0;
 
+        /// Number of reference paths included.
+        size_t ref_paths = 0;
+
         /// Number of kmers selected.
         size_t kmers = 0;
 
@@ -485,6 +492,9 @@ public:
 
         /// Sample randomly instead of by score.
         bool random_sampling = false;
+
+        /// Include named and reference paths.
+        bool include_reference = false;
     };
 
     /**

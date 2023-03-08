@@ -106,6 +106,7 @@ void help_haplotypes(char** argv) {
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --random-sampling     sample randomly instead of using the kmer counts" << std::endl;
+    std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = silent, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
@@ -175,6 +176,7 @@ int main_haplotypes(int argc, char** argv) {
     constexpr int OPT_PRESENT_DISCOUNT = 1302;
     constexpr int OPT_HET_ADJUSTMENT = 1303;
     constexpr int OPT_RANDOM_SAMPLING = 1304;
+    constexpr int OPT_INCLUDE_REFERENCE = 1305;
     constexpr int OPT_VALIDATE = 1400;
 
     static struct option long_options[] =
@@ -194,6 +196,7 @@ int main_haplotypes(int argc, char** argv) {
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "random-sampling", no_argument, 0, OPT_RANDOM_SAMPLING },
+        { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -284,6 +287,9 @@ int main_haplotypes(int argc, char** argv) {
             break;
         case OPT_RANDOM_SAMPLING:
             recombinator_parameters.random_sampling = true;
+            break;
+        case OPT_INCLUDE_REFERENCE:
+            recombinator_parameters.include_reference = true;
             break;
 
         case 'v':
@@ -781,6 +787,11 @@ void validate_haplotypes(const Haplotypes& haplotypes,
         if (chains_per_job[job_id] == 0) {
             validate_error("", "job " + std::to_string(job_id) + " is empty");
         }
+    }
+
+    // Cached paths.
+    if (haplotypes.jobs_for_cached_paths.size() != graph.named_paths.size()) {
+        validate_error("cached paths", expected_got(graph.named_paths.size(), haplotypes.jobs_for_cached_paths.size()));
     }
 
     // Haplotype information is valid
