@@ -715,7 +715,8 @@ vector<size_t> zipcode_t::get_irregular_snarl_code(const net_handle_t& snarl, co
 }
 
 size_t zipcode_t::minimum_distance_between(const zipcode_t& zip1, const pos_t& pos1,   
-    const zipcode_t& zip2, const pos_t& pos2, const SnarlDistanceIndex& distance_index){
+    const zipcode_t& zip2, const pos_t& pos2, const SnarlDistanceIndex& distance_index,
+    bool directed_distance){
 
 #ifdef DEBUG_ZIPCODE
 //Make sure that the zip codes actually correspond to the positions
@@ -865,18 +866,20 @@ size_t zipcode_t::minimum_distance_between(const zipcode_t& zip1, const pos_t& p
     size_t distance_to_end2 = is_rev(pos2) ? offset(pos2) + 1 
          : zip2_decoder.get_length(zip2_decoder.decoder.size()-1) - offset(pos2);
 
-    //These are directed distances so set backwards distances to inf
-    if (is_rev(pos1)) {
-        distance_to_end1 = std::numeric_limits<size_t>::max();
-    } else {
-        distance_to_start1 = std::numeric_limits<size_t>::max();
-    }
-    if (is_rev(pos2)) {
-        distance_to_start2 = std::numeric_limits<size_t>::max();
-    } else {
-        distance_to_end2 = std::numeric_limits<size_t>::max();
-    }
+    if (directed_distance) {
+        //These are directed distances so set backwards distances to inf
+        if (is_rev(pos1)) {
+            distance_to_end1 = std::numeric_limits<size_t>::max();
+        } else {
+            distance_to_start1 = std::numeric_limits<size_t>::max();
+        }
+        if (is_rev(pos2)) {
+            distance_to_start2 = std::numeric_limits<size_t>::max();
+        } else {
+            distance_to_end2 = std::numeric_limits<size_t>::max();
+        }
 
+    }
 #ifdef DEBUG_ZIPCODE
 cerr << "Distances in nodes: " << distance_to_start1 << " " << distance_to_end1 << " " << distance_to_start2 << " " << distance_to_end2 << endl;
 cerr << "Finding distances to ancestors of first position" << endl;
@@ -1602,7 +1605,7 @@ size_t MIPayload::prefix_sum(const zipcode_t& zip, const SnarlDistanceIndex& dis
     bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
     if (decoder.decoder.size() == 1) {
         //If the root-level structure is a node
-        return  std::numeric_limits<size_t>::max();
+        return  0;
 
     } else if (decoder.decoder.size() == 2 && root_is_chain) {
         //If this is a node in the top-level chain
@@ -1611,20 +1614,20 @@ size_t MIPayload::prefix_sum(const zipcode_t& zip, const SnarlDistanceIndex& dis
 
     } else if (decoder.decoder.size() == 2 && !root_is_chain) {
         //If the node is the child of the root snarl
-        return std::numeric_limits<size_t>::max();
+        return 0;
     } else {
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder.size()-1;
 
         if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
-            return std::numeric_limits<size_t>::max();
+            return 0;
         } else if (decoder.get_code_type(node_depth-1) == REGULAR_SNARL) {
             //If the parent is a snarl
             //Because I'm storing "regular" and not "simple", need to check this
             if (distance_index.is_simple_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(id))))) {
                 return decoder.get_offset_in_chain(node_depth-1);
             } else {
-                return std::numeric_limits<size_t>::max();
+                return 0;
             }
         } else {
             //If the parent is a chain

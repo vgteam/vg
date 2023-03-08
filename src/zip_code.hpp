@@ -35,7 +35,7 @@ struct zipcode_t {
         //Get the exact minimum distance between two positions and their zip codes
         static size_t minimum_distance_between(const zipcode_t& zip1, const pos_t& pos1, 
                                        const zipcode_t& zip2, const pos_t& pos2,
-                                       const SnarlDistanceIndex& distance_index);
+                                       const SnarlDistanceIndex& distance_index, bool directed_distance=true);
 
         //Return true if the minimum distance between the zip codes is definitely greater than limit
         //A false result is inconclusive
