@@ -69,11 +69,11 @@ diff inv_decon.tsv inv_truth.tsv
 is "$?" 0 "deconstruct correctly handles a simple inversion when the reference contains the reversing edge"
 
 vg gbwt -G inv.gfa -g inv.chop.gbz --gbz-format --max-node 5
-vg deconstruct inv.chop.gbz -p x > inv.chop.decon
+vg deconstruct inv.chop.gbz -p x -O > inv.chop.decon
 vg gbwt -G inv.gfa -g inv.gbz --gbz-format --max-node 1025
-vg deconstruct inv.gbz -p x > inv.decon
+vg deconstruct inv.gbz -p x -O > inv.decon
 diff inv.decon inv.chop.decon
-is "$?" 0 "deconstruct automatically applies translation from gbz"
+is "$?" 0 "deconstruct applies translation from gbz with -O"
 
 rm -f inv.gfa inv.vg inv.xg inv_decon.vcf inv_decon.tsv inv_truth.tsv inv.gbz inv.chop.gbz inv.gbz inv.chop.decon inv.decon
 
