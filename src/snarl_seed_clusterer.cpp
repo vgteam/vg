@@ -3337,6 +3337,7 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, co
      */
     pos_t pos1 = seed1.pos;
     pos_t pos2 = seed2.pos;
+
     zipcode_t payload1;
     if (seed1.minimizer_cache == MIPayload::NO_CODE) {
         payload1.fill_in_zipcode(distance_index, seed1.pos);
@@ -3349,7 +3350,7 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, co
     } else {
         payload2.fill_in_zipcode_from_payload(seed2.minimizer_cache);
     }
-    return zipcode_t::minimum_distance_between(payload1, pos1, payload2, pos2, distance_index, false);
+    return zipcode_t::minimum_distance_between(payload1, pos1, payload2, pos2, distance_index, false, graph);
 }
 
 

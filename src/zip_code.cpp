@@ -716,7 +716,7 @@ vector<size_t> zipcode_t::get_irregular_snarl_code(const net_handle_t& snarl, co
 
 size_t zipcode_t::minimum_distance_between(const zipcode_t& zip1, const pos_t& pos1,   
     const zipcode_t& zip2, const pos_t& pos2, const SnarlDistanceIndex& distance_index,
-    bool directed_distance){
+    bool directed_distance, const HandleGraph* graph){
 
 #ifdef DEBUG_ZIPCODE
 //Make sure that the zip codes actually correspond to the positions
@@ -741,13 +741,13 @@ size_t zipcode_t::minimum_distance_between(const zipcode_t& zip1, const pos_t& p
             net_handle_t parent_handle = decoder.get_net_handle(child_depth-1, &distance_index);
             size_t child_rank = decoder.get_rank_in_snarl(child_depth);
             distance_start_left = distance_index.distance_in_snarl(parent_handle, 
-                                    child_rank, false, 0, false);
+                                    child_rank, false, 0, false, graph);
             distance_start_right = distance_index.distance_in_snarl(parent_handle, 
-                                    child_rank, false, 1, false);
+                                    child_rank, false, 1, false, graph);
             distance_end_right = distance_index.distance_in_snarl(parent_handle, 
-                                    child_rank, true, 1, false);
+                                    child_rank, true, 1, false, graph);
             distance_end_left = distance_index.distance_in_snarl(parent_handle, 
-                                    child_rank, true, 0, false);
+                                    child_rank, true, 0, false, graph);
 #ifdef DEBUG_ZIPCODE
             cerr << "Distances to parent irregular snarl: " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 #endif
@@ -1091,13 +1091,13 @@ cerr << "Finding distances to ancestors of second position" << endl;
 #endif
 
                 size_t distance_start_start = distance_index.distance_in_snarl(parent_handle, 
-                                    rank1, false, rank2, false);
+                                    rank1, false, rank2, false, graph);
                 size_t distance_start_end = distance_index.distance_in_snarl(parent_handle, 
-                                    rank1, false, rank2, true);
+                                    rank1, false, rank2, true, graph);
                 size_t distance_end_start = distance_index.distance_in_snarl(parent_handle, 
-                                    rank1, true, rank2, false);
+                                    rank1, true, rank2, false, graph);
                 size_t distance_end_end = distance_index.distance_in_snarl(parent_handle, 
-                                    rank1, true, rank2, true);
+                                    rank1, true, rank2, true, graph);
                 size_t distance_between_snarl = std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
                                                 distance_to_start1, distance_to_start2), distance_start_start),
                                    std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
