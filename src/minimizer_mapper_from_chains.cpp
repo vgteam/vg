@@ -669,6 +669,35 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
     
+    // Record fragment statistics
+    // Chaining score (and implicitly fragment count)
+    std::vector<double> fragment_scores;
+    for (auto& bucket : fragment_results.cluster_chains) {
+        for (auto& fragment : bucket) {
+            fragment_scores.push_back(fragment.first); 
+        }
+    }
+    // Coverage of read (note: can overlap between buckets)
+    std::vector<double> fragment_coverages;
+    for (auto& fragment : fragments) {
+        fragment_coverages.push_back(fragment.coverage); 
+    }
+    // Overall coverage of read
+    std::vector<bool> fragment_covered(aln.sequence().size(), false);
+    for (auto& range : fragment_read_ranges) {
+        for (size_t i = range.first; i < range.second; i++) {
+            fragment_covered[i] = true;
+        }
+    }
+    size_t covered_bases = 0;
+    for (bool flag : fragment_covered) {
+        if (flag) {
+            covered_bases++;
+        }
+    }
+    double fragment_overall_coverage = (double) covered_bases / aln.sequence().size();
+    
+    
     // Now we want to find, for each interval, the next interval that starts after it ends
     // So we put all the intervals in an ordered map by start position.
     std::map<size_t, size_t> fragments_by_start;
@@ -1341,6 +1370,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "fragment_connections_explored", (double)fragment_connection_explored_count);
         set_annotation(mappings[0], "fragment_connections_total", (double)fragment_connections.size());
     }
+    
+    // Special fragment statistics
+    set_annotation(mappings[0], "fragment_scores", fragment_scores);
+    set_annotation(mappings[0], "fragment_coverages", fragment_coverages);
+    set_annotation(mappings[0], "fragment_overall_coverage", fragment_overall_coverage);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
