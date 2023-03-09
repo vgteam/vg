@@ -642,7 +642,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     for (size_t i = 0; i < fragments.size(); i++) {
         // For each fragment
         auto& fragment = fragments[i];
-        // We will fill in the range it ocvcupies in the read
+        // We will fill in the range it occupies in the read
         auto& read_range = fragment_read_ranges[i];
         auto& graph_seeds = fragment_bounding_seeds[i];
         for (auto& seed_index : fragment.seeds) {
@@ -696,6 +696,20 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
     double fragment_overall_coverage = (double) covered_bases / aln.sequence().size();
+    // Fraction of minimizers used
+    std::vector<bool> minimizer_in_fragment(minimizers.size(), false);
+    for (auto& fragment : fragments) {
+        for (auto& seed_index : fragment.seeds) {
+            minimizer_in_fragment[seeds[seed_index].source] = true;
+        }
+    }
+    size_t fragment_minimizers_used = 0;
+    for (bool flag : minimizer_in_fragment) {
+        if (flag) {
+            fragment_minimizers_used++;
+        }
+    }
+    double fragment_minimizer_usage = (double) fragment_minimizers_used / minimizers.size();
     
     
     // Now we want to find, for each interval, the next interval that starts after it ends
@@ -1375,6 +1389,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "fragment_coverages", fragment_coverages);
     set_annotation(mappings[0], "fragment_overall_coverage", fragment_overall_coverage);
+    set_annotation(mappings[0], "fragment_minimizer_usage", fragment_minimizer_usage);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
