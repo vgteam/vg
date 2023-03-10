@@ -267,6 +267,11 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
     
+    // We need to remember which order we did the chains in, independent of the provenance funnel.
+    // TODO: Drop this when we are done with fragment statistics!
+    vector<size_t> cluster_nums;
+    cluster_nums.reserve(clusters.size());
+    
     // These are the collections of chains for all the clusters, as score and sequence of visited seeds.
     vector<vector<pair<int, vector<size_t>>>> cluster_chains;
     cluster_chains.reserve(clusters.size());
@@ -392,6 +397,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             }
             
             // Compute the best chain
+            cluster_nums.push_back(cluster_num);
             cluster_chains.emplace_back();
             cluster_chain_seeds.emplace_back();
                 
@@ -404,8 +410,8 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
                 cfg.max_chains_per_cluster,
-                cfg.lookback_max_bases,
-                cfg.lookback_min_items,
+                cfg.max_lookback_bases,
+                cfg.min_lookback_items,
                 cfg.lookback_item_hard_cap,
                 cfg.initial_lookback_threshold,
                 cfg.lookback_scale_factor,
@@ -516,7 +522,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
         });
    
    // Now give back the chains and the context needed to interpret them.
-   return {cluster_chains, cluster_chain_seeds, seed_anchors, minimizer_explored, minimizer_kept_cluster_count, kept_cluster_count}; 
+   return {cluster_nums, cluster_chains, cluster_chain_seeds, seed_anchors, minimizer_explored, minimizer_kept_cluster_count, kept_cluster_count}; 
     
 }
     
@@ -594,8 +600,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     chain_config_t fragment_cfg;
     
     // Make fragments be compact
-    fragment_cfg.lookback_max_bases = 50;
-    fragment_cfg.lookback_min_items = 0;
+    fragment_cfg.max_lookback_bases = 50;
+    fragment_cfg.min_lookback_items = 0;
     fragment_cfg.lookback_item_hard_cap = 1;
     fragment_cfg.initial_lookback_threshold = this->initial_lookback_threshold;
     fragment_cfg.lookback_scale_factor = this->lookback_scale_factor;
@@ -613,7 +619,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
     
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
         funnel.substage("translate-fragments");
@@ -695,11 +701,29 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Record fragment statistics
     // Chaining score (and implicitly fragment count)
     std::vector<double> fragment_scores;
+    // Chain length
+    std::vector<double> fragment_item_counts;
+    // Best fragment score in each bucket
+    std::vector<double> bucket_best_fragment_scores;
+    // Score of each bucket
+    std::vector<double> bucket_scores;
+    // Coverage of each bucket
+    std::vector<double> bucket_coverages;
     for (auto& bucket : fragment_results.cluster_chains) {
+        double best_fragment_score = 0;
         for (auto& fragment : bucket) {
-            fragment_scores.push_back(fragment.first); 
+            fragment_scores.push_back(fragment.first);
+            fragment_item_counts.push_back(fragment.second.size());
+            best_fragment_score = std::max(best_fragment_score, (double) fragment.first);
         }
+        bucket_best_fragment_scores.push_back(best_fragment_score);
     }
+    for (auto& bucket_num : fragment_results.cluster_nums) {
+        // Record the info about the buckets that the fragments came from
+        bucket_scores.push_back(buckets.at(bucket_num).score);
+        bucket_coverages.push_back(buckets.at(bucket_num).coverage);
+    }
+    
     // Coverage of read (note: can overlap between buckets)
     std::vector<double> fragment_coverages;
     for (auto& fragment : fragments) {
@@ -719,20 +743,35 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
     double fragment_overall_coverage = (double) covered_bases / aln.sequence().size();
-    // Fraction of minimizers used
-    std::vector<bool> minimizer_in_fragment(minimizers.size(), false);
+    // Fraction of minimizers with seeds used in fragments of k or more items
+    std::vector<size_t> minimizer_fragment_max_items(minimizers.size(), 0);
+    std::vector<bool> minimizer_has_seeds(minimizers.size(), false);
+    for (auto& seed : seeds) {
+        minimizer_has_seeds[seed.source] = true;
+    }
     for (auto& fragment : fragments) {
         for (auto& seed_index : fragment.seeds) {
-            minimizer_in_fragment[seeds[seed_index].source] = true;
+            auto& slot = minimizer_fragment_max_items[seeds[seed_index].source];
+            slot = std::max(slot, fragment.seeds.size());
         }
     }
-    size_t fragment_minimizers_used = 0;
-    for (bool flag : minimizer_in_fragment) {
-        if (flag) {
-            fragment_minimizers_used++;
+    std::vector<double> seeded_minimizer_fraction_used_in_fragment_of_items;
+    seeded_minimizer_fraction_used_in_fragment_of_items.reserve(10);
+    for (size_t cutoff = 0; cutoff <= 10; cutoff++) {
+        size_t minimizers_eligible = 0;
+        size_t fragment_minimizers_used = 0;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (minimizer_has_seeds[i]) {
+                minimizers_eligible++;
+                if (minimizer_fragment_max_items[i] >= cutoff) {
+                    fragment_minimizers_used++;
+                }
+            }
         }
+        double fraction_used = minimizers_eligible == 0 ? 0.0 : (double) fragment_minimizers_used / minimizers_eligible;
+        seeded_minimizer_fraction_used_in_fragment_of_items.push_back(fraction_used);
     }
-    double fragment_minimizer_usage = (double) fragment_minimizers_used / minimizers.size();
+    
     
     
     // Now we want to find, for each interval, the next interval that starts after it ends
@@ -1043,8 +1082,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     chain_config_t chain_cfg;
     
-    chain_cfg.lookback_max_bases = this->lookback_max_bases;
-    chain_cfg.lookback_min_items = this->lookback_min_items;
+    chain_cfg.max_lookback_bases = this->max_lookback_bases;
+    chain_cfg.min_lookback_items = this->min_lookback_items;
     chain_cfg.lookback_item_hard_cap = this->lookback_item_hard_cap;
     chain_cfg.initial_lookback_threshold = this->initial_lookback_threshold;
     chain_cfg.lookback_scale_factor = this->lookback_scale_factor;
@@ -1059,11 +1098,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     chain_cfg.min_clusters_to_chain = this->min_clusters_to_chain;
     chain_cfg.max_clusters_to_chain = this->max_clusters_to_chain;
     
-    chain_cfg.max_chains_per_cluster = this->max_chains_per_cluster;
+    chain_cfg.max_chains_per_cluster = 1;
     
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, funnel, 2, std::numeric_limits<size_t>::max(), rng);
-    
-    auto chain_results = this->chain_clusters(aln, minimizers, seeds, clusters, cluster_score_cutoff, old_seed_count, fragments.size(), max_lookback_bases, min_lookback_items, 1, funnel, 5, 2, rng);
+    auto chain_results = this->chain_clusters(aln, minimizers, seeds, clusters, chain_cfg, old_seed_count, fragments.size(), funnel, 5, 2, rng);
     // Throw out all but the best chain. There should be one chain per cluster, like we asked.
     vector<pair<int, vector<size_t>>> cluster_chains;
     cluster_chains.reserve(chain_results.cluster_chains.size());
@@ -1431,9 +1468,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Special fragment statistics
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
+    set_annotation(mappings[0], "fragment_item_counts", fragment_item_counts);
     set_annotation(mappings[0], "fragment_coverages", fragment_coverages);
     set_annotation(mappings[0], "fragment_overall_coverage", fragment_overall_coverage);
-    set_annotation(mappings[0], "fragment_minimizer_usage", fragment_minimizer_usage);
+    set_annotation(mappings[0], "bucket_best_fragment_scores", bucket_best_fragment_scores);
+    set_annotation(mappings[0], "bucket_scores", bucket_scores);
+    set_annotation(mappings[0], "bucket_coverages", bucket_coverages);
+    set_annotation(mappings[0], "seeded_minimizer_fraction_used_in_fragment_of_items", seeded_minimizer_fraction_used_in_fragment_of_items);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";

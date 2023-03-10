@@ -562,8 +562,8 @@ protected:
     /// different class parameters depending on the chaining pass.
     struct chain_config_t {
         // Lookback config
-        size_t lookback_max_bases;
-        size_t lookback_min_items;
+        size_t max_lookback_bases;
+        size_t min_lookback_items;
         size_t lookback_item_hard_cap;
         size_t initial_lookback_threshold;
         double lookback_scale_factor;
@@ -576,7 +576,7 @@ protected:
         // Limits on clusters to keep
         double cluster_score_cutoff;
         bool cluster_score_cutoff_enabled;
-        double cluster_score_threshold;
+        double cluster_coverage_threshold;
         size_t min_clusters_to_chain;
         size_t max_clusters_to_chain;
         
@@ -586,6 +586,9 @@ protected:
     
     /// Represents a chaining result.
     struct chain_set_t {
+        /// These are the numbers of the clusters in the order explored/the
+        /// order the lists of chains appear in.
+        vector<size_t> cluster_nums;
         /// These are all the chains for all the clusters, as score and sequence of visited seeds.
         /// Organized by cluster, and then best chain first.
         vector<vector<pair<int, vector<size_t>>>> cluster_chains;
