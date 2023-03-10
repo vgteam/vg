@@ -199,7 +199,7 @@ public:
     double bucket_scale = default_bucket_scale;
     
     /// How many fragments should we try and make in every bucket?
-    static constexpr size_t default_max_fragments_per_bucket = 10;
+    static constexpr size_t default_max_fragments_per_bucket = std::numeric_limits<size_t>::max();
     size_t max_fragments_per_bucket = default_max_fragments_per_bucket;
     
     /// If the read coverage of a fragment connection is less than the best of any
@@ -558,6 +558,32 @@ protected:
         const VectorView<Minimizer>& minimizers,
         const std::function<void(const Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph) const;
     
+    /// Represents configuration for chaining. May need to be derived from
+    /// different class parameters depending on the chaining pass.
+    struct chain_config_t {
+        // Lookback config
+        size_t lookback_max_bases;
+        size_t lookback_min_items;
+        size_t lookback_item_hard_cap;
+        size_t initial_lookback_threshold;
+        double lookback_scale_factor;
+        double min_good_transition_score_per_base;
+        
+        // Item and gap scoring
+        int item_bonus;
+        size_t max_indel_bases;
+        
+        // Limits on clusters to keep
+        double cluster_score_cutoff;
+        bool cluster_score_cutoff_enabled;
+        double cluster_score_threshold;
+        size_t min_clusters_to_chain;
+        size_t max_clusters_to_chain;
+        
+        // Limits on chains to compute
+        size_t max_chains_per_cluster;
+    };
+    
     /// Represents a chaining result.
     struct chain_set_t {
         /// These are all the chains for all the clusters, as score and sequence of visited seeds.
@@ -579,7 +605,7 @@ protected:
     /**
      * Run chaining on some clusters. Returns the chains and the context needed to interpret them.
      */
-    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, size_t max_chains_per_cluster, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
+    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

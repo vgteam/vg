@@ -262,7 +262,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
                                         
 }
 
-MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, double cluster_score_cutoff, size_t old_seed_count, size_t new_seed_start, size_t max_bases, size_t min_items, size_t max_chains_per_cluster, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
+MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
 
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
@@ -289,7 +289,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
         }, [&](size_t a, size_t b) -> bool {
             return ((clusters[a].coverage > clusters[b].coverage) ||
                     (clusters[a].coverage == clusters[b].coverage && clusters[a].score > clusters[b].score));
-        }, cluster_coverage_threshold, min_clusters_to_chain, max_clusters_to_chain, rng, [&](size_t cluster_num) -> bool {
+        }, cfg.cluster_coverage_threshold, cfg.min_clusters_to_chain, cfg.max_clusters_to_chain, rng, [&](size_t cluster_num) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
             const Cluster& cluster = clusters[cluster_num];
@@ -317,9 +317,9 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             }
             
             // First check against the additional score filter
-            if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff 
-                && kept_cluster_count >= min_clusters_to_chain) {
-                //If the score isn't good enough and we already kept at least min_clusters_to_chain clusters,
+            if (cfg.cluster_score_cutoff_enabled && cluster.score < cfg.cluster_score_cutoff 
+                && kept_cluster_count >= cfg.min_clusters_to_chain) {
+                //If the score isn't good enough and we already kept at least cfg.min_clusters_to_chain clusters,
                 //ignore this cluster
                 if (track_provenance) {
                     funnel.fail("cluster-score", cluster_num, cluster.score);
@@ -328,9 +328,9 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                     #pragma omp critical (cerr)
                     {
                         cerr << log_name() << "Cluster " << cluster_num << " fails cluster score cutoff" <<  endl;
-                        cerr << log_name() << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+                        cerr << log_name() << "Covers " << clusters[cluster_num].coverage << "/best-" << cfg.cluster_coverage_threshold << " of read" << endl;
                         cerr << log_name() << "Involves " << cluster_node_count << " nodes in " << cluster_min_node << "-" << cluster_max_node << endl;
-                        cerr << log_name() << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
+                        cerr << log_name() << "Scores " << clusters[cluster_num].score << "/" << cfg.cluster_score_cutoff << endl;
                     }
                 }
                 return false;
@@ -345,9 +345,9 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "Cluster " << cluster_num << endl;
-                    cerr << log_name() << "Covers " << cluster.coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+                    cerr << log_name() << "Covers " << cluster.coverage << "/best-" << cfg.cluster_coverage_threshold << " of read" << endl;
                     cerr << log_name() << "Involves " << cluster_node_count << " nodes in " << cluster_min_node << "-" << cluster_max_node << endl;
-                    cerr << log_name() << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
+                    cerr << log_name() << "Scores " << cluster.score << "/" << cfg.cluster_score_cutoff << endl;
                 }
             }
             
@@ -403,19 +403,19 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 gbwt_graph,
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
-                max_chains_per_cluster,
-                max_bases,
-                min_items,
-                lookback_item_hard_cap,
-                initial_lookback_threshold,
-                lookback_scale_factor,
-                min_good_transition_score_per_base,
-                item_bonus,
-                max_indel_bases
+                cfg.max_chains_per_cluster,
+                cfg.lookback_max_bases,
+                cfg.lookback_min_items,
+                cfg.lookback_item_hard_cap,
+                cfg.initial_lookback_threshold,
+                cfg.lookback_scale_factor,
+                cfg.min_good_transition_score_per_base,
+                cfg.item_bonus,
+                cfg.max_indel_bases
             );
             if (show_work) {
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Asked for " << max_chains_per_cluster << " and found " << chains.size() << " chains in cluster " << cluster_num << std::endl;
+                cerr << log_name() << "Asked for " << cfg.max_chains_per_cluster << " and found " << chains.size() << " chains in cluster " << cluster_num << std::endl;
                 for (auto& scored_chain : chains) {
                     if (!scored_chain.second.empty()) {
                         #pragma omp critical (cerr)
@@ -495,8 +495,8 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 {
                     
                     cerr << log_name() << "Cluster " << cluster_num << " passes cluster cutoffs but we have too many" <<  endl;
-                    cerr << log_name() << "Covers " << cluster.coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
-                    cerr << log_name() << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
+                    cerr << log_name() << "Covers " << cluster.coverage << "/best-" << cfg.cluster_coverage_threshold << " of read" << endl;
+                    cerr << log_name() << "Scores " << cluster.score << "/" << cfg.cluster_score_cutoff << endl;
                 }
             }
             
@@ -509,8 +509,8 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "Cluster " << cluster_num << " fails cluster coverage cutoffs" <<  endl;
-                    cerr << log_name() << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
-                    cerr << log_name() << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
+                    cerr << log_name() << "Covers " << clusters[cluster_num].coverage << "/best-" << cfg.cluster_coverage_threshold << " of read" << endl;
+                    cerr << log_name() << "Scores " << clusters[cluster_num].score << "/" << cfg.cluster_score_cutoff << endl;
                 }
             }
         });
@@ -590,7 +590,30 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("fragment");
         funnel.substage("fragment");
     }
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, 0.0, seeds.size(), 0, 50, 0, max_fragments_per_bucket, funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    
+    chain_config_t fragment_cfg;
+    
+    // Make fragments be compact
+    fragment_cfg.lookback_max_bases = 50;
+    fragment_cfg.lookback_min_items = 0;
+    fragment_cfg.lookback_item_hard_cap = 1;
+    fragment_cfg.initial_lookback_threshold = this->initial_lookback_threshold;
+    fragment_cfg.lookback_scale_factor = this->lookback_scale_factor;
+    fragment_cfg.min_good_transition_score_per_base = this->min_good_transition_score_per_base;
+    
+    fragment_cfg.item_bonus = this->item_bonus;
+    fragment_cfg.max_indel_bases = 50;
+    
+    // But do all of them
+    fragment_cfg.cluster_score_cutoff = 0;
+    fragment_cfg.cluster_score_cutoff_enabled = false;
+    fragment_cfg.cluster_coverage_threshold = 1.0;
+    fragment_cfg.min_clusters_to_chain = std::numeric_limits<size_t>::max();
+    fragment_cfg.max_clusters_to_chain = std::numeric_limits<size_t>::max();
+    
+    fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
+    
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
         funnel.substage("translate-fragments");
@@ -1018,6 +1041,28 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("chain");
     }
     
+    chain_config_t chain_cfg;
+    
+    chain_cfg.lookback_max_bases = this->lookback_max_bases;
+    chain_cfg.lookback_min_items = this->lookback_min_items;
+    chain_cfg.lookback_item_hard_cap = this->lookback_item_hard_cap;
+    chain_cfg.initial_lookback_threshold = this->initial_lookback_threshold;
+    chain_cfg.lookback_scale_factor = this->lookback_scale_factor;
+    chain_cfg.min_good_transition_score_per_base = this->min_good_transition_score_per_base;
+    
+    chain_cfg.item_bonus = this->item_bonus;
+    chain_cfg.max_indel_bases = this->max_indel_bases;
+    
+    chain_cfg.cluster_score_cutoff = cluster_score_cutoff;
+    chain_cfg.cluster_score_cutoff_enabled = (cluster_score_threshold != 0);
+    chain_cfg.cluster_coverage_threshold = this->cluster_coverage_threshold;
+    chain_cfg.min_clusters_to_chain = this->min_clusters_to_chain;
+    chain_cfg.max_clusters_to_chain = this->max_clusters_to_chain;
+    
+    chain_cfg.max_chains_per_cluster = this->max_chains_per_cluster;
+    
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    
     auto chain_results = this->chain_clusters(aln, minimizers, seeds, clusters, cluster_score_cutoff, old_seed_count, fragments.size(), max_lookback_bases, min_lookback_items, 1, funnel, 5, 2, rng);
     // Throw out all but the best chain. There should be one chain per cluster, like we asked.
     vector<pair<int, vector<size_t>>> cluster_chains;
@@ -1376,7 +1421,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
         set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
         set_annotation(mappings[0], "param_cluster-coverage", (double) cluster_coverage_threshold);
-        set_annotation(mappings[0], "param_cluster-score", (double) cluster_score_threshold);
         set_annotation(mappings[0], "param_chain-score", (double) chain_score_threshold);
         set_annotation(mappings[0], "param_chain-min-score", (double) chain_min_score);
         set_annotation(mappings[0], "param_min-chains", (double) min_chains);
