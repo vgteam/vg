@@ -46,9 +46,11 @@ using namespace std;
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
+    const vector<zipcode_t>* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index),  
+    zipcodes(zipcodes),
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())),
@@ -592,7 +594,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     }
 
     // Find the clusters
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()), zipcodes);
     
 #ifdef debug_validate_clusters
     vector<vector<Cluster>> all_clusters;
@@ -1421,7 +1423,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
     }
 
-    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit, zipcodes);
 #ifdef debug_validate_clusters
     validate_clusters(all_clusters, seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
 

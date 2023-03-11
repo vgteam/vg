@@ -40,6 +40,7 @@ public:
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          SnarlDistanceIndex* distance_index,
+         const vector<zipcode_t>* zipcodes,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -467,6 +468,7 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
+    const vector<zipcode_t>* zipcodes;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     

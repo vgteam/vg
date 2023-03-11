@@ -105,7 +105,7 @@ class SnarlDistanceIndexClusterer {
          *the distance limit are in the same cluster
          *This produces a vector of clusters
          */
-        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, size_t read_distance_limit) const;
+        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, size_t read_distance_limit, const vector<zipcode_t>* zipcodes = nullptr) const;
         
         /* The same thing, but for paired end reads.
          * Given seeds from multiple reads of a fragment, cluster each read
@@ -119,7 +119,7 @@ class SnarlDistanceIndexClusterer {
 
         vector<vector<Cluster>> cluster_seeds ( 
                 const vector<vector<Seed>>& all_seeds, 
-                size_t read_distance_limit, size_t fragment_distance_limit=0) const;
+                size_t read_distance_limit, size_t fragment_distance_limit=0, const vector<zipcode_t>* zipcodes = nullptr) const;
 
 
         /**
@@ -135,7 +135,7 @@ class SnarlDistanceIndexClusterer {
         //fragment_distance_limit defaults to 0, meaning that we don't cluster by fragment
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
                 vector<vector<SeedCache>*>& all_seeds,
-                size_t read_distance_limit, size_t fragment_distance_limit=0) const;
+                size_t read_distance_limit, size_t fragment_distance_limit=0, const vector<zipcode_t>* zipcodes = nullptr) const;
 
         const SnarlDistanceIndex& distance_index;
         const HandleGraph* graph;

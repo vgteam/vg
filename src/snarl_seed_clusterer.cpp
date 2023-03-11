@@ -23,21 +23,29 @@ SnarlDistanceIndexClusterer::SnarlDistanceIndexClusterer( const SnarlDistanceInd
                                         graph(nullptr){
 };
 
-vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluster_seeds (const vector<Seed>& seeds, size_t read_distance_limit) const {
+vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluster_seeds (const vector<Seed>& seeds, size_t read_distance_limit, const vector<zipcode_t>* zipcodes) const {
     //Wrapper for single ended
 
     vector<SeedCache> seed_caches(seeds.size());
     for (size_t i = 0 ; i < seeds.size() ; i++) {
         seed_caches[i].pos = seeds[i].pos;
-        if (seeds[i].minimizer_cache != MIPayload::NO_CODE) {
-            zipcode_t zip;
-            zip.fill_in_zipcode_from_payload(seeds[i].minimizer_cache);
-            seed_caches[i].minimizer_cache = std::move(zip);
-        } else {
-            zipcode_t zip;
+        zipcode_t zip;
+        if (seeds[i].minimizer_cache == MIPayload::NO_CODE) {
+            //If the zipcocde wasn't saved, then calculate it
             zip.fill_in_zipcode(distance_index, seeds[i].pos);
-            seed_caches[i].minimizer_cache = std::move(zip);
+        } else if (seeds[i].minimizer_cache.first == 0){
+            if (zipcodes != nullptr && seeds[i].minimizer_cache.second < zipcodes->size()) {
+                //If the zipcode was saved separately
+                zip = zipcodes->at(seeds[i].minimizer_cache.second);
+            } else {
+                //This could happen if we weren't given the zipcodes
+                zip.fill_in_zipcode(distance_index, seeds[i].pos);
+            }
+        } else {
+            //If the zipcocde was saved in the payload
+            zip.fill_in_zipcode_from_payload(seeds[i].minimizer_cache);
         }
+        seed_caches[i].minimizer_cache = std::move(zip);
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
 
@@ -60,7 +68,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
 
 vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer::cluster_seeds (
               const vector<vector<Seed>>& all_seeds, 
-              size_t read_distance_limit, size_t fragment_distance_limit) const {
+              size_t read_distance_limit, size_t fragment_distance_limit, const vector<zipcode_t>* zipcodes) const {
     //Wrapper for paired end
 
     if (all_seeds.size() > 2) {
@@ -139,7 +147,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
 
 tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlDistanceIndexClusterer::cluster_seeds_internal (
               vector<vector<SeedCache>*>& all_seeds, 
-              size_t read_distance_limit, size_t fragment_distance_limit) const {
+              size_t read_distance_limit, size_t fragment_distance_limit, const vector<zipcode_t>* zipcodes) const {
     /* Given a vector of seeds and a limit, find a clustering of seeds where
      * seeds that are closer than the limit cluster together.
      * Returns a vector of clusters
