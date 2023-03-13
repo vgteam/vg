@@ -8,10 +8,31 @@
 namespace vg{
 using namespace std;
 
-//A decoder for interpreting a zipcode
-//Can interpret the values for a snarl tree node given the depth (index into the vector)
+/**
+ * Zipcodes are structures that store distance index information for a node in a graph.
+ * Their basic structure is a vector of "codes", with one code for each snarl tree node 
+ * (node/snarl/chain) that is the ancestor of the node, starting with the root-level
+ * structure and going down to the node.
+ * Each code has an identifier and information used to calculate distances.
+ *
+ * A zipcode_t stores the information and can be used to create a zipcode. It can be used
+ * to calculate the distance between zipcodes
+ *
+ * A zipcode_decoder_t is used for interpreting zipcodes to find specific values that were
+ * stored in the zipcode_t. A zipcode_decoder_t must be constructed from a specific zipcode.
+ * Construction of a decoder occurs one code at a time, starting from the root snarl or chain, 
+ * so it is possible to have a partially constructed zipcode_decoder_t, to avoid having to 
+ * walk through the entire zipcode_t to get the values for things higher in the snarl tree.
+ * The full decoder must be constructed to get values for the node.
+ */
+
+///A decoder for interpreting a zipcode
+///Can interpret the values for a snarl tree node given the depth 
+///(depth in the snarl tree, also the index into the zipcode vector)
 struct zipcode_decoder_t;
 
+
+///The type of codes that can be stored in the zipcode
 enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE};
 
 ///A struct to interpret the minimizer payload
@@ -23,14 +44,15 @@ struct MIPayload;
  * A zip code will contain all the information necessary to compute the minimum distance between two 
  * positions, with minimal queries to the distance index
  */
-
 struct zipcode_t {
 
     public:
-        typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
-        //Constructor for a position and a distance index
+        //Fill in an empty zipcode given a position
         void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
+
+        //Fill in an empty zipcode using the information that was stored in a payload
+        void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
 
         //Get the exact minimum distance between two positions and their zip codes
         static size_t minimum_distance_between(const zipcode_t& zip1, const pos_t& pos1, 
@@ -54,11 +76,10 @@ struct zipcode_t {
 
         //Encode zip code so it can be stored in the payload
         gbwtgraph::payload_type get_payload_from_zip() const;
-
-        //Decode the zip code that got stored in the payload
-        void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
+        typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
 
+        ///How many bytes were used to store this zipcode?
         size_t byte_count() const {
             return zipcode.byte_count();
         }
@@ -74,7 +95,7 @@ struct zipcode_t {
 
     private:
 
-        /* Functions for getting the zip code for each snarl/chain/node
+        /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
          */
         //Return a vector of size_ts that will represent the node in the zip code
@@ -102,7 +123,9 @@ struct zipcode_vector_t {
 };
 
 
-///A struct for decoding a zipcode
+/*
+ * Struct for interpreting a zipcode_t
+ */
 struct zipcode_decoder_t {
 
     ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
@@ -119,12 +142,13 @@ struct zipcode_decoder_t {
     ///Otherwise, fill in the whole zipcode
     zipcode_decoder_t(const zipcode_t* zipcode, const size_t& depth=std::numeric_limits<size_t>::max());
 
-    //Go through the entire zipcode and fill in the decoder
+    ///Go through the entire zipcode and fill in the decoder
     void fill_in_full_decoder();
 
-    //Fill in one more item in the decoder
-    //Returns true if this is the last thing in the zipcode and false if there is more to decode
+    ///Fill in one more item in the decoder
+    ///Returns true if this is the last thing in the zipcode and false if there is more to decode
     bool fill_in_next_decoder();
+
     ///What type of snarl tree node is at the given depth (index into the zipcode)
     code_type_t get_code_type(const size_t& depth) ;
 
