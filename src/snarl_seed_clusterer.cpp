@@ -34,6 +34,8 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
             //If the zipcocde wasn't saved, then calculate it
             zip.fill_in_zipcode(distance_index, seeds[i].pos);
         } else if (seeds[i].minimizer_cache.first == 0){
+            //The first value in the minimizer payload stores the length of the zipcode, so if it is 0, then
+            //the payload is storing the index into the vector of oversized zipcodes 
             if (zipcodes != nullptr && seeds[i].minimizer_cache.second < zipcodes->size()) {
                 //If the zipcode was saved separately
                 zip = zipcodes->at(seeds[i].minimizer_cache.second);
@@ -45,6 +47,23 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
             //If the zipcocde was saved in the payload
             zip.fill_in_zipcode_from_payload(seeds[i].minimizer_cache);
         }
+#ifdef DEBUG_CLUSTER
+        zipcode_t testzip;
+        testzip.fill_in_zipcode(distance_index, seeds[i].pos);
+        if (!(zip == testzip)){
+            cerr << "zipcodes don't match:" << endl;
+            cerr << "cache: " << seeds[i].minimizer_cache.first << " " << seeds[i].minimizer_cache.second << endl;
+            cerr << "Cached " << zip.byte_count() << " bytes" << endl;
+            for (auto x : zip.zipcode.data) {
+                cerr << (uint8_t)x;
+            }
+            cerr << endl << " Should be: " << testzip.byte_count() << " bytes" << endl;
+            for (auto x : testzip.zipcode.data) {
+                cerr << (uint8_t)x;
+            }
+        }
+        assert(zip == testzip);
+#endif 
         seed_caches[i].minimizer_cache = std::move(zip);
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};

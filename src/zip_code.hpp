@@ -89,6 +89,18 @@ struct zipcode_t {
     friend class zipcode_decoder_t;
 };
 
+//A struct for holding a vector of zipcodes
+//This is really just used for serializing
+struct zipcode_vector_t {
+    vector<zipcode_t>* zipcodes;
+    zipcode_vector_t (vector<zipcode_t>* z) {
+        zipcodes = z;
+    }
+
+    void serialize(std::ostream& out) const;
+    void deserialize(std::istream& in);
+};
+
 
 ///A struct for decoding a zipcode
 struct zipcode_decoder_t {

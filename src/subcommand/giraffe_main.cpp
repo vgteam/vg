@@ -955,16 +955,10 @@ int main_giraffe(int argc, char** argv) {
     }
     vector<zipcode_t> oversized_zipcodes;
     if (!zipcode_name.empty()) {
+        zipcode_vector_t zipcode_vector (&oversized_zipcodes);
+
         ifstream zip_in (zipcode_name);
-        while (zip_in.peek() != EOF) {
-            std::string line;
-            std::getline(zip_in, line);
-            zipcode_t zip;
-            for (const char& character : line) {
-                zip.zipcode.add_one_byte(uint8_t(character));
-            }
-            oversized_zipcodes.emplace_back(std::move(zip));
-        }
+        zipcode_vector.deserialize(zip_in);
     }
 
 

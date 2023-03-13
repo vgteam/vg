@@ -1343,6 +1343,80 @@ void zipcode_t::fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payl
     }
 }
 
+void zipcode_vector_t::serialize(std::ostream& out) const {
+    //The zipcode vector will be serialized as a bunch of varint_vector_ts
+    //The first varint_vector_t will have one value, which will be the length of the
+    //zipcode that follows it
+
+    for (const zipcode_t& zip : *zipcodes) {
+    
+        //How many bytes are going to be saved for the zipcode? 
+        size_t byte_count = zip.byte_count();
+
+        varint_vector_t size_vector;
+        size_vector.add_value(byte_count);
+        //Write the number of bytes about to be saved 
+        for (const uint8_t& byte : size_vector.data) {
+            out << char(byte);
+        } 
+
+        //Write the zipcode 
+#ifdef DEBUG_ZIPCODE
+        size_t zip_byte_count = 0;
+#endif
+        for (const uint8_t& byte : zip.zipcode.data ) {
+#ifdef DEBUG_ZIPCODE
+            zip_byte_count++;
+#endif
+            out << char(byte);
+        }
+#ifdef DEBUG_ZIPCODE
+        assert(byte_count == zip_byte_count); 
+#endif
+    }
+
+}
+void zipcode_vector_t::deserialize(std::istream& in) {
+    while (in.peek() != EOF) {
+
+        //First, get the number of bytes used by the zipcode
+        //This will be a varint_vector_t with one value, which is the number of bytes in the zipcode
+        //Each byte in the varint_vector_t starts with 0 if it is the last bit in the 
+        //number, and 1 if the next byte is included
+        varint_vector_t byte_count_vector;
+        while (in.peek() & (1<<7)) {
+            //If the first bit in the byte is 1, then add it, stop once the first bit is 0 
+            char c;
+            in.get(c);
+            byte_count_vector.add_one_byte((uint8_t)c);
+        }
+        assert(! (in.peek() & (1<<7))); 
+        //The next byte has a 0 as its first bit, so add it
+        char c;
+        in.get(c);
+        byte_count_vector.add_one_byte((uint8_t)c);
+
+        //The first (and only) value in the vector is the length of the zipcode
+        size_t zipcode_byte_count = byte_count_vector.get_value_and_next_index(0).first;
+
+#ifdef DEBUG_ZIPCODE
+        cerr << "Get zipcode of " << zipcode_byte_count << " bytes" << endl;
+        assert(zipcode_byte_count >= 15);
+        assert(byte_count_vector.get_value_and_next_index(0).second == std::numeric_limits<size_t>::max());
+#endif
+
+        char line [zipcode_byte_count];
+
+        in.read(line, zipcode_byte_count);
+
+        zipcode_t zip;
+        for (const char& character : line) {
+            zip.zipcode.add_one_byte(uint8_t(character));
+        }
+        zipcodes->emplace_back(std::move(zip));
+    }
+
+}
 
 size_t MIPayload::record_offset(const zipcode_t& code, const SnarlDistanceIndex& distance_index, const nid_t& id ) {
 

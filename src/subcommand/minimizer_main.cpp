@@ -298,7 +298,7 @@ int main_minimizer(int argc, char** argv) {
                         }
                         cout << endl;
             #endif
-            if (zipcode.zipcode.byte_count() > 15) {
+            if (zipcode.zipcode.byte_count() < 15) {
                 //If the zipcode is small enough to store in the payload
                 return zipcode.get_payload_from_zip();
             } else if (!zipcode_name.empty()) {
@@ -339,15 +339,9 @@ int main_minimizer(int argc, char** argv) {
     //If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 
         ofstream zip_out (zipcode_name);
-        for (size_t i = 0 ; i < oversized_zipcodes.size() ; i++) {
-            const zipcode_t& zip = oversized_zipcodes[i];
-            for (const uint8_t& byte : zip.zipcode.data ) {
-                zip_out << char(byte);
-            }
-            if ( i != oversized_zipcodes.size()-1) {
-                zip_out << endl;
-            }
-        }
+        zipcode_vector_t zip_vector (&oversized_zipcodes);
+        zip_vector.serialize(zip_out);
+
     }
 
 
