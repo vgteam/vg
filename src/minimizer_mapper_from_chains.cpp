@@ -600,9 +600,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     chain_config_t fragment_cfg;
     
     // Make fragments be compact
-    fragment_cfg.max_lookback_bases = 50;
+    fragment_cfg.max_lookback_bases = 200;
     fragment_cfg.min_lookback_items = 0;
-    fragment_cfg.lookback_item_hard_cap = 1;
+    fragment_cfg.lookback_item_hard_cap = 3;
     fragment_cfg.initial_lookback_threshold = this->initial_lookback_threshold;
     fragment_cfg.lookback_scale_factor = this->lookback_scale_factor;
     fragment_cfg.min_good_transition_score_per_base = this->min_good_transition_score_per_base;
@@ -729,20 +729,28 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     for (auto& fragment : fragments) {
         fragment_coverages.push_back(fragment.coverage); 
     }
-    // Overall coverage of read
+    // Overall coverage of read with fragments of item count k or greater
+    std::vector<double> fragment_coverage_at_length(21, 0.0);
     std::vector<bool> fragment_covered(aln.sequence().size(), false);
-    for (auto& range : fragment_read_ranges) {
-        for (size_t i = range.first; i < range.second; i++) {
-            fragment_covered[i] = true;
+    for (int threshold = fragment_coverage_at_length.size() - 1; threshold >= 0; threshold--) {
+        for (size_t i = 0; i < fragments.size(); i++) {
+            if (threshold == (fragment_coverage_at_length.size() - 1) && fragments[i].seeds.size() > threshold || fragments[i].seeds.size() == threshold) {
+                // Need to mark this fragment at thnis step.
+                auto& range = fragment_read_ranges.at(i);
+                for (size_t i = range.first; i < range.second; i++) {
+                    fragment_covered[i] = true;
+                }
+            }
         }
-    }
-    size_t covered_bases = 0;
-    for (bool flag : fragment_covered) {
-        if (flag) {
-            covered_bases++;
+        size_t covered_bases = 0;
+        for (bool flag : fragment_covered) {
+            if (flag) {
+                covered_bases++;
+            }
         }
+        double fragment_overall_coverage = (double) covered_bases / aln.sequence().size();
+        fragment_coverage_at_length[threshold] = fragment_overall_coverage;
     }
-    double fragment_overall_coverage = (double) covered_bases / aln.sequence().size();
     // Fraction of minimizers with seeds used in fragments of k or more items
     std::vector<size_t> minimizer_fragment_max_items(minimizers.size(), 0);
     std::vector<bool> minimizer_has_seeds(minimizers.size(), false);
@@ -1470,7 +1478,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "fragment_item_counts", fragment_item_counts);
     set_annotation(mappings[0], "fragment_coverages", fragment_coverages);
-    set_annotation(mappings[0], "fragment_overall_coverage", fragment_overall_coverage);
+    set_annotation(mappings[0], "fragment_coverage_at_length", fragment_coverage_at_length);
     set_annotation(mappings[0], "bucket_best_fragment_scores", bucket_best_fragment_scores);
     set_annotation(mappings[0], "bucket_scores", bucket_scores);
     set_annotation(mappings[0], "bucket_coverages", bucket_coverages);
