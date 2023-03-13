@@ -709,12 +709,21 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<double> bucket_scores;
     // Coverage of each bucket
     std::vector<double> bucket_coverages;
-    for (auto& bucket : fragment_results.cluster_chains) {
+    // Bucket with the best fragment score
+    size_t best_bucket = 0;
+    // That score
+    double best_bucket_fragment_score = 0;
+    for (size_t bucket_num = 0; bucket_num < fragment_results.cluster_chains.size(); bucket_num++) {
+        auto& bucket = fragment_results.cluster_chains[bucket_num];
         double best_fragment_score = 0;
         for (auto& fragment : bucket) {
             fragment_scores.push_back(fragment.first);
             fragment_item_counts.push_back(fragment.second.size());
             best_fragment_score = std::max(best_fragment_score, (double) fragment.first);
+            if (fragment.first >= best_bucket_fragment_score) {
+                best_bucket_fragment_score = fragment.first;
+                best_bucket = bucket_num;
+            }
         }
         bucket_best_fragment_scores.push_back(best_fragment_score);
     }
@@ -724,18 +733,24 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         bucket_coverages.push_back(buckets.at(bucket_num).coverage);
     }
     
-    // Coverage of read (note: can overlap between buckets)
-    std::vector<double> fragment_coverages;
-    for (auto& fragment : fragments) {
-        fragment_coverages.push_back(fragment.coverage); 
+    // Coverage of read by each fragment, using outer bounds 
+    std::vector<double> fragment_bound_coverages;
+    for (size_t i = 0; i < fragments.size(); i++) {
+        auto& fragment = fragments[i];
+        fragment_bound_coverages.push_back((double) (fragment_read_ranges[i].second - fragment_read_ranges[i].first) / aln.sequence().size());
     }
-    // Overall coverage of read with fragments of item count k or greater
-    std::vector<double> fragment_coverage_at_length(21, 0.0);
+    // Overall coverage of read with fragments of item count k or greater, in best bucket
+    // Remember: best bucket was the one that had the fragment with the best score.
+    std::vector<double> best_bucket_fragment_coverage_at_length(21, 0.0);
     std::vector<bool> fragment_covered(aln.sequence().size(), false);
-    for (int threshold = fragment_coverage_at_length.size() - 1; threshold >= 0; threshold--) {
+    for (int threshold = best_bucket_fragment_coverage_at_length.size() - 1; threshold >= 0; threshold--) {
         for (size_t i = 0; i < fragments.size(); i++) {
-            if (threshold == (fragment_coverage_at_length.size() - 1) && fragments[i].seeds.size() > threshold || fragments[i].seeds.size() == threshold) {
-                // Need to mark this fragment at thnis step.
+            if (fragment_results.cluster_nums[i] != best_bucket) {
+                // Only look at the best bucket's fragments here.
+                continue;
+            }
+            if (threshold == (best_bucket_fragment_coverage_at_length.size() - 1) && fragments[i].seeds.size() > threshold || fragments[i].seeds.size() == threshold) {
+                // Need to mark this fragment at this step.
                 auto& range = fragment_read_ranges.at(i);
                 for (size_t i = range.first; i < range.second; i++) {
                     fragment_covered[i] = true;
@@ -749,7 +764,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         }
         double fragment_overall_coverage = (double) covered_bases / aln.sequence().size();
-        fragment_coverage_at_length[threshold] = fragment_overall_coverage;
+        best_bucket_fragment_coverage_at_length[threshold] = fragment_overall_coverage;
     }
     // Fraction of minimizers with seeds used in fragments of k or more items
     std::vector<size_t> minimizer_fragment_max_items(minimizers.size(), 0);
@@ -1477,8 +1492,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Special fragment statistics
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "fragment_item_counts", fragment_item_counts);
-    set_annotation(mappings[0], "fragment_coverages", fragment_coverages);
-    set_annotation(mappings[0], "fragment_coverage_at_length", fragment_coverage_at_length);
+    set_annotation(mappings[0], "fragment_bound_coverages", fragment_bound_coverages);
+    set_annotation(mappings[0], "best_bucket_fragment_coverage_at_length", best_bucket_fragment_coverage_at_length);
     set_annotation(mappings[0], "bucket_best_fragment_scores", bucket_best_fragment_scores);
     set_annotation(mappings[0], "bucket_scores", bucket_scores);
     set_annotation(mappings[0], "bucket_coverages", bucket_coverages);
