@@ -570,6 +570,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     if (track_provenance) {
         funnel.substage("score-buckets");
     }
+    double best_bucket_score = 0;
+    double second_best_bucket_score = 0;
     for (size_t i = 0; i < buckets.size(); i++) {
         Cluster& bucket = buckets[i];
         
@@ -578,6 +580,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             funnel.producing_output(i);
         } 
         this->score_cluster(bucket, i, minimizers, seeds, aln.sequence().size());
+        if (bucket.score > best_bucket_score) {
+            second_best_bucket_score = best_bucket_score;
+            best_bucket_score = bucket.score;
+        } else if (bucket.score > second_best_bucket_score) {
+            second_best_bucket_score = bucket.score;
+        }
         if (this->track_provenance) {
             // Record the cluster in the funnel as a group of the size of the number of items.
             funnel.merge_group(bucket.seeds.begin(), bucket.seeds.end());
@@ -610,9 +618,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     fragment_cfg.item_bonus = this->item_bonus;
     fragment_cfg.max_indel_bases = 50;
     
-    // But do all of them
-    fragment_cfg.cluster_score_cutoff = 0;
-    fragment_cfg.cluster_score_cutoff_enabled = false;
+    // Do all the ones that are 75% as good as the best, or down to 50% as good
+    // as the best if that is what it takes to get the second best
+    double bucket_score_cutoff = best_bucket_score / 0.75;
+    if (bucket_score_cutoff - (bucket_score_cutoff / 0.25) < second_best_bucket_score) {
+        bucket_score_cutoff = std::min(bucket_score_cutoff, second_best_bucket_score);
+    }
+    fragment_cfg.cluster_score_cutoff = bucket_score_cutoff;
+    fragment_cfg.cluster_score_cutoff_enabled = true;
     fragment_cfg.cluster_coverage_threshold = 1.0;
     fragment_cfg.min_clusters_to_chain = std::numeric_limits<size_t>::max();
     fragment_cfg.max_clusters_to_chain = std::numeric_limits<size_t>::max();
