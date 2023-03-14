@@ -953,7 +953,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Loading Zipcodes" << endl;
     }
-    vector<zipcode_t> oversized_zipcodes;
+    vector<ZipCode> oversized_zipcodes;
     if (!zipcode_name.empty()) {
         zipcode_vector_t zipcode_vector (&oversized_zipcodes);
 

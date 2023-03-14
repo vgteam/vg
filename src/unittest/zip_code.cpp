@@ -18,7 +18,7 @@ using namespace std;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION ("zip code") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
             //1st value is 1 to indicate that it's a chain
@@ -39,39 +39,39 @@ using namespace std;
 
         }
         SECTION("decoder") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 1);
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 1);
             REQUIRE(decoder.decoder.front().first == 1);
             REQUIRE(decoder.decoder.front().second == 0);
         }
         SECTION("decoded code") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
             net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(decoder.get_length(0) == distance_index.minimum_length(chain1));
             REQUIRE(decoder.get_code_type(0) == ROOT_NODE);
         }
         SECTION("n1 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             }
         }
         SECTION("Distances within one node") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            REQUIRE(zipcode_t::minimum_distance_between(zipcode, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zipcode, make_pos_t(n1->id(), false, 0),
                                                          zipcode, make_pos_t(n1->id(), false, 3),
                                                          distance_index)
                     == 3);
@@ -104,11 +104,11 @@ using namespace std;
                                                 distance_index.get_node_net_handle(n1->id()));
 
         SECTION ("zip code for node on top-level chain") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 2);
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 2);
 
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -140,12 +140,12 @@ using namespace std;
 
         }
         SECTION ("decoded zip code for node on top-level chain") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
             net_handle_t chain1 = distance_index.get_parent(node1);
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
@@ -160,11 +160,11 @@ using namespace std;
 
         }
         SECTION ("zip code for node in simple snarl") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 3);
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 3);
 
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -215,10 +215,10 @@ using namespace std;
 
         }
         SECTION ("decoded zip code for node in simple snarl") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
             net_handle_t snarl36 = distance_index.get_parent(chain4); 
@@ -243,105 +243,105 @@ using namespace std;
             REQUIRE(decoder.get_is_reversed_in_parent(2) == is_rev);
         }
         SECTION("Distances") {
-            zipcode_t zip1;
+            ZipCode zip1;
             zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            zipcode_t zip2;
+            ZipCode zip2;
             zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            zipcode_t zip3;
+            ZipCode zip3;
             zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            zipcode_t zip4;
+            ZipCode zip4;
             zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_t zip5;
+            ZipCode zip5;
             zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            zipcode_t zip6;
+            ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip3, make_pos_t(n3->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 2),
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 2),
                                                          zip1, make_pos_t(n1->id(), true, 2),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == 6);
-            REQUIRE(zipcode_t::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
                                                          zip4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(zipcode_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
                                                          zip4, make_pos_t(n4->id(), false, 1),
                                                          distance_index)
                     == 1);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == 7);
         }
         SECTION("n1 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n2 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n3 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n4 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                 zipcode_t decoded;
+                 ZipCode decoded;
                  decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             }
         }
         SECTION("n5 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n6 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
@@ -381,11 +381,11 @@ using namespace std;
                                                 distance_index.get_node_net_handle(n1->id()));
 
         SECTION ("zip code for node on top-level chain") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 2); 
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 2); 
 
             REQUIRE(decoder.decoder[0] == std::make_pair(true, (size_t)0));
             //1st value is 1 to indicate that it's a chain
@@ -419,13 +419,13 @@ using namespace std;
 
         }
         SECTION ("decode zip code for node on top-level chain") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
             net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
             net_handle_t chain1 = distance_index.get_parent(node1);
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
@@ -439,11 +439,11 @@ using namespace std;
 
         }
         SECTION ("zip code for node on in nested chain") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 4); 
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 4); 
 
             REQUIRE(decoder.decoder[0] == std::make_pair(true, (size_t)0));
             //1st value is 1 to indicate that it's a chain
@@ -507,7 +507,7 @@ using namespace std;
 
         }
         SECTION ("decode zip code for node on in nested chain") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
 
             net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
@@ -515,7 +515,7 @@ using namespace std;
             net_handle_t snarl1 = distance_index.get_parent(chain2);
             net_handle_t chain1 = distance_index.get_parent(snarl1);
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
@@ -542,10 +542,10 @@ using namespace std;
 
         }
         SECTION ("zip code for more deeply nested node") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 7); 
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 7); 
 
             REQUIRE(decoder.decoder[0] == std::make_pair(true, (size_t)0));
 
@@ -661,7 +661,7 @@ using namespace std;
         }
 
         SECTION ("decoded zip code for more deeply nested node") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
 
             net_handle_t chain4 = distance_index.get_parent(distance_index.get_node_net_handle(n4->id()));
@@ -672,7 +672,7 @@ using namespace std;
             net_handle_t snarl1 = distance_index.get_parent(chain2);
             net_handle_t chain1 = distance_index.get_parent(snarl1);
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                         distance_index.canonical(chain1));
@@ -725,160 +725,160 @@ using namespace std;
 
         }
         SECTION("Distances") {
-            zipcode_t zip1;
+            ZipCode zip1;
             zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            zipcode_t zip2;
+            ZipCode zip2;
             zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            zipcode_t zip3;
+            ZipCode zip3;
             zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            zipcode_t zip4;
+            ZipCode zip4;
             zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_t zip5;
+            ZipCode zip5;
             zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            zipcode_t zip6;
+            ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            zipcode_t zip7;
+            ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
-            zipcode_t zip8;
+            ZipCode zip8;
             zip8.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
 
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == 4);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 5);
-            REQUIRE(zipcode_t::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
                                                          zip7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 2);
-            REQUIRE(zipcode_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
                                                          zip8, make_pos_t(n8->id(), false, 0),
                                                          distance_index)
                     == 8);
-            REQUIRE(zipcode_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
                                                          zip6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(zipcode_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
                                                          zip8, make_pos_t(n8->id(), true, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(zipcode_t::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
                                                          zip6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(zipcode_t::minimum_distance_between(zip7, make_pos_t(n7->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip7, make_pos_t(n7->id(), true, 0),
                                                          zip2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 2);
         }
         SECTION("Distance is greater than") {
-            zipcode_t zip1;
+            ZipCode zip1;
             zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            zipcode_t zip2;
+            ZipCode zip2;
             zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            zipcode_t zip3;
+            ZipCode zip3;
             zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            zipcode_t zip4;
+            ZipCode zip4;
             zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_t zip5;
+            ZipCode zip5;
             zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            zipcode_t zip6;
+            ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            zipcode_t zip7;
+            ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
-            zipcode_t zip8;
+            ZipCode zip8;
             zip8.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
 
 
-            REQUIRE(!zipcode_t::is_farther_than(zip1, zip2, 0));
-            REQUIRE(!zipcode_t::is_farther_than(zip2, zip7, 0));
+            REQUIRE(!ZipCode::is_farther_than(zip1, zip2, 0));
+            REQUIRE(!ZipCode::is_farther_than(zip2, zip7, 0));
         }
         SECTION("n1 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n2 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n3 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n4 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n5 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n6 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n7 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n8 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
@@ -915,11 +915,11 @@ using namespace std;
                                                 distance_index.get_node_net_handle(n1->id()));
 
         SECTION ("zip code for node in irregular snarl") { 
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 3); 
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 3); 
 
             REQUIRE(decoder.decoder[0] == std::make_pair(true, (size_t)0));
 
@@ -955,14 +955,14 @@ using namespace std;
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
         }
         SECTION ("decode zip code for node in irregular snarl") { 
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
 
             net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
             net_handle_t snarl1 = distance_index.get_parent(chain3);
             net_handle_t chain1 = distance_index.get_parent(snarl1);
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
@@ -978,139 +978,139 @@ using namespace std;
             REQUIRE(decoder.get_code_type(2) == CHAIN);
         }
         SECTION("Distances") {
-            zipcode_t zip1;
+            ZipCode zip1;
             zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            zipcode_t zip2;
+            ZipCode zip2;
             zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            zipcode_t zip3;
+            ZipCode zip3;
             zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            zipcode_t zip4;
+            ZipCode zip4;
             zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_t zip5;
+            ZipCode zip5;
             zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            zipcode_t zip6;
+            ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            zipcode_t zip7;
+            ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
 
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip3, make_pos_t(n3->id(), false, 0),
                                                          distance_index)
                     == 4);
-            REQUIRE(zipcode_t::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
                                                          zip1, make_pos_t(n1->id(), true, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == 3);
 
             //Shouldn't take the loop in the chain
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
                                                          zip1, make_pos_t(n1->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
                                                          zip2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 5);
-            REQUIRE(zipcode_t::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
                                                          zip4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == 1);
-            REQUIRE(zipcode_t::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 2);
-            REQUIRE(zipcode_t::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 0),
                                                          zip2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 1);
-            REQUIRE(zipcode_t::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 1),
+            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 1),
                                                          zip4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
         }
         SECTION("n1 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n2 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n3 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n4 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n5 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n6 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n7 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
@@ -1144,11 +1144,11 @@ using namespace std;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         SECTION ("zip code for node in top-level snarl") { 
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 2); 
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 2); 
 
             REQUIRE(decoder.decoder[0] == std::make_pair(false, (size_t)0));
 
@@ -1170,10 +1170,10 @@ using namespace std;
             REQUIRE(value_and_index.first == 3+1);
         }
         SECTION ("decoded zip code for node in top-level snarl") { 
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
             net_handle_t root_snarl = distance_index.get_parent(chain1);
@@ -1191,11 +1191,11 @@ using namespace std;
         }
         SECTION ("zip code for node in chain in top-level snarl") { 
             net_handle_t node1 = distance_index.get_node_net_handle(n3->id());
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 3); 
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 3); 
 
             REQUIRE(decoder.decoder[0] == std::make_pair(false, (size_t)0));
 
@@ -1230,10 +1230,10 @@ using namespace std;
             net_handle_t chain2 = distance_index.get_parent(node3);
             net_handle_t root_snarl = distance_index.get_parent(chain2);
 
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
+            ZipCodeDecoder decoder(&zipcode);
 
             //Root snarl
             REQUIRE(decoder.get_distance_index_address(0) == distance_index.get_connected_component_number(node3));
@@ -1251,113 +1251,113 @@ using namespace std;
             REQUIRE(decoder.get_is_reversed_in_parent(2) == distance_index.is_reversed_in_parent(node3));
         }
         SECTION("Distances") {
-            zipcode_t zip1;
+            ZipCode zip1;
             zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            zipcode_t zip2;
+            ZipCode zip2;
             zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            zipcode_t zip3;
+            ZipCode zip3;
             zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            zipcode_t zip4;
+            ZipCode zip4;
             zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_t zip5;
+            ZipCode zip5;
             zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            zipcode_t zip6;
+            ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            zipcode_t zip7;
+            ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
 
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), true, 0),
                                                          zip2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip3, make_pos_t(n3->id(), false, 0),
                                                          distance_index)
                     == 4);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip3, make_pos_t(n3->id(), true, 0),
                                                          distance_index)
                     == 8);
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(zipcode_t::minimum_distance_between(zip6, make_pos_t(n6->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip6, make_pos_t(n6->id(), false, 0),
                                                          zip7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 1);
         }
         SECTION("n1 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n2 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n3 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n4 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n5 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n6 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n7 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
@@ -1393,11 +1393,11 @@ using namespace std;
             net_handle_t node1 = distance_index.get_node_net_handle(n1->id());
             net_handle_t parent = distance_index.get_parent(node1);
             net_handle_t grandparent = distance_index.get_parent(parent);
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
 
-            zipcode_decoder_t decoder(&zipcode);
-            REQUIRE(decoder.decoder.size() == 2);
+            ZipCodeDecoder decoder(&zipcode);
+            REQUIRE(decoder.decoder_length() == 2);
 
             //1st value is 1 to indicate that it's a chain
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
@@ -1429,99 +1429,99 @@ using namespace std;
 
         }
         SECTION("Distances") {
-            zipcode_t zip1;
+            ZipCode zip1;
             zip1.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            zipcode_t zip2;
+            ZipCode zip2;
             zip2.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            zipcode_t zip3;
+            ZipCode zip3;
             zip3.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            zipcode_t zip4;
+            ZipCode zip4;
             zip4.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            zipcode_t zip5;
+            ZipCode zip5;
             zip5.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            zipcode_t zip6;
+            ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            zipcode_t zip7;
+            ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
 
 
-            REQUIRE(zipcode_t::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
                                                          zip2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(zipcode_t::is_farther_than(zip1, zip6, 3));
-            REQUIRE(!zipcode_t::is_farther_than(zip1, zip6, 5));
-            REQUIRE(zipcode_t::is_farther_than(zip1, zip7, 8));
-            REQUIRE(!zipcode_t::is_farther_than(zip1, zip7, 10));
-            REQUIRE(!zipcode_t::is_farther_than(zip2, zip7, 10));
-            REQUIRE(zipcode_t::is_farther_than(zip2, zip7, 8));
+            REQUIRE(ZipCode::is_farther_than(zip1, zip6, 3));
+            REQUIRE(!ZipCode::is_farther_than(zip1, zip6, 5));
+            REQUIRE(ZipCode::is_farther_than(zip1, zip7, 8));
+            REQUIRE(!ZipCode::is_farther_than(zip1, zip7, 10));
+            REQUIRE(!ZipCode::is_farther_than(zip2, zip7, 10));
+            REQUIRE(ZipCode::is_farther_than(zip2, zip7, 8));
         }
         SECTION("n1 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n2 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n3 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n4 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n5 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n6 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
         }
         SECTION("n7 as payload") {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
             gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
-                zipcode_t decoded;
+                ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };

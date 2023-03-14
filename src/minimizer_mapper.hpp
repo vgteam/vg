@@ -40,7 +40,7 @@ public:
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          SnarlDistanceIndex* distance_index,
-         const vector<zipcode_t>* zipcodes,
+         const vector<ZipCode>* zipcodes,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -448,7 +448,7 @@ protected:
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const zipcode_t& chain_info) {
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& chain_info) {
         return { hit, minimizer, chain_info };
     }
     
@@ -468,7 +468,7 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
-    const vector<zipcode_t>* zipcodes;
+    const vector<ZipCode>* zipcodes;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     

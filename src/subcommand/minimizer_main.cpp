@@ -259,7 +259,7 @@ int main_minimizer(int argc, char** argv) {
     //Zipcodes
 
     //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
-    std::vector<zipcode_t> oversized_zipcodes;
+    std::vector<ZipCode> oversized_zipcodes;
 
     //oversized_zipcodes will be made as zipcodes are found in minimizers, so there may be duplicates that
     //only get stored once. This maps node id to the index in oversized_zipcodes 
@@ -281,7 +281,7 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            zipcode_t zipcode;
+            ZipCode zipcode;
             zipcode.fill_in_zipcode(*distance_index, pos);
             #ifdef WRITE_MINIMIZER_ZIPCODES
                         //TODO: this is only for testing, can be taken out once the zip codes are done

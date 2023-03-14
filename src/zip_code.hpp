@@ -15,21 +15,21 @@ using namespace std;
  * structure and going down to the node.
  * Each code has an identifier and information used to calculate distances.
  *
- * A zipcode_t stores the information and can be used to create a zipcode. It can be used
+ * A ZipCode stores the information and can be used to create a zipcode. It can be used
  * to calculate the distance between zipcodes
  *
- * A zipcode_decoder_t is used for interpreting zipcodes to find specific values that were
- * stored in the zipcode_t. A zipcode_decoder_t must be constructed from a specific zipcode.
+ * A ZipCodeDecoder is used for interpreting zipcodes to find specific values that were
+ * stored in the ZipCode. A ZipCodeDecoder must be constructed from a specific zipcode.
  * Construction of a decoder occurs one code at a time, starting from the root snarl or chain, 
- * so it is possible to have a partially constructed zipcode_decoder_t, to avoid having to 
- * walk through the entire zipcode_t to get the values for things higher in the snarl tree.
+ * so it is possible to have a partially constructed ZipCodeDecoder, to avoid having to 
+ * walk through the entire ZipCode to get the values for things higher in the snarl tree.
  * The full decoder must be constructed to get values for the node.
  */
 
 ///A decoder for interpreting a zipcode
 ///Can interpret the values for a snarl tree node given the depth 
 ///(depth in the snarl tree, also the index into the zipcode vector)
-struct zipcode_decoder_t;
+class ZipCodeDecoder;
 
 
 ///The type of codes that can be stored in the zipcode
@@ -44,7 +44,7 @@ struct MIPayload;
  * A zip code will contain all the information necessary to compute the minimum distance between two 
  * positions, with minimal queries to the distance index
  */
-struct zipcode_t {
+class ZipCode {
 
     public:
 
@@ -55,14 +55,14 @@ struct zipcode_t {
         void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
 
         //Get the exact minimum distance between two positions and their zip codes
-        static size_t minimum_distance_between(const zipcode_t& zip1, const pos_t& pos1, 
-                                       const zipcode_t& zip2, const pos_t& pos2,
+        static size_t minimum_distance_between(const ZipCode& zip1, const pos_t& pos1, 
+                                       const ZipCode& zip2, const pos_t& pos2,
                                        const SnarlDistanceIndex& distance_index, bool directed_distance=true, 
                                        const HandleGraph* graph = nullptr);
 
         //Return true if the minimum distance between the zip codes is definitely greater than limit
         //A false result is inconclusive
-        static bool is_farther_than(const zipcode_t& zip1, const zipcode_t& zip2, const size_t& limit);
+        static bool is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const size_t& limit);
 
         //Get a tuple of the top-level structure id, prefix sum of the child of the top-level chain, and 
         //the length of the child of the top-level chain
@@ -89,7 +89,7 @@ struct zipcode_t {
 
 
         /// Equality operator
-        inline bool operator== (const zipcode_t& other) const {
+        inline bool operator== (const ZipCode& other) const {
             return zipcode == other.zipcode;
         }
 
@@ -107,14 +107,14 @@ struct zipcode_t {
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
-    friend class zipcode_decoder_t;
+    friend class ZipCodeDecoder;
 };
 
 //A struct for holding a vector of zipcodes
 //This is really just used for serializing
 struct zipcode_vector_t {
-    vector<zipcode_t>* zipcodes;
-    zipcode_vector_t (vector<zipcode_t>* z) {
+    vector<ZipCode>* zipcodes;
+    zipcode_vector_t (vector<ZipCode>* z) {
         zipcodes = z;
     }
 
@@ -124,23 +124,26 @@ struct zipcode_vector_t {
 
 
 /*
- * Struct for interpreting a zipcode_t
+ * Struct for interpreting a ZipCode
  */
-struct zipcode_decoder_t {
+class ZipCodeDecoder {
 
+    public:
+    //TODO: Make the decoder and zipcode private, still need it for unit testing
     ///The decoder as a vector of pair<is_chain, index>, one for each snarl tree node in the zip
     ///where is_chain indicates whether it's a chain/node, and index
     ///is the index of the node/snarl/chain code in the varint_vector_t
     std::vector<pair<bool, size_t>> decoder;
 
     ///The zipcode that this is decoding
-    const zipcode_t* zipcode;
+    const ZipCode* zipcode;
 
+    public:
 
     ///Constructor that goes through the zipcode and decodes it to fill in decoder
     ///If a depth is given, then only fill in up to depth snarl tree nodes
     ///Otherwise, fill in the whole zipcode
-    zipcode_decoder_t(const zipcode_t* zipcode, const size_t& depth=std::numeric_limits<size_t>::max());
+    ZipCodeDecoder(const ZipCode* zipcode, const size_t& depth=std::numeric_limits<size_t>::max());
 
     ///Go through the entire zipcode and fill in the decoder
     void fill_in_full_decoder();
@@ -148,6 +151,9 @@ struct zipcode_decoder_t {
     ///Fill in one more item in the decoder
     ///Returns true if this is the last thing in the zipcode and false if there is more to decode
     bool fill_in_next_decoder();
+
+    ///How many codes in the zipcode have been decoded?
+    size_t decoder_length() {return decoder.size();}
 
     ///What type of snarl tree node is at the given depth (index into the zipcode)
     code_type_t get_code_type(const size_t& depth) ;
@@ -186,7 +192,7 @@ struct zipcode_decoder_t {
     ///This only checks if the values in the zipcode are the same at the given depth, 
     ///so if the preceeding snarl tree nodes are different, 
     ///then this might actually refer to different things
-    static inline bool is_equal(zipcode_decoder_t& decoder1, zipcode_decoder_t& decoder2,
+    static inline bool is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                 const size_t& depth);
 
 };
@@ -207,25 +213,25 @@ struct MIPayload {
 
 
     //How do decode the zipcode to get the old payload values
-    static size_t record_offset(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t parent_record_offset(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t parent_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t node_record_offset(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t node_record_offset(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t node_length(const zipcode_t& zip);
+    static size_t node_length(const ZipCode& zip);
 
-    static bool is_reversed(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static bool is_reversed(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static bool is_trivial_chain (const zipcode_t& zip);
+    static bool is_trivial_chain (const ZipCode& zip);
 
-    static bool parent_is_chain(const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static bool parent_is_chain(const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static bool parent_is_root (const zipcode_t& zip);
+    static bool parent_is_root (const ZipCode& zip);
 
-    static size_t prefix_sum (const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t prefix_sum (const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
-    static size_t chain_component (const zipcode_t& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
+    static size_t chain_component (const ZipCode& zip, const SnarlDistanceIndex& distance_index, const nid_t& id);
 
     
 }; 

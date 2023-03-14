@@ -257,14 +257,14 @@ int main_zipcode(int argc, char** argv) {
                     count++;
 
                     //Get zip codes
-                    zipcode_t zip1;
+                    ZipCode zip1;
                     zip1.fill_in_zipcode(*distance_index, pos1);
-                    zipcode_t zip2;
+                    ZipCode zip2;
                     zip2.fill_in_zipcode(*distance_index, pos2);
 
                     //Time finding distance with the zip codes
                     std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                    size_t zip_distance = zipcode_t::minimum_distance_between(zip1, pos1, zip2, pos2, *distance_index);
+                    size_t zip_distance = ZipCode::minimum_distance_between(zip1, pos1, zip2, pos2, *distance_index);
                     std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                     std::chrono::duration<double> elapsed_seconds = end-start;
                     elapsed_seconds_zip.emplace_back(elapsed_seconds.count());

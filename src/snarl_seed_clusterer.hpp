@@ -58,7 +58,7 @@ class SnarlDistanceIndexClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
-            zipcode_t zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+            ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
         };
 
         /// Seed information used for clustering
@@ -72,7 +72,7 @@ class SnarlDistanceIndexClusterer {
 
             //TODO: This gets copied because it needs to be mutable
             //Cached values (zip codes) from the minimizer
-            zipcode_t minimizer_cache;
+            ZipCode minimizer_cache;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds

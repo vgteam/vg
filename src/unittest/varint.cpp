@@ -20,7 +20,7 @@ using namespace std;
             varint_vector.add_value(1);
             pair<size_t, size_t> value_and_index = varint_vector.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 1);
-            REQUIRE(value_and_index.second == 1);
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
         }
         SECTION ("[1, 2]") {
             varint_vector_t varint_vector;
@@ -31,7 +31,7 @@ using namespace std;
             REQUIRE(value_and_index.second == 1);
             value_and_index = varint_vector.get_value_and_next_index(1);
             REQUIRE(value_and_index.first == 2);
-            REQUIRE(value_and_index.second == 2);
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
         }
         SECTION ("more values") {
             cerr << endl;

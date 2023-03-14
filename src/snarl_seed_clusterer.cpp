@@ -32,7 +32,7 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
         seed_caches[i].minimizer_cache = seeds[i].zipcode;
         if (seeds[i].zipcode.byte_count() == 0) {
             //If the zipcode is empty
-            zipcode_t zip;
+            ZipCode zip;
             zip.fill_in_zipcode(distance_index, seed_caches[i].pos);
             seed_caches[i].minimizer_cache = std::move(zip);
         }
@@ -76,7 +76,7 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
             all_seed_caches[read_num][i].minimizer_cache = all_seeds[read_num][i].zipcode;
             if (all_seeds[read_num][i].zipcode.byte_count() == 0) {
                 //If the zipcode is empty
-                zipcode_t zip;
+                ZipCode zip;
                 zip.fill_in_zipcode(distance_index, all_seed_caches[read_num][i].pos);
                 all_seed_caches[read_num][i].minimizer_cache = std::move(zip);
             }
@@ -359,7 +359,7 @@ cerr << "Add all seeds to nodes: " << endl;
             //The zipcodes are already filled in
             //TODO: The whole thing could now be done with the zipcodes instead of looking at the distance
             //index but that would be too much work to write for now
-            const zipcode_t& old_cache = seed.minimizer_cache;
+            const ZipCode& old_cache = seed.minimizer_cache;
 
 #ifdef DEBUG_CLUSTER
                 cerr << "Using cached values for node " << id << ": " 
@@ -3332,7 +3332,7 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, co
     /*
      * Get net handles for the two nodes and the distances from each position to the ends of the handles
      */
-    zipcode_t zip1, zip2;
+    ZipCode zip1, zip2;
 
     if (seed1.zipcode.byte_count() == 0) {
         zip1.fill_in_zipcode(distance_index, seed1.pos);
@@ -3345,7 +3345,7 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, co
         zip2 = seed2.zipcode;
     }
 
-    return zipcode_t::minimum_distance_between(zip1, seed1.pos, zip2, seed2.pos, distance_index, false, graph);
+    return ZipCode::minimum_distance_between(zip1, seed1.pos, zip2, seed2.pos, distance_index, false, graph);
 }
 
 
