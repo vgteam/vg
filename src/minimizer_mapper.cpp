@@ -594,7 +594,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     }
 
     // Find the clusters
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()), zipcodes);
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
     
 #ifdef debug_validate_clusters
     vector<vector<Cluster>> all_clusters;
@@ -1423,7 +1423,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
     }
 
-    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit, zipcodes);
+    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
 #ifdef debug_validate_clusters
     validate_clusters(all_clusters, seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
 
@@ -3399,13 +3399,26 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
-                // TODO: Get all the seed values here
-                // TODO: Don't use the seed payload anymore
-                gbwtgraph::payload_type chain_info = no_chain_info();
-                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
-                    chain_info = minimizer.occs[j].payload;
+
+                //Get the zipcode
+                zipcode_t zip;
+                if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
+                    //If the zipcocde wasn't saved, then calculate it
+                    zip.fill_in_zipcode(*(this->distance_index), hit);
+                } else if (minimizer.occs[j].payload.first == 0) {
+                    //If the minimizer stored the index into a list of zipcodes
+                    if (this->zipcodes != nullptr) {
+                        //If we have the oversized zipcodes
+                        zip = zipcodes->at(minimizer.occs[j].payload.second);
+                    } else {
+                        //If we don't have the oversized payloads, then fill in the zipcode using the pos
+                        zip.fill_in_zipcode(*(this->distance_index), hit);
+                    }
+                } else {
+                    //If the zipcode was saved in the payload
+                    zip.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-                seeds.push_back(chain_info_to_seed(hit, i, chain_info));
+                seeds.push_back(chain_info_to_seed(hit, i, zip));
             }
             
             if (this->track_provenance) {

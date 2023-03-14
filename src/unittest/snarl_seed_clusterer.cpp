@@ -45,9 +45,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -94,9 +93,8 @@ namespace unittest {
                 for (auto& pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -135,9 +133,8 @@ namespace unittest {
                 for (auto& pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0,chain_info});
+                        seeds.push_back({ pos, 0,zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -178,9 +175,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -233,9 +229,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -256,9 +251,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -279,9 +273,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0,chain_info});
+                        seeds.push_back({ pos, 0,zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -344,9 +337,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -408,9 +400,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -431,9 +422,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -454,9 +444,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -546,9 +535,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -571,9 +559,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -642,9 +629,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -663,9 +649,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -684,9 +669,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -705,9 +689,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -726,9 +709,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -747,9 +729,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -770,9 +751,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -791,9 +771,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -814,9 +793,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(distance_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -895,9 +873,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -927,9 +904,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -955,9 +931,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1062,9 +1037,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1086,9 +1060,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1111,9 +1084,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1135,9 +1107,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1159,9 +1130,8 @@ namespace unittest {
                 for (pos_t pos : positions) {
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1211,9 +1181,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1234,9 +1203,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1274,9 +1242,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1332,9 +1299,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1355,9 +1321,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1377,9 +1342,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1400,9 +1364,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1468,9 +1431,8 @@ namespace unittest {
                     pos_t pos = make_pos_t(n, false, 0);
                     zipcode_t zipcode;
                     zipcode.fill_in_zipcode(dist_index, pos);
-                    auto chain_info = zipcode.get_payload_from_zip();
                     if (use_minimizers) {
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1492,8 +1454,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1543,8 +1504,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1555,8 +1515,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds1.push_back({ pos, 0, chain_info});
+                        seeds1.push_back({ pos, 0, zipcode});
                     } else {
                         seeds1.push_back({ pos, 0});
                     }
@@ -1589,8 +1548,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -1601,8 +1559,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds1.push_back({ pos, 0, chain_info});
+                        seeds1.push_back({ pos, 0, zipcode});
                     } else {
                         seeds1.push_back({ pos, 0});
                     }
@@ -1633,16 +1590,14 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds1.push_back({ pos, 0, chain_info});
+                seeds1.push_back({ pos, 0, zipcode});
             }
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
@@ -1671,16 +1626,14 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds1.push_back({ pos, 0, chain_info});
+                seeds1.push_back({ pos, 0, zipcode});
             }
             vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
@@ -1745,8 +1698,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
 
 
@@ -1829,8 +1781,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
 
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,  20); 
@@ -1844,8 +1795,7 @@ namespace unittest {
                 pos_t pos = make_pos_t(n, false, 0);
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
 
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
@@ -1892,8 +1842,7 @@ namespace unittest {
 
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
@@ -1941,8 +1890,7 @@ namespace unittest {
 
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
@@ -1958,8 +1906,7 @@ namespace unittest {
 
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
@@ -2003,8 +1950,7 @@ namespace unittest {
 
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
@@ -2020,8 +1966,7 @@ namespace unittest {
 
                 zipcode_t zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
-                auto chain_info = zipcode.get_payload_from_zip();
-                seeds.push_back({ pos, 0, chain_info});
+                seeds.push_back({ pos, 0, zipcode});
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
@@ -2101,8 +2046,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds.push_back({ pos, 0,chain_info});
+                        seeds.push_back({ pos, 0,zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -2812,8 +2756,7 @@ namespace unittest {
                         if (use_minimizers) {
                             zipcode_t zipcode;
                             zipcode.fill_in_zipcode(dist_index, pos);
-                            auto chain_info = zipcode.get_payload_from_zip();
-                            seeds[read_num].push_back({ pos, 0, chain_info});
+                            seeds[read_num].push_back({ pos, 0, zipcode});
                         } else {
                             seeds[read_num].push_back({ pos, 0});
                         }
@@ -2846,8 +2789,7 @@ namespace unittest {
                     if (use_minimizers) {
                         zipcode_t zipcode;
                         zipcode.fill_in_zipcode(dist_index, pos);
-                        auto chain_info = zipcode.get_payload_from_zip();
-                        seeds.push_back({ pos, 0, chain_info});
+                        seeds.push_back({ pos, 0, zipcode});
                     } else {
                         seeds.push_back({ pos, 0});
                     }
@@ -3372,8 +3314,7 @@ namespace unittest {
     //    for (pos_t pos : pos_ts) {
     //        zipcode_t zipcode;
     //        zipcode.fill_in_zipcode(dist_index, pos);
-    //        auto chain_info = zipcode.get_payload_from_zip();
-    //        seeds.push_back({ pos, 0, chain_info});
+    //        seeds.push_back({ pos, 0, zipcode});
     //    }
     //    vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, read_lim); 
     //    REQUIRE(clusters.size() == 1);
@@ -3414,8 +3355,7 @@ namespace unittest {
         //                if (use_minimizers) {
         //                    zipcode_t zipcode;
         //                    zipcode.fill_in_zipcode(dist_index, pos);
-        //                    auto chain_info = zipcode.get_payload_from_zip();
-        //                    seeds[read_num].push_back({ pos, 0, chain_info});
+        //                    seeds[read_num].push_back({ pos, 0, zipcode});
         //                } else {
         //                    seeds[read_num].push_back({ pos, 0});
         //                }
@@ -3488,8 +3428,7 @@ namespace unittest {
                         if (use_minimizers) {
                             zipcode_t zipcode;
                             zipcode.fill_in_zipcode(dist_index, pos);
-                            auto chain_info = zipcode.get_payload_from_zip();
-                            all_seeds[read].push_back({ pos, 0, chain_info});
+                            all_seeds[read].push_back({ pos, 0, zipcode});
                         } else {
                             all_seeds[read].push_back({ pos, 0});
                         }

@@ -448,7 +448,7 @@ protected:
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const gbwtgraph::payload_type& chain_info) {
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const zipcode_t& chain_info) {
         return { hit, minimizer, chain_info };
     }
     
