@@ -60,7 +60,7 @@ class SnarlDistanceIndexClusterer {
             size_t source; // Source minimizer.
             ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
             //TODO: unique_ptr?
-            ZipCodeDecoder* zipcode_decoder; //The decoder for the zipcode
+            std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
         };
 
         /// Seed information used for clustering

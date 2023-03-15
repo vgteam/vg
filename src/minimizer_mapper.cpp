@@ -3401,9 +3401,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
+                Seed seed = {hit, i};
 
                 //Get the zipcode
-                ZipCode zip;
+                ZipCode& zip = seed.zipcode;
                 if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
                     //If the zipcocde wasn't saved, then calculate it
                     zip.fill_in_zipcode(*(this->distance_index), hit);
@@ -3420,8 +3421,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                     //If the zipcode was saved in the payload
                     zip.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-                decoders.emplace_back(&zip);
-                seeds.push_back(chain_info_to_seed(hit, i, zip, &decoders.back()));
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&zip);
+                seed.zipcode_decoder.reset(decoder);
+
+                seeds.emplace_back(std::move(seed));
             }
             
             if (this->track_provenance) {
