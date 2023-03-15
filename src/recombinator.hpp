@@ -340,7 +340,7 @@ private:
 class Recombinator {
 public:
     /// Number of haplotypes to be generated.
-    constexpr static size_t NUM_HAPLOTYPES = 16;
+    constexpr static size_t NUM_HAPLOTYPES = 8;
 
     /// Expected read coverage.
     constexpr static size_t COVERAGE = 30;
@@ -381,6 +381,10 @@ public:
         /// If no original haplotype crosses a subchain, a new fragment will
         /// start after the subchain.
         size_t fragment;
+
+        /// GBWT sequence indentifier in the previous subchain, or
+        /// `gbwt::invalid_sequence()` if there was no such sequence.
+        gbwt::size_type sequence_id;
 
         /// GBWT position at the end of the latest `extend()` call.
         /// `gbwt::invalid_edge()` otherwise.
@@ -448,6 +452,9 @@ public:
         /// Number of haplotypes generated.
         size_t haplotypes = 0;
 
+        /// Number of times a haplotype was extended from a subchain to the next subchain.
+        size_t connections = 0;
+
         /// Number of reference paths included.
         size_t ref_paths = 0;
 
@@ -510,8 +517,6 @@ public:
      * the middle of a chain create fragment breaks. If the chain starts without
      * a prefix (ends without a suffix), the haplotype chosen for the first (last)
      * subchain is used from the start (continued until the end).
-     *
-     * TODO: Include reference paths?
      */
     gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
 

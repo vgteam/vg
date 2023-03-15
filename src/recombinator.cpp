@@ -738,6 +738,7 @@ void Recombinator::Haplotype::extend(sequence_type sequence, const Haplotypes::S
         }
         this->path.push_back(curr.first);
     }
+    this->sequence_id = sequence.first;
     this->position = curr;
 }
 
@@ -751,6 +752,7 @@ void Recombinator::Haplotype::take(gbwt::size_type sequence_id, const Recombinat
     this->path = recombinator.gbz.index.extract(sequence_id);
     this->insert(builder);
     this->fragment++;
+    this->sequence_id = gbwt::invalid_sequence();
     this->position = gbwt::invalid_edge();
     this->path.clear();
 }
@@ -762,6 +764,7 @@ void Recombinator::Haplotype::finish(const Recombinator& recombinator, gbwt::GBW
     this->suffix(recombinator.gbz.index);
     this->insert(builder);
     this->fragment++;
+    this->sequence_id = gbwt::invalid_sequence();
     this->position = gbwt::invalid_edge();
     this->path.clear();
 }
@@ -795,6 +798,7 @@ void Recombinator::Haplotype::prefix(gbwt::size_type sequence_id, gbwt::node_typ
     if (sequence_id >= index.sequences()) {
         throw std::runtime_error("Haplotype::prefix(): invalid GBWT sequence id " + std::to_string(sequence_id));
     }
+    this->sequence_id = sequence_id;
     for (gbwt::edge_type curr = index.start(sequence_id); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
         this->path.push_back(curr.first);
         if (curr.first == until) {
@@ -809,7 +813,6 @@ void Recombinator::Haplotype::suffix(const gbwt::GBWT& index) {
     for (gbwt::edge_type curr = index.LF(this->position); curr.first != gbwt::ENDMARKER; curr = index.LF(curr)) {
         this->path.push_back(curr.first);
     }
-    this->position = gbwt::invalid_edge();
 }
 
 void Recombinator::Haplotype::insert(gbwt::GBWTBuilder& builder) {
@@ -837,6 +840,7 @@ void Recombinator::Statistics::combine(const Statistics& another) {
     this->fragments += another.fragments;
     this->full_haplotypes += another.full_haplotypes;
     this->haplotypes = std::max(this->haplotypes, another.haplotypes);
+    this->connections += another.connections;
     this->ref_paths += another.ref_paths;
     this->kmers += another.kmers;
     this->score += another.score;
@@ -845,6 +849,10 @@ void Recombinator::Statistics::combine(const Statistics& another) {
 std::ostream& Recombinator::Statistics::print(std::ostream& out) const {
     out << this->haplotypes << " haplotypes for " << this->chains << " chains ("
         << this->full_haplotypes << " full, " << this->subchains << " subchains, " << this->fragments << " fragments)";
+    if (this->subchains > 0) {
+        double connection_rate = static_cast<double>(this->connections) / (this->subchains * this->haplotypes);
+        out << "; connection rate " << connection_rate;
+    }
     if (this->ref_paths > 0) {
         out << "; included " << this->ref_paths << " reference paths";
     }
@@ -1018,7 +1026,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 
     std::vector<Haplotype> haplotypes;
     for (size_t i = 0; i < parameters.num_haplotypes; i++) {
-        haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_edge(), {} });
+        haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
     }
 
     // TODO: Random seed.
@@ -1071,8 +1079,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             // Select the haplotypes greedily.
             std::vector<std::pair<size_t, double>> selected_haplotypes;
             std::vector<std::pair<size_t, double>> remaining_haplotypes;
-            for (size_t sequence_id = 0; sequence_id < subchain.sequences.size(); sequence_id++) {
-                remaining_haplotypes.push_back( { sequence_id, 0.0 });
+            for (size_t seq_offset = 0; seq_offset < subchain.sequences.size(); seq_offset++) {
+                remaining_haplotypes.push_back( { seq_offset, 0.0 });
             }
             while (selected_haplotypes.size() < haplotypes.size() && !remaining_haplotypes.empty()) {
                 // Score the remaining haplotypes.
@@ -1101,7 +1109,6 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 remaining_haplotypes.erase(remaining_haplotypes.begin() + selected);
 
                 // Adjust kmer scores based on the selected haplotype.
-                size_t sequence_id = selected_haplotypes.back().first;
                 size_t offset = selected_haplotypes.back().first * subchain.kmers.size();
                 for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                     switch (kmer_types[kmer_id].first) {
@@ -1119,12 +1126,45 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
                 }
             }
 
-            // Extend the haplotypes with the selected sequences.
+            // If we did not have enough haplotypes in the subchain, repeat them as necessary.
+            size_t original_selected = selected_haplotypes.size();
+            for (size_t i = original_selected; i < haplotypes.size(); i++) {
+                selected_haplotypes.push_back(selected_haplotypes[i % original_selected]);
+            }
+
+            // Try to match the existing haplotypes with the selected sequences based on
+            // GBWT sequence id.
+            std::vector<size_t> haplotype_to_selected(haplotypes.size(), haplotypes.size());
+            sdsl::bit_vector selected_in_use(haplotypes.size(), 0);
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
-                size_t offset = haplotype % selected_haplotypes.size();
-                size_t seq_id = selected_haplotypes[offset].first;
-                statistics.score += selected_haplotypes[offset].second;
-                haplotypes[haplotype].extend(subchain.sequences[seq_id], subchain, *this, builder);
+                for (size_t selected = 0; selected < haplotypes.size(); selected++) {
+                    if (subchain.sequences[selected_haplotypes[selected].first].first == haplotypes[haplotype].sequence_id && !selected_in_use[selected]) {
+                        haplotype_to_selected[haplotype] = selected;
+                        selected_in_use[selected] = 1;
+                        statistics.connections++;
+                        break;
+                    }
+                }
+            }
+            for (size_t haplotype = 0, selected = 0; haplotype < haplotypes.size(); haplotype++) {
+                if (haplotype_to_selected[haplotype] < haplotypes.size()) {
+                    continue;
+                }
+                while (selected < haplotypes.size() && selected_in_use[selected]) {
+                    selected++;
+                }
+                assert(selected < haplotypes.size());
+                haplotype_to_selected[haplotype] = selected;
+                selected_in_use[selected] = 1;
+                selected++;
+            }
+
+            // Finally extend the haplotypes with the selected and matched sequences.
+            for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
+                size_t selected = haplotype_to_selected[haplotype];
+                size_t seq_offset = selected_haplotypes[selected].first;
+                statistics.score += selected_haplotypes[selected].second;
+                haplotypes[haplotype].extend(subchain.sequences[seq_offset], subchain, *this, builder);
             }
             have_haplotypes = subchain.has_end();
             statistics.subchains++;
