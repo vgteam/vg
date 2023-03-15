@@ -70,9 +70,10 @@ using namespace std;
         }
         SECTION("Distances within one node") {
             ZipCode zipcode;
+            ZipCodeDecoder decoder(&zipcode);
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            REQUIRE(ZipCode::minimum_distance_between(zipcode, make_pos_t(n1->id(), false, 0),
-                                                         zipcode, make_pos_t(n1->id(), false, 3),
+            REQUIRE(ZipCode::minimum_distance_between(decoder, make_pos_t(n1->id(), false, 0),
+                                                      decoder, make_pos_t(n1->id(), false, 3),
                                                          distance_index)
                     == 3);
         }
@@ -256,33 +257,39 @@ using namespace std;
             ZipCode zip6;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
 
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), false, 0),
+            ZipCodeDecoder decoder1(&zip1);
+            ZipCodeDecoder decoder2(&zip2);
+            ZipCodeDecoder decoder3(&zip3);
+            ZipCodeDecoder decoder4(&zip4);
+            ZipCodeDecoder decoder5(&zip5);
+            ZipCodeDecoder decoder6(&zip6);
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                      decoder2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
 
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip3, make_pos_t(n3->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                      decoder3, make_pos_t(n3->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 2),
-                                                         zip1, make_pos_t(n1->id(), true, 2),
+            REQUIRE(ZipCode::minimum_distance_between(decoder3, make_pos_t(n3->id(), true, 2),
+                                                         decoder1, make_pos_t(n1->id(), true, 2),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == 6);
-            REQUIRE(ZipCode::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
-                                                         zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder5, make_pos_t(n5->id(), false, 0),
+                                                        decoder4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
-                                                         zip4, make_pos_t(n4->id(), false, 1),
+            REQUIRE(ZipCode::minimum_distance_between(decoder4, make_pos_t(n4->id(), false, 0),
+                                                         decoder4, make_pos_t(n4->id(), false, 1),
                                                          distance_index)
                     == 1);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip6, make_pos_t(n6->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == 7);
         }
@@ -742,42 +749,49 @@ using namespace std;
             ZipCode zip8;
             zip8.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
 
-
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), false, 0),
+            ZipCodeDecoder decoder1 (&zip1);
+            ZipCodeDecoder decoder2 (&zip2);
+            ZipCodeDecoder decoder3 (&zip3);
+            ZipCodeDecoder decoder4 (&zip4);
+            ZipCodeDecoder decoder5 (&zip5);
+            ZipCodeDecoder decoder6 (&zip6);
+            ZipCodeDecoder decoder7 (&zip7);
+            ZipCodeDecoder decoder8 (&zip8);
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
 
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip6, make_pos_t(n6->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == 4);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip7, make_pos_t(n7->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 5);
-            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
-                                                         zip7, make_pos_t(n7->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder2, make_pos_t(n2->id(), false, 0),
+                                                         decoder7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 2);
-            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
-                                                         zip8, make_pos_t(n8->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder4, make_pos_t(n4->id(), false, 0),
+                                                         decoder8, make_pos_t(n8->id(), false, 0),
                                                          distance_index)
                     == 8);
-            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
-                                                         zip6, make_pos_t(n6->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder4, make_pos_t(n4->id(), false, 0),
+                                                         decoder6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 0),
-                                                         zip8, make_pos_t(n8->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder4, make_pos_t(n4->id(), false, 0),
+                                                         decoder8, make_pos_t(n8->id(), true, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(ZipCode::minimum_distance_between(zip5, make_pos_t(n5->id(), false, 0),
-                                                         zip6, make_pos_t(n6->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder5, make_pos_t(n5->id(), false, 0),
+                                                         decoder6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(ZipCode::minimum_distance_between(zip7, make_pos_t(n7->id(), true, 0),
-                                                         zip2, make_pos_t(n2->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder7, make_pos_t(n7->id(), true, 0),
+                                                         decoder2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 2);
         }
@@ -994,54 +1008,58 @@ using namespace std;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
 
 
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), false, 0),
+            ZipCodeDecoder decoder1(&zip1);
+            ZipCodeDecoder decoder2(&zip2);
+            ZipCodeDecoder decoder3(&zip3);
+            ZipCodeDecoder decoder4(&zip4);
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip3, make_pos_t(n3->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder3, make_pos_t(n3->id(), false, 0),
                                                          distance_index)
                     == 4);
-            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
-                                                         zip1, make_pos_t(n1->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder3, make_pos_t(n3->id(), false, 0),
+                                                         decoder1, make_pos_t(n1->id(), true, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                         decoder4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == 3);
 
             //Shouldn't take the loop in the chain
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
-                                                         zip1, make_pos_t(n1->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 1),
+                                                         decoder1, make_pos_t(n1->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 1),
-                                                         zip2, make_pos_t(n2->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 1),
+                                                         decoder2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 5);
-            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
-                                                         zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder3, make_pos_t(n3->id(), false, 0),
+                                                         decoder4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == 1);
-            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder2, make_pos_t(n2->id(), false, 0),
+                                                         decoder2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip2, make_pos_t(n2->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder2, make_pos_t(n2->id(), false, 0),
+                                                         decoder2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder3, make_pos_t(n3->id(), false, 0),
+                                                         decoder2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 2);
-            REQUIRE(ZipCode::minimum_distance_between(zip3, make_pos_t(n3->id(), true, 0),
-                                                         zip2, make_pos_t(n2->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder3, make_pos_t(n3->id(), true, 0),
+                                                         decoder2, make_pos_t(n2->id(), true, 0),
                                                          distance_index)
                     == 1);
-            REQUIRE(ZipCode::minimum_distance_between(zip4, make_pos_t(n4->id(), false, 1),
-                                                         zip4, make_pos_t(n4->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(decoder4, make_pos_t(n4->id(), false, 1),
+                                                         decoder4, make_pos_t(n4->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
         }
@@ -1265,30 +1283,34 @@ using namespace std;
             zip6.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
             ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
+            ZipCodeDecoder zip_decoder1(&zip1);
+            ZipCodeDecoder zip_decoder2(&zip2);
+            ZipCodeDecoder zip_decoder3(&zip3);
+            ZipCodeDecoder zip_decoder6(&zip6);
+            ZipCodeDecoder zip_decoder7(&zip7);
 
-
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip_decoder1, make_pos_t(n1->id(), false, 0),
+                                                         zip_decoder2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), true, 0),
-                                                         zip2, make_pos_t(n2->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip_decoder1, make_pos_t(n1->id(), true, 0),
+                                                         zip_decoder2, make_pos_t(n2->id(), false, 0),
                                                          distance_index)
                     == 3);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip3, make_pos_t(n3->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip_decoder1, make_pos_t(n1->id(), false, 0),
+                                                         zip_decoder3, make_pos_t(n3->id(), false, 0),
                                                          distance_index)
                     == 4);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip3, make_pos_t(n3->id(), true, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip_decoder1, make_pos_t(n1->id(), false, 0),
+                                                         zip_decoder3, make_pos_t(n3->id(), true, 0),
                                                          distance_index)
                     == 8);
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip6, make_pos_t(n6->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip_decoder1, make_pos_t(n1->id(), false, 0),
+                                                         zip_decoder6, make_pos_t(n6->id(), false, 0),
                                                          distance_index)
                     == std::numeric_limits<size_t>::max());
-            REQUIRE(ZipCode::minimum_distance_between(zip6, make_pos_t(n6->id(), false, 0),
-                                                         zip7, make_pos_t(n7->id(), false, 0),
+            REQUIRE(ZipCode::minimum_distance_between(zip_decoder6, make_pos_t(n6->id(), false, 0),
+                                                         zip_decoder7, make_pos_t(n7->id(), false, 0),
                                                          distance_index)
                     == 1);
         }
@@ -1444,10 +1466,11 @@ using namespace std;
             ZipCode zip7;
             zip7.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
 
-
-            REQUIRE(ZipCode::minimum_distance_between(zip1, make_pos_t(n1->id(), false, 0),
-                                                         zip2, make_pos_t(n2->id(), false, 0),
-                                                         distance_index)
+            ZipCodeDecoder decoder1(&zip1);
+            ZipCodeDecoder decoder2(&zip2);
+            REQUIRE(ZipCode::minimum_distance_between(decoder1, make_pos_t(n1->id(), false, 0),
+                                                      decoder2, make_pos_t(n2->id(), false, 0),
+                                                     distance_index)
                     == 3);
             REQUIRE(ZipCode::is_farther_than(zip1, zip6, 3));
             REQUIRE(!ZipCode::is_farther_than(zip1, zip6, 5));

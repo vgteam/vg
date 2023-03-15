@@ -584,9 +584,10 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     // Minimizers sorted by score in descending order.
     std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
+    vector<ZipCodeDecoder> decoders;
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, decoders, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1412,8 +1413,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     // structures pass around pointers to std::vector<std::vector<seed type>>.
     // TODO: Let the clusterer use something else?
     std::vector<std::vector<Seed>> seeds_by_read(2);
+    vector<ZipCodeDecoder> decoders;
     for (auto r : {0, 1}) {
-        seeds_by_read[r] = this->find_seeds(minimizers_by_read[r], *alns[r], funnels[r]);
+        seeds_by_read[r] = this->find_seeds(minimizers_by_read[r], *alns[r], decoders, funnels[r]);
     }
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
@@ -3203,7 +3205,7 @@ std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<
     return sort_permutation(minimizers.begin(), minimizers.end());
 }
 
-std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, vector<ZipCodeDecoder>& decoders, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -3418,7 +3420,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                     //If the zipcode was saved in the payload
                     zip.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-                seeds.push_back(chain_info_to_seed(hit, i, zip));
+                decoders.emplace_back(&zip);
+                seeds.push_back(chain_info_to_seed(hit, i, zip, &decoders.back()));
             }
             
             if (this->track_provenance) {

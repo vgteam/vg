@@ -324,37 +324,7 @@ namespace unittest {
             REQUIRE(clusters[0].size() == 2);
             REQUIRE(clusters[1].size() == 1);
         }
-        SECTION( "Distances are correct" ) {
- 
-            vector<pos_t> positions;
-            positions.emplace_back(make_pos_t(1, false, 1));
-            positions.emplace_back(make_pos_t(2, false, 0));
-            positions.emplace_back(make_pos_t(4, false, 3));
-            positions.emplace_back(make_pos_t(7, false, 0));
-            //all are in the same cluster
-            for (bool use_minimizers : {true, false} ) {
-                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                for (pos_t pos : positions) {
-                    ZipCode zipcode;
-                    zipcode.fill_in_zipcode(dist_index, pos);
-                    if (use_minimizers) {
-                        seeds.push_back({ pos, 0, zipcode});
-                    } else {
-                        seeds.push_back({ pos, 0});
-                    }
-                }
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[1], false) == 2); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[2], false) == 6); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[3], false) == 8); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[1], seeds[3], false) == 6); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[1], seeds[0], false) == 2); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[2], seeds[0], false) == 6); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[3], seeds[0], false) == 8); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[3], seeds[1], false) == 6); 
-            }
 
-
-        }
     }
 
     TEST_CASE( "cluster simple chain with multiple connected components",
@@ -779,29 +749,6 @@ namespace unittest {
                 }
                 vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 4); 
                 REQUIRE(clusters.size() == 2); 
-            }
-        }
-        SECTION("distance") {
-            vector<pos_t> positions;
-            positions.emplace_back(make_pos_t(12, false, 0));
-            positions.emplace_back(make_pos_t(7, false, 0));
-            positions.emplace_back(make_pos_t(1, false, 0));
-            positions.emplace_back(make_pos_t(5, false, 0));
-            //all are in the same cluster
-            for (bool use_minimizers : {true, false} ) {
-                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-                for (pos_t pos : positions) {
-                    ZipCode zipcode;
-                    zipcode.fill_in_zipcode(distance_index, pos);
-                    if (use_minimizers) {
-                        seeds.push_back({ pos, 0, zipcode});
-                    } else {
-                        seeds.push_back({ pos, 0});
-                    }
-                }
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[1], false) == 6); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[3], seeds[2], false) == 7); 
-                REQUIRE(clusterer.distance_between_seeds(seeds[2], seeds[3], false) == 7); 
             }
         }
     }
@@ -1497,8 +1444,9 @@ namespace unittest {
             //One fragment cluster
             //Distance from pos on 4 to pos on 7 is 8, including one position
             //
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds(2);
             for (bool use_minimizers : {true, false} ) {
-                vector<SnarlDistanceIndexClusterer::Seed> seeds ;
+                vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0] ;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
@@ -1509,7 +1457,7 @@ namespace unittest {
                         seeds.push_back({ pos, 0});
                     }
                 }
-                vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+                vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
                 for (id_t n : seed_nodes1) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
@@ -1520,9 +1468,6 @@ namespace unittest {
                         seeds1.push_back({ pos, 0});
                     }
                 }
-                vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-                all_seeds.push_back(seeds);
-                all_seeds.push_back(seeds1);
 
 
                 vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
@@ -1542,7 +1487,8 @@ namespace unittest {
                 //Clusters should be {2, 3, 4}, {7, 8, 10, 11}
                 //One fragment cluster
                 //Distance from pos on 4 to pos on 7 is 8, including one position
-                vector<SnarlDistanceIndexClusterer::Seed> seeds ;
+                vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
+                vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0] ;
                 for (id_t n : seed_nodes) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
@@ -1553,7 +1499,7 @@ namespace unittest {
                         seeds.push_back({ pos, 0});
                     }
                 }
-                vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+                vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
                 for (id_t n : seed_nodes1) {
                     pos_t pos = make_pos_t(n, false, 0);
                     if (use_minimizers) {
@@ -1564,9 +1510,6 @@ namespace unittest {
                         seeds1.push_back({ pos, 0});
                     }
                 }
-                vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-                all_seeds.push_back(seeds);
-                all_seeds.push_back(seeds1);
 
 
                 vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
@@ -1585,23 +1528,21 @@ namespace unittest {
             vector<id_t> seed_nodes1({7, 8, 10, 11});
             //Fragment clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //Distance from pos on 4 to pos on 7 is 8, including one position
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0];
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds1.push_back({ pos, 0, zipcode});
             }
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            all_seeds.push_back(seeds);
-            all_seeds.push_back(seeds1);
 
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
@@ -1621,23 +1562,21 @@ namespace unittest {
             vector<id_t> seed_nodes1({7, 8, 10, 11});
             //Fragment clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //Distance from pos on 4 to pos on 7 is 8, including one position
-            vector<SnarlDistanceIndexClusterer::Seed> seeds ;
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0] ;
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds1.push_back({ pos, 0, zipcode});
             }
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            all_seeds.push_back(seeds);
-            all_seeds.push_back(seeds1);
 
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
@@ -2081,7 +2020,9 @@ namespace unittest {
             }
         }
         SECTION( "Four clusters" ) {
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds(1);
+
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0];
             vector<pos_t> pos_ts;
             pos_ts.emplace_back(3, false, 0);
             pos_ts.emplace_back(5, false, 0);
@@ -2103,9 +2044,6 @@ namespace unittest {
 
             REQUIRE( clusters.size() == 4);
 
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-
-            all_seeds.push_back(seeds);
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
 
@@ -2120,8 +2058,8 @@ namespace unittest {
 
             //New fragment clusters
         } SECTION ("Four fragment clusters") {
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0];
             vector<pos_t>pos_ts;
             pos_ts.emplace_back(3, false, 0);
             pos_ts.emplace_back(5, false, 0);
@@ -2132,8 +2070,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
                 seeds.push_back({ pos, 0});
             }
-            all_seeds.push_back(seeds);
-            seeds.clear();
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
             pos_ts.clear();
             //New cluster
             pos_ts.emplace_back(5, false, 8);
@@ -2142,9 +2079,8 @@ namespace unittest {
             pos_ts.emplace_back(14, false, 0);
             pos_ts.emplace_back(15, false, 0);
             for (pos_t pos : pos_ts){
-                seeds.push_back({ pos, 0});
+                seeds1.push_back({ pos, 0});
             }
-            all_seeds.push_back(seeds);
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
 
@@ -2430,22 +2366,20 @@ namespace unittest {
         }
         SECTION("Only seeds two reads") {
 
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
             vector<id_t> ids({1, 6, 14});
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0];
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
             vector<id_t> ids1({8, 12});
-            vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
             for (id_t n : ids1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
             }
 
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            all_seeds.emplace_back(seeds);
-            all_seeds.emplace_back(seeds1);
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 4, 5); 
 
@@ -2582,13 +2516,14 @@ namespace unittest {
         SECTION("Two top level clusters") {
 
             vector<id_t> ids({1, 3, 11});
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0];
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
             vector<id_t> ids1({5, 13});
-            vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
             for (id_t n : ids1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
@@ -2596,9 +2531,6 @@ namespace unittest {
             //Clusters are 
             //Read 1: {1, 3} in a fragment cluster with Read 2: {5}
             //Read 1: {11} in a fragment cluster with Read 2: {13}
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            all_seeds.emplace_back(seeds);
-            all_seeds.emplace_back(seeds1);
 
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
@@ -2617,14 +2549,15 @@ namespace unittest {
         }
         SECTION("Disconnected node") {
 
+            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds (2);
             vector<id_t> ids({1, 3, 11, 14, 14});
-            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds = all_seeds[0];
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds.push_back({ pos, 0});
             }
             vector<id_t> ids1({5, 13});
-            vector<SnarlDistanceIndexClusterer::Seed> seeds1;
+            vector<SnarlDistanceIndexClusterer::Seed>& seeds1 = all_seeds[1];
             for (id_t n : ids1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 seeds1.push_back({ pos, 0});
@@ -2633,9 +2566,6 @@ namespace unittest {
             //Read 1: {1, 3} in a fragment cluster with Read 2: {5}
             //Read 1: {11} in a fragment cluster with Read 2: {13}
             //Read 1 : {14, 14}
-            vector<vector<SnarlDistanceIndexClusterer::Seed>> all_seeds;
-            all_seeds.emplace_back(seeds);
-            all_seeds.emplace_back(seeds1);
 
 
             vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
@@ -2794,11 +2724,6 @@ namespace unittest {
                         seeds.push_back({ pos, 0});
                     }
                 }
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[1],false) == 3);
-                REQUIRE(clusterer.distance_between_seeds(seeds[1], seeds[0],false) == 3);
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[2],false) == 4);
-                REQUIRE(clusterer.distance_between_seeds(seeds[0], seeds[3],false) == 4);
-                REQUIRE(clusterer.distance_between_seeds(seeds[2], seeds[4],false) == 5);
             }
 
 
@@ -3478,18 +3403,6 @@ namespace unittest {
                                                 size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2), false, &graph);
                                                 size_t dist = std::min(std::min(dist1, 
                                                                    dist2), std::min( dist3, dist4));
-                                                if (dist != clusterer.distance_between_seeds(all_seeds[read_num][clust[i1]],
-                                                                                                 all_seeds[read_num][clust2[i2]],
-
-                                                                                                 false)) {
-                                                    graph.serialize("testGraph.hg");
-                                                    cerr << "Distance between " << pos1 << " and " << pos2 << " should be " << dist << endl;
-
-                                                }
-                                                REQUIRE(dist == clusterer.distance_between_seeds(all_seeds[read_num][clust[i1]],
-                                                                                                 all_seeds[read_num][clust2[i2]],
-
-                                                                                                 false));
                                                 if ( dist != -1 && dist <= read_lim) {
                                                     dist_index.print_self();
                                                     graph.serialize("testGraph.hg");

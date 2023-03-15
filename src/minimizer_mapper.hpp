@@ -448,8 +448,8 @@ protected:
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& chain_info) {
-        return { hit, minimizer, chain_info };
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& zip, ZipCodeDecoder* decoder) {
+        return { hit, minimizer, zip, decoder};
     }
     
     /// Convert a collection of seeds to a collection of chaining anchors.
@@ -502,8 +502,9 @@ protected:
 
     /**
      * Find seeds for all minimizers passing the filters.
+     * Fill in decoders with the ZipCodeDecoders that were found for the seeds
      */
-    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, vector<ZipCodeDecoder>& decoders, Funnel& funnel) const;
     
     /**
      * If tracking correctness, mark seeds that are correctly mapped as correct

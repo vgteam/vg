@@ -714,9 +714,10 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
 
 }
 
-size_t ZipCode::minimum_distance_between(const ZipCode& zip1, const pos_t& pos1,   
-    const ZipCode& zip2, const pos_t& pos2, const SnarlDistanceIndex& distance_index,
-    bool directed_distance, const HandleGraph* graph){
+size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos_t& pos1,   
+    ZipCodeDecoder& zip2_decoder, const pos_t& pos2, const SnarlDistanceIndex& distance_index,
+    size_t distance_limit, bool directed_distance, const HandleGraph* graph){
+
 
 #ifdef DEBUG_ZIPCODE
 //Make sure that the zip codes actually correspond to the positions
@@ -806,11 +807,6 @@ size_t ZipCode::minimum_distance_between(const ZipCode& zip1, const pos_t& pos1,
 
     };
 
-    //Get a decoder for each zipcode. Start out with just the first thing decoded
-    //to check if they are on the same connected component
-    ZipCodeDecoder zip1_decoder(&zip1, 1);
-    ZipCodeDecoder zip2_decoder(&zip2, 1);
-
     if (zip1_decoder.get_distance_index_address(0) != zip2_decoder.get_distance_index_address(0)) {
 #ifdef DEBUG_ZIPCODE
         cerr << "Zip codes are on different connected components" << endl;
@@ -853,6 +849,33 @@ size_t ZipCode::minimum_distance_between(const ZipCode& zip1, const pos_t& pos1,
     cerr << "That should be " << distance_index.net_handle_as_string(ancestors[ancestors.size() - lowest_common_ancestor_depth - 1]) << endl; 
 #endif
 
+
+    if (distance_limit != std::numeric_limits<size_t>::max()){
+        //If we're aborting when the distance is definitely too far,
+        code_type_t ancestor_type = zip1_decoder.get_code_type(lowest_common_ancestor_depth);
+        if  (ancestor_type == CHAIN || ancestor_type == ROOT_CHAIN) {
+            //If the current ancestor is a chain, then check the distance
+            size_t prefix_sum1 = zip1_decoder.get_offset_in_chain(lowest_common_ancestor_depth+1);
+            size_t prefix_sum2 = zip2_decoder.get_offset_in_chain(lowest_common_ancestor_depth+1);
+            size_t distance_in_chain; 
+            if (prefix_sum1 < prefix_sum2) {
+                //zip1 comes before zip2
+                distance_in_chain = SnarlDistanceIndex::minus(
+                    prefix_sum2, 
+                    SnarlDistanceIndex::sum(prefix_sum1, 
+                                            zip1_decoder.get_length(lowest_common_ancestor_depth+1)));
+            } else {
+                //zip2 comes before zip1
+                distance_in_chain = SnarlDistanceIndex::minus(
+                    prefix_sum1, 
+                    SnarlDistanceIndex::sum(prefix_sum2, 
+                                            zip2_decoder.get_length(lowest_common_ancestor_depth+1)));
+            }
+            if (distance_in_chain > distance_limit) {
+                return std::numeric_limits<size_t>::max();
+            }
+        }
+    }
 
     //Start from the nodes
     size_t distance_to_start1 = is_rev(pos1) 

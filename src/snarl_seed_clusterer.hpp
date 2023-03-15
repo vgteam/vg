@@ -59,6 +59,8 @@ class SnarlDistanceIndexClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
             ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+            //TODO: unique_ptr?
+            ZipCodeDecoder* zipcode_decoder; //The decoder for the zipcode
         };
 
         /// Seed information used for clustering
@@ -72,7 +74,10 @@ class SnarlDistanceIndexClusterer {
 
             //TODO: This gets copied because it needs to be mutable
             //Cached values (zip codes) from the minimizer
-            ZipCode minimizer_cache;
+            ZipCode zipcode;
+
+            //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
+            //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -121,12 +126,6 @@ class SnarlDistanceIndexClusterer {
                 const vector<vector<Seed>>& all_seeds, 
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
-
-        /**
-         * Find the minimum distance between two seeds. This will use the minimizer payload when possible
-         */
-        size_t distance_between_seeds(const Seed& seed1, const Seed& seed2,
-            bool stop_at_lowest_common_ancestor) const;
 
     private:
 

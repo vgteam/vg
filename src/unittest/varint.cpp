@@ -13,7 +13,7 @@ using namespace std;
             varint_vector.add_value(0);
             pair<size_t, size_t> value_and_index = varint_vector.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 0);
-            REQUIRE(value_and_index.second == 1);
+            REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
         }
         SECTION ("[1]") {
             varint_vector_t varint_vector;
@@ -34,19 +34,16 @@ using namespace std;
             REQUIRE(value_and_index.second == std::numeric_limits<size_t>::max());
         }
         SECTION ("more values") {
-            cerr << endl;
             vector<size_t> values {1, 56435345, 23423, 5, 123498275, 0, 213, 14253452324, std::numeric_limits<size_t>::max(), 0, 23123241234234, std::numeric_limits<size_t>::max()-1};
             varint_vector_t varint_vector;
             for (auto& x : values) {
                varint_vector.add_value(x); 
             }
-            cerr << endl;
             size_t index = 0;//index in the varint vector
             size_t i = 0; //index in values
             while (i < values.size()) {
                 pair<size_t, size_t> value_and_index = varint_vector.get_value_and_next_index(index);
                 REQUIRE(value_and_index.first == values[i]);
-                cerr << value_and_index.first << endl;
                 index = value_and_index.second;
                 i++;
             }

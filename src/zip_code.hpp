@@ -55,9 +55,25 @@ class ZipCode {
         void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
 
         //Get the exact minimum distance between two positions and their zip codes
-        static size_t minimum_distance_between(const ZipCode& zip1, const pos_t& pos1, 
-                                       const ZipCode& zip2, const pos_t& pos2,
-                                       const SnarlDistanceIndex& distance_index, bool directed_distance=true, 
+        //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance
+        //will be greater than the distance limit
+        //static size_t minimum_distance_between(const ZipCode& zip1, const pos_t& pos1, 
+        //                               const ZipCode& zip2, const pos_t& pos2,
+        //                               const SnarlDistanceIndex& distance_index, 
+        //                               size_t distance_limit = std::numeric_limits<size_t>::max(),
+        //                               bool directed_distance=true, 
+        //                               const HandleGraph* graph = nullptr);
+
+        //The same thing but using a zipcode decoder (which also has a pointer to the zipcode)
+        //This is faster because otherwise the zipcode would need to be decoded
+        //The decoders may or may not be filled in, and may be filled in when this is run
+        //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance
+        //will be greater than the distance limit
+        static size_t minimum_distance_between(ZipCodeDecoder& zip_decoder1, const pos_t& pos1, 
+                                       ZipCodeDecoder& zip_decoder2, const pos_t& pos2,
+                                       const SnarlDistanceIndex& distance_index, 
+                                       size_t distance_limit = std::numeric_limits<size_t>::max(),
+                                       bool directed_distance=true, 
                                        const HandleGraph* graph = nullptr);
 
         //Return true if the minimum distance between the zip codes is definitely greater than limit
