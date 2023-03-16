@@ -4353,9 +4353,6 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
         cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
     }
     
-    // check about 30k variants before concluding that the VCF isn't phased
-    // TODO: will there be contig ordering biases that make this a bad assumption?
-    constexpr int vars_to_check = 1 << 15;
     
     htsFile* file = hts_open(filepath.c_str(), "rb");
     if (!file) {
@@ -4365,19 +4362,15 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
     bcf_hdr_t* hdr = bcf_hdr_read(file);
     int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
     // note: it seems that this is not necessary for expressing phasing after all
-//    if (phase_set_id < 0) {
-//        // no PS tag means no phasing
-//        bcf_hdr_destroy(hdr);
-//        hts_close(file);
-//        return false;
-//    }
     
     // iterate over records
     bcf1_t* line = bcf_init();
-    int iter = 0;
     bool found_phased = false;
-    while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
-    {
+    // check about 30k non-haploid variants before concluding that the VCF isn't phased
+    // TODO: will there be contig ordering biases that make this a bad assumption?
+    constexpr int nonhap_vars_to_check = 1 << 15;
+    int nonhap_iter = 0;
+    while (bcf_read(file, hdr, line) >= 0 && nonhap_iter < nonhap_vars_to_check && !found_phased) {
         if (phase_set_id >= 0) {
             if (phase_set_id == BCF_HT_INT) {
                 // phase sets are integers
@@ -4415,25 +4408,31 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
             // we got genotypes, check to see if they're phased
             int num_samples = bcf_hdr_nsamples(hdr);
             int ploidy = num_genotypes / num_samples;
-            for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
-                for (int j = 0; j < ploidy && !found_phased; ++j) {
-                    if (genotypes[i + j] == bcf_int32_vector_end) {
-                        // sample has lower ploidy
-                        break;
-                    }
-                    if (bcf_gt_is_missing(genotypes[i + j])) {
-                        continue;
-                    }
-                    if (bcf_gt_is_phased(genotypes[i + j])) {
-                        // the VCF expresses phasing, we can
-                        found_phased = true;;
+            if (ploidy > 1) {
+                for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
+                    for (int j = 0; j < ploidy && !found_phased; ++j) {
+                        if (genotypes[i + j] == bcf_int32_vector_end) {
+                            // sample has lower ploidy
+                            break;
+                        }
+                        if (bcf_gt_is_missing(genotypes[i + j])) {
+                            continue;
+                        }
+                        if (bcf_gt_is_phased(genotypes[i + j])) {
+                            // the VCF expresses phasing, we can
+                            found_phased = true;;
+                        }
                     }
                 }
+                ++nonhap_iter;
             }
         }
         
         free(genotypes);
-        ++iter;
+    }
+    if (nonhap_iter == 0) {
+        // the entire VCF is haploid, which are trivially phased
+        found_phased = true;
     }
     // clean up
     bcf_destroy(line);
