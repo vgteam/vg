@@ -115,7 +115,7 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:a06515509b2d56e644d5a89d1bab3b239"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a06515509b2d56e644d5a89d1bab3b239">NUM_HAPLOTYPES</a> = 16</td></tr>
+<tr class="memitem:a06515509b2d56e644d5a89d1bab3b239"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a06515509b2d56e644d5a89d1bab3b239">NUM_HAPLOTYPES</a> = 8</td></tr>
 <tr class="memdesc:a06515509b2d56e644d5a89d1bab3b239"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of haplotypes to be generated.  <a href="classvg_1_1Recombinator.html#a06515509b2d56e644d5a89d1bab3b239">More...</a><br /></td></tr>
 <tr class="separator:a06515509b2d56e644d5a89d1bab3b239"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a567c0ae71f8bae880186eb4758dc2cd1"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a567c0ae71f8bae880186eb4758dc2cd1">COVERAGE</a> = 30</td></tr>
@@ -218,8 +218,7 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Generates haplotypes based on the given <code><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a></code> representation and the kmer counts in the given KFF file.</p>
 <p>Runs multiple GBWT construction jobs in parallel using OpenMP threads and generates the specified number of haplotypes in each top-level chain (component).</p>
-<p>Each generated haplotype has a single source haplotype in each subchain. The subchains are connected by unary paths. Suffix / prefix subchains in the middle of a chain create fragment breaks. If the chain starts without a prefix (ends without a suffix), the haplotype chosen for the first (last) subchain is used from the start (continued until the end).</p>
-<p>TODO: Include reference paths? </p>
+<p>Each generated haplotype has a single source haplotype in each subchain. The subchains are connected by unary paths. Suffix / prefix subchains in the middle of a chain create fragment breaks. If the chain starts without a prefix (ends without a suffix), the haplotype chosen for the first (last) subchain is used from the start (continued until the end). </p>
 
 </div>
 </div>
@@ -367,7 +366,7 @@ Private Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr size_t vg::Recombinator::NUM_HAPLOTYPES = 16</td>
+          <td class="memname">constexpr size_t vg::Recombinator::NUM_HAPLOTYPES = 8</td>
         </tr>
       </table>
   </td>
