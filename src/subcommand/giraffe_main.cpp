@@ -324,6 +324,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     << "basic options:" << endl
     << "  -Z, --gbz-name FILE           use this GBZ file (GBWT index + GBWTGraph)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+    << "  -z, --zipcode-name FILE       use these additional distance hints" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
@@ -460,6 +461,9 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_gssw, "gssw" },
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
+
+    //The name of the file that holds extra zipcodes
+    string zipcode_name;
     
     // Map preset names to presets
     std::map<std::string, Preset> presets;
@@ -491,6 +495,7 @@ int main_giraffe(int argc, char** argv) {
         {"graph-name", required_argument, 0, 'g'},
         {"gbwt-name", required_argument, 0, 'H'},
         {"minimizer-name", required_argument, 0, 'm'},
+        {"zipcode-name", required_argument, 0, 'z'},
         {"dist-name", required_argument, 0, 'd'},
         {"progress", no_argument, 0, 'p'},
         {"gam-in", required_argument, 0, 'G'},
@@ -519,7 +524,7 @@ int main_giraffe(int argc, char** argv) {
     parser.make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "hZ:x:g:H:m:d:pG:f:iM:N:R:o:Pnb:B:t:A:";
+    std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:B:t:A:";
     parser.make_short_options(short_options);
 
     int c;
@@ -619,6 +624,17 @@ int main_giraffe(int argc, char** argv) {
                 registry.provide("Minimizers", optarg);
                 break;
                 
+            case 'z':
+                if (!optarg || !*optarg) {
+                    cerr << "error:[vg giraffe] Must provide zipcode index file with -z." << endl;
+                    exit(1);
+                }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open zipcode index file " << optarg << endl;
+                    exit(1); 
+                }
+                zipcode_name = optarg;
+                break;
             case 'd':
                 if (!optarg || !*optarg) {
                     cerr << "error:[vg giraffe] Must provide distance index file with -d." << endl;
@@ -957,6 +973,19 @@ int main_giraffe(int argc, char** argv) {
     }
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
+    // Grab the zipcodes
+    if (show_progress) {
+        cerr << "Loading Zipcodes" << endl;
+    }
+    vector<ZipCode> oversized_zipcodes;
+    if (!zipcode_name.empty()) {
+        zipcode_vector_t zipcode_vector (&oversized_zipcodes);
+
+        ifstream zip_in (zipcode_name);
+        zipcode_vector.deserialize(zip_in);
+    }
+
+
     // Grab the GBZ
     if (show_progress) {
         cerr << "Loading GBZ" << endl;
@@ -1007,7 +1036,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &oversized_zipcodes, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }

@@ -46,9 +46,11 @@ using namespace std;
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
+    const vector<ZipCode>* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index),  
+    zipcodes(zipcodes),
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())),
@@ -582,9 +584,10 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     // Minimizers sorted by score in descending order.
     std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
+    vector<ZipCodeDecoder> decoders;
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, decoders, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1423,8 +1426,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     // structures pass around pointers to std::vector<std::vector<seed type>>.
     // TODO: Let the clusterer use something else?
     std::vector<std::vector<Seed>> seeds_by_read(2);
+    vector<ZipCodeDecoder> decoders;
     for (auto r : {0, 1}) {
-        seeds_by_read[r] = this->find_seeds(minimizers_by_read[r], *alns[r], funnels[r]);
+        seeds_by_read[r] = this->find_seeds(minimizers_by_read[r], *alns[r], decoders, funnels[r]);
     }
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
@@ -3227,7 +3231,7 @@ std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<
     return sort_permutation(minimizers.begin(), minimizers.end());
 }
 
-std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, vector<ZipCodeDecoder>& decoders, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -3423,13 +3427,30 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
-                // TODO: Get all the seed values here
-                // TODO: Don't use the seed payload anymore
-                gbwtgraph::payload_type chain_info = no_chain_info();
-                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
-                    chain_info = minimizer.occs[j].payload;
+                Seed seed = {hit, i};
+
+                //Get the zipcode
+                ZipCode& zip = seed.zipcode;
+                if (minimizer.occs[j].payload == MIPayload::NO_CODE) {
+                    //If the zipcocde wasn't saved, then calculate it
+                    zip.fill_in_zipcode(*(this->distance_index), hit);
+                } else if (minimizer.occs[j].payload.first == 0) {
+                    //If the minimizer stored the index into a list of zipcodes
+                    if (this->zipcodes != nullptr) {
+                        //If we have the oversized zipcodes
+                        zip = zipcodes->at(minimizer.occs[j].payload.second);
+                    } else {
+                        //If we don't have the oversized payloads, then fill in the zipcode using the pos
+                        zip.fill_in_zipcode(*(this->distance_index), hit);
+                    }
+                } else {
+                    //If the zipcode was saved in the payload
+                    zip.fill_in_zipcode_from_payload(minimizer.occs[j].payload);
                 }
-                seeds.push_back(chain_info_to_seed(hit, i, chain_info));
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&zip);
+                seed.zipcode_decoder.reset(decoder);
+
+                seeds.emplace_back(std::move(seed));
             }
             
             if (this->track_provenance) {

@@ -29,7 +29,13 @@ vector<SnarlDistanceIndexClusterer::Cluster> SnarlDistanceIndexClusterer::cluste
     vector<SeedCache> seed_caches(seeds.size());
     for (size_t i = 0 ; i < seeds.size() ; i++) {
         seed_caches[i].pos = seeds[i].pos;
-        seed_caches[i].minimizer_cache = seeds[i].minimizer_cache;
+        seed_caches[i].zipcode = seeds[i].zipcode;
+        if (seeds[i].zipcode.byte_count() == 0) {
+            //If the zipcode is empty
+            ZipCode zip;
+            zip.fill_in_zipcode(distance_index, seed_caches[i].pos);
+            seed_caches[i].zipcode = std::move(zip);
+        }
     }
     vector<vector<SeedCache>*> all_seed_caches = {&seed_caches};
 
@@ -67,7 +73,13 @@ vector<vector<SnarlDistanceIndexClusterer::Cluster>> SnarlDistanceIndexClusterer
         all_seed_caches.emplace_back(all_seeds[read_num].size());
         for (size_t i = 0 ; i < all_seeds[read_num].size() ; i++) {
             all_seed_caches[read_num][i].pos = all_seeds[read_num][i].pos;
-            all_seed_caches[read_num][i].minimizer_cache = all_seeds[read_num][i].minimizer_cache;
+            all_seed_caches[read_num][i].zipcode = all_seeds[read_num][i].zipcode;
+            if (all_seeds[read_num][i].zipcode.byte_count() == 0) {
+                //If the zipcode is empty
+                ZipCode zip;
+                zip.fill_in_zipcode(distance_index, all_seed_caches[read_num][i].pos);
+                all_seed_caches[read_num][i].zipcode = std::move(zip);
+            }
         }
     }
     vector<vector<SeedCache>*> seed_cache_pointers;
@@ -343,31 +355,43 @@ cerr << "Add all seeds to nodes: " << endl;
             //cached values are:
             //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
             // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
-            gbwtgraph::payload_type old_cache = seed.minimizer_cache;
 
-            //TODO: For now, we're either storing all values or none
-            bool has_cached_values = old_cache != MIPayload::NO_CODE;
+            //The zipcodes are already filled in
+            //TODO: The whole thing could now be done with the zipcodes instead of looking at the distance
+            //index but that would be too much work to write for now
+            const ZipCode& old_cache = seed.zipcode;
+
 #ifdef DEBUG_CLUSTER
-            if (has_cached_values) {
-                cerr << "Using cached values:" 
-                    << ", " << MIPayload::record_offset(old_cache)
-                    << ", " << MIPayload::parent_record_offset(old_cache)
-                    << ", " << MIPayload::node_record_offset(old_cache)
+                cerr << "Using cached values for node " << id << ": " 
+                    << ", " << MIPayload::record_offset(old_cache, distance_index, id)
+                    << ", " << MIPayload::parent_record_offset(old_cache, distance_index, id)
+                    << ", " << MIPayload::node_record_offset(old_cache, distance_index, id)
                     << ", " << MIPayload::node_length(old_cache)
-                    << ", " << MIPayload::prefix_sum(old_cache)
-                    << ", " << MIPayload::chain_component(old_cache) << endl;
-            } else {
-                cerr << "Not using cached values" << endl;
-            }
+                    << ", " << MIPayload::prefix_sum(old_cache, distance_index, id)
+                    << ", " << MIPayload::chain_component(old_cache, distance_index, id) << endl;
+
+                net_handle_t handle = distance_index.get_node_net_handle(id);
+                net_handle_t parent_handle = distance_index.get_parent(handle);
+
+                assert(MIPayload::record_offset(old_cache, distance_index, id) == distance_index.get_record_offset(handle)); 
+                //assert(MIPayload::parent_record_offset(old_cache, distance_index, id) == 
+                //    (distance_index.is_trivial_chain(parent_handle) ? distance_index.get_record_offset(distance_index.get_parent(parent_handle))
+                //                                             :distance_index.get_record_offset(parent_handle))); 
+                assert(MIPayload::node_record_offset(old_cache, distance_index, id) == distance_index.get_node_record_offset(handle));
+                assert(MIPayload::node_length(old_cache) == distance_index.minimum_length(handle));
+                //size_t prefix_sum = distance_index.is_trivial_chain(parent_handle)
+                //         ? std::numeric_limits<size_t>::max() 
+                //         : distance_index.get_prefix_sum_value(handle);
+                //assert(MIPayload::prefix_sum(old_cache, distance_index, id) == prefix_sum);
+                assert(MIPayload::chain_component(old_cache, distance_index, id) == (distance_index.is_multicomponent_chain(parent_handle) 
+                                ? distance_index.get_chain_component(handle)
+                                : 0));
+
 #endif
 
 
             //Get the net_handle for the node the seed is on
-            net_handle_t node_net_handle = !has_cached_values ? distance_index.get_node_net_handle(id) 
-                                            : distance_index.get_net_handle_from_values(MIPayload::record_offset(old_cache), 
-                                                             SnarlDistanceIndex::START_END, 
-                                                             SnarlDistanceIndex::NODE_HANDLE, 
-                                                             MIPayload::node_record_offset(old_cache)); 
+            net_handle_t node_net_handle = distance_index.get_node_net_handle(id);
 
 
             //Get the parent of the node
@@ -375,55 +399,43 @@ cerr << "Add all seeds to nodes: " << endl;
             //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
             //because they will be clustered here and added to the root instead of being added to the 
             //snarl tree to be clustered
-            if (has_cached_values) {
-                if (MIPayload::is_trivial_chain(old_cache)) {
-                    //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
-                    parent = distance_index.get_net_handle_from_values (distance_index.get_record_offset(node_net_handle),
-                                                            SnarlDistanceIndex::START_END,
-                                                            SnarlDistanceIndex::CHAIN_HANDLE,
-                                                            MIPayload::node_record_offset(old_cache));
-                    if (MIPayload::parent_record_offset(old_cache) == 0) {
-                        //If the parent offset stored in the cache is the root, then this is a trivial chain
-                        //child of the root not in a root snarl, so remember the root as the parent and the 
-                        //trivial chain as the node
-                        node_net_handle = parent;
-                        parent = distance_index.get_root();
-                    } else if (MIPayload::parent_is_root(old_cache) && !MIPayload::parent_is_chain(old_cache)) {
-                        //If the parent is a root snarl, then the node becomes the trivial chain 
-                        //and we get the parent root snarl from the cache
-                        node_net_handle = parent;
-                        parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache),
-                                                                           SnarlDistanceIndex::START_END,
-                                                                           SnarlDistanceIndex::ROOT_HANDLE);
-                    }
-                } else if (MIPayload::parent_record_offset(old_cache) == 0) {
-                    //The parent is just the root
+            if (MIPayload::is_trivial_chain(old_cache)) {
+                //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
+                parent = distance_index.get_net_handle_from_values (distance_index.get_record_offset(node_net_handle),
+                                                        SnarlDistanceIndex::START_END,
+                                                        SnarlDistanceIndex::CHAIN_HANDLE,
+                                                        MIPayload::node_record_offset(old_cache, distance_index, id));
+                if (MIPayload::parent_record_offset(old_cache, distance_index, id) == 0) {
+                    //If the parent offset stored in the cache is the root, then this is a trivial chain
+                    //child of the root not in a root snarl, so remember the root as the parent and the 
+                    //trivial chain as the node
+                    node_net_handle = parent;
                     parent = distance_index.get_root();
-                } else if (MIPayload::parent_is_root(old_cache) && !MIPayload::parent_is_chain(old_cache)) {
-                    //If the parent is a root snarl
-                    parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache),
-                                                           SnarlDistanceIndex::START_END,
-                                                           SnarlDistanceIndex::ROOT_HANDLE);
-                } else {
-                    //Otherwise the parent is an actual chain and we use the value from the cache
-                    parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache),
-                                                           SnarlDistanceIndex::START_END,
-                                                           SnarlDistanceIndex::CHAIN_HANDLE);
+                } else if (MIPayload::parent_is_root(old_cache) && !MIPayload::parent_is_chain(old_cache, distance_index, id)) {
+                    //If the parent is a root snarl, then the node becomes the trivial chain 
+                    //and we get the parent root snarl from the cache
+                    node_net_handle = parent;
+                    parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                                                                       SnarlDistanceIndex::START_END,
+                                                                       SnarlDistanceIndex::ROOT_HANDLE);
                 }
+            } else if (MIPayload::parent_record_offset(old_cache, distance_index, id) == 0) {
+                //The parent is just the root
+                parent = distance_index.get_root();
+            } else if (MIPayload::parent_is_root(old_cache) && !MIPayload::parent_is_chain(old_cache, distance_index, id)) {
+                //If the parent is a root snarl
+                parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                                                       SnarlDistanceIndex::START_END,
+                                                       SnarlDistanceIndex::ROOT_HANDLE);
             } else {
-                parent = distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle));
-                if (distance_index.is_trivial_chain(parent)){
-                    net_handle_t grandparent = distance_index.get_parent(parent);
-                    if (distance_index.is_root(grandparent)){
-                        node_net_handle = parent;
-                        parent = distance_index.start_end_traversal_of(grandparent);
-                    }
-                }
+                //Otherwise the parent is an actual chain and we use the value from the cache
+                parent = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
+                                                       SnarlDistanceIndex::START_END,
+                                                       SnarlDistanceIndex::CHAIN_HANDLE);
             }
+            
 
 #ifdef DEBUG_CLUSTER
-cerr << MIPayload::is_trivial_chain(old_cache) << " " << MIPayload::parent_is_chain(old_cache) << " " << MIPayload::parent_is_root(old_cache) << endl;
-cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << distance_index.net_handle_as_string(parent) << endl;
             if (!distance_index.is_root(parent)) {
                 cerr << "Parent should be " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle))) << endl; 
                 assert( distance_index.start_end_traversal_of(parent) == distance_index.start_end_traversal_of(distance_index.get_parent(node_net_handle)));
@@ -437,48 +449,29 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 #endif
 
                 //Add the seed to its parent
-                //Also update the minimizer_cache on the seed 
+                //Also update the zipcode on the seed 
 
 
 
                 //Seed payload is: 
                 //record offset of node, record offset of parent, node record offset, node length, is_reversed, is_trivial_chain, parent is chain, parent is root, prefix sum, chain_component
 
-                bool is_trivial_chain = has_cached_values ? MIPayload::is_trivial_chain(old_cache) 
-                                                      : distance_index.is_trivial_chain(parent);
-                size_t prefix_sum = MIPayload::prefix_sum(old_cache);
+                bool is_trivial_chain =  MIPayload::is_trivial_chain(old_cache);
+                size_t prefix_sum = MIPayload::prefix_sum(old_cache, distance_index, id);
                 size_t node_length = MIPayload::node_length(old_cache);
-                bool is_reversed_in_parent = MIPayload::is_reversed(old_cache);
+                bool is_reversed_in_parent = MIPayload::is_reversed(old_cache, distance_index, id);
 
-                if (!has_cached_values) {
-                    //If we didn't store information in the seed, then get it from the distance index
-                    //and remember it in the seed's cache
-
-                    //prefix sum
-                    prefix_sum = is_trivial_chain ? std::numeric_limits<size_t>::max() 
-                                                  : distance_index.get_prefix_sum_value(node_net_handle);
-                    MIPayload::set_prefix_sum(seed.minimizer_cache, prefix_sum);
-
-                    //component
-                    MIPayload::set_chain_component(seed.minimizer_cache, 
-                            distance_index.is_multicomponent_chain(parent) 
-                                ? distance_index.get_chain_component(node_net_handle)
-                                : 0);
-
-                    //node length
-                    node_length = distance_index.minimum_length(node_net_handle);
-                    MIPayload::set_node_length(seed.minimizer_cache, node_length);
-
-                    //is_reversed_in_parent
-                    is_reversed_in_parent = is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
-                                                             : distance_index.is_reversed_in_parent(node_net_handle);
-                    MIPayload::set_is_reversed(seed.minimizer_cache, is_reversed_in_parent);
-
-                }
 #ifdef DEBUG_CLUSTER
                 //assert(prefix_sum == (is_trivial_chain ? std::numeric_limits<size_t>::max() 
                 //                                  : distance_index.get_prefix_sum_value(node_net_handle)));
+                cerr << "Node length should be " << distance_index.minimum_length(node_net_handle) << " actually " << node_length << endl;
                 assert(node_length == distance_index.minimum_length(node_net_handle));
+                cerr << "Reversed in parent? " << distance_index.net_handle_as_string(node_net_handle) << " " << distance_index.net_handle_as_string(parent) << " " << is_reversed_in_parent << endl;
+                cerr << "is trivial? " << is_trivial_chain << endl;
+                if (!distance_index.is_root(parent)) {
+                    cerr << "Grandparent: " << distance_index.net_handle_as_string(distance_index.get_parent(parent)) << endl;
+                }
+                cerr << is_reversed_in_parent << " " << distance_index.is_reversed_in_parent(parent) << endl;
 
                 assert(is_reversed_in_parent == (is_trivial_chain ? distance_index.is_reversed_in_parent(parent)
                                                              : distance_index.is_reversed_in_parent(node_net_handle)));
@@ -487,7 +480,7 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 //Add the parent chain or trivial chain
                 bool new_parent = false;
                 size_t depth;
-                if (MIPayload::is_trivial_chain(old_cache) && MIPayload::parent_is_chain(old_cache) && MIPayload::parent_is_root(old_cache)) {
+                if (MIPayload::is_trivial_chain(old_cache) && MIPayload::parent_is_chain(old_cache, distance_index, id) && MIPayload::parent_is_root(old_cache)) {
                     //If the node is a trivial chain, and the parent we stored is a chain and root,
                     //then the node is in a simple snarl on the root-level chain
                     depth = 2;
@@ -554,9 +547,9 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 parent_problem.children.back().seed_indices = {read_num, i};
                 parent_problem.children.back().is_seed = true;
                 parent_problem.children.back().has_chain_values = true;
-                parent_problem.children.back().chain_component = MIPayload::chain_component(seed.minimizer_cache);
+                parent_problem.children.back().chain_component = MIPayload::chain_component(seed.zipcode, distance_index, get_id(seed.pos));
                 parent_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
-                                                                      MIPayload::prefix_sum(seed.minimizer_cache));
+                                                                      MIPayload::prefix_sum(seed.zipcode, distance_index, get_id(seed.pos)));
 
 
                 //And the parent to chains_by_level
@@ -566,32 +559,41 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 
 
                 //If the parent is a trivial chain and not in the root, then we also stored the identity of the snarl, so add it here too
-                if (new_parent && has_cached_values) {
+                if ( new_parent) {
                     if (is_trivial_chain && !MIPayload::parent_is_root(old_cache)) {
-                        bool grandparent_is_simple_snarl = MIPayload::parent_is_chain(old_cache);
+                        bool grandparent_is_simple_snarl = MIPayload::parent_is_chain(old_cache, distance_index, id);
                         parent_problem.has_parent_handle = true;
                         parent_problem.parent_net_handle = grandparent_is_simple_snarl 
                                   ? distance_index.get_net_handle_from_values(distance_index.get_record_offset(node_net_handle),
                                                                   SnarlDistanceIndex::START_END,
                                                                   SnarlDistanceIndex::SNARL_HANDLE,
                                                                   1)
-                                  : distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache),
+                                  : distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(old_cache, distance_index, id),
                                                                   SnarlDistanceIndex::START_END,
                                                                   SnarlDistanceIndex::SNARL_HANDLE);
+#ifdef DEBUG_CLUSTER
+                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
+#endif
 
                         if (grandparent_is_simple_snarl) {
                             //If the grandparent is a simple snarl, then we also stored the identity of its parent chain, so add it here too
                             parent_problem.has_grandparent_handle = true;
                             parent_problem.grandparent_net_handle = distance_index.get_net_handle_from_values(
-                                                                        MIPayload::parent_record_offset(old_cache),
+                                                                        MIPayload::parent_record_offset(old_cache, distance_index, id),
                                                                         SnarlDistanceIndex::START_END,
                                                                         SnarlDistanceIndex::CHAIN_HANDLE);
+#ifdef DEBUG_CLUSTER
+                                  cerr << "GRANDPARENT: " << distance_index.net_handle_as_string(parent_problem.grandparent_net_handle) << endl;
+#endif
                         }
-                    } else if (MIPayload::parent_is_root(old_cache) && MIPayload::parent_is_chain(old_cache) && !is_trivial_chain) {
+                    } else if (MIPayload::parent_is_root(old_cache) && MIPayload::parent_is_chain(old_cache, distance_index, id) && !is_trivial_chain) {
                         //The parent chain is a child of the root
                         parent_problem.has_parent_handle = true;
                         parent_problem.parent_net_handle = distance_index.get_net_handle_from_values(
                                     0, SnarlDistanceIndex::START_END, SnarlDistanceIndex::ROOT_HANDLE);
+#ifdef DEBUG_CLUSTER
+                                  cerr << "PARENT: " << distance_index.net_handle_as_string(parent_problem.parent_net_handle) << endl;
+#endif
                     }
                 }
 
@@ -601,10 +603,8 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
 
 
                 //Get the values from the seed. Some may be infinite and need to be re-set
-                size_t node_length = has_cached_values ? MIPayload::node_length(old_cache)
-                                                       : distance_index.minimum_length(node_net_handle);
-                bool is_reversed_in_parent = has_cached_values ? MIPayload::is_reversed(old_cache)
-                                                         : distance_index.is_reversed_in_parent(node_net_handle);
+                size_t node_length =  MIPayload::node_length(old_cache);
+                bool is_reversed_in_parent = MIPayload::is_reversed(old_cache, distance_index, id);
 
 
                 //Create a new SnarlTreeNodeProblem for this node
@@ -635,9 +635,9 @@ cerr << distance_index.net_handle_as_string(node_net_handle) << " parent: " << d
                 node_problem.children.back().seed_indices = {read_num, i};
                 node_problem.children.back().is_seed = true;
                 node_problem.children.back().has_chain_values = true;
-                node_problem.children.back().chain_component = MIPayload::chain_component(seed.minimizer_cache);
+                node_problem.children.back().chain_component = MIPayload::chain_component(seed.zipcode, distance_index, get_id(seed.pos));
                 node_problem.children.back().prefix_sum = SnarlDistanceIndex::sum(seed.distance_left,
-                                                                      MIPayload::prefix_sum(seed.minimizer_cache));
+                                                                      MIPayload::prefix_sum(seed.zipcode, distance_index, get_id(seed.pos)));
 
 
 
@@ -801,6 +801,13 @@ void SnarlDistanceIndexClusterer::cluster_chain_level(ClusteringProblem& cluster
         net_handle_t parent = chain_problem->has_parent_handle
                             ? chain_problem->parent_net_handle
                             : distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle));
+#ifdef DEBUG_CLUSTER
+        cerr << "Chain parent: " << distance_index.net_handle_as_string(parent) << endl;
+        if ((distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) != parent)) {
+            cerr << "Should be: " << distance_index.net_handle_as_string(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle))) << endl;
+            assert(distance_index.start_end_traversal_of(distance_index.get_parent(chain_handle)) == parent);
+        }
+#endif
         bool is_root = distance_index.is_root(parent);
         bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
 
@@ -1917,11 +1924,13 @@ void SnarlDistanceIndexClusterer::cluster_one_chain(ClusteringProblem& clusterin
                 : clustering_problem.all_node_problems.at(
                         clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).chain_component_start;
     size_t last_length = last_child.is_seed
-                       ? MIPayload::node_length(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).minimizer_cache)
+                       ? MIPayload::node_length(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).zipcode)
                        : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).node_length;
     size_t last_chain_component_end = last_child.is_seed
-                       ? MIPayload::chain_component(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).minimizer_cache)
+                       ? MIPayload::chain_component(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).zipcode,
+                                                    distance_index,
+                                                    get_id(clustering_problem.all_seeds->at(last_child.seed_indices.first)->at(last_child.seed_indices.second).pos))
                        : clustering_problem.all_node_problems.at(
                             clustering_problem.net_handle_to_node_problem_index.at(last_child.net_handle)).chain_component_start;
 
@@ -2180,17 +2189,17 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         if (last_child.net_handle == current_child.net_handle) {
             //This can happen if the last thing was also a seed on the same node
             distance_from_last_child_to_current_child = 0; 
-        } else if ( last_chain_component_end == MIPayload::chain_component(current_child_seed.minimizer_cache)) {
+        } else if ( last_chain_component_end == MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max()) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                distance_from_last_child_to_current_child = MIPayload::prefix_sum(current_child_seed.minimizer_cache);
+                distance_from_last_child_to_current_child = MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos));
             } else {
                 size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum(last_prefix_sum,last_length);
     
                 //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
-                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(MIPayload::prefix_sum(current_child_seed.minimizer_cache), 
+                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)), 
                                                 distance_from_chain_start_to_last_node); 
             }
         }
@@ -2209,27 +2218,27 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         distance_from_current_end_to_end_of_chain = 0;
     } else if (SnarlDistanceIndex::get_record_offset(current_child.net_handle) == SnarlDistanceIndex::get_record_offset(chain_problem->end_in)) {
         //If this is the last node in the chain
-        if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.minimizer_cache)) { 
+        if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) { 
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
             distance_from_current_end_to_end_of_chain = 0;
         }
-    } else if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.minimizer_cache)) { 
+    } else if (chain_problem->chain_component_end != MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
     
         //Length of the chain - (prefix sum + node length of the current node)
         distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_problem->node_length, 
-                    SnarlDistanceIndex::sum(MIPayload::prefix_sum(current_child_seed.minimizer_cache), 
-                                            MIPayload::node_length(current_child_seed.minimizer_cache)));
+                    SnarlDistanceIndex::sum(MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)), 
+                                            MIPayload::node_length(current_child_seed.zipcode)));
     
     }
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-    cerr << "\tDistance from start of chain to the left side of this one: " << (MIPayload::chain_component(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : MIPayload::prefix_sum(current_child_seed.minimizer_cache)) << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)) != 0 ? std::numeric_limits<size_t>::max() : MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))) << endl;
     cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
 #endif
 
@@ -2264,13 +2273,13 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
         //The distance left and right of the seed are currently oriented relative to the chain
     
         //The current left distance is infinite if it is not in the first component of a multicomponent chain
-        if (MIPayload::chain_component(current_child_seed.minimizer_cache) != 0) {
+        if (MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)) != 0) {
             //If this node isn't in the first component of the chain
             current_child_seed.distance_left = std::numeric_limits<size_t>::max();
         } else {
             //Prefix sum + offset of the seed in the node
             current_child_seed.distance_left = SnarlDistanceIndex::sum(current_child_seed.distance_left, 
-                                                                       MIPayload::prefix_sum(current_child_seed.minimizer_cache));
+                                                                       MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)));
         }
         current_child_seed.distance_right = SnarlDistanceIndex::sum(current_child_seed.distance_right, 
                                                        distance_from_current_end_to_end_of_chain);
@@ -2315,16 +2324,16 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                 distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
                         ? std::numeric_limits<size_t>::max() : 
                 (last_child.net_handle == current_child.net_handle ? 0 
-                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, MIPayload::node_length(current_child_seed.minimizer_cache)));
+                    : SnarlDistanceIndex::sum(distance_from_last_child_to_current_child, MIPayload::node_length(current_child_seed.zipcode)));
     
         //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
         //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
         //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
         // (or 0 if it isn't the last thing in the chain)
         pair<size_t, size_t> new_distances = make_pair(
-                MIPayload::chain_component(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
+                MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos)) != 0 ? std::numeric_limits<size_t>::max() 
                                              : SnarlDistanceIndex::sum(current_child_seed.distance_left, 
-                                                                       MIPayload::prefix_sum(current_child_seed.minimizer_cache)),
+                                                                       MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos))),
                 SnarlDistanceIndex::sum(current_child_seed.distance_right, distance_from_current_end_to_end_of_chain)); 
     
     
@@ -2358,7 +2367,7 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
                 //If the last child was the same as this child (seeds on the same node),
                 //then the distances right are including the current node, so subtract
                 //the length of this node
-                distance_between -= MIPayload::node_length(current_child_seed.minimizer_cache);
+                distance_between -= MIPayload::node_length(current_child_seed.zipcode);
             }
 
 #ifdef DEBUG_CLUSTER
@@ -2467,9 +2476,9 @@ void SnarlDistanceIndexClusterer::add_seed_to_chain_problem(ClusteringProblem& c
     
     //Update the last node we saw to this one
     last_child = current_child;
-    last_prefix_sum = MIPayload::prefix_sum(current_child_seed.minimizer_cache);
-    last_length = MIPayload::node_length(current_child_seed.minimizer_cache);
-    last_chain_component_end = MIPayload::chain_component(current_child_seed.minimizer_cache);
+    last_prefix_sum = MIPayload::prefix_sum(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos));
+    last_length = MIPayload::node_length(current_child_seed.zipcode);
+    last_chain_component_end = MIPayload::chain_component(current_child_seed.zipcode, distance_index, get_id(current_child_seed.pos));
 
 }
 
@@ -3153,7 +3162,8 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
             size_t dist_left = clustering_problem.all_seeds->at(read_num)->at(seed_i).distance_left;
             if (include_prefix_sum) {
                 dist_left = SnarlDistanceIndex::sum(dist_left, 
-                       MIPayload::prefix_sum( clustering_problem.all_seeds->at(read_num)->at(seed_i).minimizer_cache)); 
+                       MIPayload::prefix_sum( clustering_problem.all_seeds->at(read_num)->at(seed_i).zipcode,
+                                              distance_index, get_id(clustering_problem.all_seeds->at(read_num)->at(seed_i).pos))); 
             }
             //Since we only stored the proper distance left for seeds on chains
             size_t dist_right = structure_length - dist_left + 1;
@@ -3188,8 +3198,9 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
         if (!skip_distances_to_ends) {
 
             const SeedCache& first_seed = clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second);
+            //TOOD: get_id is weird
             node_problem->fragment_best_left = SnarlDistanceIndex::sum(first_seed.distance_left,
-                    include_prefix_sum ? MIPayload::prefix_sum(first_seed.minimizer_cache) : 0);
+                    include_prefix_sum ? MIPayload::prefix_sum(first_seed.zipcode, distance_index, get_id(clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second).pos)) : 0);
 
             //Record the new cluster
             for (size_t read_num = 0 ; read_num < clustering_problem.all_seeds->size() ; read_num++ ) {
@@ -3235,7 +3246,8 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
         size_t offset = clustering_problem.all_seeds->at(read_num)->at(seed_num).distance_left;
         if (include_prefix_sum) {
             offset = SnarlDistanceIndex::sum(offset, 
-                   MIPayload::prefix_sum( clustering_problem.all_seeds->at(read_num)->at(seed_num).minimizer_cache)); 
+                   MIPayload::prefix_sum( clustering_problem.all_seeds->at(read_num)->at(seed_num).zipcode,
+                                          distance_index, get_id( clustering_problem.all_seeds->at(read_num)->at(seed_num).pos))); 
         }
 
         //First and last offset and last cluster head for this read
@@ -3306,461 +3318,13 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
 
         //Get the best left and right values of the node from the first and last seeds
         const SeedCache& first_seed = clustering_problem.all_seeds->at(node_problem->children.front().seed_indices.first)->at(node_problem->children.front().seed_indices.second);
-        node_problem->fragment_best_left = SnarlDistanceIndex::sum(first_seed.distance_left,
-                include_prefix_sum ? MIPayload::prefix_sum(first_seed.minimizer_cache) : 0);
+        node_problem->fragment_best_left = first_seed.distance_left;
 
         node_problem->fragment_best_right = structure_length-fragment_last_offset+1;
     }
     return;
 }
 
-size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, const Seed& seed2, bool stop_at_lowest_common_ancestor) const {
-
-    /*Helper function to walk up the snarl tree
-     * Given a net handle, its parent,  and the distances to the start and end of the handle, 
-     * update the distances to reach the ends of the parent and update the handle and its parent
-     * If the parent is a chain, then the new distances include the boundary nodes of the chain.
-     * If it is a snarl, it does not*/
-    auto update_distances = [&](net_handle_t& net, net_handle_t& parent, size_t& dist_start, size_t& dist_end) {
-#ifdef debug_distances
-        cerr << "     Updating distance from node " << distance_index.net_handle_as_string(net) << " at parent " << distance_index.net_handle_as_string(parent) << " from " << dist_start << " " << dist_end << endl;
-#endif
-
-        if (distance_index.is_trivial_chain(parent)) {
-            //Don't update distances for the trivial chain
-            return;
-        } else if (distance_index.is_simple_snarl(parent)) {
-            //If it's a simple snarl just check if they should be reversed
-            if (distance_index.is_reversed_in_parent (net)) {
-                size_t tmp = dist_start;
-                dist_start = dist_end;
-                dist_end = tmp;
-            }
-            return;
-        }
-
-        net_handle_t start_bound = distance_index.get_bound(parent, false, true);
-        net_handle_t end_bound = distance_index.get_bound(parent, true, true);
-
-        //The lengths of the start and end nodes of net
-        //This is only needed if net is a snarl, since the boundary nodes are not technically part of the snarl
-        size_t start_length = distance_index.is_chain(parent) ? distance_index.node_length(start_bound) : 0;
-        size_t end_length = distance_index.is_chain(parent) ? distance_index.node_length(end_bound) : 0;
-
-        //Get the distances from the bounds of the parent to the node we're looking at
-        size_t distance_start_start = start_bound == net ? 0
-                : SnarlDistanceIndex::sum(start_length, distance_index.distance_in_parent(parent, start_bound, distance_index.flip(net), graph));
-        size_t distance_start_end = start_bound == distance_index.flip(net) ? 0
-                : SnarlDistanceIndex::sum(start_length, distance_index.distance_in_parent(parent, start_bound, net, graph));
-        size_t distance_end_start = end_bound == net ? 0
-                : SnarlDistanceIndex::sum(end_length, distance_index.distance_in_parent(parent, end_bound, distance_index.flip(net), graph));
-        size_t distance_end_end = end_bound == distance_index.flip(net) ? 0
-                : SnarlDistanceIndex::sum(end_length, distance_index.distance_in_parent(parent, end_bound, net, graph));
-
-        size_t distance_start = dist_start;
-        size_t distance_end = dist_end;
-
-        dist_start = std::min(SnarlDistanceIndex::sum(distance_start_start, distance_start),
-                              SnarlDistanceIndex::sum(distance_start_end , distance_end));
-        dist_end = std::min(SnarlDistanceIndex::sum(distance_end_start , distance_start),
-                            SnarlDistanceIndex::sum(distance_end_end , distance_end));
-#ifdef debug_distances
-        cerr << "        ...new distances to start and end: " << dist_start << " " << dist_end << endl;
-#endif
-        return;
-    };
-
-    /*
-     * Get net handles for the two nodes and the distances from each position to the ends of the handles
-     */
-    pos_t pos1 = seed1.pos;
-    pos_t pos2 = seed2.pos;
-    gbwtgraph::payload_type payload1 = seed1.minimizer_cache;
-    gbwtgraph::payload_type payload2 = seed2.minimizer_cache;
-
-    bool has_cached_values1 = payload1 != MIPayload::NO_CODE;
-    bool has_cached_values2 = payload2 != MIPayload::NO_CODE;
-    net_handle_t net1 = has_cached_values1 ? distance_index.get_net_handle_from_values(MIPayload::record_offset(payload1), 
-                                                             SnarlDistanceIndex::START_END, 
-                                                             SnarlDistanceIndex::NODE_HANDLE, 
-                                                             MIPayload::node_record_offset(payload1))
-                                           : distance_index.get_node_net_handle(get_id(pos1));
-    net_handle_t net2 = has_cached_values2 ? distance_index.get_net_handle_from_values(MIPayload::record_offset(payload2), 
-                                                             SnarlDistanceIndex::START_END, 
-                                                             SnarlDistanceIndex::NODE_HANDLE, 
-                                                             MIPayload::node_record_offset(payload2))
-                                           : distance_index.get_node_net_handle(get_id(pos2));
-
-    size_t minimum_distance = std::numeric_limits<size_t>::max();
-    if (net1 == net2) {
-        //If the two positions are on the same node, get the distance between them
-        size_t node_length = has_cached_values1 ? MIPayload::node_length(payload1) 
-                                                 : distance_index.node_length(net1);
-        size_t distance_to_start1 = is_rev(pos1) ? node_length - get_offset(pos1) : get_offset(pos1) + 1;
-        size_t distance_to_end1 =   is_rev(pos1) ? get_offset(pos1) + 1 : node_length - get_offset(pos1);
-        size_t distance_to_start2 = is_rev(pos2) ? node_length - get_offset(pos2) : get_offset(pos2) + 1;
-        size_t distance_to_end2 =   is_rev(pos2) ? get_offset(pos2) + 1 : node_length - get_offset(pos2);
-
-        if (distance_to_start1 < distance_to_start2) {
-            //IF 1 comes before 2
-            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2), node_length);
-        } else {
-            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end2 , distance_to_start1), node_length);
-        }
-        if (stop_at_lowest_common_ancestor) {
-            //If we only care about the lowest common ancestor, then return
-            return SnarlDistanceIndex::minus(minimum_distance, 1);
-        }
-        
-    }
-
-    /*
-     * Since we want to use the minimizer payload, go up one level of the snarl tree here, before using the
-     * distance index.
-     * Find the parent and the distances to the ends of the parent using the payload
-     */
-
-    //Get the parents of the nodes
-    net_handle_t parent1;
-    //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
-    //because they will be clustered here and added to the root instead of being added to the 
-    //snarl tree to be clustered
-    if (has_cached_values1) {
-        if (MIPayload::is_trivial_chain(payload1)) {
-            //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
-            parent1 = distance_index.get_net_handle_from_values (distance_index.get_record_offset(net1),
-                                                    SnarlDistanceIndex::START_END,
-                                                    SnarlDistanceIndex::CHAIN_HANDLE,
-                                                    MIPayload::node_record_offset(payload1));
-            if (MIPayload::parent_record_offset(payload1) == 0) {
-                //If the parent offset stored in the cache is the root, then this is a trivial chain
-                //child of the root not in a root snarl, so remember the root as the parent and the 
-                //trivial chain as th enode
-                net1 = parent1;
-                parent1 = distance_index.get_root();
-            } else if (MIPayload::parent_is_root(payload1) && !MIPayload::parent_is_chain(payload1)) {
-                //If the parent is a root snarl, then the node becomes the trivial chain 
-                //and we get the parent root snarl from the cache
-                net1 = parent1;
-                parent1 = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(payload1),
-                                                                   SnarlDistanceIndex::START_END,
-                                                                   SnarlDistanceIndex::ROOT_HANDLE);
-            }
-        } else if (MIPayload::parent_record_offset(payload1) == 0) {
-            //The parent is just the root
-            parent1 = distance_index.get_root();
-        } else if (MIPayload::parent_is_root(payload1) && !MIPayload::parent_is_chain(payload1)) {
-            //If the parent is a root snarl
-            parent1 = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(payload1),
-                                                   SnarlDistanceIndex::START_END,
-                                                   SnarlDistanceIndex::ROOT_HANDLE);
-        } else {
-            //Otherwise the parent is an actual chain and we use the value from the cache
-            parent1 = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(payload1),
-                                                   SnarlDistanceIndex::START_END,
-                                                   SnarlDistanceIndex::CHAIN_HANDLE);
-        }
-    } else {
-        parent1 = distance_index.start_end_traversal_of(distance_index.get_parent(net1));
-        if (distance_index.is_trivial_chain(parent1)){
-            net_handle_t grandparent = distance_index.get_parent(parent1);
-            if (distance_index.is_root(grandparent)){
-                net1 = parent1;
-                parent1 = distance_index.start_end_traversal_of(grandparent);
-            }
-        }
-    }
-
-    net_handle_t parent2;
-    //If the grandparent is a root/root snarl, then make it the parent and the node a trivial chain 
-    //because they will be clustered here and added to the root instead of being added to the 
-    //snarl tree to be clustered
-    if (has_cached_values2) {
-        if (MIPayload::is_trivial_chain(payload2)) {
-            //If the node is a trivial chain, then the parent is just the node but recorded as a chain in the net handle
-            parent2 = distance_index.get_net_handle_from_values (distance_index.get_record_offset(net2),
-                                                    SnarlDistanceIndex::START_END,
-                                                    SnarlDistanceIndex::CHAIN_HANDLE,
-                                                    MIPayload::node_record_offset(payload2));
-            if (MIPayload::parent_record_offset(payload2) == 0) {
-                //If the parent offset stored in the cache is the root, then this is a trivial chain
-                //child of the root not in a root snarl, so remember the root as the parent and the 
-                //trivial chain as th enode
-                net2 = parent2;
-                parent2 = distance_index.get_root();
-            } else if (MIPayload::parent_is_root(payload2) && !MIPayload::parent_is_chain(payload2)) {
-                //If the parent is a root snarl, then the node becomes the trivial chain 
-                //and we get the parent root snarl from the cache
-                net2 = parent2;
-                parent2 = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(payload2),
-                                                                   SnarlDistanceIndex::START_END,
-                                                                   SnarlDistanceIndex::ROOT_HANDLE);
-            }
-        } else if (MIPayload::parent_record_offset(payload2) == 0) {
-            //The parent is just the root
-            parent2 = distance_index.get_root();
-        } else if (MIPayload::parent_is_root(payload2) && !MIPayload::parent_is_chain(payload2)) {
-            //If the parent is a root snarl
-            parent2 = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(payload2),
-                                                   SnarlDistanceIndex::START_END,
-                                                   SnarlDistanceIndex::ROOT_HANDLE);
-        } else {
-            //Otherwise the parent is an actual chain and we use the value from the cache
-            parent2 = distance_index.get_net_handle_from_values(MIPayload::parent_record_offset(payload2),
-                                                   SnarlDistanceIndex::START_END,
-                                                   SnarlDistanceIndex::CHAIN_HANDLE);
-        }
-    } else {
-        parent2 = distance_index.start_end_traversal_of(distance_index.get_parent(net2));
-        if (distance_index.is_trivial_chain(parent2)){
-            net_handle_t grandparent = distance_index.get_parent(parent2);
-            if (distance_index.is_root(grandparent)){
-                net2 = parent2;
-                parent2 = distance_index.start_end_traversal_of(grandparent);
-            }
-        }
-    }
-
-
-
-#ifdef debug_distances
-        cerr << "Found parents "  << distance_index.net_handle_as_string(parent1) << " and " << distance_index.net_handle_as_string(parent2) << endl;
-#endif
-
-    pair<net_handle_t, bool> lowest_ancestor = distance_index.lowest_common_ancestor(parent1, parent2);
-    //The lowest common ancestor of the two positions
-    net_handle_t common_ancestor = distance_index.start_end_traversal_of(lowest_ancestor.first);
-
-#ifdef debug_distances
-        cerr << "Found the lowest common ancestor " << distance_index.net_handle_as_string(common_ancestor) << endl;
-#endif
-
-    //These are the distances to the ends of the node, including the position
-    size_t node_length1 = has_cached_values1 ? MIPayload::node_length(payload1) 
-                                             : distance_index.minimum_length(net1);
-    size_t node_length2 = has_cached_values2 ? MIPayload::node_length(payload2) 
-                                             : distance_index.minimum_length(net2);
-    size_t distance_to_start1 = is_rev(pos1) ? node_length1 - get_offset(pos1) : get_offset(pos1) + 1;
-    size_t distance_to_end1 =   is_rev(pos1) ? get_offset(pos1) + 1 : node_length1 - get_offset(pos1);
-    size_t distance_to_start2 = is_rev(pos2) ? node_length2 - get_offset(pos2) : get_offset(pos2) + 1;
-    size_t distance_to_end2 =   is_rev(pos2) ? get_offset(pos2) + 1 : node_length2 - get_offset(pos2);
-
-#ifdef debug_distances
-        cerr << "Reached node " << distance_index.net_handle_as_string(net1) << " for position 1" << endl;
-        cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
-        cerr << "Reached node " << distance_index.net_handle_as_string(net2) << " for position 2" << endl;
-        cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
-#endif
-    /* get the distance from the ends of the nodes to the ends of the parent, and update the nodes to their parent*/
-
-    if (distance_index.start_end_traversal_of(parent1) == distance_index.start_end_traversal_of(parent2)) {
-        //If the parents are the same, then just find the distance between the nodes and return
-        //Find the minimum distance between the two children (net1 and net2)
-        if ( has_cached_values1 && MIPayload::parent_is_chain(payload1)) {
-            if (MIPayload::prefix_sum(payload1) < MIPayload::prefix_sum(payload2)) {
-                //If seed1 comes before seed2
-                size_t distance_between = SnarlDistanceIndex::minus( SnarlDistanceIndex::minus(MIPayload::prefix_sum(payload2),
-                                                                                               MIPayload::prefix_sum(payload1)),
-                                                                    MIPayload::node_length(payload1));
-                minimum_distance = SnarlDistanceIndex::sum(distance_between, 
-                            SnarlDistanceIndex::sum(MIPayload::is_reversed(payload1) ? distance_to_start1 : distance_to_end1,
-                                               MIPayload::is_reversed(payload2) ? distance_to_end2 : distance_to_start2));
-            } else {
-                size_t distance_between = SnarlDistanceIndex::minus( SnarlDistanceIndex::minus(MIPayload::prefix_sum(payload1),
-                                                                                               MIPayload::prefix_sum(payload2)),
-                                                                    MIPayload::node_length(payload2));
-                minimum_distance = SnarlDistanceIndex::sum(distance_between, 
-                            SnarlDistanceIndex::sum(MIPayload::is_reversed(payload2) ? distance_to_start2 : distance_to_end2,
-                                               MIPayload::is_reversed(payload1) ? distance_to_end1 : distance_to_start1));
-            }
-        } else { 
-            //Otherwise, the parent is a snarl and the distances are found with the index
-            size_t distance_start_start = distance_index.distance_in_parent(parent1, distance_index.flip(net1), distance_index.flip(net2), graph);
-            size_t distance_start_end = distance_index.distance_in_parent(parent1, distance_index.flip(net1), net2, graph);
-            size_t distance_end_start = distance_index.distance_in_parent(parent1, net1, distance_index.flip(net2), graph);
-            size_t distance_end_end = distance_index.distance_in_parent(parent1, net1, net2, graph);
-
-            //And add those to the distances we've found to get the minimum distance between the positions
-            minimum_distance = std::min(SnarlDistanceIndex::sum({distance_start_start , distance_to_start1 , distance_to_start2}),
-                   std::min(SnarlDistanceIndex::sum({distance_start_end , distance_to_start1 , distance_to_end2}),
-                   std::min(SnarlDistanceIndex::sum({distance_end_start , distance_to_end1 , distance_to_start2}),
-                            SnarlDistanceIndex::sum({distance_end_end , distance_to_end1 , distance_to_end2})))); 
-        }
-        if (stop_at_lowest_common_ancestor) {
-            return minimum_distance == std::numeric_limits<size_t>::max() ? std::numeric_limits<size_t>::max() 
-                                                                        : minimum_distance - 1;
-        }
-    }
-
-    //Otherwise, find the distances to the ends of the parents, update them, and continue
-    //only if the parent isn't the common ancestor
-    if (parent1 != common_ancestor && !distance_index.is_root(parent1)) {
-        if (has_cached_values1 && MIPayload::parent_is_chain(payload1) && !MIPayload::is_trivial_chain(payload1)) {
-            size_t distance_to_chain_start = MIPayload::prefix_sum(payload1);
-            size_t distance_to_chain_end = SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(distance_index.minimum_length(parent1),
-                                                                MIPayload::prefix_sum(payload1)), MIPayload::node_length(payload1));
-            size_t old_distance_to_start = distance_to_start1;
-            size_t old_distance_to_end = distance_to_end1;
-#ifdef debug_distances
-            cerr << "\tUsing cache to update to ends of chain1 using distances " << distance_to_chain_start << " and " << distance_to_chain_end << endl;
-#endif
-
-            distance_to_start1 = SnarlDistanceIndex::sum(distance_to_chain_start, 
-                                        MIPayload::is_reversed(payload1) ? old_distance_to_end : old_distance_to_start);
-            distance_to_end1 = SnarlDistanceIndex::sum(distance_to_chain_end, 
-                                        MIPayload::is_reversed(payload1) ? old_distance_to_start : old_distance_to_end);
-        } else {
-            update_distances(net1, parent1, distance_to_start1, distance_to_end1);
-        }
-        net1 = std::move(parent1);
-    }
-    if (parent2 != common_ancestor && !distance_index.is_root(parent2)) {
-        if (has_cached_values2 && MIPayload::parent_is_chain(payload2) && !MIPayload::is_trivial_chain(payload2)) {
-            size_t distance_to_chain_start = MIPayload::prefix_sum(payload2);
-            size_t distance_to_chain_end = SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(distance_index.minimum_length(parent2),
-                                                                MIPayload::prefix_sum(payload2)), MIPayload::node_length(payload2));
-            size_t old_distance_to_start = distance_to_start2;
-            size_t old_distance_to_end = distance_to_end2;
-#ifdef debug_distances
-            cerr << "\tUsing cache to update to ends of chain2 using distances " << distance_to_chain_start << " and " << distance_to_chain_end << endl;
-#endif
-
-            distance_to_start2 = SnarlDistanceIndex::sum(distance_to_chain_start, 
-                                        MIPayload::is_reversed(payload2) ? old_distance_to_end : old_distance_to_start);
-            distance_to_end2 = SnarlDistanceIndex::sum(distance_to_chain_end, 
-                                        MIPayload::is_reversed(payload2) ? old_distance_to_start : old_distance_to_end);
-
-        } else {
-            update_distances(net2, parent2, distance_to_start2, distance_to_end2);
-        }
-        net2 = std::move(parent2);
-    }
-
-
-
-#ifdef debug_distances
-        cerr << "Updated to parents" << endl;
-        cerr << "Reached node " << distance_index.net_handle_as_string(net1) << " for position 1" << endl;
-        cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
-        cerr << "Reached node " << distance_index.net_handle_as_string(net2) << " for position 2" << endl;
-        cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
-#endif
-
-
-
-    if (!lowest_ancestor.second) {
-        //If these are not in the same connected component
-#ifdef debug_distances
-        cerr << "These are in different connected components" << endl;
-#endif
-        return std::numeric_limits<size_t>::max();
-    }
-
-    /*
-     * Walk up the snarl tree until net1 and net2 are children of the lowest common ancestor
-     * Keep track of the distances to the ends of the net handles as we go
-     */
-
-    if (distance_index.start_end_traversal_of(net1) == distance_index.start_end_traversal_of(net2)){
-        if (SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2) > distance_index.minimum_length(net1) &&
-            SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2) != std::numeric_limits<size_t>::max()) {
-            //If the positions are on the same node and are pointing towards each other, then
-            //check the distance between them in the node
-            minimum_distance = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_end1 , distance_to_start2), 
-                                                         distance_index.minimum_length(net1));
-        }
-        if (SnarlDistanceIndex::sum({distance_to_start1 , distance_to_end2}) > distance_index.minimum_length(net1) &&
-            SnarlDistanceIndex::sum({distance_to_start1 , distance_to_end2}) != std::numeric_limits<size_t>::max()) {
-            minimum_distance = std::min(SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(distance_to_start1 , distance_to_end2), 
-                                                                  distance_index.minimum_length(net1)), 
-                                        minimum_distance);
-        }
-        if (!stop_at_lowest_common_ancestor) {
-            common_ancestor = distance_index.start_end_traversal_of(distance_index.get_parent(net1));
-        }
-
-
-    } else {
-
-        //Get the distance from position 1 up to the ends of a child of the common ancestor
-#ifdef debug_distances
-        cerr << "Reaching the children of the lowest common ancestor for first position..." << endl;
-#endif
-        while (distance_index.start_end_traversal_of(distance_index.get_parent(net1)) != common_ancestor && !distance_index.is_root(distance_index.get_parent(net1))) {
-            net_handle_t parent = distance_index.start_end_traversal_of(distance_index.get_parent(net1));
-            update_distances(net1, parent, distance_to_start1, distance_to_end1);
-            net1 = parent;
-        }
-#ifdef debug_distances
-        cerr << "Reached node " << distance_index.net_handle_as_string(net1) << " for position 1" << endl;
-        cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
-        cerr << "Reaching the children of the lowest common ancestor for position 2..." << endl;
-#endif
-        //And the same for position 2
-        while (distance_index.start_end_traversal_of(distance_index.get_parent(net2)) != distance_index.start_end_traversal_of(common_ancestor) && !distance_index.is_root(distance_index.get_parent(net2))) {
-            net_handle_t parent = distance_index.start_end_traversal_of(distance_index.get_parent(net2));
-            update_distances(net2, parent, distance_to_start2, distance_to_end2);
-            net2 = parent;
-        }
-#ifdef debug_distances
-        cerr << "Reached node " << distance_index.net_handle_as_string(net2) << " for position 2" << endl;
-        cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
-#endif
-    }
-    if (stop_at_lowest_common_ancestor) {
-        
-        return minimum_distance == std::numeric_limits<size_t>::max() ? std::numeric_limits<size_t>::max() : minimum_distance-1;    
-    }
-
-    /* 
-     * common_ancestor is now the lowest common ancestor of both net handles, and 
-     * net1 and net2 are both children of common_ancestor
-     * Walk up to the root and check for distances between the positions within each
-     * ancestor
-     */
-
-    while (!distance_index.is_root(net1)){
-#ifdef debug_distances
-            cerr << "At common ancestor " << distance_index.net_handle_as_string(common_ancestor) <<  endl;
-            cerr << "  with distances for child 1 (" << distance_index.net_handle_as_string(net1) << "): " << distance_to_start1 << " "  << distance_to_end1 << endl;
-            cerr << "                     child 2 (" << distance_index.net_handle_as_string(net2) << "): " << distance_to_start2 << " " <<  distance_to_end2 << endl;
-#endif
-
-        //Find the minimum distance between the two children (net1 and net2)
-        size_t distance_start_start = distance_index.distance_in_parent(common_ancestor, distance_index.flip(net1), distance_index.flip(net2), graph);
-        size_t distance_start_end = distance_index.distance_in_parent(common_ancestor, distance_index.flip(net1), net2, graph);
-        size_t distance_end_start = distance_index.distance_in_parent(common_ancestor, net1, distance_index.flip(net2), graph);
-        size_t distance_end_end = distance_index.distance_in_parent(common_ancestor, net1, net2, graph);
-
-        //And add those to the distances we've found to get the minimum distance between the positions
-        minimum_distance = std::min(minimum_distance,
-                           std::min(SnarlDistanceIndex::sum({distance_start_start , distance_to_start1 , distance_to_start2}),
-                           std::min(SnarlDistanceIndex::sum({distance_start_end , distance_to_start1 , distance_to_end2}),
-                           std::min(SnarlDistanceIndex::sum({distance_end_start , distance_to_end1 , distance_to_start2}),
-                                    SnarlDistanceIndex::sum({distance_end_end , distance_to_end1 , distance_to_end2})))));
-
-#ifdef debug_distances
-            cerr << "    Found distances between nodes: " << distance_start_start << " " << distance_start_end << " " << distance_end_start << " "      << distance_end_end << endl;
-            cerr << "  best distance is " << minimum_distance << endl;
-#endif
-        if (!distance_index.is_root(common_ancestor)) {
-            //Update the distances to reach the ends of the common ancestor
-            update_distances(net1, common_ancestor, distance_to_start1, distance_to_end1);
-            update_distances(net2, common_ancestor, distance_to_start2, distance_to_end2);
-
-            //Update which net handles we're looking at
-            net1 = common_ancestor;
-            net2 = common_ancestor;
-            common_ancestor = distance_index.start_end_traversal_of(distance_index.get_parent(common_ancestor));
-        } else {
-            //Just update this one to break out of the loop
-            net1 = common_ancestor;
-        }
-    }
-
-    //minimum distance currently includes both positions
-    return minimum_distance == std::numeric_limits<size_t>::max() ? std::numeric_limits<size_t>::max() : minimum_distance-1;
-}
 
 
 }

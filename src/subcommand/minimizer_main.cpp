@@ -35,9 +35,11 @@
 #include "../utility.hpp"
 #include "../handle.hpp"
 #include "../snarl_distance_index.hpp"
+#include "../zip_code.hpp"
 
 #include <gbwtgraph/index.h>
 
+//#define WRITE_MINIMIZER_ZIPCODES
 using namespace vg;
 
 // Using too many threads just wastes CPU time without speeding up the construction.
@@ -65,6 +67,8 @@ void help_minimizer(char** argv) {
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
+    std::cerr << "    -z, --zipcode-name X    store the distances that are too big to file X" << std::endl;
+    std::cerr << "                            if -z is not specified, some distances may be discarded" << std::endl;
     std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
     std::cerr << "                            (overrides minimizer options)" << std::endl;
     std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X (required with a non-GBZ graph)" << std::endl;
@@ -82,7 +86,7 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Command-line options.
-    std::string output_name, distance_name, load_index, gbwt_name, graph_name;
+    std::string output_name, distance_name, zipcode_name, load_index, gbwt_name, graph_name;
     bool use_syncmers = false;
     bool progress = false;
     int threads = get_default_threads();
@@ -101,6 +105,7 @@ int main_minimizer(int argc, char** argv) {
             { "closed-syncmers", no_argument, 0, 'c' },
             { "smer-length", required_argument, 0, 's' },
             { "distance-index", required_argument, 0, 'd' },
+            { "zipcode-index", required_argument, 0, 'z' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-graph", no_argument, 0, 'G' }, // deprecated
             { "progress", no_argument, 0, 'p' },
@@ -109,7 +114,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:o:i:k:w:bcs:d:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:o:i:k:w:bcs:d:z:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -142,6 +147,9 @@ int main_minimizer(int argc, char** argv) {
             break;
         case 'd':
             distance_name = optarg;
+            break;
+        case 'z':
+            zipcode_name = optarg;
             break;
         case 'l':
             load_index = optarg;
@@ -249,6 +257,15 @@ int main_minimizer(int argc, char** argv) {
         distance_index->preload(true);
     }
 
+    //Zipcodes
+
+    //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
+    std::vector<ZipCode> oversized_zipcodes;
+
+    //oversized_zipcodes will be made as zipcodes are found in minimizers, so there may be duplicates that
+    //only get stored once. This maps node id to the index in oversized_zipcodes 
+    hash_map<vg::id_t, size_t> node_id_to_zipcode_index;
+
     // Build the index.
     if (progress) {
         std::cerr << "Building MinimizerIndex with k = " << index->k();
@@ -265,7 +282,46 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(get_minimizer_distances(*distance_index,pos));
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(*distance_index, pos);
+            #ifdef WRITE_MINIMIZER_ZIPCODES
+                        //TODO: this is only for testing, can be taken out once the zip codes are done
+                        //This should only be used single threaded.
+                        //For each minimizer, writes the size of the zip code and then the zip code as a tsv
+                        pair<size_t, size_t> value (0, 0);
+            
+                        //How many bytes get used
+                        cout << zipcode.zipcode.byte_count();
+                        //Each integer saved
+                        while (value.second != std::numeric_limits<size_t>::max()) {
+                            value = zipcode.zipcode.get_value_and_next_index(value.second);
+                            cout << "\t" << value.first;
+                        }
+                        cout << endl;
+            #endif
+            if (zipcode.zipcode.byte_count() < 15) {
+                //If the zipcode is small enough to store in the payload
+                return zipcode.get_payload_from_zip();
+            } else if (!zipcode_name.empty()) {
+                //Otherwise, if they are being saved, add the zipcode to the oversized zipcode list
+                //And remember the zipcode
+
+                
+                size_t zip_index;
+                #pragma omp critical 
+                {
+                if (node_id_to_zipcode_index.count(id(pos))) {
+                    zip_index = node_id_to_zipcode_index.at(id(pos));
+                } else {
+                    oversized_zipcodes.emplace_back(zipcode);
+                    zip_index = oversized_zipcodes.size() - 1;
+                    node_id_to_zipcode_index.emplace(id(pos), zip_index);
+                }
+                }
+                return {0, zip_index};
+            } else {
+                return MIPayload::NO_CODE;
+            }
         });
     }
 
@@ -280,6 +336,15 @@ int main_minimizer(int argc, char** argv) {
 
     // Serialize the index.
     save_minimizer(*index, output_name);
+
+    //If using it, write the larger zipcodes to a file
+    if (!zipcode_name.empty()) { 
+        ofstream zip_out (zipcode_name);
+        zipcode_vector_t zip_vector (&oversized_zipcodes);
+        zip_vector.serialize(zip_out);
+
+    }
+
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;

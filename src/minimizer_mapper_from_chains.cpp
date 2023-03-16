@@ -553,9 +553,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // We may or may not need to invert this view, but if we do we will want to
     // keep the result. So have a place to lazily keep an inverse.
     std::unique_ptr<VectorViewInverse> minimizer_score_sort_inverse;
+
+    vector<ZipCodeDecoder> decoders;
     
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, decoders, funnel);
     
     // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
     if (track_provenance) {

@@ -40,6 +40,7 @@ public:
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          SnarlDistanceIndex* distance_index,
+         const vector<ZipCode>* zipcodes,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -455,8 +456,8 @@ protected:
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const gbwtgraph::payload_type& chain_info) {
-        return { hit, minimizer, chain_info };
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& zip, ZipCodeDecoder* decoder) {
+        return { hit, minimizer, zip, std::unique_ptr<ZipCodeDecoder>(decoder)};
     }
     
     /// Convert a collection of seeds to a collection of chaining anchors.
@@ -475,6 +476,7 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
+    const vector<ZipCode>* zipcodes;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -508,8 +510,9 @@ protected:
 
     /**
      * Find seeds for all minimizers passing the filters.
+     * Fill in decoders with the ZipCodeDecoders that were found for the seeds
      */
-    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, vector<ZipCodeDecoder>& decoders, Funnel& funnel) const;
     
     /**
      * If tracking correctness, mark seeds that are correctly mapped as correct

@@ -53,6 +53,7 @@
 #include "gfa.hpp"
 #include "job_schedule.hpp"
 #include "path.hpp"
+#include "zip_code.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -3815,7 +3816,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(get_minimizer_distances(*distance_index, pos));
+            ZipCode zip;
+            zip.fill_in_zipcode(*distance_index, pos);
+            return zip.get_payload_from_zip();
         });
         
         string output_name = plan->output_filepath(minimizer_output);

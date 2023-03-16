@@ -3,6 +3,7 @@
 
 #include "snarls.hpp"
 #include "snarl_distance_index.hpp"
+#include "zip_code.hpp"
 #include "hash_map.hpp"
 #include "small_bitset.hpp"
 #include <structures/union_find.hpp>
@@ -57,7 +58,9 @@ class SnarlDistanceIndexClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
-            gbwtgraph::payload_type minimizer_cache = MIPayload::NO_CODE; //minimizer payload
+            ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+            //TODO: unique_ptr?
+            std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
         };
 
         /// Seed information used for clustering
@@ -70,9 +73,11 @@ class SnarlDistanceIndexClusterer {
             pos_t pos;
 
             //TODO: This gets copied because it needs to be mutable
-            //Cached values from the minimizer
-            //Use MIPayload::node_record_offset(minimizer_cache), etc to get values
-            gbwtgraph::payload_type minimizer_cache;
+            //Cached values (zip codes) from the minimizer
+            ZipCode zipcode;
+
+            //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
+            //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds
@@ -121,12 +126,6 @@ class SnarlDistanceIndexClusterer {
                 const vector<vector<Seed>>& all_seeds, 
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
-
-        /**
-         * Find the minimum distance between two seeds. This will use the minimizer payload when possible
-         */
-        size_t distance_between_seeds(const Seed& seed1, const Seed& seed2,
-            bool stop_at_lowest_common_ancestor) const;
 
     private:
 
