@@ -553,6 +553,8 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
     size_t distance;
     
     if (from_hint && to_hint) {
+        std::cerr << "Finding distance from " << from_pos << " to " << to_pos << " using hints " << *from_hint << " and " << *to_hint << std::endl; 
+    
         // Can use zip code based distance
         distance = ZipCode::minimum_distance_between(*from_hint, from_pos, 
                                                      *to_hint, to_pos,

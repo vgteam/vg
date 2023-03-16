@@ -649,6 +649,10 @@ bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2
     }
 }
 
+std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder) {
+    return out << "<decoder for " << decoder.zipcode << ">";
+}
+
 
 vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDistanceIndex& distance_index) {
 #ifdef DEBUG_ZIPCODE

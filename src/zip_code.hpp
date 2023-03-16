@@ -213,6 +213,8 @@ class ZipCodeDecoder {
 
 };
 
+std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder); 
+
 
 /**
     The payload for the minimizer index. This stores distance information that gets used in clustering
