@@ -258,8 +258,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
             // We will actually evaluate the source.
             
-            // How far do we go in the graph?
-            size_t graph_distance = get_graph_distance(source, here, distance_index, graph);
+            // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
+            size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
             
             // How much does it pay (+) or cost (-) to make the jump from there
             // to here?
@@ -543,17 +543,36 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
     }
 }
 
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph) {
-    // TODO: hide something in the Anchors so we can use the minimizer cache information
-    // For now just measure between the graph positions.
-    
+size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
-    return distance_index.minimum_distance(
-        id(from_pos), is_rev(from_pos), offset(from_pos),
-        id(to_pos), is_rev(to_pos), offset(to_pos),
-        false, &graph);  
+    auto* from_hint = from.hint();
+    auto* to_hint = to.hint();
+    
+    size_t distance;
+    
+    if (from_hint && to_hint) {
+        // Can use zip code based distance
+        distance = ZipCode::minimum_distance_between(*from_hint, from_pos, 
+                                                     *to_hint, to_pos,
+                                                     distance_index,
+                                                     distance_limit,
+                                                     true, 
+                                                     &graph);
+    } else {
+        // Query the distance index directly.
+        distance = distance_index.minimum_distance(
+            id(from_pos), is_rev(from_pos), offset(from_pos),
+            id(to_pos), is_rev(to_pos), offset(to_pos),
+            false, &graph);
+    }
+    if (distance > distance_limit) {
+        // Zip code logic can have to compute a number over the limit, and in that case will return it.
+        // Cut it off here.
+        distance = std::numeric_limits<size_t>::max();
+    }
+    return distance;
 }
 
 size_t get_read_distance(const Anchor& from, const Anchor& to) {

@@ -80,10 +80,17 @@ public:
         return p;
     }
     
+    /// Get the distance-finding hint information (i.e. "zip code") for
+    /// accelerating distance queries, or null if none is set.
+    inline ZipCodeDecoder* hint() const {
+        return decoder;
+    };
+    
     // Construction
     
-    /// Compose a read start position, graph start position, and match length into an Anchor
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score) : start(read_start), size(length), pos(graph_start), points(score) {
+    /// Compose a read start position, graph start position, and match length into an Anchor.
+    /// Can also bring along a distance hint
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), pos(graph_start), points(score), decoder(hint) {
         // Nothing to do!
     }
     
@@ -99,6 +106,7 @@ protected:
     size_t size;
     pos_t pos;
     int points;
+    ZipCodeDecoder* decoder;
 };
 
 /// Explain an Anchor to the given stream
@@ -310,8 +318,8 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
  */
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension);
 
-/// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable.
-size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph);
+/// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
+size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
 
 /// Get distance in the read, or std::numeric_limits<size_t>::max() if unreachable.
 size_t get_read_distance(const Anchor& from, const Anchor& to);

@@ -2388,7 +2388,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed.zipcode_decoder.get()); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {
