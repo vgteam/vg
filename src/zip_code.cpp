@@ -94,6 +94,10 @@ ZipCodeDecoder::ZipCodeDecoder(const ZipCode* zipcode, const size_t& depth) :
 }
 
 void ZipCodeDecoder::fill_in_full_decoder() {
+    if (zipcode->byte_count() == 0) {
+        //If the zipcode is empty
+        return;
+    }
     bool done=false;
     while (!done) {
         done = fill_in_next_decoder();
@@ -727,11 +731,11 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
 //Make sure that the zip codes actually correspond to the positions
     ZipCode check_zip1;
     check_zip1.fill_in_zipcode(distance_index, pos1);
-    assert(zip1 == check_zip1);
+    assert(*zip1_decoder.zipcode == check_zip1);
 
     ZipCode check_zip2;
     check_zip2.fill_in_zipcode(distance_index, pos2);
-    assert(zip2 == check_zip2);
+    assert(*zip2_decoder.zipcode == check_zip2);
 #endif
 
     //Helper function to update the distances to the ends of the parent

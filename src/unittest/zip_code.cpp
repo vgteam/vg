@@ -70,8 +70,8 @@ using namespace std;
         }
         SECTION("Distances within one node") {
             ZipCode zipcode;
-            ZipCodeDecoder decoder(&zipcode);
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
+            ZipCodeDecoder decoder(&zipcode);
             REQUIRE(ZipCode::minimum_distance_between(decoder, make_pos_t(n1->id(), false, 0),
                                                       decoder, make_pos_t(n1->id(), false, 3),
                                                          distance_index)
