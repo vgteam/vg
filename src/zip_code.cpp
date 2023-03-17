@@ -863,21 +863,21 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
         code_type_t ancestor_type = zip1_decoder.get_code_type(lowest_common_ancestor_depth);
         if  (ancestor_type == CHAIN || ancestor_type == ROOT_CHAIN) {
             //If the current ancestor is a chain, then check the distance
-            size_t prefix_sum1 = zip1_decoder.get_offset_in_chain(lowest_common_ancestor_depth+1);
-            size_t prefix_sum2 = zip2_decoder.get_offset_in_chain(lowest_common_ancestor_depth+1);
+            size_t prefix_sum1 = zip1_decoder.get_offset_in_chain(lowest_common_ancestor_depth+1, &distance_index);
+            size_t prefix_sum2 = zip2_decoder.get_offset_in_chain(lowest_common_ancestor_depth+1, &distance_index);
             size_t distance_in_chain; 
             if (prefix_sum1 < prefix_sum2) {
                 //zip1 comes before zip2
                 distance_in_chain = SnarlDistanceIndex::minus(
                     prefix_sum2, 
                     SnarlDistanceIndex::sum(prefix_sum1, 
-                                            zip1_decoder.get_length(lowest_common_ancestor_depth+1)));
+                                            zip1_decoder.get_length(lowest_common_ancestor_depth+1, &distance_index)));
             } else {
                 //zip2 comes before zip1
                 distance_in_chain = SnarlDistanceIndex::minus(
                     prefix_sum1, 
                     SnarlDistanceIndex::sum(prefix_sum2, 
-                                            zip2_decoder.get_length(lowest_common_ancestor_depth+1)));
+                                            zip2_decoder.get_length(lowest_common_ancestor_depth+1, &distance_index)));
             }
             if (distance_in_chain > distance_limit) {
                 return std::numeric_limits<size_t>::max();
@@ -887,15 +887,15 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
 
     //Start from the nodes
     size_t distance_to_start1 = is_rev(pos1) 
-        ? zip1_decoder.get_length(zip1_decoder.decoder_length()-1) - offset(pos1) 
+        ? zip1_decoder.get_length(zip1_decoder.decoder_length()-1, &distance_index) - offset(pos1) 
         : offset(pos1) + 1;
     size_t distance_to_end1 = is_rev(pos1) ? offset(pos1) + 1 
-         : zip1_decoder.get_length(zip1_decoder.decoder_length()-1) - offset(pos1);
+         : zip1_decoder.get_length(zip1_decoder.decoder_length()-1, &distance_index) - offset(pos1);
     size_t distance_to_start2 = is_rev(pos2) 
-         ? zip2_decoder.get_length(zip2_decoder.decoder_length()-1) - offset(pos2) 
+         ? zip2_decoder.get_length(zip2_decoder.decoder_length()-1, &distance_index) - offset(pos2) 
          : offset(pos2) + 1;
     size_t distance_to_end2 = is_rev(pos2) ? offset(pos2) + 1 
-         : zip2_decoder.get_length(zip2_decoder.decoder_length()-1) - offset(pos2);
+         : zip2_decoder.get_length(zip2_decoder.decoder_length()-1, &distance_index) - offset(pos2);
 
     if (directed_distance) {
         //These are directed distances so set backwards distances to inf
@@ -968,7 +968,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
 #endif
             size_t d1 = SnarlDistanceIndex::sum(distance_to_end1, distance_to_start2);
             size_t d2 = SnarlDistanceIndex::sum(distance_to_end2, distance_to_start1);
-            size_t node_length = zip1_decoder.get_length(depth);
+            size_t node_length = zip1_decoder.get_length(depth, &distance_index);
             if (d1 > node_length) {
                 distance_between = std::min(distance_between,
                                             SnarlDistanceIndex::minus(SnarlDistanceIndex::minus(d1, node_length),1));
