@@ -858,7 +858,8 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
 #endif
 
 
-    if (distance_limit != std::numeric_limits<size_t>::max()){
+    if (distance_limit != std::numeric_limits<size_t>::max() &&
+        lowest_common_ancestor_depth < zip1_decoder.decoder_length()-1){
         //If we're aborting when the distance is definitely too far,
         code_type_t ancestor_type = zip1_decoder.get_code_type(lowest_common_ancestor_depth);
         if  (ancestor_type == CHAIN || ancestor_type == ROOT_CHAIN) {
