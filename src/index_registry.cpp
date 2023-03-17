@@ -168,10 +168,10 @@ double approx_num_vars(const string& vcf_filename) {
     // estimate of the number of variants contained in a VCF
     if (is_gzipped(vcf_filename)) {
         // square root got a pretty good fit, for whatever reason
-        return 0.255293 * file_size / sqrt(num_samples);
+        return 0.255293 * file_size / sqrt(std::max(num_samples, (int64_t) 1));
     }
     else {
-        return 0.192505 * file_size / num_samples;
+        return 0.192505 * file_size / std::max(num_samples, (int64_t) 1);
     }
 }
 
@@ -281,7 +281,7 @@ int64_t approx_graph_memory(const string& gfa_filename) {
     return hash_graph_memory_usage * format_multiplier();}
 
 int64_t approx_gbwt_memory(const string& vcf_filename) {
-    return 21.9724 * log(get_num_samples(vcf_filename)) * approx_num_vars(vcf_filename);
+    return 21.9724 * log(std::max(get_num_samples(vcf_filename), (int64_t) 1)) * approx_num_vars(vcf_filename);
 }
 
 int64_t approx_graph_load_memory(const string& graph_filename) {
@@ -4362,6 +4362,7 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
     bcf_hdr_t* hdr = bcf_hdr_read(file);
     int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
     // note: it seems that this is not necessary for expressing phasing after all
+    int num_samples = bcf_hdr_nsamples(hdr);
     
     // iterate over records
     bcf1_t* line = bcf_init();
@@ -4405,8 +4406,8 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
         // and query it
         int num_genotypes = bcf_get_genotypes(hdr, line, &genotypes, &arr_size);
         if (num_genotypes >= 0) {
-            // we got genotypes, check to see if they're phased
-            int num_samples = bcf_hdr_nsamples(hdr);
+            // we got genotypes, check to see if they're phased.
+            // We know we can't have genotypes if there are 0 samples.
             int ploidy = num_genotypes / num_samples;
             if (ploidy > 1) {
                 for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
@@ -4430,8 +4431,9 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
         
         free(genotypes);
     }
-    if (nonhap_iter == 0) {
-        // the entire VCF is haploid, which are trivially phased
+    if (nonhap_iter == 0 && num_samples > 0) {
+        // We looked at some samples and none of them had any non-haploid genotypes.
+        // Assume the entire VCF is haploid, which are trivially phased
         found_phased = true;
     }
     // clean up
