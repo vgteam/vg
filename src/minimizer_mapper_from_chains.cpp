@@ -557,7 +557,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<ZipCodeDecoder> decoders;
     
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, decoders, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
     
     // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
     if (track_provenance) {

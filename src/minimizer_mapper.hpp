@@ -510,9 +510,8 @@ protected:
 
     /**
      * Find seeds for all minimizers passing the filters.
-     * Fill in decoders with the ZipCodeDecoders that were found for the seeds
      */
-    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, vector<ZipCodeDecoder>& decoders, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
     
     /**
      * If tracking correctness, mark seeds that are correctly mapped as correct
