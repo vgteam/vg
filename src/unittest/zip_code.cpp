@@ -954,12 +954,18 @@ using namespace std;
             //Snarl record offset
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_record_offset(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())))));
+            net_handle_t chain3 = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+            //Node3 as a chain record offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(chain3));
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_node_record_offset(chain3));
 
             //Node 3 as a chain
             REQUIRE(decoder.decoder[2] == std::make_pair(true, value_and_index.second));
             //Rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))));
+            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(chain3));
 
             //Length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
