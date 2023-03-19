@@ -1180,15 +1180,24 @@ using namespace std;
             pair<size_t, size_t> value_and_index = zipcode.zipcode.get_value_and_next_index(0);
             REQUIRE(value_and_index.first == 0);
 
-            //Second value is the connected component number of the chain
+            //Second value is the connected component number of the snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id())));
+            
+            net_handle_t chain1 = distance_index.get_parent(distance_index.get_node_net_handle(n1->id()));
+            //Next is the address of the child of the root-snarl
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(chain1));
+
+            //Next is the node record offset of the child of the root-snarl
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_node_record_offset(chain1));
 
             //Next is node 1 as a chain
             REQUIRE(decoder.decoder[1] == std::make_pair(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n1->id()))));
+            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(chain1));
             //length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 3+1);
@@ -1207,6 +1216,9 @@ using namespace std;
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(distance_index.get_parent(chain1)));
             REQUIRE(decoder.get_code_type(0) == ROOT_SNARL);
+
+            REQUIRE(distance_index.canonical(decoder.get_net_handle(1, &distance_index)) == 
+                    distance_index.canonical(chain1));
 
             //Chain1 at depth 1
             REQUIRE(decoder.get_length(1) == 3);
@@ -1230,12 +1242,20 @@ using namespace std;
             //Second value is the connected component number of the chain
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id())));
+            net_handle_t chain_handle = distance_index.get_parent(distance_index.get_node_net_handle(n3->id()));
+            //Distance index record offset for chain 2-3
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(chain_handle));
+
+            //Distance index node record offset for chain 2-3
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_node_record_offset(chain_handle));
 
             //Next is chain 2-3
             REQUIRE(decoder.decoder[1] == std::make_pair(true, value_and_index.second));
             //rank in snarl
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(distance_index.get_parent(distance_index.get_node_net_handle(n3->id()))));
+            REQUIRE(value_and_index.first == distance_index.get_rank_in_parent(chain_handle));
             //length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 2+1);

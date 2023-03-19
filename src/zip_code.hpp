@@ -119,7 +119,8 @@ class ZipCode {
         ///Offsets of values in a root chain or snarl code
         ///Roots have a bool for is_chain and an identifier, which is the
         ///connected component number from the distance index
-        const static size_t ROOT_CHAIN_OR_SNARL_SIZE = 2;
+        const static size_t ROOT_CHAIN_SIZE = 2;
+        const static size_t ROOT_SNARL_SIZE = 4;
         const static size_t ROOT_IS_CHAIN_OFFSET = 0;
         const static size_t ROOT_IDENTIFIER_OFFSET = 1;
 
@@ -145,6 +146,10 @@ class ZipCode {
         const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
         const static size_t IRREGULAR_SNARL_CHILD_RECORD_OFFSET = 2;
         const static size_t IRREGULAR_SNARL_CHILD_NODE_RECORD_OFFSET = 3;
+
+        //Root snarls will always be irregular, so copy what the irregular snarls are doing
+        const static size_t ROOT_SNARL_CHILD_RECORD_OFFSET = IRREGULAR_SNARL_CHILD_RECORD_OFFSET;
+        const static size_t ROOT_SNARL_CHILD_NODE_RECORD_OFFSET = IRREGULAR_SNARL_CHILD_NODE_RECORD_OFFSET;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
