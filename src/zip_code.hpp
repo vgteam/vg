@@ -101,6 +101,7 @@ class ZipCode {
         }
 
     //TODO: Make this private:
+        //The actual data for a zipcode is a vector of ints
         varint_vector_t zipcode;
 
 
@@ -110,6 +111,45 @@ class ZipCode {
         }
 
     private:
+
+        /* These offsets are used to define each type of "code"
+        */
+        //TODO: I still access these in order so the order can't change
+
+        ///Offsets of values in a root chain or snarl code
+        ///Roots have a bool for is_chain and an identifier, which is the
+        ///connected component number from the distance index
+        const static size_t ROOT_CHAIN_OR_SNARL_SIZE = 2;
+        const static size_t ROOT_IS_CHAIN_OFFSET = 0;
+        const static size_t ROOT_IDENTIFIER_OFFSET = 1;
+
+        //If the zipcode is for a root-level node, then there are only three things
+        //in the zipcode, and the last is the length of the node
+        const static size_t ROOT_NODE_SIZE = 3;
+        const static size_t ROOT_NODE_LENGTH_OFFSET = 2;
+
+        ///Offsets for chain codes
+        const static size_t CHAIN_SIZE = 2;
+        const static size_t CHAIN_RANK_IN_SNARL_OFFSET = 0;
+        const static size_t CHAIN_LENGTH_OFFSET = 1;
+
+        ///Offsets for snarl codes
+        const static size_t REGULAR_SNARL_SIZE = 4;
+        const static size_t IRREGULAR_SNARL_SIZE = 2;
+        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+
+        const static size_t REGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
+        const static size_t REGULAR_SNARL_LENGTH_OFFSET = 2;
+        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
+
+        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
+
+        ///Offsets for nodes
+        const static size_t NODE_SIZE = 3;
+        const static size_t NODE_OFFSET_OR_RANK_OFFSET = 0;
+        const static size_t NODE_LENGTH_OFFSET = 1;
+        const static size_t NODE_IS_REVERSED_OFFSET = 2;
+
 
         /* Functions for getting the code for each snarl/chain/node
          * Distances will be stored as distance+1, 0 will be reserved for inf
@@ -196,6 +236,7 @@ class ZipCodeDecoder {
     ///Get the handle of the thing at the given depth. This can only be used for
     ///Root-level structures or irregular snarls
     net_handle_t get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index) ;
+
     ///Get the information that was stored to get the address in the distance index
     ///This is the connected component number for a root structure, or the address of
     ///an irregular snarl. Throws an error for anything else
