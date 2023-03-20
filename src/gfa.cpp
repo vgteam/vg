@@ -5,6 +5,8 @@
 
 #include <gbwtgraph/utils.h>
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -246,5 +248,342 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
         });
     out << "\n";
 }
+
+int rgfa_rank(const string& path_name) {
+    int rank = -1;
+    size_t pos = path_name.rfind(":SR:i:");
+    if (pos != string::npos && path_name.length() - pos >= 6) {
+        pos += 6;
+        size_t pos2 = path_name.find(":", pos);
+        size_t len = pos2 == string::npos ? pos2 : pos2 - pos;
+        string rank_string = path_name.substr(pos, len);
+        rank = parse<int>(rank_string);
+    }
+    return rank;
+}
+
+string set_rgfa_rank(const string& path_name, int rgfa_rank) {
+    string new_name;
+    // check if we have an existing rank.  if so, we srap it.
+    size_t pos = path_name.rfind(":SR:i:");
+    if (pos != string::npos && path_name.length() - pos >= 6) {
+        size_t pos2 = path_name.find(":", pos + 6);
+        new_name = path_name.substr(0, pos);
+        if (pos2 != string::npos) {
+            new_name += path_name.substr(pos2);
+        }
+    } else {
+        new_name = path_name;
+    }
+
+    // now append the rank
+    new_name += ":SR:i:" + std::to_string(rgfa_rank);
+    return new_name;
+}
+
+void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
+                      SnarlManager* snarl_manager,
+                      const unordered_set<path_handle_t>& reference_paths,
+                      int64_t minimum_length,
+                      const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals){
+
+    // we use the path traversal finder for everything
+    // (even gbwt haplotypes, as we're using the path handle interface)
+    PathTraversalFinder path_trav_finder(*graph, *snarl_manager);
+        
+    // we collect the rgfa cover in parallel as a list of path fragments
+    size_t thread_count = get_thread_count();
+    vector<vector<pair<int64_t, vector<step_handle_t>>>> thread_covers(thread_count);
+    
+    // we process top-level snarl_manager in parallel
+    snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
+        // index nodes in rgfa cover to prevent overlaps
+        unordered_set<nid_t> cover_nodes;
+        // per-thread output
+        vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments = thread_covers.at(omp_get_thread_num());
+        
+        // we keep track of ranks. rgfa ranks are relative to the reference path, not the snarl tree
+        // so we begin at -1 which means unknown. it will turn to 0 at first reference anchored snarl found
+        // -1 rank snarls cannot be covered by this algorithm
+        vector<pair<int64_t, const Snarl*>> queue; // rank,snarl
+        
+        queue.push_back(make_pair(-1, snarl));
+
+        while(!queue.empty()) {
+            pair<int64_t, const Snarl*> rank_snarl = queue.back();
+            queue.pop_back();
+
+            // get the snarl cover, writing to cover_nodes and cover_fragments
+            // note that we are single-threaded per top-level snarl, at least for now
+            // this is because parent snarls and child snarls can potentially cover the
+            // sname things
+            int64_t rgfa_rank = rgfa_snarl_cover(graph,
+                                                 *snarl,
+                                                 path_trav_finder,
+                                                 reference_paths,
+                                                 minimum_length,
+                                                 -1,
+                                                 cover_nodes,
+                                                 cover_fragments,
+                                                 preferred_intervals);
+
+            // we don't even attempt to cover rank -1 snarls, instead just
+            // recurse until we find a reference path.
+            // this does put a reference path / snarl decomposition alignment
+            // requirement on this code
+            int64_t child_rank = rgfa_rank < 0 ? rgfa_rank : rgfa_rank + 1;
+
+            // recurse on the children
+            const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
+            for (const Snarl* child_snarl : children) {
+                queue.push_back(make_pair(child_rank, child_snarl));
+            }
+        }
+    });
+
+    // merge up the thread covers
+    vector<pair<int64_t, vector<step_handle_t>>> rgfa_fragments = std::move(thread_covers.at(0));
+    for (size_t t = 1; t < thread_count; ++t) {
+        rgfa_fragments.reserve(rgfa_fragments.size() + thread_covers.at(t).size());
+        std::move(thread_covers.at(t).begin(), thread_covers.at(t).end(), std::back_inserter(rgfa_fragments));
+    }
+    thread_covers.clear();
+    
+    // we don't have a path position interface, and even if we did we probably wouldn't have it on every path
+    // so to keep running time linear, we need to index the fragments so their offsets can be computed in one scan
+    // begin by sorting by path
+    unordered_map<path_handle_t, vector<int64_t>> path_to_fragments;
+    for (size_t i = 0; i <rgfa_fragments.size(); ++i) {
+        const auto& rgfa_fragment = rgfa_fragments[i];
+        path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_fragment.second.front());
+        path_to_fragments[path_handle].push_back(i);
+    }
+
+    for (const auto& path_fragments : path_to_fragments) {
+        const path_handle_t& path_handle = path_fragments.first;
+        PathSense path_sense;
+        string path_sample;
+        string path_locus;
+        size_t path_haplotype;
+        size_t path_phase_block;
+        subrange_t path_subrange;
+        PathMetadata::parse_path_name(graph->get_path_name(path_handle), path_sense, path_sample, path_locus,
+                                      path_haplotype, path_phase_block, path_subrange);
+        
+        const vector<int64_t>& fragments = path_fragments.second;
+
+        // for each path, start by finding the positional offset of all relevant steps in the path by brute-force scan
+        unordered_map<step_handle_t, int64_t> step_to_pos;
+        for (const int64_t& frag_idx : fragments) {
+            const vector<step_handle_t>& rgfa_fragment = rgfa_fragments.at(frag_idx).second;
+            step_to_pos[rgfa_fragment.front()] = -1;
+            // todo: need to figure out where exactly we handle all the different orientation cases
+            if (rgfa_fragment.size() > 1) {
+                step_to_pos[rgfa_fragment.back()] = -1;
+            }
+        }
+        size_t pos_count = 0;
+        size_t pos = 0;
+        graph->for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
+            if (step_to_pos.count(step_handle)) {
+                step_to_pos[step_handle] = pos;
+                ++pos_count;
+                if (pos_count == step_to_pos.size()) {
+                    return false;
+                }
+            }                
+            handle_t handle = graph->get_handle_of_step(step_handle);                
+            pos += graph->get_length(handle);
+            return true;
+        });
+        assert(pos_count == step_to_pos.size());
+        
+        // second pass to make the path fragments, now that we know the positional offsets of their endpoints
+        for (const int64_t frag_idx : fragments) {
+            int64_t rgfa_rank = rgfa_fragments.at(frag_idx).first;
+            const vector<step_handle_t>& rgfa_fragment = rgfa_fragments.at(frag_idx).second;
+            
+            size_t rgfa_frag_pos = step_to_pos[rgfa_fragment.front()];
+            size_t rgfa_frag_length = 0;
+            for (const step_handle_t& step : rgfa_fragment) {
+                rgfa_frag_length += graph->get_length(graph->get_handle_of_step(step));
+            }
+            subrange_t rgfa_frag_subrange;
+            rgfa_frag_subrange.first = rgfa_frag_pos + (path_subrange != PathMetadata::NO_SUBRANGE ? path_subrange.first : 0);
+            rgfa_frag_subrange.second = rgfa_frag_subrange.first + rgfa_frag_length;
+
+            string rgfa_frag_name = PathMetadata::create_path_name(path_sense, path_sample, path_locus, path_haplotype,
+                                                                   path_phase_block, rgfa_frag_subrange);
+
+            rgfa_frag_name = set_rgfa_rank(rgfa_frag_name, rgfa_rank);
+
+#ifdef debug
+#pragma omp critical(cerr)
+            cerr << "making new rgfa fragment with name " << rgfa_frag_name << " and " << rgfa_fragment.size() << " steps. subrange "
+                 << rgfa_frag_subrange.first << "," << rgfa_frag_subrange.second << endl;
+#endif
+            path_handle_t rgfa_fragment_handle = graph->create_path_handle(rgfa_frag_name);
+            for (const step_handle_t& step : rgfa_fragment) {
+                graph->append_step(rgfa_fragment_handle, graph->get_handle_of_step(step));
+            }            
+        }
+    }
+}
+
+int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
+                         const Snarl& snarl,
+                         PathTraversalFinder& path_trav_finder,
+                         const unordered_set<path_handle_t>& reference_paths,
+                         int64_t minimum_length,
+                         int64_t rgfa_rank,
+                         unordered_set<nid_t>& cover_nodes,
+                         vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,
+                         const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals) {
+
+#ifdef debug
+#pragma omp critical(cerr)
+    cerr << "calling rgfa_snarl_cover with rank=" << rgfa_rank << " on " << pb2json(snarl) << endl;
+#endif
+    
+    // // start by finding the path traversals through the snarl
+    vector<vector<step_handle_t>> travs;
+    {
+        pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs = path_trav_finder.find_path_traversals(snarl);
+        travs.reserve(path_travs.first.size());
+        
+        // reduce protobuf usage by going back to vector of steps instead of keeping SnarlTraversals around
+        for (int64_t i = 0; i < path_travs.first.size(); ++i) {
+            bool reversed = false;
+            if (graph->get_is_reverse(graph->get_handle_of_step(path_travs.second[i].first)) != snarl.start().backward()) {
+                reversed == true;
+            }
+            assert((graph->get_is_reverse(graph->get_handle_of_step(path_travs.second[i].second)) != snarl.end().backward()) == reversed);
+            vector<step_handle_t> trav;
+            trav.reserve(path_travs.first[i].visit_size());
+            bool done = false;
+            function<step_handle_t(step_handle_t)> visit_next_step = [&graph,&reversed](step_handle_t step_handle) {
+                return reversed ? graph->get_previous_step(step_handle) : graph->get_next_step(step_handle);
+            };
+            for (step_handle_t step_handle = path_travs.second[i].first; !done; step_handle = visit_next_step(step_handle)) {
+                trav.push_back(step_handle);
+                if (step_handle == path_travs.second[i].second) {
+                    done = true;
+                }
+            }
+            travs.push_back(trav);
+        }
+    }    
+
+    // find all reference paths through the snarl
+    map<string, int64_t> ref_paths;    
+    for (int64_t i = 0; i < travs.size(); ++i) {
+        path_handle_t trav_path = graph->get_path_handle_of_step(travs[i].front());
+        if (reference_paths.count(trav_path)) {
+            ref_paths[graph->get_path_name(trav_path)] = i;
+        }
+    }
+
+    if (ref_paths.empty() && rgfa_rank <= 0) {
+        // we're not nested in a reference snarl, and we have no reference path
+        // by the current logic, there's nothing to be done.
+        cerr << "[rgfa] warning: No referene path through snarl " 
+             << pb2json(snarl) << ": unable to process for rGFA cover" << endl;
+        return -1;
+    }
+
+    if (ref_paths.size() > 1) {
+        // And we could probably cope with this... but don't for now
+        cerr << "[rgfa] error: Mutiple reference path traversals found through snarl " 
+             << pb2json(snarl) << endl;
+    }
+
+    if (!ref_paths.empty()) {
+        // reference paths are trivially covered outside the snarl decomposition
+        // all we do here is make sure the relevant nodes are flagged in the map
+        vector<step_handle_t>& ref_trav = travs.at(ref_paths.begin()->second);
+        for (step_handle_t ref_step_handle : ref_trav) {
+            cover_nodes.insert(graph->get_id(graph->get_handle_of_step(ref_step_handle)));
+        }
+        // this is the rank going forward for all the coers we add
+        // (note: we're not adding rank-0 intervals in this function -- that's done in a separate pass above)
+        rgfa_rank = 1;
+    }
+
+#ifdef debug
+#pragma omp critical(cerr)
+    cerr << "found " << travs.size() << " traversals including " << ref_paths.size() << " reference traversals" << endl;
+#endif
+
+
+    // find all intervals within a snarl traversal that are completely uncovered.
+    // the returned intervals are open-ended.
+    function<vector<pair<int64_t, int64_t>>(const vector<step_handle_t>&)> get_uncovered_intervals = [&](const vector<step_handle_t>& trav) {
+        vector<pair<int64_t, int64_t>> intervals;
+        int64_t start = -1;
+        for (size_t i = 0; i < trav.size(); ++i) {
+            bool covered = cover_nodes.count(graph->get_id(graph->get_handle_of_step(trav[i])));
+            if (covered) {
+                if (start != -1) {
+                    intervals.push_back(make_pair(start, i));
+                }
+                start = -1;
+            } else {
+                if (start == -1) {
+                    start = i;
+                }
+            }
+        }
+        if (start != -1) {
+            intervals.push_back(make_pair(start, trav.size()));
+        }
+        return intervals;
+    };
+
+    // now we try to find candidate rgfa intervals in the other traversals
+    // there's lots of room here for smarter heuristics, but right now we just
+    // do first come first served.
+    for (int64_t trav_idx = 0; trav_idx < travs.size(); ++trav_idx) {
+        // todo: this map seems backwards?  note really a big deal since
+        // we're only allowing one element
+        bool is_ref = false;
+        for (const auto& ref_trav : ref_paths) {
+            if (ref_trav.second == trav_idx) {
+                is_ref = true;
+                break;
+            }
+        }
+        if (is_ref) {
+            continue;
+        }
+        const vector<step_handle_t>& trav = travs.at(trav_idx);
+        vector<pair<int64_t, int64_t>> uncovered_intervals = get_uncovered_intervals(trav);
+
+#ifdef debug
+#pragma omp critical(cerr)
+        cerr << "found " << uncovered_intervals.size() << "uncovered intervals in traversal " << trav_idx << endl;
+#endif
+        
+        for (const auto& uncovered_interval : uncovered_intervals) {
+            int64_t interval_length = 0;
+            for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
+                interval_length += graph->get_length(graph->get_handle_of_step(trav[i]));
+            }
+            if (interval_length >= minimum_length) {
+                // update the cover
+                vector<step_handle_t> interval;
+                interval.reserve(uncovered_interval.second - uncovered_interval.first);
+                for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
+                    interval.push_back(trav[i]);
+                    cover_nodes.insert(graph->get_id(graph->get_handle_of_step(trav[i])));
+                }
+                cover_fragments.push_back(make_pair(rgfa_rank, std::move(interval)));
+            }
+        }
+    }
+
+    return rgfa_rank;
+}
+
+
 
 }

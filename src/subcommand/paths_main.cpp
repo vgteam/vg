@@ -16,6 +16,8 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
+#include "../integrated_snarl_finder.hpp"
+#include "../gfa.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -37,6 +39,10 @@ void help_paths(char** argv) {
          << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
          << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
+         << "  rGFA cover" << endl
+         << "    -R, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
+         << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover (-R)." << endl
+         << "    -t, --threads N          use up to N threads when computing rGFA covoer (default: all available)" << endl
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
@@ -99,6 +105,8 @@ int main_paths(int argc, char** argv) {
     bool extract_as_fasta = false;
     bool drop_paths = false;
     bool retain_paths = false;
+    int64_t rgfa_min_len = -1;
+    string snarl_filename;
     string graph_file;
     string gbwt_file;
     string path_prefix;
@@ -131,6 +139,7 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
+            {"rgfa-cover", required_argument, 0, 'R'},            
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
@@ -144,16 +153,15 @@ int main_paths(int argc, char** argv) {
             {"variant-paths", no_argument, 0, 'a'},
             {"generic-paths", no_argument, 0, 'G'},
             {"coverage", no_argument, 0, 'c'},            
-
+            {"threads", required_argument, 0, 't'},
             // Hidden options for backward compatibility.
-            {"threads", no_argument, 0, 'T'},
             {"threads-by", required_argument, 0, 'q'},
 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGp:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drR:aGp:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -182,10 +190,15 @@ int main_paths(int argc, char** argv) {
         case 'd':
             drop_paths = true;
             output_formats++;
-            break;
+            break;            
             
         case 'r':
             retain_paths = true;
+            output_formats++;
+            break;
+
+        case 'R':
+            rgfa_min_len = parse<int64_t>(optarg);            
             output_formats++;
             break;
                 
@@ -260,9 +273,16 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
-        case 'T':
-            std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg call] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
             break;
+        }
 
         case 'q':
             std::cerr << "warning: [vg paths] option --threads-by is deprecated; please use --paths-by" << std::endl;
@@ -299,7 +319,7 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E, -C or -c) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -R, -L, -F, -E, -C or -c) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -350,9 +370,23 @@ int main_paths(int argc, char** argv) {
           exit(1);
         }
     }
-    
-    
-    
+
+    // Load or compute the snarls
+    unique_ptr<SnarlManager> snarl_manager;
+    if (rgfa_min_len >= 0) {
+        if (!snarl_filename.empty()) {
+            ifstream snarl_file(snarl_filename.c_str());
+            if (!snarl_file) {
+                cerr << "Error [vg paths]: Unable to load snarls file: " << snarl_filename << endl;
+                return 1;
+            }
+            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+        } else {
+            IntegratedSnarlFinder finder(*graph);
+            snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
+        }
+    }
+           
     set<string> path_names;
     if (!path_file.empty()) {
         ifstream path_stream(path_file);
@@ -545,7 +579,7 @@ int main_paths(int argc, char** argv) {
             
         };
         
-        if (drop_paths || retain_paths) {
+        if (drop_paths || retain_paths || rgfa_min_len >= 0) {
             MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph.get());
             if (!mutable_graph) {
                 std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
@@ -557,20 +591,30 @@ int main_paths(int argc, char** argv) {
                 exit(1);
             }
 
-            vector<string> to_destroy;
-            if (drop_paths) {
-                for_each_selected_path([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    to_destroy.push_back(name);
-                });
+            if (drop_paths || retain_paths) {
+                vector<string> to_destroy;
+                if (drop_paths) {
+                    for_each_selected_path([&](const path_handle_t& path_handle) {
+                        string name = graph->get_path_name(path_handle);
+                        to_destroy.push_back(name);
+                    });
+                } else {
+                    for_each_unselected_path([&](const path_handle_t& path_handle) {
+                        string name = graph->get_path_name(path_handle);
+                        to_destroy.push_back(name);
+                    });
+                }
+                for (string& path_name : to_destroy) {
+                    mutable_graph->destroy_path(graph->get_path_handle(path_name));
+                }
             } else {
-                for_each_unselected_path([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    to_destroy.push_back(name);
+                assert(rgfa_min_len >= 0);
+                unordered_set<path_handle_t> reference_paths;
+                for_each_selected_path([&](const path_handle_t& path_handle) {
+                    reference_paths.insert(path_handle);
                 });
-            }
-            for (string& path_name : to_destroy) {
-                mutable_graph->destroy_path(graph->get_path_handle(path_name));
+
+                rgfa_graph_cover(mutable_graph, snarl_manager.get(), reference_paths, rgfa_min_len);  
             }
             
             // output the graph
