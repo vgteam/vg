@@ -119,8 +119,7 @@ class ZipCode {
         ///Offsets of values in a root chain or snarl code
         ///Roots have a bool for is_chain and an identifier, which is the
         ///connected component number from the distance index
-        const static size_t ROOT_CHAIN_SIZE = 2;
-        const static size_t ROOT_SNARL_SIZE = 4;
+        const static size_t ROOT_CHAIN_OR_SNARL_SIZE = 2;
         const static size_t ROOT_IS_CHAIN_OFFSET = 0;
         const static size_t ROOT_IDENTIFIER_OFFSET = 1;
 
@@ -136,7 +135,7 @@ class ZipCode {
 
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 4;
-        const static size_t IRREGULAR_SNARL_SIZE = 4;
+        const static size_t IRREGULAR_SNARL_SIZE = 2;
         const static size_t SNARL_IS_REGULAR_OFFSET = 0;
 
         const static size_t REGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
@@ -144,12 +143,6 @@ class ZipCode {
         const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
 
         const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
-        const static size_t IRREGULAR_SNARL_CHILD_RECORD_OFFSET = 2;
-        const static size_t IRREGULAR_SNARL_CHILD_NODE_RECORD_OFFSET = 3;
-
-        //Root snarls will always be irregular, so copy what the irregular snarls are doing
-        const static size_t ROOT_SNARL_CHILD_RECORD_OFFSET = IRREGULAR_SNARL_CHILD_RECORD_OFFSET;
-        const static size_t ROOT_SNARL_CHILD_NODE_RECORD_OFFSET = IRREGULAR_SNARL_CHILD_NODE_RECORD_OFFSET;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -169,7 +162,7 @@ class ZipCode {
         inline vector<size_t> get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
-        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
+        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
     friend class ZipCodeDecoder;
 };
 
@@ -241,7 +234,7 @@ class ZipCodeDecoder {
     bool get_is_reversed_in_parent(const size_t& depth);
 
     ///Get the handle of the thing at the given depth. This can only be used for
-    ///Root-level structures or irregular snarls or children of irregular snarls
+    ///Root-level structures or irregular snarls
     net_handle_t get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index) ;
 
     ///Get the information that was stored to get the address in the distance index

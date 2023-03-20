@@ -25,8 +25,6 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
         cerr << "Adding code for top-level snarl " << distance_index.net_handle_as_string(current_handle) << endl;
 #endif
         zipcode.add_value(distance_index.get_connected_component_number(current_handle));
-        zipcode.add_value(distance_index.get_record_offset(ancestors.back()));
-        zipcode.add_value(distance_index.get_node_record_offset(ancestors.back()));
     } else {
         //FIrst thing is a chain so add its connected component number and remove the chain from the stack
         zipcode.add_value(1);
@@ -72,7 +70,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 #ifdef DEBUG_ZIPCODE
             assert(distance_index.is_snarl(current_ancestor));
 #endif
-            vector<size_t> to_add =get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index);
+            vector<size_t> to_add =get_irregular_snarl_code(current_ancestor, distance_index);
             for (auto& x : to_add) {
                 zipcode.add_value(x);
             }
@@ -178,9 +176,6 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
             }
         } else {
             //Otherwise, the top-level thing is a snarl and the next thing is a chain 
-            for (size_t i = 0 ; i < ZipCode::ROOT_SNARL_SIZE - 2; i++) {
-                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            }
             decoder.emplace_back(!previous_is_chain, zip_index);
             return false;
         }
@@ -597,8 +592,7 @@ net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDist
     if (depth == 0) {
         //If this is the root chain/snarl/node
 
-        size_t zip_value;
-        size_t zip_index = 0;
+        size_t zip_value, zip_index;
         for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         }
@@ -607,26 +601,7 @@ net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDist
     } else if (decoder[depth].first) {
         //If this is a chain/node
 
-        code_type_t parent_code_type = get_code_type(depth-1);
-        if ( parent_code_type == IRREGULAR_SNARL || parent_code_type == ROOT_SNARL) {
-            //If the parent is an irregular snarl, then we did store the values
-
-            size_t child_record_offset; 
-            size_t zip_index = decoder[depth-1].second;
-
-            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_CHILD_RECORD_OFFSET ; i++) {
-                std::tie(child_record_offset, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            }
-            size_t child_node_record_offset;
-            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_CHILD_NODE_RECORD_OFFSET -
-                                     ZipCode::IRREGULAR_SNARL_CHILD_RECORD_OFFSET - 1 ; i++) {
-                std::tie(child_node_record_offset, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
-            }
-            net_handle_t child_handle = distance_index->get_net_handle_from_values(child_record_offset, SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE, child_node_record_offset);
-            return child_handle;
-        } else {
-            throw std::runtime_error("zipcodes trying to get a handle of a chain or node");
-        }
+        throw std::runtime_error("zipcodes trying to get a handle of a chain or node");
     } else {
         //If this is a snarl
 
@@ -788,7 +763,7 @@ vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const 
     return snarl_code;
 
 }
-vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index) {
+vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index) {
     //Regular snarl code is 0, snarl record offset
     vector<size_t> snarl_code;
 
@@ -797,12 +772,7 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
 
     //Record offset to look up distances in the index later
     snarl_code.emplace_back(distance_index.get_record_offset(snarl));
-    snarl_code.emplace_back(distance_index.get_record_offset(snarl_child));
-    snarl_code.emplace_back(distance_index.get_node_record_offset(snarl_child));
 
-#ifdef DEBUG_ZIPCODE
-assert(snarl_code.size() == IRREGULAR_SNARL_SIZE);
-#endif
     return snarl_code;
 
 }
@@ -833,18 +803,15 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
         if (parent_type == IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             net_handle_t parent_handle = decoder.get_net_handle(child_depth-1, &distance_index);
-            net_handle_t child_handle = decoder.get_net_handle(child_depth, &distance_index);
-            net_handle_t start_in = distance_index.get_bound(parent_handle, false, true);
-            net_handle_t end_in = distance_index.get_bound(parent_handle, true, true);
-
-            distance_start_left = distance_index.distance_in_parent(parent_handle, 
-                                    distance_index.flip(child_handle), start_in, graph);
-            distance_start_right = distance_index.distance_in_parent(parent_handle, 
-                                    distance_index.flip(child_handle), end_in, graph);
-            distance_end_right = distance_index.distance_in_parent(parent_handle, 
-                                    child_handle, end_in, graph);
-            distance_end_left = distance_index.distance_in_parent(parent_handle, 
-                                    child_handle, start_in, graph);
+            size_t child_rank = decoder.get_rank_in_snarl(child_depth);
+            distance_start_left = distance_index.distance_in_snarl(parent_handle, 
+                                    child_rank, false, 0, false, graph);
+            distance_start_right = distance_index.distance_in_snarl(parent_handle, 
+                                    child_rank, false, 1, false, graph);
+            distance_end_right = distance_index.distance_in_snarl(parent_handle, 
+                                    child_rank, true, 1, false, graph);
+            distance_end_left = distance_index.distance_in_snarl(parent_handle, 
+                                    child_rank, true, 0, false, graph);
 #ifdef DEBUG_ZIPCODE
             cerr << "Distances to parent irregular snarl: " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 #endif
@@ -1202,22 +1169,22 @@ cerr << "Finding distances to ancestors of second position" << endl;
             if (zip1_decoder.get_code_type(depth) != REGULAR_SNARL) {
                 //Parent may be an irregular snarl or a root snarl (which is also irregular)
                 net_handle_t parent_handle = zip1_decoder.get_net_handle(depth, &distance_index);
-                net_handle_t child1 = zip1_decoder.get_net_handle(depth+1, &distance_index);
-                net_handle_t child2 = zip2_decoder.get_net_handle(depth+1, &distance_index);
+                size_t rank1 = zip1_decoder.get_rank_in_snarl(depth+1);
+                size_t rank2 = zip2_decoder.get_rank_in_snarl(depth+1);
 #ifdef DEBUG_ZIPCODE
                 cerr << "irregular snarl so find distances in the distance index: " << distance_index.net_handle_as_string(parent_handle) << endl;
                 cerr << "\t at offset " << distance_index.get_record_offset(parent_handle) << endl;
-                cerr << "\tbetween: " << distance_index.net_handle_as_string(child1) << " " << distance_index.net_handle_as_string(child2) << endl;
+                cerr << "ranks: " << rank1 << " and " << rank2 << endl;
 #endif
 
-                size_t distance_start_start = distance_index.distance_in_parent(parent_handle, 
-                                    distance_index.flip(child1), distance_index.flip(child2), graph);
-                size_t distance_start_end = distance_index.distance_in_parent(parent_handle, 
-                                    distance_index.flip(child1), child2, graph);
-                size_t distance_end_start = distance_index.distance_in_parent(parent_handle, 
-                                    child1, distance_index.flip(child2), graph);
-                size_t distance_end_end = distance_index.distance_in_parent(parent_handle, 
-                                    child1, child2, graph);
+                size_t distance_start_start = distance_index.distance_in_snarl(parent_handle, 
+                                    rank1, false, rank2, false, graph);
+                size_t distance_start_end = distance_index.distance_in_snarl(parent_handle, 
+                                    rank1, false, rank2, true, graph);
+                size_t distance_end_start = distance_index.distance_in_snarl(parent_handle, 
+                                    rank1, true, rank2, false, graph);
+                size_t distance_end_end = distance_index.distance_in_snarl(parent_handle, 
+                                    rank1, true, rank2, true, graph);
                 size_t distance_between_snarl = std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
                                                 distance_to_start1, distance_to_start2), distance_start_start),
                                    std::min( SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
