@@ -952,8 +952,26 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             //Snarl record offset
+            net_handle_t irregular_snarl_child = distance_index.start_end_traversal_of(distance_index.get_parent(distance_index.get_node_net_handle(n3->id())));
+            net_handle_t irregular_snarl = distance_index.get_parent(irregular_snarl_child);
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_record_offset(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())))));
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(irregular_snarl));
+
+
+            //Distance left start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.distance_to_parent_bound(irregular_snarl, true, distance_index.flip(irregular_snarl_child)));
+            //Distance left end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.distance_to_parent_bound(irregular_snarl, false, distance_index.flip(irregular_snarl_child)));
+            //Distance right start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.distance_to_parent_bound(irregular_snarl, true, irregular_snarl_child));
+
+            //Distance right end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.distance_to_parent_bound(irregular_snarl, false, irregular_snarl_child));
+
 
             //Node 3 as a chain
             REQUIRE(decoder.decoder[2] == std::make_pair(true, value_and_index.second));

@@ -256,7 +256,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -325,6 +325,31 @@ namespace vg {
                          distance_index.into_which_snarl(n5->id(), true));
                 REQUIRE(distance_index.into_which_snarl(n3->id(), true) == std::make_tuple(0, false, false));
                 REQUIRE(distance_index.into_which_snarl(n5->id(), false) == std::make_tuple(0, false, false));
+            }
+            SECTION("Find snarl children") {
+                net_handle_t node2 = distance_index.get_node_net_handle(n2->id());
+                net_handle_t chain2 = distance_index.get_parent(node2);
+                net_handle_t snarl1 = distance_index.get_parent(chain2);
+
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl1, distance_index.get_rank_in_parent(chain2))) ==
+                        distance_index.canonical(chain2));
+
+                net_handle_t node3 = distance_index.get_node_net_handle(n3->id());
+                net_handle_t chain3 = distance_index.get_parent(node3);
+                net_handle_t snarl2 = distance_index.get_parent(chain3);
+
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl2, distance_index.get_rank_in_parent(chain3))) ==
+                        distance_index.canonical(chain3));
+
+                net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                net_handle_t snarl3 = distance_index.get_parent(chain4);
+
+
+                REQUIRE(distance_index.canonical(distance_index.get_snarl_child_from_rank(snarl3, distance_index.get_rank_in_parent(chain4))) ==
+                        distance_index.canonical(chain4));
             }
             SECTION("Root has three children") {
                 net_handle_t root = distance_index.get_root();

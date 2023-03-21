@@ -135,7 +135,7 @@ class ZipCode {
 
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 4;
-        const static size_t IRREGULAR_SNARL_SIZE = 2;
+        const static size_t IRREGULAR_SNARL_SIZE = 6;
         const static size_t SNARL_IS_REGULAR_OFFSET = 0;
 
         const static size_t REGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
@@ -143,6 +143,11 @@ class ZipCode {
         const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
 
         const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
+        //The distances from the left/right side of the child to the start/end of the snarl
+        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_START_OFFSET = 2;
+        const static size_t IRREGULAR_SNARL_DISTANCE_LEFT_END_OFFSET = 3;
+        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_START_OFFSET = 4;
+        const static size_t IRREGULAR_SNARL_DISTANCE_RIGHT_END_OFFSET = 5;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -162,7 +167,7 @@ class ZipCode {
         inline vector<size_t> get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
-        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
+        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
     friend class ZipCodeDecoder;
 };
 
@@ -243,6 +248,23 @@ class ZipCodeDecoder {
     ///This is used for checking equality without looking at the distance index.
     ///Use get_net_handle for getting the actual handle
     size_t get_distance_index_address(const size_t& depth) ;
+
+    /// Get the distance from the left side of a child of an irregular snarl to the start of the snarl
+    /// depth is the depth of the child
+    size_t get_irregular_snarl_distance_left_start(const size_t& child_depth);
+
+    /// Get the distance from the left side of a child of an irregular snarl to the end of the snarl
+    /// depth is the depth of the child
+
+    size_t get_irregular_snarl_distance_left_end(const size_t& child_depth);
+    /// Get the distance from the right side of a child of an irregular snarl to the start of the snarl
+    /// depth is the depth of the child
+
+    size_t get_irregular_snarl_distance_right_start(const size_t& child_depth);
+
+    /// Get the distance from the right side of a child of an irregular snarl to the end of the snarl
+    /// depth is the depth of the child
+    size_t get_irregular_snarl_distance_right_end(const size_t& child_depth);
 
 
     ///Are the two decoders pointing to the same snarl tree node at the given depth
