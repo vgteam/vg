@@ -2,6 +2,7 @@
 #include "utility.hpp"
 #include "path.hpp"
 #include <sstream>
+#include <algorithm>
 
 #include <gbwtgraph/utils.h>
 
@@ -228,7 +229,7 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
     if (phase_block_end_cursor != 0) {
         if (start_offset != 0) {
             // TODO: Work out a way to support phase blocks and subranges at the same time.
-            cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotyope, and contig in GFA format"
+            cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotype, and contig in GFA format"
                  << " when paths already have subranges. Fix path " << graph->get_path_name(path_handle) << endl;
             exit(1);
         }
@@ -360,6 +361,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
         subrange_t path_subrange;
         PathMetadata::parse_path_name(graph->get_path_name(path_handle), path_sense, path_sample, path_locus,
                                       path_haplotype, path_phase_block, path_subrange);
+        PathSense out_path_sense = path_sense == PathSense::HAPLOTYPE ? PathSense::GENERIC : path_sense;
         
         const vector<int64_t>& fragments = path_fragments.second;
 
@@ -403,7 +405,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
             rgfa_frag_subrange.first = rgfa_frag_pos + (path_subrange != PathMetadata::NO_SUBRANGE ? path_subrange.first : 0);
             rgfa_frag_subrange.second = rgfa_frag_subrange.first + rgfa_frag_length;
 
-            string rgfa_frag_name = PathMetadata::create_path_name(path_sense, path_sample, path_locus, path_haplotype,
+            string rgfa_frag_name = PathMetadata::create_path_name(out_path_sense, path_sample, path_locus, path_haplotype,
                                                                    path_phase_block, rgfa_frag_subrange);
 
             rgfa_frag_name = set_rgfa_rank(rgfa_frag_name, rgfa_rank);
@@ -535,9 +537,8 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         return intervals;
     };
 
-    // now we try to find candidate rgfa intervals in the other traversals
-    // there's lots of room here for smarter heuristics, but right now we just
-    // do first come first served.
+    // build an initial ranked list of candidate traversal fragments
+    vector<pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>> ranked_trav_fragments;
     for (int64_t trav_idx = 0; trav_idx < travs.size(); ++trav_idx) {
         // todo: this map seems backwards?  note really a big deal since
         // we're only allowing one element
@@ -554,47 +555,167 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         const vector<step_handle_t>& trav = travs.at(trav_idx);
         vector<pair<int64_t, int64_t>> uncovered_intervals = get_uncovered_intervals(trav);
 
-#ifdef debug
-#pragma omp critical(cerr)
-        cerr << "found " << uncovered_intervals.size() << " uncovered intervals in traversal " << trav_idx << endl;
-#endif
-        
         for (const auto& uncovered_interval : uncovered_intervals) {
-            // we check the "backbone" interval that this interval is coming off
-            // since we've already covered the reference, then we know that this interval
-            // doesn't span the whole snarl including endpoints, so we can always afford
-            // to look back and ahead one
-            cerr << "uncovered interval " << uncovered_interval.first << ", " << uncovered_interval.second << " vs trav size " << trav.size() << endl;
-            assert(uncovered_interval.first > 0 && uncovered_interval.second < trav.size());
-            int64_t prev_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.first - 1])));
-            int64_t next_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.second])));
-            if (prev_frag_idx != next_frag_idx) {
-                // todo: figure out policy for these
-                cerr << "[rgfa] warning: skipping fragment that is connected to different fragmengs" << endl;
-                continue;
-            }
-            int64_t fragment_rank;
-            if (prev_frag_idx == -1) {
-                fragment_rank = 1;
-            } else {
-                fragment_rank = cover_fragments.at(prev_frag_idx).first + 1;
-            }
             int64_t interval_length = 0;            
             for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
                 interval_length += graph->get_length(graph->get_handle_of_step(trav[i]));
             }
             if (interval_length >= minimum_length) {
-                // update the cover
-                vector<step_handle_t> interval;
-                interval.reserve(uncovered_interval.second - uncovered_interval.first);
-                for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
-                    interval.push_back(trav[i]);
-                    cover_node_to_fragment[graph->get_id(graph->get_handle_of_step(trav[i]))] = cover_fragments.size();
-                }
-                cover_fragments.push_back(make_pair(fragment_rank, std::move(interval)));
+                auto trav_stats = rgfa_traversal_stats(graph, trav, uncovered_interval);
+                ranked_trav_fragments.push_back(make_pair(trav_stats, make_pair(trav_idx, uncovered_interval)));
             }
         }
     }
+
+    // todo: typedef!
+    function<bool(const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s1,
+                  const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s2)> heap_comp =
+        [](const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s1,
+           const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s2) {
+            return s1.first < s2.first;
+        };
+
+    // put the fragments into a max heap
+    std::make_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
+
+    // now greedily pull out traversal intervals from the ranked list until none are left
+    while (!ranked_trav_fragments.empty()) {
+
+        // get the best scoring (max) fragment from heap
+        auto& best_stats_fragment = ranked_trav_fragments.front();
+        std::pop_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
+        ranked_trav_fragments.pop_back();
+        
+        const vector<step_handle_t>& trav = travs.at(best_stats_fragment.second.first);
+        const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.second.second;
+
+        // our traversal may have been partially covered by a different iteration, if so, we need to break it up
+        // and continue
+        vector<pair<int64_t, int64_t>> chopped_intervals;
+        int64_t cur_start = -1;
+        bool chopped = false;
+        for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
+            bool covered = cover_node_to_fragment.count(graph->get_id(graph->get_handle_of_step(trav[i])));
+            if (!covered && cur_start == -1) {
+                cur_start = i;
+            } else if (covered) {
+                chopped = true;
+                if (cur_start != -1) {
+                    chopped_intervals.push_back(make_pair(cur_start, i));
+                    cur_start = -1;
+                }
+            }
+        }
+        if (cur_start != -1) {
+            chopped_intervals.push_back(make_pair(cur_start, uncovered_interval.second));
+        }
+        if (chopped) {
+            for (const pair<int64_t, int64_t>& chopped_interval : chopped_intervals) {
+                int64_t chopped_trav_length = 0;
+                for (int64_t i = chopped_interval.first; i < chopped_interval.second; ++i) {
+                    chopped_trav_length += graph->get_length(graph->get_handle_of_step(trav[i]));
+                }
+                if (chopped_trav_length >= minimum_length) {
+                    auto chopped_stats = rgfa_traversal_stats(graph, trav, chopped_interval);                
+                    ranked_trav_fragments.push_back(make_pair(chopped_stats, make_pair(best_stats_fragment.second.first, chopped_interval)));
+                    std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
+                    cerr << "pushing interval " << endl;
+                }
+            }
+            continue;
+        }
+
+        // we check the "backbone" interval that this interval is coming off
+        // since we've already covered the reference, then we know that this interval
+        // doesn't span the whole snarl including endpoints, so we can always afford
+        // to look back and ahead one
+        cerr << "uncovered interval " << uncovered_interval.first << ", " << uncovered_interval.second << " vs trav size " << trav.size() << endl;
+        assert(uncovered_interval.first > 0 && uncovered_interval.second < trav.size());
+        int64_t prev_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.first - 1])));
+        int64_t next_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.second])));
+        if (prev_frag_idx != next_frag_idx) {
+            // todo: figure out policy for these
+            cerr << "[rgfa] warning: skipping fragment that is connected to different fragmengs" << endl;
+            continue;
+        }
+        int64_t fragment_rank;
+        if (prev_frag_idx == -1) {
+            fragment_rank = 1;
+        } else {
+            fragment_rank = cover_fragments.at(prev_frag_idx).first + 1;
+        }
+
+        // update the cover
+        vector<step_handle_t> interval;
+        interval.reserve(uncovered_interval.second - uncovered_interval.first);
+        for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
+            interval.push_back(trav[i]);
+            cover_node_to_fragment[graph->get_id(graph->get_handle_of_step(trav[i]))] = cover_fragments.size();
+        }
+        cover_fragments.push_back(make_pair(fragment_rank, std::move(interval)));
+    }
+}
+
+tuple<int64_t, int64_t, int64_t> rgfa_traversal_stats(const PathHandleGraph* graph,
+                                                      const vector<step_handle_t>& trav,
+                                                      const pair<int64_t, int64_t>& trav_fragment) {
+    path_handle_t path_handle = graph->get_path_handle_of_step(trav.front());
+    int64_t support = 0;
+    int64_t switches = 0;
+    int64_t dupes = 0;
+    handle_t prev_handle;
+
+    for (int64_t i = trav_fragment.first; i < trav_fragment.second; ++i) {
+        const step_handle_t& step = trav[i];
+        handle_t handle = graph->get_handle_of_step(step);
+        vector<step_handle_t> all_steps = graph->steps_of_handle(handle);
+        int64_t length = graph->get_length(handle);
+        support += length;
+        int64_t self_count = 0;
+        for (const step_handle_t& other_step : all_steps) {
+            path_handle_t step_path_handle = graph->get_path_handle_of_step(other_step);
+            if (step_path_handle == path_handle) {
+                ++self_count;
+            } else {
+                support += length;
+            }
+        }
+        if (self_count > 1) {
+            dupes += length * (self_count - 1);
+        }
+        if (i > 0 && graph->get_is_reverse(handle) != graph->get_is_reverse(prev_handle)) {
+            ++switches;
+        }
+        prev_handle = handle;
+    }
+
+    return std::make_tuple(support, switches, dupes);
+}
+
+bool rgfa_traversal_stats_less(const tuple<int64_t, int64_t, int64_t>& s1, const tuple<int64_t, int64_t, int64_t>& s2) {
+    // duplicates are a deal breaker, if one traversal has no duplicates and the other does, the former wins
+    if (get<2>(s1) > 0 && get<2>(s2) == 0) {
+        return true;
+    } else if (get<2>(s1) == 0 && get<2>(s2) > 0) {
+        return false;
+    }
+
+    // then support
+    if (get<0>(s1) < get<0>(s2)) {
+        return true;
+    } else if (get<0>(s1) > get<0>(s2)) {
+        return false;
+    }
+
+    // then duplicates (by value)
+    if (get<2>(s1) > get<2>(s2)) {
+        return true;
+    } else if (get<2>(s1) < get<2>(s2)) {
+        return false;
+    }
+
+    // then switches
+    return get<1>(s1) > get<1>(s2);
 }
 
 

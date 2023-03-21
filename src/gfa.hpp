@@ -62,7 +62,17 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                       unordered_map<nid_t, int64_t>& cover_node_to_fragment,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals);
 
+/// Get some statistics from a traversal fragment that we use for ranking in the greedy algorithm
+/// 1. Coverage : total step length across the traversal for all paths
+/// 2. Switches : the number of nodes that would need to be flipped to forwardize the traversal
+/// 3. Duplicated bases : the number of duplicated bases in the traversal path
+tuple<int64_t, int64_t, int64_t> rgfa_traversal_stats(const PathHandleGraph* graph,
+                                                      const vector<step_handle_t>& trav,
+                                                      const pair<int64_t, int64_t>& trav_fragment);
 
+/// Comparison of the above stats for the purposes of greedily selecting (highest better) traversals
+bool rgfa_traversal_stats_less(const tuple<int64_t, int64_t, int64_t>& s1, const tuple<int64_t, int64_t, int64_t>& s2);
+                                                  
 /// Extract rGFA tags from minigraph GFA in order to pass in as hints above
 unordered_map<const string&, vector<pair<int64_t, int64_t>>>  extract_rgfa_intervals(const string& rgfa_path);
 
