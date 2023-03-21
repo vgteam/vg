@@ -36,7 +36,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
 /// Returns the RGFA rank (SR) of a path. This will be 0 for the reference
 /// backbone, and higher the further number of (nested) bubbles away it is.
 /// If the path is not an RGFA path, then return -1
-int rgfa_rank(const string& path_name);
+int get_rgfa_rank(const string& path_name);
 
 /// Add the RGFA rank tag to a pathname
 string set_rgfa_rank(const string& path_name, int rgfa_rank);
@@ -53,15 +53,14 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       int64_t minimum_length,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals = {});
 
-int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
-                         const Snarl& snarl,
-                         PathTraversalFinder& path_trav_finder,
-                         const unordered_set<path_handle_t>& reference_paths,
-                         int64_t minimum_length,
-                         int64_t rgfa_rank,
-                         unordered_set<nid_t>& cover_nodes,
-                         vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,
-                         const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals);
+void rgfa_snarl_cover(const PathHandleGraph* graph,
+                      const Snarl& snarl,
+                      PathTraversalFinder& path_trav_finder,
+                      const unordered_set<path_handle_t>& reference_paths,
+                      int64_t minimum_length,
+                      vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,                         
+                      unordered_map<nid_t, int64_t>& cover_node_to_fragment,
+                      const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals);
 
 
 /// Extract rGFA tags from minigraph GFA in order to pass in as hints above

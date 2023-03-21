@@ -249,7 +249,7 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
     out << "\n";
 }
 
-int rgfa_rank(const string& path_name) {
+int get_rgfa_rank(const string& path_name) {
     int rank = -1;
     size_t pos = path_name.rfind(":SR:i:");
     if (pos != string::npos && path_name.length() - pos >= 6) {
@@ -297,46 +297,37 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
     
     // we process top-level snarl_manager in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
-        // index nodes in rgfa cover to prevent overlaps
-        unordered_set<nid_t> cover_nodes;
         // per-thread output
+        // each fragment is a rank and vector of steps, the cove is a list of fragments
+        // TODO: we can store just a first step and count instead of every fragment
         vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments = thread_covers.at(omp_get_thread_num());
+        // we also index the fragments by their node ids for fast lookups of what's covered by what
+        // the value here is an index in the above vector
+        unordered_map<nid_t, int64_t> cover_node_to_fragment;
         
-        // we keep track of ranks. rgfa ranks are relative to the reference path, not the snarl tree
-        // so we begin at -1 which means unknown. it will turn to 0 at first reference anchored snarl found
-        // -1 rank snarls cannot be covered by this algorithm
-        vector<pair<int64_t, const Snarl*>> queue; // rank,snarl
-        
-        queue.push_back(make_pair(-1, snarl));
+        vector<const Snarl*> queue = {snarl}; 
 
         while(!queue.empty()) {
-            pair<int64_t, const Snarl*> rank_snarl = queue.back();
+            const Snarl* cur_snarl = queue.back();
             queue.pop_back();
 
             // get the snarl cover, writing to cover_nodes and cover_fragments
             // note that we are single-threaded per top-level snarl, at least for now
             // this is because parent snarls and child snarls can potentially cover the
             // sname things
-            int64_t rgfa_rank = rgfa_snarl_cover(graph,
-                                                 *snarl,
-                                                 path_trav_finder,
-                                                 reference_paths,
-                                                 minimum_length,
-                                                 -1,
-                                                 cover_nodes,
-                                                 cover_fragments,
-                                                 preferred_intervals);
-
-            // we don't even attempt to cover rank -1 snarls, instead just
-            // recurse until we find a reference path.
-            // this does put a reference path / snarl decomposition alignment
-            // requirement on this code
-            int64_t child_rank = rgfa_rank < 0 ? rgfa_rank : rgfa_rank + 1;
+            rgfa_snarl_cover(graph,
+                             *cur_snarl,
+                             path_trav_finder,
+                             reference_paths,
+                             minimum_length,
+                             cover_fragments,
+                             cover_node_to_fragment,
+                             preferred_intervals);
 
             // recurse on the children
-            const vector<const Snarl*>& children = snarl_manager->children_of(snarl);
+            const vector<const Snarl*>& children = snarl_manager->children_of(cur_snarl);
             for (const Snarl* child_snarl : children) {
-                queue.push_back(make_pair(child_rank, child_snarl));
+                queue.push_back(child_snarl);
             }
         }
     });
@@ -430,19 +421,18 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
     }
 }
 
-int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
-                         const Snarl& snarl,
-                         PathTraversalFinder& path_trav_finder,
-                         const unordered_set<path_handle_t>& reference_paths,
-                         int64_t minimum_length,
-                         int64_t rgfa_rank,
-                         unordered_set<nid_t>& cover_nodes,
-                         vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,
-                         const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals) {
+void rgfa_snarl_cover(const PathHandleGraph* graph,
+                      const Snarl& snarl,
+                      PathTraversalFinder& path_trav_finder,
+                      const unordered_set<path_handle_t>& reference_paths,
+                      int64_t minimum_length,
+                      vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,                         
+                      unordered_map<nid_t, int64_t>& cover_node_to_fragment,
+                      const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals) {
 
 #ifdef debug
 #pragma omp critical(cerr)
-    cerr << "calling rgfa_snarl_cover with rank=" << rgfa_rank << " on " << pb2json(snarl) << endl;
+    cerr << "calling rgfa_snarl_cover on " << pb2json(snarl) << endl;
 #endif
     
     // // start by finding the path traversals through the snarl
@@ -453,10 +443,17 @@ int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
         
         // reduce protobuf usage by going back to vector of steps instead of keeping SnarlTraversals around
         for (int64_t i = 0; i < path_travs.first.size(); ++i) {
+            string trav_path_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+            if (get_rgfa_rank(trav_path_name) > 0) {
+                // we ignore existing (off-reference) rGFA paths
+                // todo: shoulgd there be better error handling?                
+                cerr << "Warning : skipping existing rgfa traversal " << trav_path_name << endl;
+                continue;
+            }
             bool reversed = false;
             if (graph->get_is_reverse(graph->get_handle_of_step(path_travs.second[i].first)) != snarl.start().backward()) {
-                reversed == true;
-            }
+                reversed = true;
+            }                
             assert((graph->get_is_reverse(graph->get_handle_of_step(path_travs.second[i].second)) != snarl.end().backward()) == reversed);
             vector<step_handle_t> trav;
             trav.reserve(path_travs.first[i].visit_size());
@@ -483,12 +480,12 @@ int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
         }
     }
 
-    if (ref_paths.empty() && rgfa_rank <= 0) {
+    if (ref_paths.empty() && !cover_node_to_fragment.count(snarl.start().node_id())) {
         // we're not nested in a reference snarl, and we have no reference path
         // by the current logic, there's nothing to be done.
         cerr << "[rgfa] warning: No referene path through snarl " 
              << pb2json(snarl) << ": unable to process for rGFA cover" << endl;
-        return -1;
+        return;
     }
 
     if (ref_paths.size() > 1) {
@@ -502,11 +499,10 @@ int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
         // all we do here is make sure the relevant nodes are flagged in the map
         vector<step_handle_t>& ref_trav = travs.at(ref_paths.begin()->second);
         for (step_handle_t ref_step_handle : ref_trav) {
-            cover_nodes.insert(graph->get_id(graph->get_handle_of_step(ref_step_handle)));
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(ref_step_handle));
+            // using -1 as special signifier of the reference path
+            cover_node_to_fragment[node_id] = -1;
         }
-        // this is the rank going forward for all the coers we add
-        // (note: we're not adding rank-0 intervals in this function -- that's done in a separate pass above)
-        rgfa_rank = 1;
     }
 
 #ifdef debug
@@ -521,7 +517,7 @@ int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
         vector<pair<int64_t, int64_t>> intervals;
         int64_t start = -1;
         for (size_t i = 0; i < trav.size(); ++i) {
-            bool covered = cover_nodes.count(graph->get_id(graph->get_handle_of_step(trav[i])));
+            bool covered = cover_node_to_fragment.count(graph->get_id(graph->get_handle_of_step(trav[i])));
             if (covered) {
                 if (start != -1) {
                     intervals.push_back(make_pair(start, i));
@@ -560,11 +556,30 @@ int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
 
 #ifdef debug
 #pragma omp critical(cerr)
-        cerr << "found " << uncovered_intervals.size() << "uncovered intervals in traversal " << trav_idx << endl;
+        cerr << "found " << uncovered_intervals.size() << " uncovered intervals in traversal " << trav_idx << endl;
 #endif
         
         for (const auto& uncovered_interval : uncovered_intervals) {
-            int64_t interval_length = 0;
+            // we check the "backbone" interval that this interval is coming off
+            // since we've already covered the reference, then we know that this interval
+            // doesn't span the whole snarl including endpoints, so we can always afford
+            // to look back and ahead one
+            cerr << "uncovered interval " << uncovered_interval.first << ", " << uncovered_interval.second << " vs trav size " << trav.size() << endl;
+            assert(uncovered_interval.first > 0 && uncovered_interval.second < trav.size());
+            int64_t prev_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.first - 1])));
+            int64_t next_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.second])));
+            if (prev_frag_idx != next_frag_idx) {
+                // todo: figure out policy for these
+                cerr << "[rgfa] warning: skipping fragment that is connected to different fragmengs" << endl;
+                continue;
+            }
+            int64_t fragment_rank;
+            if (prev_frag_idx == -1) {
+                fragment_rank = 1;
+            } else {
+                fragment_rank = cover_fragments.at(prev_frag_idx).first + 1;
+            }
+            int64_t interval_length = 0;            
             for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
                 interval_length += graph->get_length(graph->get_handle_of_step(trav[i]));
             }
@@ -574,14 +589,12 @@ int64_t rgfa_snarl_cover(const PathHandleGraph* graph,
                 interval.reserve(uncovered_interval.second - uncovered_interval.first);
                 for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
                     interval.push_back(trav[i]);
-                    cover_nodes.insert(graph->get_id(graph->get_handle_of_step(trav[i])));
+                    cover_node_to_fragment[graph->get_id(graph->get_handle_of_step(trav[i]))] = cover_fragments.size();
                 }
-                cover_fragments.push_back(make_pair(rgfa_rank, std::move(interval)));
+                cover_fragments.push_back(make_pair(fragment_rank, std::move(interval)));
             }
         }
     }
-
-    return rgfa_rank;
 }
 
 
