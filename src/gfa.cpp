@@ -421,6 +421,9 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
             }            
         }
     }
+
+    // forwardize the graph
+    rgfa_forwardize_paths(graph, reference_paths);
 }
 
 void rgfa_snarl_cover(const PathHandleGraph* graph,
@@ -718,6 +721,78 @@ bool rgfa_traversal_stats_less(const tuple<int64_t, int64_t, int64_t>& s1, const
     return get<1>(s1) > get<1>(s2);
 }
 
+// copied pretty much verbatem from
+// https://github.com/ComparativeGenomicsToolkit/hal2vg/blob/v1.1.2/clip-vg.cpp#L809-L880
+void rgfa_forwardize_paths(MutablePathMutableHandleGraph* graph,
+                           const unordered_set<path_handle_t>& reference_paths) {
+    
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            if (reference_paths.count(path_handle) || get_rgfa_rank(path_name) >= 0) {
+                size_t fw_count = 0;
+                size_t total_steps = 0;
+                graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                        handle_t handle = graph->get_handle_of_step(step_handle);
+                        if (graph->get_is_reverse(handle)) {
+                            handle_t flipped_handle = graph->create_handle(graph->get_sequence(handle));
+			    graph->follow_edges(handle, true, [&](handle_t prev_handle) {
+                                    if (graph->get_id(prev_handle) != graph->get_id(handle)) {
+                                        graph->create_edge(prev_handle, flipped_handle);
+                                    }
+			      });
+			    graph->follow_edges(handle, false, [&](handle_t next_handle) {
+                                    if (graph->get_id(handle) != graph->get_id(next_handle)) {
+                                        graph->create_edge(flipped_handle, next_handle);
+                                    }
+			      });
+                            // self-loop cases we punted on above:
+                            if (graph->has_edge(handle, handle)) {
+                                graph->create_edge(flipped_handle, flipped_handle);
+                            }
+                            if (graph->has_edge(handle, graph->flip(handle))) {
+                                graph->create_edge(flipped_handle, graph->flip(flipped_handle));                                
+                            }
+                            if (graph->has_edge(graph->flip(handle), handle)) {
+                                graph->create_edge(graph->flip(flipped_handle), flipped_handle);
+                            }
+                            vector<step_handle_t> steps = graph->steps_of_handle(handle);
+                            size_t ref_count = 0;
+                            for (step_handle_t step : steps) {
+                                if (graph->get_path_handle_of_step(step) == path_handle) {
+                                    ++ref_count;
+                                }
+                                step_handle_t next_step = graph->get_next_step(step);
+                                handle_t new_handle = graph->get_is_reverse(graph->get_handle_of_step(step)) ? flipped_handle :
+                                    graph->flip(flipped_handle);
+                                graph->rewrite_segment(step, next_step, {new_handle});
+                            }
+                            if (ref_count > 1) {
+                                cerr << "[rGFA] error: Cycle detected in rGFA path " << path_name << " at node " << graph->get_id(handle) << endl;
+                                exit(1);
+                            }
+                            ++fw_count;
+                            assert(graph->steps_of_handle(handle).empty());
+                            dynamic_cast<DeletableHandleGraph*>(graph)->destroy_handle(handle);
+                        }
+                        ++total_steps;
+                    });
+            }
+        });
+
+    // do a check just to be sure
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            if (reference_paths.count(path_handle) || get_rgfa_rank(path_name) >= 0) {
+                graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                        handle_t handle = graph->get_handle_of_step(step_handle);
+                        if (graph->get_is_reverse(handle)) {
+                            cerr << "[rGFA] error: Failed to fowardize node " << graph->get_id(handle) << " in path " << path_name << endl;
+                            exit(1);
+                        }
+                    });
+            }
+        });
+}
 
 
 }

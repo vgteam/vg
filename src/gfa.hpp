@@ -72,6 +72,10 @@ tuple<int64_t, int64_t, int64_t> rgfa_traversal_stats(const PathHandleGraph* gra
 
 /// Comparison of the above stats for the purposes of greedily selecting (highest better) traversals
 bool rgfa_traversal_stats_less(const tuple<int64_t, int64_t, int64_t>& s1, const tuple<int64_t, int64_t, int64_t>& s2);
+
+/// Make sure all rgfa paths are forwardized
+void rgfa_forwardize_paths(MutablePathMutableHandleGraph* graph,
+                           const unordered_set<path_handle_t>& reference_paths);
                                                   
 /// Extract rGFA tags from minigraph GFA in order to pass in as hints above
 unordered_map<const string&, vector<pair<int64_t, int64_t>>>  extract_rgfa_intervals(const string& rgfa_path);
