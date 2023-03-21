@@ -566,6 +566,7 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
             if (interval_length >= minimum_length) {
                 auto trav_stats = rgfa_traversal_stats(graph, trav, uncovered_interval);
                 ranked_trav_fragments.push_back(make_pair(trav_stats, make_pair(trav_idx, uncovered_interval)));
+                cerr << "pushing trav " << trav_idx << " with stats " << get<0>(trav_stats) <<"," << get<1>(trav_stats) << "," << get<2>(trav_stats) << endl;
             }
         }
     }
@@ -575,19 +576,27 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                   const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s2)> heap_comp =
         [](const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s1,
            const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s2) {
-            return s1.first < s2.first;
+            cerr << "COMP" << s1.first << " VS " << s2.first << " is " << rgfa_traversal_stats_less(s1.first, s2.first) << endl;
+            return rgfa_traversal_stats_less(s1.first, s2.first);
         };
 
     // put the fragments into a max heap
     std::make_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
 
+    for (auto xxx : ranked_trav_fragments) {
+        cerr << " heep " << xxx.first <<"->trav " << xxx.second.first << endl;
+        cerr << " front is " << ranked_trav_fragments.front().first << "->trav " << ranked_trav_fragments.front().second.first << endl;
+    }
+
     // now greedily pull out traversal intervals from the ranked list until none are left
     while (!ranked_trav_fragments.empty()) {
 
         // get the best scoring (max) fragment from heap
-        auto& best_stats_fragment = ranked_trav_fragments.front();
+        auto best_stats_fragment = ranked_trav_fragments.front();
         std::pop_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
         ranked_trav_fragments.pop_back();
+        cerr << "popping trav " << best_stats_fragment.second.first << " with stats "
+             << get<0>(best_stats_fragment.first) << "," << get<1>(best_stats_fragment.first) << "," << get<2>(best_stats_fragment.first) << endl;
         
         const vector<step_handle_t>& trav = travs.at(best_stats_fragment.second.first);
         const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.second.second;
