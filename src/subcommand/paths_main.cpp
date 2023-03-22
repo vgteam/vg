@@ -18,6 +18,7 @@
 #include "../gbwt_helper.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gfa.hpp"
+#include "../io/save_handle_graph.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -618,7 +619,7 @@ int main_paths(int argc, char** argv) {
             }
             
             // output the graph
-            serializable_graph->serialize(cout);
+            vg::io::save_handle_graph(graph.get(), std::cout);
         }
         else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one
