@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 22
+plan tests 23
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -93,3 +93,16 @@ diff rgfa_ins2R5_fragments.rgfa rgfa_ins2R5_expected_fragments.rgfa
 is $? 0 "rgfa Minimum fragment length filters out small fragment"
 
 rm -f rgfa_ins2R5.rgfa rgfa_ins2R5_expected_fragments.rgfa rgfa_ins2R5_fragments.rgfa
+
+vg paths -v rgfa/rgfa_ins3.gfa -R 3 -Q x | vg view - > rgfa_ins3.rgfa
+printf "P	x	1+,5+	*
+P	y[3-19]:SR:i:1	4+,6+,2+	*
+P	y	5-,4+,6+,2+,1-	*
+P	z[11-14]:SR:i:2	3+	*
+P	z	1+,2-,3+,4-,5+	*\n" | sort > rgfa_ins3_expected_fragments.rgfa
+grep ^P rgfa_ins3.rgfa | sort > rgfa_ins3_fragments.rgfa
+diff rgfa_ins3_fragments.rgfa rgfa_ins3_expected_fragments.rgfa
+is $? 0 "Found the expected rgfa cover for simple nested insertion that has a reversed path that needs forwardization"
+
+rm -f rgfa_ins3.rgfa rgfa_ins3_expected_fragments.rgfa rgfa_ins3_fragments.rgfa
+
