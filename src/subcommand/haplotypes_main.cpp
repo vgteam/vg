@@ -15,6 +15,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <unordered_map>
 
 #include <getopt.h>
 #include <omp.h>
@@ -84,6 +85,9 @@ struct HaplotypesConfig {
     HaplotypePartitioner::Parameters partitioner_parameters;
     Recombinator::Parameters recombinator_parameters;
 
+    // A prefix to add to VCF contig names to get GBWT contig names.
+    std::string contig_prefix;
+
     // Other parameters.
     size_t threads = haplotypes_default_threads();
     bool validate = false;
@@ -93,8 +97,9 @@ struct HaplotypesConfig {
 
 void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, HaplotypesConfig& config);
 
-// TODO: The GBZ should be const, but one key method is not.
-void sample_haplotypes(gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
+void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
+
+void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config);
 
 //----------------------------------------------------------------------------
 
@@ -137,11 +142,7 @@ int main_haplotypes(int argc, char** argv) {
 
     // Map variants to subchains.
     if (config.mode == HaplotypesConfig::mode_map_variants) {
-        // FIXME implement
-        // 1. Open VCF file and map contigs to generic / reference paths and chains
-        // 2. For each VCF contig, traverse the path and map variant positions to subchains
-        // 3. Output statistics as (VCF contig name, GBWT path name, top-level chain, subchain, number of variants)
-        // Note that variants could plausibly be between adjacent subchains
+        map_variants(gbz, haplotypes, config);
     }
 
     if (config.verbosity >= HaplotypePartitioner::verbosity_basic) {
@@ -199,6 +200,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     if (developer_options) {
         std::cerr << "Developer options:" << std::endl;
         std::cerr << "        --vcf-input X         map the variants in VCF file X to subchains" << std::endl;
+        std::cerr << "        --contig-prefix X     a prefix for transforming VCF contig names into GBWT contig names" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -217,6 +219,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_INCLUDE_REFERENCE = 1305;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
+    constexpr int OPT_CONTIG_PREFIX = 1501;
 
     static struct option long_options[] =
     {
@@ -240,6 +243,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
         { "vcf-input", required_argument, 0, OPT_VCF_INPUT },
+        { "contig-prefix", required_argument, 0, OPT_CONTIG_PREFIX },
         { 0, 0, 0, 0 }
     };
 
@@ -356,6 +360,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 
         case OPT_VCF_INPUT:
             this->vcf_input = optarg;
+            break;
+        case OPT_CONTIG_PREFIX:
+            this->contig_prefix = optarg;
             break;
 
         case 'h':
@@ -486,7 +493,7 @@ size_t threads_to_jobs(size_t threads) {
 
 void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTGraph& subgraph, HaplotypePartitioner::Verbosity verbosity);
 
-void sample_haplotypes(gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
+void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
     Recombinator recombinator(gbz, config.verbosity);
     gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, config.kmer_input, config.recombinator_parameters);
@@ -508,6 +515,170 @@ void sample_haplotypes(gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const 
     if (config.validate) {
         // TODO: How could we validate the haplotypes?
         validate_subgraph(gbz.graph, output_graph, config.verbosity);
+    }
+}
+
+//----------------------------------------------------------------------------
+
+gbwt::size_type path_for_contig(const gbwtgraph::GBZ& gbz, gbwt::size_type contig_id, const std::string& contig_name) {
+    gbwt::size_type path_id = gbz.index.metadata.paths();
+    size_t found_paths = 0;
+    for (size_t i = 0; i < gbz.graph.named_paths.size(); i++) {
+        gbwt::size_type candidate = gbz.graph.named_paths[i].id;
+        if (gbz.index.metadata.path(candidate).contig == contig_id) {
+            path_id = candidate;
+            found_paths++;
+        }
+    }
+    if (found_paths != 1) {
+        std::cerr << "error: [vg haplotypes] found " << found_paths << " named/reference paths for contig " << contig_name << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    return path_id;
+}
+
+std::pair<gbwt::size_type, size_t> seq_chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type path_id, const std::string& contig_name) {
+    gbwt::size_type sequence_id = gbwt::Path::encode(path_id, false);
+    gbwt::size_type reverse_id = gbwt::Path::encode(path_id, true);
+    size_t found_chains = 0;
+    std::pair<gbwt::size_type, size_t> result(gbwt::invalid_sequence(), haplotypes.components());
+    for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
+        const Haplotypes::Subchain& subchain = haplotypes.chains[chain_id].subchains.front();
+        for (size_t i = 0; i < subchain.sequences.size(); i++) {
+            if (subchain.sequences[i].first == sequence_id) {
+                result.first = sequence_id;
+                result.second = chain_id;
+                found_chains++;
+                break;
+            }
+            if (subchain.sequences[i].first == reverse_id) {
+                result.first = reverse_id;
+                result.second = chain_id;
+                found_chains++;
+                break;
+            }
+        }
+    }
+    if (found_chains != 1) {
+        std::cerr << "error: [vg haplotypes] found " << found_chains << " top-level chains for contig " << contig_name << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    return result;
+}
+
+sdsl::sd_vector<> subchain_mapping(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type sequence_id, size_t chain_id) {
+    gbwt::vector_type path = gbz.index.extract(sequence_id);
+    size_t total_length = 0;
+    for (auto gbwt_node : path) {
+        total_length += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(gbwt_node));
+    }
+
+    // Iterate over the path and mark the last internal sequence position in each subchain.
+    const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
+    sdsl::sd_vector_builder builder(total_length, chain.subchains.size());
+    size_t seq_offset = 0, node_offset = 0;
+    for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
+        const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
+        while (node_offset < path.size() && path[node_offset] != subchain.end) {
+            seq_offset += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(path[node_offset]));
+            node_offset++;
+        }
+        builder.set(seq_offset - 1);
+    }
+
+    return sdsl::sd_vector<>(builder);
+}
+
+void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
+    if (!gbz.index.metadata.hasContigNames()) {
+        std::cerr << "error: [vg haplotypes] cannot map variant positions without contig names in the GBWT index" << std::endl;
+    }
+
+    // Read variants from the VCF file.
+    if (config.verbosity >= HaplotypePartitioner::verbosity_basic) {
+        std::cerr << "Reading VCF file " << config.vcf_input << std::endl;
+    }
+    vcflib::VariantCallFile variant_file;
+    variant_file.parseSamples = false; // Just in case there are many samples.
+    std::string temp_filename = config.vcf_input;
+    variant_file.open(temp_filename);
+    if (!variant_file.is_open()) {
+        std::cerr << "error: [vg haplotypes] cannot open VCF file " << config.vcf_input << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    std::unordered_map<std::string, size_t> contig_to_offset; // VCF contig name to offset in `variant positions`.
+    std::vector<std::vector<std::pair<size_t, size_t>>> variant_positions; // Semiopen 0-based ranges of sequence positions.
+    vcflib::Variant var(variant_file);
+    size_t total_variants = 0;
+    while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+        size_t offset;
+        auto iter = contig_to_offset.find(var.sequenceName);
+        if (iter == contig_to_offset.end()) {
+            offset = variant_positions.size();
+            contig_to_offset[var.sequenceName] = offset;
+            variant_positions.push_back({});
+        } else {
+            offset = iter->second;
+        }
+        size_t start = var.zeroBasedPosition();
+        variant_positions[offset].push_back({ start, start + var.ref.length() });
+        total_variants++;
+    }
+    for (auto& positions : variant_positions) {
+        std::sort(positions.begin(), positions.end());
+    }
+    if (config.verbosity >= HaplotypePartitioner::verbosity_detailed) {
+        std::cerr << "Read " << total_variants << " variants over " << variant_positions.size() << " contigs" << std::endl;
+    }
+
+    // Map VCF contig names to GBWT sequence ids for named/reference paths and top-level chain.
+    std::vector<std::string> contig_names(contig_to_offset.size(), "");
+    std::vector<std::pair<gbwt::size_type, size_t>> offset_to_seq_chain(contig_to_offset.size(), { gbwt::invalid_sequence(), haplotypes.components() });
+    for (auto iter = contig_to_offset.begin(); iter != contig_to_offset.end(); ++iter) {
+        std::string contig_name = config.contig_prefix + iter->first;
+        gbwt::size_type contig_id = gbz.index.metadata.contig(contig_name);
+        if (contig_id >= gbz.index.metadata.contigs()) {
+            std::cerr << "error: [vg haplotypes] no contig " << contig_name << " in the GBWT index" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        contig_names[iter->second] = contig_name;
+        gbwt::size_type path_id = path_for_contig(gbz, contig_id, contig_name);
+        std::pair<gbwt::size_type, size_t> seq_chain = seq_chain_for_path(gbz, haplotypes, path_id, contig_name);
+        offset_to_seq_chain[iter->second] = seq_chain;
+        if (config.verbosity >= HaplotypePartitioner::verbosity_debug) {
+            std::cerr << "VCF contig " << iter->first << ", GBWT contig " << contig_name
+                << ": contig id " << contig_id
+                << ", path id " << path_id
+                << ", reverse " << gbwt::Path::is_reverse(seq_chain.first)
+                << ", chain " << seq_chain.second << std::endl;
+        }
+    }
+
+    // Output (VCF contig name, GBWT contig name, sequence interval, top-level chain, subchain interval)
+    for (auto iter = contig_to_offset.begin(); iter != contig_to_offset.end(); ++iter) {
+        std::string contig_name = config.contig_prefix + iter->first;
+        size_t offset = iter->second;
+        gbwt::size_type sequence_id = offset_to_seq_chain[offset].first;
+        gbwt::size_type chain_id = offset_to_seq_chain[offset].second;
+        bool reverse = gbwt::Path::is_reverse(sequence_id);
+        if (reverse) {
+            // FIXME how to handle top-level chains in reverse orientation?
+            continue;
+        }
+        sdsl::sd_vector<> seq_offset_to_subchain = subchain_mapping(gbz, haplotypes, sequence_id, chain_id);
+        sdsl::sd_vector<>::rank_1_type rank(&seq_offset_to_subchain);
+        for (auto interval : variant_positions[offset]) {
+            if (interval.second > seq_offset_to_subchain.size()) {
+                std::cerr << "error: [vg haplotypes] variant interval " << interval.first << ".." << interval.second
+                    << " is outside GBWT path " << gbwt::Path::id(sequence_id) << " (length " << seq_offset_to_subchain.size() << ")"  << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            // FIXME: What about variants that are not contained within a single subchain?
+            size_t first_subchain = rank(interval.first);
+            size_t last_subchain = rank(interval.second);
+            std::cout << iter->first << "\t" << contig_name << "\t" << interval.first << ".." << interval.second << "\t"
+                << chain_id << "\t" << first_subchain << ".." << last_subchain << std::endl;
+        }
     }
 }
 
