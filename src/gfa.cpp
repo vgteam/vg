@@ -361,7 +361,9 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
         subrange_t path_subrange;
         PathMetadata::parse_path_name(graph->get_path_name(path_handle), path_sense, path_sample, path_locus,
                                       path_haplotype, path_phase_block, path_subrange);
-        PathSense out_path_sense = path_sense == PathSense::HAPLOTYPE ? PathSense::GENERIC : path_sense;
+        // todo: we need a policy for this
+        //PathSense out_path_sense = path_sense == PathSense::HAPLOTYPE ? PathSense::GENERIC : path_sense;
+        PathSense out_path_sense = path_sense;
         
         const vector<int64_t>& fragments = path_fragments.second;
 
@@ -471,6 +473,9 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                 if (step_handle == path_travs.second[i].second) {
                     done = true;
                 }
+            }
+            if (reversed) {
+                std::reverse(trav.begin(), trav.end());
             }
             travs.push_back(trav);
         }
@@ -673,9 +678,8 @@ tuple<int64_t, int64_t, int64_t> rgfa_traversal_stats(const PathHandleGraph* gra
                                                       const pair<int64_t, int64_t>& trav_fragment) {
     path_handle_t path_handle = graph->get_path_handle_of_step(trav.front());
     int64_t support = 0;
-    int64_t switches = 0;
+    int64_t reversed_steps = 0;
     int64_t dupes = 0;
-    handle_t prev_handle;
 
     for (int64_t i = trav_fragment.first; i < trav_fragment.second; ++i) {
         const step_handle_t& step = trav[i];
@@ -695,13 +699,12 @@ tuple<int64_t, int64_t, int64_t> rgfa_traversal_stats(const PathHandleGraph* gra
         if (self_count > 1) {
             dupes += length * (self_count - 1);
         }
-        if (i > 0 && graph->get_is_reverse(handle) != graph->get_is_reverse(prev_handle)) {
-            ++switches;
+        if (i > 0 && graph->get_is_reverse(handle)) {
+            ++reversed_steps;
         }
-        prev_handle = handle;
     }
 
-    return std::make_tuple(support, switches, dupes);
+    return std::make_tuple(support, reversed_steps, dupes);
 }
 
 bool rgfa_traversal_stats_less(const tuple<int64_t, int64_t, int64_t>& s1, const tuple<int64_t, int64_t, int64_t>& s2) {
@@ -734,7 +737,8 @@ bool rgfa_traversal_stats_less(const tuple<int64_t, int64_t, int64_t>& s1, const
 // https://github.com/ComparativeGenomicsToolkit/hal2vg/blob/v1.1.2/clip-vg.cpp#L809-L880
 void rgfa_forwardize_paths(MutablePathMutableHandleGraph* graph,
                            const unordered_set<path_handle_t>& reference_paths) {
-    
+
+    unordered_map<nid_t, nid_t> id_map;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
             string path_name = graph->get_path_name(path_handle);
             if (reference_paths.count(path_handle) || get_rgfa_rank(path_name) >= 0) {
@@ -744,6 +748,7 @@ void rgfa_forwardize_paths(MutablePathMutableHandleGraph* graph,
                         handle_t handle = graph->get_handle_of_step(step_handle);
                         if (graph->get_is_reverse(handle)) {
                             handle_t flipped_handle = graph->create_handle(graph->get_sequence(handle));
+                            id_map[graph->get_id(flipped_handle)] = graph->get_id(handle);
 			    graph->follow_edges(handle, true, [&](handle_t prev_handle) {
                                     if (graph->get_id(prev_handle) != graph->get_id(handle)) {
                                         graph->create_edge(prev_handle, flipped_handle);
@@ -787,6 +792,11 @@ void rgfa_forwardize_paths(MutablePathMutableHandleGraph* graph,
                     });
             }
         });
+
+    // rename all the ids back to what they were (so nodes keep their ids, just get flipped around)
+    graph->reassign_node_ids([&id_map](nid_t new_id) {
+        return id_map.count(new_id) ? id_map[new_id] : new_id;
+    });
 
     // do a check just to be sure
     graph->for_each_path_handle([&](path_handle_t path_handle) {
