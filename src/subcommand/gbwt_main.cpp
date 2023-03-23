@@ -1499,7 +1499,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
     gbwtgraph::GBWTGraph graph;
     if (graphs.in_use == GraphHandler::graph_source) {
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.sequence_source));
-    } else if (graphs.in_use == GraphHandler::graph_gbz) {
+    } else if (graphs.in_use == GraphHandler::graph_gbz || graphs.in_use == GraphHandler::graph_gbwtgraph) {
         graph = std::move(*(graphs.gbwt_graph));
         graphs.clear();
     } else {
