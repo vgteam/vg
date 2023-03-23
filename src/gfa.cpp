@@ -6,7 +6,7 @@
 
 #include <gbwtgraph/utils.h>
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -43,8 +43,8 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     }
     out << "\n";
 
-    //Compute the rGFA tags of given paths (todo: support non-zero ranks)
-    unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
+    //Compute the rGFA tags of given paths 
+    unordered_map<nid_t, tuple<path_handle_t, size_t, int64_t>> node_offsets_and_ranks;
     for (const string& path_name : rgfa_paths) {
         path_handle_t path_handle = graph->get_path_handle(path_name);
         size_t offset = 0;
@@ -57,11 +57,12 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                        << node_id << " is traversed on its reverse strand.  rGFA only supports the forward strand." << endl;
                     throw runtime_error(ss.str());
                 }
-                if (node_offsets.count(node_id)) {
+                if (node_offsets_and_ranks.count(node_id)) {
                     cerr << "warning [gfa]: multiple selected rgfa paths found on node " << node_id << ": keeping tags for "
-                         << graph->get_path_name(node_offsets[node_id].first) << " and ignoring those for " << path_name << endl;
+                         << graph->get_path_name(get<0>(node_offsets_and_ranks[node_id])) << " and ignoring those for " << path_name << endl;
                 } else {
-                    node_offsets[node_id] = make_pair(path_handle, offset);
+                    int64_t rgfa_rank = get_rgfa_rank(path_name);
+                    node_offsets_and_ranks[node_id] = make_tuple(path_handle, offset, rgfa_rank <= 0 ? 0 : rgfa_rank);
                 }
                 offset += graph->get_length(handle);
             });
@@ -73,12 +74,23 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         nid_t node_id = graph->get_id(h);
         out << node_id << "\t";
         out << graph->get_sequence(h);
-        auto it = node_offsets.find(node_id);
-        if (it != node_offsets.end()) {
-            // add rGFA tags
-            out << "\t" << "SN:Z:" << graph->get_path_name(it->second.first)
-                << "\t" << "SO:i:" << it->second.second
-                << "\t" << "SR:i:0"; // todo: support non-zero ranks?
+        auto it = node_offsets_and_ranks.find(node_id);
+        if (it != node_offsets_and_ranks.end()) {
+            // hack off the rgfa tag
+            string base_name = strip_rgfa_rank(graph->get_path_name(get<0>(it->second)));
+            // hack off the subrange offset (and add it to SO)
+            PathSense sense;
+            string sample, locus;
+            size_t haplotype, phase_block;
+            subrange_t subrange;
+            PathMetadata::parse_path_name(base_name, sense, sample, locus, haplotype, phase_block, subrange);
+            int64_t base_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+            base_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block,
+                                                       PathMetadata::NO_SUBRANGE);
+            // add rGFA tags            
+            out << "\t" << "SN:Z:" << base_name
+                << "\t" << "SO:i:" << (base_offset + get<1>(it->second))
+                << "\t" << "SR:i:" << get<2>(it->second); 
         }
         out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
@@ -106,9 +118,19 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 
     vector<path_handle_t> w_line_paths;
 
+    bool warned_about_tags_as_paths = false;
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
         auto path_name = graph->get_path_name(h);
+        if (get_rgfa_rank(path_name) > 0) {
+            if (!rgfa_paths.empty()) {
+                // the path was put into tags, no reason to deal with it here
+                continue;
+            } else if (!warned_about_tags_as_paths) {
+                cerr << "warning [gfa]: outputing rGFA cover (rank>=1) path(s) as a P-line(s) and not tags because no reference (rank==0) selected" << endl;
+                warned_about_tags_as_paths = true;
+            }
+        }
         if (rgfa_pline || !rgfa_paths.count(path_name)) {
             if (graph->get_sense(h) != PathSense::REFERENCE && reference_samples.count(graph->get_sample_name(h))) {
                 // We have a mix of reference and non-reference paths on the same sample which GFA can't handle.
@@ -144,6 +166,16 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     {
         unordered_map<tuple<string, int64_t, string>, size_t> last_phase_block_end;
         for (const path_handle_t& h : w_line_paths) {
+            string path_name = graph->get_path_name(h);
+            if (get_rgfa_rank(path_name) > 0) {
+                if (!rgfa_paths.empty()) {
+                    // the path was put into tags, no reason to deal with it here
+                    continue;
+                } else if (!warned_about_tags_as_paths) {
+                    cerr << "warning [gfa]: outputing rGFA cover (rank>=1) path(s) as a W-line(s) and not tags because no reference (rank==0) selected" << endl;
+                    warned_about_tags_as_paths = true;
+                }
+            }
             write_w_line(graph, out, h, last_phase_block_end);
         }
     }
@@ -264,6 +296,13 @@ int get_rgfa_rank(const string& path_name) {
 }
 
 string set_rgfa_rank(const string& path_name, int rgfa_rank) {
+    string new_name = strip_rgfa_rank(path_name);
+    // now append the rank
+    new_name += ":SR:i:" + std::to_string(rgfa_rank);
+    return new_name;
+}
+
+string strip_rgfa_rank(const string& path_name) {
     string new_name;
     // check if we have an existing rank.  if so, we srap it.
     size_t pos = path_name.rfind(":SR:i:");
@@ -276,9 +315,6 @@ string set_rgfa_rank(const string& path_name, int rgfa_rank) {
     } else {
         new_name = path_name;
     }
-
-    // now append the rank
-    new_name += ":SR:i:" + std::to_string(rgfa_rank);
     return new_name;
 }
 
@@ -288,6 +324,19 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       int64_t minimum_length,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals){
 
+    // for sanity's sake, we don't want to ever support multiple rgfa covers, so start by
+    // deleting all existing rgfa fragments (except for rank 0 reference paths, of course)
+    vector<path_handle_t> existing_cover;
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+        if (get_rgfa_rank(graph->get_path_name(path_handle)) > 0) {
+            existing_cover.push_back(path_handle);
+            assert(!reference_paths.count(path_handle));
+        }
+    });
+    for (path_handle_t path_handle : existing_cover) {
+        graph->destroy_path(path_handle);
+    }    
+    
     // we use the path traversal finder for everything
     // (even gbwt haplotypes, as we're using the path handle interface)
     PathTraversalFinder path_trav_finder(*graph, *snarl_manager);
@@ -571,7 +620,6 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
             if (interval_length >= minimum_length) {
                 auto trav_stats = rgfa_traversal_stats(graph, trav, uncovered_interval);
                 ranked_trav_fragments.push_back(make_pair(trav_stats, make_pair(trav_idx, uncovered_interval)));
-                cerr << "pushing trav " << trav_idx << " with stats " << get<0>(trav_stats) <<"," << get<1>(trav_stats) << "," << get<2>(trav_stats) << endl;
             }
         }
     }
@@ -581,17 +629,11 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                   const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s2)> heap_comp =
         [](const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s1,
            const pair<tuple<int64_t, int64_t, int64_t>, pair<int64_t, pair<int64_t, int64_t>>>& s2) {
-            cerr << "COMP" << s1.first << " VS " << s2.first << " is " << rgfa_traversal_stats_less(s1.first, s2.first) << endl;
             return rgfa_traversal_stats_less(s1.first, s2.first);
         };
 
     // put the fragments into a max heap
     std::make_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
-
-    for (auto xxx : ranked_trav_fragments) {
-        cerr << " heep " << xxx.first <<"->trav " << xxx.second.first << endl;
-        cerr << " front is " << ranked_trav_fragments.front().first << "->trav " << ranked_trav_fragments.front().second.first << endl;
-    }
 
     // now greedily pull out traversal intervals from the ranked list until none are left
     while (!ranked_trav_fragments.empty()) {
@@ -600,8 +642,6 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         auto best_stats_fragment = ranked_trav_fragments.front();
         std::pop_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
         ranked_trav_fragments.pop_back();
-        cerr << "popping trav " << best_stats_fragment.second.first << " with stats "
-             << get<0>(best_stats_fragment.first) << "," << get<1>(best_stats_fragment.first) << "," << get<2>(best_stats_fragment.first) << endl;
         
         const vector<step_handle_t>& trav = travs.at(best_stats_fragment.second.first);
         const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.second.second;
@@ -636,7 +676,6 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                     auto chopped_stats = rgfa_traversal_stats(graph, trav, chopped_interval);                
                     ranked_trav_fragments.push_back(make_pair(chopped_stats, make_pair(best_stats_fragment.second.first, chopped_interval)));
                     std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
-                    cerr << "pushing interval " << endl;
                 }
             }
             continue;
@@ -646,20 +685,17 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         // since we've already covered the reference, then we know that this interval
         // doesn't span the whole snarl including endpoints, so we can always afford
         // to look back and ahead one
-        cerr << "uncovered interval " << uncovered_interval.first << ", " << uncovered_interval.second << " vs trav size " << trav.size() << endl;
         assert(uncovered_interval.first > 0 && uncovered_interval.second < trav.size());
         int64_t prev_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.first - 1])));
         int64_t next_frag_idx = cover_node_to_fragment.at(graph->get_id(graph->get_handle_of_step(trav[uncovered_interval.second])));
-        if (prev_frag_idx != next_frag_idx) {
-            // todo: figure out policy for these
-            cerr << "[rgfa] warning: skipping fragment that is connected to different fragmengs" << endl;
-            continue;
-        }
+        // todo: i'm not sure if/how minigraph treats these cases, where the anchors connect to different ranks
+        //       also, can these be avoided entirely?
+        int64_t min_frag_idx = std::min(prev_frag_idx, next_frag_idx);
         int64_t fragment_rank;
-        if (prev_frag_idx == -1) {
+        if (min_frag_idx == -1) {
             fragment_rank = 1;
         } else {
-            fragment_rank = cover_fragments.at(prev_frag_idx).first + 1;
+            fragment_rank = cover_fragments.at(min_frag_idx).first + 1;
         }
 
         // update the cover

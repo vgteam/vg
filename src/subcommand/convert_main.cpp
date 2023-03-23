@@ -432,7 +432,13 @@ int main_convert(int argc, char** argv) {
                             continue;
                         }
                     }
+                    // Tagged (rank>0) rgfa paths get written if a base path specified
+                    if (get_rgfa_rank(path_name) > 0) {
+                        assert(!rgfa_paths.count(path_name));
+                        rgfa_paths.insert(path_name);
+                    }
                 });
+
             }
             graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline);
         } else {
@@ -468,7 +474,7 @@ void help_convert(char** argv) {
          << "gfa output options (use with -f):" << endl
          << "    -P, --rgfa-path STR    write given path as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
          << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
-         << "    -B, --rgfa-pline       paths written as rGFA tags also written as lines" << endl
+         << "    -B, --rgfa-pline       paths written as rank 0 rGFA tags also written as lines" << endl
          << "    -W, --no-wline         write all paths as GFA P-lines instead of W-lines. Allows handling multiple phase blocks and subranges used together." << endl
          << "    --gbwtgraph-algorithm  Always use the GBWTGraph library GFA algorithm. Not compatible with other GBWT output options or non-GBWT graphs." << endl
          << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types, but can't preserve original GFA coordinates." << endl

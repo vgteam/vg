@@ -612,7 +612,9 @@ int main_paths(int argc, char** argv) {
                 assert(rgfa_min_len >= 0);
                 unordered_set<path_handle_t> reference_paths;
                 for_each_selected_path([&](const path_handle_t& path_handle) {
-                    reference_paths.insert(path_handle);
+                    if (get_rgfa_rank(graph->get_path_name(path_handle)) <= 0) {
+                        reference_paths.insert(path_handle);
+                    }
                 });
 
                 rgfa_graph_cover(mutable_graph, snarl_manager.get(), reference_paths, rgfa_min_len);  

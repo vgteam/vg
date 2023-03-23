@@ -41,6 +41,9 @@ int get_rgfa_rank(const string& path_name);
 /// Add the RGFA rank tag to a pathname
 string set_rgfa_rank(const string& path_name, int rgfa_rank);
 
+/// Get the name without the rank
+string strip_rgfa_rank(const string& path_name);
+
 /// Compute the rGFA path cover
 /// graph: the graph
 /// snarl_manager: the snarls (todo: should use distance index)
