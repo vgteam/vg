@@ -326,7 +326,7 @@ struct AlignmentValidity {
     /// The mapping in the alignment's path at which the problem was encountered.
     size_t bad_mapping_index = 0;
     /// An explanation for the problem.
-    std::string explanation = "";
+    std::string message = "";
     
     /// We are truthy if the alignment has no problem, and falsey otherwise.
     inline operator bool() const {
@@ -337,7 +337,7 @@ struct AlignmentValidity {
 /// Check to make sure edits on the alignment's path don't assume incorrect
 /// node lengths or ids. Result can be used like a bool or inspected for
 /// further details. Does not log anything itself about bad alignments.
-AlignmentValidity alignment_is_valid(Alignment& aln, const HandleGraph* hgraph);
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph);
     
 /// Make an Alignment corresponding to a subregion of a stored path.
 /// Positions are 0-based, and pos2 is excluded.

@@ -2081,7 +2081,7 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     }
 }
 
-AlignmentValidity alignment_is_valid(Alignment& aln, const HandleGraph* hgraph) {
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph) {
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
         const Mapping& mapping = aln.path().mapping(i);
         if (!hgraph->has_node(mapping.position().node_id())) {

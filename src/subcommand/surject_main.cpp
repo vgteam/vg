@@ -64,7 +64,7 @@ static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGrap
     if (!validity) {
         #pragma omp critical (cerr)
         {
-            std::cerr << "error [vg surject]: Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "error:[vg surject] Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
             std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
         }
         exit(1);
