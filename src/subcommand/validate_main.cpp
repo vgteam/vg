@@ -27,7 +27,8 @@ void help_validate(char** argv) {
          << "options:" << endl
          << "    default: check all aspects of the graph, if options are specified do only those" << endl
          << "    -o, --orphans   verify that all nodes have edges" << endl
-         << "    -a, --gam FILE  verify that edits in the alignment fit on nodes in the graph" << endl;
+         << "    -a, --gam FILE  verify that edits in the alignment fit on nodes in the graph" << endl
+         << "    -A, --gam-only  do not verify the graph itself, only the alignment" << endl;
 }
 
 int main_validate(int argc, char** argv) {
@@ -39,6 +40,7 @@ int main_validate(int argc, char** argv) {
 
     bool check_orphans = false;
     string gam_path;
+    bool gam_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -48,11 +50,12 @@ int main_validate(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"orphans", no_argument, 0, 'o'},
             {"gam", required_argument, 0, 'a'},
+            {"gam-only", no_argument, 0, 'A'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hoa:",
+        c = getopt_long (argc, argv, "hoa:A",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -67,6 +70,10 @@ int main_validate(int argc, char** argv) {
 
             case 'a':
                 gam_path = optarg;
+                break;
+                
+            case 'A':
+                gam_only = true;
                 break;
 
             case 'h':
@@ -90,7 +97,15 @@ int main_validate(int argc, char** argv) {
     if (!gam_path.empty()) {
         get_input_file(gam_path, [&](istream& in) {
                 vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
-                        if (!alignment_is_valid(aln, graph.get())) {
+                        AlignmentValidity validity = alignment_is_valid(aln, graph.get());
+                        if (!validity) {
+                            // Complain about this alignment
+                            cerr << "Invalid Alignment:\n" << pb2json(aln) << "\n" << validity.message;
+                            if (validity.problem == AlignmentValidity::NODE_TOO_SHORT) {
+                                // If a node is too short, report the whole mapping again.
+                                cerr << ":\n" << pb2json(aln.path().mapping(validity.bad_mapping_index));
+                            }
+                            cerr << endl;
                             valid_aln = false;
                         }
                     });
@@ -99,14 +114,17 @@ int main_validate(int argc, char** argv) {
 
     // VG's a little less structured, so try its own logic
     bool valid_graph = true;
-    VG* vg_graph = dynamic_cast<VG*>(graph.get());
-    if (vg_graph != nullptr) {
-        if (!vg_graph->is_valid(true, true, check_orphans, true)) {
-            valid_graph = false;
+    
+    if (!gam_only) {
+        VG* vg_graph = dynamic_cast<VG*>(graph.get());
+        if (vg_graph != nullptr) {
+            if (!vg_graph->is_valid(true, true, check_orphans, true)) {
+                valid_graph = false;
+            }
         }
     }
 
-    if (valid_graph) {
+    if (!gam_only && valid_graph) {
         // I don't think this is possible with any libbdsg implementations, but check edges just in case
         graph->for_each_edge([&](const edge_t& edge) {
                 if (!graph->has_node(graph->get_id(edge.first))) {
@@ -163,7 +181,9 @@ int main_validate(int argc, char** argv) {
     if (!gam_path.empty()) {
         cerr << "alignment: " << (valid_aln ? "valid" : "invalid") << endl;
     }
-    cerr << "graph: " << (valid_graph ? "valid" : "invalid") << endl;
+    if (!gam_only) {
+        cerr << "graph: " << (valid_graph ? "valid" : "invalid") << endl;
+    }
 
     return valid_aln && valid_graph ? 0 : 1;
 }
