@@ -90,7 +90,15 @@ int main_validate(int argc, char** argv) {
     if (!gam_path.empty()) {
         get_input_file(gam_path, [&](istream& in) {
                 vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
-                        if (!alignment_is_valid(aln, graph.get())) {
+                        AlignmentValidity validity = alignment_is_valid(aln, graph.get());
+                        if (!validity) {
+                            // Complain about this alignment
+                            cerr << "Invalid Alignment:\n" << pb2json(aln) << "\n" << validity.explanation;
+                            if (validity.problem == AlignmentValidity::NODE_TOO_SHORT) {
+                                // If a node is too short, report the whole mapping again.
+                                cerr << ":\n" << pb2json(aln.path().mapping(validity.bad_mapping_index))
+                            }
+                            cerr << endl;
                             valid_aln = false;
                         }
                     });

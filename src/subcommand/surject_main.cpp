@@ -52,7 +52,23 @@ void help_surject(char** argv) {
          << "  -R, --read-group NAME   set this read group for all reads" << endl
          << "  -f, --max-frag-len N    reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
          << "  -L, --list-all-paths    annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
-         << "  -C, --compression N     level for compression [0-9]" << endl;
+         << "  -C, --compression N     level for compression [0-9]" << endl
+         << "  -V, --no-validate       skip checking whether alignments plausibly are against the provided graph" << endl;
+}
+
+/// If the given alignment doesn't make sense against the given graph (i.e.
+/// doesn't agree with the nodes in the graph), print a message and stop the
+/// program. Is thread-safe.
+static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGraph& graph) {
+    AlignmentValidity validity = alignment_is_valid(aln, &graph);
+    if (!validity) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "error [vg surject]: Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
+        }
+        exit(1);
+    }
 }
 
 int main_surject(int argc, char** argv) {
@@ -79,6 +95,7 @@ int main_surject(int argc, char** argv) {
     bool prune_anchors = false;
     bool annotate_with_all_path_scores = false;
     bool multimap = false;
+    bool validate = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -107,11 +124,12 @@ int main_surject(int argc, char** argv) {
             {"max-frag-len", required_argument, 0, 'f'},
             {"list-all-paths", no_argument, 0, 'L'},
             {"compress", required_argument, 0, 'C'},
+            {"no-validate", required_argument, 0, 'V'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALM",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALMV",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -192,6 +210,10 @@ int main_surject(int argc, char** argv) {
 
         case 'C':
             compress_level = parse<int>(optarg);
+            break;
+            
+        case 'V':
+            validate = false;
             break;
             
         case 't':
@@ -276,7 +298,7 @@ int main_surject(int argc, char** argv) {
             if (src.has_path() && src.sequence().empty()) {
 #pragma omp critical
                 {
-                    cerr << "error:[surject] Read " << src.name() << " is aligned but does not have a sequence and therefore cannot be surjected. Was it derived from a GAF without a base-level alignment? or a GAF with a CIGAR string in the 'cg' tag (which does not provide enough information to reconstruct the sequence)?" << endl;
+                    cerr << "error:[surject] Read " << src.name() << " is aligned but does not have a sequence and therefore cannot be surjected. Was it derived from a GAF without a base-level alignment? Or a GAF with a CIGAR string in the 'cg' tag (which does not provide enough information to reconstruct the sequence)?" << endl;
                     exit(1);
                 }
             }
@@ -332,6 +354,10 @@ int main_surject(int argc, char** argv) {
                     exit(1);
                 }
                 
+                if (validate) {
+                    ensure_alignment_is_for_graph(src1, *xgidx);
+                    ensure_alignment_is_for_graph(src2, *xgidx);
+                }
                 
                 // Preprocess read to set metadata before surjection
                 set_metadata(src1);
@@ -398,6 +424,10 @@ int main_surject(int argc, char** argv) {
             // We can just surject each Alignment by itself.
             // TODO: We don't preserve order relationships (like primary/secondary).
             function<void(Alignment&)> lambda = [&](Alignment& src) {
+                
+                if (validate) {
+                    ensure_alignment_is_for_graph(src, *xgidx);
+                }
                 
                 // Preprocess read to set metadata before surjection
                 set_metadata(src);
