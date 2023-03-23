@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['verbosity_5fbasic_12804',['verbosity_basic',['../classvg_1_1HaplotypePartitioner.html#abdf561dd7d45b04b5998519192770438ac07376fd81827a92b673f1dcb4eb9e3e',1,'vg::HaplotypePartitioner']]],
-  ['verbosity_5fdebug_12805',['verbosity_debug',['../classvg_1_1HaplotypePartitioner.html#abdf561dd7d45b04b5998519192770438a096a3e71b72f49ebd1ad34fd230be3de',1,'vg::HaplotypePartitioner']]],
-  ['verbosity_5fdetailed_12806',['verbosity_detailed',['../classvg_1_1HaplotypePartitioner.html#abdf561dd7d45b04b5998519192770438a58bc2edca9afbfdab224406802a53446',1,'vg::HaplotypePartitioner']]],
-  ['verbosity_5fsilent_12807',['verbosity_silent',['../classvg_1_1HaplotypePartitioner.html#abdf561dd7d45b04b5998519192770438a254a89798ebef377664a4d5d51030727',1,'vg::HaplotypePartitioner']]],
-  ['vg_12808',['VG',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a5e978449ccc729202c33e2dc543b8327',1,'vg::IndexingParameters']]]
+  ['ultrabubble_12818',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
+  ['unary_12819',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
+  ['unclassified_12820',['UNCLASSIFIED',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a7db3292851220acc20f75deebe0924ff',1,'vg']]],
+  ['undetermined_12821',['Undetermined',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda6fa550428b55152a0c55175786170a75',1,'vg::MultipathMapper']]]
 ];

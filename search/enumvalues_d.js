@@ -1,17 +1,12 @@
 var searchData=
 [
-  ['random_12777',['random',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a7fbab14a93d170a9ab8395e8bad9b15d',1,'vg::Counts']]],
-  ['read_12778',['read',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9afdd907960f4e4f4792f9986a37c69b3c',1,'vg::Counts']]],
-  ['reads_12779',['Reads',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4a9989ae14c6b6c27998126ab745488926',1,'vg::Genotyper']]],
-  ['recursealways_12780',['RecurseAlways',['../classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ade8537831952f7d91199da0ded53a8d2',1,'vg::GraphCaller']]],
-  ['recursenever_12781',['RecurseNever',['../classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ad50ac99caa8bae55f8d5d8ed7a4aef04',1,'vg::GraphCaller']]],
-  ['recurseonfail_12782',['RecurseOnFail',['../classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c',1,'vg::GraphCaller']]],
-  ['ref_5fspan_12783',['ref_span',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8aabba00d1035f3425a2ff43984b99a3d4',1,'haplo::linear_haplo_structure']]],
-  ['reference_12784',['REFERENCE',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271cadcd320d017d7f3c317bc8b234287bc9f',1,'handlegraph']]],
-  ['repeat_12785',['repeat',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9af8ac0bddf37c11c94f041c84a20a636b',1,'vg::Counts']]],
-  ['representative_12786',['Representative',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4aca000fa2f53ba37764dedd204e1fd27e',1,'vg::Genotyper']]],
-  ['rescue_5fdozeu_12787',['rescue_dozeu',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a4120cab71587100aa2d1308010fec524',1,'vg::MinimizerMapper']]],
-  ['rescue_5fgssw_12788',['rescue_gssw',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4aa3089b08bc714c195447adf06eff27d9',1,'vg::MinimizerMapper']]],
-  ['rescue_5fnone_12789',['rescue_none',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a830c2c22efd3590551f37663c11f61e7',1,'vg::MinimizerMapper']]],
-  ['reverse_12790',['Reverse',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda3720d917b5b410fbff17c73d58c1eaf2',1,'vg::MultipathMapper']]]
+  ['packedgraph_12786',['PackedGraph',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a3355e9401e49629ee5dcd20b107f3f67',1,'vg::IndexingParameters']]],
+  ['path_5fcover_5faugment_12787',['path_cover_augment',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1a074342f434050b0213b77e7267c3d65a',1,'GBWTConfig']]],
+  ['path_5fcover_5fgreedy_12788',['path_cover_greedy',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1a0984604f4f41a7c9813edce20845b146',1,'GBWTConfig']]],
+  ['path_5fcover_5flocal_12789',['path_cover_local',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1a6f385ad96dac65846244dfafee7f4775',1,'GBWTConfig']]],
+  ['path_5fcover_5fnone_12790',['path_cover_none',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1afd10e18b78dd3425247224d94f7e3dfc',1,'GBWTConfig']]],
+  ['pipeline_12791',['PIPELINE',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838a797a289a67a7dd20502b2436f0c9d305',1,'vg::subcommand']]],
+  ['placed_12792',['PLACED',['../classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85a0a4373ca716769f93112e16e251bb8a1',1,'vg::Funnel']]],
+  ['prefix_12793',['prefix',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdead1db5c374c93da6cefc39869d1704f18',1,'vg::Haplotypes::Subchain']]],
+  ['proper_5fpair_12794',['proper_pair',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a92eba6d5ad7d830d3824261542991875',1,'vg::Counts']]]
 ];

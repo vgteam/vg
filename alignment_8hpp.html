@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a> &#124;
 <a href="#var-members">Variables</a>  </div>
@@ -89,6 +90,11 @@ $(function() {
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__io_8hpp.html">vg/io/alignment_io.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1AlignmentValidity.html">vg::AlignmentValidity</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
@@ -268,9 +274,8 @@ Functions</h2></td></tr>
 <tr class="separator:a6c45c724ede7f4892b24ad654d68fbef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6c59e7d46046fad0d349a3c747ffd6b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6c59e7d46046fad0d349a3c747ffd6b3">vg::alignment_set_distance_to_correct</a> (Alignment &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; &amp;base_offsets, const unordered_map&lt; string, string &gt; *translation=nullptr)</td></tr>
 <tr class="separator:a6c59e7d46046fad0d349a3c747ffd6b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7b9365497bbf0bc45a9fbae2530397fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7b9365497bbf0bc45a9fbae2530397fe">vg::alignment_is_valid</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *hgraph)</td></tr>
-<tr class="memdesc:a7b9365497bbf0bc45a9fbae2530397fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">check to make sure edits on the alignment's path don't assume incorrect node lengths or ids  <a href="namespacevg.html#a7b9365497bbf0bc45a9fbae2530397fe">More...</a><br /></td></tr>
-<tr class="separator:a7b9365497bbf0bc45a9fbae2530397fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a02344193099beceed3ee60119c63fa1f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1AlignmentValidity.html">AlignmentValidity</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a02344193099beceed3ee60119c63fa1f">vg::alignment_is_valid</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *hgraph)</td></tr>
+<tr class="separator:a02344193099beceed3ee60119c63fa1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08575acb0012ffaabd9859324e404562"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a08575acb0012ffaabd9859324e404562">vg::target_alignment</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse)</td></tr>
 <tr class="separator:a08575acb0012ffaabd9859324e404562"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac712c04180499746dab8cdc6c8795c56"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac712c04180499746dab8cdc6c8795c56">vg::target_alignment</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;cigar_mapping)</td></tr>
