@@ -44,8 +44,6 @@ namespace vg {
 using namespace std;
 
 static void set_coverage_flags(std::vector<bool>& flags, size_t start, size_t end) {
-    #pragma omp critical (cerr)
-    std::cerr << "Mark " << (end - start) << " bases" << std::endl;
     for (size_t i = start; i < end; i++) {
         flags[i] = true;
     }
@@ -58,8 +56,6 @@ static double get_fraction_covered(const std::vector<bool>& flags) {
             covered_bases++;
         }
     }
-    #pragma omp critical (cerr)
-    std::cerr << "In total  " << covered_bases << " bases are marked." << std::endl;
     return (double) covered_bases / flags.size();
 }
 
