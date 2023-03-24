@@ -827,7 +827,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         return fragment_scores.at(a) > fragment_scores.at(b);
         
     });
-    for (size_t i = 0; i < best_bucket_fragment_coverage_at_top.size() - 2; i++) {
+    for (size_t i = 0; i < best_bucket_fragment_coverage_at_top.size() - 1; i++) {
         if (i < best_bucket_fragments.size()) {
             size_t fragment_num = best_bucket_fragments.at(i);
             if (show_work) {
