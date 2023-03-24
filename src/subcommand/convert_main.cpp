@@ -253,8 +253,8 @@ int main_convert(int argc, char** argv) {
     }
 
     if (output_format.empty()) {
-        // default to HashGraph
-        output_format = "hash";
+        // default to PackedGraph
+        output_format = "packed";
     }
         
     // allocate a graph using the graph_type string to decide a class
@@ -459,9 +459,9 @@ void help_convert(char** argv) {
          << "gfa input options (use with -g):" << endl
          << "    -T, --gfa-trans FILE   write gfa id conversions to FILE" << endl
          << "output options:" << endl
-         << "    -v, --vg-out           output in VG format" << endl
-         << "    -a, --hash-out         output in HashGraph format [default]" << endl
-         << "    -p, --packed-out       output in PackedGraph format" << endl
+         << "    -v, --vg-out           output in VG's original Protobuf format [DEPRECATED: use -p instead]." << endl
+         << "    -a, --hash-out         output in HashGraph format" << endl
+         << "    -p, --packed-out       output in PackedGraph format [default]" << endl
          << "    -x, --xg-out           output in XG format" << endl
          << "    -f, --gfa-out          output in GFA format" << endl
          << "    -H, --drop-haplotypes  do not include haplotype paths in the output (useful with GBWTGraph / GBZ inputs)" << endl
