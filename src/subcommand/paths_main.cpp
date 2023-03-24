@@ -140,7 +140,8 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
-            {"rgfa-cover", required_argument, 0, 'R'},            
+            {"rgfa-cover", required_argument, 0, 'R'},
+            {"snarls", required_argument, 0, 's'},
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
@@ -162,7 +163,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drR:aGp:ct:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drR:s:aGp:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -202,7 +203,11 @@ int main_paths(int argc, char** argv) {
             rgfa_min_len = parse<int64_t>(optarg);            
             output_formats++;
             break;
-                
+
+        case 's':
+            snarl_filename = optarg;
+            break;
+            
         case 'X':
             extract_as_gam = true;
             output_formats++;

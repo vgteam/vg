@@ -539,7 +539,9 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         }
     }
 
-    if (ref_paths.empty() && !cover_node_to_fragment.count(snarl.start().node_id())) {
+    // note: checking both snarl endpoint here is actually necessary: if the reference path doesn't end in a tip,
+    // you can end up with a trivial snarl at its end which will crash on this test. 
+    if (ref_paths.empty() && (!cover_node_to_fragment.count(snarl.start().node_id()) || !cover_node_to_fragment.count(snarl.end().node_id()))) {      
         // we're not nested in a reference snarl, and we have no reference path
         // by the current logic, there's nothing to be done.
         cerr << "[rgfa] warning: No referene path through snarl " 
@@ -613,11 +615,20 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         vector<pair<int64_t, int64_t>> uncovered_intervals = get_uncovered_intervals(trav);
 
         for (const auto& uncovered_interval : uncovered_intervals) {
+            unordered_set<nid_t> cycle_check;
+            bool cyclic = false;
             int64_t interval_length = 0;            
-            for (int64_t i = uncovered_interval.first; i < uncovered_interval.second; ++i) {
-                interval_length += graph->get_length(graph->get_handle_of_step(trav[i]));
+            for (int64_t i = uncovered_interval.first; i < uncovered_interval.second && !cyclic; ++i) {
+                handle_t handle = graph->get_handle_of_step(trav[i]);
+                interval_length += graph->get_length(handle);
+                nid_t node_id = graph->get_id(handle);
+                if (cycle_check.count(node_id)) {
+                    cyclic = true;
+                } else {
+                    cycle_check.insert(node_id);
+                }                
             }
-            if (interval_length >= minimum_length) {
+            if (!cyclic && interval_length >= minimum_length) {
                 auto trav_stats = rgfa_traversal_stats(graph, trav, uncovered_interval);
                 ranked_trav_fragments.push_back(make_pair(trav_stats, make_pair(trav_idx, uncovered_interval)));
             }
