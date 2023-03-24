@@ -310,8 +310,34 @@ map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const
 void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base, const unordered_map<string, string>* translation = nullptr);
 void alignment_set_distance_to_correct(Alignment& aln, const map<string, vector<pair<size_t, bool>>>& base_offsets, const unordered_map<string, string>* translation = nullptr);
 
-/// check to make sure edits on the alignment's path don't assume incorrect node lengths or ids
-bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph);
+/**
+ * Represents a report on whether an alignment makes sense in the context of a graph.
+ */
+struct AlignmentValidity {
+    /// The different kinds of possible problems with alignments
+    enum Problem {
+        OK,
+        NODE_MISSING,
+        NODE_TOO_SHORT
+    };
+    
+    /// The kind of problem with the alignment.
+    Problem problem = OK;
+    /// The mapping in the alignment's path at which the problem was encountered.
+    size_t bad_mapping_index = 0;
+    /// An explanation for the problem.
+    std::string message = "";
+    
+    /// We are truthy if the alignment has no problem, and falsey otherwise.
+    inline operator bool() const {
+        return problem == OK;
+    }
+};
+
+/// Check to make sure edits on the alignment's path don't assume incorrect
+/// node lengths or ids. Result can be used like a bool or inspected for
+/// further details. Does not log anything itself about bad alignments.
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph);
     
 /// Make an Alignment corresponding to a subregion of a stored path.
 /// Positions are 0-based, and pos2 is excluded.

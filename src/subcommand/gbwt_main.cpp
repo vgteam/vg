@@ -28,7 +28,7 @@ using namespace vg;
 
 struct GBWTConfig {
     // Build mode also defines the type of input args.
-    enum build_mode { build_none, build_vcf, build_gfa, build_paths, build_alignments, build_gbz };
+    enum build_mode { build_none, build_vcf, build_gfa, build_paths, build_alignments, build_gbz, build_gbwtgraph };
     enum merge_mode { merge_none, merge_insert, merge_fast, merge_parallel };
     enum path_cover_mode { path_cover_none, path_cover_augment, path_cover_local, path_cover_greedy };
 
@@ -66,6 +66,7 @@ struct GBWTConfig {
     std::vector<std::string> input_filenames;
     std::string gbwt_name; // There is a single input GBWT to load.
     std::string graph_name;
+    std::string gbwtgraph_name;
 
     // File names.
     std::string gbwt_output; // Output GBWT.
@@ -104,7 +105,7 @@ struct GBWTConfig {
 };
 
 struct GraphHandler {
-    enum graph_type { graph_none, graph_path, graph_source, graph_gbz };
+    enum graph_type { graph_none, graph_path, graph_source, graph_gbz, graph_gbwtgraph };
 
     std::unique_ptr<PathHandleGraph> path_graph = nullptr;
     std::unique_ptr<gbwtgraph::SequenceSource> sequence_source = nullptr;
@@ -123,6 +124,11 @@ struct GraphHandler {
     // graph in this handler.
     // NOTE: The graph will become invalid if the GBWT in the GBWTHandler changes.
     void load_gbz(GBWTHandler& gbwts, GBWTConfig& config);
+    
+    // Load the GBWTGraph specified in the config, store the GBWT in the
+    // GBWTHandler and the graph in this handler.
+    // NOTE: The graph will become invalid if the GBWT in the GBWTHandler changes.
+    void load_gbwtgraph(GBWTHandler& gbwts, GBWTConfig& config);
 
     void clear();
 
@@ -268,6 +274,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
+    std::cerr << "    -I, --gg-in FILE        load GBWTGraph from FILE and GBWT from input (one input arg) " << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
     std::cerr << "        --gam-format        the input files are in GAM format instead of GAF format" << std::endl;
@@ -428,6 +435,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: GBZ
         { "gbz-input", no_argument, 0, 'Z' },
+        
+        // Input GBWT construction: GBWTGraph and GBWT
+        { "gg-in", required_argument, 0, 'I' },
 
         // Input GBWT construction: paths
         { "index-paths", no_argument, 0, 'E' },
@@ -487,7 +497,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     GBWTConfig config;
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "x:o:d:pvGZEAmfbR:alPn:k:g:r:MCHSLTce:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "x:o:d:pvGZI:EAmfbR:alPn:k:g:r:MCHSLTce:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -643,6 +653,14 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case 'Z':
             no_multiple_input_types(config);
             config.build = GBWTConfig::build_gbz;
+            config.produces_one_gbwt = true;
+            break;
+            
+        // Input GBWT construction: GBWTGraph and GBWT
+        case 'I':
+            no_multiple_input_types(config);
+            config.build = GBWTConfig::build_gbwtgraph;
+            config.gbwtgraph_name = optarg;
             config.produces_one_gbwt = true;
             break;
 
@@ -831,8 +849,8 @@ void validate_gbwt_config(GBWTConfig& config) {
     // We have one input GBWT after steps 1-4.
     bool one_input_gbwt = config.input_filenames.size() == 1 || config.produces_one_gbwt;
 
-    // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ.
-    bool has_graph_input = !config.graph_name.empty() || config.build == GBWTConfig::build_gfa || config.build == GBWTConfig::build_gbz;
+    // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ or GG/GBWT.
+    bool has_graph_input = !config.graph_name.empty() || config.build == GBWTConfig::build_gfa || config.build == GBWTConfig::build_gbz || config.build == GBWTConfig::build_gbwtgraph;
 
     if (config.build == GBWTConfig::build_gbz) {
         // If we "build" a GBWT by loading it from a GBZ, we just need to make
@@ -843,6 +861,17 @@ void validate_gbwt_config(GBWTConfig& config) {
         }
         if (config.input_filenames.size() != 1) {
             std::cerr << "error: [vg gbwt] GBZ input requires one input arg" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    } else if (config.build == GBWTConfig::build_gbwtgraph) {
+        // If we "build" a GBWT by loading it from a GG and a GBWT, we just need to make
+        // sure that we know enough to actually load it.  
+        if (!config.graph_name.empty()) {
+            std::cerr << "error: [vg gbwt] GBWTGraph input does not use -x" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (config.input_filenames.size() != 1) {
+            std::cerr << "error: [vg gbwt] GBWTGraph input requires one input arg" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     } else if (config.build != GBWTConfig::build_none) {
@@ -896,6 +925,9 @@ void validate_gbwt_config(GBWTConfig& config) {
     if (!config.to_remove.empty()) {
         if (config.build == GBWTConfig::build_gbz) {
             std::cerr << "error: [vg gbwt] the GBWT extracted from GBZ cannot have paths modified" << std::endl;
+        }
+        if (config.build == GBWTConfig::build_gbwtgraph) {
+            std::cerr << "error: [vg gbwt] the GBWT loaded with a GBWTGraph cannot have paths modified" << std::endl;
         }
         if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
             std::cerr << "error: [vg gbwt] removing a sample requires one input GBWT and output GBWT" << std::endl;
@@ -1177,7 +1209,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         std::cerr << "Building input GBWTs" << std::endl;
     }
     gbwts.unbacked(); // We will build a new GBWT.
-    if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz) {
+    if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz && config.build != GBWTConfig::build_gbwtgraph) {
         graphs.get_graph(config);
     }
 
@@ -1242,6 +1274,11 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             std::cerr << "Input type: GBZ" << std::endl;
         }
         graphs.load_gbz(gbwts, config);
+    } else if (config.build == GBWTConfig::build_gbwtgraph) {
+        if(config.show_progress) {
+            std::cerr << "Input type: GBWTGraph" << std::endl;
+        }
+        graphs.load_gbwtgraph(gbwts, config);
     } else if (config.build == GBWTConfig::build_paths) {
         if(config.show_progress) {
             std::cerr << "Input type: embedded paths" << std::endl;
@@ -1462,7 +1499,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
     gbwtgraph::GBWTGraph graph;
     if (graphs.in_use == GraphHandler::graph_source) {
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.sequence_source));
-    } else if (graphs.in_use == GraphHandler::graph_gbz) {
+    } else if (graphs.in_use == GraphHandler::graph_gbz || graphs.in_use == GraphHandler::graph_gbwtgraph) {
         graph = std::move(*(graphs.gbwt_graph));
         graphs.clear();
     } else {
@@ -1650,6 +1687,25 @@ void GraphHandler::load_gbz(GBWTHandler& gbwts, GBWTConfig& config) {
         this->gbwt_graph = std::make_unique<gbwtgraph::GBWTGraph>(std::move(gbz.graph));
         this->gbwt_graph->set_gbwt(gbwts.compressed);
         this->in_use = graph_gbz;
+    }
+}
+
+void GraphHandler::load_gbwtgraph(GBWTHandler& gbwts, GBWTConfig& config) {
+    if (this->in_use == graph_gbwtgraph) {
+        return;
+    } else {
+        this->clear();
+        // Load the GBWT
+        gbwt::GBWT input_gbwt;
+        vg::load_gbwt(input_gbwt, config.input_filenames.front(), config.show_progress);
+        gbwts.use(input_gbwt);
+        
+        // Then load the GBWTGraph
+        this->gbwt_graph = std::make_unique<gbwtgraph::GBWTGraph>();
+        vg::load_gbwtgraph(*this->gbwt_graph, config.gbwtgraph_name, config.show_progress);
+        // And connect it
+        this->gbwt_graph->set_gbwt(gbwts.compressed);
+        this->in_use = graph_gbwtgraph;
     }
 }
 

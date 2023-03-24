@@ -201,6 +201,9 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
     // and filled in later
     vector<pair<string, int64_t>> input_names_lengths;
     
+    // Should we print path subrange warnings?
+    bool print_subrange_warnings = true;
+    
     // When we get a sequence and possibly its length (or -1 if no length is
     // known), put it in the dictionary.
     // Can optionally provide a file name for error reporting.
@@ -223,6 +226,24 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
                 cerr << endl;
                 exit(1);
             }
+            
+            if (print_subrange_warnings) {
+                subrange_t subrange;
+                std::string base_path_name = Paths::strip_subrange(sequence_name, &subrange);
+                if (subrange != PathMetadata::NO_SUBRANGE) {
+                    // The user is asking explicitly to surject to a path that is a
+                    // subrange of some other logical path, like
+                    // GRCh38#0#chr1[1000-2000]. That's weird. Warn.
+                    cerr << "warning:[vg::get_sequence_dictionary] Path " << sequence_name;
+                    if (filename) {
+                        // Report the source file.
+                        cerr << " from sequence dictionary in " << *filename;
+                    }
+                    cerr << " looks like part of a path. Output coordinates will be in " << base_path_name << " instead. Suppressing further warnings." << endl;
+                    print_subrange_warnings = false;
+                }
+            }
+            
             // Remember the path
             base_path_to_subpaths[sequence_name].push_back(path);
         } else {
@@ -237,10 +258,10 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             });
             if (!base_path_to_subpaths.count(sequence_name)) {
                 // We didn't find any subpaths for this path as a base path either.
-                cerr << "error:[vg::get_sequence_dictionary] Graph does not have a path named " << sequence_name;
+                cerr << "error:[vg::get_sequence_dictionary] Graph does not have the entirety or any pieces of a path named " << sequence_name;
                 if (filename) {
                     // Report the source file.
-                    cerr << " which was indicated in " << filename;
+                    cerr << " which was indicated in " << *filename;
                 }
                 cerr << endl;
                 exit(1);
