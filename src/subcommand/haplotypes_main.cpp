@@ -195,10 +195,10 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -v, --verbosity N         verbosity level (0 = silent, 1 = basic, 2 = detailed, 3 = debug; default: 0)" << std::endl;
     std::cerr << "    -t, --threads N           approximate number of threads (default: " << haplotypes_default_threads() << " on this system)" << std::endl;
-    std::cerr << "        --validate            validate the generated information (may be slow)" << std::endl;
     std::cerr << std::endl;
     if (developer_options) {
         std::cerr << "Developer options:" << std::endl;
+        std::cerr << "        --validate            validate the generated information (may be slow)" << std::endl;
         std::cerr << "        --vcf-input X         map the variants in VCF file X to subchains" << std::endl;
         std::cerr << "        --contig-prefix X     a prefix for transforming VCF contig names into GBWT contig names" << std::endl;
         std::cerr << std::endl;
@@ -354,10 +354,10 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             }
             omp_set_num_threads(this->threads);
             break;
+
         case OPT_VALIDATE:
             this->validate = true;
             break;
-
         case OPT_VCF_INPUT:
             this->vcf_input = optarg;
             break;
@@ -566,27 +566,117 @@ std::pair<gbwt::size_type, size_t> seq_chain_for_path(const gbwtgraph::GBZ& gbz,
     return result;
 }
 
-sdsl::sd_vector<> subchain_mapping(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type sequence_id, size_t chain_id) {
-    gbwt::vector_type path = gbz.index.extract(sequence_id);
+struct ReferenceInterval {
+    enum order { before, overlap, after };
+
+    Haplotypes::Subchain::subchain_t type;
+
+    size_t id;
+
+    // Semiopen range of reference positions for the internal parts of the subchain.
+    size_t start, end;
+
+    // Where is this interval relative to the specified interval?
+    order compare(std::pair<size_t, size_t> interval) {
+        if (this->end <= interval.first) {
+            return before;
+        } else if (this->start >= interval.second) {
+            return after;
+        } else {
+            return overlap;
+        }
+    }
+
+    size_t length() const {
+        return this->end - this->start;
+    }
+
+    std::string to_string() const {
+        std::string result;
+        switch (this->type) {
+            case Haplotypes::Subchain::normal:
+                result.push_back('N');
+                break;
+            case Haplotypes::Subchain::prefix:
+                result.push_back('P');
+                break;
+            case Haplotypes::Subchain::suffix:
+                result.push_back('S');
+                break;
+            case Haplotypes::Subchain::full_haplotype:
+                result.push_back('F');
+                break;
+        }
+        result += std::to_string(this->id) + "(" + std::to_string(this->start) + ".." + std::to_string(this->end) + ")";
+        return result;
+    }
+};
+
+std::vector<ReferenceInterval> subchain_intervals(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type sequence_id, size_t chain_id, bool reverse) {
+    gbwt::size_type actual_sequence_id = (reverse ? gbwt::Path::reverse(sequence_id) : sequence_id);
+    gbwt::vector_type path = gbz.index.extract(actual_sequence_id);
     size_t total_length = 0;
     for (auto gbwt_node : path) {
         total_length += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(gbwt_node));
     }
 
-    // Iterate over the path and mark the last internal sequence position in each subchain.
     const Haplotypes::TopLevelChain& chain = haplotypes.chains[chain_id];
-    sdsl::sd_vector_builder builder(total_length, chain.subchains.size());
+    std::vector<ReferenceInterval> result;
     size_t seq_offset = 0, node_offset = 0;
     for (size_t subchain_id = 0; subchain_id < chain.subchains.size(); subchain_id++) {
-        const Haplotypes::Subchain& subchain = chain.subchains[subchain_id];
-        while (node_offset < path.size() && path[node_offset] != subchain.end) {
-            seq_offset += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(path[node_offset]));
-            node_offset++;
+        size_t actual_subchain_id;
+        Haplotypes::Subchain subchain;
+        if (reverse) {
+            actual_subchain_id = chain.subchains.size() - 1 - subchain_id;
+            switch (chain.subchains[actual_subchain_id].type) {
+                case Haplotypes::Subchain::prefix:
+                    subchain.type = Haplotypes::Subchain::suffix;
+                    break;
+                case Haplotypes::Subchain::suffix:
+                    subchain.type = Haplotypes::Subchain::prefix;
+                    break;
+                default:
+                    subchain.type = chain.subchains[actual_subchain_id].type;
+                    break;
+            }
+            subchain.start = gbwt::Node::reverse(chain.subchains[actual_subchain_id].end);
+            subchain.end = gbwt::Node::reverse(chain.subchains[actual_subchain_id].start);
+        } else {
+            actual_subchain_id = subchain_id;
+            subchain.type = chain.subchains[actual_subchain_id].type;
+            subchain.start = chain.subchains[actual_subchain_id].start;
+            subchain.end = chain.subchains[actual_subchain_id].end;
         }
-        builder.set(seq_offset - 1);
+        ReferenceInterval interval { subchain.type, actual_subchain_id, 0, total_length };
+        if (subchain.has_start()) {
+            while (node_offset < path.size() && path[node_offset] != subchain.start) {
+                seq_offset += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(path[node_offset]));
+                node_offset++;
+            }
+            if (node_offset < path.size()) {
+                seq_offset += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(path[node_offset]));
+                node_offset++;
+            }
+            interval.start = seq_offset;
+        } else if (subchain.type == Haplotypes::Subchain::prefix) {
+            // If a prefix follows a suffix, they cover the same interval.
+            interval.start = result.back().start;
+        }
+        if (subchain.has_end()) {
+            while (node_offset < path.size() && path[node_offset] != subchain.end) {
+                seq_offset += gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(path[node_offset]));
+                node_offset++;
+            }
+            interval.end = seq_offset;
+            // If a prefix follows a suffix, they cover the same interval.
+            if (subchain.type == Haplotypes::Subchain::prefix) {
+                result.back().end = interval.end;
+            }
+        }
+        result.push_back(interval);
     }
 
-    return sdsl::sd_vector<>(builder);
+    return result;
 }
 
 void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
@@ -654,30 +744,63 @@ void map_variants(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const
         }
     }
 
-    // Output (VCF contig name, GBWT contig name, sequence interval, top-level chain, subchain interval)
+    // Output (contig[interval], top-level chain, subchains, subchain lengths)
     for (auto iter = contig_to_offset.begin(); iter != contig_to_offset.end(); ++iter) {
         std::string contig_name = config.contig_prefix + iter->first;
         size_t offset = iter->second;
         gbwt::size_type sequence_id = offset_to_seq_chain[offset].first;
         gbwt::size_type chain_id = offset_to_seq_chain[offset].second;
-        bool reverse = gbwt::Path::is_reverse(sequence_id);
-        if (reverse) {
-            // FIXME how to handle top-level chains in reverse orientation?
-            continue;
-        }
-        sdsl::sd_vector<> seq_offset_to_subchain = subchain_mapping(gbz, haplotypes, sequence_id, chain_id);
-        sdsl::sd_vector<>::rank_1_type rank(&seq_offset_to_subchain);
+        auto ref_intervals = subchain_intervals(gbz, haplotypes, sequence_id, chain_id, gbwt::Path::is_reverse(sequence_id));
         for (auto interval : variant_positions[offset]) {
-            if (interval.second > seq_offset_to_subchain.size()) {
-                std::cerr << "error: [vg haplotypes] variant interval " << interval.first << ".." << interval.second
-                    << " is outside GBWT path " << gbwt::Path::id(sequence_id) << " (length " << seq_offset_to_subchain.size() << ")"  << std::endl;
-                std::exit(EXIT_FAILURE);
+            size_t low = 0, high = ref_intervals.size();
+            bool found = false;
+            while (!found && low < high) {
+                size_t mid = low + (high - low) / 2;
+                switch (ref_intervals[mid].compare(interval)) {
+                    case ReferenceInterval::before:
+                        low = mid + 1;
+                        break;
+                    case ReferenceInterval::overlap:
+                        low = mid;
+                        while (low > 0 && ref_intervals[low - 1].compare(interval) == ReferenceInterval::overlap) {
+                            low--;
+                        }
+                        high = mid + 1;
+                        while (high < ref_intervals.size() && ref_intervals[high].compare(interval) == ReferenceInterval::overlap) {
+                            high++;
+                        }
+                        found = true;
+                        break;
+                    case ReferenceInterval::after:
+                        high = mid;
+                        break;
+                }
             }
-            // FIXME: What about variants that are not contained within a single subchain?
-            size_t first_subchain = rank(interval.first);
-            size_t last_subchain = rank(interval.second);
-            std::cout << iter->first << "\t" << contig_name << "\t" << interval.first << ".." << interval.second << "\t"
-                << chain_id << "\t" << first_subchain << ".." << last_subchain << std::endl;
+            std::cout << iter->first << "[" << interval.first << ".." << interval.second << "]\t" << chain_id << "\t";
+            if (low >= high) {
+                if (low > 0) {
+                    std::cout << ref_intervals[low - 1].to_string();
+                }
+                std::cout << "..";
+                if (low < ref_intervals.size()) {
+                    std::cout << ref_intervals[low].to_string();
+                }
+            } else {
+                for (size_t i = low; i < high; i++) {
+                    if (i > low) {
+                        std::cout << ",";
+                    }
+                    std::cout << ref_intervals[i].to_string();
+                }
+            }
+            std::cout << "\t";
+            for (size_t i = low; i < high; i++) {
+                if (i > low) {
+                    std::cout << ",";
+                }
+                std::cout << ref_intervals[i].length();
+            }
+            std::cout << std::endl;
         }
     }
 }
