@@ -146,7 +146,7 @@ namespace unittest {
 
         }
     }
-    TEST_CASE( "two tips", "[cluster][bug]" ) {
+    TEST_CASE( "two tips", "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("AGGGAAGATGTCGTGAAG");

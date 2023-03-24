@@ -1,8 +1,13 @@
 #include "zipcode_seed_clusterer.hpp"
 
+//#define DEBUG_ZIPCODE_CLUSTERING
+
 namespace vg {
 
-vector<ZipcodeSeedClusterer::Cluster> ZipcodeSeedClusterer::cluster_seeds(const vector<Seed>& seeds, size_t distance_limit ) {
+vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<Seed>& seeds, size_t distance_limit ) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+    cerr << endl << endl << "New zipcode clustering of " << seeds.size() << " seeds with distance limit" <<  distance_limit << endl;
+#endif
     //Bucket the seeds roughly by their distance along the top-level chain
 
     vector<Cluster> clusters;
@@ -21,6 +26,11 @@ vector<ZipcodeSeedClusterer::Cluster> ZipcodeSeedClusterer::cluster_seeds(const 
     //Make a vector of seed_value_t's and fill in the index of the seed and distance values 
     vector<seed_values_t> sorted_indices (seeds.size());
     for (size_t i = 0 ; i < sorted_indices.size() ; i++) {
+        if (seeds[i].zipcode.byte_count() == 0) {
+            //If the zipcode is empty, then fill it in
+            cerr << "warning: Can't cluster empty zipcodes" << endl;
+            return clusters;
+        }
         sorted_indices[i].index = i;
         sorted_indices[i].connected_component = seeds[i].zipcode_decoder->get_distance_index_address(0);
 
@@ -49,32 +59,65 @@ vector<ZipcodeSeedClusterer::Cluster> ZipcodeSeedClusterer::cluster_seeds(const 
             return false;
         }
     });
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+    cerr << "Sorted seeds:" << endl; 
+    for (const seed_values_t& this_seed : sorted_indices) {
+        cerr << seeds[this_seed.index].pos << " " << this_seed.prefix_sum << " " << this_seed.length << endl;
+    }
+    cerr << endl;
+#endif
 
     /*Next, walk through the sorted list of seeds and partition
     */
-    const seed_values_t& last_seed = {std::numeric_limits<size_t>::max(),
-                                      std::numeric_limits<size_t>::max(),
-                                      std::numeric_limits<size_t>::max(),
-                                      std::numeric_limits<size_t>::max()}; 
+    seed_values_t empty_seed = {std::numeric_limits<size_t>::max(),
+                              std::numeric_limits<size_t>::max(),
+                              std::numeric_limits<size_t>::max(),
+                              std::numeric_limits<size_t>::max()}; 
+    seed_values_t& last_seed = empty_seed;
     for (const seed_values_t& this_seed : sorted_indices) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+        cerr << "At seed " << seeds[this_seed.index].pos << endl;
+#endif
         if (last_seed.index == std::numeric_limits<size_t>::max()) {
             //If this is the first seed in the sorted list, then make a new cluster
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tthis is the first seed so make a new cluster" << endl;
+#endif
             clusters.emplace_back();
             clusters.back().seeds.emplace_back(this_seed.index);
         } else if (last_seed.connected_component != this_seed.connected_component) {
             //If this is on a new connected component, make a new cluster
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tthis is on a new connected component so make a new cluster" << endl;
+#endif
             clusters.emplace_back();
+            clusters.back().seeds.emplace_back(this_seed.index);
+        } else if (last_seed.prefix_sum == std::numeric_limits<size_t>::max() ||
+                   this_seed.prefix_sum == std::numeric_limits<size_t>::max()) {
+
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tone or both prefix sums are max() so put them in the same cluster" << endl;
+#endif
             clusters.back().seeds.emplace_back(this_seed.index);
         } else if (SnarlDistanceIndex::minus(this_seed.prefix_sum,
                                              SnarlDistanceIndex::sum(last_seed.prefix_sum, last_seed.length)) 
                    > distance_limit) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tthis is too far from the last seed so make a new cluster" << endl;
+            cerr << "Last prefix sum: " << last_seed.prefix_sum << " last length " << last_seed.length << " this prefix sum: " << this_seed.prefix_sum << endl;
+#endif
             //If too far from the last seed, then put it in a new cluster
             clusters.emplace_back();
             clusters.back().seeds.emplace_back(this_seed.index);
         } else {
             //If they are on the same component and close enough, add this seed to the last cluster
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tthis was close to the last seed so add it to the previous cluster" << endl;
+            cerr << "Last prefix sum: " << last_seed.prefix_sum << " last length " << last_seed.length << " this prefix sum: " << this_seed.prefix_sum << endl;
+#endif
             clusters.back().seeds.emplace_back(this_seed.index);
         }
+        last_seed = this_seed;
     }
 
     return clusters;

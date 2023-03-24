@@ -64,13 +64,16 @@ class SnarlDistanceIndexClusterer {
 
             Seed() = default;
             Seed(pos_t pos, size_t source) : pos(pos), source(source) {}
-            Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {}
+            Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&this->zipcode);
+                zipcode_decoder.reset(decoder);
+            }
             Seed(pos_t pos, size_t source, ZipCode zipcode, std::unique_ptr<ZipCodeDecoder> zipcode_decoder) :
                 pos(pos), source(source), zipcode(zipcode), zipcode_decoder(std::move(zipcode_decoder)){
                 if (zipcode_decoder) {
                     zipcode_decoder->zipcode = &zipcode;
                 }
-                }
+            }
 
             //Move constructor
             Seed (Seed&& other) :

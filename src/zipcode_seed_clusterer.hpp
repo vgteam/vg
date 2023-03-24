@@ -5,7 +5,7 @@
 
 namespace vg {
 
-    class ZipcodeSeedClusterer{
+    class ZipcodeClusterer{
         public:
 
         typedef SnarlDistanceIndexClusterer::Seed Seed;
@@ -18,7 +18,17 @@ namespace vg {
 
         private:
         const SnarlDistanceIndex* distance_index;
+        const HandleGraph* graph;
 
+        public:
+
+        ZipcodeClusterer (const SnarlDistanceIndex* distance_index, const HandleGraph* graph) :
+            distance_index(distance_index),
+            graph(graph) {};
+
+        ZipcodeClusterer (const SnarlDistanceIndex& distance_index, const HandleGraph& graph) :
+            distance_index(&distance_index),
+            graph(&graph) {};
 
     };
 }
