@@ -62,6 +62,10 @@ constexpr double haplotypes_default_adjustment() {
     return Recombinator::HET_ADJUSTMENT;
 }
 
+constexpr double haplotypes_default_absent() {
+    return Recombinator::ABSENT_SCORE;
+}
+
 struct HaplotypesConfig {
     enum OperatingMode {
         mode_invalid,
@@ -189,6 +193,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
+    std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
     std::cerr << "        --random-sampling     sample randomly instead of using the kmer counts" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
@@ -215,8 +220,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_NUM_HAPLOTYPES = 1301;
     constexpr int OPT_PRESENT_DISCOUNT = 1302;
     constexpr int OPT_HET_ADJUSTMENT = 1303;
-    constexpr int OPT_RANDOM_SAMPLING = 1304;
-    constexpr int OPT_INCLUDE_REFERENCE = 1305;
+    constexpr int OPT_ABSENT_SCORE = 1304;
+    constexpr int OPT_RANDOM_SAMPLING = 1305;
+    constexpr int OPT_INCLUDE_REFERENCE = 1306;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
@@ -237,6 +243,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "num-haplotypes", required_argument, 0, OPT_NUM_HAPLOTYPES },
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
+        { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
         { "random-sampling", no_argument, 0, OPT_RANDOM_SAMPLING },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
@@ -308,6 +315,13 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::exit(EXIT_FAILURE);
             }
             break;
+        case OPT_NUM_HAPLOTYPES:
+            this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
+            if (this->recombinator_parameters.num_haplotypes == 0) {
+                std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            break;
         case OPT_PRESENT_DISCOUNT:
             this->recombinator_parameters.present_discount = parse<double>(optarg);
             if (this->recombinator_parameters.present_discount < 0.0 || this->recombinator_parameters.present_discount > 1.0) {
@@ -322,10 +336,10 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::exit(EXIT_FAILURE);
             }
             break;
-        case OPT_NUM_HAPLOTYPES:
-            this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);
-            if (this->recombinator_parameters.num_haplotypes == 0) {
-                std::cerr << "error: [vg haplotypes] number of haplotypes cannot be 0" << std::endl;
+        case OPT_ABSENT_SCORE:
+            this->recombinator_parameters.absent_score = parse<double>(optarg);
+            if (this->recombinator_parameters.absent_score < 0.0) {
+                std::cerr << "error: [vg haplotypes] scores must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             break;

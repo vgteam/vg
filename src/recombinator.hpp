@@ -356,6 +356,11 @@ public:
     /// (-) or without (+) that kmer is selected.
     constexpr static double HET_ADJUSTMENT = 0.2;
 
+    /// Score for getting an absent kmer right/wrong. This should be less than 1, if
+    /// we assume that having the right variants in the graph is more important than
+    /// keeping wrong variants out.
+    constexpr static double ABSENT_SCORE = 0.5;
+
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
 
@@ -496,6 +501,11 @@ public:
         /// each haplotype to encourage even sampling of haplotypes with and without
         /// that kmer.
         double het_adjustment = HET_ADJUSTMENT;
+
+        /// Score for absent kmers. This should be less than 1 if we assume that
+        /// having the right variants in the graph is more important than keeping
+        /// the wrong variants out.
+        double absent_score = ABSENT_SCORE;
 
         /// Sample randomly instead of by score.
         bool random_sampling = false;
