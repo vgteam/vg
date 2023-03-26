@@ -359,7 +359,7 @@ public:
     /// Score for getting an absent kmer right/wrong. This should be less than 1, if
     /// we assume that having the right variants in the graph is more important than
     /// keeping wrong variants out.
-    constexpr static double ABSENT_SCORE = 0.5;
+    constexpr static double ABSENT_SCORE = 0.7;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
