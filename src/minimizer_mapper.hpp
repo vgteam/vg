@@ -239,7 +239,7 @@ public:
     static constexpr size_t default_min_clusters_to_chain = 2;
     size_t min_clusters_to_chain = default_min_clusters_to_chain;
     /// How many clusters should we produce chains for, max?
-    static constexpr size_t default_max_clusters_to_chain = 20;
+    static constexpr size_t default_max_clusters_to_chain = 2;
     size_t max_clusters_to_chain = default_max_clusters_to_chain;
 
     /// When converting chains to alignments, what's the longest gap between
