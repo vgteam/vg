@@ -156,6 +156,7 @@ void help_rmvdup(char **argv) {
 // TODO: see what input and output file formats is possible
     cerr << "usage: " << argv[0] << " rmvdup [options] inputfile.gam > output.gam " << endl
          << "Remove duplicate PCRs from the input file. A gam index file (.gam.gai) must exists." << endl
+         << "   -p, --pair_end               use this flag when the reads in input file are pair-ends" << endl
          << "  -o, --output_type               prints the pairs of (sequence, name) as strings in the output" << endl
          << "    -t, --threads N            number of threads to use" << endl
          << "   -g --get_duplicates            prints the duplicate candidates in the output(can use with the -o)"
@@ -170,21 +171,23 @@ int main_rmvdup(int argc, char *argv[]) {
     string filename;
     bool output_t = false;
     bool print_duplicates = false;
+    bool pair_end = false;
     int threads = 8;
 
     int c;
     optind = 2;  // force optind past command positional argument
     while (true) {
         static struct option long_options[] = {
-                {"help", no_argument, 0, 'h'},
-                {"output_type", no_argument, 0, 'o'},
-                {"get_duplicates", no_argument, 0, 'g'},
-                {"threads", required_argument, 0, 't'},
-                {0, 0, 0, 0}
+                {"help",           no_argument,       0, 'h'},
+                {"output_type",    no_argument,       0, 'o'},
+                {"get_duplicates", no_argument,       0, 'g'},
+                {"threads",        required_argument, 0, 't'},
+                {"pair_end",       no_argument,       0, 'p'},
+                {0,                0,                 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hogt:",
+        c = getopt_long(argc, argv, "hogt:p",
                         long_options, &option_index);
 
         if (c == -1) break;
@@ -202,6 +205,10 @@ int main_rmvdup(int argc, char *argv[]) {
 
             case 'g':
                 print_duplicates = true;
+                break;
+
+            case 'p':
+                pair_end = true;
                 break;
 
             case 'h':
@@ -298,10 +305,63 @@ int main_rmvdup(int argc, char *argv[]) {
         }
     };
 
+    // This is a memory for finding pairs. The name of the aln as the key and the aln as the value
+    unordered_map <string, Alignment> temp_memory;
+    // This is the function that works on pair_end data
+    function<void(Alignment & )> pcr_removal_pair_end = [&](Alignment &aln) {
+
+
+        if (gam_index.get() != nullptr) {
+            // If this alignment is not already checked for being duplicate
+            if (!checked[bphf->lookup(name_id(aln))]) {
+                // This is when the read has a pair
+                if (aln.has_fragment_prev() || aln.has_fragment_next()) {
+                    string pair_name = aln.has_fragment_prev() ? aln.fragment_prev() : aln.fragment_next();
+                    if (temp_memory.find(aln.name()) == temp_memory.end()){
+                        // This means the we don't have the pair yet
+                        temp_memory[pair_name] = aln;
+                    } else {
+                        // We have the pair of our alignment
+                        aln_pair = temp_memory[aln.name()];
+                        // We have to find all the alignments that share nodes with both pairs and find if they are both end of a pair
+                        // TODO: For now I check the equality of pairs using check_duplicate function which check
+                        //  if they end the same and if they have at least one more same base. This could gets better.
+
+                        vector <pair<long long, long long>> intervals_pair1 = make_coalesced_sorted_intervals(aln);
+                        vector <pair<long long, long long>> intervals_pair2 = make_coalesced_sorted_intervals(aln_pair);
+
+                        get_input_file(sorted_gam_name, [&](istream &input_gam) {
+
+                            vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
+
+
+
+                        });
+
+                    }
+
+                } else { // When the read is not a pair_end read
+
+                }
+
+
+            }
+
+        }
+
+
+    };
+
     if (gam_index.get() != nullptr) {
         get_input_file(sorted_gam_name, [&](istream &in) {
 //            vg::io::for_each(in, pcr_removal);
-            vg::io::for_each_parallel(in, pcr_removal);
+            if (pair_end)
+                vg::io::for_each_parallel(in, pcr_removal_pair_end);
+            else
+                vg::io::for_each_parallel(in, pcr_removal);
+//            vg::io::for_each_parallel(in, pcr_removal);
+
+
 
         });
     }
