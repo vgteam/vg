@@ -3831,7 +3831,7 @@ namespace vg {
         cerr << "coalescing runs of I/D..." << endl;
 #endif
 
-        simiplify_cigar(cigar);
+        simplify_cigar(cigar);
         
 #ifdef debug_cigar
         cerr << "final cigar: ";

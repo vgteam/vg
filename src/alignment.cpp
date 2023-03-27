@@ -994,11 +994,13 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
             cigar.front().second = 'S';
         }
     }
+    
+    simplify_cigar(cigar);
 
     return cigar;
 }
 
-void simiplify_cigar(vector<pair<int, char>>& cigar) {
+void simplify_cigar(vector<pair<int, char>>& cigar) {
     
     size_t removed = 0;
     for (size_t i = 0, j = 0; i < cigar.size(); ++j) {
@@ -1020,7 +1022,7 @@ void simiplify_cigar(vector<pair<int, char>>& cigar) {
                 cigar[i - removed] = make_pair(d_total, 'D');
                 cigar[i - removed + 1] = make_pair(i_total, 'I');
                 
-                // mark that we've
+                // mark that we've removed cigar operations
                 removed += j - i - 2;
             }
             // move the start of the next I/D run beyond the current operation
