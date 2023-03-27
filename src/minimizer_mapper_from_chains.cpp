@@ -626,9 +626,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     chain_config_t fragment_cfg;
     
     // Make fragments be compact
-    fragment_cfg.max_lookback_bases = 200;
-    fragment_cfg.min_lookback_items = 0;
-    fragment_cfg.lookback_item_hard_cap = 3;
+    fragment_cfg.max_lookback_bases = this->fragment_max_lookback_bases;
+    fragment_cfg.min_lookback_items = this->fragment_min_lookback_items;
+    fragment_cfg.lookback_item_hard_cap = this->fragment_lookback_item_hard_cap;
     fragment_cfg.initial_lookback_threshold = this->initial_lookback_threshold;
     fragment_cfg.lookback_scale_factor = this->lookback_scale_factor;
     fragment_cfg.min_good_transition_score_per_base = this->min_good_transition_score_per_base;

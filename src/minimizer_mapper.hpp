@@ -203,6 +203,16 @@ public:
     static constexpr size_t default_max_fragments_per_bucket = std::numeric_limits<size_t>::max();
     size_t max_fragments_per_bucket = default_max_fragments_per_bucket;
     
+    /// How many bases should we look back when making fragments?
+    static constexpr size_t default_fragment_max_lookback_bases = 400;
+    size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
+    /// In fragments, how many sources should we make sure to consider regardless of distance?
+    static constexpr size_t default_fragment_min_lookback_items = 0;
+    size_t fragment_min_lookback_items = default_fragment_min_lookback_items;
+    /// In fragments, how many sources should we allow ourselves to consider ever?
+    static constexpr size_t default_fragment_lookback_item_hard_cap = 3;
+    size_t fragment_lookback_item_hard_cap = default_fragment_lookback_item_hard_cap;
+    
     /// If the read coverage of a fragment connection is less than the best of any
     /// by more than this much, don't extend it
     static constexpr double default_fragment_connection_coverage_threshold = 0.3;

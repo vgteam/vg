@@ -219,6 +219,24 @@ static GroupedOptionGroup get_options() {
         "chain up extensions to create alignments, instead of doing each separately"
     );
     chaining_opts.add_range(
+        "fragment-max-lookback-bases",
+        &MinimizerMapper::fragment_max_lookback_bases,
+        MinimizerMapper::default_fragment_max_lookback_bases,
+        "maximum distance to look back when makign fragments"
+    );
+    chaining_opts.add_range(
+        "fragment-min-lookback-items",
+        &MinimizerMapper::fragment_min_lookback_items,
+        MinimizerMapper::default_fragment_min_lookback_items,
+        "minimum items to consider coming from when making fragments"
+    );
+    chaining_opts.add_range(
+        "fragment-lookback-item-hard-cap",
+        &MinimizerMapper::fragment_lookback_item_hard_cap,
+        MinimizerMapper::default_fragment_lookback_item_hard_cap,
+        "maximum items to consider coming from when making fragments"
+    );
+    chaining_opts.add_range(
         "chaining-cluster-distance",
         &MinimizerMapper::chaining_cluster_distance,
         MinimizerMapper::default_chaining_cluster_distance,
