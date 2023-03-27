@@ -21,6 +21,11 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<S
         size_t connected_component; //Connected component identifier
         size_t prefix_sum;          //Prefix sum of the thing on the top-level chain
         size_t length;              //length of the thing on the top-level chain
+        bool is_snarl;
+
+        //For nodes on the top-level chain, prefix sum is the exact prefix sum of the position and length is 0
+        //For snarls, the prefix sum is the prefix sum of the snarl and length is the minimum length of the snarl
+        //So these can be used to find a lower bound of the distances
     };
 
     //Make a vector of seed_value_t's and fill in the index of the seed and distance values 
@@ -36,12 +41,27 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<S
 
         if (seeds[i].zipcode_decoder->get_code_type(0) == ROOT_CHAIN) { 
             //If this is in a top-level chain, then store the offset and length
-            sorted_indices[i].prefix_sum = seeds[i].zipcode_decoder->get_offset_in_chain(1);
-            sorted_indices[i].length = seeds[i].zipcode_decoder->get_length(1);
+            if (seeds[i].zipcode_decoder->get_code_type(1) == NODE) {
+                //If the child of the top-level chain is a node, then get the actual offset and length=0
+                sorted_indices[i].prefix_sum = SnarlDistanceIndex::sum(seeds[i].zipcode_decoder->get_offset_in_chain(1),
+                                                                       seeds[i].zipcode_decoder->get_is_reversed_in_parent(1) 
+                                                                       ? (SnarlDistanceIndex::minus(seeds[i].zipcode_decoder->get_length(1)-1,
+                                                                                                    offset(seeds[i].pos)))
+                                                                       : offset(seeds[i].pos));
+                sorted_indices[i].length = 0;
+                sorted_indices[i].is_snarl = false;
+
+            } else {
+                //If the child is a snarl, then get the prefix sum and length of the snarl
+                sorted_indices[i].prefix_sum = seeds[i].zipcode_decoder->get_offset_in_chain(1);
+                sorted_indices[i].length = seeds[i].zipcode_decoder->get_length(1);
+                sorted_indices[i].is_snarl = true;
+            }
         } else {
             //If this is in a top-level snarl, then it all goes into the same cluster so these don't matter
             sorted_indices[i].prefix_sum = std::numeric_limits<size_t>::max();
             sorted_indices[i].length = std::numeric_limits<size_t>::max();
+            sorted_indices[i].is_snarl = false;
         }
     }
 
@@ -52,7 +72,12 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<S
             //If they are on the same connected component, then check the offset in the top-level chain
             //If this is a top-level snarl, then both prefix sum values are max(), because the order 
             //doesn't matter
-            return a.prefix_sum < b.prefix_sum;
+            if (a.prefix_sum == b.prefix_sum) {
+                //If they have the same prefix sum, then the snarl comes first 
+                return a.is_snarl;
+            } else {
+                return a.prefix_sum < b.prefix_sum;
+            }
         } else if (a.connected_component < b.connected_component) {
             return true;
         } else {
@@ -99,23 +124,34 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<S
             cerr << "\tone or both prefix sums are max() so put them in the same cluster" << endl;
 #endif
             clusters.back().seeds.emplace_back(this_seed.index);
-        } else if (SnarlDistanceIndex::minus(this_seed.prefix_sum,
+        } else {
+            //Otherwise, check the distance from the last seed
+
+            if (this_seed.prefix_sum < SnarlDistanceIndex::sum(last_seed.prefix_sum, last_seed.length)) {
+                //If the last thing was a snarl that was long enough to reach here
+                //then put them in the same cluster
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tThe last thing could reach here so put them in the same cluster" << endl;
+#endif
+                clusters.back().seeds.emplace_back(this_seed.index);
+            } else if (SnarlDistanceIndex::minus(this_seed.prefix_sum,
                                              SnarlDistanceIndex::sum(last_seed.prefix_sum, last_seed.length)) 
                    > distance_limit) {
 #ifdef DEBUG_ZIPCODE_CLUSTERING
-            cerr << "\tthis is too far from the last seed so make a new cluster" << endl;
-            cerr << "Last prefix sum: " << last_seed.prefix_sum << " last length " << last_seed.length << " this prefix sum: " << this_seed.prefix_sum << endl;
+                cerr << "\tthis is too far from the last seed so make a new cluster" << endl;
+                cerr << "\tLast prefix sum: " << last_seed.prefix_sum << " last length " << last_seed.length << " this prefix sum: " << this_seed.prefix_sum << endl;
 #endif
-            //If too far from the last seed, then put it in a new cluster
-            clusters.emplace_back();
-            clusters.back().seeds.emplace_back(this_seed.index);
-        } else {
+                //If too far from the last seed, then put it in a new cluster
+                clusters.emplace_back();
+                clusters.back().seeds.emplace_back(this_seed.index);
+            } else {
             //If they are on the same component and close enough, add this seed to the last cluster
 #ifdef DEBUG_ZIPCODE_CLUSTERING
-            cerr << "\tthis was close to the last seed so add it to the previous cluster" << endl;
-            cerr << "Last prefix sum: " << last_seed.prefix_sum << " last length " << last_seed.length << " this prefix sum: " << this_seed.prefix_sum << endl;
+                cerr << "\tthis was close to the last seed so add it to the previous cluster" << endl;
+                cerr << "Last prefix sum: " << last_seed.prefix_sum << " last length " << last_seed.length << " this prefix sum: " << this_seed.prefix_sum << endl;
 #endif
-            clusters.back().seeds.emplace_back(this_seed.index);
+                clusters.back().seeds.emplace_back(this_seed.index);
+            }
         }
         last_seed = this_seed;
     }

@@ -19,7 +19,7 @@ namespace vg {
 namespace unittest {
 
     TEST_CASE( "zipcode cluster one node",
-                   "[zip_cluster][bug]" ) {
+                   "[zip_cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -198,8 +198,6 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         ZipcodeClusterer clusterer(dist_index, graph);
 
-        //graph.serialize_to_file("test_graph.hg");
-        
         //graph.to_dot(cerr);
 
         SECTION( "One cluster on the same node" ) {
@@ -249,8 +247,8 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0,zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 4); 
-            REQUIRE(clusters.size() == 3); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            REQUIRE(clusters.size() == 2); 
             
 
 
@@ -337,14 +335,12 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 4); 
-            REQUIRE(clusters.size() == 4); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            REQUIRE(clusters.size() == 3); 
             
 
 
         }
-
-
     }
 
 //    TEST_CASE( "zipcode cluster long snarl in chain",
