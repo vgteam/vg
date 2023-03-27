@@ -928,6 +928,8 @@ using namespace std;
         bool chain_is_reversed = distance_index.is_reversed_in_parent(
                                                 distance_index.get_node_net_handle(n1->id()));
 
+        graph.serialize_to_file("test_graph.hg");
+
         SECTION ("zip code for node in irregular snarl") { 
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
@@ -951,9 +953,20 @@ using namespace std;
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == 0);
 
+            net_handle_t irregular_snarl = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
             //Snarl record offset
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_record_offset(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())))));
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(irregular_snarl));
+
+            //Snarl prefix sum
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            net_handle_t bound = distance_index.get_node_from_sentinel(distance_index.get_bound(irregular_snarl, false, true));
+            REQUIRE(value_and_index.first == SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(bound),
+                                                                     distance_index.minimum_length(bound))+1);
+
+            //Snarl length
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.minimum_length(irregular_snarl)+1);
 
             //Node 3 as a chain
             REQUIRE(decoder.decoder[2] == std::make_pair(true, value_and_index.second));
@@ -984,7 +997,7 @@ using namespace std;
 
             //Snarl1 at depth 1
             REQUIRE(decoder.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 6 : 3));
-            REQUIRE(decoder.get_code_type(1) == IRREGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(1) == TOP_LEVEL_IRREGULAR_SNARL);
 
             //chain3 at depth 3
             REQUIRE(decoder.get_length(2) == 1);

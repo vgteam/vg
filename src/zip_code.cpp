@@ -43,6 +43,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
     }
 
     //Go through the ancestors top (root) down and add them to the zip code
+    //ancestors has everything but the root-level snarl/chain
     for (int i = ancestors.size()-1 ; i >= 0 ; i--) {
         net_handle_t current_ancestor = ancestors[i];
 #ifdef DEBUG_ZIPCODE
@@ -53,11 +54,17 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             for (auto& x : to_add) {
                 zipcode.add_value(x);
             }
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::NODE_SIZE);
+#endif
         } else if (distance_index.is_chain(current_ancestor)) {
             vector<size_t> to_add = get_chain_code(current_ancestor, distance_index);
             for (auto& x : to_add) {
                 zipcode.add_value(x);
             }
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::CHAIN_SIZE);
+#endif
             if (distance_index.is_trivial_chain(current_ancestor)) {
                 return;
             }
@@ -66,11 +73,27 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
             for (auto& x : to_add) {
                 zipcode.add_value(x);
             }
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::REGULAR_SNARL_SIZE);
+#endif
         } else {
 #ifdef DEBUG_ZIPCODE
             assert(distance_index.is_snarl(current_ancestor));
 #endif
-            vector<size_t> to_add =get_irregular_snarl_code(current_ancestor, distance_index);
+            vector<size_t> to_add;
+            if (i == ancestors.size()-1) {
+                //If this irregular snarl is the child of the top-level chain, then add a TOP_LEVEL_IRREGULAR_SNARL
+                to_add = get_top_level_irregular_snarl_code(current_ancestor, distance_index);
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::TOP_LEVEL_IRREGULAR_SNARL_SIZE);
+#endif
+            } else {
+                //Otherwise, add a normal irregular snarl
+                to_add = get_irregular_snarl_code(current_ancestor, distance_index);
+#ifdef DEBUG_ZIPCODE
+                assert(to_add.size() == ZipCode::IRREGULAR_SNARL_SIZE);
+#endif
+            }
             for (auto& x : to_add) {
                 zipcode.add_value(x);
             }
@@ -283,12 +306,15 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
                 return false;
             } else {
 #ifdef DEBUG_ZIPCODE
-                cerr << "\tAdd the child of an irregular snarl" << endl;
+                cerr << "\tAdd the child of " << (decoder.size() == 2 ? "a top-level " : "an" ) << " irregular snarl" << endl;
 #endif
-                for (size_t i = 0 ; i < ZipCode::IRREGULAR_SNARL_SIZE - ZipCode::SNARL_IS_REGULAR_OFFSET - 1; i++) {
+                //If the decoder has two things in it (top-level chain and the current snarl), then this
+                //is a top-level irregular snarl. Otherwise a normal irregular snarl
+                size_t code_size = decoder.size() == 2 ? ZipCode::TOP_LEVEL_IRREGULAR_SNARL_SIZE 
+                                                         : ZipCode::IRREGULAR_SNARL_SIZE;
+                for (size_t i = 0 ; i < code_size - ZipCode::SNARL_IS_REGULAR_OFFSET - 1; i++) {
                     std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
                 }
-                //If it was an irregular snarl, then we're already at the end
                 decoder.emplace_back(!previous_is_chain, zip_index);
                 return false;
             }
@@ -345,7 +371,8 @@ code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
             for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             }
-            return zip_value ? REGULAR_SNARL : IRREGULAR_SNARL;
+            return zip_value ? REGULAR_SNARL 
+                             : (depth == 1 ? TOP_LEVEL_IRREGULAR_SNARL : IRREGULAR_SNARL);
         }
     }
 }
@@ -412,16 +439,25 @@ size_t ZipCodeDecoder::get_length(const size_t& depth, const SnarlDistanceIndex*
             return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
         } else {
             //Irregular snarl
-            if (distance_index == nullptr) {
-                throw std::runtime_error("zipcode needs the distance index for irregular snarls");
-            }
+            if (depth == 1) {
+                //If this is a top-level irregular snarl
+                for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_LENGTH_OFFSET-ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                }
+                return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+            } else {
+                //If this is a normal irregular snarl
+                if (distance_index == nullptr) {
+                    throw std::runtime_error("zipcode needs the distance index for irregular snarls");
+                }
 
-            //zip_value is distance index offset
-            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET-ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
-                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                //zip_value is distance index offset
+                for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET-ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                }
+                net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
+                return distance_index->minimum_length(snarl_handle);
             }
-            net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
-            return distance_index->minimum_length(snarl_handle);
         }
     }
 }
@@ -507,20 +543,28 @@ size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDista
 
             return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
         } else {
-            //Irregular snarl
-            if (distance_index == nullptr) {
-                throw std::runtime_error("zipcode needs the distance index for irregular snarls");
-            }
+            if (depth == 1) {
+                //If this is a top-level irregular snarl
+                for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET-ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                }
+                return zip_value == 0 ? std::numeric_limits<size_t>::max() : zip_value-1;
+            } else {
+                //Irregular snarl
+                if (distance_index == nullptr) {
+                    throw std::runtime_error("zipcode needs the distance index for irregular snarls");
+                }
 
-            //zip_value is distance index offset
-            for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET-
-                                      ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
-                std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                //zip_value is distance index offset
+                for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_RECORD_OFFSET-
+                                          ZipCode::SNARL_IS_REGULAR_OFFSET-1 ; i++) {
+                    std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+                }
+                net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
+                net_handle_t start_node = distance_index->get_node_from_sentinel(distance_index->get_bound(snarl_handle, false, false));
+                size_t prefix_sum = SnarlDistanceIndex::sum(distance_index->get_prefix_sum_value(start_node), distance_index->minimum_length(start_node));
+                return prefix_sum;
             }
-            net_handle_t snarl_handle = distance_index->get_net_handle_from_values(zip_value, SnarlDistanceIndex::START_END, SnarlDistanceIndex::SNARL_HANDLE);
-            net_handle_t start_node = distance_index->get_node_from_sentinel(distance_index->get_bound(snarl_handle, false, false));
-            size_t prefix_sum = SnarlDistanceIndex::sum(distance_index->get_prefix_sum_value(start_node), distance_index->minimum_length(start_node));
-            return prefix_sum;
         }
     }
 }
@@ -688,7 +732,7 @@ bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2
         return false;
     }
 
-    if (type1 == ROOT_NODE || type1 == ROOT_CHAIN || type1 == ROOT_SNARL || type1 == IRREGULAR_SNARL) {
+    if (type1 == ROOT_NODE || type1 == ROOT_CHAIN || type1 == ROOT_SNARL || type1 == IRREGULAR_SNARL || type1 == TOP_LEVEL_IRREGULAR_SNARL) {
         //If the codes are for root-structures or irregular snarls, just check if the 
         //connected component numbers are the same
         return decoder1.get_distance_index_address(depth) == decoder2.get_distance_index_address(depth);
@@ -697,6 +741,7 @@ bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2
         //then check the prefix sum
         if (decoder1.get_code_type(depth-1) == REGULAR_SNARL ||
             decoder1.get_code_type(depth-1) == IRREGULAR_SNARL ||
+            decoder1.get_code_type(depth-1) == TOP_LEVEL_IRREGULAR_SNARL ||
             decoder1.get_code_type(depth-1) == ROOT_SNARL) {
             //If the parent is a snarl, then check the rank
             return decoder1.get_rank_in_snarl(depth) == decoder2.get_rank_in_snarl(depth);
@@ -777,6 +822,30 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
 
 }
 
+vector<size_t> ZipCode::get_top_level_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index) {
+    //Regular snarl code is 0, snarl record offset
+    vector<size_t> snarl_code;
+
+    //Tag to say that it's an irregular snarl
+    snarl_code.emplace_back(0);
+
+    //Record offset to look up distances in the index later
+    snarl_code.emplace_back(distance_index.get_record_offset(snarl));
+
+    //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
+    net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
+    size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
+    snarl_code.emplace_back(prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
+
+    //Length of the snarl
+    size_t len = distance_index.minimum_length(snarl);
+    snarl_code.emplace_back(len == std::numeric_limits<size_t>::max() ? 0 : len+1);
+
+
+    return snarl_code;
+
+}
+
 size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos_t& pos1,   
     ZipCodeDecoder& zip2_decoder, const pos_t& pos2, const SnarlDistanceIndex& distance_index,
     size_t distance_limit, bool directed_distance, const HandleGraph* graph){
@@ -800,7 +869,7 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
         //The distances from the start/end of current child to the start/end(left/right) of the parent
         size_t distance_start_left, distance_start_right, distance_end_left, distance_end_right;
         code_type_t parent_type = decoder.get_code_type(child_depth-1);
-        if (parent_type == IRREGULAR_SNARL) {
+        if (parent_type == IRREGULAR_SNARL || parent_type == TOP_LEVEL_IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             net_handle_t parent_handle = decoder.get_net_handle(child_depth-1, &distance_index);
             size_t child_rank = decoder.get_rank_in_snarl(child_depth);
@@ -1070,11 +1139,11 @@ cerr << "Finding distances to ancestors of second position" << endl;
 
                 if (prefix_sum1 < prefix_sum2 ||
                     (prefix_sum1 == prefix_sum2 &&
-                     (code_type1 == REGULAR_SNARL || code_type1 == IRREGULAR_SNARL)
+                     (code_type1 == REGULAR_SNARL || code_type1 == IRREGULAR_SNARL || code_type1 == TOP_LEVEL_IRREGULAR_SNARL)
                      && code_type2 == NODE)) {
                     //First child comes first in the chain
                     
-                    if (code_type1 == REGULAR_SNARL || code_type1 == IRREGULAR_SNARL) {
+                    if (code_type1 == REGULAR_SNARL || code_type1 == IRREGULAR_SNARL || code_type1 == TOP_LEVEL_IRREGULAR_SNARL) {
                         //If the first thing is a snarl, then we need to take into account the length of the snarl
                         //(prefix sum 2 + distance left 2) - (prefix sum 1 + length 1) + distance right 1
 
@@ -1116,7 +1185,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
                     }
                 } else {
                     //Second child comes first in the chain, or they are the same (doesn't matter)
-                    if (code_type2 == REGULAR_SNARL || code_type2 == IRREGULAR_SNARL) {
+                    if (code_type2 == REGULAR_SNARL || code_type2 == IRREGULAR_SNARL || code_type2 == TOP_LEVEL_IRREGULAR_SNARL) {
                         //If the first thing is a snarl, then we need to take into account the length of the snarl
                         //(prefix sum 1 + distance left 1) - (prefix sum 2 + length 2) + distance right 2
 #ifdef DEBUG_ZIPCODE
@@ -1553,7 +1622,7 @@ size_t MIPayload::parent_record_offset(const ZipCode& zip, const SnarlDistanceIn
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL || decoder.get_code_type(node_depth-1) == TOP_LEVEL_IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             return decoder.get_distance_index_address(node_depth-1);
 
@@ -1627,7 +1696,7 @@ bool MIPayload::is_reversed(const ZipCode& zip, const SnarlDistanceIndex& distan
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL || decoder.get_code_type(node_depth-1) == TOP_LEVEL_IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             return false;
 
@@ -1671,7 +1740,7 @@ bool MIPayload::is_trivial_chain(const ZipCode& zip) {
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL || decoder.get_code_type(node_depth-1) == TOP_LEVEL_IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             return true;
 
@@ -1711,7 +1780,7 @@ bool MIPayload::parent_is_chain(const ZipCode& zip, const SnarlDistanceIndex& di
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL || decoder.get_code_type(node_depth-1) == TOP_LEVEL_IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
 
             return false;
@@ -1788,7 +1857,7 @@ size_t MIPayload::prefix_sum(const ZipCode& zip, const SnarlDistanceIndex& dista
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL || decoder.get_code_type(node_depth-1) == TOP_LEVEL_IRREGULAR_SNARL) {
             return 0;
         } else if (decoder.get_code_type(node_depth-1) == REGULAR_SNARL) {
             //If the parent is a snarl

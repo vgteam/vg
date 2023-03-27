@@ -33,7 +33,8 @@ class ZipCodeDecoder;
 
 
 ///The type of codes that can be stored in the zipcode
-enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE};
+///TOP_LEVEL_IRREGULAR_SNARL is kind of a special case of an irregular snarl that is the child of a top-level chain
+enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, TOP_LEVEL_IRREGULAR_SNARL};
 
 ///A struct to interpret the minimizer payload
 ///I want to use zipcodes as the payload but at the moment clustering still expects the old payload
@@ -136,6 +137,7 @@ class ZipCode {
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 4;
         const static size_t IRREGULAR_SNARL_SIZE = 2;
+        const static size_t TOP_LEVEL_IRREGULAR_SNARL_SIZE = 4;
         const static size_t SNARL_IS_REGULAR_OFFSET = 0;
 
         const static size_t REGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
@@ -143,6 +145,10 @@ class ZipCode {
         const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
 
         const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
+
+        //These are only for top-level irregular snarls
+        const static size_t IRREGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 2;
+        const static size_t IRREGULAR_SNARL_LENGTH_OFFSET = 3;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -161,6 +167,8 @@ class ZipCode {
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline vector<size_t> get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
                                                             const SnarlDistanceIndex& distance_index);
+        //Return a vector of size_ts that will represent the snarl in the zip code
+        inline vector<size_t> get_top_level_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
         inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
     friend class ZipCodeDecoder;
