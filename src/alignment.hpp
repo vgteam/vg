@@ -203,7 +203,7 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
 
 /// Merge runs of successive I/D operations into a single I and D, remove 0-length
 /// operations, and merge adjacent operations of the same type
-void simiplify_cigar(vector<pair<int, char>>& cigar);
+void simplify_cigar(vector<pair<int, char>>& cigar);
 
 
 /// Translate the CIGAR in the given BAM record into mappings in the given
