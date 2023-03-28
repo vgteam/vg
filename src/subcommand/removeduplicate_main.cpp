@@ -316,7 +316,7 @@ int main_rmvdup(int argc, char *argv[]) {
             if (!checked[bphf->lookup(name_id(aln))]) {
                 // This is when the read has a pair
                 if (aln.has_fragment_prev() || aln.has_fragment_next()) {
-                    string pair_name = aln.has_fragment_prev() ? aln.fragment_prev() : aln.fragment_next();
+                    string pair_name = aln.has_fragment_prev() ? aln.fragment_prev().name() : aln.fragment_next().name();
                     if (temp_memory.find(aln.name()) == temp_memory.end()){
                         // This means the we don't have the pair yet
                         temp_memory[pair_name] = aln;
@@ -328,13 +328,44 @@ int main_rmvdup(int argc, char *argv[]) {
                         //  if they end the same and if they have at least one more same base. This could gets better.
 
                         vector <pair<long long, long long>> intervals_pair1 = make_coalesced_sorted_intervals(aln);
-                        vector <pair<long long, long long>> intervals_pair2 = make_coalesced_sorted_intervals(aln_pair);
 
+
+                        // Set of duplicate alns with the first pair
+                        unordered_set <string> pair1_duplicates_set;
                         get_input_file(sorted_gam_name, [&](istream &input_gam) {
 
                             vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
 
+                            // This finds all other alns that share node/nodes with the "aln"
+                            gam_index->find(gam_cursor, intervals_pair1, [&](const Alignment &share_aln) {
+                                if (check_duplicate(aln, share_aln)){
+                                    pair1_duplicates_set.insert(aln.has_fragment_prev() ? aln.fragment_prev().name() : aln.fragment_next().name());
+                                }
 
+                            });
+
+
+
+                        });
+
+                        vector <pair<long long, long long>> intervals_pair2 = make_coalesced_sorted_intervals(aln_pair);
+                        get_input_file(sorted_gam_name, [&](istream &input_gam) {
+                            vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
+
+                            gam_index->find(gam_cursor, intervals_pair1, [&](const Alignment &share_aln) {
+                                if (check_duplicate(aln_pair, share_aln)){
+
+                                    // The pair is in the set
+                                    if (pair1_duplicates_set.find(share_aln.name()) != pair1_duplicates_set.end()) {
+                                        // This means we find pairs that are duplicates with the main pairs so we check them for being duplicate
+
+
+                                    }
+
+
+                                }
+
+                            });
 
                         });
 
