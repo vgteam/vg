@@ -529,6 +529,9 @@ namespace vg {
                 nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
                 
                 // Save the whole run for inversion tracing
+                #ifdef debug
+                cerr << "Create ref run ending at " << reference_cursor + seen_bases - 1 << endl;
+                #endif
                 ref_runs_by_end[reference_cursor + seen_bases - 1] = std::move(new_nodes);
 
             }
@@ -1089,6 +1092,16 @@ namespace vg {
                                         nodes_starting_at[edit_start].insert(node_run.front()->id());
                                         nodes_ending_at[edit_end].insert(node_run.back()->id());
 
+                                        if (edit.ref == edit.alt) {
+                                            // This edit is a no-op and so the node we just created is a reference run.
+                                            // These can be necessary if insertions and deletions are part of the same record.
+                                            // Remember the whole node run for inversion tracing
+                                            #ifdef debug
+                                            cerr << "Create ref run ending at " << edit_end << endl;
+                                            #endif
+                                            ref_runs_by_end[edit_end] = node_run;
+                                        }
+
                                         // Save it in case any other alts also have this edit.
                                         created_nodes[key] = node_run;
 
@@ -1310,6 +1323,9 @@ namespace vg {
                         nodes_ending_at[next_end].insert(node_run.back()->id());
                         
                         // Remember the whole node run for inversion tracing
+                        #ifdef debug
+                        cerr << "Create ref run ending at " << next_end << endl;
+                        #endif
                         ref_runs_by_end[next_end] = node_run;
                         
 
@@ -1319,6 +1335,10 @@ namespace vg {
 
                         // Save it in case any other alts also have this edit.
                         created_nodes[key] = node_run;
+                    } else {
+#ifdef debug
+                        cerr << "Reference nodes at  " << reference_cursor << " for constant " << run_sequence.size() << " bp sequence " << run_sequence << " already exist" << endl;
+#endif
                     }
 
                     for (Node* node : created_nodes[key]) {
