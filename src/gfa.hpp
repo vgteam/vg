@@ -31,18 +31,31 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
 
 /// Prototype code to tag paths as rGFA paths. Either needs to be completely scrapped
 /// or adapted into libhandlegraph  at some point, ideally.
-/// It works by adding :SR:i:<rank> to the end of the name
+
+/// It works by using a special sample name (default=_rGFA_) for rGFA contigs.
+/// Any real sample name gets pushed into the locus field behind its rGFA tag SN:Z:<name>
+/// The rGFA rank also goes in the locus field behind SR:i:<rank>
+
+/// In GFA, these paths live in rGFA tags on S elements
+/// In the graph, they are reference paths with SN/SR fields in their locus names.
+/// As it stands, they will come out as W-lines in GFA with vg view or vg convert (without -Q/-P)
+
+/// Note that rank-0 rGFA fragments (aka normal reference paths) do *not* get the rGFA
+/// sample, and are treated as normal reference paths all the way through (but can get rGFA tags)
+/// when specified with -Q/-P in convert -f.
 
 /// Returns the RGFA rank (SR) of a path. This will be 0 for the reference
 /// backbone, and higher the further number of (nested) bubbles away it is.
 /// If the path is not an RGFA path, then return -1
-int get_rgfa_rank(const string& path_name);
+int get_rgfa_rank(const string& path_name, const string& rgfa_sample="_rGFA_");
 
-/// Add the RGFA rank tag to a pathname
-string set_rgfa_rank(const string& path_name, int rgfa_rank);
+/// Add the rgfa rank to a pathname, also setting its sample to the special rgfa sample and
+/// moving its old sample into the locus field
+string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& subrange,
+                             const string& rgfa_sample="_rGFA_");
 
-/// Get the name without the rank
-string strip_rgfa_rank(const string& path_name);
+/// Remove the rGFA information from a path name, effectively undoing set_rgfa_rank
+string strip_rgfa_path_name(const string& path_name, const string& rgfa_sample="_rGFA_");
 
 /// Compute the rGFA path cover
 /// graph: the graph

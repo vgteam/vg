@@ -77,7 +77,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         auto it = node_offsets_and_ranks.find(node_id);
         if (it != node_offsets_and_ranks.end()) {
             // hack off the rgfa tag
-            string base_name = strip_rgfa_rank(graph->get_path_name(get<0>(it->second)));
+            string base_name = strip_rgfa_path_name(graph->get_path_name(get<0>(it->second)));
             // hack off the subrange offset (and add it to SO)
             PathSense sense;
             string sample, locus;
@@ -282,41 +282,95 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
     out << "\n";
 }
 
-int get_rgfa_rank(const string& path_name) {
+int get_rgfa_rank(const string& path_name, const string& rgfa_sample) {
     int rank = -1;
-    size_t pos = path_name.rfind(":SR:i:");
-    if (pos != string::npos && path_name.length() - pos >= 6) {
+
+    PathSense path_sense;
+    string path_sample;
+    string path_locus;
+    size_t path_haplotype;
+    size_t path_phase_block;
+    subrange_t path_subrange;
+    PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
+                                  path_haplotype, path_phase_block, path_subrange);
+    
+    size_t pos = path_locus.rfind(":SR:i:");
+    if (pos != string::npos && path_locus.length() - pos >= 6) {
+        assert(path_sample == rgfa_sample);
         pos += 6;
-        size_t pos2 = path_name.find(":", pos);
+        size_t pos2 = path_locus.find(":", pos);
         size_t len = pos2 == string::npos ? pos2 : pos2 - pos;
-        string rank_string = path_name.substr(pos, len);
+        string rank_string = path_locus.substr(pos, len);
         rank = parse<int>(rank_string);
     }
     return rank;
 }
 
-string set_rgfa_rank(const string& path_name, int rgfa_rank) {
-    string new_name = strip_rgfa_rank(path_name);
-    // now append the rank
-    new_name += ":SR:i:" + std::to_string(rgfa_rank);
-    return new_name;
+string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& rgfa_subrange,
+                     const string& rgfa_sample) {
+
+    PathSense path_sense;
+    string path_sample;
+    string path_locus;
+    size_t path_haplotype;
+    size_t path_phase_block;
+    subrange_t path_subrange;
+    PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
+                                  path_haplotype, path_phase_block, path_subrange);
+
+    // we're going to replace the existing sample name; so move it out into locus behind SN:Z:
+    assert(path_locus != PathMetadata::NO_LOCUS_NAME);
+    string base_name;
+    if (path_sample != PathMetadata::NO_SAMPLE_NAME) {
+        base_name = path_sample + ":";
+    }
+    base_name += "SN:Z:" + path_locus;
+
+    // and we also load in our rGFA tag
+    base_name += ":SR:i:" + std::to_string(rgfa_rank);
+
+    // and return the final path, with sample/locus/rgfa-rank embedded in locus
+    // (as it's a reference path, we alsos strip out the phase block)
+    return PathMetadata::create_path_name(PathSense::REFERENCE, rgfa_sample, base_name, path_haplotype,
+                                          PathMetadata::NO_PHASE_BLOCK, rgfa_subrange);
 }
 
-string strip_rgfa_rank(const string& path_name) {
-    string new_name;
-    // check if we have an existing rank.  if so, we srap it.
-    size_t pos = path_name.rfind(":SR:i:");
-    if (pos != string::npos && path_name.length() - pos >= 6) {
-        size_t pos2 = path_name.find(":", pos + 6);
-        new_name = path_name.substr(0, pos);
-        if (pos2 != string::npos) {
-            new_name += path_name.substr(pos2);
+string strip_rgfa_path_name(const string& path_name, const string& rgfa_sample) {
+
+    PathSense path_sense;
+    string path_sample;
+    string path_locus;
+    size_t path_haplotype;
+    size_t path_phase_block;
+    subrange_t path_subrange;
+    PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
+                                  path_haplotype, path_phase_block, path_subrange);
+
+    assert(path_locus != PathMetadata::NO_LOCUS_NAME);
+
+    size_t sr_pos = path_locus.rfind(":SR:i:");
+    if (sr_pos != string::npos && path_locus.length() - sr_pos >= 6) {
+        size_t sn_pos = path_locus.rfind("SN:Z:", sr_pos - 1);
+        assert(sn_pos != string::npos);
+        assert(path_sample == rgfa_sample);
+
+        string orig_sample;
+        if (sn_pos > 0) {
+            orig_sample = path_locus.substr(0, sn_pos - 1);
         }
-    } else {
-        new_name = path_name;
+        string orig_locus = path_locus.substr(sn_pos + 5, sr_pos - sn_pos - 5);
+
+        // todo: recover path sense  / haploblock?
+        if (orig_sample.empty()) {
+            path_sense = PathSense::GENERIC;
+            path_haplotype = PathMetadata::NO_HAPLOTYPE;
+        }
+        return PathMetadata::create_path_name(path_sense, orig_sample, orig_locus,
+                                              path_haplotype, path_phase_block, path_subrange);
     }
-    return new_name;
+    return path_name;
 }
+
 
 void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       SnarlManager* snarl_manager,
@@ -402,17 +456,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
 
     for (const auto& path_fragments : path_to_fragments) {
         const path_handle_t& path_handle = path_fragments.first;
-        PathSense path_sense;
-        string path_sample;
-        string path_locus;
-        size_t path_haplotype;
-        size_t path_phase_block;
-        subrange_t path_subrange;
-        PathMetadata::parse_path_name(graph->get_path_name(path_handle), path_sense, path_sample, path_locus,
-                                      path_haplotype, path_phase_block, path_subrange);
-        // todo: we need a policy for this
-        //PathSense out_path_sense = path_sense == PathSense::HAPLOTYPE ? PathSense::GENERIC : path_sense;
-        PathSense out_path_sense = path_sense;
+        string path_name = graph->get_path_name(path_handle);
         
         const vector<int64_t>& fragments = path_fragments.second;
 
@@ -452,14 +496,10 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
             for (const step_handle_t& step : rgfa_fragment) {
                 rgfa_frag_length += graph->get_length(graph->get_handle_of_step(step));
             }
-            subrange_t rgfa_frag_subrange;
-            rgfa_frag_subrange.first = rgfa_frag_pos + (path_subrange != PathMetadata::NO_SUBRANGE ? path_subrange.first : 0);
+            subrange_t rgfa_frag_subrange = graph->get_subrange(path_handle);
+            rgfa_frag_subrange.first = rgfa_frag_pos + (rgfa_frag_subrange != PathMetadata::NO_SUBRANGE ? rgfa_frag_subrange.first : 0);
             rgfa_frag_subrange.second = rgfa_frag_subrange.first + rgfa_frag_length;
-
-            string rgfa_frag_name = PathMetadata::create_path_name(out_path_sense, path_sample, path_locus, path_haplotype,
-                                                                   path_phase_block, rgfa_frag_subrange);
-
-            rgfa_frag_name = set_rgfa_rank(rgfa_frag_name, rgfa_rank);
+            string rgfa_frag_name = create_rgfa_path_name(path_name, rgfa_rank, rgfa_frag_subrange);
 
 #ifdef debug
 #pragma omp critical(cerr)
