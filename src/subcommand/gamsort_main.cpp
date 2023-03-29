@@ -33,10 +33,10 @@ void help_gamsort(char **argv)
 struct compare_gaf {
     bool operator()(const gafkluge::GafRecord& gaf1, const gafkluge::GafRecord& gaf2) {
         // TODO find a way to not have to convert the node ids to string before and then back to int here?
-        int rk11 = std::stoi(gaf1.opt_fields.find("rk1")->second.second);
-        int rk12 = std::stoi(gaf2.opt_fields.find("rk1")->second.second);
-        int rk21 = std::stoi(gaf1.opt_fields.find("rk2")->second.second);
-        int rk22 = std::stoi(gaf2.opt_fields.find("rk2")->second.second);
+        long long rk11 = std::stoll(gaf1.opt_fields.find("rk1")->second.second);
+        long long rk12 = std::stoll(gaf2.opt_fields.find("rk1")->second.second);
+        long long rk21 = std::stoll(gaf1.opt_fields.find("rk2")->second.second);
+        long long rk22 = std::stoll(gaf2.opt_fields.find("rk2")->second.second);
         return rk11 < rk12 || (rk11 == rk12 && rk21 < rk22);
     }
 };
@@ -155,6 +155,11 @@ int main_gamsort(int argc, char **argv)
         kstring_t s_buffer = KS_INITIALIZE;
         gafkluge::GafRecord gaf;
 
+        std::string chunk_outf = "temp_gafsort_" + std::to_string(chunk_id) + ".gaf";
+        if(show_progress){
+            cerr << "Preparing temporary chunk " << chunk_outf << "..." << endl;
+        }
+        
         while (vg::io::get_next_record_from_gaf(nullptr, nullptr, in, s_buffer, gaf) == true) {
             // find the minimum and maximum node IDs
             nid_t min_node = std::numeric_limits<nid_t>::max();
@@ -182,22 +187,28 @@ int main_gamsort(int argc, char **argv)
             // if we've read enough reads, sort them and write to disk
             if(count == chunk_size){
                 // sort by minimum node id
+                if(show_progress){
+                    cerr << "   Sorting chunk..." << endl;
+                }
                 std::stable_sort(current_gaf_chunk.begin(), current_gaf_chunk.end(), compare_gaf());
                 // write to temp_gafsort_<chunkid>.gaf
-                std::string chunk_outf = "temp_gafsort_" + std::to_string(chunk_id);
+                if(show_progress){
+                    cerr << "   Writing chunk..." << endl;
+                }
                 std::ofstream out_file(chunk_outf);
                 for (int ii=0; ii<current_gaf_chunk.size(); ii++){
                     out_file << current_gaf_chunk[ii] << endl;
                 } 
                 out_file.close();
                 chunk_files.push_back(chunk_outf);
-                if(show_progress){
-                    cerr << "Written temporary chunk " << chunk_outf << "..." << endl;
-                }
                 // init next chunk
                 current_gaf_chunk.clear();
                 count = 0;
                 chunk_id++;
+                chunk_outf = "temp_gafsort_" + std::to_string(chunk_id) + ".gaf";
+                if(show_progress){
+                    cerr << "Preparing temporary chunk " << chunk_outf << "..." << endl;
+                }
             } 
         }
         hts_close(in);
@@ -205,10 +216,14 @@ int main_gamsort(int argc, char **argv)
         // write the current last chunk too, if it has any reads
         if(count > 0){
             // sort by minimum node id
+            if(show_progress){
+                cerr << "   Sorting chunk..." << endl;
+            }
             std::stable_sort(current_gaf_chunk.begin(), current_gaf_chunk.end(), compare_gaf());
-                
             // write to temp_gafsort_<chunkid>.gaf
-            std::string chunk_outf = "temp_gafsort_" + std::to_string(chunk_id) + ".gaf";
+            if(show_progress){
+                cerr << "   Writing chunk..." << endl;
+            }
             std::ofstream out_file(chunk_outf);
             for (int ii=0; ii<current_gaf_chunk.size(); ii++){
                 out_file << current_gaf_chunk[ii] << endl;
