@@ -646,7 +646,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     fragment_cfg.cluster_score_cutoff_enabled = true;
     fragment_cfg.cluster_coverage_threshold = 1.0;
     fragment_cfg.min_clusters_to_chain = std::numeric_limits<size_t>::max();
-    fragment_cfg.max_clusters_to_chain = this->max_clusters_to_chain;
+    fragment_cfg.max_clusters_to_chain = this->max_buckets_to_fragment;
     
     fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
     
@@ -897,6 +897,49 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // We also need a set of anchors for all the seeds. We will extend this if we reseed more seeds.
     std::vector<algorithms::Anchor>& seed_anchors = fragment_results.seed_anchors;
+    
+    // Make a list of anchors where we have each fragment as itself an anchor
+    std::vector<algorithms::Anchor> fragment_anchors;
+    fragment_anchors.reserve(fragments.size());
+    for (auto& fragment : fragments) {
+        fragment_anchors.push_back(algorithms::Anchor(seed_anchors.at(fragment.seeds.front()), seed_anchors.at(fragment.seeds.back()), fragment.score));
+    }
+    
+    // Get all the fragment numbers for each bucket, so we can chain each bucket independently again.
+    // TODO: Stop reswizzling so much.
+    std::vector<std::vector<size_t>> bucket_fragment_nums;
+    bucket_fragment_nums.resize(buckets.size());
+    for (size_t i = 0; i < fragment_source_bucket.size(); i++) {
+        bucket_fragment_nums.at(fragment_source_bucket[i]).push_back(i);
+    }
+    
+    for (size_t bucket_num = 0; bucket_num < bucket_fragment_nums.size(); bucket_num++) {
+        // Get a view of all the fragments in the bucket.
+        // TODO: Should we just not make a global fragment anchor list?
+        VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, bucket_fragment_nums[bucket_num]};
+        // Chain up the fragments
+        std::vector<std::pair<int, std::vector<size_t>>> chains = algorithms::find_best_chains(
+            bucket_fragment_view,
+            *distance_index,
+            gbwt_graph,
+            get_regular_aligner()->gap_open,
+            get_regular_aligner()->gap_extension,
+            2,
+            this->max_lookback_bases,
+            this->min_lookback_items,
+            this->lookback_item_hard_cap,
+            this->initial_lookback_threshold,
+            this->lookback_scale_factor,
+            this->min_good_transition_score_per_base,
+            this->item_bonus,
+            this->max_indel_bases
+        );
+        
+        // TODO: Translate frm bucket fragment numbering to global fragment
+        // numbering, then concatenate those fragments into a chain of original
+        // seeds.
+    }
+    
     
     // TODO: actually implement
     // For now, each fragment becomes a chain.
@@ -1263,8 +1306,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_fragment-connection-coverage-threshold", fragment_connection_coverage_threshold);
         set_annotation(mappings[0], "param_min-fragment-connections", (double) min_fragment_connections);
         set_annotation(mappings[0], "param_max-fragment-connections", (double) max_fragment_connections);
-        set_annotation(mappings[0], "param_min-clusters-to-chain", (double) min_clusters_to_chain);
-        set_annotation(mappings[0], "param_max-clusters-to-chain", (double) max_clusters_to_chain);
+        set_annotation(mappings[0], "param_max-buckets-to-fragment", (double) max_buckets_to_fragment);
         set_annotation(mappings[0], "param_reseed-search-distance", (double) reseed_search_distance);
         
         // Chaining algorithm parameters

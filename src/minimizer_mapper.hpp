@@ -234,13 +234,9 @@ public:
     static constexpr size_t default_chaining_cluster_distance = 100;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
-    // TODO: These will go away with cluster-merging chaining
-    /// Accept at least this many clusters for chain generation
-    static constexpr size_t default_min_clusters_to_chain = 2;
-    size_t min_clusters_to_chain = default_min_clusters_to_chain;
     /// How many clusters should we produce chains for, max?
-    static constexpr size_t default_max_clusters_to_chain = 2;
-    size_t max_clusters_to_chain = default_max_clusters_to_chain;
+    static constexpr size_t default_max_buckets_to_fragment = 2;
+    size_t max_buckets_to_fragment = default_max_buckets_to_fragment;
 
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -252,9 +248,7 @@ public:
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
-    /// How many bases should we look back when chaining? Needs to be about the
-    /// same as the clustering distance or we will be able to cluster but not
-    /// chain.
+    /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 100;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many chaining sources should we make sure to consider regardless of distance?

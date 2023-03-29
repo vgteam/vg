@@ -553,8 +553,8 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
-    auto* from_hint = from.hint();
-    auto* to_hint = to.hint();
+    auto* from_hint = from.end_hint();
+    auto* to_hint = to.start_hint();
     
     size_t distance;
     
