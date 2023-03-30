@@ -78,7 +78,7 @@ struct GBWTConfig {
     // Sample names and metadata
     std::set<std::string> to_remove; // Sample names to remove.
     std::map<std::string, std::string> tags_to_set; // Tag changes to apply to the GBWT
-
+    
     GBWTConfig() {
         this->merge_parameters.setMergeJobs(default_merge_jobs());
     }
@@ -393,6 +393,12 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
     constexpr int OPT_TAGS = 1700;
+    
+    // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
+    // Values are description and list of prohibited characters.
+    const std::map<std::string, std::pair<std::string, std::unordered_set<char>>> KNOWN_TAGS = {
+        {gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG, {"a space-separated list of PanSN-valid sample/assembly names of references in the graph", {'#'}}}
+    };
 
     static struct option long_options[] =
     {
@@ -723,7 +729,37 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                     std::cerr << "Error: expected '=' in " << argument << std::endl;
                     std::exit(EXIT_FAILURE);
                 }
-                config.tags_to_set.emplace(argument.substr(0, separator), argument.substr(separator + 1));
+                auto tag_name = argument.substr(0, separator);
+                auto tag_value = argument.substr(separator + 1);
+                // See if this tag is known
+                auto tag_record = KNOWN_TAGS.lower_bound(tag_name);
+                if (tag_record == KNOWN_TAGS.end() && !KNOWN_TAGS.empty()) {
+                    // This tag is larger than all known tags. Closest match is last tag.
+                    --tag_record;
+                }
+                if (tag_record != KNOWN_TAGS.end()) {
+                    auto& tag_description = tag_record->second.first;
+                    auto& tag_prohibited_characters = tag_record->second.second;
+                    // Tag is either known, or is unknown but there's a known tag to compare it with.
+                    if (tag_name != tag_record->first) {
+                        // This is an unknown tag, but we have an idea what it should be.
+                        std::cerr << "warning: [vg gbwt] tag \"" << tag_name << "\" is not a tag with a meaning recognized by vg; maybe you meant \"" << tag_record->first << "\" which would be " << tag_description << std::endl;
+                    } else {
+                        // This is a known tag, so validate it.
+                        for (auto& letter : tag_value) {
+                            if (tag_prohibited_characters.count(letter)) {
+                                // This letter isn't allowed.
+                                std::cerr << "error: [vg gbwt] tag \"" << tag_name << "\" contains prohibited character \"" << letter << "\". It needs to be " << tag_description << " and may not contain any of:";
+                                for (auto& c : tag_prohibited_characters) {
+                                    std::cerr << " '" << c << "'";
+                                }
+                                std::cerr << std::endl;
+                                std::exit(EXIT_FAILURE);
+                            }
+                        }
+                    }
+                }
+                config.tags_to_set.emplace(tag_name, tag_value);
             }
             break;
 
@@ -1405,7 +1441,7 @@ void set_tags(GBWTHandler& gbwts, GBWTConfig& config) {
     if (config.show_progress) {
         std::cerr << "Setting " << config.tags_to_set.size() << " tags on the GBWT" << std::endl;
     }
-
+    
     gbwts.use_compressed();
     for (auto& kv : config.tags_to_set) {
         gbwts.compressed.tags.set(kv.first, kv.second); 
