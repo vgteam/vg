@@ -65,6 +65,7 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<S
         }
     }
 
+
     //Sort
     std::sort(sorted_indices.begin(), sorted_indices.end(), [&] (const seed_values_t& a, const seed_values_t& b) {
         //Comparator for sorting. Returns a < b
@@ -74,16 +75,15 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<S
             //doesn't matter
             if (a.prefix_sum == b.prefix_sum) {
                 //If they have the same prefix sum, then the snarl comes first 
-                return a.is_snarl;
+                return !b.is_snarl;
             } else {
                 return a.prefix_sum < b.prefix_sum;
             }
-        } else if (a.connected_component < b.connected_component) {
-            return true;
         } else {
-            return false;
+            return a.connected_component < b.connected_component;
         }
     });
+
 #ifdef DEBUG_ZIPCODE_CLUSTERING
     cerr << "Sorted seeds:" << endl; 
     for (const seed_values_t& this_seed : sorted_indices) {
