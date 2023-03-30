@@ -20,7 +20,7 @@
 #include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
-//#define debug_anchored_surject
+#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
 //#define debug_prune_unconnectable
@@ -3530,6 +3530,12 @@ using namespace std;
                     continue;
                 }
                 
+                // We always see paths on the forward strand, so we need to
+                // work out if the read is running along the path in the path's
+                // forward (false) or reverse (true) direction.
+                //
+                // If the read visits the node in a different orientation than
+                // the path does, then the read runs along the path in reverse.
                 bool path_strand = graph->get_is_reverse(handle) != graph->get_is_reverse(graph->get_handle_of_step(step));
                 
                 step_handle_t prev_step = path_strand ? graph->get_next_step(step) : graph->get_previous_step(step);
@@ -3548,7 +3554,7 @@ using namespace std;
                 cerr << endl;
                 cerr << "possible extensions from: " << endl;
                 for (const auto& record : extending_steps) {
-                    cerr << "\t" << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
+                    cerr << "\t" << "chunk " << record.second << " at " << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
                 }
 #endif
                 
@@ -3560,6 +3566,10 @@ using namespace std;
                     size_t chunk_idx = extending_steps[make_pair(prev_step, path_strand)];
                     auto& aln_chunk = path_chunks.first[chunk_idx];
                     auto& ref_chunk = path_chunks.second[chunk_idx];
+                    
+#ifdef debug_anchored_surject
+                    cerr << "comes after chunk " << chunk_idx << endl;
+#endif
                     
                     // extend the range of the path on the reference
                     ref_chunk.second = step;
@@ -3598,6 +3608,10 @@ using namespace std;
                     // keep track of where this chunk is in the vector and which step it came from
                     // for the next iteration
                     next_extending_steps[make_pair(step, path_strand)] = path_chunks.first.size() - 1;
+                    
+#ifdef debug_anchored_surject
+                    cerr << "no preceeding chunk so start new chunk " << path_chunks.first.size() - 1 << endl;
+#endif
                 }
             }
             
