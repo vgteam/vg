@@ -937,11 +937,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         
         for (auto& chain_result: chain_results) {
             // Each chain of fragments becomes a chain of seeds
-            auto& chain = chains.emplace_back();
+            chains.emplace_back();
+            auto& chain = chains.back();
             // With a score
-            double& score = chain_score_estimates.emplace_back(0);
+            chain_score_estimates.emplace_back(0);
+            int& score = chain_score_estimates.back();
             // And counts of each minimizer kept
-            auto& minimizer_kept = minimizer_kept_chain_count.emplace_back();
+            minimizer_kept_chain_count.emplace_back();
+            auto& minimizer_kept = minimizer_kept_chain_count.back();
             
             for (const size_t& fragment_in_bucket: chain_result.second) {
                 // For each fragment in the chain
@@ -961,7 +964,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // And count the kept minimizers
                 auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
                 if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
-                    minimizer_kept_chain_count_for_chain.resize(fragment_minimizer_kept.size());
+                    minimizer_kept.resize(fragment_minimizer_kept.size());
                 }
                 for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
                     minimizer_kept[i] += fragment_minimizer_kept[i];
