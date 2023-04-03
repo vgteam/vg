@@ -536,21 +536,6 @@ protected:
     void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length) const;
     
     /**
-     * Determine cluster score, read coverage, and a vector of flags for the
-     * minimizers present in the cluster. Score is the sum of the scores of
-     * distinct minimizers in the cluster, while read coverage is the fraction
-     * of the read covered by seeds in the cluster.
-     *
-     * Thinks of the cluster as being made out of some fragments and
-     * some new seeds from the tail end of seeds, which are already in the
-     * funnel, clusters first. seed_to_fragment maps from seed to the old
-     * cluster it is part of, or std::numeric_limits<size_t>::max() if it isn't
-     * from an old cluster.
-     *
-     */
-    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_fragment, const std::vector<Cluster>& fragments, size_t seq_length, Funnel& funnel) const;
-    
-    /**
      * Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
      *  Up to one end of the graph region can be a read end, with a pos_t matching is_empty().
      * The read region always needs to be fully defined.
@@ -654,6 +639,14 @@ protected:
      * with annotating read numbers, which are ignored.
      */
     std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    
+    /**
+     * Get the fraction of read bases covered by the given chains/fragments of
+     * seeds. A base is covered if it is between the first and last endpoints
+     * in the read of any of the given lists of seeds. The lists of seeds are
+     * each assumed to be colinear in the read.
+     */
+    double get_read_coverage(const Alignment& aln, VectorView<std::vector<size_t>> seed_sets, const std::vector<Seed>& seeds, const std::vector<Minimizer>& minimizers) const;
     
     /**
      * Turn a chain into an Alignment.
