@@ -918,7 +918,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // TODO: Should we just not make a global fragment anchor list?
         VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, bucket_fragment_nums[bucket_num]};
         // Chain up the fragments
-        std::vector<std::pair<int, std::vector<size_t>>> chains = algorithms::find_best_chains(
+        std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
             bucket_fragment_view,
             *distance_index,
             gbwt_graph,
@@ -935,24 +935,47 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             this->max_indel_bases
         );
         
-        // TODO: Translate frm bucket fragment numbering to global fragment
-        // numbering, then concatenate those fragments into a chain of original
-        // seeds.
-    }
-    
-    
-    // TODO: actually implement
-    // For now, each fragment becomes a chain.
-    for (size_t fragment_num = 0; fragment_num < fragments.size(); fragment_num++) {
-        auto& fragment_cluster = fragments[fragment_num];
-        chains.push_back(fragment_cluster.seeds);
-        chain_score_estimates.push_back(fragment_cluster.score);
-        if (track_provenance) {
-            funnel.project(fragment_num);
-            funnel.score(funnel.latest(), fragment_cluster.score);
+        for (auto& chain_result: chain_results) {
+            // Each chain of fragments becomes a chain of seeds
+            auto& chain = chains.emplace_back();
+            // With a score
+            double& score = chain_score_estimates.emplace_back(0);
+            // And counts of each minimizer kept
+            auto& minimizer_kept = minimizer_kept_chain_count.emplace_back();
+            
+            for (const size_t& fragment_in_bucket: chain_result.second) {
+                // For each fragment in the chain
+                           
+                // Get its fragment number out of all fragments
+                size_t fragment_num_overall = bucket_fragment_nums[bucket_num].at(fragment_in_bucket);
+                
+                // Go get that fragment
+                auto& fragment = fragments.at(fragment_num_overall);
+                    
+                // And append all the seed numbers to the chain
+                std::copy(fragment.seeds.begin(), fragment.seeds.end(), std::back_inserter(chain));
+                
+                // And count the score
+                score += fragment.score;
+                
+                // And count the kept minimizers
+                auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
+                if (minimizer_kept.size() < fragment_minimizer_kept.size()) {
+                    minimizer_kept_chain_count_for_chain.resize(fragment_minimizer_kept.size());
+                }
+                for (size_t i = 0; i < fragment_minimizer_kept.size(); i++) {
+                    minimizer_kept[i] += fragment_minimizer_kept[i];
+                }
+            }
+            if (track_provenance) {
+                // Say all those fragments became a chain
+                funnel.merge_group(chain_result.second.begin(), chain_result.second.end());
+                // With the total score
+                funnel.score(funnel.latest(), score);
+            }
         }
     }
-    minimizer_kept_chain_count = minimizer_kept_fragment_count;
+    
     
     // Now do reseeding inside chains. Not really properly a funnel stage; it elaborates the chains
     if (track_provenance) {
