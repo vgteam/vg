@@ -913,10 +913,28 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         bucket_fragment_nums.at(fragment_source_bucket[i]).push_back(i);
     }
     
-    for (size_t bucket_num = 0; bucket_num < bucket_fragment_nums.size(); bucket_num++) {
-        // Get a view of all the fragments in the bucket.
+    // Filter down to just the good ones
+    std::vector<std::vector<size_t>> bucket_good_fragment_nums;
+    for (size_t bucket = 0; bucket < bucket_fragment_nums.size(); bucket++) {
+        // Sort all the fragments in the bucket by score, descending
+        std::sort(bucket_fragment_nums[bucket].begin(), bucket_fragment_nums[bucket].end(), [&](size_t a, size_t b) {
+            // Return true if the first fragment has the larger score and so must be first.
+            return fragment_scores.at(a) > fragment_scores.at(b);
+            
+        });
+        
+        bucket_good_fragment_nums.emplace_back();
+        for (size_t i = 0; i < bucket_fragment_nums[bucket].size() && i < 4; i++) {
+            // Keep the top few.
+            // TODO: Convert to a process_until_threshold call and apply filters the funnel can see.
+            bucket_good_fragment_nums.back().push_back(bucket_fragment_nums[bucket][i]);
+        }
+    }
+    
+    for (size_t bucket_num = 0; bucket_num < bucket_good_fragment_nums.size(); bucket_num++) {
+        // Get a view of all the good fragments in the bucket.
         // TODO: Should we just not make a global fragment anchor list?
-        VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, bucket_fragment_nums[bucket_num]};
+        VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, bucket_good_fragment_nums[bucket_num]};
         // Chain up the fragments
         std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
             bucket_fragment_view,
@@ -946,11 +964,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             minimizer_kept_chain_count.emplace_back();
             auto& minimizer_kept = minimizer_kept_chain_count.back();
             
+            // We record the fragments that merge into each chain for reporting.
+            std::vector<size_t> chain_fragment_nums_overall;
+            chain_fragment_nums_overall.reserve(chain_result.second.size());
+            
             for (const size_t& fragment_in_bucket: chain_result.second) {
                 // For each fragment in the chain
                            
                 // Get its fragment number out of all fragments
-                size_t fragment_num_overall = bucket_fragment_nums[bucket_num].at(fragment_in_bucket);
+                size_t fragment_num_overall = bucket_good_fragment_nums[bucket_num].at(fragment_in_bucket);
+                
+                // Save it
+                chain_fragment_nums_overall.push_back(fragment_num_overall);
                 
                 // Go get that fragment
                 auto& fragment = fragments.at(fragment_num_overall);
@@ -972,10 +997,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             if (track_provenance) {
                 // Say all those fragments became a chain
-                funnel.merge_group(chain_result.second.begin(), chain_result.second.end());
+                funnel.merge_group(chain_fragment_nums_overall.begin(), chain_fragment_nums_overall.end());
                 // With the total score
                 funnel.score(funnel.latest(), score);
             }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
+                for (auto& f : chain_fragment_nums_overall) {
+                    std::cerr << " " << f;
+                } 
+                std::cerr << std::endl;
+            } 
         }
     }
     

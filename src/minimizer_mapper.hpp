@@ -249,7 +249,7 @@ public:
     size_t max_tail_length = default_max_tail_length;
     
     /// How many bases should we look back when chaining?
-    static constexpr size_t default_max_lookback_bases = 100;
+    static constexpr size_t default_max_lookback_bases = 10000;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many chaining sources should we make sure to consider regardless of distance?
     static constexpr size_t default_min_lookback_items = 1;
@@ -270,7 +270,7 @@ public:
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
     /// How many bases of indel should we allow in chaining?
-    static constexpr size_t default_max_indel_bases = 50;
+    static constexpr size_t default_max_indel_bases = 6000;
     size_t max_indel_bases = default_max_indel_bases;
     
     /// If a chain's score is smaller than the best 
