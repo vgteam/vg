@@ -33,6 +33,8 @@ using namespace vg::subcommand;
 static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0, bool components = false);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
+static void check_read(const Alignment& aln, const HandleGraph* graph);
+                     
 
 void help_chunk(char** argv) {
     cerr << "usage: " << argv[0] << " chunk [options] > [chunk.vg]" << endl
@@ -783,8 +785,15 @@ int main_chunk(int argc, char** argv) {
                         // Use the region we were asked for
                         region_id_ranges = {{region.start, region.end}};
                     }
-            
-                    gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
+                    
+                    auto emit = vg::io::emit_to<Alignment>(out_gam_file);
+                    
+                    auto handle_read = [&](const Alignment& aln) {
+                        check_read(aln, graph);
+                        emit(aln);
+                    };
+                    
+                    gam_index->find(cursor, region_id_ranges, handle_read, fully_contained);
                 }
             } else {
 #pragma omp critical (node_to_component)
@@ -866,6 +875,8 @@ int main_chunk(int argc, char** argv) {
         };
         
         function<void(Alignment&)> chunk_gam_callback = [&](Alignment& aln) {
+            check_read(aln, graph);
+             
             // we're going to lose unmapped reads right here
             if (aln.path().mapping_size() > 0) {
                 nid_t aln_node_id = aln.path().mapping(0).position().node_id();
@@ -1070,5 +1081,23 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
         out_file.close();
     }
     return 0;
+}
+
+/// Stop and print an error if the graph exists and the read does not appear to
+/// actually be aligned against the graph.
+static void check_read(const Alignment& aln, const HandleGraph* graph) { 
+    if (!graph) {
+        return;
+    }
+    // Make sure the nodes it visits could be the nodes in the graph.
+    AlignmentValidity validity = alignment_is_valid(aln, graph);
+    if (!validity) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "error:[vg chunk] Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
+        }
+        exit(1);
+    }
 }
 
