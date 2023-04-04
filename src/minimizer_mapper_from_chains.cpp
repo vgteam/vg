@@ -607,7 +607,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (this->track_provenance) {
                 // Record the fragment in the funnel as coming from the bucket 
                 funnel.project(source_bucket);
-                funnel.score(funnel.latest(), fragments.back().score);
+                funnel.score(funnel.latest(), chain.first);
 
                 // Say we made it.
                 funnel.produced_output();
@@ -696,8 +696,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Make a list of anchors where we have each fragment as itself an anchor
     std::vector<algorithms::Anchor> fragment_anchors;
     fragment_anchors.reserve(fragments.size());
-    for (auto& fragment : fragments) {
-        fragment_anchors.push_back(algorithms::Anchor(seed_anchors.at(fragment.seeds.front()), seed_anchors.at(fragment.seeds.back()), fragment.score));
+    for (size_t i = 0; i < fragments.size(); i++) {
+        auto& fragment = fragments.at(i);
+        auto& score = fragment_scores.at(i);
+        fragment_anchors.push_back(algorithms::Anchor(seed_anchors.at(fragment.front()), seed_anchors.at(fragment.back()), score));
     }
     
     // Get all the fragment numbers for each bucket, so we can chain each bucket independently again.
@@ -776,10 +778,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 auto& fragment = fragments.at(fragment_num_overall);
                     
                 // And append all the seed numbers to the chain
-                std::copy(fragment.seeds.begin(), fragment.seeds.end(), std::back_inserter(chain));
+                std::copy(fragment.begin(), fragment.end(), std::back_inserter(chain));
                 
                 // And count the score
-                score += fragment.score;
+                score += fragment_scores.at(fragment_num_overall);
                 
                 // And count the kept minimizers
                 auto& fragment_minimizer_kept = minimizer_kept_fragment_count.at(fragment_num_overall);
@@ -1197,7 +1199,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Special fragment statistics
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
-    set_annotation(mappings[0], "fragment_bound_coverages", fragment_bound_coverages);
     set_annotation(mappings[0], "best_bucket_fragment_coverage_at_top", best_bucket_fragment_coverage_at_top);
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
     
@@ -1250,9 +1251,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
 double MinimizerMapper::get_read_coverage(
     const Alignment& aln,
-    VectorView<std::vector<size_t>> seed_sets,
+    const VectorView<std::vector<size_t>>& seed_sets,
     const std::vector<Seed>& seeds,
-    const std::vector<Minimizer>& minimizers) const {
+    const VectorView<Minimizer>& minimizers) const {
     
     std::vector<bool> covered(aln.sequence().size(), false);
     

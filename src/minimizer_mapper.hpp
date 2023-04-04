@@ -646,7 +646,7 @@ protected:
      * in the read of any of the given lists of seeds. The lists of seeds are
      * each assumed to be colinear in the read.
      */
-    double get_read_coverage(const Alignment& aln, VectorView<std::vector<size_t>> seed_sets, const std::vector<Seed>& seeds, const std::vector<Minimizer>& minimizers) const;
+    double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
     
     /**
      * Turn a chain into an Alignment.
