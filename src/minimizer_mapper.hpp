@@ -757,7 +757,7 @@ protected:
      *
      * Finds an alignment against a graph path if it is <= max_path_length, and uses <= max_dp_cells GSSW cells.
      *
-     * If one of the anchor positions is empty, does pinned alighnment against
+     * If one of the anchor positions is empty, does pinned alignment against
      * the other position.
      */
     static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max());

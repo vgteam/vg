@@ -1638,7 +1638,6 @@ Alignment MinimizerMapper::find_chain_alignment(
             if (!aln.quality().empty()) {
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
-            assert(graph_length != 0); // TODO: Can't handle abutting graph positions yet
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t path_length = std::max(graph_length, link_length) + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
             MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells);
@@ -2044,6 +2043,22 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             Position* left_pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
             // Add on the offset for the missing piece of the left anchor node
             left_pos->set_offset(left_pos->offset() + offset(left_anchor));
+        }
+        if (alignment.path().mapping_size() > 0) {
+            // Make sure we don't have an empty mapping on the end
+            auto* last_mapping = alignment.mutable_path()->mutable_mapping(alignment.path().mapping_size() - 1);
+            if (last_mapping->edit_size() > 0) {
+                // Make sure we don't have an empty edit on the end
+                auto& last_edit = last_mapping->edit(last_mapping->edit_size() - 1);
+                if (last_edit.from_length() == 0 && last_edit.to_length() == 0 && last_edit.sequence().empty()) {
+                    // Last edit is empty so drop from the mapping
+                    last_mapping->mutable_edit()->RemoveLast();
+                }
+            }
+            if (last_mapping->edit_size() == 0) {
+                // Last mapping is empty, so drop it.
+                alignment.mutable_path()->mutable_mapping()->RemoveLast();
+            }
         }
     
         // Now the alignment is filled in!
