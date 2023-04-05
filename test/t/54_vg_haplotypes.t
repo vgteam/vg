@@ -24,6 +24,8 @@ is $? 0 "sampling the haplotypes directly"
 cmp indirect.gbz direct.gbz
 is $? 0 "the outputs are identical"
 
+# FIXME: Test --include-reference with both named and reference paths.
+
 # Cleanup
 rm -r small.vg small.gbz small.ri small.dist
 rm -f small.hapl indirect.gbz direct.gbz

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 15
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 
@@ -71,4 +71,21 @@ rm -f region.bed clip.vg
 
 rm -f hla.vg
 
+vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view - | sort  >  tiny.gfa
+cp tiny.gfa tiny-stubs.gfa
+printf "S\t0\tA\n" >> tiny-stubs.gfa
+printf "L\t0\t+\t1\t+\t0M\n" >> tiny-stubs.gfa
+printf "S\t100\tA\n" >> tiny-stubs.gfa
+printf "L\t0\t+\t100\t+\t0M\n" >> tiny-stubs.gfa
+printf "S\t200\tA\n" >> tiny-stubs.gfa
+printf "L\t5\t+\t200\t+\t0M\n" >> tiny-stubs.gfa
+printf "S\t300\tA\n" >> tiny-stubs.gfa
+printf "L\t200\t+\t300\t+\t0M\n" >> tiny-stubs.gfa
+vg clip tiny.gfa -s -P x | sort > tiny-nostubs.gfa
+diff tiny.gfa tiny-nostubs.gfa
+is "$?" 0 "stub clipping removed all stubs"
 
+printf "x\t5\t25\n" > region.bed
+is $(vg clip tiny-stubs.gfa -s -b region.bed | vg stats -N -) "17" "region clipping filtered out only 2 / 4 stub nodes"
+
+rm -f tiny.gfa tiny-stubs.gfa region.bed tiny-nostubs.gfa

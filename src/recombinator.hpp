@@ -161,6 +161,10 @@ public:
     size_t k() const { return this->header.k; }
 
     Header header;
+
+    // Job ids for each cached path in the GBWTGraph, or `jobs()` if the path is empty.
+    std::vector<size_t> jobs_for_cached_paths;
+
     std::vector<TopLevelChain> chains;
 
     /**
@@ -336,13 +340,21 @@ private:
 class Recombinator {
 public:
     /// Number of haplotypes to be generated.
-    constexpr static size_t NUM_HAPLOTYPES = 16;
+    constexpr static size_t NUM_HAPLOTYPES = 8;
 
     /// Expected read coverage.
     constexpr static size_t COVERAGE = 30;
 
     /// Block size (in kmers) for reading KFF files.
     constexpr static size_t KFF_BLOCK_SIZE = 1000000;
+
+    /// Multiplier to the score of a present kmer every time a haplotype with that
+    /// kmer is selected.
+    constexpr static double PRESENT_DISCOUNT = 0.7;
+
+    /// Adjustment to the score of a heterozygous kmer every time a haplotype with
+    /// (-) or without (+) that kmer is selected.
+    constexpr static double HET_ADJUSTMENT = 0.2;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
@@ -369,6 +381,10 @@ public:
         /// If no original haplotype crosses a subchain, a new fragment will
         /// start after the subchain.
         size_t fragment;
+
+        /// GBWT sequence indentifier in the previous subchain, or
+        /// `gbwt::invalid_sequence()` if there was no such sequence.
+        gbwt::size_type sequence_id;
 
         /// GBWT position at the end of the latest `extend()` call.
         /// `gbwt::invalid_edge()` otherwise.
@@ -436,14 +452,17 @@ public:
         /// Number of haplotypes generated.
         size_t haplotypes = 0;
 
+        /// Number of times a haplotype was extended from a subchain to the next subchain.
+        size_t connections = 0;
+
+        /// Number of reference paths included.
+        size_t ref_paths = 0;
+
         /// Number of kmers selected.
         size_t kmers = 0;
 
         /// Total score for selected sequences.
         double score = 0.0;
-
-        /// Total score for sequences of each rank in sorted order.
-        std::vector<double> score_by_rank;
 
         /// Combines the statistics into this object.
         void combine(const Statistics& another);
@@ -469,8 +488,20 @@ public:
         /// Buffer size (in nodes) for GBWT construction.
         gbwt::size_type buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 
+        /// Multiplicative factor for discounting the scores for present kmers after
+        /// selecting a haplotype with that kmer.
+        double present_discount = PRESENT_DISCOUNT;
+
+        /// Additive term for adjusting the scores for heterozygous kmers after
+        /// each haplotype to encourage even sampling of haplotypes with and without
+        /// that kmer.
+        double het_adjustment = HET_ADJUSTMENT;
+
         /// Sample randomly instead of by score.
         bool random_sampling = false;
+
+        /// Include named and reference paths.
+        bool include_reference = false;
     };
 
     /**
@@ -486,8 +517,6 @@ public:
      * the middle of a chain create fragment breaks. If the chain starts without
      * a prefix (ends without a suffix), the haplotype chosen for the first (last)
      * subchain is used from the start (continued until the end).
-     *
-     * TODO: Include reference paths?
      */
     gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
 

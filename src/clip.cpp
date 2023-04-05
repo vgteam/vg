@@ -930,4 +930,170 @@ void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_delet
     }
 }
 
+void clip_stubs_generic(MutablePathMutableHandleGraph* graph,
+                        function<void(function<void(handle_t, const Region*)>)> iterate_handles,
+                        function<bool(handle_t)> handle_in_range,
+                        const vector<string>& ref_prefixes,
+                        int64_t min_fragment_len,
+                        bool verbose) {
+    
+    unordered_set<nid_t> to_delete;
+
+    // just for logging
+    unordered_map<string, size_t> clip_counts;
+
+    // frontier for recursing on stub neighbours
+    unordered_map<handle_t, const Region*> stub_neighbours_1;
+
+    // test if a node is "reference" using a name check
+    function<bool(const string&)> check_prefixes = [&ref_prefixes] (const string& path_name) {
+        for (const string& ref_prefix : ref_prefixes) {
+            if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // test if a node is a stub.
+    // we consider a node a stub if either (or both) sides have degree 0.
+    function<bool(const handle_t& handle)> is_stub = [&to_delete, &graph] (const handle_t& handle) {
+        size_t left_degree = 0;
+        graph->follow_edges(handle, true, [&](handle_t left) {
+            if (!to_delete.count(graph->get_id(left))) {
+                ++left_degree;
+                return false;
+            }
+            return true;
+        });
+        size_t right_degree = 1;
+        if (left_degree > 0) {
+            right_degree = 0;
+            graph->follow_edges(handle, false, [&](handle_t right) {
+                if (!to_delete.count(graph->get_id(right))) {
+                    ++right_degree;
+                    return false;
+                }
+                return true;
+            });
+        }
+        return left_degree == 0 || right_degree == 0;
+    };
+    
+    function<void(handle_t, const Region*)> visit_handle = [&](handle_t handle, const Region* region) {
+
+        if (!to_delete.count(graph->get_id(handle)) && is_stub(handle)) {
+            bool on_ref = false;
+            graph->for_each_step_on_handle(handle, [&](step_handle_t step_handle) {
+                if (!ref_prefixes.empty() || region) {
+                    // if we have a region, do exact comparison to it.
+                    // otherwise, do a prefix check against ref_prefix
+                    string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
+                    if ((region && region->seq == path_name) || (!region && check_prefixes(path_name))) {
+                        on_ref = true;
+                        return false;
+                    }
+                }
+                return true;
+            });
+            if (!on_ref) {
+                to_delete.insert(graph->get_id(handle));
+
+                // remember the neighbours -- they can be new stubs!
+                graph->follow_edges(handle, true, [&](handle_t prev) {
+                    if (handle_in_range(prev) && !to_delete.count(graph->get_id(prev)) && graph->get_id(handle) != graph->get_id(prev)) {
+                        stub_neighbours_1[prev] = region;
+                    }
+                });
+                graph->follow_edges(handle, false, [&](handle_t next) {
+                    if (handle_in_range(next) && !to_delete.count(graph->get_id(next)) && graph->get_id(handle) != graph->get_id(next)) {
+                        stub_neighbours_1[next] = region;
+                    }
+                });
+            }
+        }
+    };
+       
+    // first pass: find all the stubs in iterate_handles
+    // and populate stub_neighbours_1
+    iterate_handles(visit_handle);
+
+    // keep doing the same thing on the neighbours until none left, using
+    // handle_in_range to make sure we don't step out of bounds (in the case we're doing BED regions)           
+    unordered_map<handle_t, const Region*> stub_neighbours_2;
+    while (!stub_neighbours_1.empty()) {
+        stub_neighbours_2.clear();
+        swap(stub_neighbours_1, stub_neighbours_2);
+        for (const auto&  neighbour_pair : stub_neighbours_2) {
+            visit_handle(neighbour_pair.first, neighbour_pair.second);
+        }
+        stub_neighbours_2.clear();
+    }
+        
+    if (verbose) {
+        cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes from (non-reference) stubs." << endl;
+    }
+
+    // cut out the nodes and chop up paths
+    delete_nodes_and_chop_paths(graph, to_delete, {}, min_fragment_len, verbose ? &clip_counts : nullptr);
+        
+    if (verbose) {
+        for (const auto& kv : clip_counts) {
+            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path" << kv.first << endl;
+        }
+        clip_counts.clear();
+    }
+
+}
+
+void clip_stubs(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose) {
+    
+    function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
+        graph->for_each_handle([&](handle_t handle) {
+                visit_handle(handle, nullptr);
+            });        
+    };
+
+    function<bool(handle_t)> handle_in_range = [](handle_t) {
+        return true;
+    };
+
+    clip_stubs_generic(graph, iterate_handles, handle_in_range, ref_prefixes, min_fragment_len, verbose);
+}
+
+void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
+                          SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose) {
+
+    unordered_set<handle_t> all_handles;
+    function<bool(handle_t)> handle_in_range = [&all_handles](handle_t handle) {
+        return all_handles.count(handle);
+    };
+    
+    function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
+        
+        visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
+                                                                                        int64_t start_pos, int64_t end_pos,
+                                                                                        bool steps_reversed, const Region* containing_region) {
+                                   
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+            for (id_t node_id : contents.first) {
+                visit_handle(graph->get_handle(node_id), containing_region);
+                all_handles.insert(graph->get_handle(node_id));
+            }                                   
+        });
+    };
+
+    // the edge depths are computed globally, without looking at regions.  as such, they need some notion of reference paths
+    // so we shimmy a set in from the regions
+    set<string> ref_path_set;
+    for (const Region& region : regions) {
+        ref_path_set.insert(region.seq);
+    }
+    vector<string> ref_paths_from_regions(ref_path_set.begin(), ref_path_set.end());
+
+    clip_stubs_generic(graph, iterate_handles, handle_in_range, ref_paths_from_regions, min_fragment_len, verbose);
+    
+}
+
+
 }

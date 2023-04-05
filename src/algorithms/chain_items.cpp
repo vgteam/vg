@@ -239,9 +239,15 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                 // See if we should look back this far.
                 if (read_distance > max_lookback_bases) {
                     // This is further in the read than the real hard limit.
+#ifdef debug_chaining
+                cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
+#endif
                     break;
                 } else if (read_distance > lookback_threshold && good_score_found) {
                     // We already found something good enough.
+#ifdef debug_chaining
+                cerr << "\t\tDisregard due to read distance " << read_distance << " over threashold " << lookback_threshold << " and good score already found" << endl;
+#endif
                     break;
                 }
             }
