@@ -207,6 +207,13 @@ using vg::operator<<;
 ostream& operator<<(ostream& out, const TracedScore& value);
 
 /**
+ * Sort indexes in the given list by by read start position (and end position)
+ * of the anchors they refer to.
+ */
+void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
+
+
+/**
  * Get rid of items that are shadowed or contained by (or are identical to) others.
  *
  * Erases items that didn't survive from indexes, and sorts them by read start

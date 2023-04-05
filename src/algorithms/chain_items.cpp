@@ -169,6 +169,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // For each item
         auto& here = to_chain[i];
         
+        if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
+            // The items are not actually sorted by read start
+            throw std::runtime_error("chain_items_dp: items are not sorted by read start");
+        }
+        
         while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
             // Scan ahead through non-overlapping items that past-end too soon,
             // to the first overlapping item that ends earliest.
@@ -223,7 +228,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 #ifdef debug_chaining
             cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << source << endl;
 #endif
-
+            
             // How far do we go in the read?
             size_t read_distance = get_read_distance(source, here);
             
