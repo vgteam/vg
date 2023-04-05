@@ -710,22 +710,44 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         bucket_fragment_nums.at(fragment_source_bucket[i]).push_back(i);
     }
     
-    // Filter down to just the good ones
-    std::vector<std::vector<size_t>> bucket_good_fragment_nums;
-    for (size_t bucket = 0; bucket < bucket_fragment_nums.size(); bucket++) {
-        // Sort all the fragments in the bucket by score, descending
-        std::sort(bucket_fragment_nums[bucket].begin(), bucket_fragment_nums[bucket].end(), [&](size_t a, size_t b) {
-            // Return true if the first fragment has the larger score and so must be first.
-            return fragment_scores.at(a) > fragment_scores.at(b);
-            
-        });
-        
-        bucket_good_fragment_nums.emplace_back();
-        for (size_t i = 0; i < bucket_fragment_nums[bucket].size() && i < 4; i++) {
-            // Keep the top few.
-            // TODO: Convert to a process_until_threshold call and apply filters the funnel can see.
-            bucket_good_fragment_nums.back().push_back(bucket_fragment_nums[bucket][i]);
+    // Get the score of the top-scoring fragment per bucket.
+    std::vector<double> bucket_best_fragment_score;
+    bucket_best_fragment_score.reserve(bucket_fragment_nums.size());
+    for (auto& fragment_nums : bucket_fragment_nums) {
+        bucket_best_fragment_score.emplace_back(0);
+        for (auto& fragment_num : fragment_nums) {
+            // Max in the score of each fragmrnt in the bucket
+            bucket_best_fragment_score.back() = std::max(bucket_best_fragment_score.back(), fragment_scores.at(fragment_num));
         }
+    }
+    
+    // Filter down to just the good ones, sorted by read start
+    std::vector<std::vector<size_t>> bucket_good_fragment_nums;
+    bucket_good_fragment_nums.reserve(bucket_fragment_nums.size());
+    for (size_t bucket = 0; bucket < bucket_fragment_nums.size(); bucket++) {
+        // Decide on how good fragments have to be to keep.
+        double fragment_score_threshold = bucket_best_fragment_score.at(bucket) * fragment_score_fraction;
+    
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Keeping fragments in bucket " << bucket << " with score of at least"  << fragment_score_threshold << endl;
+            }
+        }
+    
+        // Keep the fragments that have good scores.
+        bucket_good_fragment_nums.emplace_back();
+        for (auto& fragment_num : bucket_fragment_nums.at(bucket)) {
+            // For each fragment in the bucket
+            if (fragment_scores.at(fragment_num) >= fragment_score_threshold) {
+                // If its score is high enough, keep it.
+                // TODO: Tell the funnel.
+                bucket_good_fragment_nums.back().push_back(fragment_num);
+            }
+        }
+        
+        // Now sort anchors by read start. Don't bother with shadowing.
+        algorithms::sort_anchor_indexes(fragment_anchors, bucket_good_fragment_nums.back());
     }
     
     for (size_t bucket_num = 0; bucket_num < bucket_good_fragment_nums.size(); bucket_num++) {

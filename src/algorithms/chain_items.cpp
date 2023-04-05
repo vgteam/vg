@@ -10,7 +10,7 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
+#define debug_chaining
 
 namespace vg {
 namespace algorithms {
@@ -48,8 +48,7 @@ TracedScore TracedScore::add_points(int adjustment) const {
     return {this->score + adjustment, this->source};
 }
 
-void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
-    
+void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
     // Sort the indexes by read start ascending, and read end descending
     std::sort(indexes.begin(), indexes.end(), [&](const size_t& a, const size_t& b) {
         auto& a_item = items[a];
@@ -59,6 +58,12 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
         // a should be first if it starts earlier, or starts atthe same place and ends later.
         return (a_start < b_start || (a_start == b_start && a_item.read_end() > b_item.read_end()));
     });
+}
+
+void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
+    
+    // Sort everything by read start ascending, and read end descending
+    sort_anchor_indexes(items, indexes);
     
     // Keep a collection of the diagonals that are already represented,
     // and the read end position of the latest-ending item on those pairs that

@@ -248,6 +248,12 @@ public:
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
+    /// How good should a fragment be in order to keep it? Fragments with
+    /// scores less than this fraction of the best fragment's score int he
+    /// bucket will not be used in chaining.
+    static constexpr double default_fragment_score_fraction = 0.1;
+    size_t fragment_score_fraction = default_fragment_score_fraction;
+    
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 10000;
     size_t max_lookback_bases = default_max_lookback_bases;
