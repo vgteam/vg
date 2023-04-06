@@ -280,6 +280,7 @@ int main_rmvdup(int argc, char *argv[]) {
                     });
 
                 });
+                // Writing the non-duplicate PCRs to the file
                 if (!checked[bphf->lookup(name_id(aln))]) {
 #pragma omp critical (cerr)
                     checked[bphf->lookup(name_id(aln))] = true;
