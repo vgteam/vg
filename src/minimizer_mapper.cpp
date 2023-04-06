@@ -27,7 +27,7 @@
 #include <cfloat>
 
 // Turn on debugging prints
-#define debug
+//#define debug
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump local graphs that we align against 
@@ -2683,10 +2683,14 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
         return numeric_limits<double>::infinity();
     }
 
-    // Sort minimizer subset so we go through minimizers in increasing order of start position
+    // Sort minimizer subset so we go through minimizers in increasing order of
+    // agglomeration end position, and then increasing order of agglomeration
+    // start position
     std::sort(minimizers_explored.begin(), minimizers_explored.end(), [&](size_t a, size_t b) {
         // Return true if a must come before b, and false otherwise
-        return minimizers[a].forward_offset() < minimizers[b].forward_offset();
+        size_t a_end = minimizers[a].agglomeration_start + minimizers[a].agglomeration_length;
+        size_t b_end = minimizers[b].agglomeration_start + minimizers[b].agglomeration_length;
+        return a_end < b_end || (a_end == b_end && minimizers[a].agglomeration_start < minimizers[b].agglomeration_start);
     });
 #ifdef debug
     cerr << "Sorted " << minimizers_explored.size() << " minimizers" << endl;
@@ -2696,6 +2700,28 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
     cerr << "Explored minimizers:" << endl;
     dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
 #endif
+
+    for (auto it = minimizers_explored.begin(); it != minimizers_explored.end(); ++it) {
+        if (minimizers[*it].length == 0) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "error[MinimizerMapper::faster_cap]: Minimizer with no sequence found in read with sequence " << sequence << std::endl;
+                dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+                for (size_t i = 0 ; i < minimizers_explored.size() ; i++) {
+                    auto& m = minimizers[minimizers_explored[i]];
+                    std::cerr << "Mininizer " << minimizers_explored[i] << " agg start " << m.agglomeration_start << " length " << m.agglomeration_length
+                              << " core start " << m.value.offset << " length " << m.length << std::endl;
+                }
+                std::cerr << "Read sequence: " << sequence << std::endl;
+                std::cerr << "Read quality: ";
+                for (char q : quality_bytes) {
+                    std::cerr << (char) (33 + (int)q);
+                }
+                std::cerr << std::endl;
+                exit(1);
+            }
+        }
+    }
 
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
     // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
@@ -2719,6 +2745,26 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
 #ifdef debug
         cerr << "log10prob for here: " << p_here << endl;
 #endif
+
+        if (isinf(p_here)) {
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers seem impossible to disrupt in region " << left << " " << right << " " << bottom << " " << top << std::endl;
+                dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+                for (size_t i = 0 ; i < minimizers_explored.size() ; i++) {
+                    auto& m = minimizers[minimizers_explored[i]];
+                    std::cerr << "Mininizer " << minimizers_explored[i] << " agg start " << m.agglomeration_start << " length " << m.agglomeration_length
+                              << " core start " << m.value.offset << " length " << m.length << std::endl;
+                }
+                std::cerr << "Read sequence: " << sequence << std::endl;
+                std::cerr << "Read quality: ";
+                for (char q : quality_bytes) {
+                    std::cerr << (char) (33 + (int)q);
+                }
+                std::cerr << std::endl;
+            }
+            exit(1);
+        }
         
         // Calculate prob of all intervals up to top being disrupted
         double p = c[bottom] + p_here;
@@ -2749,13 +2795,23 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
     if (isinf(c.back())) {
         #pragma omp critical (cerr)
         {
-            std::cerr << "Minimizers seem impossible to disrupt!" << std::endl;
+            std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers seem impossible to disrupt!" << std::endl;
             dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+            for (size_t i = 0 ; i < minimizers_explored.size() ; i++) {
+                auto& m = minimizers[minimizers_explored[i]];
+                std::cerr << "Mininizer " << minimizers_explored[i] << " agg start " << m.agglomeration_start << " length " << m.agglomeration_length
+                          << " core start " << m.value.offset << " length " << m.length << std::endl;
+            }
+            std::cerr << "Read sequence: " << sequence << std::endl;
+            std::cerr << "Read quality: ";
+            for (char q : quality_bytes) {
+                std::cerr << (char) (33 + (int)q);
+            }
+            std::cerr << std::endl;
         }
         exit(1);
     }
     
-    assert(!isinf(c.back()));
     // Conver to Phred.
     double result = -c.back() * 10;
     return result;
@@ -2785,6 +2841,16 @@ void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer
             size_t stack_top_end = stack.front()->agglomeration_start + stack.front()->agglomeration_length;
             if (stack_top_end <= right) {
                 // Case where the left-most item ends before the start of the new item
+                
+                if (stack_top_end < left) {
+                    // Something is wrong with the order we are visiting these in.
+                    #pragma omp critical (cerr)
+                    {
+                        std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers not sorted properly for read with sequence " << sequence << "! Agglomeration on stack ends at " << stack_top_end << " but we are at " << left << " from a previous agglomeration" << std::endl;
+                        exit(1);
+                    }
+                }
+                
                 iteratee(left, stack_top_end, bottom, bottom + stack.size());
 
                 // If the stack contains only one item there is a gap between the item
@@ -2805,7 +2871,14 @@ void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer
         // For each item in turn
         auto& item = minimizers[*it];
         
-        assert(stack.size() > 0);
+        if (stack.size() == 0) {
+            // Something is wrong with our stacking algorithm
+            #pragma omp critical (cerr)
+            {
+                std::cerr << "error[MinimizerMapper::faster_cap]: Minimizers not stacked up properly for read with sequence " << sequence << "!" << std::endl;
+                exit(1);
+            }
+        }
 
         // For each new item we return all intervals that
         // precede its start

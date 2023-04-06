@@ -105,7 +105,7 @@ is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16'
 rm -f x.vg x.gbwt x.xg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 rm -f x.giraffe.gbz
 
-
+rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 cp small/xy.fa .
 cp small/xy.vcf.gz .
 cp small/xy.vcf.gz.tbi .

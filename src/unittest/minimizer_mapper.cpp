@@ -167,17 +167,13 @@ TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][m
     REQUIRE(!isinf(cap));
 }
 
-TEST_CASE("Mapping quality cap cannot be confused by excessively high base qualities", "[giraffe][mapping]") {
+TEST_CASE("Mapping quality cap cannot be confused by fuzzing with high base qualities", "[giraffe][mapping]") {
     string sequence;
     string quality;
-    for (size_t i = 0; i < 250; i++) {
+    for (size_t i = 0; i < 100; i++) {
         sequence.push_back('G');
-        quality.push_back((char)(unsigned char)0xFF);
+        quality.push_back((char)(unsigned char)60);
     }
-    
-    vector<TestMinimizerMapper::Minimizer> minimizers;
-    // They are all going to be explored
-    vector<size_t> minimizers_explored;
     
     TestMinimizerMapper::Minimizer minimizer_template;
     minimizer_template.value.is_reverse = false;
@@ -187,10 +183,17 @@ TEST_CASE("Mapping quality cap cannot be confused by excessively high base quali
     minimizer_template.occs = nullptr;
     minimizer_template.score = 1;
     
-    for (size_t try_number = 0; try_number < 1000; try_number++) {
+    for (size_t try_number = 0; try_number < 100000; try_number++) {
     
-        for (size_t i = 0; i < 10; i++) {
-            size_t core_width = rand() % std::min(sequence.size()/2, (size_t)32);
+        vector<TestMinimizerMapper::Minimizer> minimizers;
+        // They are all going to be explored
+        vector<size_t> minimizers_explored;
+        
+        size_t minimizer_count = rand() % 100 + 5;
+        
+        for (size_t i = 0; i < minimizer_count; i++) {
+            // Generate a random and not very realistic agglomeration
+            size_t core_width = rand() % std::min(sequence.size()/2 - 1, (size_t)32 - 1) + 1;
             size_t run_length = rand() % std::min(sequence.size() - core_width, (size_t)32 - core_width);
             size_t flank_width = rand() % 10;
             size_t core_start = rand() % (sequence.size() - core_width - run_length);
@@ -206,6 +209,7 @@ TEST_CASE("Mapping quality cap cannot be confused by excessively high base quali
             TestMinimizerMapper::Minimizer& m = minimizers.back();
             m = minimizer_template;
             
+            // Now clip the agglomeration to the read.
             m.agglomeration_start = core_start;
             m.agglomeration_length = core_width + run_length + flank_width * 2;
             if (flank_width > m.agglomeration_start) {
