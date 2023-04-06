@@ -100,28 +100,16 @@ TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mappi
         }
 }
 
-TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][mapping]") {
-    string sequence;
-    string quality;
-    for (size_t i = 0; i < 150; i++) {
-        sequence.push_back('G');
-        quality.push_back((char)0x1E);
-    }
-    
-    // Cover the read in 25bp cores with 10bp flanks on each side
-    int core_width = 25;
-    int flank_width = 10;
-    vector<TestMinimizerMapper::Minimizer> minimizers;
-    // They are all going to be explored
-    vector<size_t> minimizers_explored;
-    
+/// Cover a sequence of all Gs in minimizers.
+static void cover_in_minimizers(const std::string sequence, int core_width, int flank_width, int stride, std::vector<TestMinimizerMapper::Minimizer>& minimizers, std::vector<size_t>& minimizers_explored) {
+
     string min_seq;
     for (int i = 0; i < core_width; i++) {
         min_seq.push_back('G');
     }
     auto encoded = gbwtgraph::DefaultMinimizerIndex::key_type::encode(min_seq);
     
-    for (int core_start = 0; core_start + core_width < sequence.size(); core_start++) {
+    for (int core_start = 0; core_start + core_width < sequence.size(); core_start += stride) {
         minimizers_explored.push_back(minimizers.size());
         minimizers.emplace_back();
         TestMinimizerMapper::Minimizer& m = minimizers.back();
@@ -145,21 +133,110 @@ TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][m
         m.value.hash = m.value.key.hash();
         m.value.offset = core_start;
         m.value.is_reverse = false;
+        m.length = core_width;
         
-        m.hits = 229;
         // We knowe the occurrences won't be used.
         m.occs = nullptr;
-        m.length = core_width;
-        m.candidates_per_window = flank_width + 1;
+        m.hits = 1;
         m.score = 1;
     }
+
+}
+
+TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][mapping]") {
+    string sequence;
+    string quality;
+    for (size_t i = 0; i < 150; i++) {
+        sequence.push_back('G');
+        quality.push_back((char)0x1E);
+    }
     
+    // Cover the read in 25bp cores with 10bp flanks on each side
+    int core_width = 25;
+    int flank_width = 10;
+    vector<TestMinimizerMapper::Minimizer> minimizers;
+    // They are all going to be explored
+    vector<size_t> minimizers_explored;
+    
+    cover_in_minimizers(sequence, core_width, flank_width, 1, minimizers, minimizers_explored);
     
     // Compute the MAPQ cap
     double cap = TestMinimizerMapper::faster_cap(minimizers, minimizers_explored, sequence, quality);
     
     // The MAPQ cap should not be infinite.
     REQUIRE(!isinf(cap));
+}
+
+TEST_CASE("Mapping quality cap cannot be confused by excessively high base qualities", "[giraffe][mapping]") {
+    string sequence;
+    string quality;
+    for (size_t i = 0; i < 250; i++) {
+        sequence.push_back('G');
+        quality.push_back((char)(unsigned char)0xFF);
+    }
+    
+    vector<TestMinimizerMapper::Minimizer> minimizers;
+    // They are all going to be explored
+    vector<size_t> minimizers_explored;
+    
+    TestMinimizerMapper::Minimizer minimizer_template;
+    minimizer_template.value.is_reverse = false;
+    
+    minimizer_template.hits = 229;
+    // We knowe the occurrences won't be used.
+    minimizer_template.occs = nullptr;
+    minimizer_template.score = 1;
+    
+    for (size_t try_number = 0; try_number < 1000; try_number++) {
+    
+        for (size_t i = 0; i < 10; i++) {
+            size_t core_width = rand() % std::min(sequence.size()/2, (size_t)32);
+            size_t run_length = rand() % std::min(sequence.size() - core_width, (size_t)32 - core_width);
+            size_t flank_width = rand() % 10;
+            size_t core_start = rand() % (sequence.size() - core_width - run_length);
+                
+            string min_seq;
+            for (int i = 0; i < core_width; i++) {
+                min_seq.push_back('G');
+            }
+            auto encoded = gbwtgraph::DefaultMinimizerIndex::key_type::encode(min_seq);
+        
+            minimizers_explored.push_back(minimizers.size());
+            minimizers.emplace_back();
+            TestMinimizerMapper::Minimizer& m = minimizers.back();
+            m = minimizer_template;
+            
+            m.agglomeration_start = core_start;
+            m.agglomeration_length = core_width + run_length + flank_width * 2;
+            if (flank_width > m.agglomeration_start) {
+                m.agglomeration_length -= (flank_width - m.agglomeration_start);
+                m.agglomeration_start = 0;
+            } else {
+                m.agglomeration_start -= flank_width;
+            }
+            if (m.agglomeration_start + m.agglomeration_length > sequence.size()) {
+                m.agglomeration_length = sequence.size() - m.agglomeration_start;
+            }
+           
+            // We need to set the key and its hash
+            m.value.key = encoded;
+            m.value.hash = m.value.key.hash();
+            m.value.offset = core_start;
+            m.value.is_reverse = false;
+            m.length = core_width;
+            
+            m.hits = 229;
+            // We knowe the occurrences won't be used.
+            m.occs = nullptr;
+            m.score = 1;
+        }
+        
+        // Compute the MAPQ cap
+        double cap = TestMinimizerMapper::faster_cap(minimizers, minimizers_explored, sequence, quality);
+        
+        // The MAPQ cap should not be infinite.
+        REQUIRE(!isinf(cap));
+    }
 }
 
 TEST_CASE("MinimizerMapper can map against subgraphs between points", "[giraffe][mapping]") {

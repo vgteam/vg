@@ -27,7 +27,7 @@
 #include <cfloat>
 
 // Turn on debugging prints
-//#define debug
+#define debug
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump local graphs that we align against 
@@ -2745,7 +2745,7 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
 #ifdef debug
     cerr << "log10prob after all minimizers is " << c.back() << endl;
 #endif
-    
+
     assert(!isinf(c.back()));
     // Conver to Phred.
     double result = -c.back() * 10;
@@ -2886,11 +2886,15 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const VectorView<Minimi
                                              min(index - m.agglomeration_start + 1,
                                              (m.agglomeration_start + m.agglomeration_length) - index));
 
+#ifdef debug
+            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << endl;
+#endif
+
             // Account for at least one of them beating the minimizer.
             double any_beat_prob = prob_for_at_least_one(m.value.hash, possible_minimizers);
             
 #ifdef debug
-            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives probability: " << any_beat_prob << endl;
+            cerr << "\t\t\t\tGives probability: " << any_beat_prob << endl;
 #endif
             
             p *= any_beat_prob;
