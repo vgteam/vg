@@ -2745,7 +2745,16 @@ double MinimizerMapper::faster_cap(const VectorView<Minimizer>& minimizers, vect
 #ifdef debug
     cerr << "log10prob after all minimizers is " << c.back() << endl;
 #endif
-
+    
+    if (isinf(c.back())) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "Minimizers seem impossible to disrupt!" << std::endl;
+            dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
+        }
+        exit(1);
+    }
+    
     assert(!isinf(c.back()));
     // Conver to Phred.
     double result = -c.back() * 10;
