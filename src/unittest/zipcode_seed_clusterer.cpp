@@ -43,7 +43,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
             REQUIRE(clusters.size() == 1); 
 
 
@@ -91,7 +91,7 @@ namespace unittest {
                         seeds.push_back({ pos, 0});
                     }
                 }
-                vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 15); 
+                vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 15); 
                 REQUIRE(clusters.size() == 2); 
             }
 
@@ -127,7 +127,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0,zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 5); 
             REQUIRE(clusters.size() == 1); 
             
 
@@ -164,7 +164,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 15); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 15); 
             REQUIRE(clusters.size() == 1); 
             
         }
@@ -213,7 +213,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
             REQUIRE(clusters.size() == 1); 
             
 
@@ -230,7 +230,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
             REQUIRE(clusters.size() == 1); 
             
 
@@ -247,7 +247,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0,zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
             REQUIRE(clusters.size() == 2); 
             
 
@@ -301,7 +301,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
             REQUIRE(clusters.size() == 2); 
             
 
@@ -318,7 +318,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,  10); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds,  10); 
             REQUIRE(clusters.size() == 2); 
             
 
@@ -335,7 +335,7 @@ namespace unittest {
                 zipcode.fill_in_zipcode(dist_index, pos);
                 seeds.push_back({ pos, 0, zipcode});
             }
-            vector<ZipcodeClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
             REQUIRE(clusters.size() == 3); 
             
 
@@ -387,7 +387,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 5); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //
@@ -411,7 +411,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
 //                REQUIRE(clusters.size() == 3); 
 //            }
 //
@@ -481,7 +481,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -501,7 +501,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 1); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 1); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -521,7 +521,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -541,7 +541,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 2); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -561,7 +561,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 9); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 9); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -581,7 +581,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -603,7 +603,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 8); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -623,7 +623,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 4); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 4); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -702,7 +702,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 4); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 4); 
 //                REQUIRE(clusters.size() == 3); 
 //            }
 //
@@ -733,7 +733,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -760,7 +760,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -866,7 +866,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 5); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //
@@ -889,7 +889,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 5); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //
@@ -913,7 +913,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 9); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 9); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -936,7 +936,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
 //                REQUIRE(clusters.size() == 2); 
 //            }
 //        }
@@ -959,7 +959,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 11); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 11); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -1011,7 +1011,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 6); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 6); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //
@@ -1033,7 +1033,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //
@@ -1050,7 +1050,7 @@ namespace unittest {
 //            pos = make_pos_t(4, false, 0);
 //            seeds[1].push_back({ pos, 0});
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds, 3, 3); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters = clusterer.coarse_cluster_seeds(seeds, 3, 3); 
 //            REQUIRE(clusters.size() == 2); 
 //            REQUIRE(clusters[0][0].fragment == clusters[1][0].fragment);
 //
@@ -1072,7 +1072,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 1); 
 //
 //            }
@@ -1129,7 +1129,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 11); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 11); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //
@@ -1151,7 +1151,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -1172,7 +1172,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 8); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //
@@ -1194,7 +1194,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
 //                REQUIRE(clusters.size() == 3); 
 //            }
 //
@@ -1261,7 +1261,7 @@ namespace unittest {
 //                    }
 //                }
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
 //                REQUIRE(clusters.size() == 1); 
 //            }
 //        }
@@ -1284,7 +1284,7 @@ namespace unittest {
 //                }
 //
 //
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 7); 
 //                vector<hash_set<size_t>> cluster_sets;
 //                for (auto& c : clusters) {
 //                    hash_set<size_t> h;
@@ -1346,7 +1346,7 @@ namespace unittest {
 //                }
 //
 //
-//                vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+//                vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 7, 15); 
 //                //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
 //                REQUIRE( paired_clusters.size() == 2);
 //                REQUIRE( paired_clusters[0].size() == 1);
@@ -1388,7 +1388,7 @@ namespace unittest {
 //                }
 //
 //
-//                vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+//                vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 7, 15); 
 //                //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
 //                REQUIRE( paired_clusters.size() == 2);
 //                REQUIRE( paired_clusters[0].size() == 1);
@@ -1421,7 +1421,7 @@ namespace unittest {
 //            }
 //
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 2, 7); 
 //            // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
 //            // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
 //            REQUIRE( paired_clusters.size() == 2) ;
@@ -1455,7 +1455,7 @@ namespace unittest {
 //            }
 //
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 2, 7); 
 //            // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
 //            // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
 //            REQUIRE( paired_clusters.size() == 2) ;
@@ -1517,7 +1517,7 @@ namespace unittest {
 //            }
 //
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 13); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 13); 
 //
 //            REQUIRE( clusters.size() == 1);
 //        }
@@ -1533,7 +1533,7 @@ namespace unittest {
 //
 //
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 8); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -1584,7 +1584,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 20); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -1599,7 +1599,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,  20); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds,  20); 
 //
 //
 //        }
@@ -1613,7 +1613,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 20); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -1659,7 +1659,7 @@ namespace unittest {
 //                zipcode.fill_in_zipcode(dist_index, pos);
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //            REQUIRE( clusters.size() == 1);
 //        }
@@ -1707,7 +1707,7 @@ namespace unittest {
 //                zipcode.fill_in_zipcode(dist_index, pos);
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //            REQUIRE( clusters.size() == 1);
 //        }
@@ -1723,7 +1723,7 @@ namespace unittest {
 //                zipcode.fill_in_zipcode(dist_index, pos);
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //            REQUIRE( clusters.size() == 2);
 //        }
@@ -1767,7 +1767,7 @@ namespace unittest {
 //                zipcode.fill_in_zipcode(dist_index, pos);
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 20); 
 //
 //            REQUIRE( clusters.size() == 1);
 //        }
@@ -1783,7 +1783,7 @@ namespace unittest {
 //                zipcode.fill_in_zipcode(dist_index, pos);
 //                seeds.push_back({ pos, 0, zipcode});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //            REQUIRE( clusters.size() == 2);
 //        }
@@ -1866,7 +1866,7 @@ namespace unittest {
 //                        seeds.push_back({ pos, 0});
 //                    }
 //                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//                vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //                REQUIRE( clusters.size() == 2);
 //
@@ -1916,12 +1916,12 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //            REQUIRE( clusters.size() == 4);
 //
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 3, 3); 
 //
 //            REQUIRE( paired_clusters.size() == 1);
 //            REQUIRE( paired_clusters[0].size() == 4);
@@ -1958,7 +1958,7 @@ namespace unittest {
 //                seeds1.push_back({ pos, 0});
 //            }
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 3, 3);
 //
 //            REQUIRE( paired_clusters.size() == 2);
 //            REQUIRE( paired_clusters[0].size() == 2);
@@ -1971,7 +1971,7 @@ namespace unittest {
 //
 //            //New fragment clusters
 //
-//            paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 5);
+//            paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, 3, 5);
 //
 //            REQUIRE( paired_clusters.size() == 2);
 //            REQUIRE( paired_clusters[0].size() == 2);
@@ -1993,7 +1993,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 7); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2033,7 +2033,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2089,7 +2089,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters= clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters= clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2105,7 +2105,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2119,7 +2119,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //
@@ -2135,7 +2135,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2143,7 +2143,7 @@ namespace unittest {
 //        SECTION("No clusters") {
 //            vector<SnarlDistanceIndexClusterer::Seed> seeds;
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 0);
@@ -2204,7 +2204,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2219,7 +2219,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2234,7 +2234,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 4); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2257,7 +2257,7 @@ namespace unittest {
 //            }
 //
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 4, 5); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.coarse_cluster_seeds(all_seeds, 4, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2276,7 +2276,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 9); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 9); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2291,7 +2291,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 6); 
 //
 //            REQUIRE( clusters.size() == 1);
 //        }
@@ -2353,7 +2353,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2368,7 +2368,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2383,7 +2383,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2409,7 +2409,7 @@ namespace unittest {
 //            //Read 1: {11} in a fragment cluster with Read 2: {13}
 //
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.coarse_cluster_seeds(all_seeds, 5, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2444,7 +2444,7 @@ namespace unittest {
 //            //Read 1 : {14, 14}
 //
 //
-//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
+//            vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.coarse_cluster_seeds(all_seeds, 5, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2503,7 +2503,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 7); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2519,7 +2519,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 4); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2537,7 +2537,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 4); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2569,7 +2569,7 @@ namespace unittest {
 //                    }
 //                }
 //                
-//                vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 4, 10); 
+//                vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.coarse_cluster_seeds(seeds, 4, 10); 
 //
 //                REQUIRE( clusters.size() == 2);
 //                REQUIRE(clusters[0].size() == 1);
@@ -2655,7 +2655,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2671,7 +2671,7 @@ namespace unittest {
 //            for (pos_t pos : pos_ts){
 //                seeds.push_back({ pos, 0});
 //            }
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 6); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2685,7 +2685,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2737,7 +2737,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2750,7 +2750,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2763,7 +2763,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //
 //
@@ -2777,7 +2777,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 15); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 15); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2814,7 +2814,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 3); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2857,7 +2857,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2871,7 +2871,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2885,7 +2885,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 18); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 18); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2919,7 +2919,7 @@ namespace unittest {
 //                seeds.push_back({pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 10); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2961,7 +2961,7 @@ namespace unittest {
 //                seeds.push_back({  pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -2975,7 +2975,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -2988,7 +2988,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -3001,7 +3001,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 7); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -3040,7 +3040,7 @@ namespace unittest {
 //                seeds.push_back({  pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -3054,7 +3054,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 7); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -3067,7 +3067,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 5); 
 //
 //
 //            REQUIRE( clusters.size() == 2);
@@ -3080,7 +3080,7 @@ namespace unittest {
 //                seeds.push_back({ pos, 0});
 //            }
 //
-//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
+//            vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, 7); 
 //
 //
 //            REQUIRE( clusters.size() == 1);
@@ -3117,7 +3117,7 @@ namespace unittest {
 //    //        zipcode.fill_in_zipcode(dist_index, pos);
 //    //        seeds.push_back({ pos, 0, zipcode});
 //    //    }
-//    //    vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, read_lim); 
+//    //    vector<SnarlDistanceIndexClusterer::Cluster> clusters =  clusterer.coarse_cluster_seeds(seeds, read_lim); 
 //    //    REQUIRE(clusters.size() == 1);
 //    //}//end test case
 //
@@ -3163,7 +3163,7 @@ namespace unittest {
 //        //            }
 //        //    }
 //
-//        //    vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+//        //    vector<vector<SnarlDistanceIndexClusterer::Cluster>> clusters =  clusterer.coarse_cluster_seeds(seeds, 15, 35); 
 //
 //        //    REQUIRE(clusters.size() == 1);
 //        //}
@@ -3236,7 +3236,7 @@ namespace unittest {
 //
 //                        }
 //                    }
-//                    vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
+//                    vector<vector<SnarlDistanceIndexClusterer::Cluster>> paired_clusters = clusterer.coarse_cluster_seeds(all_seeds, read_lim, fragment_lim); 
 //                   
 //                    vector<vector<pos_t>> fragment_clusters;
 //

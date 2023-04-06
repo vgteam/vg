@@ -582,7 +582,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Bucket the hits coarsely into sets that might be able to interact.
-    std::vector<Cluster> buckets = zip_clusterer.cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
+    //std::vector<Cluster> buckets = clusterer.cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
+    std::vector<Cluster> buckets = zip_clusterer.coarse_cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
     
     // Score all the buckets
     if (track_provenance) {

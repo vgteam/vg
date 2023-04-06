@@ -4,7 +4,7 @@
 
 namespace vg {
 
-vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::cluster_seeds(const vector<Seed>& seeds, size_t distance_limit ) {
+vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const vector<Seed>& seeds, size_t distance_limit ) {
 #ifdef DEBUG_ZIPCODE_CLUSTERING
     cerr << endl << endl << "New zipcode clustering of " << seeds.size() << " seeds with distance limit" <<  distance_limit << endl;
 #endif
