@@ -55,7 +55,7 @@ public:
     }
     /// Get the start position in the graph of this anchor's match
     inline const pos_t& graph_start() const {
-        return pos;
+        return start_pos;
     }
     /// Get the length of this anchor's match
     inline size_t length() const {
@@ -75,22 +75,35 @@ public:
     
     /// Get the end position in the graph of this anchor's match
     inline pos_t graph_end() const {
-        pos_t p = graph_start();
-        get_offset(p) += length();
-        return p;
+        return end_pos;
     }
     
     /// Get the distance-finding hint information (i.e. "zip code") for
-    /// accelerating distance queries, or null if none is set.
-    inline ZipCodeDecoder* hint() const {
-        return decoder;
+    /// accelerating distance queries to the start of this anchor, or null if
+    /// none is set.
+    inline ZipCodeDecoder* start_hint() const {
+        return start_decoder;
+    };
+    
+    /// Get the distance-finding hint information (i.e. "zip code") for
+    /// accelerating distance queries from the end of this anchor, or null if
+    /// none is set.
+    inline ZipCodeDecoder* end_hint() const {
+        return end_decoder;
     };
     
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), pos(graph_start), points(score), decoder(hint) {
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_decoder(hint), end_decoder(hint) {
+        // Nothing to do!
+    }
+    
+    /// Compose two Anchors into an Anchor that represents coming in through
+    /// the first one and going out through the second, like a tunnel. Useful
+    /// for representing chains as chainable items.
+    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_decoder(first.start_hint()), end_decoder(last.end_hint()) {
         // Nothing to do!
     }
     
@@ -104,9 +117,11 @@ public:
 protected:
     size_t start;
     size_t size;
-    pos_t pos;
+    pos_t start_pos;
+    pos_t end_pos;
     int points;
-    ZipCodeDecoder* decoder;
+    ZipCodeDecoder* start_decoder;
+    ZipCodeDecoder* end_decoder;
 };
 
 /// Explain an Anchor to the given stream
@@ -190,6 +205,13 @@ using vg::operator<<;
 
 /// Print operator
 ostream& operator<<(ostream& out, const TracedScore& value);
+
+/**
+ * Sort indexes in the given list by by read start position (and end position)
+ * of the anchors they refer to.
+ */
+void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
+
 
 /**
  * Get rid of items that are shadowed or contained by (or are identical to) others.

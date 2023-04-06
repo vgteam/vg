@@ -48,8 +48,7 @@ TracedScore TracedScore::add_points(int adjustment) const {
     return {this->score + adjustment, this->source};
 }
 
-void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
-    
+void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
     // Sort the indexes by read start ascending, and read end descending
     std::sort(indexes.begin(), indexes.end(), [&](const size_t& a, const size_t& b) {
         auto& a_item = items[a];
@@ -59,6 +58,12 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
         // a should be first if it starts earlier, or starts atthe same place and ends later.
         return (a_start < b_start || (a_start == b_start && a_item.read_end() > b_item.read_end()));
     });
+}
+
+void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& indexes) {
+    
+    // Sort everything by read start ascending, and read end descending
+    sort_anchor_indexes(items, indexes);
     
     // Keep a collection of the diagonals that are already represented,
     // and the read end position of the latest-ending item on those pairs that
@@ -169,6 +174,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // For each item
         auto& here = to_chain[i];
         
+        if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
+            // The items are not actually sorted by read start
+            throw std::runtime_error("chain_items_dp: items are not sorted by read start");
+        }
+        
         while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
             // Scan ahead through non-overlapping items that past-end too soon,
             // to the first overlapping item that ends earliest.
@@ -223,7 +233,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 #ifdef debug_chaining
             cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << source << endl;
 #endif
-
+            
             // How far do we go in the read?
             size_t read_distance = get_read_distance(source, here);
             
@@ -553,8 +563,8 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
     
-    auto* from_hint = from.hint();
-    auto* to_hint = to.hint();
+    auto* from_hint = from.end_hint();
+    auto* to_hint = to.start_hint();
     
     size_t distance;
     

@@ -11,7 +11,7 @@
 #include "utility.hpp"
 #include "memoizing_graph.hpp"
 #include "multipath_alignment_graph.hpp"
-#include "split_strand_graph.hpp"
+#include "reverse_graph.hpp"
 
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/prune_to_connecting_graph.hpp"
@@ -2955,28 +2955,28 @@ using namespace std;
             
             // get the path graph corresponding to this interval
             bdsg::HashGraph path_graph;
-            unordered_map<id_t, pair<id_t, bool>> path_trans = extract_linearized_path_graph(path_position_graph, &path_graph, path_handle,
+            unordered_map<id_t, pair<id_t, bool>> node_trans = extract_linearized_path_graph(path_position_graph, &path_graph, path_handle,
                                                                                              ref_path_interval.first, ref_path_interval.second);
             
-            // split it into a forward and reverse strand
-            // TODO: we usually should only need one strand of the graph, but it might be different strands on
-            // different nodes...
-            StrandSplitGraph split_path_graph(&path_graph);
-            
-            // make a translator down to the original graph
-            unordered_map<id_t, pair<id_t, bool>> node_trans;
-            split_path_graph.for_each_handle([&](const handle_t& handle) {
-                handle_t underlying = split_path_graph.get_underlying_handle(handle);
-                const pair<id_t, bool>& original = path_trans[path_graph.get_id(underlying)];
-                node_trans[split_path_graph.get_id(handle)] = make_pair(original.first,
-                                                                        original.second != path_graph.get_is_reverse(underlying));
-            });
+            // choose an orientation for the path graph
+            ReverseGraph rev_comp_path_graph(&path_graph, true);
+            HandleGraph* aln_graph;
+            if (rev_strand) {
+                // we align to the reverse strand of the path graph, and the translation chages accordingly
+                aln_graph = &rev_comp_path_graph;
+                for (pair<const id_t, pair<id_t, bool>>& translation : node_trans) {
+                    translation.second.second = !translation.second.second;
+                }
+            }
+            else {
+                aln_graph = &path_graph;
+            }
             
 #ifdef debug_anchored_surject
-            cerr << "made split, linearized path graph with " << split_path_graph.get_node_count() << " nodes" << endl;
+            cerr << "made split, linearized path graph with " << aln_graph->get_node_count() << " nodes" << endl;
 #endif
 
-            size_t subgraph_bases = split_path_graph.get_total_length();
+            size_t subgraph_bases = aln_graph->get_total_length();
             if (subgraph_bases > max_subgraph_bases) {
 #ifdef debug_always_warn_on_too_long
                 cerr << "gave up on too long read " + source.name() + "\n";
@@ -2994,7 +2994,7 @@ using namespace std;
             // want to change too much about the anchoring logic at once while i'm switching from blanket preservation
             // to a more targeted method
             bool preserve_tail_indel_anchors = (sinks_are_anchors || sources_are_anchors);
-            MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
+            MultipathAlignmentGraph mp_aln_graph(*aln_graph, path_chunks, source, node_trans, !preserve_N_alignments,
                                                  preserve_tail_indel_anchors);
             
 #ifdef debug_anchored_surject
@@ -3019,7 +3019,7 @@ using namespace std;
             
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
-            mp_aln_graph.align(source, split_path_graph, get_aligner(),
+            mp_aln_graph.align(source, *aln_graph, get_aligner(),
                                false,                                    // anchors as matches
                                1,                                        // max alt alns
                                false,                                    // dynamic alt alns
@@ -3530,6 +3530,12 @@ using namespace std;
                     continue;
                 }
                 
+                // We always see paths on the forward strand, so we need to
+                // work out if the read is running along the path in the path's
+                // forward (false) or reverse (true) direction.
+                //
+                // If the read visits the node in a different orientation than
+                // the path does, then the read runs along the path in reverse.
                 bool path_strand = graph->get_is_reverse(handle) != graph->get_is_reverse(graph->get_handle_of_step(step));
                 
                 step_handle_t prev_step = path_strand ? graph->get_next_step(step) : graph->get_previous_step(step);
@@ -3548,7 +3554,7 @@ using namespace std;
                 cerr << endl;
                 cerr << "possible extensions from: " << endl;
                 for (const auto& record : extending_steps) {
-                    cerr << "\t" << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
+                    cerr << "\t" << "chunk " << record.second << " at " << graph->get_id(graph->get_handle_of_step(record.first.first)) << (graph->get_is_reverse(graph->get_handle_of_step(record.first.first)) ? "-" : "+") << " on " << graph->get_path_name(graph->get_path_handle_of_step(record.first.first)) << " " << (record.first.second ? "rev" : "fwd") << endl;
                 }
 #endif
                 
@@ -3560,6 +3566,10 @@ using namespace std;
                     size_t chunk_idx = extending_steps[make_pair(prev_step, path_strand)];
                     auto& aln_chunk = path_chunks.first[chunk_idx];
                     auto& ref_chunk = path_chunks.second[chunk_idx];
+                    
+#ifdef debug_anchored_surject
+                    cerr << "comes after chunk " << chunk_idx << endl;
+#endif
                     
                     // extend the range of the path on the reference
                     ref_chunk.second = step;
@@ -3598,6 +3608,10 @@ using namespace std;
                     // keep track of where this chunk is in the vector and which step it came from
                     // for the next iteration
                     next_extending_steps[make_pair(step, path_strand)] = path_chunks.first.size() - 1;
+                    
+#ifdef debug_anchored_surject
+                    cerr << "no preceeding chunk so start new chunk " << path_chunks.first.size() - 1 << endl;
+#endif
                 }
             }
             

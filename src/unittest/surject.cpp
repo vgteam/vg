@@ -127,6 +127,94 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     
 }
 
+TEST_CASE( "Spliced surject algorithm works when a read touches the same path in both orientations", "[surject]" ) {
+    
+    bdsg::HashGraph graph;
+    handle_t h1 = graph.create_handle("GGGGGGGGGGGGGGG");
+    handle_t h2 = graph.create_handle("A");
+    handle_t h3 = graph.create_handle("C");
+    handle_t h4 = graph.create_handle("TTTTTTTTT");
+    handle_t h5 = graph.create_handle("AAA");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h2, h4);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, graph.flip(h4));
+    graph.create_edge(h5, h4);
+    graph.create_edge(h4, h4);
+    graph.create_edge(graph.flip(h5), h1);
+    
+    path_handle_t p = graph.create_path_handle("p");
+    graph.append_step(p, h1);
+    graph.append_step(p, h2);
+    graph.append_step(p, h4);
+    graph.append_step(p, h4);
+    graph.append_step(p, graph.flip(h4));
+    graph.append_step(p, graph.flip(h5));
+    
+    bdsg::PositionOverlay pos_graph(&graph);
+    Surjector surjector(&pos_graph);
+    
+    vector<handle_t> read_path{h1, h3, h4, h4};
+    
+    Alignment read;
+    string seq;
+    Path* rpath = read.mutable_path();
+    for (handle_t h : read_path) {
+        Mapping* m = rpath->add_mapping();
+        m->set_rank(rpath->mapping_size());
+        m->mutable_position()->set_node_id(pos_graph.get_id(h));
+        Edit* e = m->add_edit();
+        e->set_from_length(pos_graph.get_length(h));
+        e->set_to_length(pos_graph.get_length(h));
+        
+        seq += pos_graph.get_sequence(h);
+    }
+    read.set_sequence(seq);
+    
+    read.set_score(Aligner().score_contiguous_alignment(read));
+    
+    unordered_set<path_handle_t> paths{p};
+    Alignment surjected = surjector.surject(read, paths, true, true);
+    
+    vector<handle_t> surjected_path{h1, h2, h4, h4};
+    
+    REQUIRE(surjected.path().mapping_size() == read_path.size());
+    
+    for (size_t i = 0; i < surjected_path.size(); ++i) {
+        REQUIRE(surjected.path().mapping(i).position().node_id() == graph.get_id(surjected_path[i]));
+        REQUIRE(surjected.path().mapping(i).position().is_reverse() == graph.get_is_reverse(surjected_path[i]));
+    }
+    
+    Alignment rev_read;
+    rev_read.set_sequence(reverse_complement(seq));
+    
+    Path* rev_rpath = rev_read.mutable_path();
+    for (size_t i = 0; i < read_path.size(); ++i) {
+        handle_t h = read_path[read_path.size() - i - 1];
+        Mapping* m = rev_rpath->add_mapping();
+        m->set_rank(rev_rpath->mapping_size());
+        m->mutable_position()->set_node_id(pos_graph.get_id(h));
+        m->mutable_position()->set_is_reverse(true);
+        Edit* e = m->add_edit();
+        e->set_from_length(pos_graph.get_length(h));
+        e->set_to_length(pos_graph.get_length(h));
+    }
+    
+    rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
+    
+    Alignment rev_surjected = surjector.surject(rev_read, paths, true, true);
+    
+    REQUIRE(rev_surjected.path().mapping_size() == read_path.size());
+    for (size_t i = 0; i < surjected_path.size(); ++i) {
+        REQUIRE(rev_surjected.path().mapping(i).position().node_id()
+                == graph.get_id(surjected_path[surjected_path.size() - i - 1]));
+        REQUIRE(rev_surjected.path().mapping(i).position().is_reverse()
+                == !graph.get_is_reverse(surjected_path[surjected_path.size() - i - 1]));
+    }
+}
+
 TEST_CASE("Path overlapping segments can be identified from multipath alignment",
           "[surject][multipath]"){
     

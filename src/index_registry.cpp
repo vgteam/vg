@@ -583,8 +583,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
                         
         // boilerplate
-        assert(inputs.size() == 2 || inputs.size() == 3);
-        assert(constructing.size() == 2 || constructing.size() == 3);
+        assert(inputs.size() == 1 || inputs.size() == 2 || inputs.size() == 3);
         assert(constructing.size() == inputs.size());
         vector<string> fasta_filenames, vcf_filenames, tx_filenames;
         bool has_vcf = inputs.size() == 3 || (inputs.size() == 2 && !has_gff);
@@ -1671,6 +1670,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return chunk_contigs(inputs, plan, alias_graph, constructing, true, false);
+    });
+    registry.register_recipe({"Chunked Reference FASTA"}, {"Reference FASTA"},
+                             [=](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing, false, false);
     });
     
     

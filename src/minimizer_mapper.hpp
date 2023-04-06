@@ -235,13 +235,9 @@ public:
     static constexpr size_t default_chaining_cluster_distance = 100;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
-    // TODO: These will go away with cluster-merging chaining
-    /// Accept at least this many clusters for chain generation
-    static constexpr size_t default_min_clusters_to_chain = 2;
-    size_t min_clusters_to_chain = default_min_clusters_to_chain;
     /// How many clusters should we produce chains for, max?
-    static constexpr size_t default_max_clusters_to_chain = 2;
-    size_t max_clusters_to_chain = default_max_clusters_to_chain;
+    static constexpr size_t default_max_buckets_to_fragment = 2;
+    size_t max_buckets_to_fragment = default_max_buckets_to_fragment;
 
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -253,10 +249,14 @@ public:
     static constexpr size_t default_max_tail_length = 100;
     size_t max_tail_length = default_max_tail_length;
     
-    /// How many bases should we look back when chaining? Needs to be about the
-    /// same as the clustering distance or we will be able to cluster but not
-    /// chain.
-    static constexpr size_t default_max_lookback_bases = 100;
+    /// How good should a fragment be in order to keep it? Fragments with
+    /// scores less than this fraction of the best fragment's score int he
+    /// bucket will not be used in chaining.
+    static constexpr double default_fragment_score_fraction = 0.1;
+    size_t fragment_score_fraction = default_fragment_score_fraction;
+    
+    /// How many bases should we look back when chaining?
+    static constexpr size_t default_max_lookback_bases = 10000;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many chaining sources should we make sure to consider regardless of distance?
     static constexpr size_t default_min_lookback_items = 1;
@@ -277,7 +277,7 @@ public:
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
     /// How many bases of indel should we allow in chaining?
-    static constexpr size_t default_max_indel_bases = 50;
+    static constexpr size_t default_max_indel_bases = 6000;
     size_t max_indel_bases = default_max_indel_bases;
     
     /// If a chain's score is smaller than the best 
@@ -546,21 +546,6 @@ protected:
     void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length) const;
     
     /**
-     * Determine cluster score, read coverage, and a vector of flags for the
-     * minimizers present in the cluster. Score is the sum of the scores of
-     * distinct minimizers in the cluster, while read coverage is the fraction
-     * of the read covered by seeds in the cluster.
-     *
-     * Thinks of the cluster as being made out of some fragments and
-     * some new seeds from the tail end of seeds, which are already in the
-     * funnel, clusters first. seed_to_fragment maps from seed to the old
-     * cluster it is part of, or std::numeric_limits<size_t>::max() if it isn't
-     * from an old cluster.
-     *
-     */
-    void score_merged_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t first_new_seed, const std::vector<size_t>& seed_to_fragment, const std::vector<Cluster>& fragments, size_t seq_length, Funnel& funnel) const;
-    
-    /**
      * Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
      *  Up to one end of the graph region can be a read end, with a pos_t matching is_empty().
      * The read region always needs to be fully defined.
@@ -666,6 +651,14 @@ protected:
     std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
     
     /**
+     * Get the fraction of read bases covered by the given chains/fragments of
+     * seeds. A base is covered if it is between the first and last endpoints
+     * in the read of any of the given lists of seeds. The lists of seeds are
+     * each assumed to be colinear in the read.
+     */
+    double get_read_coverage(const Alignment& aln, const VectorView<std::vector<size_t>>& seed_sets, const std::vector<Seed>& seeds, const VectorView<Minimizer>& minimizers) const;
+    
+    /**
      * Turn a chain into an Alignment.
      *
      * Operating on the given input alignment, align the tails and intervening
@@ -768,7 +761,7 @@ protected:
      *
      * Finds an alignment against a graph path if it is <= max_path_length, and uses <= max_dp_cells GSSW cells.
      *
-     * If one of the anchor positions is empty, does pinned alighnment against
+     * If one of the anchor positions is empty, does pinned alignment against
      * the other position.
      */
     static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max());
