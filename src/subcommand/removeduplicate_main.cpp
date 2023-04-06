@@ -1,7 +1,6 @@
 /*
  * Define the "vg remove_duplicate" subcommand, which remove the duplicate PCRs
  *
- *
  */
 #include <omp.h>
 #include <unistd.h>
@@ -156,7 +155,6 @@ void help_rmvdup(char **argv) {
 // TODO: see what input and output file formats is possible
     cerr << "usage: " << argv[0] << " rmvdup [options] inputfile.gam > output.gam " << endl
          << "Remove duplicate PCRs from the input file. A gam index file (.gam.gai) must exists." << endl
-         << "   -p, --pair_end               use this flag when the reads in input file are pair-ends" << endl
          << "  -o, --output_type               prints the pairs of (sequence, name) as strings in the output" << endl
          << "    -t, --threads N            number of threads to use" << endl
          << "   -g --get_duplicates            prints the duplicate candidates in the output(can use with the -o)"
@@ -171,7 +169,6 @@ int main_rmvdup(int argc, char *argv[]) {
     string filename;
     bool output_t = false;
     bool print_duplicates = false;
-    bool pair_end = false;
     int threads = 8;
 
     int c;
@@ -182,12 +179,11 @@ int main_rmvdup(int argc, char *argv[]) {
                 {"output_type",    no_argument,       0, 'o'},
                 {"get_duplicates", no_argument,       0, 'g'},
                 {"threads",        required_argument, 0, 't'},
-                {"pair_end",       no_argument,       0, 'p'},
                 {0,                0,                 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hogt:p",
+        c = getopt_long(argc, argv, "hogt:",
                         long_options, &option_index);
 
         if (c == -1) break;
@@ -205,10 +201,6 @@ int main_rmvdup(int argc, char *argv[]) {
 
             case 'g':
                 print_duplicates = true;
-                break;
-
-            case 'p':
-                pair_end = true;
                 break;
 
             case 'h':
@@ -316,13 +308,14 @@ int main_rmvdup(int argc, char *argv[]) {
             if (!checked[bphf->lookup(name_id(aln))]) {
                 // This is when the read has a pair
                 if (aln.has_fragment_prev() || aln.has_fragment_next()) {
-                    string pair_name = aln.has_fragment_prev() ? aln.fragment_prev().name() : aln.fragment_next().name();
-                    if (temp_memory.find(aln.name()) == temp_memory.end()){
+                    string pair_name = aln.has_fragment_prev() ? aln.fragment_prev().name()
+                                                               : aln.fragment_next().name();
+                    if (temp_memory.find(aln.name()) == temp_memory.end()) {
                         // This means the we don't have the pair yet
                         temp_memory[pair_name] = aln;
                     } else {
                         // We have the pair of our alignment
-                        aln_pair = temp_memory[aln.name()];
+                        Alignment aln_pair = temp_memory[aln.name()];
                         // We have to find all the alignments that share nodes with both pairs and find if they are both end of a pair
                         // TODO: For now I check the equality of pairs using check_duplicate function which check
                         //  if they end the same and if they have at least one more same base. This could gets better.
@@ -338,12 +331,12 @@ int main_rmvdup(int argc, char *argv[]) {
 
                             // This finds all other alns that share node/nodes with the "aln"
                             gam_index->find(gam_cursor, intervals_pair1, [&](const Alignment &share_aln) {
-                                if (check_duplicate(aln, share_aln)){
-                                    pair1_duplicates_set.insert(aln.has_fragment_prev() ? aln.fragment_prev().name() : aln.fragment_next().name());
+                                if (check_duplicate(aln, share_aln)) {
+                                    pair1_duplicates_set.insert(aln.has_fragment_prev() ? aln.fragment_prev().name()
+                                                                                        : aln.fragment_next().name());
                                 }
 
                             });
-
 
 
                         });
@@ -353,11 +346,28 @@ int main_rmvdup(int argc, char *argv[]) {
                             vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
 
                             gam_index->find(gam_cursor, intervals_pair1, [&](const Alignment &share_aln) {
-                                if (check_duplicate(aln_pair, share_aln)){
+                                if (check_duplicate(aln_pair, share_aln)) {
 
                                     // The pair is in the set
                                     if (pair1_duplicates_set.find(share_aln.name()) != pair1_duplicates_set.end()) {
                                         // This means we find pairs that are duplicates with the main pairs so we check them for being duplicate
+
+                                        // TODO: Check if this is the correct way to find the pair name_id
+                                        string pair_name_id = share_aln.has_fragment_prev() ?
+                                                              share_aln.fragment_prev().name() + "/1" :
+                                                              share_aln.fragment_next().name() + "/2";
+                                        checked[bphf->lookup(name_id(share_aln))] = true;
+                                        checked[bphf->lookup(pair_name_id)] = true;
+
+                                        // TODO: for now I am just printing the second pair because I am not saving all
+                                        //  the alignments for the first pair. I am just saving the name for efficient mem usage.
+                                        if (print_duplicates) {
+#pragma omp critical (cerr)
+                                            if (output_t)
+                                                cout << "End Pair" << share_aln.sequence() << endl;
+                                            else
+                                                emitter->write(std::move(const_cast<Alignment &>(share_aln)));
+                                        }
 
 
                                     }
@@ -368,10 +378,26 @@ int main_rmvdup(int argc, char *argv[]) {
                             });
 
                         });
+                        if (!checked[bphf->lookup(name_id(aln))]) {
+#pragma omp critical (cerr)
+                            checked[bphf->lookup(name_id(aln))] = true;
+                            checked[bphf->lookup(name_id(aln_pair))] = true;
+                            if (!print_duplicates) {
+                                if (output_t)
+                                    cout << "Pair1 " << aln.sequence() << "\t" << aln.name() << "Pair2 "
+                                         << aln_pair.sequence() << "\t" << aln_pair.name() << endl;
+                                else {
+                                    emitter->write(std::move(aln));
+                                    emitter->write(std::move(aln_pair));
+                                }
+
+                            }
+                        }
 
                     }
 
                 } else { // When the read is not a pair_end read
+                    pcr_removal(aln);
 
                 }
 
@@ -386,10 +412,7 @@ int main_rmvdup(int argc, char *argv[]) {
     if (gam_index.get() != nullptr) {
         get_input_file(sorted_gam_name, [&](istream &in) {
 //            vg::io::for_each(in, pcr_removal);
-            if (pair_end)
-                vg::io::for_each_parallel(in, pcr_removal_pair_end);
-            else
-                vg::io::for_each_parallel(in, pcr_removal);
+            vg::io::for_each_parallel(in, pcr_removal_pair_end);
 //            vg::io::for_each_parallel(in, pcr_removal);
 
 
