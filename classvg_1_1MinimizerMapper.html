@@ -2098,6 +2098,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Given a collection of minimizers, and a list of the minimizers we actually care about (as indices into the collection), iterate over common intervals of overlapping minimizer agglomerations.</p>
 <p>Calls the given callback with (left, right, bottom, top), where left is the first base of the agglomeration interval (inclusive), right is the last base of the agglomeration interval (exclusive), bottom is the index of the first minimizer with an agglomeration in the interval and top is the index of the last minimizer with an agglomeration in the interval (exclusive).</p>
+<p>minimizer_indices must be sorted by agglomeration end, and then by agglomeration start, so they can be decomposed into nice rectangles.</p>
 <p>Note that bottom and top are offsets into minimizer_indices, <b>NOT</b> minimizers itself. Only contiguous ranges in minimizer_indices actually make sense. </p>
 
 </div>
