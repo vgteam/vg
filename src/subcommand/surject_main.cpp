@@ -23,6 +23,7 @@
 #include "../hts_alignment_emitter.hpp"
 #include "../multipath_alignment_emitter.hpp"
 #include "../crash.hpp"
+#include "../watchdog.hpp"
 
 
 using namespace std;
@@ -34,27 +35,28 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE      use this graph or xg index (required)" << endl
-         << "  -t, --threads N         number of threads to use" << endl
-         << "  -p, --into-path NAME    surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
-         << "  -F, --into-paths FILE   surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
-         << "  -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
-         << "  -M, --multimap          include secondary alignments to all overlapping paths instead of just primary" << endl
-         << "  -G, --gaf-input         input file is GAF instead of GAM" << endl
-         << "  -m, --gamp-input        input file is GAMP instead of GAM" << endl
-         << "  -c, --cram-output       write CRAM to stdout" << endl
-         << "  -b, --bam-output        write BAM to stdout" << endl
-         << "  -s, --sam-output        write SAM to stdout" << endl
-         << "  -l, --subpath-local     let the multipath mapping surjection produce local (rather than global) alignments" << endl
-         << "  -P, --prune-low-cplx    prune short and low complexity anchors during realignment" << endl
-         << "  -S, --spliced           interpret long deletions against paths as spliced alignments" << endl
-         << "  -A, --qual-adj          adjust scoring for base qualities, if they are available" << endl
-         << "  -N, --sample NAME       set this sample name for all reads" << endl
-         << "  -R, --read-group NAME   set this read group for all reads" << endl
-         << "  -f, --max-frag-len N    reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
-         << "  -L, --list-all-paths    annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
-         << "  -C, --compression N     level for compression [0-9]" << endl
-         << "  -V, --no-validate       skip checking whether alignments plausibly are against the provided graph" << endl;
+         << "  -x, --xg-name FILE       use this graph or xg index (required)" << endl
+         << "  -t, --threads N          number of threads to use" << endl
+         << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
+         << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
+         << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
+         << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
+         << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
+         << "  -m, --gamp-input         input file is GAMP instead of GAM" << endl
+         << "  -c, --cram-output        write CRAM to stdout" << endl
+         << "  -b, --bam-output         write BAM to stdout" << endl
+         << "  -s, --sam-output         write SAM to stdout" << endl
+         << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
+         << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
+         << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
+         << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
+         << "  -N, --sample NAME        set this sample name for all reads" << endl
+         << "  -R, --read-group NAME    set this read group for all reads" << endl
+         << "  -f, --max-frag-len N     reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
+         << "  -L, --list-all-paths     annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
+         << "  -C, --compression N      level for compression [0-9]" << endl
+         << "  -V, --no-validate        skip checking whether alignments plausibly are against the provided graph" << endl
+         << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl;
 }
 
 /// If the given alignment doesn't make sense against the given graph (i.e.
@@ -91,6 +93,7 @@ int main_surject(int argc, char** argv) {
     int32_t max_frag_len = 0;
     int compress_level = 9;
     int min_splice_length = 20;
+    size_t watchdog_timeout = 10;
     bool subpath_global = true; // force full length alignments in mpmap resolution
     bool qual_adj = false;
     bool prune_anchors = false;
@@ -126,11 +129,12 @@ int main_surject(int argc, char** argv) {
             {"list-all-paths", no_argument, 0, 'L'},
             {"compress", required_argument, 0, 'C'},
             {"no-validate", required_argument, 0, 'V'},
+            {"watchdog-timeout", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALMV",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -217,6 +221,10 @@ int main_surject(int argc, char** argv) {
             validate = false;
             break;
             
+        case 'w':
+            watchdog_timeout = parse<size_t>(optarg);
+            break;
+            
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -292,6 +300,9 @@ int main_surject(int argc, char** argv) {
     // Count our threads
     int thread_count = vg::get_thread_count();
     
+    // Prepare the watchdog
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(watchdog_timeout)));
+    
     if (input_format == "GAM" || input_format == "GAF") {
         
         // Give helpful warning if someone tries to surject an un-surjectable GAF
@@ -318,6 +329,10 @@ int main_surject(int argc, char** argv) {
             function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
                 try {
                     set_crash_context(src1.name() + ", " + src2.name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                    }
                     // Make sure that the alignments are actually paired with each other
                     // (proper fragment_prev/fragment_next). We want to catch people giving us
                     // un-interleaved GAMs as interleaved.
@@ -409,6 +424,9 @@ int main_surject(int argc, char** argv) {
                                                      surjector.surject(src2, paths, subpath_global, spliced),
                                                      max_frag_len);
                     }
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
                     clear_crash_context();
                 } catch (const std::exception& ex) {
                     report_exception(ex);
@@ -432,6 +450,10 @@ int main_surject(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&](Alignment& src) {
                 try {
                     set_crash_context(src.name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, src.name());
+                    }
                     if (validate) {
                         ensure_alignment_is_for_graph(src, *xgidx);
                     }
@@ -445,6 +467,9 @@ int main_surject(int argc, char** argv) {
                     }
                     else {
                         alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
+                    }
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
                     }
                     clear_crash_context();
                 } catch (const std::exception& ex) {
@@ -480,6 +505,10 @@ int main_surject(int argc, char** argv) {
                 vg::io::for_each_interleaved_pair_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src1, MultipathAlignment& src2) {
                     try {
                         set_crash_context(src1.name() + ", " + src2.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                        }
                     
                         // Make sure that the alignments are actually paired with each other
                         // (proper fragment_prev/fragment_next). We want to catch people giving us
@@ -591,6 +620,9 @@ int main_surject(int argc, char** argv) {
                         mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
                         mp_alignment_emitter.emit_singles(src2.name(), move(surjected_unpaired2), &positions_unpaired2);
                         
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
                         clear_crash_context();
                     } catch (const std::exception& ex) {
                         report_exception(ex);
@@ -601,6 +633,10 @@ int main_surject(int argc, char** argv) {
                 vg::io::for_each_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src) {
                     try {
                         set_crash_context(src.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, src.name());
+                        }
 
                         multipath_alignment_t mp_src;
                         from_proto_multipath_alignment(src, mp_src);
@@ -629,6 +665,9 @@ int main_surject(int argc, char** argv) {
                         // write to output
                         mp_alignment_emitter.emit_singles(src.name(), move(surjected), &positions);
                     
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
                         clear_crash_context();
                     } catch (const std::exception& ex) {
                         report_exception(ex);
