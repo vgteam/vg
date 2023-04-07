@@ -151,9 +151,14 @@ using namespace std;
         else {
             cerr << pb2json(*source_aln);
         }
-        cerr << " onto paths ";
-        for (const path_handle_t& path : paths) {
-            cerr << graph->get_path_name(path) << " ";
+        cerr << " onto ";
+        if (paths.size() > 100) {
+            cerr << paths.size() << " paths";
+        } else {
+            cerr << "paths ";
+            for (const path_handle_t& path : paths) {
+                cerr << graph->get_path_name(path) << " ";
+            }
         }
         cerr << endl;
 #endif
@@ -2998,9 +3003,10 @@ using namespace std;
                                                  preserve_tail_indel_anchors);
             
 #ifdef debug_anchored_surject
-            cerr << "constructed reachability graph" << endl;
+            size_t total_edges = mp_aln_graph.count_reachability_edges();
+            cerr << "constructed reachability graph with " << total_edges << " edges" << endl;
 #endif
-            
+
             // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
             if (mp_aln_graph.empty()) {
                 return move(make_null_alignment(source));
@@ -3011,10 +3017,28 @@ using namespace std;
             mp_aln_graph.topological_sort(topological_order);
             mp_aln_graph.remove_transitive_edges(topological_order);
             
+            // Drop material that looks implausible.
+            {
+                vector<size_t> scratch(topological_order.size());
+                mp_aln_graph.prune_to_high_scoring_paths(source, get_aligner(), 2.0, topological_order, scratch);
+            }
+            
+#ifdef debug_anchored_surject
+            size_t after_prune_edges = mp_aln_graph.count_reachability_edges();
+            cerr << "pruning for high scoring paths leaves " << after_prune_edges << " edges after removing " << (total_edges - after_prune_edges) << endl;
+            total_edges = after_prune_edges;
+#endif
+            
             if (allow_negative_scores && mp_aln_graph.max_shift() > min_shift_for_prune) {
                 // we have at least one or more large implied indels, we will try to prune them away
                 // while maintaining topological invariants to save compute on low-promise alignments
                 mp_aln_graph.prune_high_shift_edges(shift_prune_diff, sources_are_anchors, sinks_are_anchors);
+                
+#ifdef debug_anchored_surject
+                size_t after_shift_edges = mp_aln_graph.count_reachability_edges();
+                cerr << "pruning for shift leaves " << after_shift_edges << " edges after removing " << (total_edges - after_shift_edges) << endl;
+                total_edges = after_shift_edges;
+#endif
             }
             
             // align the intervening segments and store the result in a multipath alignment
