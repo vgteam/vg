@@ -85,9 +85,18 @@ static void start_vg_link(const std::string& file_path, int line) {
         // File exists to link to!
         url_path = abspath;
         
+        size_t host_length_limit;
+        #if defined(HOST_NAME_MAX)
+            host_length_limit = HOST_NAME_MAX;
+        #elif defined(_POSIX_HOST_NAME_MAX)
+            host_length_limit = _POSIX_HOST_NAME_MAX;
+        #else
+            host_length_limit = 256;
+        #endif
+        
         // The link probably needs a hostname
-        char host_buffer[HOST_NAME_MAX + 1];
-        if (gethostname(host_buffer, HOST_NAME_MAX) == 0) {
+        char host_buffer[host_length_limit + 1];
+        if (gethostname(host_buffer, host_length_limit) == 0) {
             url_host = host_buffer;
         }
         // And we have to pick a protocol depending on if we are local or not
