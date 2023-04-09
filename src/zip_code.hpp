@@ -136,19 +136,18 @@ class ZipCode {
 
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 4;
-        const static size_t IRREGULAR_SNARL_SIZE = 2;
-        const static size_t TOP_LEVEL_IRREGULAR_SNARL_SIZE = 4;
-        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+        const static size_t IRREGULAR_SNARL_SIZE = 4;
 
-        const static size_t REGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
-        const static size_t REGULAR_SNARL_LENGTH_OFFSET = 2;
+        //Both regular and irregular snarls have these
+        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+        const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
+        const static size_t SNARL_LENGTH_OFFSET = 2;
+
+        //Only for regular snarls
         const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
 
-        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
-
-        //These are only for top-level irregular snarls
-        const static size_t IRREGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 2;
-        const static size_t IRREGULAR_SNARL_LENGTH_OFFSET = 3;
+        //Only for irregular snarls
+        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 3;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
