@@ -20,7 +20,7 @@
 #include "bdsg/hash_graph.hpp"
 
 //#define debug_spliced_surject
-//#define debug_anchored_surject
+#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
 //#define debug_prune_unconnectable
@@ -250,17 +250,31 @@ using namespace std;
         }
 #endif
         
-        if (prune_suspicious_anchors) {
-            // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
-            // low complexity sequences
-            for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
-                auto& path_chunks = it->second.first;
-                auto& step_ranges = it->second.second;
-                vector<bool> keep(path_chunks.size(), true);
+        // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
+        // low complexity sequences
+        for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
+            auto& path_chunks = it->second.first;
+            auto& step_ranges = it->second.second;
+            
+            // Compute the lengths of all anchors
+            std::vector<size_t> anchor_lengths;
+            anchor_lengths.reserve(path_chunks.size());
+            for (auto& chunk : path_chunks) {
+                anchor_lengths.push_back(path_from_length(chunk.second));
+            }
+            auto anchors_by_length = sort_permutation(anchor_lengths.begin(), anchor_lengths.end(), [&](const size_t& a, const size_t& b) {
+                // Return true if the anchor with length a has to come first because it is longer.
+                return a > b;
+            });
+            
+            vector<bool> keep(path_chunks.size(), true);
+            
+            if (prune_suspicious_anchors) {
                 for (int i = 0; i < path_chunks.size(); ++i) {
                     auto& chunk = path_chunks[i];
+                    // Mark anchors that are themselves suspicious as not to be kept.
                     if (((i == 0 || i + 1 == path_chunks.size()) && path_chunks.size() != 1)
-                        && path_from_length(chunk.second) <= max_tail_anchor_prune &&
+                        && anchor_lengths[i] <= max_tail_anchor_prune &&
                         chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
 #ifdef debug_anchored_surject
                         cerr << "anchor " << i << " pruned for being a short tail" << endl;
@@ -281,48 +295,59 @@ using namespace std;
                         }
                     }
                 }
-                // make sure we didn't flag all of the anchors for removal
-                bool keep_any = false;
-                for (bool b : keep) {
-                    keep_any = keep_any || b;
-                }
-                if (!keep_any) {
-                    // we filtered out all of the anchors, choose the longest one to keep
-                    // even though it failed the filter
-                    int64_t max_idx = -1;
-                    int64_t max_len = 0;
-                    for (int i = 0; i < path_chunks.size(); ++i) {
-                        int64_t len = path_chunks[i].first.second - path_chunks[i].first.first;
-                        if (len > max_len) {
-                            max_idx = i;
-                            max_len = len;
-                        }
+            }
+            
+            size_t kept_anchors = 0;
+            for (auto& i : anchors_by_length) {
+                // For each anchor longest to shortest
+                if (kept_anchors < max_anchors) {
+                    // If we can keep it
+                    if (keep[i]) {
+                        // And we want to keep it
+                        // Remember we kept one
+                        kept_anchors++;
                     }
-                    if (max_idx >= 0) {
+                } else {
+                    // After we keep enough, all other anchors can't be kept.
 #ifdef debug_anchored_surject
-                        cerr << "reversing decision to prune " << max_idx << endl;
+                    cerr << "anchor " << i << " pruned because we already have " << max_anchors << " anchors" << endl;
 #endif
-                        keep[max_idx] = true;
-                    }
-                }
-                // we're keeping at least one anchor, so we should be able to throw away the other ones
-                int removed_so_far = 0;
-                for (int i = 0; i < path_chunks.size(); ++i) {
-                    if (!keep[i]) {
-                        ++removed_so_far;
-                    }
-                    else if (removed_so_far) {
-                        path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                        step_ranges[i - removed_so_far] = move(step_ranges[i]);
-                    }
-                }
-                if (removed_so_far) {
-                    path_chunks.resize(path_chunks.size() - removed_so_far);
-                    step_ranges.resize(step_ranges.size() - removed_so_far);
+                    keep[i] = false;
                 }
             }
+            
+            // make sure we didn't flag all of the anchors for removal
+            bool keep_any = false;
+            for (bool b : keep) {
+                keep_any = keep_any || b;
+            }
+            if (kept_anchors == 0) {
+                // we filtered out all of the anchors, choose the longest one to keep
+                // even though it failed the filter
+                if (!anchors_by_length.empty()) {
+                    auto max_idx = anchors_by_length.at(0);
+#ifdef debug_anchored_surject
+                    cerr << "reversing decision to prune " << max_idx << endl;
+#endif
+                    keep[max_idx] = true;
+                }
+            }
+            // we're keeping at least one anchor, so we should be able to throw away the other ones
+            int removed_so_far = 0;
+            for (int i = 0; i < path_chunks.size(); ++i) {
+                if (!keep[i]) {
+                    ++removed_so_far;
+                }
+                else if (removed_so_far) {
+                    path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                    step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                }
+            }
+            if (removed_so_far) {
+                path_chunks.resize(path_chunks.size() - removed_so_far);
+                step_ranges.resize(step_ranges.size() - removed_so_far);
+            }
         }
-        
         
         // the surjected alignment for each path we overlapped
         unordered_map<pair<path_handle_t, bool>, pair<Alignment, pair<step_handle_t, step_handle_t>>> aln_surjections;
