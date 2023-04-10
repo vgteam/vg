@@ -68,26 +68,70 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#define-members">Macros</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">crash.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<table class="memberdecls">
+<div class="textblock"><code>#include &lt;functional&gt;</code><br />
+<code>#include &lt;string&gt;</code><br />
+</div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
+Macros</h2></td></tr>
+<tr class="memitem:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="crash_8hpp.html#a11a5ab008a7ea6045c711d9e4a2c1768">crash_unless</a>(condition)&#160;&#160;&#160;crash_unless_impl((condition), #condition, __FILE__, __LINE__, __func__);</td></tr>
+<tr class="memdesc:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this instead of assert.  <a href="crash_8hpp.html#a11a5ab008a7ea6045c711d9e4a2c1768">More...</a><br /></td></tr>
+<tr class="separator:a11a5ab008a7ea6045c711d9e4a2c1768"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a1f4461f901aba4b67353768ee25e23d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7">vg::enable_crash_handling</a> ()</td></tr>
 <tr class="memdesc:a1f4461f901aba4b67353768ee25e23d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Main should call this to turn on our stack tracing support.  <a href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7">More...</a><br /></td></tr>
 <tr class="separator:a1f4461f901aba4b67353768ee25e23d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac801de9444375b2f131d3c21d125e83b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac801de9444375b2f131d3c21d125e83b">vg::set_crash_context</a> (const std::string &amp;message)</td></tr>
+<tr class="memdesc:ac801de9444375b2f131d3c21d125e83b"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this when it has context for a failure in its thread.  <a href="namespacevg.html#ac801de9444375b2f131d3c21d125e83b">More...</a><br /></td></tr>
+<tr class="separator:ac801de9444375b2f131d3c21d125e83b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af64359d12f27f1035ce70e4ff1622f9c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af64359d12f27f1035ce70e4ff1622f9c">vg::clear_crash_context</a> ()</td></tr>
+<tr class="memdesc:af64359d12f27f1035ce70e4ff1622f9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this when it wants to clear context for a failure in its thread.  <a href="namespacevg.html#af64359d12f27f1035ce70e4ff1622f9c">More...</a><br /></td></tr>
+<tr class="separator:af64359d12f27f1035ce70e4ff1622f9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">vg::with_exception_handling</a> (const std::function&lt; void(void)&gt; &amp;body)</td></tr>
+<tr class="memdesc:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this to get all its exceptions handled.  <a href="namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">More...</a><br /></td></tr>
+<tr class="separator:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a638a54aabac7956dae6fd882468a86fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a638a54aabac7956dae6fd882468a86fe">vg::report_exception</a> (const std::exception &amp;ex)</td></tr>
+<tr class="separator:a638a54aabac7956dae6fd882468a86fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">vg::crash_unless_impl</a> (bool condition, const std::string &amp;condition_string, const std::string &amp;file, int line, const std::string &amp;function)</td></tr>
+<tr class="memdesc:a0ca4eebd30887a3625fb8561c3d240d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">crash_unless calls into this function for a real implementation.  <a href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">More...</a><br /></td></tr>
+<tr class="separator:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Implementation for crash handling to create a stack trace when VG crashes. To use the crash handling system, call <a class="el" href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7" title="Main should call this to turn on our stack tracing support.">enable_crash_handling()</a> early on in the program. When a crash occurs, you will recieve an error message with the path to the stack trace file. To get the full stack trace on standard error, you need to set the environment variable 'VG_FULL_TRACEBACK=1'. </p>
-</div></div><!-- contents -->
+<div class="textblock"><p>Implementation for crash handling to create a stack trace when VG crashes. To use the crash handling system, call <a class="el" href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7" title="Main should call this to turn on our stack tracing support.">enable_crash_handling()</a> early on in the program. When a crash occurs, you will recieve an error message with the stack trace. To get just a filename, you need to set the environment variable 'VG_FULL_TRACEBACK=0'. </p>
+</div><h2 class="groupheader">Macro Definition Documentation</h2>
+<a id="a11a5ab008a7ea6045c711d9e4a2c1768"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a11a5ab008a7ea6045c711d9e4a2c1768">&#9670;&nbsp;</a></span>crash_unless</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define crash_unless</td>
+          <td>(</td>
+          <td class="paramtype">&#160;</td>
+          <td class="paramname">condition</td><td>)</td>
+          <td>&#160;&#160;&#160;crash_unless_impl((condition), #condition, __FILE__, __LINE__, __func__);</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>User code should call this instead of assert. </p>
+
+</div>
+</div>
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

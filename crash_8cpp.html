@@ -84,6 +84,7 @@ $(function() {
 <code>#include &lt;ucontext.h&gt;</code><br />
 <code>#include &lt;dlfcn.h&gt;</code><br />
 <code>#include &lt;cstring&gt;</code><br />
+<code>#include &lt;limits.h&gt;</code><br />
 <code>#include &lt;cstdlib&gt;</code><br />
 <code>#include &lt;unistd.h&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
@@ -116,6 +117,20 @@ Functions</h2></td></tr>
 <tr class="memitem:a1f4461f901aba4b67353768ee25e23d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7">vg::enable_crash_handling</a> ()</td></tr>
 <tr class="memdesc:a1f4461f901aba4b67353768ee25e23d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Main should call this to turn on our stack tracing support.  <a href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7">More...</a><br /></td></tr>
 <tr class="separator:a1f4461f901aba4b67353768ee25e23d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac801de9444375b2f131d3c21d125e83b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac801de9444375b2f131d3c21d125e83b">vg::set_crash_context</a> (const std::string &amp;message)</td></tr>
+<tr class="memdesc:ac801de9444375b2f131d3c21d125e83b"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this when it has context for a failure in its thread.  <a href="namespacevg.html#ac801de9444375b2f131d3c21d125e83b">More...</a><br /></td></tr>
+<tr class="separator:ac801de9444375b2f131d3c21d125e83b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af64359d12f27f1035ce70e4ff1622f9c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af64359d12f27f1035ce70e4ff1622f9c">vg::clear_crash_context</a> ()</td></tr>
+<tr class="memdesc:af64359d12f27f1035ce70e4ff1622f9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this when it wants to clear context for a failure in its thread.  <a href="namespacevg.html#af64359d12f27f1035ce70e4ff1622f9c">More...</a><br /></td></tr>
+<tr class="separator:af64359d12f27f1035ce70e4ff1622f9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">vg::with_exception_handling</a> (const std::function&lt; void(void)&gt; &amp;body)</td></tr>
+<tr class="memdesc:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this to get all its exceptions handled.  <a href="namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">More...</a><br /></td></tr>
+<tr class="separator:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a638a54aabac7956dae6fd882468a86fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a638a54aabac7956dae6fd882468a86fe">vg::report_exception</a> (const std::exception &amp;ex)</td></tr>
+<tr class="separator:a638a54aabac7956dae6fd882468a86fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">vg::crash_unless_impl</a> (bool condition, const std::string &amp;condition_string, const std::string &amp;file, int line, const std::string &amp;function)</td></tr>
+<tr class="memdesc:a0ca4eebd30887a3625fb8561c3d240d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">crash_unless calls into this function for a real implementation.  <a href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">More...</a><br /></td></tr>
+<tr class="separator:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
@@ -123,6 +138,10 @@ Variables</h2></td></tr>
 <tr class="separator:afe7fae89b379b5411189ac0ac74b2dd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2">vg::fullTrace</a> = false</td></tr>
 <tr class="separator:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae77436235694e5e661c74799ab326d0b"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae77436235694e5e661c74799ab326d0b">vg::ISSUE_URL</a> = &quot;https://github.com/vgteam/vg/issues/new/choose&quot;</td></tr>
+<tr class="separator:ae77436235694e5e661c74799ab326d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb1b2d0c77858355b8bfbbe4406f0931"><td class="memItemLeft" align="right" valign="top">thread_local std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeb1b2d0c77858355b8bfbbe4406f0931">vg::stored_crash_context</a></td></tr>
+<tr class="separator:aeb1b2d0c77858355b8bfbbe4406f0931"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="a3024ccd4a9af5109d24e6c57565d74a1"></a>

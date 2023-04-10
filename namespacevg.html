@@ -1218,6 +1218,20 @@ Functions</h2></td></tr>
 <tr class="memitem:a1f4461f901aba4b67353768ee25e23d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7">enable_crash_handling</a> ()</td></tr>
 <tr class="memdesc:a1f4461f901aba4b67353768ee25e23d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Main should call this to turn on our stack tracing support.  <a href="namespacevg.html#a1f4461f901aba4b67353768ee25e23d7">More...</a><br /></td></tr>
 <tr class="separator:a1f4461f901aba4b67353768ee25e23d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac801de9444375b2f131d3c21d125e83b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac801de9444375b2f131d3c21d125e83b">set_crash_context</a> (const std::string &amp;message)</td></tr>
+<tr class="memdesc:ac801de9444375b2f131d3c21d125e83b"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this when it has context for a failure in its thread.  <a href="namespacevg.html#ac801de9444375b2f131d3c21d125e83b">More...</a><br /></td></tr>
+<tr class="separator:ac801de9444375b2f131d3c21d125e83b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af64359d12f27f1035ce70e4ff1622f9c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af64359d12f27f1035ce70e4ff1622f9c">clear_crash_context</a> ()</td></tr>
+<tr class="memdesc:af64359d12f27f1035ce70e4ff1622f9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this when it wants to clear context for a failure in its thread.  <a href="namespacevg.html#af64359d12f27f1035ce70e4ff1622f9c">More...</a><br /></td></tr>
+<tr class="separator:af64359d12f27f1035ce70e4ff1622f9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">with_exception_handling</a> (const std::function&lt; void(void)&gt; &amp;body)</td></tr>
+<tr class="memdesc:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">User code should call this to get all its exceptions handled.  <a href="namespacevg.html#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">More...</a><br /></td></tr>
+<tr class="separator:a1d2cbe5fe5e1b8a33b7d707f7059b3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a638a54aabac7956dae6fd882468a86fe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a638a54aabac7956dae6fd882468a86fe">report_exception</a> (const std::exception &amp;ex)</td></tr>
+<tr class="separator:a638a54aabac7956dae6fd882468a86fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">crash_unless_impl</a> (bool condition, const std::string &amp;condition_string, const std::string &amp;file, int line, const std::string &amp;function)</td></tr>
+<tr class="memdesc:a0ca4eebd30887a3625fb8561c3d240d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">crash_unless calls into this function for a real implementation.  <a href="namespacevg.html#a0ca4eebd30887a3625fb8561c3d240d8">More...</a><br /></td></tr>
+<tr class="separator:a0ca4eebd30887a3625fb8561c3d240d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3165438256db24864e88601839197df"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac3165438256db24864e88601839197df">entropy</a> (const string &amp;st)</td></tr>
 <tr class="separator:ac3165438256db24864e88601839197df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77c1cb6069f865239d0365b55649bc8a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a77c1cb6069f865239d0365b55649bc8a">entropy</a> (const char *st, size_t len)</td></tr>
@@ -2619,6 +2633,10 @@ Variables</h2></td></tr>
 <tr class="separator:afe7fae89b379b5411189ac0ac74b2dd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2">fullTrace</a> = false</td></tr>
 <tr class="separator:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae77436235694e5e661c74799ab326d0b"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae77436235694e5e661c74799ab326d0b">ISSUE_URL</a> = &quot;https://github.com/vgteam/vg/issues/new/choose&quot;</td></tr>
+<tr class="separator:ae77436235694e5e661c74799ab326d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb1b2d0c77858355b8bfbbe4406f0931"><td class="memItemLeft" align="right" valign="top">thread_local std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeb1b2d0c77858355b8bfbbe4406f0931">stored_crash_context</a></td></tr>
+<tr class="separator:aeb1b2d0c77858355b8bfbbe4406f0931"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa32104605c22b25e9ec17d69fbc61a4b"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1read__alignment__index__t.html">read_alignment_index_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa32104605c22b25e9ec17d69fbc61a4b">NO_READ_INDEX</a> = {std::numeric_limits&lt;size_t&gt;::infinity(), std::numeric_limits&lt;size_t&gt;::infinity()}</td></tr>
 <tr class="memdesc:aa32104605c22b25e9ec17d69fbc61a4b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an unset index.  <a href="namespacevg.html#aa32104605c22b25e9ec17d69fbc61a4b">More...</a><br /></td></tr>
 <tr class="separator:aa32104605c22b25e9ec17d69fbc61a4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -6051,6 +6069,25 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="af64359d12f27f1035ce70e4ff1622f9c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af64359d12f27f1035ce70e4ff1622f9c">&#9670;&nbsp;</a></span>clear_crash_context()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::clear_crash_context </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>User code should call this when it wants to clear context for a failure in its thread. </p>
+
+</div>
+</div>
 <a id="afca0783176bbca00f50e9c8f4b53515c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afca0783176bbca00f50e9c8f4b53515c">&#9670;&nbsp;</a></span>clip_contained_low_depth_nodes_and_edges()</h2>
 
@@ -7415,6 +7452,54 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0ca4eebd30887a3625fb8561c3d240d8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ca4eebd30887a3625fb8561c3d240d8">&#9670;&nbsp;</a></span>crash_unless_impl()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::crash_unless_impl </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>condition</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>condition_string</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>file</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>line</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>function</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>crash_unless calls into this function for a real implementation. </p>
 
 </div>
 </div>
@@ -20161,6 +20246,25 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
+<a id="a638a54aabac7956dae6fd882468a86fe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a638a54aabac7956dae6fd882468a86fe">&#9670;&nbsp;</a></span>report_exception()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::report_exception </td>
+          <td>(</td>
+          <td class="paramtype">const std::exception &amp;&#160;</td>
+          <td class="paramname"><em>ex</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>User code should call this if it catches an exception it doesn't know what to do with. </p>
+
+</div>
+</div>
 <a id="a785f128b2eeb9aa2a4ee5477e5b9942b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a785f128b2eeb9aa2a4ee5477e5b9942b">&#9670;&nbsp;</a></span>rev_comp_multipath_alignment()</h2>
 
@@ -21469,6 +21573,26 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Set the annotation with the given name to the given value. The value may be a primitive type or a vector of a primitive type. </p>
+
+</div>
+</div>
+<a id="ac801de9444375b2f131d3c21d125e83b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac801de9444375b2f131d3c21d125e83b">&#9670;&nbsp;</a></span>set_crash_context()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::set_crash_context </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>message</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>User code should call this when it has context for a failure in its thread. </p>
 
 </div>
 </div>
@@ -26066,6 +26190,26 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="a1d2cbe5fe5e1b8a33b7d707f7059b3c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1d2cbe5fe5e1b8a33b7d707f7059b3c6">&#9670;&nbsp;</a></span>with_exception_handling()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::with_exception_handling </td>
+          <td>(</td>
+          <td class="paramtype">const std::function&lt; void(void)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>body</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>User code should call this to get all its exceptions handled. </p>
+
+</div>
+</div>
 <a id="a8e2c6fbf0d030acabb7dd6b8d428e143"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8e2c6fbf0d030acabb7dd6b8d428e143">&#9670;&nbsp;</a></span>worst_alignment_score()</h2>
 
@@ -26316,6 +26460,20 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
+<a id="ae77436235694e5e661c74799ab326d0b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae77436235694e5e661c74799ab326d0b">&#9670;&nbsp;</a></span>ISSUE_URL</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const char* vg::ISSUE_URL = &quot;https://github.com/vgteam/vg/issues/new/choose&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a0fc209aaa8c7c17499d70452d2816f44"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0fc209aaa8c7c17499d70452d2816f44">&#9670;&nbsp;</a></span>NO_INDEX</h2>
 
@@ -26345,6 +26503,20 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Represents an unset index. </p>
+
+</div>
+</div>
+<a id="aeb1b2d0c77858355b8bfbbe4406f0931"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeb1b2d0c77858355b8bfbbe4406f0931">&#9670;&nbsp;</a></span>stored_crash_context</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">thread_local std::string vg::stored_crash_context</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
