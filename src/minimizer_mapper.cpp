@@ -5,6 +5,7 @@
 
 #include "minimizer_mapper.hpp"
 
+#include "crash.hpp"
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
@@ -55,7 +56,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     fragment_length_distr(1000,1000,0.95) {
     
     // The GBWTGraph needs a GBWT
-    assert(graph.index != nullptr);
+    crash_unless(graph.index != nullptr);
 }
 
 //-----------------------------------------------------------------------------
@@ -1014,7 +1015,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
-        assert(false);
+        crash_unless(false);
     });
     
     if (track_provenance) {
@@ -1030,7 +1031,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
         }
     }
 
-    assert(!mappings.empty());
+    crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
@@ -1128,7 +1129,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
              << minimizer.hits << "\t"
              << minimizer_extensions_count[i];
          if (minimizer_extensions_count[i]>0) {
-             assert(minimizer.hits<=hard_hit_cap) ;
+             crash_unless(minimizer.hits<=hard_hit_cap) ;
          }
     }
     cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t"  << mappings.front().mapping_quality() << "\t";
@@ -1547,7 +1548,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 #ifdef debug
     for (size_t count : better_cluster_count) {
-        assert(count >= 1);
+        crash_unless(count >= 1);
     }
 #endif
 
@@ -2382,7 +2383,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
-        assert(false);
+        crash_unless(false);
     });
 
     if (track_provenance) {
@@ -2625,7 +2626,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                  << minimizer.hits << "\t"
                  << minimizer_explored_by_read[r].contains(i);
              if (minimizer_explored_by_read[r].contains(i)) {
-                 assert(minimizer.hits<=hard_hit_cap) ;
+                 crash_unless(minimizer.hits<=hard_hit_cap) ;
              }
         }
         cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
@@ -2638,9 +2639,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
 
             int64_t dist = distances[i];
-            assert(dist == distance_between(paired_alignments[0], paired_alignments[1])); 
+            crash_unless(dist == distance_between(paired_alignments[0], paired_alignments[1])); 
 
-            assert(scores[i] == score_alignment_pair(paired_alignments[0], paired_alignments[1], dist));
+            crash_unless(scores[i] == score_alignment_pair(paired_alignments[0], paired_alignments[1], dist));
 
             double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
@@ -2826,7 +2827,7 @@ void MinimizerMapper::for_each_agglomeration_interval(const VectorView<Minimizer
         // Handle no item case
         return;
     }
-
+    
     // Items currently being iterated over
     list<const Minimizer*> stack = {&minimizers[minimizer_indices.front()]};
     // The left end of an item interval
@@ -3208,8 +3209,8 @@ int64_t MinimizerMapper::unoriented_distance_between(const pos_t& pos1, const po
 }
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
-    assert(aln1.path().mapping_size() != 0); 
-    assert(aln2.path().mapping_size() != 0); 
+    crash_unless(aln1.path().mapping_size() != 0); 
+    crash_unless(aln2.path().mapping_size() != 0); 
      
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
@@ -4275,7 +4276,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 // If we have a nonzero offset in our mapping, and we follow
                 // something, we must be continuing on from a previous mapping to
                 // the node.
-                assert(mapping.position().node_id() == best.path().mapping(best.path().mapping_size() - 1).position().node_id());
+                crash_unless(mapping.position().node_id() == best.path().mapping(best.path().mapping_size() - 1).position().node_id());
 
                 // Find that previous mapping
                 auto* prev_mapping = best.mutable_path()->mutable_mapping(best.path().mapping_size() - 1);
@@ -4302,7 +4303,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 // If we have a nonzero offset in our mapping, and we follow
                 // something, we must be continuing on from a previous mapping to
                 // the node.
-                assert(mapping.position().node_id() == second_best.path().mapping(second_best.path().mapping_size() - 1).position().node_id());
+                crash_unless(mapping.position().node_id() == second_best.path().mapping(second_best.path().mapping_size() - 1).position().node_id());
 
                 // Find that previous mapping
                 auto* prev_mapping = second_best.mutable_path()->mutable_mapping(second_best.path().mapping_size() - 1);
