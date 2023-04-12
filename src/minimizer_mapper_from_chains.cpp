@@ -846,6 +846,21 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Find its coverage
     double best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
     
+    // Find out how gappy it is. We can get the longest and the average distance maybe.
+    size_t best_chain_longest_jump = 0;
+    size_t best_chain_total_jump = 0;
+    for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
+        // Find the pair of anchors we go between
+        auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
+        auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
+        // And get the distance between them in the read
+        size_t jump = right_anchor.read_start() - left_anchor.read_end();
+        // Max and add it in
+        best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
+        best_chain_total_jump += jump;
+    }
+    double best_chain_average_jump = best_chain_total_jump / chains.at(best_chain).size();
+    
     // Now do reseeding inside chains. Not really properly a funnel stage; it elaborates the chains
     if (track_provenance) {
         funnel.substage("reseed");
@@ -1220,10 +1235,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         
     }
     
-    // Special fragment statistics
+    // Special fragment and chain statistics
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "best_bucket_fragment_coverage_at_top", best_bucket_fragment_coverage_at_top);
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
+    set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
+    set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
