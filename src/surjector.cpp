@@ -3042,8 +3042,10 @@ using namespace std;
             mp_aln_graph.topological_sort(topological_order);
             mp_aln_graph.remove_transitive_edges(topological_order);
             
-            // Drop material that looks implausible.
-            {
+            if (!sinks_are_anchors && !sources_are_anchors) {
+                // We are allowed to create new sources and sinks.
+                
+                // Drop material that looks implausible.
                 vector<size_t> scratch(topological_order.size());
                 mp_aln_graph.prune_to_high_scoring_paths(source, get_aligner(), 2.0, topological_order, scratch);
             }
