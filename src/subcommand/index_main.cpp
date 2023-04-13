@@ -134,7 +134,7 @@ int main_index(int argc, char** argv) {
     bool xg_alts = false;
 
     //Distance index
-    size_t snarl_limit = 10000;
+    size_t snarl_limit = 50000;
 
     int c;
     optind = 2; // force optind past command positional argument
