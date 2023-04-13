@@ -79,7 +79,7 @@ void help_index(char** argv) {
          << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes (default 5000)" << endl;
+         << "        --snarl-limit N    don't store snarl distances for snarls with more than N nodes (default 10000)" << endl;
 }
 
 void multiple_thread_sources() {
@@ -134,7 +134,7 @@ int main_index(int argc, char** argv) {
     bool xg_alts = false;
 
     //Distance index
-    size_t snarl_limit = 5000;
+    size_t snarl_limit = 10000;
 
     int c;
     optind = 2; // force optind past command positional argument
