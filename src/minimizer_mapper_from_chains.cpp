@@ -732,7 +732,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Keeping fragments in bucket " << bucket << " with score of at least"  << fragment_score_threshold << endl;
+                cerr << log_name() << "Keeping, of the " << bucket_fragment_nums.at(bucket).size() << " fragments in bucket " << bucket << ", those with score of at least "  << fragment_score_threshold << endl;
             }
         }
     
@@ -755,6 +755,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Get a view of all the good fragments in the bucket.
         // TODO: Should we just not make a global fragment anchor list?
         VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, bucket_good_fragment_nums[bucket_num]};
+
+        if (bucket_fragment_view.empty()) {
+            // Nothing to chain!
+            if (show_work) {
+                #pragma omp critical (cerr)
+                std::cerr << log_name() << "Bucket " << bucket_num << " has no good fragments to chain!" << std::endl;
+            } 
+            continue;
+        }
+
         // Chain up the fragments
         std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
             bucket_fragment_view,
@@ -859,17 +869,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
         best_chain_total_jump += jump;
     }
-    double best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+    double best_chain_average_jump = best_chain_total_jump / chains.at(best_chain).size();
     
-    // Also count anchors in the chain
-    size_t best_chain_anchors = chains.at(best_chain).size();
-
-    // And total length of anchors in the chain
-    size_t best_chain_anchor_length = 0;
-    for (auto& item : chains.at(best_chain)) {
-        best_chain_anchor_length += seed_anchors.at(item).length(); 
-    }
-
     // Now do reseeding inside chains. Not really properly a funnel stage; it elaborates the chains
     if (track_provenance) {
         funnel.substage("reseed");
@@ -1250,8 +1251,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
     set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
     set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
-    set_annotation(mappings[0], "best_chain_anchors", (double) best_chain_anchors);
-    set_annotation(mappings[0], "best_chain_anchor_length", (double) best_chain_anchor_length);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
