@@ -134,7 +134,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     bool is_fasta = false;
     // handle name
     string name;
-    if (0!=gzgets(fp,buffer,len)) {
+    if (gzgets(fp,buffer,len) != 0) {
         buffer[strlen(buffer)-1] = '\0';
         name = buffer;
         if (name[0] == '@') {
@@ -147,14 +147,55 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         name = name.substr(1, name.find(' ') - 1); // trim off leading @ and things after the first whitespace
         // keep trailing /1 /2
         alignment.set_name(name);
-    } else { return false; }
-    // handle sequence
-    if (0!=gzgets(fp,buffer,len)) {
-        buffer[strlen(buffer)-1] = '\0';
-        alignment.set_sequence(buffer);
-    } else {
-        cerr << "[vg::alignment.cpp] error: incomplete fastq/fasta record " << name << endl; exit(1);
     }
+    else {
+        // no more to get
+        return false;
+    }
+    // handle sequence
+    string sequence;
+    bool reading_sequence = true;
+    while (reading_sequence) {
+        if (gzgets(fp,buffer,len) == 0) {
+            if (sequence.empty()) {
+                // there was no sequence
+                throw runtime_error("[vg::alignment.cpp] incomplete fastq/fasta record " + name);
+            }
+            else {
+                // we hit the end of the file
+                break;
+            }
+        }
+        size_t size_read = strlen(buffer);
+        if (buffer[size_read - 1] == '\n') {
+            // we stopped because of a line end rather than because we filled the buffer
+            
+            // we don't want the newline in the sequence, so terminate the buffer 1 char earlier
+            --size_read;
+            if (!is_fasta) {
+                // we assume FASTQ sequences only take one line
+                reading_sequence = false;
+            }
+            else {
+                // peek ahead to check for a multi-line sequence
+                int c = gzgetc(fp);
+                if (c < 0) {
+                    // this is the end of the file
+                    reading_sequence = false;
+                }
+                else {
+                    if (c == '>') {
+                        // the next line is a sequence name
+                        reading_sequence = false;
+                    }
+                    // un-peek
+                    gzungetc(c, fp);
+                }
+            }
+        }
+        sequence.append(buffer, size_read);
+    }
+    alignment.set_sequence(sequence);
     // handle "+" sep
     if (!is_fasta) {
         if (0!=gzgets(fp,buffer,len)) {
@@ -994,11 +1035,13 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
             cigar.front().second = 'S';
         }
     }
+    
+    simplify_cigar(cigar);
 
     return cigar;
 }
 
-void simiplify_cigar(vector<pair<int, char>>& cigar) {
+void simplify_cigar(vector<pair<int, char>>& cigar) {
     
     size_t removed = 0;
     for (size_t i = 0, j = 0; i < cigar.size(); ++j) {
@@ -1020,7 +1063,7 @@ void simiplify_cigar(vector<pair<int, char>>& cigar) {
                 cigar[i - removed] = make_pair(d_total, 'D');
                 cigar[i - removed + 1] = make_pair(i_total, 'I');
                 
-                // mark that we've
+                // mark that we've removed cigar operations
                 removed += j - i - 2;
             }
             // move the start of the next I/D run beyond the current operation
@@ -2081,24 +2124,32 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     }
 }
 
-bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph) {
+AlignmentValidity alignment_is_valid(const Alignment& aln, const HandleGraph* hgraph) {
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
         const Mapping& mapping = aln.path().mapping(i);
         if (!hgraph->has_node(mapping.position().node_id())) {
-            cerr << "Invalid Alignment:\n" << pb2json(aln) <<"\nNode " << mapping.position().node_id()
-                 << " not found in graph" << endl;
-            return false;
+            std::stringstream ss;
+            ss << "Node " << mapping.position().node_id() << " not found in graph";
+            return {
+                AlignmentValidity::NODE_MISSING,
+                i,
+                ss.str()
+            };
         }
         size_t node_len = hgraph->get_length(hgraph->get_handle(mapping.position().node_id()));
         if (mapping_from_length(mapping) + mapping.position().offset() > node_len) {
-            cerr << "Invalid Alignment:\n" << pb2json(aln) << "\nLength of node "
-                 << mapping.position().node_id() << " (" << node_len << ") exceeded by Mapping with offset "
-                 << mapping.position().offset() << " and from-length " << mapping_from_length(mapping) << ":\n"
-                 << pb2json(mapping) << endl;
-            return false;
+            std::stringstream ss;
+            ss << "Length of node "
+               << mapping.position().node_id() << " (" << node_len << ") exceeded by Mapping with offset "
+               << mapping.position().offset() << " and from-length " << mapping_from_length(mapping);
+            return {
+                AlignmentValidity::NODE_TOO_SHORT,
+                i,
+                ss.str()
+            };
         }
     }
-    return true;
+    return {AlignmentValidity::OK};
 }
 
 Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,

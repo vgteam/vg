@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 145
+plan tests 148
 
 
 # Build vg graphs for two chromosomes
@@ -243,6 +243,12 @@ is $? 0 "GBZ construction from VCF"
 cmp x.gbz x2.gbz
 is $? 0 "Identical construction results from GBWT and VCF"
 
+# Build and serialize GBZ from an existing GBWT and GBWTGraph
+vg gbwt -I x.gg -g x3.gbz --gbz-format x.gbwt
+is $? 0 "GBZ construction from GBWTGraph"
+cmp x.gbz x3.gbz
+is $? 0 "Identical construction results from XG and GBWTGraph"
+
 # Extract GBWT from GBZ
 vg gbwt -o extracted.gbwt -Z x.gbz
 is $? 0 "GBWT extraction from GBZ"
@@ -257,7 +263,7 @@ is $? 0 "Identical GBWT indexes"
 cmp x.gg extracted2.gg
 is $? 0 "Identical GBWTGraphs"
 
-rm -f x.gbwt x.gg x.gbz x2.gbz
+rm -f x.gbwt x.gg x.gbz x2.gbz x3.gbz
 rm -f extracted.gbwt extracted2.gbwt extracted2.gg
 
 
@@ -389,5 +395,7 @@ vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38 
 is $? 0 "GBZ GBWT tag modification works"
 is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | grep HAPLOTYPE | wc -l)" "1" "Changing reference_samples tag can make a reference a haplotype"
 is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
+vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38#1 CHM13" 2>/dev/null
+is $? 1 "GBZ GBWT tag modification validation works"
 
 rm -f gfa.gbz gfa2.gbz tags.tsv

@@ -22,7 +22,7 @@ size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
 
 //Fill in the index
 //size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
-void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 5000);
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 50000);
 
 //Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 

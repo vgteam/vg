@@ -83,6 +83,15 @@ void clip_contained_low_depth_nodes_and_edges(MutablePathMutableHandleGraph* gra
 void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_deletion, int64_t context_steps,
                          const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose);
 
+/**
+* clip out stubs
+*/
+void clip_stubs(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose);
+
+void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
+                          SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose);
+
+
 }
 
 

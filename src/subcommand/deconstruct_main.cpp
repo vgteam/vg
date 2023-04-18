@@ -44,7 +44,8 @@ void help_deconstruct(char** argv){
          << "    -H, --path-sep SEP       Obtain alt paths from the set of paths, assuming a path name hierarchy (e.g. SEP='#' and sample#phase#contig)" << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE (not needed for GBZ graph input)." << endl
-         << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
+         << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names and AT fields in output" << endl
+         << "    -O, --gbz-translation    Use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
@@ -69,6 +70,7 @@ int main_deconstruct(int argc, char** argv){
     string snarl_file_name;
     string gbwt_file_name;
     string translation_file_name;
+    bool gbz_translation = false;
     bool path_restricted_traversals = false;
     bool show_progress = false;
     int ploidy = 2;
@@ -92,6 +94,7 @@ int main_deconstruct(int argc, char** argv){
                 {"snarls", required_argument, 0, 'r'},
                 {"gbwt", required_argument, 0, 'g'},
                 {"translation", required_argument, 0, 'T'},
+                {"gbz-translation", no_argument, 0, 'O'},                
                 {"path-traversals", no_argument, 0, 'e'},
                 {"ploidy", required_argument, 0, 'd'},
                 {"context-jaccard", required_argument, 0, 'c'},
@@ -105,7 +108,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKSd:c:uat:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSd:c:uat:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -132,6 +135,9 @@ int main_deconstruct(int argc, char** argv){
         case 'T':
             translation_file_name = optarg;
             break;
+        case 'O':
+            gbz_translation = true;
+            break;                        
         case 'e':
             path_restricted_traversals = true;
             break;
@@ -199,6 +205,10 @@ int main_deconstruct(int argc, char** argv){
     } else {
         cerr << "Error [vg deconstruct]: Input graph is not a GBZ or path handle graph" << endl;
         return 1;
+    }
+
+    if (!gbz_graph && gbz_translation) {
+        cerr << "Error [vg deconstruct]: -O can only be used when input graph is in GBZ format" << endl;
     }
 
     // We might need to apply an overlay to get good path position queries
@@ -282,7 +292,7 @@ int main_deconstruct(int argc, char** argv){
 
     // Read the translation
     unique_ptr<unordered_map<nid_t, pair<string, size_t>>> translation;
-    if (gbz_graph.get() != nullptr) {
+    if (gbz_graph.get() != nullptr && gbz_translation) {
         // try to get the translation from the graph
         translation = make_unique<unordered_map<nid_t, pair<string, size_t>>>();
         *translation = load_translation_back_map(gbz_graph->gbz.graph);
