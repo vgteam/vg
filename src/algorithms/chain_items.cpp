@@ -10,7 +10,7 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
+#define debug_chaining
 
 namespace vg {
 namespace algorithms {
@@ -293,6 +293,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                 // Decide how much length changed
                 size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
                 
+#ifdef debug_chaining
+                cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
+#endif
+
                 if (indel_length > max_indel_bases) {
                     // Don't allow an indel this long
                     jump_points = std::numeric_limits<int>::min();

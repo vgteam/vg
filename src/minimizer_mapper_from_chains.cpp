@@ -560,7 +560,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     fragment_cfg.cluster_score_cutoff = bucket_score_cutoff;
     fragment_cfg.cluster_score_cutoff_enabled = true;
     fragment_cfg.cluster_coverage_threshold = 1.0;
-    fragment_cfg.min_clusters_to_chain = std::numeric_limits<size_t>::max();
+    fragment_cfg.min_clusters_to_chain = this->min_buckets_to_fragment;
     fragment_cfg.max_clusters_to_chain = this->max_buckets_to_fragment;
     
     fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
