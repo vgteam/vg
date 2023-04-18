@@ -645,6 +645,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         #pragma omp critical (cerr)
         std::cerr << log_name() << "Bucket " << best_bucket << " is best with fragment with score " << best_bucket_fragment_score << std::endl;
     }
+    size_t best_bucket_seed_count = buckets.at(best_bucket).seeds.size();
     
     // Find the fragments that are in the best bucket
     std::vector<size_t> best_bucket_fragments;
@@ -1252,6 +1253,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Special fragment and chain statistics
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "best_bucket_fragment_coverage_at_top", best_bucket_fragment_coverage_at_top);
+    set_annotation(mappings[0], "best_bucket_seed_count", (double)best_bucket_seed_count);
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
     set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
     set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
