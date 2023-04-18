@@ -874,7 +874,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
         best_chain_total_jump += jump;
     }
-    double best_chain_average_jump = best_chain_total_jump / chains.at(best_chain).size();
+    double best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+
+    // Also count anchors in the chain
+    size_t best_chain_anchors = chains.at(best_chain).size();
+
+    // And total length of anchors in the chain
+    size_t best_chain_anchor_length = 0;
+    for (auto& item : chains.at(best_chain)) {
+        best_chain_anchor_length += seed_anchors.at(item).length();
+    }
     
     // Now do reseeding inside chains. Not really properly a funnel stage; it elaborates the chains
     if (track_provenance) {
@@ -1257,6 +1266,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
     set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
     set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
+    set_annotation(mappings[0], "best_chain_anchors", (double) best_chain_anchors);
+    set_annotation(mappings[0], "best_chain_anchor_length", (double) best_chain_anchor_length);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";
