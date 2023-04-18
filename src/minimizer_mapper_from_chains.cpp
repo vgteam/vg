@@ -565,6 +565,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
     
+    // Go get fragments from the buckets. Note that this doesn't process all buckets! It will really only do the best ones!
     auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
@@ -703,58 +704,61 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         fragment_anchors.push_back(algorithms::Anchor(seed_anchors.at(fragment.front()), seed_anchors.at(fragment.back()), score));
     }
     
-    // Get all the fragment numbers for each bucket, so we can chain each bucket independently again.
+    // Get all the fragment numbers for each bucket we actually used, so we can chain each bucket independently again.
     // TODO: Stop reswizzling so much.
-    std::vector<std::vector<size_t>> bucket_fragment_nums;
-    bucket_fragment_nums.resize(buckets.size());
+    std::unordered_map<size_t, std::vector<size_t>> bucket_fragment_nums;
     for (size_t i = 0; i < fragment_source_bucket.size(); i++) {
-        bucket_fragment_nums.at(fragment_source_bucket[i]).push_back(i);
+        bucket_fragment_nums[fragment_source_bucket[i]].push_back(i);
     }
     
     // Get the score of the top-scoring fragment per bucket.
-    std::vector<double> bucket_best_fragment_score;
-    bucket_best_fragment_score.reserve(bucket_fragment_nums.size());
-    for (auto& fragment_nums : bucket_fragment_nums) {
-        bucket_best_fragment_score.emplace_back(0);
-        for (auto& fragment_num : fragment_nums) {
+    std::unordered_map<size_t, double> bucket_best_fragment_score;
+    for (auto& kv : bucket_fragment_nums) {
+        for (auto& fragment_num : kv.second) {
             // Max in the score of each fragmrnt in the bucket
-            bucket_best_fragment_score.back() = std::max(bucket_best_fragment_score.back(), fragment_scores.at(fragment_num));
+            bucket_best_fragment_score[kv.first] = std::max(bucket_best_fragment_score[kv.first], fragment_scores.at(fragment_num));
         }
     }
     
     // Filter down to just the good ones, sorted by read start
-    std::vector<std::vector<size_t>> bucket_good_fragment_nums;
-    bucket_good_fragment_nums.reserve(bucket_fragment_nums.size());
-    for (size_t bucket = 0; bucket < bucket_fragment_nums.size(); bucket++) {
+    std::unordered_map<size_t, std::vector<size_t>> bucket_good_fragment_nums;
+    for (auto& kv : bucket_fragment_nums) {
         // Decide on how good fragments have to be to keep.
-        double fragment_score_threshold = bucket_best_fragment_score.at(bucket) * fragment_score_fraction;
+        double fragment_score_threshold = bucket_best_fragment_score.at(kv.first) * fragment_score_fraction;
     
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Keeping, of the " << bucket_fragment_nums.at(bucket).size() << " fragments in bucket " << bucket << ", those with score of at least "  << fragment_score_threshold << endl;
+                cerr << log_name() << "Keeping, of the " << kv.second.size() << " fragments in bucket " << kv.first << ", those with score of at least "  << fragment_score_threshold << endl;
             }
         }
     
         // Keep the fragments that have good scores.
-        bucket_good_fragment_nums.emplace_back();
-        for (auto& fragment_num : bucket_fragment_nums.at(bucket)) {
+        for (auto& fragment_num : kv.second) {
             // For each fragment in the bucket
             if (fragment_scores.at(fragment_num) >= fragment_score_threshold) {
                 // If its score is high enough, keep it.
                 // TODO: Tell the funnel.
-                bucket_good_fragment_nums.back().push_back(fragment_num);
+                bucket_good_fragment_nums[kv.first].push_back(fragment_num);
             }
         }
         
         // Now sort anchors by read start. Don't bother with shadowing.
-        algorithms::sort_anchor_indexes(fragment_anchors, bucket_good_fragment_nums.back());
+        algorithms::sort_anchor_indexes(fragment_anchors, bucket_good_fragment_nums[kv.first]);
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "\tKept " << bucket_good_fragment_nums[kv.first].size() << " fragments." << endl;
+            }
+        }
     }
     
-    for (size_t bucket_num = 0; bucket_num < bucket_good_fragment_nums.size(); bucket_num++) {
+    for (auto& kv : bucket_good_fragment_nums) {
+        auto& bucket_num = kv.first;
         // Get a view of all the good fragments in the bucket.
         // TODO: Should we just not make a global fragment anchor list?
-        VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, bucket_good_fragment_nums[bucket_num]};
+        VectorView<algorithms::Anchor> bucket_fragment_view {fragment_anchors, kv.second};
 
         if (bucket_fragment_view.empty()) {
             // Nothing to chain!
@@ -802,7 +806,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // For each fragment in the chain
                            
                 // Get its fragment number out of all fragments
-                size_t fragment_num_overall = bucket_good_fragment_nums[bucket_num].at(fragment_in_bucket);
+                size_t fragment_num_overall = kv.second.at(fragment_in_bucket);
                 
                 // Save it
                 chain_fragment_nums_overall.push_back(fragment_num_overall);
