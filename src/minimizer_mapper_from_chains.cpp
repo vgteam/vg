@@ -857,6 +857,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             best_chain_score = chain_score_estimates[i];
         }
     }
+    bool best_chain_correct = false;
+    if (track_correctness && best_chain != std::numeric_limits<size_t>::max()) {
+        // We want to explicitly check if the best chain was correct, for looking at stats about it later.
+        if (funnel.is_correct(best_chain)) {
+            best_chain_correct = true;
+        }
+    }
     
     // Find its coverage
     double best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
@@ -1263,6 +1270,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "best_bucket_fragment_coverage_at_top", best_bucket_fragment_coverage_at_top);
     set_annotation(mappings[0], "best_bucket_seed_count", (double)best_bucket_seed_count);
+    if (track_correctness) {
+        set_annotation(mappings[0], "best_chain_correct", best_chain_correct);
+    }
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
     set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
     set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
