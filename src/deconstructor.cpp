@@ -630,7 +630,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                  << " trav=" << pb2json(path_travs.first[i]) << endl;
         }
 #endif
-        path_trav_name = Paths::strip_subrange(path_trav_name);
         if (ref_paths.count(path_trav_name) &&
             (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
@@ -652,7 +651,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             path_handle_t path_handle = graph->get_path_handle_of_step(path_travs.second[i].first);
             string path_trav_name = graph->get_path_name(path_handle);            
             subrange_t subrange ;
-            path_trav_name = Paths::strip_subrange(path_trav_name, &subrange);
+            Paths::strip_subrange(path_trav_name, &subrange);
             int64_t sub_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
             if (path_trav_name == ref_trav_name) {
                 ref_travs.push_back(i);
