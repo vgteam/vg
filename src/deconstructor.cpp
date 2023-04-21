@@ -306,6 +306,10 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     vector<int> gbwt_phases(trav_to_allele.size(), -1);
     for (int i = 0; i < names.size(); ++i) {
         string sample_name = PathMetadata::parse_sample_name(names[i]);
+        // for backward compatibility
+        if (sample_name.empty()) {
+            sample_name = names[i];
+        }
         auto phase = PathMetadata::parse_haplotype(names[i]);
         if (!sample_name.empty() && phase == PathMetadata::NO_HAPLOTYPE) {
             // THis probably won't fit in an int. Use 0 instead.
@@ -935,7 +939,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         string path_name = graph->get_path_name(path_handle);
         if (!this->ref_paths.count(path_name)) {
             string sample_name = graph->get_sample_name(path_handle);
-            if (sample_name != PathMetadata::NO_SAMPLE_NAME && !ref_samples.count(sample_name)) {
+            // for backward compatibility
+            if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
+                sample_name = path_name;
+            }
+            if (!ref_samples.count(sample_name)) {
                 size_t haplotype = graph->get_haplotype(path_handle);
                 if (haplotype == PathMetadata::NO_HAPLOTYPE) {
                     haplotype = 0;
