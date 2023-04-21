@@ -807,17 +807,14 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             string contig_name = PathMetadata::parse_locus_name(ref_trav_name);
             if (contig_name == PathMetadata::NO_LOCUS_NAME) {
                 contig_name = ref_trav_name;
-            } else {
-                string sample_name = PathMetadata::parse_sample_name(ref_trav_name);
-                if (sample_name != PathMetadata::NO_SAMPLE_NAME && (ref_samples.size() > 0 || sample_ploidys.at(sample_name) > 1)) {
-                    // the sample name isn't unique enough, so put a full ugly name in the vcf
-                    contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                                 sample_name,
-                                                                 contig_name,
-                                                                 PathMetadata::parse_haplotype(ref_trav_name),
-                                                                 PathMetadata::NO_PHASE_BLOCK,
-                                                                 PathMetadata::NO_SUBRANGE);
-                }
+            } else if (long_ref_contig) {
+                // the sample name isn't unique enough, so put a full ugly name in the vcf
+                contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                             PathMetadata::parse_sample_name(ref_trav_name),
+                                                             contig_name,
+                                                             PathMetadata::parse_haplotype(ref_trav_name),
+                                                             PathMetadata::NO_PHASE_BLOCK,
+                                                             PathMetadata::NO_SUBRANGE);
             }
             
             // write variant's sequenceName (VCF contig)
@@ -943,9 +940,12 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     ref_samples.clear();
+    set<size_t> ref_haplotypes;
     for (const string& ref_path_name : ref_paths) {
         ref_samples.insert(PathMetadata::parse_sample_name(ref_path_name));
+        ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
     }
+    long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
@@ -1049,7 +1049,16 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             string locus_name = graph->get_locus_name(path_handle);
             if (locus_name == PathMetadata::NO_LOCUS_NAME) {
                 locus_name = refpath;
-            }
+            } else if (long_ref_contig) {
+                // the sample name isn't unique enough, so put a full ugly name in the vcf
+                locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                            graph->get_sample_name(path_handle),
+                                                            locus_name,
+                                                            graph->get_haplotype(path_handle),
+                                                            PathMetadata::NO_PHASE_BLOCK,
+                                                            PathMetadata::NO_SUBRANGE);                
+            }            
+
             subrange_t subrange = graph->get_subrange(path_handle);
             int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
             ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);

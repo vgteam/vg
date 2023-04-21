@@ -142,6 +142,9 @@ private:
 
     // keep track of reference samples
     set<string> ref_samples;
+
+    // do we need to write metadata for reference contigs
+    bool long_ref_contig = false;
     
     // keep track of the non-ref paths as they will be our samples
     set<string> sample_names;

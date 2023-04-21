@@ -235,7 +235,7 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
 Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 /// Get a short version of a string representation of a thread name stored in
-/// GBWT metadata, made of just the sample and contig.
+/// GBWT metadata, made of just the sample and contig and haplotype.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
