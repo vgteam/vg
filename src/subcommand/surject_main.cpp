@@ -48,6 +48,7 @@ void help_surject(char** argv) {
          << "  -s, --sam-output         write SAM to stdout" << endl
          << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
+         << "  -a, --max-anchors N      use no more than N anchors per target path (default: 200)" << endl
          << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
          << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
          << "  -N, --sample NAME        set this sample name for all reads" << endl
@@ -97,6 +98,7 @@ int main_surject(int argc, char** argv) {
     bool subpath_global = true; // force full length alignments in mpmap resolution
     bool qual_adj = false;
     bool prune_anchors = false;
+    size_t max_anchors = 200;
     bool annotate_with_all_path_scores = false;
     bool multimap = false;
     bool validate = true;
@@ -122,6 +124,7 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"spliced", no_argument, 0, 'S'},
             {"prune-low-cplx", no_argument, 0, 'P'},
+            {"max-anchors", required_argument, 0, 'a'},
             {"qual-adj", no_argument, 0, 'A'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
@@ -134,7 +137,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALMVw:",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPa:ALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -195,6 +198,10 @@ int main_surject(int argc, char** argv) {
                 
         case 'P':
             prune_anchors = true;
+            break;
+            
+        case 'a':
+            max_anchors = parse<size_t>(optarg);
             break;
             
         case 'A':
@@ -287,6 +294,7 @@ int main_surject(int argc, char** argv) {
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
     surjector.prune_suspicious_anchors = prune_anchors;
+    surjector.max_anchors = max_anchors;
     if (spliced) {
         surjector.min_splice_length = min_splice_length;
         // we have to bump this up to be sure to align most splice junctions
