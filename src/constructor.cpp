@@ -351,6 +351,8 @@ namespace vg {
         // need to visit every node in a run, we don't just care about the
         // bounding IDs. So we store entire copies of the runs. But since the
         // inversions always go backward, we only need them by their end.
+        // These are also on-the-end and not past-the-end positions, matching
+        // nodes_ending_at.
         map<size_t, vector<Node*>> ref_runs_by_end;
         
         // We don't want to wire inserts to each other, so we have a set of all
@@ -373,6 +375,8 @@ namespace vg {
 
         // We also need to track all points at which deletions start, so we can
         // search for the next one when deciding where to break the reference.
+        // We store the last NON-deleted base; the deletion arc attaches to the
+        // right side of this base! This base is *not* deleted.
         set<int64_t> deletion_starts;
 
         // We use this to get the next variant
@@ -1172,12 +1176,26 @@ namespace vg {
                 // come in or out.
 
                 // We need a function to work that out
-                auto next_breakpoint_after = [&](size_t position) -> size_t {
-                    // This returns the position of the base to the left of the next
-                    // required breakpoint within this clump, after the given
-                    // position, given created nodes and deletions that already
-                    // exist.
 
+                /**
+                 * Find the next breakpoint.
+                 *
+                 * Takes in the search position, like the position of the next
+                 * un-made reference base. So searches from the left edge of
+                 * the passed inclusive position.
+                 *
+                 * Finds the next required breakpoint within this clump, after
+                 * the given position, given created nodes and deletions that
+                 * already exist.
+                 *
+                 * Returns the inclusive position of the base to the left of
+                 * this breakpoint, so the breakpoint is immediately to the
+                 * right of the base at the returned position. This means that
+                 * sometimes, such as if the next piece of the reference would
+                 * be 1 bp long, this function will return the same value it
+                 * was passed.
+                 */
+                auto next_breakpoint_after = [&](size_t position) -> size_t {
                     // If nothing else, we're going to break at the end of the last
                     // edit in the clump.
                     size_t to_return = last_edit_end;
@@ -1189,7 +1207,7 @@ namespace vg {
                     // See if any nodes are registered as starting after our
                     // position. They'll all start before the end of the clump, and
                     // we don't care if they start at our position since that
-                    // breakpoint already happened.
+                    // breakpoint would be to the left and already happened.
                     auto next_start_iter = nodes_starting_at.upper_bound(position);
 
                     if(next_start_iter != nodes_starting_at.end()) {
@@ -1203,7 +1221,8 @@ namespace vg {
 
                     // See if any nodes are registered as ending at or after our
                     // position. We do care if they end at our position, since that
-                    // means we need to break right here.
+                    // means we need to break right here because that
+                    // breakpoint would be to the right.
                     auto next_end_iter = nodes_ending_at.lower_bound(position);
 
                     if(next_end_iter != nodes_ending_at.end()) {
@@ -1215,7 +1234,10 @@ namespace vg {
                         #endif
                     }
 
-                    // See if any deletions are registered as ending at or after here.
+                    // See if any deletions are registered as ending at or
+                    // after here. If the deletion ends here, this is the last
+                    // base deleted, and that creates a breeakpoint to our
+                    // right.
                     auto deletion_end_iter = deletions_ending_at.lower_bound(position);
 
                     if(deletion_end_iter != deletions_ending_at.end()) {
@@ -1230,7 +1252,9 @@ namespace vg {
                     
                     // See if any deletions are known to start at or after this
                     // base. We care about exact hits now, because deletions break
-                    // after the base they start at.
+                    // to the right of the base they start at, since we are
+                    // storing the base that the deletion arc attaches to the
+                    // right side of.
                     auto deletion_start_iter = deletion_starts.lower_bound(position);
                     // We don't need to worry about -1s here. They won't be found
                     // with lower_bound on a size_t.
@@ -1245,16 +1269,21 @@ namespace vg {
                         #endif
                     }
 
-                    // Check to see if any inversions' last inverted bases are past this point
+                    // Check to see if any inversions' last (largest
+                    // coordinate) inverted bases are at or after this point
                     // Inversions break the reference twice, much like deletions.
-                    auto inv_end_iter = inversions_ending.upper_bound(position);
+                    // Since we store the final base that is inverted, and the
+                    // inversion creates a breakpoint on the right side of that
+                    // base, we care about exact hits.
+                    auto inv_end_iter = inversions_ending.lower_bound(position);
                     if (inv_end_iter != inversions_ending.end()){
                         to_return = min(to_return, (size_t) inv_end_iter->first);
                         #ifdef debug
-                        cerr << "Next inversion ends by inverting " << inv_end_iter->first << endl;
+                        cerr << "Next inversion ends after inverting " << inv_end_iter->first << endl;
                         #endif
                     }
 
+                    // Also look at inversions' first (smallest coordinate) bases.
                     // Inversions break just after the anchor the base they start at,
                     // so we care about exact hits and use lower_bound.
                     auto inv_start_iter = inversions_starting.lower_bound(position);

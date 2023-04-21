@@ -2160,6 +2160,72 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 }
 
+TEST_CASE( "An SV inversion that ends 1 base after something else is constructable" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT
+x	11	sv2	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=40;CIPOS=0,3;CIEND=-3,0	GT
+x	28	sv2	T	GATTACA	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SVLEN=7;CIPOS=0,3;CIEND=-3,0	GT
+)";
+
+
+    //          v    inverted      v
+    // CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+    //            ^      deleted              ^
+    //                            X Replaced and inserted after
+
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 100, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        // Order is a bit weird. First part before insertion.
+        expected.insert({1, "CAAATAAGG"});
+        // Replacing inserted base. TODO: Should we change this to join with the rest of the insert?
+        expected.insert({2, "G"});
+        // Rest of inserted bases
+        expected.insert({3, "ATTACA"});
+        // Inversion before deletion
+        expected.insert({4, "CT"});
+        // Deleted sequence before insertion
+        expected.insert({5, "TGGAAATTTTCTGGAG"});
+        // Insertion base replaced
+        expected.insert({6, "T"});
+        // Base in inversion after insertion
+        expected.insert({7, "T"});
+        // Non-inverted deleted part
+        expected.insert({8, "CTATTATATTC"});
+        // Part after inversion
+        expected.insert({9, "CAACTCTCTG"});
+        
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+}
+
 TEST_CASE( "SV inversions with smart quotes and a lower-case reference parse correctly" , "[constructor]") {
 
     // Note the smart quotes
