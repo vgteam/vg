@@ -1779,9 +1779,11 @@ namespace vg {
         // max rank used?
         size_t max_ref_rank = 0;
 
-        // Whenever a chunk ends with a single node, we separate it out and buffer
-        // it here, because we may need to glue it together with subsequent leading
-        // nodes that were broken by a chunk boundary.
+        // Whenever a chunk ends with a single node, with no edges to the end
+        // or non-reference paths, we separate it out and buffer it here,
+        // because we may need to glue it together with subsequent leading
+        // nodes with no edges to the start or non-reference paths, to
+        // eliminate spurious node breaks at chunk boundaries. 
         Node last_node_buffer;
 
         // Sometimes we need to emit single node reference chunks gluing things
@@ -1823,9 +1825,75 @@ namespace vg {
         auto wire_and_emit = [&](ConstructedChunk& chunk) {
             // When each chunk comes back:
             
-            if (chunk.left_ends.size() == 1 && last_node_buffer.id() != 0) {
+            // If we have a single head or tail with no outer edges or
+            // non-reference paths, we will fill in the ID here.
+            nid_t head_id = 0;
+            nid_t tail_id = 0;
+
+            if (last_node_buffer.id() != 0 && chunk.left_ends.size() == 1) {
+                // We have a single dangling node buffered that we can rewrite.
+                // So we also want to know if we have a head to combine it with.
+                // And it looks like we might.
+                head_id = *chunk.left_ends.begin();
+                #ifdef debug
+                cerr << "Node " << head_id << " might be mergable with buffered node " << last_node_buffer.id() << endl;
+                #endif
+            }
+
+            if (chunk.right_ends.size() == 1) {
+                // We always need to know if we can buffer the tail.
+                // Name this node a candidate tail.
+                tail_id = *chunk.right_ends.begin();
+                #ifdef debug
+                cerr << "Node " << tail_id << " might be a tail we can buffer" << endl;
+                #endif
+            }
+
+            for (auto& edge : chunk.graph.edge()) {            
+                // Go through all edges and kick out head and tail candidates if they have any on the outside.
+                if (head_id && ((edge.from() == head_id && edge.from_start()) || (edge.to() == head_id && !edge.to_end()))) {
+                    // Edge connects to the start of the head candidate, so it fails.
+                    #ifdef debug
+                    cerr << "Node " << head_id << " has an edge to its left and so can't merge" << endl;
+                    #endif
+                    head_id = 0;
+                }
+                if (tail_id && ((edge.from() == tail_id && !edge.from_start()) || (edge.to() == tail_id && edge.to_end()))) {
+                    // Edge connects to the end of the tail candidate, so it fails.
+                    #ifdef debug
+                    cerr << "Node " << tail_id << " has an edge to its right and so can't merge" << endl;
+                    #endif
+                    tail_id = 0;
+                }
+            }
+
+            for (size_t i = 1; (head_id != 0 || tail_id != 0) && i < chunk.graph.path_size(); i++) {
+                // Go through all paths other than the reference
+                auto& path = chunk.graph.path(i);
+                for (size_t i = 0; i < path.mapping_size(); i += (path.mapping_size() - 1)) {
+                    // Check the first and last steps on the path to see if they
+                    // touch our head/tail nodes. Other steps can't touch them
+                    // because of the edge restrictions we already checked.
+                    nid_t touched_node = path.mapping(i).position().node_id();
+                    if (touched_node == head_id) {
+                        #ifdef debug
+                        cerr << "Node " << head_id << " is visited by path " << path.name() << " and so can't merge" << endl;
+                        #endif
+                        head_id = 0;
+                    }
+                    if (touched_node == tail_id) {
+                        #ifdef debug
+                        cerr << "Node " << tail_id << " is visited by path " << path.name() << " and so can't merge" << endl;
+                        #endif
+                        tail_id = 0;
+                    }
+                }
+            }
+
+
+            if (last_node_buffer.id() != 0 && head_id != 0) {
                 // We have a last node from the last chunk that we want to glom onto
-                // this chunk.
+                // this chunk, and we have a node to do it with.
 
                 // We want to merge it with the single source node for this
                 // chunk. But depending on the variant structure it may not be
@@ -1838,26 +1906,23 @@ namespace vg {
                 // graph size anyway, and we never have to scan through more
                 // than a variant's worth of nodes.
                 
-                // This is the node we want
-                auto wanted_id = *chunk.left_ends.begin();
-                
                 // We will fill this in
                 Node* mutable_first_node = nullptr;
                 for (size_t i = 0; i < chunk.graph.node_size(); i++) {
                     // Look at each node in turn
                     mutable_first_node = chunk.graph.mutable_node(i);
                     
-                    if (mutable_first_node->id() == wanted_id) {
+                    if (mutable_first_node->id() == head_id) {
                         // We found the left end we want
                         break;
                     }
                 }
                 
-                if (mutable_first_node == nullptr || mutable_first_node->id() != wanted_id) {
+                if (mutable_first_node == nullptr || mutable_first_node->id() != head_id) {
                     // Make sure we found it
                     #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] On " << reference_contig
-                         << ", could not find node " << wanted_id << endl;
+                         << ", could not find node " << head_id << endl;
                     exit(1);
                 }
 
@@ -1925,8 +1990,9 @@ namespace vg {
                 edit->set_from_length(mutable_first_node->sequence().size());
                 edit->set_to_length(mutable_first_node->sequence().size());
             } else if (last_node_buffer.id() != 0) {
-                // There's no single leading node on this next chunk, but we still
-                // have a single trailing node to emit.
+                // There's no single leading node on this next chunk that we
+                // are free to rewrite, but we still have a single trailing
+                // node to emit.
 
                 // Emit it
                 emit_reference_node(last_node_buffer);
@@ -1934,14 +2000,14 @@ namespace vg {
                 last_node_buffer = Node();
             }
 
-            if (chunk.right_ends.size() == 1) {
+            if (tail_id != 0) {
                 // We need to pull out the last node in the chunk. Note that it may
                 // also be the first node in the chunk...
 
                 // We know it's the last node in the graph
                 last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
                 
-                if (!chunk.right_ends.count(last_node_buffer.id())) {
+                if (last_node_buffer.id() != tail_id) {
                     #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] On " << reference_contig
                          << ", could not find right end for node " << last_node_buffer.id() << endl;
