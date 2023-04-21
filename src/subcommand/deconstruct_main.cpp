@@ -210,7 +210,7 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
-    if (!gbwt_file_name.empty() || !gbz_graph) {
+    if (!gbwt_file_name.empty() || gbz_graph) {
         // context jaccard depends on having steps for each alt traversal, which is
         // not something we have on hand when getting traversals from the GBWT/GBZ
         // so we toggle it off in this case to prevent outputting invalid VCFs (GTs go missing)
