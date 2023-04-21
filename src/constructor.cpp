@@ -327,9 +327,6 @@ namespace vg {
         cerr << status_stream.str() << endl;
         #endif
 
-        #pragma omp critical (cerr)
-        cerr << status_stream.str() << endl;
-        
         // Make sure the input sequence is upper-case and all IUPAC codes are Ns
         sanitize_sequence_in_place(reference_sequence, &reference_path_name);
         
@@ -1714,7 +1711,6 @@ namespace vg {
         return to_return;
     }
 
-#define debug
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
         const vector<FastaReference*>& insertions, const function<void(Graph&)>& callback) {
 
@@ -2560,7 +2556,6 @@ namespace vg {
         }
 
     }
-#undef debug
 
     void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
         const vector<string>& insertion_filenames, const function<void(Graph&)>& callback) {
