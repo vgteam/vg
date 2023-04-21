@@ -5,6 +5,7 @@
  
 #include "constructor.hpp"
 #include "utility.hpp"
+#include "crash.hpp"
 #include "io/load_proto_to_graph.hpp"
 
 #include <cstdlib>
@@ -316,10 +317,18 @@ namespace vg {
 
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
         vector<vcflib::Variant> variants, size_t chunk_offset) const {
-            
+        
+        std::stringstream status_stream;
+        status_stream << "constructing chunk " << reference_path_name << ":" << chunk_offset << " length " << reference_sequence.size();
+
+        set_crash_context(status_stream.str());
+
         #ifdef debug
-        cerr << "constructing chunk " << reference_path_name << ":" << chunk_offset << " length " << reference_sequence.size() << endl;
+        cerr << status_stream.str() << endl;
         #endif
+
+        #pragma omp critical (cerr)
+        cerr << status_stream.str() << endl;
         
         // Make sure the input sequence is upper-case and all IUPAC codes are Ns
         sanitize_sequence_in_place(reference_sequence, &reference_path_name);
@@ -1700,10 +1709,12 @@ namespace vg {
                 nonempty_paths++;
             }
         }
-
+        
+        clear_crash_context();
         return to_return;
     }
 
+#define debug
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
         const vector<FastaReference*>& insertions, const function<void(Graph&)>& callback) {
 
@@ -2483,7 +2494,8 @@ namespace vg {
         }
 
     }
-    
+#undef debug
+
     void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
         const vector<string>& insertion_filenames, const function<void(Graph&)>& callback) {
         
