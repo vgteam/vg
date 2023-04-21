@@ -805,8 +805,23 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
             // in VCF we usually just want the contig
             string contig_name = PathMetadata::parse_locus_name(ref_trav_name);
+            if (contig_name == PathMetadata::NO_LOCUS_NAME) {
+                contig_name = ref_trav_name;
+            } else {
+                string sample_name = PathMetadata::parse_sample_name(ref_trav_name);
+                if (sample_name != PathMetadata::NO_SAMPLE_NAME && (ref_samples.size() > 0 || sample_ploidys.at(sample_name) > 1)) {
+                    // the sample name isn't unique enough, so put a full ugly name in the vcf
+                    contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                                 sample_name,
+                                                                 contig_name,
+                                                                 PathMetadata::parse_haplotype(ref_trav_name),
+                                                                 PathMetadata::NO_PHASE_BLOCK,
+                                                                 PathMetadata::NO_SUBRANGE);
+                }
+            }
+            
             // write variant's sequenceName (VCF contig)
-            v.sequenceName = contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : ref_trav_name;
+            v.sequenceName = contig_name;
 
             // Map our snarl endpoints to oriented positions in the embedded path in the graph
             handle_t first_path_handle;
