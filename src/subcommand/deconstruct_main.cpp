@@ -39,8 +39,8 @@ void help_deconstruct(char** argv){
          << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
-         << "    -P, --path-prefix NAME   All paths (and/or GBWT threads) beginning with NAME used as reference (multiple allowed)." << endl
-         << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
+         << "    -P, --path-prefix NAME   All paths [excluding GBWT threads / non-reference GBZ paths] beginning with NAME used as reference (multiple allowed)." << endl
+         << "                             Other non-ref paths not considered as samples. " << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE (not needed for GBZ graph input)." << endl
          << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names and AT fields in output" << endl
@@ -243,30 +243,11 @@ int main_deconstruct(int argc, char** argv){
         }
         gbwt_index = gbwt_index_up.get();
     }
-    
-    // Pre-parse some GBWT metadata
-    unordered_set<string> gbwt_reference_samples;
-    if (gbwt_index) {
-        gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt_index);
-    }
-    
+        
     if (!refpaths.empty()) {
-        // We need to inventory all the GBWT paths.
-        // So we need this precomputed to access them.
-        unordered_set<string> gbwt_paths;
-        if (gbwt_index) {
-            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                // Get the name of this path and put it in our set.
-                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
-                gbwt_paths.insert(gbwtgraph::compose_path_name(*gbwt_index, i, sense));
-            }
-        }
-        
-        // TODO: Should we just make a GBWTGraph?
-        
         // Check our paths
         for (const string& ref_path : refpaths) {
-            if (!graph->has_path(ref_path) && !gbwt_paths.count(ref_path)) {
+            if (!graph->has_path(ref_path)) {
                 cerr << "error [vg deconstruct]: Reference path \"" << ref_path << "\" not found in graph/gbwt" << endl;
                 return 1;
             }
@@ -281,12 +262,6 @@ int main_deconstruct(int argc, char** argv){
                     refpaths.push_back(name);
                 }
             });
-        // Add GBWT threads if no reference paths found or we're running with -a
-        if (gbwt_index && (all_snarls || refpaths.empty())) {
-            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                refpaths.push_back(compose_short_path_name(*gbwt_index, i));
-            }            
-        }
     }
 
     // Read the translation
@@ -344,17 +319,6 @@ int main_deconstruct(int argc, char** argv){
                     }
                 }
             });
-        if (gbwt_index) {
-            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                std::string path_name = compose_short_path_name(*gbwt_index, i);
-                for (auto& prefix : refpath_prefixes) {
-                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
-                        refpaths.push_back(path_name);
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     if (refpaths.empty()) {
