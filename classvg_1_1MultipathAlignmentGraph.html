@@ -116,6 +116,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a8164834df4fc94907fb96b06062c9514"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af112f1a5af47cf079a163eec1c2e31f4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af112f1a5af47cf079a163eec1c2e31f4">clear_reachability_edges</a> ()</td></tr>
 <tr class="separator:af112f1a5af47cf079a163eec1c2e31f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae053f01b2505d284a43a5d0c2046c82b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ae053f01b2505d284a43a5d0c2046c82b">count_reachability_edges</a> () const</td></tr>
+<tr class="memdesc:ae053f01b2505d284a43a5d0c2046c82b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the number of reachability edges in the graph.  <a href="classvg_1_1MultipathAlignmentGraph.html#ae053f01b2505d284a43a5d0c2046c82b">More...</a><br /></td></tr>
+<tr class="separator:ae053f01b2505d284a43a5d0c2046c82b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3199fb5e097873e2635e3fb34a8eafe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe">trim_to_branch_points</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, size_t max_trim_length=1)</td></tr>
 <tr class="separator:ac3199fb5e097873e2635e3fb34a8eafe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9c49582fe16bcb4c87b95e8e3ee93319"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a9c49582fe16bcb4c87b95e8e3ee93319">resect_snarls_from_paths</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls, SnarlDistanceIndex *dist_index, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, int64_t max_snarl_cut_size=5)</td></tr>
@@ -1282,6 +1285,25 @@ Static Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA index and merges them into a single node, assumes that match nodes are sorted by length and then lexicographically by read interval, does not update edges </p>
+
+</div>
+</div>
+<a id="ae053f01b2505d284a43a5d0c2046c82b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae053f01b2505d284a43a5d0c2046c82b">&#9670;&nbsp;</a></span>count_reachability_edges()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MultipathAlignmentGraph::count_reachability_edges </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the number of reachability edges in the graph. </p>
 
 </div>
 </div>
