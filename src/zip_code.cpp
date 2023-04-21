@@ -80,7 +80,7 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
 #ifdef DEBUG_ZIPCODE
             assert(distance_index.is_snarl(current_ancestor));
 #endif
-            vector<size_t> to_add = get_irregular_snarl_code(current_ancestor, distance_index);
+            vector<size_t> to_add = get_irregular_snarl_code(current_ancestor, ancestors[i-1], distance_index);
 #ifdef DEBUG_ZIPCODE
             assert(to_add.size() == ZipCode::IRREGULAR_SNARL_SIZE);
 #endif
@@ -651,6 +651,54 @@ size_t ZipCodeDecoder::get_distance_index_address(const size_t& depth) {
         }
     }
 }
+size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
+    //First, make sure that the decoder has enough in it
+    if (depth >= decoder_length()) {
+        for (size_t i = decoder_length() ; i <= depth ; i++) {
+            bool done = fill_in_next_decoder();
+            if (i < depth && done) {
+                throw std::runtime_error("zipcode decoder looking for value outside range");
+            }
+        }
+    }
+#ifdef DEBUG_ZIPCODE
+    assert(depth > 0);
+    assert(get_code_type(depth-1) == IRREGULAR_SNARL); 
+#endif
+    
+    size_t zip_value; 
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_TO_START_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+    }
+    return zip_value;
+
+}
+
+size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
+    //First, make sure that the decoder has enough in it
+    if (depth >= decoder_length()) {
+        for (size_t i = decoder_length() ; i <= depth ; i++) {
+            bool done = fill_in_next_decoder();
+            if (i < depth && done) {
+                throw std::runtime_error("zipcode decoder looking for value outside range");
+            }
+        }
+    }
+#ifdef DEBUG_ZIPCODE
+    assert(depth > 0);
+    assert(get_code_type(depth-1) == IRREGULAR_SNARL); 
+#endif
+    
+    size_t zip_value; 
+    size_t zip_index = decoder[depth].second;
+    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_TO_END_OFFSET ; i++) {
+        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+    }
+    return zip_value;
+
+}
+
 bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                         const size_t& depth) {
 
@@ -737,7 +785,8 @@ vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const 
     return snarl_code;
 
 }
-vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index) {
+vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
+                                                 const SnarlDistanceIndex& distance_index) {
     //Regular snarl code is 0, snarl record offset
     vector<size_t> snarl_code (IRREGULAR_SNARL_SIZE);
 
@@ -756,6 +805,11 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
 
     //Record offset to look up distances in the index later
     snarl_code[IRREGULAR_SNARL_RECORD_OFFSET] = (distance_index.get_record_offset(snarl));
+
+    snarl_code[IRREGULAR_SNARL_DISTANCE_START_OFFSET] = std::min(distance_index.distance_to_parent_bound(snarl, true, snarl_child),
+                                        distance_index.distance_to_parent_bound(snarl, true, distance_index.flip(snarl_child)));
+    snarl_code[IRREGULAR_SNARL_DISTANCE_END_OFFSET] = std::min(distance_index.distance_to_parent_bound(snarl, false, snarl_child),
+                                        distance_index.distance_to_parent_bound(snarl, false, distance_index.flip(snarl_child)));;
 
     return snarl_code;
 
