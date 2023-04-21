@@ -210,6 +210,14 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
+    if (!gbwt_file_name.empty() || !gbz_graph) {
+        // context jaccard depends on having steps for each alt traversal, which is
+        // not something we have on hand when getting traversals from the GBWT/GBZ
+        // so we toggle it off in this case to prevent outputting invalid VCFs (GTs go missing)
+        // at sites with multiple reference paths
+        context_jaccard_window = 0;
+    }
+
     // We might need to apply an overlay to get good path position queries
     bdsg::ReferencePathOverlayHelper overlay_helper;
     
