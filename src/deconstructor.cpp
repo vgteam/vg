@@ -1022,17 +1022,27 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     }
     set<string> gbwt_ref_paths;
+    map<string, int64_t> ref_path_to_length;
     for(auto& refpath : ref_paths) {
         if (graph->has_path(refpath)) {
-            size_t path_len = 0;
+            int64_t path_len = 0;
             path_handle_t path_handle = graph->get_path_handle(refpath);
             for (handle_t handle : graph->scan_path(path_handle)) {
                 path_len += graph->get_length(handle);
             }
-            stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
+            string locus_name = graph->get_locus_name(path_handle);
+            if (locus_name == PathMetadata::NO_LOCUS_NAME) {
+                locus_name = refpath;
+            }
+            subrange_t subrange = graph->get_subrange(path_handle);
+            int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+            ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
         } else {
             gbwt_ref_paths.insert(refpath);
         }       
+    }
+    for (auto& ref_path_len : ref_path_to_length) {
+        stream << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
     }
     if (!gbwt_ref_paths.empty()) {
         unordered_map<string, vector<gbwt::size_type>> gbwt_name_to_ids;
