@@ -2202,7 +2202,9 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
         unordered_map<size_t, string> expected;
         // Order is a bit weird. First part before insertion.
         expected.insert({1, "CAAATAAGG"});
-        // Replacing inserted base. TODO: Should we change this to join with the rest of the insert?
+        // Replacing inserted base. Because we aren't using flat alts, vcflib
+        // parses this as a substitution and then an insertion and we allow one
+        // but not the other in the graph.
         expected.insert({2, "G"});
         // Rest of inserted bases
         expected.insert({3, "ATTACA"});
