@@ -21,7 +21,7 @@ var searchData=
   ['decompose_5fgenotype_5ffast_972',['decompose_genotype_fast',['../classvg_1_1WindowedVcfBuffer.html#ae05d4861f68f92b5c11e293f1a34618b',1,'vg::WindowedVcfBuffer']]],
   ['decomposition_5fsource_5ft_973',['decomposition_source_t',['../classhandlegraph_1_1BuildableSnarlDecomposition.html#a5e521833234f94ccd3d4874d361a858b',1,'handlegraph::BuildableSnarlDecomposition']]],
   ['decompressstring_974',['DecompressString',['../namespacezstdutil.html#a96bc1e7d01552bb8397ffd2a8dbc0167',1,'zstdutil']]],
-  ['deconstruct_975',['deconstruct',['../classvg_1_1Deconstructor.html#a85767d27dc9eca84f6f83ef23b0dec23',1,'vg::Deconstructor']]],
+  ['deconstruct_975',['deconstruct',['../classvg_1_1Deconstructor.html#a04c9ed8292a419d07c5a07c322783fa2',1,'vg::Deconstructor']]],
   ['deconstruct_5fmain_2ecpp_976',['deconstruct_main.cpp',['../deconstruct__main_8cpp.html',1,'']]],
   ['deconstruct_5fsite_977',['deconstruct_site',['../classvg_1_1Deconstructor.html#a63b7b50efbe8a928084e267441ed80c7',1,'vg::Deconstructor']]],
   ['deconstructor_978',['Deconstructor',['../classvg_1_1Deconstructor.html',1,'vg::Deconstructor'],['../classvg_1_1Deconstructor.html#ac164fa41d5d207dec36a99b891d405be',1,'vg::Deconstructor::Deconstructor()']]],

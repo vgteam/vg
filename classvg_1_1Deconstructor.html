@@ -93,8 +93,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac164fa41d5d207dec36a99b891d405be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a875c8006f289ad46470c05c8808bdd73"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a875c8006f289ad46470c05c8808bdd73">~Deconstructor</a> ()</td></tr>
 <tr class="separator:a875c8006f289ad46470c05c8808bdd73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a85767d27dc9eca84f6f83ef23b0dec23"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a85767d27dc9eca84f6f83ef23b0dec23">deconstruct</a> (vector&lt; string &gt; refpaths, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *grpah, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *<a class="el" href="classvg_1_1Deconstructor.html#ad6e7cccec2d0d3b410c95069ebf3e303">snarl_manager</a>, bool path_restricted_traversals, int <a class="el" href="classvg_1_1Deconstructor.html#ac722e25e3c28ad1644948394876654af">ploidy</a>, bool <a class="el" href="classvg_1_1VCFOutputCaller.html#afb5fc9a52eb170a49d6f77aad30e13f7">include_nested</a>, int context_jaccard_window, bool untangle_traversals, bool keep_conflicted, bool strict_conflicts, const unordered_map&lt; string, pair&lt; string, int &gt;&gt; *<a class="el" href="classvg_1_1Deconstructor.html#a8a5562db89e9293a88b2f22e476d1d25">path_to_sample_phase</a>=nullptr, const unordered_map&lt; string, int &gt; *sample_ploidy=nullptr, gbwt::GBWT *gbwt=nullptr)</td></tr>
-<tr class="separator:a85767d27dc9eca84f6f83ef23b0dec23"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a04c9ed8292a419d07c5a07c322783fa2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a04c9ed8292a419d07c5a07c322783fa2">deconstruct</a> (vector&lt; string &gt; refpaths, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *grpah, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *<a class="el" href="classvg_1_1Deconstructor.html#ad6e7cccec2d0d3b410c95069ebf3e303">snarl_manager</a>, bool path_restricted_traversals, int <a class="el" href="classvg_1_1Deconstructor.html#ac722e25e3c28ad1644948394876654af">ploidy</a>, bool <a class="el" href="classvg_1_1VCFOutputCaller.html#afb5fc9a52eb170a49d6f77aad30e13f7">include_nested</a>, int context_jaccard_window, bool untangle_traversals, bool keep_conflicted, bool strict_conflicts, gbwt::GBWT *gbwt=nullptr)</td></tr>
+<tr class="separator:a04c9ed8292a419d07c5a07c322783fa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1VCFOutputCaller"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1VCFOutputCaller')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1VCFOutputCaller.html">vg::VCFOutputCaller</a></td></tr>
 <tr class="memitem:ad758f9180a51784374ef044b54883f87 inherit pub_methods_classvg_1_1VCFOutputCaller"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ad758f9180a51784374ef044b54883f87">VCFOutputCaller</a> (const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>)</td></tr>
 <tr class="separator:ad758f9180a51784374ef044b54883f87 inherit pub_methods_classvg_1_1VCFOutputCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -124,16 +124,14 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a63b7b50efbe8a928084e267441ed80c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00880823d8b1ff61b86aff13d6c75106"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a00880823d8b1ff61b86aff13d6c75106">get_alleles</a> (vcflib::Variant &amp;v, const pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt;&gt; &amp;path_travs, int ref_path_idx, const vector&lt; bool &gt; &amp;use_trav, char prev_char, bool use_start) const</td></tr>
 <tr class="separator:a00880823d8b1ff61b86aff13d6c75106"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02f06e6ce1346b63f9ac2e90ddb6454b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a02f06e6ce1346b63f9ac2e90ddb6454b">get_genotypes</a> (vcflib::Variant &amp;v, const vector&lt; string &gt; &amp;names, const vector&lt; int &gt; &amp;trav_to_allele, const vector&lt; gbwt::size_type &gt; &amp;trav_thread_ids) const</td></tr>
-<tr class="separator:a02f06e6ce1346b63f9ac2e90ddb6454b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abef64c906912ad99751d3f4ce2a3693d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#abef64c906912ad99751d3f4ce2a3693d">get_genotypes</a> (vcflib::Variant &amp;v, const vector&lt; string &gt; &amp;names, const vector&lt; int &gt; &amp;trav_to_allele) const</td></tr>
+<tr class="separator:abef64c906912ad99751d3f4ce2a3693d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aedfa437974ff91e1e374cdd0dc786187"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; int &gt;, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#aedfa437974ff91e1e374cdd0dc786187">choose_traversals</a> (const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>, const vector&lt; int &gt; &amp;travs, const vector&lt; int &gt; &amp;trav_to_allele, const vector&lt; string &gt; &amp;trav_to_name, const vector&lt; int &gt; &amp;gbwt_phases) const</td></tr>
 <tr class="separator:aedfa437974ff91e1e374cdd0dc786187"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51b05aedb3bbb6cfe3219e2829750326"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a51b05aedb3bbb6cfe3219e2829750326">check_max_nodes</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const</td></tr>
 <tr class="separator:a51b05aedb3bbb6cfe3219e2829750326"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7847b51d590d8a85491e8ee690d0bab0"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a7847b51d590d8a85491e8ee690d0bab0">explicit_exhaustive_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const</td></tr>
 <tr class="separator:a7847b51d590d8a85491e8ee690d0bab0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a45d7f8eab34da0f1f1879a3ef16dde0d"><td class="memItemLeft" align="right" valign="top">tuple&lt; bool, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a45d7f8eab34da0f1f1879a3ef16dde0d">get_gbwt_path_position</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, const gbwt::size_type &amp;thread) const</td></tr>
-<tr class="separator:a45d7f8eab34da0f1f1879a3ef16dde0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab87fdccbcc769d7b4cbdcac43f9bb491"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ab87fdccbcc769d7b4cbdcac43f9bb491">get_context</a> (const pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt;&gt; &amp;path_travs, const int &amp;trav_idx) const</td></tr>
 <tr class="separator:ab87fdccbcc769d7b4cbdcac43f9bb491"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a049890802f6b6036a779eb3645bb1307"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a049890802f6b6036a779eb3645bb1307">get_context</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_step) const</td></tr>
@@ -161,22 +159,20 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a41a7ff33e08c5eee5d2d7088dbc238f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8f81a59e45aad56aa6edc19756a9eb14"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a8f81a59e45aad56aa6edc19756a9eb14">gbwt_reference_samples</a></td></tr>
 <tr class="separator:a8f81a59e45aad56aa6edc19756a9eb14"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3873a7bfd282d56e54fc80e13df1a48a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a3873a7bfd282d56e54fc80e13df1a48a">lru_size</a> = 10</td></tr>
-<tr class="separator:a3873a7bfd282d56e54fc80e13df1a48a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac0693cc79017e94a9668eae71df6cae0"><td class="memItemLeft" align="right" valign="top">vector&lt; LRUCache&lt; gbwt::size_type, shared_ptr&lt; unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &gt; &gt; * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ac0693cc79017e94a9668eae71df6cae0">gbwt_pos_caches</a></td></tr>
-<tr class="separator:ac0693cc79017e94a9668eae71df6cae0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acb9d92a7310015d844ebbae0972d5610"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#acb9d92a7310015d844ebbae0972d5610">gbwt_pos_caches_level</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
-<tr class="separator:acb9d92a7310015d844ebbae0972d5610"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f58aa9a4d3f29e330a9c9e1c9541884"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, pair&lt; int, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a5f58aa9a4d3f29e330a9c9e1c9541884">gbwt_sample_to_phase_range</a></td></tr>
 <tr class="separator:a5f58aa9a4d3f29e330a9c9e1c9541884"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8da74d6fff7d5af6caed96723d0bccd9"><td class="memItemLeft" align="right" valign="top">set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a8da74d6fff7d5af6caed96723d0bccd9">ref_paths</a></td></tr>
 <tr class="separator:a8da74d6fff7d5af6caed96723d0bccd9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a72834c9d1d667e3283e93f60a3f5057b"><td class="memItemLeft" align="right" valign="top">set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a72834c9d1d667e3283e93f60a3f5057b">ref_samples</a></td></tr>
+<tr class="separator:a72834c9d1d667e3283e93f60a3f5057b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6341c9416e41420f60f9faf7ea942d07"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a6341c9416e41420f60f9faf7ea942d07">long_ref_contig</a> = false</td></tr>
+<tr class="separator:a6341c9416e41420f60f9faf7ea942d07"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a56f3119a427b1076d0d0d5ca7f478832"><td class="memItemLeft" align="right" valign="top">set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a56f3119a427b1076d0d0d5ca7f478832">sample_names</a></td></tr>
 <tr class="separator:a56f3119a427b1076d0d0d5ca7f478832"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8a5562db89e9293a88b2f22e476d1d25"><td class="memItemLeft" align="right" valign="top">const unordered_map&lt; string, pair&lt; string, int &gt; &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a8a5562db89e9293a88b2f22e476d1d25">path_to_sample_phase</a></td></tr>
 <tr class="separator:a8a5562db89e9293a88b2f22e476d1d25"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9798dc0ee58dbf7829face6096b35d3b"><td class="memItemLeft" align="right" valign="top">const unordered_map&lt; string, int &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a9798dc0ee58dbf7829face6096b35d3b">sample_ploidys</a></td></tr>
-<tr class="separator:a9798dc0ee58dbf7829face6096b35d3b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a337113fedde38a57458c9329ffd86aac"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a337113fedde38a57458c9329ffd86aac">sample_ploidys</a></td></tr>
+<tr class="separator:a337113fedde38a57458c9329ffd86aac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a109f4d81196e52d38a8406eaa1d4e2b3"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a109f4d81196e52d38a8406eaa1d4e2b3">max_nodes_for_exhaustive</a> = 100</td></tr>
 <tr class="separator:a109f4d81196e52d38a8406eaa1d4e2b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0cf545ea26ebb9bbebafefe47524f87b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a0cf545ea26ebb9bbebafefe47524f87b">path_jaccard_window</a> = 10000</td></tr>
@@ -420,8 +416,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a85767d27dc9eca84f6f83ef23b0dec23"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a85767d27dc9eca84f6f83ef23b0dec23">&#9670;&nbsp;</a></span>deconstruct()</h2>
+<a id="a04c9ed8292a419d07c5a07c322783fa2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a04c9ed8292a419d07c5a07c322783fa2">&#9670;&nbsp;</a></span>deconstruct()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -485,18 +481,6 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>strict_conflicts</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const unordered_map&lt; string, pair&lt; string, int &gt;&gt; *&#160;</td>
-          <td class="paramname"><em>path_to_sample_phase</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const unordered_map&lt; string, int &gt; *&#160;</td>
-          <td class="paramname"><em>sample_ploidys</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -701,44 +685,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a45d7f8eab34da0f1f1879a3ef16dde0d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a45d7f8eab34da0f1f1879a3ef16dde0d">&#9670;&nbsp;</a></span>get_gbwt_path_position()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">tuple&lt; bool, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; vg::Deconstructor::get_gbwt_path_position </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
-          <td class="paramname"><em>trav</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwt::size_type &amp;&#160;</td>
-          <td class="paramname"><em>thread</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a02f06e6ce1346b63f9ac2e90ddb6454b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02f06e6ce1346b63f9ac2e90ddb6454b">&#9670;&nbsp;</a></span>get_genotypes()</h2>
+<a id="abef64c906912ad99751d3f4ce2a3693d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abef64c906912ad99751d3f4ce2a3693d">&#9670;&nbsp;</a></span>get_genotypes()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -762,13 +710,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
-          <td class="paramname"><em>trav_to_allele</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; gbwt::size_type &gt; &amp;&#160;</td>
-          <td class="paramname"><em>trav_thread_ids</em>&#160;</td>
+          <td class="paramname"><em>trav_to_allele</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -786,51 +728,6 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="ac0693cc79017e94a9668eae71df6cae0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac0693cc79017e94a9668eae71df6cae0">&#9670;&nbsp;</a></span>gbwt_pos_caches</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt;LRUCache&lt;gbwt::size_type, shared_ptr&lt;unordered_map&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t&gt; &gt; &gt;*&gt; vg::Deconstructor::gbwt_pos_caches</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="acb9d92a7310015d844ebbae0972d5610"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acb9d92a7310015d844ebbae0972d5610">&#9670;&nbsp;</a></span>gbwt_pos_caches_level</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::Deconstructor::gbwt_pos_caches_level = std::numeric_limits&lt;size_t&gt;::max()</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>We need to keep track of what OMP parallelism level we made the cache list for, so we can make sure to bail out if we end up trying to use the wrong level's thread numbers. </p>
-
-</div>
-</div>
 <a id="a8f81a59e45aad56aa6edc19756a9eb14"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8f81a59e45aad56aa6edc19756a9eb14">&#9670;&nbsp;</a></span>gbwt_reference_samples</h2>
 
@@ -941,8 +838,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a3873a7bfd282d56e54fc80e13df1a48a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3873a7bfd282d56e54fc80e13df1a48a">&#9670;&nbsp;</a></span>lru_size</h2>
+<a id="a6341c9416e41420f60f9faf7ea942d07"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6341c9416e41420f60f9faf7ea942d07">&#9670;&nbsp;</a></span>long_ref_contig</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -951,7 +848,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::Deconstructor::lru_size = 10</td>
+          <td class="memname">bool vg::Deconstructor::long_ref_contig = false</td>
         </tr>
       </table>
   </td>
@@ -1117,6 +1014,28 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a72834c9d1d667e3283e93f60a3f5057b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a72834c9d1d667e3283e93f60a3f5057b">&#9670;&nbsp;</a></span>ref_samples</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">set&lt;string&gt; vg::Deconstructor::ref_samples</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a56f3119a427b1076d0d0d5ca7f478832"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a56f3119a427b1076d0d0d5ca7f478832">&#9670;&nbsp;</a></span>sample_names</h2>
 
@@ -1139,8 +1058,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a9798dc0ee58dbf7829face6096b35d3b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9798dc0ee58dbf7829face6096b35d3b">&#9670;&nbsp;</a></span>sample_ploidys</h2>
+<a id="a337113fedde38a57458c9329ffd86aac"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a337113fedde38a57458c9329ffd86aac">&#9670;&nbsp;</a></span>sample_ploidys</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1149,7 +1068,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const unordered_map&lt;string, int&gt;* vg::Deconstructor::sample_ploidys</td>
+          <td class="memname">unordered_map&lt;string, int&gt; vg::Deconstructor::sample_ploidys</td>
         </tr>
       </table>
   </td>
