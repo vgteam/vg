@@ -79,11 +79,6 @@ private:
     // with node visits
     vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl) const;
 
-    // get the path location of a given traversal out of the gbwt
-    // this will be much slower than doing the same using the PathPositionGraph interface as there's no
-    // underlying index. 
-    tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const;
-
     // gets a sorted node id context for a given path
     vector<nid_t> get_context(
         const pair<vector<SnarlTraversal>,
@@ -124,16 +119,7 @@ private:
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
     // When using the gbwt we need some precomputed information to ask about stored paths.
     unordered_set<string> gbwt_reference_samples;
-    // hacky path position index for alts in the gbwt
-    // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
-    // because child snarls are done in series, we often hit the same non-ref path consecutively
-    // which makes the lru cache fairly effective
-    size_t lru_size = 10; 
-    vector<LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>*> gbwt_pos_caches;
-    /// We need to keep track of what OMP parallelism level we made the cache
-    /// list for, so we can make sure to bail out if we end up trying to use
-    /// the wrong level's thread numbers.
-    size_t gbwt_pos_caches_level = std::numeric_limits<size_t>::max();
+    
     // infer ploidys from gbwt when possible
     unordered_map<string, pair<int, int>> gbwt_sample_to_phase_range;
 

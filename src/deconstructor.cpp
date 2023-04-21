@@ -11,9 +11,6 @@ namespace vg {
 Deconstructor::Deconstructor() : VCFOutputCaller("") {
 }
 Deconstructor::~Deconstructor(){
-    for (auto& c : gbwt_pos_caches) {
-        delete c;
-    }
 }
 
 /**
@@ -611,6 +608,29 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         path_trav_names.push_back(graph->get_path_name(graph->get_path_handle_of_step(trav_ends.first)));
     }
 
+    // pick out the traversal corresponding to a reference path, breaking ties consistently
+    string ref_trav_name;
+    for (int i = 0; i < path_travs.first.size(); ++i) {
+        const string& path_trav_name = path_trav_names.at(i);
+#ifdef debug
+#pragma omp critical (cerr)
+        {
+            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << path_travs.first[i].visit_size()
+                 << ", start=" << graph->get_position_of_step(path_travs.second[i].first)
+                 << ", end=" << graph->get_position_of_step(path_travs.second[i].second) << endl
+                 << " trav=" << pb2json(path_travs.first[i]) << endl;
+        }
+#endif
+        if (ref_paths.count(path_trav_name) &&
+            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+            ref_trav_name = path_trav_name;
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << "Setting ref_trav_name " << ref_trav_name << endl;
+#endif
+        }
+    }
+    
     // add in the gbwt traversals
     // after this, all traversals are treated the same, with metadata embedded in their names
     int64_t first_gbwt_trav_idx = path_trav_names.size();
@@ -644,29 +664,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 // dummy handles so we can use the same code as the named path traversals above
                 path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
             }
-        }
-    }
-
-    // pick out the traversal corresponding to a reference path, breaking ties consistently
-    string ref_trav_name;
-    for (int i = 0; i < path_travs.first.size(); ++i) {
-        const string& path_trav_name = path_trav_names.at(i);
-#ifdef debug
-#pragma omp critical (cerr)
-        {
-            cerr << "Traversal " << i << ": name=" << path_trav_name << ", size=" << path_travs.first[i].visit_size()
-                 << ", start=" << graph->get_position_of_step(path_travs.second[i].first)
-                 << ", end=" << graph->get_position_of_step(path_travs.second[i].second) << endl
-                 << " trav=" << pb2json(path_travs.first[i]) << endl;
-        }
-#endif
-        if (ref_paths.count(path_trav_name) &&
-            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
-            ref_trav_name = path_trav_name;
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Setting ref_trav_name " << ref_trav_name << endl;
-#endif
         }
     }
 
@@ -824,24 +821,17 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             handle_t first_path_handle;
             size_t first_path_pos;
             bool use_start;
-            if (ref_trav_idx < first_gbwt_trav_idx) {
-                step_handle_t start_step = path_travs.second[ref_trav_idx].first;
-                step_handle_t end_step = path_travs.second[ref_trav_idx].second;
-                handle_t start_handle = graph->get_handle_of_step(start_step);
-                handle_t end_handle = graph->get_handle_of_step(end_step);
-                size_t start_pos = graph->get_position_of_step(start_step);
-                size_t end_pos = graph->get_position_of_step(end_step);
-                use_start = start_pos < end_pos;
-                first_path_handle = use_start ? start_handle : end_handle;
-                first_path_pos = use_start ? start_pos : end_pos;
-            } else {
-                //assert(false);
-                std::tie(use_start, first_path_handle, first_path_pos) = get_gbwt_path_position(ref_trav, gbwt_path_ids.at(ref_trav_idx - first_gbwt_trav_idx));
-#ifdef debug
-                cerr << "got " << use_start << " " << graph->get_id(first_path_handle) << ":" << graph->get_is_reverse(first_path_handle)
-                     << " " << first_path_pos << " from gbwt for " << ref_trav_name << endl;
-#endif
-            }
+            assert(ref_trav_idx < first_gbwt_trav_idx);
+            step_handle_t start_step = path_travs.second[ref_trav_idx].first;
+            step_handle_t end_step = path_travs.second[ref_trav_idx].second;
+            handle_t start_handle = graph->get_handle_of_step(start_step);
+            handle_t end_handle = graph->get_handle_of_step(end_step);
+            size_t start_pos = graph->get_position_of_step(start_step);
+            size_t end_pos = graph->get_position_of_step(end_step);
+            use_start = start_pos < end_pos;
+            first_path_handle = use_start ? start_handle : end_handle;
+            first_path_pos = use_start ? start_pos : end_pos;
+            
             // Get the first visit of our snarl traversal
             const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
 
@@ -924,13 +914,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->strict_conflict_checking = strict_conflicts;
     if (gbwt) {
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
-        this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
-        this->gbwt_pos_caches_level = omp_get_level() + 1;
-        for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
-            if (this->gbwt_pos_caches[i] == nullptr) {
-                this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
-            }
-        }
     }
 
     // the need to use nesting is due to a problem with omp tasks and shared state
@@ -1221,59 +1204,5 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
     return out_travs;
 }
 
-tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const {
-
-    // scan the whole thread in order to get the path positions -- there's no other way unless we build an index a priori
-    const gbwt::GBWT& gbwt = gbwt_trav_finder->get_gbwt();
-    bool thread_reversed = gbwt::Path::is_reverse(thread);
-    gbwt::size_type sequence_id = gbwt::Path::encode(gbwt::Path::id(thread), false);
-        ;
-    // the handles we're looking out for when walking along the thread
-    handle_t start_handle;
-    handle_t end_handle;
-    const Visit& v1 = trav.visit(0);
-    const Visit& v2 = trav.visit(trav.visit_size() - 1);
-    if (thread_reversed) {
-        start_handle = graph->get_handle(v2.node_id(), !v2.backward());
-        end_handle = graph->get_handle(v1.node_id(), !v1.backward());
-    } else {
-        start_handle = graph->get_handle(v1.node_id(), v1.backward());
-        end_handle = graph->get_handle(v2.node_id(), v2.backward());
-    }
-    int64_t start_offset = -1;
-    int64_t end_offset = -1;
-    int64_t offset = 0;
-
-    // Find the cache to use. Make sure we made it the right width for the OMP
-    // team we are actually on.
-    assert(this->gbwt_pos_caches_level == omp_get_level());
-    LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>* gbwt_pos_cache =
-        gbwt_pos_caches[omp_get_thread_num()];
-    
-    pair<shared_ptr<unordered_map<handle_t, size_t>>, bool> cached = gbwt_pos_cache->retrieve(thread);
-    if (cached.second) {
-        start_offset = cached.first->at(start_handle);
-    } else {
-        shared_ptr<unordered_map<handle_t, size_t>> path_map = make_shared<unordered_map<handle_t, size_t>>();
-        for (gbwt::edge_type pos = gbwt.start(sequence_id); pos.first != gbwt::ENDMARKER; pos = gbwt.LF(pos)) {
-            handle_t handle = graph->get_handle(gbwt::Node::id(pos.first), gbwt::Node::is_reverse(pos.first));
-            path_map->insert(make_pair(handle, offset));
-            if (handle == start_handle) {
-                start_offset = offset;
-            }
-            if (handle == end_handle && start_offset != -1) {
-                end_offset = offset;
-            }
-            size_t len = graph->get_length(gbwt_to_handle(*graph, pos.first));
-            offset += len;
-        }
-        assert(start_offset >= 0 && end_offset >= 0);
-        gbwt_pos_cache->put(thread, path_map);
-    }
-  
-    auto rval = make_tuple<bool, handle_t, size_t>((bool)!thread_reversed, (handle_t)start_handle, (size_t)start_offset);
-
-    return rval;
-}
 }
 
