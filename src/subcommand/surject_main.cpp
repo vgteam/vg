@@ -22,6 +22,8 @@
 #include "../surjector.hpp"
 #include "../hts_alignment_emitter.hpp"
 #include "../multipath_alignment_emitter.hpp"
+#include "../crash.hpp"
+#include "../watchdog.hpp"
 
 
 using namespace std;
@@ -33,27 +35,28 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "  -x, --xg-name FILE      use this graph or xg index (required)" << endl
-         << "  -t, --threads N         number of threads to use" << endl
-         << "  -p, --into-path NAME    surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
-         << "  -F, --into-paths FILE   surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
-         << "  -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
-         << "  -M, --multimap          include secondary alignments to all overlapping paths instead of just primary" << endl
-         << "  -G, --gaf-input         input file is GAF instead of GAM" << endl
-         << "  -m, --gamp-input        input file is GAMP instead of GAM" << endl
-         << "  -c, --cram-output       write CRAM to stdout" << endl
-         << "  -b, --bam-output        write BAM to stdout" << endl
-         << "  -s, --sam-output        write SAM to stdout" << endl
-         << "  -l, --subpath-local     let the multipath mapping surjection produce local (rather than global) alignments" << endl
-         << "  -P, --prune-low-cplx    prune short and low complexity anchors during realignment" << endl
-         << "  -S, --spliced           interpret long deletions against paths as spliced alignments" << endl
-         << "  -A, --qual-adj          adjust scoring for base qualities, if they are available" << endl
-         << "  -N, --sample NAME       set this sample name for all reads" << endl
-         << "  -R, --read-group NAME   set this read group for all reads" << endl
-         << "  -f, --max-frag-len N    reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
-         << "  -L, --list-all-paths    annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
-         << "  -C, --compression N     level for compression [0-9]" << endl
-         << "  -V, --no-validate       skip checking whether alignments plausibly are against the provided graph" << endl;
+         << "  -x, --xg-name FILE       use this graph or xg index (required)" << endl
+         << "  -t, --threads N          number of threads to use" << endl
+         << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
+         << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
+         << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
+         << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
+         << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
+         << "  -m, --gamp-input         input file is GAMP instead of GAM" << endl
+         << "  -c, --cram-output        write CRAM to stdout" << endl
+         << "  -b, --bam-output         write BAM to stdout" << endl
+         << "  -s, --sam-output         write SAM to stdout" << endl
+         << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
+         << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
+         << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
+         << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
+         << "  -N, --sample NAME        set this sample name for all reads" << endl
+         << "  -R, --read-group NAME    set this read group for all reads" << endl
+         << "  -f, --max-frag-len N     reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
+         << "  -L, --list-all-paths     annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
+         << "  -C, --compression N      level for compression [0-9]" << endl
+         << "  -V, --no-validate        skip checking whether alignments plausibly are against the provided graph" << endl
+         << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl;
 }
 
 /// If the given alignment doesn't make sense against the given graph (i.e.
@@ -90,6 +93,7 @@ int main_surject(int argc, char** argv) {
     int32_t max_frag_len = 0;
     int compress_level = 9;
     int min_splice_length = 20;
+    size_t watchdog_timeout = 10;
     bool subpath_global = true; // force full length alignments in mpmap resolution
     bool qual_adj = false;
     bool prune_anchors = false;
@@ -125,11 +129,12 @@ int main_surject(int argc, char** argv) {
             {"list-all-paths", no_argument, 0, 'L'},
             {"compress", required_argument, 0, 'C'},
             {"no-validate", required_argument, 0, 'V'},
+            {"watchdog-timeout", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALMV",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -216,6 +221,10 @@ int main_surject(int argc, char** argv) {
             validate = false;
             break;
             
+        case 'w':
+            watchdog_timeout = parse<size_t>(optarg);
+            break;
+            
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -291,6 +300,9 @@ int main_surject(int argc, char** argv) {
     // Count our threads
     int thread_count = vg::get_thread_count();
     
+    // Prepare the watchdog
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(watchdog_timeout)));
+    
     if (input_format == "GAM" || input_format == "GAF") {
         
         // Give helpful warning if someone tries to surject an un-surjectable GAF
@@ -315,98 +327,110 @@ int main_surject(int argc, char** argv) {
             // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
             // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
             function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
-                // Make sure that the alignments are actually paired with each other
-                // (proper fragment_prev/fragment_next). We want to catch people giving us
-                // un-interleaved GAMs as interleaved.
-                // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
-                if (src1.has_fragment_next()) {
-                    // Alignment 1 comes first in fragment
-                    if (src1.fragment_next().name() != src2.name() ||
-                        !src2.has_fragment_prev() ||
-                        src2.fragment_prev().name() != src1.name()) {
-                        
+                try {
+                    set_crash_context(src1.name() + ", " + src2.name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                    }
+                    // Make sure that the alignments are actually paired with each other
+                    // (proper fragment_prev/fragment_next). We want to catch people giving us
+                    // un-interleaved GAMs as interleaved.
+                    // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                    if (src1.has_fragment_next()) {
+                        // Alignment 1 comes first in fragment
+                        if (src1.fragment_next().name() != src2.name() ||
+                            !src2.has_fragment_prev() ||
+                            src2.fragment_prev().name() != src1.name()) {
+                            
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
+                            exit(1);
+                            
+                        }
+                    } else if (src2.has_fragment_next()) {
+                        // Alignment 2 comes first in fragment
+                        if (src2.fragment_next().name() != src1.name() ||
+                            !src1.has_fragment_prev() ||
+                            src1.fragment_prev().name() != src2.name()) {
+                            
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
+                            exit(1);
+                            
+                        }
+                    } else {
+                        // Alignments aren't paired up at all
 #pragma omp critical (cerr)
                         cerr << "[vg surject] error: alignments " << src1.name()
                         << " and " << src2.name() << " are adjacent but not paired" << endl;
                         
                         exit(1);
-                        
-                    }
-                } else if (src2.has_fragment_next()) {
-                    // Alignment 2 comes first in fragment
-                    if (src2.fragment_next().name() != src1.name() ||
-                        !src1.has_fragment_prev() ||
-                        src1.fragment_prev().name() != src2.name()) {
-                        
-#pragma omp critical (cerr)
-                        cerr << "[vg surject] error: alignments " << src1.name()
-                        << " and " << src2.name() << " are adjacent but not paired" << endl;
-                        
-                        exit(1);
-                        
-                    }
-                } else {
-                    // Alignments aren't paired up at all
-#pragma omp critical (cerr)
-                    cerr << "[vg surject] error: alignments " << src1.name()
-                    << " and " << src2.name() << " are adjacent but not paired" << endl;
-                    
-                    exit(1);
-                }
-                
-                if (validate) {
-                    ensure_alignment_is_for_graph(src1, *xgidx);
-                    ensure_alignment_is_for_graph(src2, *xgidx);
-                }
-                
-                // Preprocess read to set metadata before surjection
-                set_metadata(src1);
-                set_metadata(src2);
-                
-                // Surject and emit.
-                if (multimap) {
-                    
-                    auto surjected1 = surjector.multi_surject(src1, paths, subpath_global, spliced);
-                    auto surjected2 = surjector.multi_surject(src2, paths, subpath_global, spliced);
-                    
-                    // we have to pair these up manually
-                    unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        const auto& pos = surjected1[i].refpos(0);
-                        strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
-                    }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        const auto& pos = surjected2[i].refpos(0);
-                        strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
                     }
                     
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        const auto& pos = surjected1[i].refpos(0);
-                        auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (it != strand_idx2.end()) {
-                            // the alignments are paired on this strand
-                            alignment_emitter->emit_pair(move(surjected1[i]), move(surjected2[it->second]), max_frag_len);
+                    if (validate) {
+                        ensure_alignment_is_for_graph(src1, *xgidx);
+                        ensure_alignment_is_for_graph(src2, *xgidx);
+                    }
+                    
+                    // Preprocess read to set metadata before surjection
+                    set_metadata(src1);
+                    set_metadata(src2);
+                    
+                    // Surject and emit.
+                    if (multimap) {
+                        
+                        auto surjected1 = surjector.multi_surject(src1, paths, subpath_global, spliced);
+                        auto surjected2 = surjector.multi_surject(src2, paths, subpath_global, spliced);
+                        
+                        // we have to pair these up manually
+                        unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
+                        for (size_t i = 0; i < surjected1.size(); ++i) {
+                            const auto& pos = surjected1[i].refpos(0);
+                            strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
                         }
-                        else {
-                            // this strand's surjection is unpaired
-                            alignment_emitter->emit_single(move(surjected1[i]));
+                        for (size_t i = 0; i < surjected2.size(); ++i) {
+                            const auto& pos = surjected2[i].refpos(0);
+                            strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
+                        }
+                        
+                        for (size_t i = 0; i < surjected1.size(); ++i) {
+                            const auto& pos = surjected1[i].refpos(0);
+                            auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
+                            if (it != strand_idx2.end()) {
+                                // the alignments are paired on this strand
+                                alignment_emitter->emit_pair(move(surjected1[i]), move(surjected2[it->second]), max_frag_len);
+                            }
+                            else {
+                                // this strand's surjection is unpaired
+                                alignment_emitter->emit_single(move(surjected1[i]));
+                            }
+                        }
+                        for (size_t i = 0; i < surjected2.size(); ++i) {
+                            const auto& pos = surjected2[i].refpos(0);
+                            if (!strand_idx1.count(make_pair(pos.name(), !pos.is_reverse()))) {
+                                // this strand's surjection is unpaired
+                                alignment_emitter->emit_single(move(surjected2[i]));
+                            }
                         }
                     }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        const auto& pos = surjected2[i].refpos(0);
-                        if (!strand_idx1.count(make_pair(pos.name(), !pos.is_reverse()))) {
-                            // this strand's surjection is unpaired
-                            alignment_emitter->emit_single(move(surjected2[i]));
-                        }
+                    else {
+                        // FIXME: these aren't forced to be on the same path, which could be fucky
+                        alignment_emitter->emit_pair(surjector.surject(src1, paths, subpath_global, spliced),
+                                                     surjector.surject(src2, paths, subpath_global, spliced),
+                                                     max_frag_len);
                     }
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
+                    clear_crash_context();
+                } catch (const std::exception& ex) {
+                    report_exception(ex);
                 }
-                else {
-                    // FIXME: these aren't forced to be on the same path, which could be fucky
-                    alignment_emitter->emit_pair(surjector.surject(src1, paths, subpath_global, spliced),
-                                                 surjector.surject(src2, paths, subpath_global, spliced),
-                                                 max_frag_len);
-                }
-                
             };
             if (input_format == "GAM") {
                 get_input_file(file_name, [&](istream& in) {
@@ -424,20 +448,32 @@ int main_surject(int argc, char** argv) {
             // We can just surject each Alignment by itself.
             // TODO: We don't preserve order relationships (like primary/secondary).
             function<void(Alignment&)> lambda = [&](Alignment& src) {
-                
-                if (validate) {
-                    ensure_alignment_is_for_graph(src, *xgidx);
-                }
-                
-                // Preprocess read to set metadata before surjection
-                set_metadata(src);
-                
-                // Surject and emit the single read.
-                if (multimap) {
-                    alignment_emitter->emit_singles(surjector.multi_surject(src, paths, subpath_global, spliced));
-                }
-                else {
-                    alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
+                try {
+                    set_crash_context(src.name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, src.name());
+                    }
+                    if (validate) {
+                        ensure_alignment_is_for_graph(src, *xgidx);
+                    }
+                    
+                    // Preprocess read to set metadata before surjection
+                    set_metadata(src);
+                    
+                    // Surject and emit the single read.
+                    if (multimap) {
+                        alignment_emitter->emit_singles(surjector.multi_surject(src, paths, subpath_global, spliced));
+                    }
+                    else {
+                        alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
+                    }
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
+                    clear_crash_context();
+                } catch (const std::exception& ex) {
+                    report_exception(ex);
                 }
             };
             if (input_format == "GAM") {
@@ -467,148 +503,175 @@ int main_surject(int argc, char** argv) {
                 // GAMP input is paired, and for HTS output reads need to know their pair partners' mapping locations.
                 // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
                 vg::io::for_each_interleaved_pair_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src1, MultipathAlignment& src2) {
+                    try {
+                        set_crash_context(src1.name() + ", " + src2.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                        }
                     
-                    // Make sure that the alignments are actually paired with each other
-                    // (proper fragment_prev/fragment_next). We want to catch people giving us
-                    // un-interleaved GAMs as interleaved.
-                    // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
-                    if (src1.paired_read_name() != src2.name() || src2.paired_read_name() != src1.name()) {
-                        
+                        // Make sure that the alignments are actually paired with each other
+                        // (proper fragment_prev/fragment_next). We want to catch people giving us
+                        // un-interleaved GAMs as interleaved.
+                        // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                        if (src1.paired_read_name() != src2.name() || src2.paired_read_name() != src1.name()) {
+                            
 #pragma omp critical (cerr)
-                        cerr << "[vg surject] error: alignments " << src1.name()
-                        << " and " << src2.name() << " are adjacent but not paired" << endl;
-                        
-                        exit(1);
-                        
-                    }
-                    else if (src1.paired_read_name().empty() || src2.paired_read_name().empty()) {
-                        // Alignments aren't paired up at all
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
+                            exit(1);
+                            
+                        }
+                        else if (src1.paired_read_name().empty() || src2.paired_read_name().empty()) {
+                            // Alignments aren't paired up at all
 #pragma omp critical (cerr)
-                        cerr << "[vg surject] error: alignments " << src1.name()
-                        << " and " << src2.name() << " are adjacent but not paired" << endl;
-                        
-                        exit(1);
-                    }
-                    
-                    // convert out of protobuf
-                    multipath_alignment_t mp_src1, mp_src2;
-                    from_proto_multipath_alignment(src1, mp_src1);
-                    from_proto_multipath_alignment(src2, mp_src2);
-                    
-                    
-                    vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions;
-                    vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
-                    
-                    vector<tuple<string, bool, int64_t>> positions_unpaired1, positions_unpaired2;
-                    vector<multipath_alignment_t> surjected_unpaired1, surjected_unpaired2;
-                    
-                    // surject and record path positions
-                    if (multimap) {
-                        
-                        // TODO: highly repetitive with the version above for Alignments
-                        
-                        vector<tuple<string, int64_t, bool>> positions1, positions2;
-                        auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced);
-                        auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced);
-                        
-                        // we have to pair these up manually
-                        unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                        for (size_t i = 0; i < surjected1.size(); ++i) {
-                            strand_idx1[make_pair(get<0>(positions1[i]), get<2>(positions1[i]))] = i;
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
+                            exit(1);
                         }
-                        for (size_t i = 0; i < surjected2.size(); ++i) {
-                            strand_idx2[make_pair(get<0>(positions2[i]), get<2>(positions2[i]))] = i;
-                        }
-                                                
-                        for (size_t i = 0; i < surjected1.size(); ++i) {
-                            auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), !get<2>(positions1[i])));
-                            if (it != strand_idx2.end()) {
-                                // the alignments are paired on this strand
-                                size_t j = it->second;
-                                surjected.emplace_back(move(surjected1[i]), move(surjected2[j]));
-                                
-                                // reorder the positions to deal with the mismatch in the interfaces
-                                positions.emplace_back();
-                                get<0>(positions.back().first) = get<0>(positions1[i]);
-                                get<1>(positions.back().first) = get<2>(positions1[i]);
-                                get<2>(positions.back().first) = get<1>(positions1[i]);
-                                get<0>(positions.back().second) = get<0>(positions2[j]);
-                                get<1>(positions.back().second) = get<2>(positions2[j]);
-                                get<2>(positions.back().second) = get<1>(positions2[j]);
+                        
+                        // convert out of protobuf
+                        multipath_alignment_t mp_src1, mp_src2;
+                        from_proto_multipath_alignment(src1, mp_src1);
+                        from_proto_multipath_alignment(src2, mp_src2);
+                        
+                        
+                        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions;
+                        vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
+                        
+                        vector<tuple<string, bool, int64_t>> positions_unpaired1, positions_unpaired2;
+                        vector<multipath_alignment_t> surjected_unpaired1, surjected_unpaired2;
+                        
+                        // surject and record path positions
+                        if (multimap) {
+                            
+                            // TODO: highly repetitive with the version above for Alignments
+                            
+                            vector<tuple<string, int64_t, bool>> positions1, positions2;
+                            auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced);
+                            auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced);
+                            
+                            // we have to pair these up manually
+                            unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
+                            for (size_t i = 0; i < surjected1.size(); ++i) {
+                                strand_idx1[make_pair(get<0>(positions1[i]), get<2>(positions1[i]))] = i;
                             }
-                            else {
-                                // this strand's surjection is unpaired
-                                surjected_unpaired1.emplace_back(move(surjected1[i]));
-                                
-                                // reorder the position to deal with the mismatch in the interfaces
-                                positions_unpaired1.emplace_back();
-                                get<0>(positions_unpaired1.back()) = move(get<0>(positions1[i]));
-                                get<1>(positions_unpaired1.back()) = get<2>(positions1[i]);
-                                get<2>(positions_unpaired1.back()) = get<1>(positions1[i]);
+                            for (size_t i = 0; i < surjected2.size(); ++i) {
+                                strand_idx2[make_pair(get<0>(positions2[i]), get<2>(positions2[i]))] = i;
+                            }
+                                                    
+                            for (size_t i = 0; i < surjected1.size(); ++i) {
+                                auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), !get<2>(positions1[i])));
+                                if (it != strand_idx2.end()) {
+                                    // the alignments are paired on this strand
+                                    size_t j = it->second;
+                                    surjected.emplace_back(move(surjected1[i]), move(surjected2[j]));
+                                    
+                                    // reorder the positions to deal with the mismatch in the interfaces
+                                    positions.emplace_back();
+                                    get<0>(positions.back().first) = get<0>(positions1[i]);
+                                    get<1>(positions.back().first) = get<2>(positions1[i]);
+                                    get<2>(positions.back().first) = get<1>(positions1[i]);
+                                    get<0>(positions.back().second) = get<0>(positions2[j]);
+                                    get<1>(positions.back().second) = get<2>(positions2[j]);
+                                    get<2>(positions.back().second) = get<1>(positions2[j]);
+                                }
+                                else {
+                                    // this strand's surjection is unpaired
+                                    surjected_unpaired1.emplace_back(move(surjected1[i]));
+                                    
+                                    // reorder the position to deal with the mismatch in the interfaces
+                                    positions_unpaired1.emplace_back();
+                                    get<0>(positions_unpaired1.back()) = move(get<0>(positions1[i]));
+                                    get<1>(positions_unpaired1.back()) = get<2>(positions1[i]);
+                                    get<2>(positions_unpaired1.back()) = get<1>(positions1[i]);
+                                }
+                            }
+                            for (size_t i = 0; i < surjected2.size(); ++i) {
+                                if (!strand_idx1.count(make_pair(get<0>(positions2[i]), !get<2>(positions2[i])))) {
+                                    // this strand's surjection is unpaired
+                                    surjected_unpaired2.emplace_back(move(surjected2[i]));
+                                    
+                                    // reorder the position to deal with the mismatch in the interfaces
+                                    positions_unpaired2.emplace_back();
+                                    get<0>(positions_unpaired2.back()) = move(get<0>(positions2[i]));
+                                    get<1>(positions_unpaired2.back()) = get<2>(positions2[i]);
+                                    get<2>(positions_unpaired2.back()) = get<1>(positions2[i]);
+                                }
                             }
                         }
-                        for (size_t i = 0; i < surjected2.size(); ++i) {
-                            if (!strand_idx1.count(make_pair(get<0>(positions2[i]), !get<2>(positions2[i])))) {
-                                // this strand's surjection is unpaired
-                                surjected_unpaired2.emplace_back(move(surjected2[i]));
-                                
-                                // reorder the position to deal with the mismatch in the interfaces
-                                positions_unpaired2.emplace_back();
-                                get<0>(positions_unpaired2.back()) = move(get<0>(positions2[i]));
-                                get<1>(positions_unpaired2.back()) = get<2>(positions2[i]);
-                                get<2>(positions_unpaired2.back()) = get<1>(positions2[i]);
-                            }
+                        else {
+                            
+                            // FIXME: these aren't required to be on the same path...
+                            positions.emplace_back();
+                            surjected.emplace_back(surjector.surject(mp_src1, paths, get<0>(positions.front().first),
+                                                                     get<2>(positions.front().first), get<1>(positions.front().first),
+                                                                     subpath_global, spliced),
+                                                   surjector.surject(mp_src2, paths, get<0>(positions.front().second),
+                                                                     get<2>(positions.front().second), get<1>(positions.front().second),
+                                                                     subpath_global, spliced));
                         }
-                    }
-                    else {
+                                            
+                        // write to output
+                        vector<int64_t> tlen_limits(surjected.size(), max_frag_len);
+                        mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
+                        mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
+                        mp_alignment_emitter.emit_singles(src2.name(), move(surjected_unpaired2), &positions_unpaired2);
                         
-                        // FIXME: these aren't required to be on the same path...
-                        positions.emplace_back();
-                        surjected.emplace_back(surjector.surject(mp_src1, paths, get<0>(positions.front().first),
-                                                                 get<2>(positions.front().first), get<1>(positions.front().first),
-                                                                 subpath_global, spliced),
-                                               surjector.surject(mp_src2, paths, get<0>(positions.front().second),
-                                                                 get<2>(positions.front().second), get<1>(positions.front().second),
-                                                                 subpath_global, spliced));
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        clear_crash_context();
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
                     }
-                                        
-                    // write to output
-                    vector<int64_t> tlen_limits(surjected.size(), max_frag_len);
-                    mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
-                    mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
-                    mp_alignment_emitter.emit_singles(src2.name(), move(surjected_unpaired2), &positions_unpaired2);
                 });
             } else {
                 // TODO: We don't preserve order relationships (like primary/secondary).
                 vg::io::for_each_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src) {
-
-                    multipath_alignment_t mp_src;
-                    from_proto_multipath_alignment(src, mp_src);
-                    
-                    // surject and record path positions
-                    vector<tuple<string, bool, int64_t>> positions;
-                    vector<multipath_alignment_t> surjected;
-                    
-                    if (multimap) {
-                        
-                        vector<tuple<string, int64_t, bool>> multi_positions;
-                        surjected = surjector.multi_surject(mp_src, paths, multi_positions, subpath_global, spliced);
-                        
-                        // positions are in different orders in these two interfaces
-                        for (auto& position : multi_positions) {
-                            positions.emplace_back(move(get<0>(position)), get<2>(position), get<1>(position));
+                    try {
+                        set_crash_context(src.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, src.name());
                         }
-                    }
-                    else {
-                        positions.emplace_back();
-                        surjected.emplace_back(surjector.surject(mp_src, paths, get<0>(positions.front()),
-                                                                 get<2>(positions.front()), get<1>(positions.front()),
-                                                                 subpath_global, spliced));
-                    }
+
+                        multipath_alignment_t mp_src;
+                        from_proto_multipath_alignment(src, mp_src);
+                        
+                        // surject and record path positions
+                        vector<tuple<string, bool, int64_t>> positions;
+                        vector<multipath_alignment_t> surjected;
+                        
+                        if (multimap) {
+                            
+                            vector<tuple<string, int64_t, bool>> multi_positions;
+                            surjected = surjector.multi_surject(mp_src, paths, multi_positions, subpath_global, spliced);
+                            
+                            // positions are in different orders in these two interfaces
+                            for (auto& position : multi_positions) {
+                                positions.emplace_back(move(get<0>(position)), get<2>(position), get<1>(position));
+                            }
+                        }
+                        else {
+                            positions.emplace_back();
+                            surjected.emplace_back(surjector.surject(mp_src, paths, get<0>(positions.front()),
+                                                                     get<2>(positions.front()), get<1>(positions.front()),
+                                                                     subpath_global, spliced));
+                        }
+                        
+                        // write to output
+                        mp_alignment_emitter.emit_singles(src.name(), move(surjected), &positions);
                     
-                    // write to output
-                    mp_alignment_emitter.emit_singles(src.name(), move(surjected), &positions);
-                    
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        clear_crash_context();
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
+                    }
                 });
             }
         });

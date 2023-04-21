@@ -3325,7 +3325,5 @@ void SnarlDistanceIndexClusterer::cluster_seeds_on_linear_structure(ClusteringPr
     return;
 }
 
-
-
 }
 

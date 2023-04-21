@@ -27,6 +27,7 @@
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
 #include "../watchdog.hpp"
+#include "../crash.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <gbwtgraph/gbz.h>
@@ -1314,50 +1315,59 @@ int main_giraffe(int argc, char** argv) {
                 
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
-                    auto thread_num = omp_get_thread_num();
-#ifdef __linux__
-                    ensure_perf_for_thread();
-#endif
-                    
-                    if (watchdog) {
-                        watchdog->check_in(thread_num, aln1.name() + ", " + aln2.name());
-                    }
-                    
-                    toUppercaseInPlace(*aln1.mutable_sequence());
-                    toUppercaseInPlace(*aln2.mutable_sequence());
-
-                    pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
-                    if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
-                        //If we actually tried to map this paired end
+                    try {
+                        set_crash_context(aln1.name() + ", " + aln2.name());
                         
-                        // Work out whether it could be properly paired or not, if that is relevant.
-                        // If we're here, let the read be properly paired in
-                        // HTSlib terms no matter how far away it is in linear
-                        // space (on the same contig), because it went into
-                        // pair distribution estimation.
-                        // TODO: The semantics are weird here. 0 means
-                        // "properly paired at any distance" and
-                        // numeric_limits<int64_t>::max() doesn't.
-                        int64_t tlen_limit = 0;
-                        if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
-                             tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                        auto thread_num = omp_get_thread_num();
+#ifdef __linux__
+                        ensure_perf_for_thread();
+#endif
+                        
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, aln1.name() + ", " + aln2.name());
                         }
-                        // Emit it
-                        alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
-                        // Record that we mapped a read.
-                        reads_mapped_by_thread.at(thread_num) += 2;
-                    }
-                    
-                    if (!minimizer_mapper.fragment_distr_is_finalized() && ambiguous_pair_buffer.size() >= MAX_BUFFERED_PAIRS) {
-                        // We risk running out of memory if we keep this up.
-                        cerr << "warning[vg::giraffe]: Encountered " << ambiguous_pair_buffer.size() << " ambiguously-paired reads before finding enough" << endl
-                             << "                      unambiguously-paired reads to learn fragment length distribution. Are you sure" << endl
-                             << "                      your reads are paired and your graph is not a hairball?" << endl;
-                        require_distribution_finalized();
-                    }
-                    
-                    if (watchdog) {
-                        watchdog->check_out(thread_num);
+                        
+                        toUppercaseInPlace(*aln1.mutable_sequence());
+                        toUppercaseInPlace(*aln2.mutable_sequence());
+
+                        pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
+                        if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
+                            //If we actually tried to map this paired end
+                            
+                            // Work out whether it could be properly paired or not, if that is relevant.
+                            // If we're here, let the read be properly paired in
+                            // HTSlib terms no matter how far away it is in linear
+                            // space (on the same contig), because it went into
+                            // pair distribution estimation.
+                            // TODO: The semantics are weird here. 0 means
+                            // "properly paired at any distance" and
+                            // numeric_limits<int64_t>::max() doesn't.
+                            int64_t tlen_limit = 0;
+                            if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
+                                 tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                            }
+                            // Emit it
+                            alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
+                            // Record that we mapped a read.
+                            reads_mapped_by_thread.at(thread_num) += 2;
+                        }
+                        
+                        if (!minimizer_mapper.fragment_distr_is_finalized() && ambiguous_pair_buffer.size() >= MAX_BUFFERED_PAIRS) {
+                            // We risk running out of memory if we keep this up.
+                            cerr << "warning[vg::giraffe]: Encountered " << ambiguous_pair_buffer.size() << " ambiguously-paired reads before finding enough" << endl
+                                 << "                      unambiguously-paired reads to learn fragment length distribution. Are you sure" << endl
+                                 << "                      your reads are paired and your graph is not a hairball?" << endl;
+                            require_distribution_finalized();
+                        }
+                        
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        
+                        clear_crash_context();
+                            
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
                     }
                 };
 
@@ -1381,17 +1391,22 @@ int main_giraffe(int argc, char** argv) {
                 // Make sure fragment length distribution is finalized first.
                 require_distribution_finalized();
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
-
-                    auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
-                    // Work out whether it could be properly paired or not, if that is relevant.
-                    int64_t tlen_limit = 0;
-                    if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
-                         tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                    try {
+                        set_crash_context(alignment_pair.first.name() + ", " + alignment_pair.second.name());
+                        auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
+                        // Work out whether it could be properly paired or not, if that is relevant.
+                        int64_t tlen_limit = 0;
+                        if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
+                             tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                        }
+                        // Emit the read
+                        alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
+                        // Record that we mapped a read.
+                        reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                        clear_crash_context();
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
                     }
-                    // Emit the read
-                    alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
-                    // Record that we mapped a read.
-                    reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
                 }
             } else {
                 // Map single-ended
@@ -1401,23 +1416,29 @@ int main_giraffe(int argc, char** argv) {
             
                 // Define how to align and output a read, in a thread.
                 auto map_read = [&](Alignment& aln) {
-                    auto thread_num = omp_get_thread_num();
+                    try {
+                        set_crash_context(aln.name());
+                        auto thread_num = omp_get_thread_num();
 #ifdef __linux__
-                    ensure_perf_for_thread();
+                        ensure_perf_for_thread();
 #endif
-                    if (watchdog) {
-                        watchdog->check_in(thread_num, aln.name());
-                    }
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, aln.name());
+                        }
+                        
+                        toUppercaseInPlace(*aln.mutable_sequence());
                     
-                    toUppercaseInPlace(*aln.mutable_sequence());
-                
-                    // Map the read with the MinimizerMapper.
-                    minimizer_mapper.map(aln, *alignment_emitter);
-                    // Record that we mapped a read.
-                    reads_mapped_by_thread.at(thread_num)++;
-                    
-                    if (watchdog) {
-                        watchdog->check_out(thread_num);
+                        // Map the read with the MinimizerMapper.
+                        minimizer_mapper.map(aln, *alignment_emitter);
+                        // Record that we mapped a read.
+                        reads_mapped_by_thread.at(thread_num)++;
+                        
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        clear_crash_context();
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
                     }
                 };
                     

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 54
+plan tests 55
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -52,6 +52,9 @@ scores=$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.
 is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "multiple alignments are returned in descending score order"
 
 is "$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -j -M 2 | jq -r -c 'select(.is_secondary | not)' | wc -l)" "1" "only a single primary alignment is returned"
+
+vg map -d x -f small/r.fa > /dev/null
+is $? 0 "vg can map multi-line FASTA sequences" 
 
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
