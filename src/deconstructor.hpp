@@ -45,8 +45,6 @@ public:
                      bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
-                     const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
-                     const unordered_map<string, int>* sample_ploidy = nullptr,
                      gbwt::GBWT* gbwt = nullptr);
     
 private:
@@ -64,8 +62,7 @@ private:
                             char prev_char, bool use_start) const;
     
     // write traversal path names as genotypes
-    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
-                       const vector<gbwt::size_type>& trav_thread_ids) const;
+    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele) const;
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
@@ -143,6 +140,9 @@ private:
     // the ref paths
     set<string> ref_paths;
 
+    // keep track of reference samples
+    set<string> ref_samples;
+    
     // keep track of the non-ref paths as they will be our samples
     set<string> sample_names;
 
@@ -150,7 +150,7 @@ private:
     const unordered_map<string, pair<string, int>>* path_to_sample_phase;
 
     // the sample ploidys given in the phases in our path names
-    const unordered_map<string, int>* sample_ploidys;
+    unordered_map<string, int> sample_ploidys;
 
     // upper limit of degree-2+ nodes for exhaustive traversal
     int max_nodes_for_exhaustive = 100;

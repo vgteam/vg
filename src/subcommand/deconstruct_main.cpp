@@ -41,7 +41,6 @@ void help_deconstruct(char** argv){
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
          << "    -P, --path-prefix NAME   All paths (and/or GBWT threads) beginning with NAME used as reference (multiple allowed)." << endl
          << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
-         << "    -H, --path-sep SEP       Obtain alt paths from the set of paths, assuming a path name hierarchy (e.g. SEP='#' and sample#phase#contig)" << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE (not needed for GBZ graph input)." << endl
          << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names and AT fields in output" << endl
@@ -80,7 +79,6 @@ int main_deconstruct(int argc, char** argv){
     bool strict_conflicts = false;
     int context_jaccard_window = 10000;
     bool untangle_traversals = false;
-    string path_sep;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -124,7 +122,7 @@ int main_deconstruct(int argc, char** argv){
             refpath_prefixes.push_back(optarg);
             break;
         case 'H':
-            path_sep = optarg;
+            cerr << "Warning [vg deconstruct]: -H is deprecated, and will be ignored" << endl;
             break;
         case 'r':
             snarl_file_name = optarg;
@@ -176,15 +174,6 @@ int main_deconstruct(int argc, char** argv){
         }
 
     }
-    if ((!path_sep.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
-        cerr << "Error [vg deconstruct]: -H and -d can only be used with -e or -g" << endl;
-        return 1;
-    }
-
-    if (!gbwt_file_name.empty() && path_restricted_traversals) {
-        cerr << "Error [vg deconstruct]: -e cannot be used with -g" << endl;
-        return 1;
-    }
 
     // Read the graph
 
@@ -209,6 +198,16 @@ int main_deconstruct(int argc, char** argv){
 
     if (!gbz_graph && gbz_translation) {
         cerr << "Error [vg deconstruct]: -O can only be used when input graph is in GBZ format" << endl;
+    }
+
+    if (set_ploidy && !path_restricted_traversals && gbwt_file_name.empty() && !gbz_graph) {
+        cerr << "Error [vg deconstruct]: -d can only be used with -e or -g or GBZ input" << endl;
+        return 1;
+    }
+
+    if ((!gbwt_file_name.empty() || gbz_graph) && path_restricted_traversals && !gbz_graph) {
+        cerr << "Error [vg deconstruct]: -e cannot be used with -g or GBZ input" << endl;
+        return 1;
     }
 
     // We might need to apply an overlay to get good path position queries
@@ -333,78 +332,16 @@ int main_deconstruct(int argc, char** argv){
         }
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
-
-    // We store each sample ploidy specifically, based on the number of named phases
-    unordered_map<string, int> sample_ploidy;
     
-    // We use this to map, for example, from chromosome to genome (eg S288C.chrXVI --> S288C)
-    unordered_map<string, pair<string, int>> alt_path_to_sample_phase;
-    
-    // process the prefixes
-    if (!refpath_prefixes.empty() || !path_sep.empty()) {
-        // determine phase identifiers
-        map<string, set<string>> sample_seen_phases;
-        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-            string path_name = graph->get_path_name(path_handle);
-            vector<string> vals = split(path_name, path_sep);
-            if (vals.size() > 1) {
-                auto& sample_name = vals[0];
-                auto& phase_str = vals[1];
-                /*
-                if (is_number(phase_str)) {
-                    seen_phases.insert(phase_str);
-                }
-                */
-                sample_seen_phases[sample_name].insert(phase_str);
-            }
-        });
-        map<string, map<string, int>> sample_phase_name_to_id;
-        {
-            for (auto& sample : sample_seen_phases) {
-                int i = 0;
-                for (auto& phase : sample.second) {
-                    sample_phase_name_to_id[sample.first][phase] = i++;
-                }
-            }
-        }
-        /*
-        if (seen_phases.size() > ploidy) {
-            cerr << "Error [vg deconstruct]: We saw " << seen_phases.size()
-                 << " phases, but ploidy is " << ploidy
-                 << ". With -H '" << path_sep << "', the phase identifier in sample'"
-                 << path_sep << "'phase1 is \"phase1\"."
-                 << " You have too many unique phase identifiers in the input for the given ploidy:" << endl;
-            for (auto& phase : seen_phases) {
-                cerr << "phase_name: " << phase << " -> phase_id: " << phase_name_to_id[phase] << endl;
-            }
-            return 1;
-        }
-        */
-        unordered_map<string, set<int>> sample_phases;
-        // our phase identifiers now map into a dense range
+    // process the prefixes to find ref paths
+    if (!refpath_prefixes.empty()) {
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
-                // split on our sep
-                vector<string> vals = split(path_name, path_sep);
-                bool is_ref = false;
-                for (auto& prefix : refpath_prefixes) {
-                    if (vals[0].compare(0, prefix.size(), prefix) == 0) {
+                for (auto& prefix : refpath_prefixes) {                    
+                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
                         refpaths.push_back(path_name);
-                        is_ref = true;
                         break;
                     }
-                }
-                if (!is_ref) {
-                    auto& sample_name = vals[0];
-                    int phase = 0;
-                    if (vals.size() > 1) {
-                        //&& is_number(vals[1])) {
-                        phase = sample_phase_name_to_id[sample_name][vals[1]];
-                    } else {
-                        phase = 0;
-                    }
-                    alt_path_to_sample_phase[path_name] = make_pair(sample_name, phase);
-                    sample_phases[sample_name].insert(phase);
                 }
             });
         if (gbwt_index) {
@@ -416,21 +353,6 @@ int main_deconstruct(int argc, char** argv){
                         break;
                     }
                 }
-            }
-        }
-        for (auto& sp : sample_phases) {
-            sample_ploidy[sp.first] = sp.second.size();
-        }
-        if (gbwt_index) {
-            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
-                string sample_name = gbwtgraph::get_path_sample_name(*gbwt_index, i, sense);
-                auto phase = gbwtgraph::get_path_haplotype(*gbwt_index, i, sense);
-                if (phase == PathMetadata::NO_HAPLOTYPE) {
-                    // The Deconstructor defaults this to 0 so we should too.
-                    phase = 0;
-                }
-                alt_path_to_sample_phase[sample_name] = make_pair(sample_name, (int) phase);
             }
         }
     }
@@ -458,8 +380,6 @@ int main_deconstruct(int argc, char** argv){
                    untangle_traversals,
                    keep_conflicted,
                    strict_conflicts,
-                   !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
-                   &sample_ploidy,
                    gbwt_index);
     return 0;
 }
