@@ -1870,11 +1870,11 @@ namespace vg {
             for (size_t i = 1; (head_id != 0 || tail_id != 0) && i < chunk.graph.path_size(); i++) {
                 // Go through all paths other than the reference
                 auto& path = chunk.graph.path(i);
-                for (size_t i = 0; i < path.mapping_size(); i += (path.mapping_size() - 1)) {
+                for (size_t j = 0; j < path.mapping_size(); j += (path.mapping_size() - 1)) {
                     // Check the first and last steps on the path to see if they
                     // touch our head/tail nodes. Other steps can't touch them
                     // because of the edge restrictions we already checked.
-                    nid_t touched_node = path.mapping(i).position().node_id();
+                    nid_t touched_node = path.mapping(j).position().node_id();
                     if (touched_node == head_id) {
                         #ifdef debug
                         cerr << "Node " << head_id << " is visited by path " << path.name() << " and so can't merge" << endl;
