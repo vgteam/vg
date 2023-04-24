@@ -1864,13 +1864,14 @@ namespace vg {
             }
 
             for (size_t i = 1; (head_id != 0 || tail_id != 0) && i < chunk.graph.path_size(); i++) {
-                // Go through all paths other than the reference
+                // Go through all paths other than the reference (which is 0)
                 auto& path = chunk.graph.path(i);
-                for (size_t j = 0; j < path.mapping_size(); j += (path.mapping_size() - 1)) {
-                    // Check the first and last steps on the path to see if they
-                    // touch our head/tail nodes. Other steps can't touch them
-                    // because of the edge restrictions we already checked.
-                    nid_t touched_node = path.mapping(j).position().node_id();
+                
+                // Check the first and last steps on the path to see if they
+                // touch our head/tail nodes. Other steps can't touch them
+                // because of the edge restrictions we already checked.
+                auto check_mapping = [&](size_t mapping_index) {
+                    nid_t touched_node = path.mapping(mapping_index).position().node_id();
                     if (touched_node == head_id) {
                         #ifdef debug
                         cerr << "Node " << head_id << " is visited by path " << path.name() << " and so can't merge" << endl;
@@ -1882,6 +1883,16 @@ namespace vg {
                         cerr << "Node " << tail_id << " is visited by path " << path.name() << " and so can't merge" << endl;
                         #endif
                         tail_id = 0;
+                    }
+                };
+
+                // Sometimes the first and last step are the same step!
+                if (path.mapping_size() > 0) {
+                    // We have a first step
+                    check_mapping(0);
+                    if (path.mapping_size() > 1) {
+                        // We have a distinct last step
+                        check_mapping(path.mapping_size() - 1);
                     }
                 }
             }
