@@ -853,6 +853,9 @@ namespace vg {
 
                             // Save the bounds for making reference node path visits
                             // inside the ref allele of the variable region.
+                            #ifdef debug
+                            cerr << "Record ref interval of " << bounds.first << " to " << bounds.second << " for " << *variant << endl;
+                            #endif
                             variable_intervals.push_back(IntervalTree<int64_t, vcflib::Variant*>::interval(bounds.first, bounds.second, variant));
                         }
 
@@ -1395,6 +1398,9 @@ namespace vg {
                     if (!representative_nodes->second.empty() && alt_paths) {
                         // Ref paths from other variants may need to visit these new nodes.
                         auto overlapping_intervals = variable_interval_tree.findOverlapping(reference_cursor, reference_cursor);
+                        #ifdef debug
+                        cerr << "Found " << overlapping_intervals.size() << " potential overlapping variants in clump at " << reference_cursor << endl;
+                        #endif
                         for (auto& interval : overlapping_intervals) {
                             if (interval.start <= reference_cursor && interval.stop >= reference_cursor && !skipped.count(interval.value)) {
                                 // For each variant we might also be part of the ref allele of
