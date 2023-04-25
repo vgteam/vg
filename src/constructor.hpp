@@ -157,6 +157,9 @@ public:
      *
      * Variants in the vector may not use symbolic alleles.
      *
+     * All variants must have has their canonical field set, either manually to
+     * false or by canonicalize() to true.
+     *
      * chunk_offset gives the global 0-based position at which this chunk starts
      * in the reference contig it is part of, which is used to correctly place
      * variants.
