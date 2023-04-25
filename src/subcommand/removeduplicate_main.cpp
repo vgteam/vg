@@ -135,6 +135,26 @@ bool check_duplicate(const Alignment aln1, const Alignment aln2) {
 
 }
 
+bool check_pair_duplicate(const Alignment aln1, const Alignment aln2) {
+    /// This function check if the two input alignments are duplicate or not, They are duplicate even if have same begining and end
+    vector <pos_t> first_alignment_pos = alignment_position(aln1);
+    vector <pos_t> second_alignment_pos = alignment_position(aln2);
+    if (id(first_alignment_pos.front()) == id(second_alignment_pos.front()) &&
+        offset(first_alignment_pos.front()) == offset(second_alignment_pos.front()) &&
+        (is_rev(first_alignment_pos.front()) == is_rev(second_alignment_pos.front()))) {
+//        size_t t = first_alignment_pos.size() - 1;
+        // We check if the alignments end on the same position
+        if (id(first_alignment_pos.back()) == id(second_alignment_pos.back()) &&
+            offset(first_alignment_pos.back()) == offset(second_alignment_pos.back()) &&
+            (is_rev(first_alignment_pos.back()) == is_rev(second_alignment_pos.back())))
+            return true;
+    }
+
+    return false;
+
+
+}
+
 string name_id(const Alignment &aln) {
     /// Make a unique name for each alignment base on the name and if they have next/prev fragment
     string id;
@@ -333,8 +353,9 @@ int main_rmvdup(int argc, char *argv[]) {
                             // This finds all other alns that share node/nodes with the "aln"
                             gam_index->find(gam_cursor, intervals_pair1, [&](const Alignment &share_aln) {
                                 if (check_duplicate(aln, share_aln)) {
-                                    pair1_duplicates_set.insert(aln.has_fragment_prev() ? aln.fragment_prev().name()
-                                                                                        : aln.fragment_next().name());
+                                    pair1_duplicates_set.insert(
+                                            share_aln.has_fragment_prev() ? share_aln.fragment_prev().name()
+                                                                          : share_aln.fragment_next().name());
                                 }
 
                             });
@@ -346,17 +367,22 @@ int main_rmvdup(int argc, char *argv[]) {
                         get_input_file(sorted_gam_name, [&](istream &input_gam) {
                             vg::io::ProtobufIterator<Alignment> gam_cursor(input_gam);
 
-                            gam_index->find(gam_cursor, intervals_pair1, [&](const Alignment &share_aln) {
+                            gam_index->find(gam_cursor, intervals_pair2, [&](const Alignment &share_aln) {
                                 if (check_duplicate(aln_pair, share_aln)) {
 
                                     // The pair is in the set
                                     if (pair1_duplicates_set.find(share_aln.name()) != pair1_duplicates_set.end()) {
+
+
                                         // This means we find pairs that are duplicates with the main pairs so we check them for being duplicate
 
-                                        // TODO: Check if this is the correct way to find the pair name_id
+                                        // we add /1 to the prev one because we are naming the other pair
                                         string pair_name_id = share_aln.has_fragment_prev() ?
                                                               share_aln.fragment_prev().name() + "/1" :
                                                               share_aln.fragment_next().name() + "/2";
+//                                        cout << "share aln " << name_id(share_aln) << endl;
+//                                        cout << "pair share aln " << pair_name_id << endl;
+                                        // TODO: WE dont get here!
                                         checked[bphf->lookup(name_id(share_aln))] = true;
                                         checked[bphf->lookup(pair_name_id)] = true;
 
@@ -381,21 +407,21 @@ int main_rmvdup(int argc, char *argv[]) {
                         });
 
                         // Writing the non-duplicate PCRs to the file
-                        if (!checked[bphf->lookup(name_id(aln))]) {
 #pragma omp critical (cerr)
-                            checked[bphf->lookup(name_id(aln))] = true;
-                            checked[bphf->lookup(name_id(aln_pair))] = true;
-                            if (!print_duplicates) {
-                                if (output_t)
-                                    cout << "Pair1 " << aln.sequence() << "\t" << aln.name() << "Pair2 "
-                                         << aln_pair.sequence() << "\t" << aln_pair.name() << endl;
-                                else {
-                                    emitter->write(std::move(aln));
-                                    emitter->write(std::move(aln_pair));
-                                }
-
+//                        cout << name_id(aln) << endl;
+                        checked[bphf->lookup(name_id(aln))] = true;
+                        checked[bphf->lookup(name_id(aln_pair))] = true;
+                        if (!print_duplicates) {
+                            if (output_t)
+                                cout << "Pair1 " << aln.sequence() << "\t" << aln.name() << "Pair2 "
+                                     << aln_pair.sequence() << "\t" << aln_pair.name() << endl;
+                            else {
+                                emitter->write(std::move(aln));
+                                emitter->write(std::move(aln_pair));
                             }
+
                         }
+
 
                     }
 
