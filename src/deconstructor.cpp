@@ -636,7 +636,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     int64_t first_gbwt_trav_idx = path_trav_names.size();
     vector<gbwt::size_type> gbwt_path_ids;
     if (gbwt_trav_finder.get() != nullptr) {
-        auto gbwt_index = gbwt_trav_finder->get_gbwt();
+        const gbwt::GBWT& gbwt_index = gbwt_trav_finder->get_gbwt();
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
             // We need to get a bunch of metadata about the path, but the GBWT
