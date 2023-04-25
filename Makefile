@@ -84,6 +84,10 @@ LD_STATIC_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_STATIC
 # We also use plain LDFLAGS to point at system library directories that we want
 # to propagate through to dependencies' builds.
 
+# CMake builds that need to find OpenMP might not know about all the prefixes it could be installed into.
+# So we make a list of prefixes to search for it.
+OMP_PREFIXES:=/
+
 # Travis needs -latomic for all builds *but* GCC on Mac
 ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic | wc -l)), 0)
     # Use -latomic if the compiler doesn't complain about it
@@ -156,16 +160,19 @@ ifeq ($(shell uname -s),Darwin)
         ifeq ($(shell if [ -e $(HOMEBREW_PREFIX)/include/omp.h ]; then echo 1; else echo 0; fi), 1)
             # libomp used to be globally installed in Homebrew
             $(info OMP source is Homebrew libomp global install)
+            OMP_PREFIXES:=$(OMP_PREFIXES);$(HOMEBREW_PREFIX)
         else ifeq ($(shell if [ -d $(HOMEBREW_PREFIX)/opt/libomp/include ]; then echo 1; else echo 0; fi), 1)
             # libomp moved to these directories, recently, because it is now keg-only to not fight GCC
             $(info OMP source is Homebrew libomop keg)
             CXXFLAGS += -I$(HOMEBREW_PREFIX)/opt/libomp/include
             LDFLAGS += -L$(HOMEBREW_PREFIX)/opt/libomp/lib
+            OMP_PREFIXES:=$(OMP_PREFIXES);$(HOMEBREW_PREFIX)/opt/libomp
         else ifeq ($(shell if [ -d /opt/local/lib/libomp ]; then echo 1; else echo 0; fi), 1)
             # Macports installs libomp to /opt/local/lib/libomp
             $(info OMP source Macports)
             CXXFLAGS += -I/opt/local/include/libomp
             LDFLAGS += -L/opt/local/lib/libomp
+            OMP_PREFIXES:=$(OMP_PREFIXES);/opt/local
         else
             $(error OMP is not available from either Homebrew or Macports)
         endif
@@ -663,8 +670,10 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # We need to build as RelWithDebInfo to avoid vcflib using its own
 # -march=native, which would conflict with the -march that comes in through
 # CXXFLAGS from the vg Dockerfile.
+# We also need to use the magic path hint to let CMake find Mac OpenMP.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CPPFLAGS) $(CXXFLAGS)" -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && cmake --build .
+	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="$(OMP_PREFIXES)" .. && cmake --build .
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
