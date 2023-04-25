@@ -604,7 +604,7 @@ namespace vg {
                 // edits in each variant that are actual change-making edits. These
                 // are in chunk coordinates. They are only populated if a variant
                 // has a variable region. Equal start and end indicate a 1-base region.
-                vector<IntervalTree<int64_t, Variant*>::interval> variable_intervals;
+                vector<IntervalTree<int64_t, vcflib::Variant*>::interval> variable_intervals;
 
                 // This holds the min and max values for starts and ends of edits
                 // not removed from the clump. These are in chunk coordinates.
@@ -853,7 +853,7 @@ namespace vg {
 
                             // Save the bounds for making reference node path visits
                             // inside the ref allele of the variable region.
-                            variable_intervals.push_back(IntervalTree<int64_t, Variant*>::interval(bounds.first, bounds.second, variant));
+                            variable_intervals.push_back(IntervalTree<int64_t, vcflib::Variant*>::interval(bounds.first, bounds.second, variant));
                         }
 
                         #ifdef debug
@@ -905,7 +905,7 @@ namespace vg {
                 #endif
 
                 // Index the variants in the clump by the reference region they overlap
-                IntervalTree<int64_t, Variant*> variable_interval_tree(std::move(variable_intervals));
+                IntervalTree<int64_t, vcflib::Variant*> variable_interval_tree(std::move(variable_intervals));
 
                 // Create ref nodes from the end of the last clump (where the cursor
                 // is) to the start of this clump's interior non-ref content.
@@ -1380,7 +1380,7 @@ namespace vg {
 #endif
 
                         // Save it in case any other alts also have this edit.
-                        representative_nodes = created_nodes.insert(representative_nodes, node_run);
+                        representative_nodes = created_nodes.insert(representative_nodes, {key, node_run});
                     } else {
 #ifdef debug
                         cerr << "Reference nodes at  " << reference_cursor << " for constant " << run_sequence.size() << " bp sequence " << run_sequence << " already exist" << endl;
