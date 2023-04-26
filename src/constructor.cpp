@@ -2191,6 +2191,9 @@ namespace vg {
             // While we have variants we want to include
             auto vvar = variant_source.get();
 
+            // Fix the variant's canonical flag being uninitialized.
+            vvar->canonical = false;
+
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
             
