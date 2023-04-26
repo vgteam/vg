@@ -276,6 +276,7 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Construct a <a class="el" href="structvg_1_1ConstructedChunk.html">ConstructedChunk</a> of graph from the given piece of sequence, with the given name, applying the given variants. The variants need to be sorted by start position, and have their start positions set to be ZERO- BASED. However, they also need to have their start positions relative to the global start of the contig, so that hash-based names come out right for them. They also need to not overlap with any variants not in the vector we have (i.e. we need access to all overlapping variants for this region). The variants must not extend beyond the given sequence, though they can abut its edges.</p>
 <p>Variants in the vector may not use symbolic alleles.</p>
+<p>All variants must have has their canonical field set, either manually to false or by canonicalize() to true.</p>
 <p>chunk_offset gives the global 0-based position at which this chunk starts in the reference contig it is part of, which is used to correctly place variants. </p>
 <p>Find the next breakpoint.</p>
 <p>Takes in the search position, like the position of the next un-made reference base. So searches from the left edge of the passed inclusive position.</p>
