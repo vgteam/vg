@@ -8,6 +8,8 @@
 #include "crash.hpp"
 #include "io/load_proto_to_graph.hpp"
 
+#include <IntervalTree.h>
+
 #include <cstdlib>
 #include <set>
 #include <tuple>
@@ -601,9 +603,8 @@ namespace vg {
                 // This holds the min and max values for the starts and ends of
                 // edits in each variant that are actual change-making edits. These
                 // are in chunk coordinates. They are only populated if a variant
-                // has a variable region. They can enclose a 0-length variable
-                // region by having the end before the beginning.
-                map<vcflib::Variant*, pair<int64_t, int64_t>> variable_bounds;
+                // has a variable region. Equal start and end indicate a 1-base region.
+                vector<IntervalTree<int64_t, vcflib::Variant*>::interval> variable_intervals;
 
                 // This holds the min and max values for starts and ends of edits
                 // not removed from the clump. These are in chunk coordinates.
@@ -844,9 +845,19 @@ namespace vg {
                         // There's a (possibly 0-length) variable region
                         bounds.first -= chunk_offset;
                         bounds.second -= chunk_offset;
-                        // Save the bounds for making reference node path visits
-                        // inside the ref allele of the variable region.
-                        variable_bounds[variant] = bounds;
+                        
+                        if (alt_paths && bounds.second >= bounds.first) {
+                            // The variant covers a nonempty part of the
+                            // reference, and we will need to find it for alt
+                            // path generation.
+
+                            // Save the bounds for making reference node path visits
+                            // inside the ref allele of the variable region.
+                            #ifdef debug
+                            cerr << "Record ref interval of " << bounds.first << " to " << bounds.second << " for " << *variant << endl;
+                            #endif
+                            variable_intervals.push_back(IntervalTree<int64_t, vcflib::Variant*>::interval(bounds.first, bounds.second, variant));
+                        }
 
                         #ifdef debug
                         if (bounds.first < first_edit_start) {
@@ -896,6 +907,9 @@ namespace vg {
                 cerr << "edits run between " << first_edit_start << " and " << last_edit_end << endl;
                 #endif
 
+                // Index the variants in the clump by the reference region they overlap
+                IntervalTree<int64_t, vcflib::Variant*> variable_interval_tree(std::move(variable_intervals));
+
                 // Create ref nodes from the end of the last clump (where the cursor
                 // is) to the start of this clump's interior non-ref content.
                 add_reference_nodes_until(first_edit_start);
@@ -911,7 +925,7 @@ namespace vg {
                 // This holds on to variant ref paths, which we can't actually fill
                 // in until all the variants in the clump have had their non-ref
                 // paths done.
-                map<vcflib::Variant*, Path*> variant_ref_paths;
+                unordered_map<vcflib::Variant*, Path*> variant_ref_paths;
                 
                 // This holds alt Path pointers and the inversions (start, end)
                 // that they need to trace through in their inverted
@@ -1348,8 +1362,8 @@ namespace vg {
 
                     // We need a key to see if a node (run) has been made for this sequece already
                     auto key = make_tuple(reference_cursor, run_sequence, run_sequence);
-
-                    if (created_nodes.count(key) == 0) {
+                    auto representative_nodes = created_nodes.find(key);
+                    if (representative_nodes == created_nodes.end()) {
                         // We don't have a run of ref nodes up to the next break, so make one
                         vector<Node*> node_run = create_nodes(run_sequence);
 
@@ -1369,38 +1383,43 @@ namespace vg {
 #endif
 
                         // Save it in case any other alts also have this edit.
-                        created_nodes[key] = node_run;
+                        representative_nodes = created_nodes.insert(representative_nodes, {key, node_run});
                     } else {
 #ifdef debug
                         cerr << "Reference nodes at  " << reference_cursor << " for constant " << run_sequence.size() << " bp sequence " << run_sequence << " already exist" << endl;
 #endif
                     }
 
-                    for (Node* node : created_nodes[key]) {
+                    for (Node* node : representative_nodes->second) {
                         // Add a reference visit to each node we created/found
                         add_match(ref_path, node);
+                    }
 
-                        if (alt_paths) {
-                            for (vcflib::Variant* variant : clump) {
+                    if (!representative_nodes->second.empty() && alt_paths) {
+                        // Ref paths from other variants may need to visit these new nodes.
+                        auto overlapping_intervals = variable_interval_tree.findOverlapping(reference_cursor, reference_cursor);
+                        #ifdef debug
+                        cerr << "Found " << overlapping_intervals.size() << " potential overlapping variants in clump at " << reference_cursor << endl;
+                        #endif
+                        for (auto& interval : overlapping_intervals) {
+                            if (interval.start <= reference_cursor && interval.stop >= reference_cursor && !skipped.count(interval.value)) {
                                 // For each variant we might also be part of the ref allele of
-                                if (!skipped.count(variant) &&
-                                        variable_bounds.count(variant) &&
-                                        reference_cursor >= variable_bounds[variant].first &&
-                                        reference_cursor <= variable_bounds[variant].second) {
-                                    // For unique variants that actually differ from reference,
-                                    // if this run of nodes starts within the variant's variable region...
-                                    // (We know if it starts in the variable region it has to
-                                    // end in the variant, because the variable region ends with
-                                    // a node break)
 
-                                    if (variant_ref_paths.count(variant) == 0) {
-                                        // All unique variants ought to have a ref path created
-                                        cerr << "error:[vg::Constructor] no ref path for " << *variant << endl;
-                                        exit(1);
-                                    }
+                                // For unique variants that actually differ from reference,
+                                // if this run of nodes starts within the variant's variable region...
+                                // (We know if it starts in the variable region it has to
+                                // end in the variant, because the variable region ends with
+                                // a node break)
 
+                                if (variant_ref_paths.count(interval.value) == 0) {
+                                    // All unique variants ought to have a ref path created
+                                    cerr << "error:[vg::Constructor] no ref path for " << *interval.value << endl;
+                                    exit(1);
+                                }
+                                
+                                for (Node* node : representative_nodes->second) {
                                     // Add a match along the variant's ref allele path
-                                    add_match(variant_ref_paths[variant], node);
+                                    add_match(variant_ref_paths[interval.value], node);
                                 }
                             }
                         }
