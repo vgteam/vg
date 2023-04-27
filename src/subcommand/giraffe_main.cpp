@@ -105,8 +105,7 @@ static GroupedOptionGroup get_options() {
         "max-min", 'U',
         &MinimizerMapper::max_unique_min,
         MinimizerMapper::default_max_unique_min,
-        "use at most INT minimizers",
-        size_t_is_nonzero
+        "use at most INT minimizers, 0 for no limit"
     );
     comp_opts.add_range(
         "num-bp-per-min",
@@ -118,7 +117,7 @@ static GroupedOptionGroup get_options() {
         "downsample-min",
         &MinimizerMapper::minimizer_downsampling_window_size,
         MinimizerMapper::default_minimizer_downsampling_window_size,
-        "downsample minimizers with windows of length INT"
+        "downsample minimizers with windows of length INT, 0 for no downsampling"
     );
     comp_opts.add_range(
         "distance-limit", 'D',

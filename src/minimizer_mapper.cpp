@@ -583,11 +583,15 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     });
 
 
-    // Minimizers sorted by score in descending order.
-    std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
+    // Minimizers sorted by position
+    std::vector<Minimizer> minimizers_in_read = this->find_minimizers(aln.sequence(), funnel);
+    // Indexes of minimizers, sorted into score order, best score first
+    std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
+    // Minimizers sorted by best score first
+    VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -1427,7 +1431,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     // TODO: Let the clusterer use something else?
     std::vector<std::vector<Seed>> seeds_by_read(2);
     for (auto r : {0, 1}) {
-        seeds_by_read[r] = this->find_seeds(minimizers_by_read[r], *alns[r], funnels[r]);
+        seeds_by_read[r] = this->find_seeds(minimizers_in_read_by_read[r], minimizers_by_read[r], *alns[r], funnels[r]);
     }
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
@@ -3219,6 +3223,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     
     if (this->track_provenance) {
         // Record how many we found, as new lines.
+        // THey are going to be numbered in score order, not read order. Probably...
         funnel.introduce(result.size());
     }
 
@@ -3230,13 +3235,13 @@ std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<
     return sort_permutation(minimizers.begin(), minimizers.end());
 }
 
-std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln,  Funnel& funnel) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln,  Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
         funnel.stage("seed");
     }
-
+    
     // One of the filters accepts minimizers until selected_score reaches target_score.
     double base_target_score = 0.0;
     for (const Minimizer& minimizer : minimizers) {
@@ -3273,22 +3278,27 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     std::vector<Seed> seeds;
 
     // Prefilter and downsample the minimizers with a sliding window.
-    auto minimizer_worse_than = [&](const size_t& a, const size_t& b) {
+    // We do all this in *read* order!
+    auto minimizer_worse_than = [&](const Minimizer& min_a, const Minimizer& min_b) {
         // Return true if minimizer a is worse than minimizer b.
-
         // The worse minimizer is the one that doesn't match the reference, or
         // if both match the reference it is the one that has less score.
-        return (minimizers[a].hits == 0 && minimizers[b].hits > 0) || (minimizers[a].hits != 0 && minimizers[b].hits != 0 && minimizers[a].score < minimizers[b].score);
+        return (min_a.hits == 0 && min_b.hits > 0) || (min_a.hits != 0 && min_b.hits != 0 && min_a.score < min_b.score);
     };
-    // We will mark minimizers with a true here if we visit them when downsampling.
-    std::vector<bool> minimizer_passed_downsampling(minimizers.size(), false);
+    // We keep a set of the minimizers that pass downsampling.
+    // We later need to filter given a minimizer reference and that makes it hard to use a bit vector here.
+    // TODO: change how the filters work!
+    std::unordered_set<const Minimizer*> downsampled;
     if (this->minimizer_downsampling_window_size != 0) {
         // This will hold all the minimizers in the sliding window of bases
         std::deque<size_t> queue;
-        for (size_t i = 0; i < minimizers.size(); i++) {
+        for (size_t i = 0; i < minimizers_in_read_order.size(); i++) {
             // We use the minimizer sampling algorithm again, as described in the Winnowmap paper (Jain et al., 2020).
             
-            while (!queue.empty() && minimizer_worse_than(queue.back(), i)) { 
+            auto& new_minimizer = minimizers_in_read_order[i];
+            size_t new_window_end = new_minimizer.forward_offset() + new_minimizer.length;
+
+            while (!queue.empty() && minimizer_worse_than(minimizers_in_read_order.at(queue.back()), new_minimizer)) { 
                 // Drop minimizers off the end of the queue until it is empty
                 // or we find one that is at least as good as the new
                 // minimizer.
@@ -3298,7 +3308,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
             // Add the new minimizer.
             queue.push_back(i);
 
-            while(!queue.empty() && minimizers[queue.front()].forward_offset() + this->minimizer_downsampling_window_size < minimizers[i].forward_offset() + minimizers[i].length) {
+            while(!queue.empty() && minimizers_in_read_order[queue.front()].forward_offset() + this->minimizer_downsampling_window_size < new_window_end) {
                 // Drop minimizers off the front of the queue until it is empty
                 // or we find one that is in-window.
                 queue.pop_front();
@@ -3307,12 +3317,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
             if (queue.empty()) {
                 // We removed the minimizer we just added. The window is probably too small.
                 #pragma omp critical (cerr)
-                std::cerr << "error:[vg::MinimizerMapper] no minimizer found in downsampling window. Make sure that the downsampling window is at least " << minimizers[i].length << " bp" << std::endl;
+                std::cerr << "error:[vg::MinimizerMapper] no minimizer found in downsampling window. Make sure that the downsampling window is at least " << new_minimizer.length << " bp" << std::endl;
                 exit(1);
             }
 
             // Since we never add a better minimizer after a worse one, the first thing in the queue is the best minimizer in the window.
-            minimizer_passed_downsampling[queue.front()] = true;
+            downsampled.insert(&minimizers_in_read_order[queue.front()]);
+        }
+        if (show_work) {
+            #pragma omp critical (cerr)
+            std::cerr << log_name() << "Downsampled to " << downsampled.size() << " minimizers" << std::endl;
         }
     }
     
@@ -3335,7 +3349,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
         // Drop minimizers if we cleared their downsampling flag. Sneakily go back from minimizer itself to index in the array.
         minimizer_filters.emplace_back(
             "window-downsampling", 
-            [&](const Minimizer& m) { return minimizer_passed_downsampling.at(&m - &minimizers[0]); },
+            [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
             [](const Minimizer& m) { return nan(""); },
             [](const Minimizer& m) {},
             [](const Minimizer& m) {}

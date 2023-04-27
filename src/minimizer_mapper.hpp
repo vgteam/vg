@@ -526,14 +526,15 @@ protected:
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
     
     /**
-     * Return the indices of all the minimizers, sorted in descending order by theit minimizers' scores.
+     * Return the indices of all the minimizers, sorted in descending order by their minimizers' scores.
      */
-    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers) const;
+    std::vector<size_t> sort_minimizers_by_score(const std::vector<Minimizer>& minimizers_in_read_order) const;
 
     /**
-     * Find seeds for all minimizers passing the filters.
+     * Find seeds for all minimizers passing the filters. Takes in minimizers
+     * sorted in read order, and a view of them sorted in score order.
      */
-    std::vector<Seed> find_seeds(const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
     
     /**
      * If tracking correctness, mark seeds that are correctly mapped as correct

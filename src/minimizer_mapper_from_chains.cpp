@@ -480,14 +480,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     std::vector<size_t> minimizer_score_order = sort_minimizers_by_score(minimizers_in_read);
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
-    // We may or may not need to invert this view, but if we do we will want to
-    // keep the result. So have a place to lazily keep an inverse.
-    std::unique_ptr<VectorViewInverse> minimizer_score_sort_inverse;
 
     vector<ZipCodeDecoder> decoders;
     
     // Find the seeds and mark the minimizers that were located.
-    vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
+    vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
     
     // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
     if (track_provenance) {
