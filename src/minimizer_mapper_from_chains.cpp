@@ -560,7 +560,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     fragment_cfg.cluster_score_cutoff = bucket_score_cutoff;
     fragment_cfg.cluster_score_cutoff_enabled = true;
     fragment_cfg.cluster_coverage_threshold = 1.0;
-    fragment_cfg.min_clusters_to_chain = std::numeric_limits<size_t>::max();
+    fragment_cfg.min_clusters_to_chain = this->min_buckets_to_fragment;
     fragment_cfg.max_clusters_to_chain = this->max_buckets_to_fragment;
     
     fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
@@ -645,6 +645,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         #pragma omp critical (cerr)
         std::cerr << log_name() << "Bucket " << best_bucket << " is best with fragment with score " << best_bucket_fragment_score << std::endl;
     }
+    size_t best_bucket_seed_count = buckets.at(best_bucket).seeds.size();
     
     // Find the fragments that are in the best bucket
     std::vector<size_t> best_bucket_fragments;
@@ -856,6 +857,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             best_chain_score = chain_score_estimates[i];
         }
     }
+    bool best_chain_correct = false;
+    if (track_correctness && best_chain != std::numeric_limits<size_t>::max()) {
+        // We want to explicitly check if the best chain was correct, for looking at stats about it later.
+        if (funnel.is_correct(best_chain)) {
+            best_chain_correct = true;
+        }
+    }
     
     // Find its coverage
     double best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
@@ -873,7 +881,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
         best_chain_total_jump += jump;
     }
-    double best_chain_average_jump = best_chain_total_jump / chains.at(best_chain).size();
+    double best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
+
+    // Also count anchors in the chain
+    size_t best_chain_anchors = chains.at(best_chain).size();
+
+    // And total length of anchors in the chain
+    size_t best_chain_anchor_length = 0;
+    for (auto& item : chains.at(best_chain)) {
+        best_chain_anchor_length += seed_anchors.at(item).length();
+    }
     
     // Now do reseeding inside chains. Not really properly a funnel stage; it elaborates the chains
     if (track_provenance) {
@@ -1252,9 +1269,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Special fragment and chain statistics
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "best_bucket_fragment_coverage_at_top", best_bucket_fragment_coverage_at_top);
+    set_annotation(mappings[0], "best_bucket_seed_count", (double)best_bucket_seed_count);
+    if (track_correctness) {
+        set_annotation(mappings[0], "best_chain_correct", best_chain_correct);
+    }
     set_annotation(mappings[0], "best_chain_coverage", best_chain_coverage);
     set_annotation(mappings[0], "best_chain_longest_jump", (double) best_chain_longest_jump);
     set_annotation(mappings[0], "best_chain_average_jump", best_chain_average_jump);
+    set_annotation(mappings[0], "best_chain_anchors", (double) best_chain_anchors);
+    set_annotation(mappings[0], "best_chain_anchor_length", (double) best_chain_anchor_length);
     
 #ifdef print_minimizer_table
     cerr << aln.sequence() << "\t";

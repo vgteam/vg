@@ -225,6 +225,18 @@ static GroupedOptionGroup get_options() {
         "chain up extensions to create alignments, instead of doing each separately"
     );
     chaining_opts.add_range(
+        "min-buckets",
+        &MinimizerMapper::min_buckets_to_fragment,
+        MinimizerMapper::default_min_buckets_to_fragment,
+        "minimum number of buckets to fragment"
+    );
+    chaining_opts.add_range(
+        "max-buckets",
+        &MinimizerMapper::max_buckets_to_fragment,
+        MinimizerMapper::default_max_buckets_to_fragment,
+        "maximum number of buckets to fragment"
+    );
+    chaining_opts.add_range(
         "fragment-max-lookback-bases",
         &MinimizerMapper::fragment_max_lookback_bases,
         MinimizerMapper::default_fragment_max_lookback_bases,

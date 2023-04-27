@@ -239,7 +239,11 @@ public:
     static constexpr size_t default_chaining_cluster_distance = 100;
     size_t chaining_cluster_distance = default_chaining_cluster_distance;
     
-    /// How many clusters should we produce chains for, max?
+    /// How many buckets should we produce fragments for, min?
+    static constexpr size_t default_min_buckets_to_fragment = 2;
+    size_t min_buckets_to_fragment = default_min_buckets_to_fragment;
+
+    /// How many buckets should we produce fragments for, max?
     static constexpr size_t default_max_buckets_to_fragment = 2;
     size_t max_buckets_to_fragment = default_max_buckets_to_fragment;
 
