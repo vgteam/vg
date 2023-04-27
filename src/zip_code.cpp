@@ -636,7 +636,7 @@ net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDist
     if (depth == 0) {
         //If this is the root chain/snarl/node
 
-        size_t zip_value, zip_index;
+        size_t zip_value, zip_index = 0;
         for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         }
@@ -687,7 +687,7 @@ size_t ZipCodeDecoder::get_distance_index_address(const size_t& depth) {
     if (depth == 0) {
         //If this is the root chain/snarl/node
 
-        size_t zip_value, zip_index;
+        size_t zip_value, zip_index = 0;
         for (size_t i = 0 ; i <= ZipCode::ROOT_IDENTIFIER_OFFSET ; i++) {
             std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
         }
