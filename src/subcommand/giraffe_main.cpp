@@ -115,6 +115,12 @@ static GroupedOptionGroup get_options() {
         "use maximum of number minimizers calculated by READ_LENGTH / INT and --max-min"
     );
     comp_opts.add_range(
+        "downsample-min",
+        &MinimizerMapper::minimizer_downsampling_window_size,
+        MinimizerMapper::default_minimizer_downsampling_window_size,
+        "downsample minimizers with windows of length INT"
+    );
+    comp_opts.add_range(
         "distance-limit", 'D',
         &MinimizerMapper::distance_limit,
         MinimizerMapper::default_distance_limit,

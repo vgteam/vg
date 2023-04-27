@@ -3271,6 +3271,50 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     std::vector<Seed> seeds;
+
+    // Prefilter and downsample the minimizers with a sliding window.
+    auto minimizer_worse_than = [&](const size_t& a, const size_t& b) {
+        // Return true if minimizer a is worse than minimizer b.
+
+        // The worse minimizer is the one that doesn't match the reference, or
+        // if both match the reference it is the one that has less score.
+        return (minimizers[a].hits == 0 && minimizers[b].hits > 0) || (minimizers[a].hits != 0 && minimizers[b].hits != 0 && minimizers[a].score < minimizers[b].score);
+    };
+    // We will mark minimizers with a true here if we visit them when downsampling.
+    std::vector<bool> minimizer_passed_downsampling(minimizers.size(), false);
+    if (this->minimizer_downsampling_window_size != 0) {
+        // This will hold all the minimizers in the sliding window of bases
+        std::deque<size_t> queue;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            // We use the minimizer sampling algorithm again, as described in the Winnowmap paper (Jain et al., 2020).
+            
+            while (!queue.empty() && minimizer_worse_than(queue.back(), i)) { 
+                // Drop minimizers off the end of the queue until it is empty
+                // or we find one that is at least as good as the new
+                // minimizer.
+                queue.pop_back();
+            }
+
+            // Add the new minimizer.
+            queue.push_back(i);
+
+            while(!queue.empty() && minimizers[queue.front()].forward_offset() + this->minimizer_downsampling_window_size < minimizers[i].forward_offset() + minimizers[i].length) {
+                // Drop minimizers off the front of the queue until it is empty
+                // or we find one that is in-window.
+                queue.pop_front();
+            }
+            
+            if (queue.empty()) {
+                // We removed the minimizer we just added. The window is probably too small.
+                #pragma omp critical (cerr)
+                std::cerr << "error:[vg::MinimizerMapper] no minimizer found in downsampling window. Make sure that the downsampling window is at least " << minimizers[i].length << " bp" << std::endl;
+                exit(1);
+            }
+
+            // Since we never add a better minimizer after a worse one, the first thing in the queue is the best minimizer in the window.
+            minimizer_passed_downsampling[queue.front()] = true;
+        }
+    }
     
     // Define the filters for minimizers.
     //
@@ -3287,6 +3331,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
     using filter_t = std::tuple<const char*, std::function<bool(const Minimizer&)>, std::function<double(const Minimizer&)>, std::function<void(const Minimizer&)>, std::function<void(const Minimizer&)>>;
     std::vector<filter_t> minimizer_filters;
     minimizer_filters.reserve(5);
+    if (this->minimizer_downsampling_window_size != 0) {
+        // Drop minimizers if we cleared their downsampling flag. Sneakily go back from minimizer itself to index in the array.
+        minimizer_filters.emplace_back(
+            "window-downsampling", 
+            [&](const Minimizer& m) { return minimizer_passed_downsampling.at(&m - &minimizers[0]); },
+            [](const Minimizer& m) { return nan(""); },
+            [](const Minimizer& m) {},
+            [](const Minimizer& m) {}
+        );
+    }
     minimizer_filters.emplace_back(
         "any-hits", 
         [&](const Minimizer& m) { return m.hits > 0; },
@@ -3319,20 +3373,22 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
             [](const Minimizer& m) {}
         );
     }
-    minimizer_filters.emplace_back(
-        "max-unique-min||num-bp-per-min",
-        [&](const Minimizer& m) {
-            return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
-        },
-        [](const Minimizer& m) { return nan(""); },
-        [](const Minimizer& m) {},
-        [](const Minimizer& m) {}
-    );
+    if (this->max_unique_min != 0) {
+        minimizer_filters.emplace_back(
+            "max-unique-min||num-bp-per-min",
+            [&](const Minimizer& m) {
+                return num_minimizers < std::max(this->max_unique_min, num_min_by_read_len);
+            },
+            [](const Minimizer& m) { return nan(""); },
+            [](const Minimizer& m) {},
+            [](const Minimizer& m) {}
+        );
+    }
     minimizer_filters.emplace_back(
         "hit-cap||score-fraction",
         [&](const Minimizer& m) {
             return (m.hits <= this->hit_cap) || // We pass if we are under the soft hit cap
-            (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hot cap and we need the score
+            (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hit cap and we need the score
             (taking_run); // Or we already took one duplicate and we want to finish out the run 
         },
         [&](const Minimizer& m) {

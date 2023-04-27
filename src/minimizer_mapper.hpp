@@ -112,6 +112,10 @@ public:
     static constexpr double default_minimizer_score_fraction = 0.9;
     double minimizer_score_fraction = default_minimizer_score_fraction;
 
+    /// Window size for minimizer downsampling
+    static constexpr size_t default_minimizer_downsampling_window_size = 0;
+    size_t minimizer_downsampling_window_size = default_minimizer_downsampling_window_size;
+
     /// Maximum number of distinct minimizers to take
     static constexpr size_t default_max_unique_min = 500;
     size_t max_unique_min = default_max_unique_min;
