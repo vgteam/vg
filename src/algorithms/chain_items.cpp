@@ -563,7 +563,7 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
     }
 }
 
-#define double_check_distances
+//#define double_check_distances
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
@@ -578,12 +578,12 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
         std::cerr << "Finding distance from " << from_pos << " to " << to_pos << " using hints " << *from_hint << " and " << *to_hint << std::endl;
 #endif
     
-        // Can use zip code based distance
+        // Can use zip code based oriented distance
         distance = ZipCode::minimum_distance_between(*from_hint, from_pos, 
                                                      *to_hint, to_pos,
                                                      distance_index,
                                                      distance_limit,
-                                                     true, 
+                                                     false, 
                                                      &graph);
 
 #ifdef debug
