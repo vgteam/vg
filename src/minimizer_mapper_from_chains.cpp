@@ -7,6 +7,7 @@
 #include "minimizer_mapper.hpp"
 
 #include "annotation.hpp"
+#include "crash.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
@@ -1142,7 +1143,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
-        assert(false);
+        crash_unless(false);
     });
     
     if (track_provenance) {
@@ -1158,7 +1159,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    assert(!mappings.empty());
+    crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
@@ -1922,7 +1923,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         // Dagify from the forward version of the left anchor
         
         // Grab the left anchor in the local graph
-        assert(local_graph.has_node(local_left_anchor_id));
+        crash_unless(local_graph.has_node(local_left_anchor_id));
         handle_t local_handle = local_graph.get_handle(local_left_anchor_id, is_rev(left_anchor));
         
         // And get the node that that orientation of it is in the strand-split graph
@@ -1935,7 +1936,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         // Dagify from the reverse version of the node for the forward version of the right anchor
         
         // Grab the right anchor from the local graph
-        assert(local_graph.has_node(local_right_anchor_id));
+        crash_unless(local_graph.has_node(local_right_anchor_id));
         handle_t local_handle = local_graph.get_handle(local_right_anchor_id, is_rev(right_anchor));
         
         // And get the node that that orientation of it is in the strand-split graph
