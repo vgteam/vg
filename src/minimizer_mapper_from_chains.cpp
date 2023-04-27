@@ -1911,6 +1911,33 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         }
         // TODO: Stop early when we found them all.
     }
+
+    if (!is_empty(left_anchor) && local_left_anchor_id == 0) {
+        // Somehow the left anchor didn't come through. Complain.
+        std::stringstream ss;
+        ss << "Extracted graph from " << left_anchor;
+        if (!is_empty(right_anchor)) {
+            ss << " to " << right_anchor;
+        }
+        ss << " with max path length of " << max_path_length;
+        ss << " but from node was not present in the resulting translation";
+        local_graph.serialize("crashdump.vg");
+        throw std::runtime_error(ss.str());
+    }
+
+    if (!is_empty(right_anchor) && local_right_anchor_id == 0) {
+        // Somehow the right anchor didn't come through. Complain.
+        std::stringstream ss;
+        ss << "Extracted graph";
+        if (!is_empty(left_anchor)) {
+            ss << " from " << left_anchor;
+        }
+        ss << " to " << right_anchor;
+        ss << " with max path length of " << max_path_length;
+        ss << " but to node was not present in the resulting translation";
+        local_graph.serialize("crashdump.vg");
+        throw std::runtime_error(ss.str());
+    }
     
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
@@ -1923,7 +1950,17 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         // Dagify from the forward version of the left anchor
         
         // Grab the left anchor in the local graph
-        crash_unless(local_graph.has_node(local_left_anchor_id));
+        if (!local_graph.has_node(local_left_anchor_id)) {
+            std::stringstream ss;
+            ss << "Extracted graph from " << left_anchor;
+            if (!is_empty(right_anchor)) {
+                ss << " to " << right_anchor;
+            }
+            ss << " with max path length of " << max_path_length;
+            ss << " but from node local ID " << local_left_anchor_id << " was not present in the resulting graph";
+            local_graph.serialize("crashdump.vg");
+            throw std::runtime_error(ss.str());
+        }
         handle_t local_handle = local_graph.get_handle(local_left_anchor_id, is_rev(left_anchor));
         
         // And get the node that that orientation of it is in the strand-split graph
@@ -1936,7 +1973,18 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         // Dagify from the reverse version of the node for the forward version of the right anchor
         
         // Grab the right anchor from the local graph
-        crash_unless(local_graph.has_node(local_right_anchor_id));
+        if (!local_graph.has_node(local_right_anchor_id)) {
+            std::stringstream ss;
+            ss << "Extracted graph";
+            if (!is_empty(left_anchor)) {
+                ss << " from " << left_anchor;
+            }
+            ss << " to " << right_anchor;
+            ss << " with max path length of " << max_path_length;
+            ss << " but to node local ID " << local_right_anchor_id << " was not present in the resulting graph";
+            local_graph.serialize("crashdump.vg");
+            throw std::runtime_error(ss.str());
+        }
         handle_t local_handle = local_graph.get_handle(local_right_anchor_id, is_rev(right_anchor));
         
         // And get the node that that orientation of it is in the strand-split graph
