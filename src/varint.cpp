@@ -1,5 +1,6 @@
 #include "varint.hpp"
 #include <iostream>
+#include <sstream>
 #include <limits>
 
 //#define DEBUG_VARINT
@@ -27,6 +28,9 @@ void write_byte_as_bits_to_stderr(size_t value) {
  */
 
 void varint_vector_t::add_value(size_t value) {
+#ifdef DEBUG_VARINT
+    cerr << "Set varint_vector(" << (void*)this << ")[" << data.size() << "] = " << value << endl;
+#endif
     if (value == 0) {
         //If the value is 0, then the 0 tag to end the integer and 0 for the value 
 #ifdef DEBUG_VARINT
@@ -65,8 +69,14 @@ void varint_vector_t::add_value(size_t value) {
 
 //TODO: What to do if its empty?
 std::pair<size_t, size_t> varint_vector_t::get_value_and_next_index(size_t index) const {
+#ifdef DEBUG_VARINT
+    size_t original_index = index;
+#endif
     if (index >= data.size()) {
-        throw runtime_error("Accessing value past the end of a varint vector");
+        std::stringstream ss;
+        // Note that this is the address of the varint_vector_t and not its data.
+        ss << "Accessing value at " << index << " past the end of a varint vector size " << data.size() << " at " << (void*) this;
+        throw runtime_error(ss.str());
     }
 
     //Value to return
@@ -110,6 +120,10 @@ std::pair<size_t, size_t> varint_vector_t::get_value_and_next_index(size_t index
     if (index == data.size()) {
         index = std::numeric_limits<size_t>::max();
     }
+
+#ifdef DEBUG_VARINT
+    cerr << "Found varint_vector(" << (void*)this << ")[" << original_index << "] = " << value << ", " << index << endl;
+#endif
 
     return std::make_pair(value, index);
 }
