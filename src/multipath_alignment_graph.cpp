@@ -3917,6 +3917,17 @@ namespace vg {
         
     }
     
+    size_t MultipathAlignmentGraph::count_reachability_edges() const {
+        if (!has_reachability_edges) {
+            return 0;
+        }
+        size_t count = 0;
+        for (auto& node : path_nodes) {
+            count += node.edges.size();
+        }
+        return count;
+    }
+    
     // Kahn's algorithm
     void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
         // Can only sort if edges are present.
@@ -6422,7 +6433,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 auto node_id = path.mapping(j).position().node_id();
                 
                 if (!mentioned_nodes.count(node_id)) {
-                    // This graph node eneds to be made
+                    // This graph node needs to be made
                     mentioned_nodes.insert(node_id);
                     out << "g" << node_id << " [label=\"" << node_id << "\" shape=box];" << endl;
                 }

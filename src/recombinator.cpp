@@ -25,6 +25,7 @@ constexpr size_t Recombinator::COVERAGE;
 constexpr size_t Recombinator::KFF_BLOCK_SIZE;
 constexpr double Recombinator::PRESENT_DISCOUNT;
 constexpr double Recombinator::HET_ADJUSTMENT;
+constexpr double Recombinator::ABSENT_SCORE;
 
 //------------------------------------------------------------------------------
 
@@ -1062,7 +1063,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
             for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
                 double count = kmer_counts.at(subchain.kmers[kmer_id].first);
                 if (count < absent_threshold) {
-                    kmer_types.push_back({ absent, -1.0 });
+                    kmer_types.push_back({ absent, -1.0 * parameters.absent_score });
                     selected_kmers++;
                 } else if (count < heterozygous_threshold) {
                     kmer_types.push_back({ heterozygous, 0.0 });

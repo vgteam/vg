@@ -7055,7 +7055,7 @@ namespace vg {
 
                         if (dist_start_fd == 0) {
                             //If this node is the start node, then also check one loop
-                            size_t loop_dist = SnarlDistanceIndex::sum({distance_index.minimum_distance(nodeID1, false, 1, node_id, false, 0), 1});
+                            size_t loop_dist = SnarlDistanceIndex::sum(distance_index.minimum_distance(nodeID1, false, 1, node_id, false, 0), 1);
                             size_t loop_dist_end =  loop_dist == -1 ? -1 : loop_dist+len-1; 
                             start_forward = start_forward ||  (loop_dist != -1 && (loop_dist >= min && loop_dist <= max));
                             end_forward = end_forward || ( loop_dist_end != -1 && (loop_dist_end >= min && loop_dist_end <= max));
@@ -7071,7 +7071,7 @@ namespace vg {
 
                         if (dist_start_bk == 0) {
                             //If this node is the start node, then also check one loop
-                            size_t loop_dist = SnarlDistanceIndex::sum({distance_index.minimum_distance(nodeID1, false, 1, node_id, true, 0), 1});
+                            size_t loop_dist = SnarlDistanceIndex::sum(distance_index.minimum_distance(nodeID1, false, 1, node_id, true, 0), 1);
                             size_t loop_dist_end =  loop_dist == -1 ? -1 : loop_dist+len-1; 
 
                             start_backward = start_backward || ( loop_dist != -1 && (loop_dist >= min && loop_dist <= max));

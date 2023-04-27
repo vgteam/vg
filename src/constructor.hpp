@@ -33,7 +33,7 @@ namespace vg {
 using namespace std;
 
 /**
- * Represents a constructed region of the graph alogn a single linear sequence.
+ * Represents a constructed region of the graph along a single linear sequence.
  * Contains the protobuf Graph holding all the created components (which may be
  * too large to serialize), a set of node IDs whose left sides need to be
  * connected to when you connect to the start of the chunk, and a set of node
@@ -156,6 +156,9 @@ public:
      * they can abut its edges.
      *
      * Variants in the vector may not use symbolic alleles.
+     *
+     * All variants must have has their canonical field set, either manually to
+     * false or by canonicalize() to true.
      *
      * chunk_offset gives the global 0-based position at which this chunk starts
      * in the reference contig it is part of, which is used to correctly place

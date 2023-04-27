@@ -50,7 +50,7 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
 
     for (auto& elem : vcflib::splitCigar(ssw_aln.cigar_string)) {
         int32_t length = elem.first;
-        string type = elem.second;
+        string type(1, elem.second);
         Edit* edit;
         //cerr << e->length << e->type << endl;
         switch (type[0]) {

@@ -857,6 +857,9 @@ protected:
      * the index of the last minimizer with an agglomeration in the interval
      * (exclusive).
      *
+     * minimizer_indices must be sorted by agglomeration end, and then by
+     * agglomeration start, so they can be decomposed into nice rectangles.
+     *
      * Note that bottom and top are offsets into minimizer_indices, **NOT**
      * minimizers itself. Only contiguous ranges in minimizer_indices actually
      * make sense.
