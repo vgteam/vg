@@ -7,8 +7,11 @@
 
 #include "../hash_map.hpp"
 #include "../handle.hpp"
+#include "../crash.hpp"
 
 #include "load_proto_to_graph.hpp"
+
+#include "vg/io/json2pb.h"
 
 #include <vg/vg.pb.h>
 #include <vg/io/registry.hpp>
@@ -17,6 +20,8 @@
 
 #include <unordered_map>
 #include <mutex>
+
+//#define debug
 
 namespace vg {
 
@@ -85,8 +90,8 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
                 if (destination->has_node(id)) {
                     // But we do have the node in the destination graph already.
                     dest = destination->get_handle(id, is_reverse);
-                    assert(destination->get_id(dest) == id);
-                    assert(destination->get_is_reverse(dest) == is_reverse);
+                    crash_unless(destination->get_id(dest) == id);
+                    crash_unless(destination->get_is_reverse(dest) == is_reverse);
                     return true;
                 } else {
                     // The node doesn't exist yet.
@@ -95,8 +100,8 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
             } else {
                 // Handle is cached. All we have to do is get the correct orientation.
                 dest = is_reverse ? destination->flip(handle_iter->second) : handle_iter->second;
-                assert(destination->get_id(dest) == id);
-                assert(destination->get_is_reverse(dest) == is_reverse);
+                crash_unless(destination->get_id(dest) == id);
+                crash_unless(destination->get_is_reverse(dest) == is_reverse);
                 return true;
             }
         };
@@ -129,8 +134,8 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
                     handle_t from_handle;
                     handle_t to_handle;
                     // We can assert because if we did our bookkepping right both nodes exist now.
-                    assert(get_handle(get<0>(edge), get<1>(edge), from_handle));
-                    assert(get_handle(get<2>(edge), get<3>(edge), to_handle));
+                    crash_unless(get_handle(get<0>(edge), get<1>(edge), from_handle));
+                    crash_unless(get_handle(get<2>(edge), get<3>(edge), to_handle));
                     // Make the edge
                     destination->create_edge(from_handle, to_handle);
                 }
@@ -236,7 +241,7 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
 #endif
                         
                         handle_t visited;
-                        assert(get_handle(m.position().node_id(), m.position().is_reverse(), visited));
+                        crash_unless(get_handle(m.position().node_id(), m.position().is_reverse(), visited));
                         destination->append_step(path, visited);
                         
                         // And save its rank as the only one added
@@ -251,7 +256,9 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
                         
                         // Add it
                         handle_t visited;
-                        assert(get_handle(m.position().node_id(), m.position().is_reverse(), visited));
+                        if (!get_handle(m.position().node_id(), m.position().is_reverse(), visited)) {
+                            throw std::runtime_error("Could not find node " + std::to_string(m.position().node_id()) + " " + (m.position().is_reverse() ? "-" : "+") + " to add mapping " + pb2json(m) + " adjacent to existing mapping at rank " + std::to_string(record.max_rank_added));
+                        }
                         destination->append_step(path, visited);
                         
                         // And update the ranks
@@ -286,7 +293,7 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
                     
                     // Make sure we have the node we are visiting
                     handle_t visited;
-                    assert(get_handle(m.position().node_id(), m.position().is_reverse(), visited));
+                    crash_unless(get_handle(m.position().node_id(), m.position().is_reverse(), visited));
                     
                     // Make a step to it.
                     destination->append_step(path, visited);
@@ -305,7 +312,7 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
                     
                     // Get the handle
                     handle_t visited;
-                    assert(get_handle(it->second.first, it->second.second, visited));
+                    crash_unless(get_handle(it->second.first, it->second.second, visited));
                     
                     // Prepend it
                     destination->prepend_step(path, visited);
@@ -333,7 +340,7 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const f
                     
                     // Get the handle
                     handle_t visited;
-                    assert(get_handle(it->second.first, it->second.second, visited));
+                    crash_unless(get_handle(it->second.first, it->second.second, visited));
                     
                     // Prepend it
                     destination->append_step(path, visited);

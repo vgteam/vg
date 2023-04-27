@@ -149,6 +149,9 @@ namespace vg {
         /// (possibly after modifying the graph).
         void clear_reachability_edges();
         
+        /// Get the number of reachability edges in the graph.
+        size_t count_reachability_edges() const;
+        
         /// Remove the ends of paths, up to a maximum length, if they cause the path
         /// to extend past a branch point in the graph.
         void trim_to_branch_points(const HandleGraph* graph, size_t max_trim_length = 1);

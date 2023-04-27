@@ -11,9 +11,6 @@ namespace vg {
 Deconstructor::Deconstructor() : VCFOutputCaller("") {
 }
 Deconstructor::~Deconstructor(){
-    for (auto& c : gbwt_pos_caches) {
-        delete c;
-    }
 }
 
 /**
@@ -26,7 +23,7 @@ Deconstructor::~Deconstructor(){
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                                        const pair<vector<SnarlTraversal>,
-                                                  vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+                                       vector<pair<step_handle_t, step_handle_t>>>& path_travs,
                                        int ref_path_idx,
                                        const vector<bool>& use_trav,
                                        char prev_char, bool use_start) const {
@@ -291,8 +288,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
 }
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
-                                  const vector<int>& trav_to_allele,
-                                  const vector<gbwt::size_type>& trav_thread_ids) const {
+                                  const vector<int>& trav_to_allele) const {
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
@@ -306,25 +302,17 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     // phasing information from the gbwt where applicable
     vector<int> gbwt_phases(trav_to_allele.size(), -1);
     for (int i = 0; i < names.size(); ++i) {
-        string sample_name;
-        if (trav_thread_ids[i] != numeric_limits<gbwt::size_type>::max()) {
-            auto path_id = gbwt::Path::id(trav_thread_ids[i]);
-            auto sense = gbwtgraph::get_path_sense(gbwt_trav_finder->get_gbwt(), path_id, gbwt_reference_samples);
-            sample_name = gbwtgraph::get_path_sample_name(gbwt_trav_finder->get_gbwt(), path_id, sense);
-            auto phase = gbwtgraph::get_path_haplotype(gbwt_trav_finder->get_gbwt(), path_id, sense);
-            if (phase == PathMetadata::NO_HAPLOTYPE) {
-                // THis probably won't fit in an int. Use 0 instead.
-                phase = 0;
-            }
-            gbwt_phases[i] = (int)phase;
-        }
-        else if (path_to_sample_phase && path_to_sample_phase->count(names[i])) {
-            auto sp = path_to_sample_phase->find(names[i]);
-            sample_name = sp->second.first;
-            gbwt_phases[i] = sp->second.second;
-        } else {
+        string sample_name = PathMetadata::parse_sample_name(names[i]);
+        // for backward compatibility
+        if (sample_name.empty()) {
             sample_name = names[i];
         }
+        auto phase = PathMetadata::parse_haplotype(names[i]);
+        if (!sample_name.empty() && phase == PathMetadata::NO_HAPLOTYPE) {
+            // THis probably won't fit in an int. Use 0 instead.
+            phase = 0;
+        }
+        gbwt_phases[i] = (int)phase;
         if (sample_names.count(sample_name)) {
             sample_to_traversals[sample_name].push_back(i);
         }
@@ -456,7 +444,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
             }
         }
     } else if (path_to_sample_phase) {
-        sample_ploidy = sample_ploidys->at(sample_name);
+        sample_ploidy = sample_ploidys.at(sample_name);
         
         set<int> used_phases;
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
@@ -616,11 +604,14 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
     path_travs = path_trav_finder->find_path_traversals(*snarl);
     vector<string> path_trav_names;
+    for (const pair<step_handle_t, step_handle_t>& trav_ends : path_travs.second) {
+        path_trav_names.push_back(graph->get_path_name(graph->get_path_handle_of_step(trav_ends.first)));
+    }
 
     // pick out the traversal corresponding to a reference path, breaking ties consistently
     string ref_trav_name;
     for (int i = 0; i < path_travs.first.size(); ++i) {
-        string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+        const string& path_trav_name = path_trav_names.at(i);
 #ifdef debug
 #pragma omp critical (cerr)
         {
@@ -630,13 +621,52 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                  << " trav=" << pb2json(path_travs.first[i]) << endl;
         }
 #endif
-        path_trav_name = Paths::strip_subrange(path_trav_name);
         if (ref_paths.count(path_trav_name) &&
             (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << "Setting ref_trav_name " << ref_trav_name << endl;
+#endif
         }
-        path_trav_names.push_back(path_trav_name);
     }
+    
+    // add in the gbwt traversals
+    // after this, all traversals are treated the same, with metadata embedded in their names
+    int64_t first_gbwt_trav_idx = path_trav_names.size();
+    vector<gbwt::size_type> gbwt_path_ids;
+    if (gbwt_trav_finder.get() != nullptr) {
+        const gbwt::GBWT& gbwt_index = gbwt_trav_finder->get_gbwt();
+        pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
+        for (int i = 0; i < thread_travs.first.size(); ++i) {
+            // We need to get a bunch of metadata about the path, but the GBWT
+            // we have might not even have structured path names stored.
+            gbwt::size_type path_id = gbwt::Path::id(thread_travs.second[i]);
+            if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || path_id >= gbwt_index.metadata.paths()) {
+                continue;
+            }
+            
+            gbwt_path_ids.push_back(path_id);
+            PathSense sense = gbwtgraph::get_path_sense(gbwt_index, path_id, gbwt_reference_samples);
+            
+            if (sense == PathSense::HAPLOTYPE) {
+                // we count on convention of reference as embedded path above, so only use haplotype paths here.
+                // todo: would be nice to be more flexible...
+                string path_name = PathMetadata::create_path_name(
+                    sense,
+                    gbwtgraph::get_path_sample_name(gbwt_index, path_id, sense),
+                    gbwtgraph::get_path_locus_name(gbwt_index, path_id, sense),
+                    gbwtgraph::get_path_haplotype(gbwt_index, path_id, sense),
+                    gbwtgraph::get_path_phase_block(gbwt_index, path_id, sense),
+                    gbwtgraph::get_path_subrange(gbwt_index, path_id, sense));
+                path_trav_names.push_back(path_name);
+                path_travs.first.push_back(thread_travs.first[i]);
+                // dummy handles so we can use the same code as the named path traversals above
+                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            }
+        }
+    }
+
     
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
@@ -649,66 +679,18 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     vector<int64_t> ref_offsets;
     if (!ref_trav_name.empty()) {
         for (int i = 0; i < path_travs.first.size(); ++i) {
-            path_handle_t path_handle = graph->get_path_handle_of_step(path_travs.second[i].first);
-            string path_trav_name = graph->get_path_name(path_handle);            
+            const string& path_trav_name = path_trav_names.at(i);
             subrange_t subrange ;
-            path_trav_name = Paths::strip_subrange(path_trav_name, &subrange);
+            Paths::strip_subrange(path_trav_name, &subrange);
             int64_t sub_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
             if (path_trav_name == ref_trav_name) {
                 ref_travs.push_back(i);
                 ref_offsets.push_back(sub_offset);
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "Adding ref_tav idx=" << i << " offset=" << sub_offset << " because " << path_trav_name << " == " << ref_trav_name << endl;
+#endif                
             }
-        }
-    }
-
-    // add in the gbwt traversals if we can
-    size_t first_gbwt_trav_idx = path_travs.first.size();
-    vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<gbwt::size_type>::max());
-    // optionally get these from the path names
-    
-    vector<int64_t> gbwt_trav_offsets;
-    if (gbwt_trav_finder.get() != nullptr) {
-        pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
-        for (int i = 0; i < thread_travs.first.size(); ++i) {
-            // We need to get a bunch of metadata about the path, but the GBWT
-            // we have might not even have structured path names stored.
-            gbwt::size_type path_id = gbwt::Path::id(thread_travs.second[i]);
-            PathSense sense = gbwtgraph::get_path_sense(gbwt_trav_finder->get_gbwt(), path_id, gbwt_reference_samples);
-            
-            if (sense == PathSense::HAPLOTYPE) {
-                // we count on convention of reference as embedded path above, so only use haplotype paths here.
-                // todo: would be nice to be more flexible...
-                path_trav_names.push_back(compose_short_path_name(gbwt_trav_finder->get_gbwt(), path_id));
-                path_travs.first.push_back(thread_travs.first[i]);
-                // dummy handles so we can use the same code as the named path traversals above
-                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-                // but we keep the thread id for later
-                trav_thread_ids.push_back(thread_travs.second[i]);
-                // keep the offset
-                // TODO: this is never anything!
-                subrange_t subrange = gbwtgraph::get_path_subrange(gbwt_trav_finder->get_gbwt(), path_id, sense);
-                gbwt_trav_offsets.push_back(subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first);
-            }
-        }
-    }
-
-    // if there's no reference traversal, go fishing in the gbwt
-    if (ref_travs.empty() && gbwt_trav_finder.get()) {
-        int gbwt_ref_trav = -1;
-        int64_t gbwt_ref_offset = 0;
-        for (int i = first_gbwt_trav_idx; i < path_travs.first.size(); ++i) {
-            if (ref_paths.count(path_trav_names[i]) &&
-                (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav])) {
-                gbwt_ref_trav = i;
-                gbwt_ref_offset = gbwt_trav_offsets.at(i - first_gbwt_trav_idx);
-            } 
-        }
-        if (gbwt_ref_trav >= 0) {
-            ref_travs.push_back(gbwt_ref_trav);
-            ref_offsets.push_back(gbwt_ref_offset);
-            string& name = path_trav_names[gbwt_ref_trav];
-            assert(name.compare(0, 8, "_thread_") != 0);
-            ref_trav_name = name;
         }
     }
 
@@ -819,32 +801,37 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             v.quality = 60;
 
             // in VCF we usually just want the contig
-            string contig_name = PathMetadata::parse_locus_name(ref_trav_name);            
+            string contig_name = PathMetadata::parse_locus_name(ref_trav_name);
+            if (contig_name == PathMetadata::NO_LOCUS_NAME) {
+                contig_name = ref_trav_name;
+            } else if (long_ref_contig) {
+                // the sample name isn't unique enough, so put a full ugly name in the vcf
+                contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                             PathMetadata::parse_sample_name(ref_trav_name),
+                                                             contig_name,
+                                                             PathMetadata::parse_haplotype(ref_trav_name),
+                                                             PathMetadata::NO_PHASE_BLOCK,
+                                                             PathMetadata::NO_SUBRANGE);
+            }
+            
             // write variant's sequenceName (VCF contig)
-            v.sequenceName = contig_name != PathMetadata::NO_LOCUS_NAME ? contig_name : ref_trav_name;
+            v.sequenceName = contig_name;
 
             // Map our snarl endpoints to oriented positions in the embedded path in the graph
             handle_t first_path_handle;
             size_t first_path_pos;
             bool use_start;
-            if (ref_trav_idx < first_gbwt_trav_idx) {
-                step_handle_t start_step = path_travs.second[ref_trav_idx].first;
-                step_handle_t end_step = path_travs.second[ref_trav_idx].second;
-                handle_t start_handle = graph->get_handle_of_step(start_step);
-                handle_t end_handle = graph->get_handle_of_step(end_step);
-                size_t start_pos = graph->get_position_of_step(start_step);
-                size_t end_pos = graph->get_position_of_step(end_step);
-                use_start = start_pos < end_pos;
-                first_path_handle = use_start ? start_handle : end_handle;
-                first_path_pos = use_start ? start_pos : end_pos;
-            } else {
-                //assert(false);
-                std::tie(use_start, first_path_handle, first_path_pos) = get_gbwt_path_position(ref_trav, trav_thread_ids[ref_trav_idx]);
-#ifdef debug
-                cerr << "got " << use_start << " " << graph->get_id(first_path_handle) << ":" << graph->get_is_reverse(first_path_handle)
-                     << " " << first_path_pos << " from gbwt for " << ref_trav_name << endl;
-#endif
-            }
+            assert(ref_trav_idx < first_gbwt_trav_idx);
+            step_handle_t start_step = path_travs.second[ref_trav_idx].first;
+            step_handle_t end_step = path_travs.second[ref_trav_idx].second;
+            handle_t start_handle = graph->get_handle_of_step(start_step);
+            handle_t end_handle = graph->get_handle_of_step(end_step);
+            size_t start_pos = graph->get_position_of_step(start_step);
+            size_t end_pos = graph->get_position_of_step(end_step);
+            use_start = start_pos < end_pos;
+            first_path_handle = use_start ? start_handle : end_handle;
+            first_path_pos = use_start ? start_pos : end_pos;
+            
             // Get the first visit of our snarl traversal
             const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
 
@@ -885,7 +872,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
             // Fill in the genotypes
             if (path_restricted || gbwt_trav_finder.get()) {
-                get_genotypes(v, path_trav_names, trav_to_allele, trav_thread_ids);
+                get_genotypes(v, path_trav_names, trav_to_allele);
             }
 
             // we only bother printing out sites with at least 1 non-reference allele
@@ -913,32 +900,20 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool untangle_traversals,
                                 bool keep_conflicted,
                                 bool strict_conflicts,
-                                const unordered_map<string, pair<string, int>>* path_to_sample_phase,
-                                const unordered_map<string, int>* sample_ploidys,
                                 gbwt::GBWT* gbwt) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
     this->ploidy = ploidy;
-    this->sample_ploidys = sample_ploidys;
-    this->path_to_sample_phase = path_to_sample_phase;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
     this->path_jaccard_window = context_jaccard_window;
     this->untangle_allele_traversals = untangle_traversals;
     this->keep_conflicted_genotypes = keep_conflicted;
     this->strict_conflict_checking = strict_conflicts;
-    assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
     if (gbwt) {
         this->gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt);
-        this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
-        this->gbwt_pos_caches_level = omp_get_level() + 1;
-        for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
-            if (this->gbwt_pos_caches[i] == nullptr) {
-                this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
-            }
-        }
     }
 
     // the need to use nesting is due to a problem with omp tasks and shared state
@@ -947,50 +922,73 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     omp_set_max_active_levels(3);
 
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
+    ref_samples.clear();
+    set<size_t> ref_haplotypes;
+    for (const string& ref_path_name : ref_paths) {
+        ref_samples.insert(PathMetadata::parse_sample_name(ref_path_name));
+        ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
+    }
+    long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
     sample_names.clear();
-    // prefer the GBWT sample names
+    unordered_map<string, set<int>> sample_to_haps;
+
+    // find sample names from non-reference paths
+    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+        string path_name = graph->get_path_name(path_handle);
+        if (!this->ref_paths.count(path_name)) {
+            string sample_name = graph->get_sample_name(path_handle);
+            // for backward compatibility
+            if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
+                sample_name = path_name;
+            }
+            if (!ref_samples.count(sample_name)) {
+                size_t haplotype = graph->get_haplotype(path_handle);
+                if (haplotype == PathMetadata::NO_HAPLOTYPE) {
+                    haplotype = 0;
+                }
+                sample_to_haps[sample_name].insert((int)haplotype);
+                sample_names.insert(sample_name);
+            }
+        }
+    });
+    
+    // add in the GBWT sample names
     if (gbwt) {
         // add in sample names from the gbwt
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
             PathSense sense = gbwtgraph::get_path_sense(*gbwt, i, gbwt_reference_samples);
-            string sample_name = gbwtgraph::get_path_sample_name(*gbwt, i, sense);
-            if (sense == PathSense::HAPLOTYPE &&
-                (path_to_sample_phase == nullptr || path_to_sample_phase->count(sample_name))) {
-                
-                sample_names.insert(sample_name);
-                auto phase = gbwtgraph::get_path_haplotype(*gbwt, i, sense);
-                if (phase == PathMetadata::NO_HAPLOTYPE) {
-                    // Default to 0.
-                    phase = 0;
-                }
-                if (!gbwt_sample_to_phase_range.count(sample_name)) {
-                    gbwt_sample_to_phase_range[sample_name] = make_pair((int) phase, (int) phase);
-                } else {
-                    pair<int, int>& phase_range = gbwt_sample_to_phase_range[sample_name];
-                    phase_range.first = std::min(phase_range.first, (int) phase);
-                    phase_range.second = std::max(phase_range.second, (int) phase);
+            if (sense == PathSense::HAPLOTYPE) {
+                string path_name = PathMetadata::create_path_name(
+                    sense,
+                    gbwtgraph::get_path_sample_name(*gbwt, i, sense),
+                    gbwtgraph::get_path_locus_name(*gbwt, i, sense),
+                    gbwtgraph::get_path_haplotype(*gbwt, i, sense),
+                    gbwtgraph::get_path_phase_block(*gbwt, i, sense),
+                    gbwtgraph::get_path_subrange(*gbwt, i, sense));
+                if (!this->ref_paths.count(path_name)) {
+                    string sample_name = gbwtgraph::get_path_sample_name(*gbwt, i, sense);
+                    if (!ref_samples.count(sample_name)) {
+                        auto phase = gbwtgraph::get_path_haplotype(*gbwt, i, sense);
+                        if (phase == PathMetadata::NO_HAPLOTYPE) {
+                            // Default to 0.
+                            phase = 0;
+                        }
+                        sample_to_haps[sample_name].insert((int)phase);
+                        sample_names.insert(sample_name);
+                    }
                 }
             }
         }
-    } else {
-        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-            string path_name = graph->get_path_name(path_handle);
-            if (!this->ref_paths.count(path_name)) {
-                // rely on the given map.  if a path isn't in it, it'll be ignored
-                if (path_to_sample_phase) {
-                    if (path_to_sample_phase->count(path_name)) {
-                        sample_names.insert(path_to_sample_phase->find(path_name)->second.first);
-                    }
-                    // if we have the map, we only consider paths there-in
-                }
-                else {
-                    // no name mapping, just use every path as is
-                    sample_names.insert(path_name);
-                }
-            }
-        });
     }
-    
+
+    // find some stats about the haplotypes for each sample    
+    gbwt_sample_to_phase_range.clear();
+    sample_ploidys.clear();
+    for (auto& sample_haps : sample_to_haps) {
+        sample_ploidys[sample_haps.first] = sample_haps.second.size();
+        gbwt_sample_to_phase_range[sample_haps.first] = make_pair(*sample_haps.second.begin(), *sample_haps.second.rbegin());
+    }
+        
     // print the VCF header
     stringstream stream;
     stream << "##fileformat=VCFv4.2" << endl;
@@ -1023,17 +1021,36 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     }
     set<string> gbwt_ref_paths;
+    map<string, int64_t> ref_path_to_length;
     for(auto& refpath : ref_paths) {
         if (graph->has_path(refpath)) {
-            size_t path_len = 0;
+            int64_t path_len = 0;
             path_handle_t path_handle = graph->get_path_handle(refpath);
             for (handle_t handle : graph->scan_path(path_handle)) {
                 path_len += graph->get_length(handle);
             }
-            stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
+            string locus_name = graph->get_locus_name(path_handle);
+            if (locus_name == PathMetadata::NO_LOCUS_NAME) {
+                locus_name = refpath;
+            } else if (long_ref_contig) {
+                // the sample name isn't unique enough, so put a full ugly name in the vcf
+                locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                            graph->get_sample_name(path_handle),
+                                                            locus_name,
+                                                            graph->get_haplotype(path_handle),
+                                                            PathMetadata::NO_PHASE_BLOCK,
+                                                            PathMetadata::NO_SUBRANGE);                
+            }            
+
+            subrange_t subrange = graph->get_subrange(path_handle);
+            int64_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+            ref_path_to_length[locus_name] = std::max(ref_path_to_length[locus_name], path_len + offset);
         } else {
             gbwt_ref_paths.insert(refpath);
         }       
+    }
+    for (auto& ref_path_len : ref_path_to_length) {
+        stream << "##contig=<ID=" << ref_path_len.first << ",length=" << ref_path_len.second << ">" << endl;
     }
     if (!gbwt_ref_paths.empty()) {
         unordered_map<string, vector<gbwt::size_type>> gbwt_name_to_ids;
@@ -1187,59 +1204,5 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
     return out_travs;
 }
 
-tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const {
-
-    // scan the whole thread in order to get the path positions -- there's no other way unless we build an index a priori
-    const gbwt::GBWT& gbwt = gbwt_trav_finder->get_gbwt();
-    bool thread_reversed = gbwt::Path::is_reverse(thread);
-    gbwt::size_type sequence_id = gbwt::Path::encode(gbwt::Path::id(thread), false);
-        ;
-    // the handles we're looking out for when walking along the thread
-    handle_t start_handle;
-    handle_t end_handle;
-    const Visit& v1 = trav.visit(0);
-    const Visit& v2 = trav.visit(trav.visit_size() - 1);
-    if (thread_reversed) {
-        start_handle = graph->get_handle(v2.node_id(), !v2.backward());
-        end_handle = graph->get_handle(v1.node_id(), !v1.backward());
-    } else {
-        start_handle = graph->get_handle(v1.node_id(), v1.backward());
-        end_handle = graph->get_handle(v2.node_id(), v2.backward());
-    }
-    int64_t start_offset = -1;
-    int64_t end_offset = -1;
-    int64_t offset = 0;
-
-    // Find the cache to use. Make sure we made it the right width for the OMP
-    // team we are actually on.
-    assert(this->gbwt_pos_caches_level == omp_get_level());
-    LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>* gbwt_pos_cache =
-        gbwt_pos_caches[omp_get_thread_num()];
-    
-    pair<shared_ptr<unordered_map<handle_t, size_t>>, bool> cached = gbwt_pos_cache->retrieve(thread);
-    if (cached.second) {
-        start_offset = cached.first->at(start_handle);
-    } else {
-        shared_ptr<unordered_map<handle_t, size_t>> path_map = make_shared<unordered_map<handle_t, size_t>>();
-        for (gbwt::edge_type pos = gbwt.start(sequence_id); pos.first != gbwt::ENDMARKER; pos = gbwt.LF(pos)) {
-            handle_t handle = graph->get_handle(gbwt::Node::id(pos.first), gbwt::Node::is_reverse(pos.first));
-            path_map->insert(make_pair(handle, offset));
-            if (handle == start_handle) {
-                start_offset = offset;
-            }
-            if (handle == end_handle && start_offset != -1) {
-                end_offset = offset;
-            }
-            size_t len = graph->get_length(gbwt_to_handle(*graph, pos.first));
-            offset += len;
-        }
-        assert(start_offset >= 0 && end_offset >= 0);
-        gbwt_pos_cache->put(thread, path_map);
-    }
-  
-    auto rval = make_tuple<bool, handle_t, size_t>((bool)!thread_reversed, (handle_t)start_handle, (size_t)start_offset);
-
-    return rval;
-}
 }
 

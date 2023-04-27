@@ -1,4 +1,5 @@
 #include "utility.hpp"
+#include "statistics.hpp"
 
 #include <set>
 #include <mutex>

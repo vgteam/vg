@@ -45,8 +45,6 @@ public:
                      bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
-                     const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
-                     const unordered_map<string, int>* sample_ploidy = nullptr,
                      gbwt::GBWT* gbwt = nullptr);
     
 private:
@@ -64,8 +62,7 @@ private:
                             char prev_char, bool use_start) const;
     
     // write traversal path names as genotypes
-    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
-                       const vector<gbwt::size_type>& trav_thread_ids) const;
+    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele) const;
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
@@ -81,11 +78,6 @@ private:
     // get traversals from the exhaustive finder.  if they have nested visits, fill them in (exhaustively)
     // with node visits
     vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl) const;
-
-    // get the path location of a given traversal out of the gbwt
-    // this will be much slower than doing the same using the PathPositionGraph interface as there's no
-    // underlying index. 
-    tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const;
 
     // gets a sorted node id context for a given path
     vector<nid_t> get_context(
@@ -127,22 +119,19 @@ private:
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
     // When using the gbwt we need some precomputed information to ask about stored paths.
     unordered_set<string> gbwt_reference_samples;
-    // hacky path position index for alts in the gbwt
-    // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
-    // because child snarls are done in series, we often hit the same non-ref path consecutively
-    // which makes the lru cache fairly effective
-    size_t lru_size = 10; 
-    vector<LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>*> gbwt_pos_caches;
-    /// We need to keep track of what OMP parallelism level we made the cache
-    /// list for, so we can make sure to bail out if we end up trying to use
-    /// the wrong level's thread numbers.
-    size_t gbwt_pos_caches_level = std::numeric_limits<size_t>::max();
+    
     // infer ploidys from gbwt when possible
     unordered_map<string, pair<int, int>> gbwt_sample_to_phase_range;
 
     // the ref paths
     set<string> ref_paths;
 
+    // keep track of reference samples
+    set<string> ref_samples;
+
+    // do we need to write metadata for reference contigs
+    bool long_ref_contig = false;
+    
     // keep track of the non-ref paths as they will be our samples
     set<string> sample_names;
 
@@ -150,7 +139,7 @@ private:
     const unordered_map<string, pair<string, int>>* path_to_sample_phase;
 
     // the sample ploidys given in the phases in our path names
-    const unordered_map<string, int>* sample_ploidys;
+    unordered_map<string, int> sample_ploidys;
 
     // upper limit of degree-2+ nodes for exhaustive traversal
     int max_nodes_for_exhaustive = 100;
