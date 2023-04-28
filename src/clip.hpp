@@ -42,11 +42,13 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
  * If a given bed region spans a snarl (overlaps its end nodes, and forms a traversal)
  * then clip out all other nodes (ie nodes that don't lie on the traversal)
  *
- * IMPORTANT: for any given snarl, the first region that contains it is used.  
+ * IMPORTANT: for any given snarl, the first region that contains it is used.
+ *            (but other reference paths now whitelisted via ref_prefixes)
  *
  * Update: now accepts some snarl complexity thresholds to ignore simple enough snarls
  */
-void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
+void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph,
+                           const vector<Region>& regions, const vector<string>& ref_prefixes,
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
                            size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
                            double max_avg_degree, double max_reflen_prop, size_t max_reflen,

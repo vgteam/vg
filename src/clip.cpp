@@ -27,6 +27,13 @@ static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool
     // every path through the snarl
     pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > travs = trav_finder.find_path_traversals(*snarl);
 
+    // we sort by (region-size, interval-size) to choose the biggest interval from the biggest contig
+    // intuition: pggb graph with tons of unplaced contigs and one reference contig -- we want the reference contig
+    // then in all the possible traversals of that reference contig, we take the biggest (which should fit better
+    // with the other heuristics)
+    multimap<pair<int64_t, int64_t>,
+             tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool>> ranked_intervals;
+    
     // check each one against the interval tree
     for (size_t i = 0; i < travs.first.size(); ++i) {
         auto& step_pair = travs.second[i];
@@ -74,12 +81,20 @@ static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool
             }
             int64_t last_path_pos = length_from_start == 0 ? first_path_pos : first_path_pos + length_from_start - 1;
             auto overlapping_intervals = interval_tree.findOverlapping(first_path_pos, last_path_pos);
+            int64_t traversal_interval_length = last_path_pos - first_path_pos + 1;            
             for (auto& interval : overlapping_intervals) {
                 if (interval.start <= first_path_pos && interval.stop >= last_path_pos) {
-                    return make_tuple(interval.value, start_step, end_step, first_path_pos, last_path_pos, !use_start);
+                    int64_t region_interval_length = interval.stop - interval.start + 1;
+                    ranked_intervals.insert(make_pair(make_pair(region_interval_length, traversal_interval_length),
+                                            make_tuple(interval.value, start_step, end_step, first_path_pos, last_path_pos, !use_start)));
                 }
             }
         }
+    }
+
+    
+    if (!ranked_intervals.empty()) {
+        return ranked_intervals.rbegin()->second;
     }
     return make_tuple(nullptr, step_handle_t(), step_handle_t(), -1, -1, false);
 }
@@ -302,7 +317,8 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     return !filter_on || (complex_nodes && complex_edges && complex_nodes_shallow && complex_edges_shallow && complex_degree);
 }
 
-void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
+void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph,
+                           const vector<Region>& regions, const vector<string>& ref_prefixes,
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
                            size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
                            double max_avg_degree, double max_reflen_prop, size_t max_reflen,
@@ -351,6 +367,24 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
             path_handle_t path_handle = pp_graph->get_path_handle_of_step(start_step);
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
+            // add other reference paths to the whitelist to make sure they don't get cut
+            if (!ref_prefixes.empty()) {
+                for (const id_t& node_id : contents.first) {
+                    if (!whitelist.count(node_id)) {
+                        graph->for_each_step_on_handle(graph->get_handle(node_id), [&](step_handle_t step_handle) {
+                            string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
+                            for (const string& ref_prefix : ref_prefixes) {
+                                if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                                    whitelist.insert(node_id);
+                                    return true;
+                                }
+                            }
+                            return false;
+                        });
+                    }
+                }
+            }
+            
             double avg_degree = -1;
             if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
                                  max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, avg_degree)) {
