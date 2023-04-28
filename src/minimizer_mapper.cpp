@@ -17,6 +17,7 @@
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/chain_items.hpp"
+#include "algorithms/sample_minimal.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -3366,54 +3367,48 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
     // Prefilter and downsample the minimizers with a sliding window.
     // We do all this in *read* order!
-    auto minimizer_worse_than = [&](const Minimizer& min_a, const Minimizer& min_b) {
-        // Return true if minimizer a is worse than minimizer b.
-        // The worse minimizer is the one that doesn't match the reference, or
-        // if both match the reference it is the one that has less score.
-        return (min_a.hits == 0 && min_b.hits > 0) || (min_a.hits != 0 && min_b.hits != 0 && min_a.score < min_b.score);
-    };
     // We keep a set of the minimizers that pass downsampling.
     // We later need to filter given a minimizer reference and that makes it hard to use a bit vector here.
     // TODO: change how the filters work!
     std::unordered_set<const Minimizer*> downsampled;
     if (this->minimizer_downsampling_window_size != 0) {
-        // This will hold all the minimizers in the sliding window of bases
-        std::deque<size_t> queue;
+        // Downsample the minimizers. This needs to break up by minimizer length.
+        // So we need to organize the minimizers by length if we are weirdly using multiple lengths of minimizer.
+        std::unordered_map<size_t, std::vector<size_t>> minimizers_in_read_order_by_length;
         for (size_t i = 0; i < minimizers_in_read_order.size(); i++) {
-            // We use the minimizer sampling algorithm again, as described in the Winnowmap paper (Jain et al., 2020).
-            
-            auto& new_minimizer = minimizers_in_read_order[i];
-            size_t new_window_end = new_minimizer.forward_offset() + new_minimizer.length;
+            // TODO: Skip this copy if we think we have only one minimizer length!
+            // We probably have only one length so do a reserve here.
+            minimizers_in_read_order_by_length[minimizers_in_read_order[i].length].reserve(minimizers_in_read_order.size());
+            minimizers_in_read_order_by_length[minimizers_in_read_order[i].length].push_back(i);
+        }
+        for (auto& kv : minimizers_in_read_order_by_length) {
+            auto& length = kv.first;
+            crash_unless(length <= this->minimizer_downsampling_window_size);
+            auto& min_indexes = kv.second;
+            // Run downsampling for this length of minimizer.
+            algorithms::sample_minimal(min_indexes.size(), length, this->minimizer_downsampling_window_size, aln.sequence().size(), [&](size_t i) -> size_t {
+                // Get item start
+                return minimizers_in_read_order.at(min_indexes.at(i)).forward_offset();
+            }, [&](size_t a, size_t b) -> bool {
+                // Return if minimizer a should beat minimizer b
+                auto& min_a = minimizers_in_read_order.at(min_indexes.at(a));
+                auto& min_b = minimizers_in_read_order.at(min_indexes.at(b));
 
-            while (!queue.empty() && minimizer_worse_than(minimizers_in_read_order.at(queue.back()), new_minimizer)) { 
-                // Drop minimizers off the end of the queue until it is empty
-                // or we find one that is at least as good as the new
-                // minimizer.
-                queue.pop_back();
-            }
-
-            // Add the new minimizer.
-            queue.push_back(i);
-
-            while(!queue.empty() && minimizers_in_read_order[queue.front()].forward_offset() + this->minimizer_downsampling_window_size < new_window_end) {
-                // Drop minimizers off the front of the queue until it is empty
-                // or we find one that is in-window.
-                queue.pop_front();
-            }
-            
-            if (queue.empty()) {
-                // We removed the minimizer we just added. The window is probably too small.
-                #pragma omp critical (cerr)
-                std::cerr << "error:[vg::MinimizerMapper] no minimizer found in downsampling window. Make sure that the downsampling window is at least " << new_minimizer.length << " bp" << std::endl;
-                exit(1);
-            }
-
-            // Since we never add a better minimizer after a worse one, the first thing in the queue is the best minimizer in the window.
-            downsampled.insert(&minimizers_in_read_order[queue.front()]);
+                // The better minimizer is the one that does match the reference, or
+                // if both match the reference it is the one that has more score. Or if both have equal score it is the more minimal one.
+                // That happens to be how we defined the Minimizer operator<.
+                return (min_a.hits > 0 && min_b.hits == 0) || (min_a.hits > 0 && min_b.hits > 0 && min_a < min_b);
+            }, [&](size_t sampled) -> void {
+                // This minimizer is actually best in a window
+                downsampled.insert(&minimizers_in_read_order.at(min_indexes.at(sampled)));
+            });
         }
         if (show_work) {
             #pragma omp critical (cerr)
-            std::cerr << log_name() << "Downsampled to " << downsampled.size() << " minimizers" << std::endl;
+            std::cerr << log_name() << "Downsampled "
+                << minimizers_in_read_order.size() << " minimizers of "
+                << minimizers_in_read_order_by_length.size() << " lengths to "
+                << downsampled.size() << " minimizers" << std::endl;
         }
     }
     
