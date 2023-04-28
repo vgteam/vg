@@ -16,7 +16,7 @@ namespace algorithms {
 
 using namespace std;
 
-#define debug
+//#define debug
 
 void sample_minimal(size_t count, size_t element_length, size_t window_size, size_t sequence_length, const std::function<size_t(size_t)>& get_start, const std::function<bool(size_t, size_t)>& should_beat, const std::function<void(size_t)>& sample) {
 
