@@ -6257,8 +6257,7 @@ template&lt;typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>If a given bed region spans a snarl (overlaps its end nodes, and forms a traversal) then clip out all other nodes (ie nodes that don't lie on the traversal)</p>
-<p>IMPORTANT: for any given snarl, the first region that contains it is used. <br  />
-</p>
+<p>IMPORTANT: for any given snarl, the first region that contains it is used. (but other reference paths now whitelisted via ref_prefixes)</p>
 <p>Update: now accepts some snarl complexity thresholds to ignore simple enough snarls </p>
 
 </div>
