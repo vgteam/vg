@@ -348,7 +348,7 @@ int main_clip(int argc, char** argv) {
         }        
     }else {
         // run the alt-allele clipping
-        clip_contained_snarls(graph.get(), pp_graph, bed_regions, ref_prefixes, *snarl_manager, false, min_fragment_len,
+        clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
                               max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, out_bed, verbose);
     }
 

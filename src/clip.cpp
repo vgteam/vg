@@ -317,8 +317,7 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     return !filter_on || (complex_nodes && complex_edges && complex_nodes_shallow && complex_edges_shallow && complex_degree);
 }
 
-void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph,
-                           const vector<Region>& regions, const vector<string>& ref_prefixes,
+void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions, 
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
                            size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
                            double max_avg_degree, double max_reflen_prop, size_t max_reflen,
@@ -332,6 +331,12 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
 
     // just for logging
     unordered_map<string, size_t> clip_counts;
+
+    // for making the whitelist
+    unordered_set<string> ref_prefixes;
+    for (const Region& region : regions) {
+        ref_prefixes.insert(region.seq);
+    }
     
     visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
                                                                                     int64_t start_pos, int64_t end_pos,
