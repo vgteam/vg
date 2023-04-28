@@ -40,6 +40,7 @@
 #include <iostream>
 #include <fstream>
 #include <signal.h>
+#include <typeinfo>
 
 #ifndef __APPLE__
     // Pull in backward-cpp and use libdw from elfutils.
@@ -348,7 +349,9 @@ void with_exception_handling(const std::function<void(void)>& body) {
 }
 
 void report_exception(const std::exception& ex) {
-    std::cerr << "Unhandled exception: " << ex.what() << std::endl;
+    std::cerr << std::endl;
+    draw_br();
+    std::cerr << "Unhandled exception of type " << typeid(ex).name() << ": " << ex.what() << std::endl;
     if (!stored_crash_context.empty()) {
         std::cerr << "Exception context: " << stored_crash_context << std::endl;
     }
