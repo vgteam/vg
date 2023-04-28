@@ -3308,6 +3308,12 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
         result.push_back({ value, agglomeration_start, agglomeration_length, hits.first, hits.second,
                             match_length, candidate_count, score });
     }
+
+    // Make sure everything is sorted by read start position.
+    // TODO: Can we drop this guarantee and avoid this sort to speed things up?
+    std::sort(result.begin(), result.end(), [&](const Minimizer& a, const Minimizer& b) {
+        return a.forward_offset() < b.forward_offset();
+    });
     
     if (this->track_provenance) {
         // Record how many we found, as new lines.

@@ -5,6 +5,8 @@
  
 #include "sample_minimal.hpp"
 
+#include "../crash.hpp"
+
 #include <deque>
 #include <utility>
 #include <iostream>
@@ -14,9 +16,13 @@ namespace algorithms {
 
 using namespace std;
 
-//#define debug
+#define debug
 
 void sample_minimal(size_t count, size_t element_length, size_t window_size, size_t sequence_length, const std::function<size_t(size_t)>& get_start, const std::function<bool(size_t, size_t)>& should_beat, const std::function<void(size_t)>& sample) {
+
+#ifdef debug
+    std::cerr << "Downsampling " << count << " elements of length " << element_length << " over windows of size " << window_size << " in a space of size " << sequence_length << std::endl;
+#endif
 
     if (count == 0) {
         return;
@@ -59,7 +65,7 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
         if (next_element < count) {
             next_start = get_start(next_element);
 #ifdef debug
-            std::cerr << "Element " << next_element << " starts at " << next_start << std::endl;
+            std::cerr << "Next element " << next_element << " starts at " << next_start << std::endl;
 #endif
         }
     }
@@ -85,13 +91,27 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
 
         // Jump to the last window if nothing intervenes
         size_t sweep_to = sequence_length - window_size;
+#ifdef debug
+        std::cerr << "Final window would be " << sweep_to << "-" << sweep_to + window_size << std::endl;
+#endif
         if (next_element < count) {
             // Or to the first window the next element is in, if closer.
-            sweep_to = std::min(sweep_to, next_start + element_length - window_size); 
+            size_t next_end = next_start + element_length;
+            // The next element has to be outside the first window or it would have been in already.
+            crash_unless(next_end >= window_size);
+            size_t sweep_to_next = next_start + element_length - window_size;
+#ifdef debug
+            std::cerr << "Next element would enter at " << sweep_to_next << "-" << sweep_to_next + window_size << std::endl;
+#endif
+            sweep_to = std::min(sweep_to, sweep_to_next);
         }
         if (!queue.empty()) {
             // Or to the first window that the first element in the queue is not in, if closer.
-            sweep_to = std::min(sweep_to, front_start + 1);
+            size_t sweep_to_drop = front_start + 1;
+#ifdef debug
+            std::cerr << "Front element would leave at " << sweep_to_drop << "-" << sweep_to_drop + window_size << std::endl;
+#endif
+            sweep_to = std::min(sweep_to, sweep_to_drop);
         }
 
 #ifdef debug
@@ -126,7 +146,7 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
 #endif
             while (!queue.empty() && should_beat(next_element, queue.back())) {
 #ifdef debug
-                std::cerr << "Element " << next_element << " beats element " << queue.back() << " which will never be sampled" << std::endl;
+                std::cerr << "Element " << next_element << " beats element " << queue.back() << std::endl;
 #endif
                 queue.pop_back();
             }
@@ -138,7 +158,7 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
             if (next_element < count) {
                 next_start = get_start(next_element);
 #ifdef debug
-                std::cerr << "Element " << next_element << " starts at " << next_start << std::endl;
+                std::cerr << "Next element " << next_element << " starts at " << next_start << std::endl;
 #endif
             }
         }
