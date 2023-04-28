@@ -14,7 +14,7 @@ namespace algorithms {
 
 using namespace std;
 
-#define debug
+//#define debug
 
 void sample_minimal(size_t count, size_t element_length, size_t window_size, size_t sequence_length, const std::function<size_t(size_t)>& get_start, const std::function<bool(size_t, size_t)>& should_beat, const std::function<void(size_t)>& sample) {
 
@@ -36,13 +36,19 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
     size_t next_element = 0;
     // This will hold the start of the next element not in the queue yet, if any.
     size_t next_start = get_start(next_element);
+#ifdef debug
     std::cerr << "Element " << next_element << " starts at " << next_start << std::endl;
+#endif
 
     // Fill the queue for the first window
     while (next_element < count && next_start + element_length <= window_size) {
+#ifdef debug
         std::cerr << "Element " << next_element << " at " << next_start << " is in first window" << std::endl;
+#endif
         while (!queue.empty() && should_beat(next_element, queue.back())) {
+#ifdef debug
             std::cerr << "Element " << next_element << " beats element " << queue.back() << std::endl;
+#endif
             queue.pop_back();
         }
         queue.push_back(next_element);
@@ -52,15 +58,21 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
         next_element++;
         if (next_element < count) {
             next_start = get_start(next_element);
+#ifdef debug
             std::cerr << "Element " << next_element << " starts at " << next_start << std::endl;
+#endif
         }
     }
     if (!queue.empty()) {
         // Find the winner fo the first window
+#ifdef debug
         std::cerr << "Element " << queue.front() << " is minimal in first window" << std::endl;
+#endif
         sample(queue.front());
     } else {
+#ifdef debug
         std::cerr << "First window is empty" << std::endl;
+#endif
     }
 
 
@@ -82,12 +94,16 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
             sweep_to = std::min(sweep_to, front_start + 1);
         }
 
+#ifdef debug
         std::cerr << "Sweep to window " << sweep_to << "-" << sweep_to + window_size << std::endl;
+#endif
 
         while (!queue.empty() && sweep_to > front_start) {
             // We are going to the first window that this element is not in.
             // Drop elements from the front of the queue that were already sampled.
+#ifdef debug
             std::cerr << "Going to leave element " << queue.front() << " which started at " << front_start << std::endl;
+#endif
             queue.pop_front();
             if (!queue.empty()) {
                 front_start = get_start(queue.front());
@@ -95,37 +111,45 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
                     // Must be another element at the same position (as we never go past the old front_start + 1)
                     // This is a tie (since it didn't beat out the one we just popped).
                     // So sample this too.
+#ifdef debug
                     std::cerr << "Element " << queue.front() << " was also minimal in window " << cursor << "-" << cursor + window_size << std::endl;
+#endif
                     sample(queue.front());
                 }
             }
         }
 
-        bool added_elements = false;
         while (next_element < count && sweep_to >= next_start + element_length - window_size) {
             // We are going to the first window that the next element is in.
+#ifdef debug
             std::cerr << "Element " << next_element << " at " << next_start << " is going to be visible in window " << sweep_to << "-" << sweep_to + window_size << std::endl;
+#endif
             while (!queue.empty() && should_beat(next_element, queue.back())) {
+#ifdef debug
                 std::cerr << "Element " << next_element << " beats element " << queue.back() << " which will never be sampled" << std::endl;
+#endif
                 queue.pop_back();
             }
             queue.push_back(next_element);
-            added_elements = true;
             if (queue.front() == next_element) {
                 front_start = next_start;
             }
             next_element++;
             if (next_element < count) {
                 next_start = get_start(next_element);
+#ifdef debug
                 std::cerr << "Element " << next_element << " starts at " << next_start << std::endl;
+#endif
             }
         }
         
-        if (added_elements) {
-            // Now, if we added any elements to the queue, sample the queue
-            // front because it might be one of those new and better elements,
-            // and to restore the front-sampled-already invariant.
+        if (!queue.empty()) {
+            // Sample the front element because either it is now minimal
+            // because we removed something in the way, or it is now minimal
+            // because we added it.
+#ifdef debug
             std::cerr << "Element " << queue.front() << " is minimal in new window " << sweep_to << "-" << sweep_to + window_size << std::endl;
+#endif
             sample(queue.front());
         }
 
@@ -137,10 +161,14 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
     if (!queue.empty()) {
         // We consider everything that started at the same place as the front element we already sampled.
         size_t tie_front_start = front_start;
+#ifdef debug
         std::cerr << "Finishing last window " << cursor << "-" << cursor + window_size << std::endl;
+#endif
         while (!queue.empty() && front_start == tie_front_start) {
             // Drop elements from the front of the queue that were already sampled.
+#ifdef debug
             std::cerr << "Going to leave element " << queue.front() << " which started at " << front_start << std::endl;
+#endif
             queue.pop_front();
             if (!queue.empty()) {
                 front_start = get_start(queue.front());
@@ -148,7 +176,9 @@ void sample_minimal(size_t count, size_t element_length, size_t window_size, siz
                     // Another element at the same position.
                     // This is a tie (since it didn't beat out the one we just popped).
                     // So sample this too.
+#ifdef debug
                     std::cerr << "Element " << queue.front() << " was also minimal in window " << cursor << "-" << cursor + window_size << std::endl;
+#endif
                     sample(queue.front());
                 }
             }
