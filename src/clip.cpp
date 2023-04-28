@@ -381,10 +381,10 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                             for (const string& ref_prefix : ref_prefixes) {
                                 if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
                                     whitelist.insert(node_id);
-                                    return true;
+                                    return false;
                                 }
                             }
-                            return false;
+                            return true;
                         });
                     }
                 }
