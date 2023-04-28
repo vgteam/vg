@@ -576,9 +576,9 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
     size_t distance;
     
 #ifdef skip_zipcodes
-    if (from_hint && to_hint) {
-#else
     if (false) {
+#else
+    if (from_hint && to_hint) {
 #endif
 #ifdef debug
         std::cerr << "Finding distance from " << from_pos << " to " << to_pos << " using hints " << *from_hint << " and " << *to_hint << std::endl;
