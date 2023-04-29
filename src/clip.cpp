@@ -361,7 +361,35 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
                 }
             }
-            bool deletion_on_whitellist = whitelist.size() <= 2;
+
+            edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+            bool deletion_on_whitelist = false;
+            // check if the snarl-spanning deletion edge is on a reference path.  if it is, we whitelist it, otherwise it
+            // goes.  this gets treated separately as it would not otherwise get deleted by erasing every node in the snarl contents
+            if (graph->has_edge(deletion_edge)) {
+                graph->for_each_step_on_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()), [&](step_handle_t step_handle) {
+                    string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
+                    for (const string& ref_prefix : ref_prefixes) {
+                        if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                            step_handle_t next_step = graph->get_next_step(step_handle);
+                            if (next_step != graph->path_end(graph->get_path_handle_of_step(step_handle)) &&
+                                graph->edge_handle(graph->get_handle_of_step(step_handle), graph->get_handle_of_step(next_step)) == deletion_edge) {
+                                deletion_on_whitelist = true;
+                                return false;
+                            }
+                            step_handle_t prev_step = graph->get_previous_step(step_handle);
+                            if (prev_step != graph->path_front_end(graph->get_path_handle_of_step(step_handle)) &&
+                                graph->edge_handle(graph->get_handle_of_step(prev_step), graph->get_handle_of_step(step_handle)) == deletion_edge) {
+                                deletion_on_whitelist = true;
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                });
+            }
+            
             size_t ref_interval_length = 0;
             for (nid_t node_id : whitelist) {
                 // don't count snarl ends here. todo: should this be an option?
@@ -408,12 +436,8 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                         }
                     }
                     // since we're deleting all alt alleles, the only edge that could be left is a snarl-spanning deletion
-                    if (!deletion_on_whitellist) {
-                        edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
-                                                                  graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
-                        if (graph->has_edge(deletion_edge)) {
-                            edges_to_delete.insert(deletion_edge);
-                        }
+                    if (!deletion_on_whitelist && graph->has_edge(deletion_edge)) {
+                        edges_to_delete.insert(deletion_edge);
                     }
                 }
             }
