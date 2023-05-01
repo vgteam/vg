@@ -584,7 +584,7 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
                                                      *to_hint, to_pos,
                                                      distance_index,
                                                      distance_limit,
-                                                     true, 
+                                                     false, 
                                                      &graph);
 
 #ifdef debug

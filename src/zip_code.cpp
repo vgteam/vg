@@ -848,7 +848,7 @@ vector<size_t> ZipCode::get_top_level_irregular_snarl_code(const net_handle_t& s
 
 size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos_t& pos1,   
     ZipCodeDecoder& zip2_decoder, const pos_t& pos2, const SnarlDistanceIndex& distance_index,
-    size_t distance_limit, bool directed_distance, const HandleGraph* graph){
+    size_t distance_limit, bool undirected_distance, const HandleGraph* graph){
 
 
 #ifdef DEBUG_ZIPCODE
@@ -1022,7 +1022,7 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
     size_t distance_to_end2 = is_rev(pos2) ? offset(pos2) + 1 
          : zip2_decoder.get_length(zip2_decoder.decoder_length()-1, &distance_index) - offset(pos2);
 
-    if (directed_distance) {
+    if (!undirected_distance) {
         //These are directed distances so set backwards distances to inf
         if (is_rev(pos1)) {
             distance_to_end1 = std::numeric_limits<size_t>::max();
