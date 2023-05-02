@@ -74,7 +74,7 @@ class ZipCode {
                                        ZipCodeDecoder& zip_decoder2, const pos_t& pos2,
                                        const SnarlDistanceIndex& distance_index, 
                                        size_t distance_limit = std::numeric_limits<size_t>::max(),
-                                       bool directed_distance=true, 
+                                       bool undirected_distance=false, 
                                        const HandleGraph* graph = nullptr);
 
         //Return true if the minimum distance between the zip codes is definitely greater than limit
