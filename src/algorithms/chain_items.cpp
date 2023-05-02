@@ -563,8 +563,7 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
     }
 }
 
-#define double_check_distances
-//#define debug
+//#define double_check_distances
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
@@ -598,8 +597,12 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
             id(to_pos), is_rev(to_pos), offset(to_pos),
             false, &graph);
 
-        if (check_distance != distance) {
-            std::cerr << "Distance index reports " << check_distance << " but zipcodes report " << distance << " for distance from " << from_pos << " to " << to_pos << std::endl;
+        if (check_distance > distance) {
+            distance = check_distance;
+
+#ifdef debug
+            std::cerr << "Distance index reports " << check_distance << " so using that instead" << std::endl;
+#endif  
         }
 
 #endif
