@@ -411,7 +411,7 @@ bool execute_in_fork(const function<void(void)>& exec) {
         exit(0);
     } else {
         // This is the parent
-        if (IndexingParameters::verbosity != IndexingParameters::None) {
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
             cerr << "[IndexRegistry]: Forked into child process with PID " << pid << "." << endl;
         }
     }
@@ -422,7 +422,7 @@ bool execute_in_fork(const function<void(void)>& exec) {
     
     // pass through signal-based exits
     if (WIFSIGNALED(child_stat)) {
-        cerr << "error:[IndexRegistry] Dhild process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
+        cerr << "error:[IndexRegistry] Child process " << pid << " signaled with status " << child_stat << " representing signal " << WTERMSIG(child_stat) << endl;
         if (raise(WTERMSIG(child_stat)) == 0) {
             // TODO: on Mac, raise isn't guaranteed to not return before the handler if it succeeds.
             // Also the signal might not be one that necessarily kills us.
@@ -3050,8 +3050,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto& tx_graph_names = all_outputs[making_hsts ? 2 : 1];
         //auto& tx_table_names = all_outputs[2];
         
-        auto tx_filenames = inputs[0]->get_filenames();
-        auto gbz_filenames = inputs[1]->get_filenames();
+        auto gbz_filenames = inputs[0]->get_filenames();
+        auto tx_filenames = inputs[1]->get_filenames();
         vector<string> haplo_tx_filenames;
         if (projecting_transcripts) {
             haplo_tx_filenames = inputs[2]->get_filenames();
@@ -3105,6 +3105,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         for (auto& tx_file : infiles_haplo_tx) {
             tx_file_ptrs.push_back(&tx_file);
+        }
+        
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+            gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+        }
+        else {
+            gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
         
         // add the splice edges and ref transcript paths
@@ -3842,7 +3849,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 AliasGraph& alias_graph,
                                 const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
+            cerr << "[IndexRegistry]: Constructing a GBZ from GFA input." << endl;
         }
         
         assert(inputs.size() == 1);
