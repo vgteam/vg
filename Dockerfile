@@ -138,6 +138,7 @@ RUN ls -lah /vg && \
     linux-tools-common \
     linux-tools-generic \
     perl \
+    time \
     && apt-get -qq -y clean
     
 COPY --from=build /vg/bin/vg /vg/bin/
