@@ -81,8 +81,8 @@ rm -f cnodes fnodes
 #check that n-chunking works
 # We know that it will drop _alt paths so we remake the graph without them for comparison.
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
-mkdir x.chunk
-vg chunk -x x.xg -n 5 -b x.chunk/
+mkdir -p x.chunk
+vg chunk -x x.xg -n 5 -b x.chunk/ -O vg
 # vg chunk no longer keeps ranks, so there's no way to stitch the path back together anymore!
 # we grep it out of the comparison
 is $(cat x.chunk/*vg | vg view -V - | grep -v P 2>/dev/null | sort |  md5sum | cut -f 1 -d\ ) $(vg view x.vg | grep -v P | sort  | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
@@ -102,8 +102,8 @@ cat x.gam y.gam > xy.gam
 vg chunk -x xy.vg -M -b path_chunk -O hg -a xy.gam -g
 vg view x.vg | grep "^S" | awk '{print $3}' | sort > x_nodes.txt
 vg view y.vg | grep "^S" | awk '{print $3}' | sort > y_nodes.txt
-vg convert path_chunk_x.hg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_x_nodes.txt
-vg convert path_chunk_y.hg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_y_nodes.txt
+vg convert path_chunk_x.vg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_x_nodes.txt
+vg convert path_chunk_y.vg -v | vg view - | grep "^S" | awk '{print $3}' | sort > pc_y_nodes.txt
 diff x_nodes.txt pc_x_nodes.txt && diff y_nodes.txt pc_y_nodes.txt
 is "$?" 0 "path-based components finds subgraphs"
 is $(vg view -a path_chunk_x.gam | wc -l) $(vg view -a x.gam | wc -l) "x gam chunk has correct number of reads"
@@ -113,7 +113,7 @@ vg chunk -x xy.vg -C -p y -b path_chunk_ind -O hg -a xy.gam -g > /dev/null
 is $(vg view -a path_chunk_ind_x.gam | wc -l) $(vg view -a x.gam | wc -l) "x gam chunk has correct number of reads with -p path"
 is $(vg view -a path_chunk_ind_y.gam | wc -l) $(vg view -a y.gam | wc -l) "y gam chunk has correct number of reads with -p path"
 vg paths -v x.vg -E > x_paths.txt
-vg paths -v path_chunk_x.hg -E > pc_x_paths.txt
+vg paths -v path_chunk_x.vg -E > pc_x_paths.txt
 diff pc_x_paths.txt x_paths.txt
 is "$?" 0 "path-based component contains correct path length"
 vg chunk -x xy.vg -C -b components_chunk
@@ -124,7 +124,7 @@ cat x_nodes.txt y_nodes.txt | sort > nodes.txt
 diff comp_nodes.txt nodes.txt
 is "$?" 0 "components finds subgraphs"
 
-rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.hg  convert path_chunk_y.hg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt x.gam y.gam xy.gam path_chunk_x.gam path_chunk_y.gam
+rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.vg  convert path_chunk_y.vg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt x.gam y.gam xy.gam path_chunk_x.gam path_chunk_y.gam
 
 
 
