@@ -3655,7 +3655,21 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
         cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
         exit(1);
     }
-    
+   
+    // Organize the alignment's refpos entries by path
+    std::unordered_map<std::string, std::vector<const Position*>> refpos_by_path;
+    if (this->track_correctness && aln.refpos_size() != 0) {
+        for (const Position& refpos : aln.refpos()) {
+            refpos_by_path[refpos.name()].push_back(&refpos); 
+        }
+        for (auto& kv : refpos_by_path) {
+            // Sort the reference positions by coordinate for easy scanning to find near matches.
+            std::sort(kv.second.begin(), kv.second.end(), [&](const Position* a, const Position* b) {
+                return a->offset() < b->offset();
+            });
+        }
+    }
+
     // Track the index of each seed in the funnel
     size_t funnel_index = funnel_offset;
     for (std::vector<Seed>::const_iterator it = begin; it != end; ++it) {
@@ -3664,21 +3678,47 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
         Funnel::State tag = Funnel::State::PLACED;
         if (this->track_correctness && aln.refpos_size() != 0) {
             // It might also be correct
-            // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
+            // Find every seed's reference positions. This maps from path handle to pairs of offset and orientation.
             auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, it->pos, 100);
-            
-            for (auto& true_pos : aln.refpos()) {
-                // For every annotated true position
-                for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
-                    // Look at all the hit positions on the path the read's true position is on.
-                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // We're close enough to be correct
-                        tag = Funnel::State::CORRECT;
+
+            for (auto& handle_and_positions : offsets) {
+                // For every path we have positions on
+                // See if we have any refposes on that path
+                auto found = refpos_by_path.find(this->path_graph->get_path_name(handle_and_positions.first));
+                if (found != refpos_by_path.end()) {
+                    // We do have reference positiions on this path.
+                    std::vector<const Position*>& refposes = found->second;
+                    // And we have to check them against these mapped positions on the path.
+                    std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second; 
+                    // Sort the positions we mapped to by coordinate also
+                    std::sort(mapped_positions.begin(), mapped_positions.end(), [&](const std::pair<size_t, bool>& a, const std::pair<size_t, bool>& b) {
+                        return a.first < b.first;
+                    });
+
+                    // Compare all the refposes to all the positions we mapped to
+                    
+                    // Start two cursors
+                    auto ref_it = refposes.begin();
+                    auto mapped_it = mapped_positions.begin();
+                    while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
+                        // As long as they are both in their collections, compare them
+                        if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < 200) {
+                            // If they are close enough, we have a match
+                            tag = Funnel::State::CORRECT;
+                            break;
+                        }
+                        // Otherwise, advance the one with the lower coordinate.
+                        if ((*ref_it)->offset() < mapped_it->first) {
+                            ++ref_it;
+                        } else {
+                            ++mapped_it;
+                        }
+                    }
+
+                    if (tag == Funnel::State::CORRECT) {
+                        // Stop checking paths if we find a hit
                         break;
                     }
-                }
-                if (tag == Funnel::State::CORRECT) {
-                    break;
                 }
             }
         }
