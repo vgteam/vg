@@ -30,7 +30,7 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
      * Sort the seeds by their position in the snarl tree
      * The seeds are sorted first by connected component, by position along a chain, by the distance to the start of a snarl,
      * and by the rank in the snarl. 
-     * Then walk through the ordered list of seeds and add last_item_at_depth for skipping to the ends of snarl tree nodes, 
+     * Then walk through the ordered list of seeds and add to start/end_count for skipping to the ends of snarl tree nodes, 
      * and split by connected component and create a new partitioning_problem_t in to_partition for each connected component
      */
 
@@ -86,10 +86,10 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
 #endif
 
     //Partition by connected_component and create a new partitioning_problem_t for each
-    //Also update last_item_at_depth for each item. For each seed that is the first seed for a particular child, 
+    //Also update to start/end_count for each item. For each seed that is the first seed for a particular child, 
     //store the length of that child and its depth
 
-    //A list of the index of the first seed in a snarl tree node at each depth. This is used to fill in last_item_at_depth
+    //A list of the index of the first seed in a snarl tree node at each depth. This is used to fill in to start/end_count
     //Initialized to be 0 for all snarl tree nodes of the first seed
     std::vector<size_t> first_zipcode_at_depth (seeds[all_partitions.data[0].seed].zipcode_decoder->decoder_length(), 0);
 
@@ -101,7 +101,7 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
         auto& current_decoder = *seeds[all_partitions.data[i].seed].zipcode_decoder;
         size_t current_depth = current_decoder.decoder_length();
 
-        //For any snarl tree node that ends here, add it's last_item_at_depth
+        //For any snarl tree node that ends here, add it's to start/end_count
         for (int depth = first_zipcode_at_depth.size() ; depth >= 0 ; depth--) {
             if (current_depth > depth ||
                 !ZipCodeDecoder::is_equal(current_decoder, *seeds[all_partitions.data[i-1].seed].zipcode_decoder, depth)) {
@@ -110,7 +110,11 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
                 if (first_zipcode_at_depth[depth] != i-1 ) {
                     //If the first seed in this child wasn't the seed right before this one
                     //Add the number of things that were in that snarl tree node
-                    all_partitions.data[first_zipcode_at_depth[depth]].last_item_at_depth.emplace_back(depth, i - first_zipcode_at_depth[depth]);
+                    all_partitions.data[first_zipcode_at_depth[depth]].start_count++;
+                    all_partitions.child_start_bv[first_zipcode_at_depth[depth]] = 1;
+
+                    all_partitions.data[i].end_count++;
+                    all_partitions.child_end_bv[i] = 1;
                 }
                 first_zipcode_at_depth[depth] = i;
 
@@ -207,13 +211,13 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
 
     //First, check if we actually have to do any work
     if (previous_item.next == std::numeric_limits<size_t>::max() ||
-        seeds[previous_item.seed].zipcode_decoder->get_length(depth) <= distance_limit) {
+        seeds[previous_item.seed].zipcode_decoder->get_length(depth+1) <= distance_limit) {
         //If there was only one seed, or the chain is too short, then don't do anything
         return;
     }
 
     //Get the index of the next partition_item_t in the chain
-    size_t current_index = all_partitions.get_last_index_at_depth(previous_index, depth);
+    size_t current_index = all_partitions.get_last_index_at_depth(previous_index, depth, seeds);
 
     //If the first seed was in a snarl with other seeds, then remember to partition the snarl
     if (all_partitions.data[current_index].prev != previous_index) {
@@ -229,9 +233,9 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
 #endif
 
         //Get the values we need to calculate distance
-        size_t current_prefix_sum = seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_offset_in_chain(depth);
-        size_t previous_prefix_sum = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_offset_in_chain(depth);
-        size_t previous_length = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_length(depth);
+        size_t current_prefix_sum = seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_offset_in_chain(depth+1);
+        size_t previous_prefix_sum = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_offset_in_chain(depth+1);
+        size_t previous_length = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_length(depth+1);
 
         if (previous_prefix_sum != std::numeric_limits<size_t>::max() &&
             current_prefix_sum != std::numeric_limits<size_t>::max() &&
@@ -262,7 +266,7 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
             current_index = std::numeric_limits<size_t>::max();
         } else {
             //Otherwise, get the next thing, skipping other things in the same child at this depth
-            current_index = all_partitions.get_last_index_at_depth(previous_index, depth+1);
+            current_index = all_partitions.get_last_index_at_depth(previous_index, depth+1, seeds);
 
             //If this skipped a snarl in the chain, then remember to cluster it later
             if (all_partitions.data[current_index].prev != previous_index) {
@@ -281,20 +285,53 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
 }
 
 /*
- * Snarls are split in two passes over the seeds. First, they are sorted by the distance to the start of the snarl and
+ * Snarls are processed in two passes over the seeds. First, they are sorted by the distance to the start of the snarl and
  * split if the difference between the distances to the start is greater than the distance limit
- * For each child, x, in a snarl, we know the minimum distance to the start and end boundary nodes of the snarl (x_start and x_end)
- * For two children of the snarl, x and y, assume that x_start <= y_start.
- * Then there can be no path from x to y that is less than (y_start - x_start), otherwise y_start would be smaller. So y_start-x_start is a lower bound of the distance from x to y
- */
+ * Then, all seeds are then sorted by the distance to the end of the snarl and edges in the linked list are added back
+ * if the distance is small enough between subsequent seeds
 
+ * Finally, the leftmost and rightmost seeds in the snarl are checked against the next things in the parent chain,
+ * and possibly disconnected
+ * Proof: For each child, x, in a snarl, we know the minimum distance to the start and end boundary nodes of the snarl (x_start and x_end)
+ * For two children of the snarl, x and y, assume that x_start <= y_start.
+ * Then there can be no path from x to y that is less than (y_start - x_start), otherwise y_start would be smaller. 
+ * So y_start-x_start is a lower bound of the distance from x to y
+ */
 void ZipcodeClusterer::partition_by_snarl(const vector<Seed>& seeds, const partitioning_problem_t& current_problem,
     partition_set_t& all_partitions, std::list<partitioning_problem_t>& to_partition,
     const size_t& distance_limit){
 
     const size_t& depth = current_problem.depth;
 
-    //We're going to walk through the seeds on children of the chain, starting from the second one
+    /* 
+      To merge two partitions in the second phase, we need to be able to quickly find the 
+      head and tails of two partitions.
+      This will be done using a rank-select bit vector that stores the locations of every
+      head of lists in the first phase, not necessarily including the first and last seeds.
+      The sorting is done using a list of indices, rather than re-ordering the seeds,
+      so none of the seeds will move around in the vector all_partitions.data
+      All pointers will stay valid, and we can ensure that the heads of linked lists
+      always precede their tails in the vector. 
+      When finding the head of a linked list, use the rank-select bv to find the original
+      head of the item, going left in the vector. 
+      If its prev pointer points to null, then it is the head. 
+      Otherwise, follow the prev pointer and find the next earlier thing 
+    */
+
+    //This will hold a 1 for each position that is the head of a linked list
+    //Tails will always be at the preceding index
+    sdsl::bit_vector list_heads (current_problem.range_end - current_problem.range_start);
+
+
+    //A vector of indices into all_partitions.data, only for the children in the current problem
+    //This gets sorted by distance to snarl end for the second pass over the seeds
+    //This will include one seed for each child, since we will be able to find the head/tail of
+    //any linked list from any of its members
+    //This will be a pair of the index into all_partitions.data, the distance to the end
+    vector<pair<size_t, size_t>> sorted_indices;
+    sorted_indices.reserve (current_problem.range_end - current_problem.range_start);
+
+    //We're going to walk through the seeds on children of the snarl, starting from the second one
     size_t previous_index = current_problem.range_start;
     partition_item_t& previous_item = all_partitions.data[previous_index];
 
@@ -302,16 +339,196 @@ void ZipcodeClusterer::partition_by_snarl(const vector<Seed>& seeds, const parti
     if (previous_item.next == std::numeric_limits<size_t>::max() ||
         seeds[previous_item.seed].zipcode_decoder->get_length(depth) <= distance_limit) {
         //If there was only one seed, or the chain is too short, then don't do anything
+        //TODO: If there was only one seed, still need to check if it should remain connected to the previous
+        //and next things in the chain
         return;
     }
 
-    //Get the index of the next partition_item_t in the chain
-    size_t current_index = all_partitions.get_last_index_at_depth(previous_index, depth);
+    //Get the index of the first partition_item_t of the next snarl child
+    size_t current_index = all_partitions.get_last_index_at_depth(previous_index, depth, seeds);
 
-    //If the first seed was in a snarl with other seeds, then remember to partition the snarl
+    //If the first seed was in a chain with other seeds, then remember to partition the chain later
     if (all_partitions.data[current_index].prev != previous_index) {
         to_partition.push_back({previous_index, all_partitions.data[current_index].prev, depth+1});
     }
+
+
+    //Go through the list forwards, and at each item, either partition or add to the union find
+    while (current_index != std::numeric_limits<size_t>::max()) {
+
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+        cerr << "At seed " << seeds[all_partitions.data[current_index].seed].pos << endl;
+#endif
+
+        //Remember that we need to include this in the second pass
+        sorted_indices.emplace_back(current_index, seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_distance_to_snarl_end(depth+1));
+
+        //Get the values we need to calculate distance
+        size_t current_distance_to_start = seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_distance_to_snarl_start(depth+1);
+        size_t previous_distance_to_start = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_distance_to_snarl_start(depth+1);
+        size_t previous_length = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_length(depth+1);
+
+        if (previous_distance_to_start != std::numeric_limits<size_t>::max() &&
+            current_distance_to_start != std::numeric_limits<size_t>::max() &&
+            SnarlDistanceIndex::minus(current_distance_to_start,
+                                      SnarlDistanceIndex::sum(previous_distance_to_start, previous_length)) 
+                   > distance_limit) {
+
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tthis is too far from the last seed so make a new cluster" << endl;
+            cerr << "\tLast distance_to_start: " << previous_distance_to_start << " last length " << previous_length << " this distance to start: " << current_distance_to_start << endl;
+#endif
+            //If too far from the last seed, then split off a new cluster
+            all_partitions.split_partition(current_index);
+
+            //ALso update the bitvector with the locations of the new head
+            list_heads[current_index - current_problem.range_start] = 1;
+        } 
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+        else {
+            cerr << "\tthis is close enough to the last thing, so it is in the same cluster" << endl;
+            cerr << "\tLast distance to start: " << previous_distance_to_start << " last length " << previous_length << " this distance to start: " << current_distance_to_start << endl;
+        }
+#endif
+
+        //Update to the next thing in the list
+        previous_index = current_index;
+
+        //Check if this was the last thing in the range
+        if (current_index == current_problem.range_end) {
+            //If this is the last thing we wanted to process
+            current_index = std::numeric_limits<size_t>::max();
+        } else {
+            //Otherwise, get the next thing, skipping other things in the same child at this depth
+            current_index = all_partitions.get_last_index_at_depth(previous_index, depth+1, seeds);
+
+            //If this skipped a snarl in the chain, then remember to cluster it later
+            //and add everything in between to the union find
+            if (all_partitions.data[current_index].prev != previous_index) {
+                //Remember to partition it
+                to_partition.push_back({previous_index, all_partitions.data[current_index].prev, depth+1});
+            }
+
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            if (current_index == std::numeric_limits<size_t>::max()) {
+                assert(previous_index == current_problem.range_end);
+            }
+#endif
+        }
+    }
+
+    /* Finished going through the list of children by distance to start
+       Now sort it again and go through it by distance to end, 
+       adding back connections if they are close enough
+    */
+
+
+    //Initialize the rank and select vectors
+    sdsl::rank_support_v<1> list_heads_rank(&list_heads);
+    sdsl::select_support_mcl<1> list_heads_select(&list_heads);
+
+    //First, add support for finding the heads and tails of linked lists
+
+    //Given an index into all_partitions.data (within the current problem range), return 
+    //the head of the 
+    auto get_list_head = [&] (size_t index) {
+        while (all_partitions.data[index].prev != std::numeric_limits<size_t>::max() 
+               && index != current_problem.range_start) {
+            size_t rank = list_heads_rank(index);
+            size_t head_index = list_heads_select(rank);
+            if (head_index == current_problem.range_start ||
+                all_partitions.data[head_index].prev == std::numeric_limits<size_t>::max()) {
+                //If this is a head, then return
+                return head_index;
+            } else {
+                //If this is no longer a head, go back one and try again
+                index = all_partitions.data[head_index].prev;
+            }
+        }
+        return index;
+    };
+    auto get_list_tail = [&] (size_t index) {
+        while (all_partitions.data[index].next != std::numeric_limits<size_t>::max() 
+               && index != current_problem.range_end) {
+            size_t rank = list_heads_rank(index);
+            size_t tail_index = list_heads_select(rank+1)-1;
+            if (tail_index == current_problem.range_end ||
+                all_partitions.data[tail_index].next == std::numeric_limits<size_t>::max()) {
+                //If this is already a tail, then return
+                return tail_index;
+            } else {
+                //If this is no longer a tail, go forwards one and try again
+                index = all_partitions.data[tail_index].next;
+            }
+        }
+        return index;
+    };
+
+
+    //Sort sorted indices by the distance to the end of the snarl
+    std::sort(sorted_indices.begin(), sorted_indices.end(), [&] (const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+        //Comparator for sorting. Returns a < b
+        return a.second < b.second;
+    });
+
+    //Go through sorted_indices, and if two consecutive items are close, merge them
+    //Merging must guarantee that the head of a list is always before the tail in the vector
+    for (size_t i = 1 ; i < sorted_indices.size() ; i++ ) {
+
+        //Get the heads of the two linked lists
+        size_t head1 = get_list_head(sorted_indices[i-1].first); 
+        size_t head2 = get_list_head(sorted_indices[i].first);
+        if (head1 != head2) {
+            //If they are the same list, then do nothing. Otherwise, compare them
+            if (sorted_indices[i].second - sorted_indices[i-1].second < distance_limit) {
+                //They are close so merge them
+                size_t tail1 = get_list_tail(sorted_indices[i-1].first); 
+                size_t tail2 = get_list_tail(sorted_indices[i].first);
+                if (head1 < head2 && tail1 > tail2) {
+                    //If the second list is entirely contained within the first
+                    //Arbitrarily add it to the end of the first section of the first list
+                    //(the portion that was a list before it got combined with something else
+                    size_t new_tail = list_heads_select(list_heads_rank(head1)+1)-1;
+                    size_t new_head = all_partitions.data[new_tail].next;
+
+                    //Now reattach the second list to new_head/tail
+                    all_partitions.data[new_tail].next = head2;
+                    all_partitions.data[head2].prev = new_tail;
+
+                    all_partitions.data[new_head].prev = tail2;
+                    all_partitions.data[tail2].next = new_head;
+
+                } else if (head1 < head2 && tail1 > tail2) {
+                    //If the first list is entirely contained within the second 
+                    //Add the first list to the end of the first section of the second list
+                    size_t new_tail = list_heads_select(list_heads_rank(head2)+1)-1;
+                    size_t new_head = all_partitions.data[new_tail].next;
+
+                    //Reattach the first list to the new head/tail
+                    all_partitions.data[new_tail].next = head1;
+                    all_partitions.data[head1].prev = new_tail;
+
+                    all_partitions.data[new_head].prev = tail1;
+                    all_partitions.data[tail1].next = new_head;
+                } else if (head1 < head2) {
+                    //If the first list is before the second
+                    all_partitions.data[head2].prev = tail1;
+                    all_partitions.data[tail1].next = head2;
+
+                } else {
+                    //if the second list is before the first
+                    all_partitions.data[head1].prev = tail2;
+                    all_partitions.data[tail2].next = head1;
+                }
+
+            }
+        }
+    }
+
+
+    /* Finished going through the list of children by distance to end
+    */
+    
 }
 
 ZipcodeClusterer::partition_set_t::partition_set_t() {
@@ -335,85 +552,139 @@ void ZipcodeClusterer::partition_set_t::reserve(const size_t& size) {
 }
 
 
-size_t ZipcodeClusterer::partition_set_t::get_last_index_at_depth(const size_t& current_index, const size_t& depth) {
+size_t ZipcodeClusterer::partition_set_t::get_last_index_at_depth(const size_t& current_index, 
+        const size_t& depth, const vector<Seed>& seeds) {
     partition_item_t& current_item = data[current_index];
-    if (current_item.next == std::numeric_limits<size_t>::max()) {
-        return std::numeric_limits<size_t>::max();
-    } else if (current_item.last_item_at_depth.empty() || 
-            current_item.last_item_at_depth.back().first < depth) {
-        //If there are no other children at this depth
+    if (current_item.start_count == 0) {
+        //If this is not the start of any run of seeds
+        return current_item.next;
+    } else if (!ZipCodeDecoder::is_equal(*seeds[data[current_item.next].seed].zipcode_decoder, 
+                                         *seeds[current_item.seed].zipcode_decoder, depth)) {
+        //If this is the start of a run of seeds, but this is a different child than the next thing at this depth
         return current_item.next;
     } else {
-        while (current_item.last_item_at_depth.back().first > depth) {
-            current_item.last_item_at_depth.pop_back();
+        //This is the start of a run of seeds at this depth.
+        //Walk through the child_start_bv and child_end bv to find the end of this run at this depth
+
+        //This is analogous to the parentheses matching problem. Start with a count of how many
+        //parentheses were opened here, and keep incrementing/decrementing until it reaches 0 and
+        //we've found the matching parenthesis
+
+
+        size_t parentheses_opened = data[current_index].start_count;
+
+        //Get the next seed with a start parenthesis
+        size_t start_rank = child_start_rank(current_index) + 1;
+        size_t start_index = child_start_select(start_rank);
+        //Get the next seed with an end parenthesis
+        size_t end_rank = child_end_rank(current_index) + 1;
+        size_t end_index = child_end_select(end_rank);
+
+
+        while (parentheses_opened > 0) {
+            //Check the next seed of interest, which may start or end a run, and update parentheses_opened
+            if (start_index < end_index) {
+                //count the number of parentheses opened 
+                parentheses_opened += data[start_index].start_count;
+
+                //Update to the next seed with a parentheses open
+                start_rank++;
+                start_index = child_start_select(start_rank);
+            } else if (start_index > end_index) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+                assert (parentheses_opened >= data[end_index].end_count);
+#endif
+                parentheses_opened -= data[end_index].end_count;
+
+                //Update to the next seed with a parentheses close
+                end_rank++;
+                end_index = child_end_select(end_rank);
+            } else {
+                //Parentheses are both opened and closed
+                //TODO: idk about the order of this
+                parentheses_opened += data[start_index].start_count;
+                parentheses_opened -= data[end_index].end_count;
+
+                //Update to the next seed with a parentheses open
+                start_rank++;
+                start_index = child_start_select(start_rank);
+
+                //Update to the next seed with a parentheses close
+                end_rank++;
+                end_index = child_end_select(end_rank);
+            }
         }
-        const pair<size_t, size_t>& last = current_item.last_item_at_depth.back();
-        current_item.last_item_at_depth.pop_back();
-        return data[current_index + last.second - 1].next;
+
+        //Decrement the counts of runs at the start and end
+        data[current_index].start_count--;
+        data[end_index].end_count--;
+
+        return end_index;
     }
 }
 
 
-void ZipcodeClusterer::partition_set_t::sort(size_t range_start, size_t range_end, std::function<bool(const partition_item_t& a, const partition_item_t& b)> cmp, bool sort_everything) {
+void ZipcodeClusterer::partition_set_t::sort(size_t range_start, size_t range_end, std::function<bool(const partition_item_t& a, const partition_item_t& b)> cmp, bool reconnect) {
 
 
     //Sort the vector
     std::stable_sort(data.begin()+range_start, data.begin()+range_end, cmp);
 
+    if (!reconnect) {
+        //If we don't need to reconnect the list, then we're done
+        return;
+    }
+
     //Connections to outside of the range. May be max() if the start or end of a list was in the range
     size_t prev, next;
 
-    //If the start of the range was in the range, then we need to replace it as the start of a list in partitions
+    //If the start of list containing the range was in the range, 
+    //then we need to replace it as the start of a list in partitions
     size_t old_start = std::numeric_limits<size_t>::max();
 
-    
-    //Make sure that everything points to the proper thing
-    for (size_t i = 0 ; i < data.size() ; i++) {
 
-        if (!sort_everything) {
-            //Remember if anything pointed to outside the range
-            if (data[i].prev == std::numeric_limits<size_t>::max()) {
-                old_start = i;
-                prev = std::numeric_limits<size_t>::max();
-            } else if (data[i].prev < range_start) {
-                prev = data[i].prev;
-            }
-            if (data[i].next > range_end || data[i].next == std::numeric_limits<size_t>::max()) {
-                next = data[i].next;
-            }
+    for (size_t i = 0 ; i < data.size() ; i++) {
+        //Go through everything and make it point to the next thing
+
+        //Remember if anything pointed to outside the range
+        if (data[i].prev == std::numeric_limits<size_t>::max()) {
+            old_start = i;
+            prev = std::numeric_limits<size_t>::max();
+        } else if (data[i].prev < range_start) {
+            prev = data[i].prev;
+        }
+        if (data[i].next > range_end || data[i].next == std::numeric_limits<size_t>::max()) {
+            next = data[i].next;
         }
     
         data[i].prev = i == 0 ? std::numeric_limits<size_t>::max() : i-1;
         data[i].next = i == data.size()-1 ? std::numeric_limits<size_t>::max() : i+1;
     }
 
-    if (sort_everything) {
-        //If we sorted the whole list, then everything is in the same partition
-        partition_heads.clear();
-        partition_heads.emplace_back(0);
-    } else {
-        if (prev != std::numeric_limits<size_t>::max()) {
-            //If the start of the list was outside the range
+    if (prev != std::numeric_limits<size_t>::max()) {
+        //If the start of the list was outside the range
 
-            //Make sure the list is connected from the start
-            data[prev].next = range_start;
-            data[range_start].prev = prev;
-        } else {
-            //If the start of the list was in the range, then we need to replace the start of the linked list in partition_heads 
-            for (size_t i = 0 ; i < partition_heads.size() ; i++) {
-                if (partition_heads[i] == old_start) {
-                    partition_heads[i] = range_start;
-                    break;
-                }
+        //Make sure the list is connected from the start
+        data[prev].next = range_start;
+        data[range_start].prev = prev;
+    } else {
+        //If the start of the list was in the range, then we need to replace the start of the linked list in partition_heads 
+        for (size_t i = 0 ; i < partition_heads.size() ; i++) {
+            if (partition_heads[i] == old_start) {
+                partition_heads[i] = range_start;
+                break;
             }
         }
-
-        if (next != std::numeric_limits<size_t>::max()) {
-            // If the end of the list was outside the range, update the end
-            data[next].prev = range_end;
-            data[range_end].next = next;
-        }
     }
+
+    if (next != std::numeric_limits<size_t>::max()) {
+        // If the end of the list was outside the range, update the end
+        data[next].prev = range_end;
+        data[range_end].next = next;
+    }
+    
+
+    
 
     return;
 }

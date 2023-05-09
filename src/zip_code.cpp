@@ -668,7 +668,7 @@ size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
     
     size_t zip_value; 
     size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_TO_START_OFFSET ; i++) {
+    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_START_OFFSET ; i++) {
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
     }
     return zip_value;
@@ -692,7 +692,7 @@ size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
     
     size_t zip_value; 
     size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_TO_END_OFFSET ; i++) {
+    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_END_OFFSET ; i++) {
         std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
     }
     return zip_value;

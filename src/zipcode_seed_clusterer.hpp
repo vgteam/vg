@@ -56,14 +56,15 @@ namespace vg {
             size_t next;  //The index of the next item in the linked list, std::numeric_limits<size_t>::max if it is the last
 
             //We need to be able to jump from the first seed in a snarl tree node to the last seed in the same node,
-            //so that we don't traverse the whole list when partitioning its parent
-            //If this is the first seed in a child with multiple seeds, then last_item_at_depth stores the index of the
-            //last item in the child, as a pair of <depth, index>
-            //Because the snarl tree is processed top-down, and all sorts on the vector will be stable sorts,
-            // the index of the last thing will always be the same by the time we get to it
-            //It gets stored in reverse order of depth (bottom up) so the back of the vector can be popped
-            //TODO: This should maybe be the length, in case sorting gets messed up
-            vector<pair<size_t, size_t>> last_item_at_depth; 
+            // so that we don't traverse the whole list when partitioning its parent
+            //start_count stores the number of levels in the snarl tree for which this is the first seed of many in the same node
+            //end_count does the same for seeds that are the last seed in a run
+            //When the level that uses this seed as the first/last in a run is passed, start/end_count get decremented 
+            size_t start_count = 0;
+            size_t end_count = 0;
+
+            //This is used for partitioning snarls
+            size_t union_find_index;
         };
 
 
@@ -88,18 +89,19 @@ namespace vg {
 
             ///Get the index of the next thing in a linked list, skipping to the next child at the same depth
             /// Returns std::numeric_limits<size_t>::max() if it's the end
-            size_t get_last_index_at_depth( const size_t& current_index, const size_t& depth);
+            size_t get_last_index_at_depth( const size_t& current_index, const size_t& depth, const vector<Seed>& seeds);
 
             /// Sorts everything in the range [range_start, range_end) using the comparator
             /// The range is specified by the index into data, not the index in a linked list
-            /// Assumes that everything in the range is in the same partition, and keeps connections
-            /// to whatever was attached outside of the range
-            /// This changes the order of the vector between range_start and range_end. 
-            /// Nothing else will be affected
+            /// If reconnect=true, then assumes that everything in the range is in the same partition, 
+            /// and keeps linked list connections to whatever was attached outside of the range but everything
+            /// within the range gets connected in order in the linked list
+            /// If reconnect=false, then the connections in the linked list are maintained and only the order
+            /// of the backing vector is changed
             /// Uses std::stable_sort
             void sort (size_t range_start, size_t range_end,
                        std::function<bool(const partition_item_t& a, const partition_item_t& b)> cmp,
-                       bool sort_everything=false);
+                       bool reconnect=true);
 
             ///Split the partition containing range_start, to create a new partition
             ///starting at range_start
@@ -121,6 +123,18 @@ namespace vg {
             /// This stores the first node in the linked list of each partition
             /// as an index into data
             vector<size_t> partition_heads;
+
+            ///These are used to store the locations of each seed that is the first seed for a run of children
+            sdsl::bit_vector child_start_bv;
+            ///And the last
+            sdsl::bit_vector child_end_bv;
+
+            //Rank and select vectors to support finding the corresponding last seed for a given first seed
+            sdsl::rank_support_v<1> child_start_rank;
+            sdsl::select_support_mcl<1> child_start_select;
+
+            sdsl::rank_support_v<1> child_end_rank;
+            sdsl::select_support_mcl<1> child_end_select;
         };
 
         ///This holds the information of a new snarl/chain that needs to be partitioned
