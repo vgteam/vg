@@ -468,7 +468,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Chunked VCF", "chunked.vcf.gz");
     registry.register_index("Chunked VCF w/ Phasing", "phased.chunked.vcf.gz");
     registry.register_index("Chunked GTF/GFF", "chunked.gff");
-    registry.register_index("Chunked Haplotype GTF/GFF", "haplo.chunked.gff");
     
     /// True indexes
     registry.register_index("VG", "vg");
@@ -3004,7 +3003,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         assert(constructing.size() == 4 || constructing.size() == 2);
         bool making_hsts = constructing.size() == 4;
         assert(inputs.size() == 2 || inputs.size() == 3);
-        bool projecting_transcripts = (inputs.size() == 2);
+        bool projecting_transcripts = (inputs.size() == 3);
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             if (making_hsts) {
@@ -3020,7 +3019,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        
+                
         vector<vector<string>> all_outputs(constructing.size());
         IndexName output_haplo_tx, output_tx_table, output_tx_graph, output_max_id;
         if (making_hsts) {
@@ -3045,6 +3044,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             output_max_id = *constructing.begin();
             output_tx_graph = *constructing.rbegin();
         }
+
         //auto& haplo_tx_gbwt_names = all_outputs[0];
         auto& max_id_names = all_outputs[making_hsts ? 1 : 0];
         auto& tx_graph_names = all_outputs[making_hsts ? 2 : 1];
@@ -3091,7 +3091,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // copy the gbwt
             haplotype_index = make_unique<gbwt::GBWT>(gbz->index);
         }
-        
+                
         // hand over the graph
         Transcriptome transcriptome(move(tx_graph));
         transcriptome.error_on_missing_path = true;
