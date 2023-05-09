@@ -557,7 +557,7 @@ int main_giraffe(int argc, char** argv) {
         {"discard", no_argument, 0, 'n'},
         {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
         {"report-name", required_argument, 0, OPT_REPORT_NAME},
-        {"fast-mode", no_argument, 0, 'b'},
+        {"parameter-preset", required_argument, 0, 'b'},
         {"rescue-algorithm", required_argument, 0, 'A'},
         {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
