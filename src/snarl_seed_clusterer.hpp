@@ -57,7 +57,7 @@ class SnarlDistanceIndexClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
-            gbwtgraph::payload_type minimizer_cache = MIPayload::NO_CODE; //minimizer payload
+            gbwtgraph::Payload minimizer_cache = MIPayload::NO_CODE; //minimizer payload
         };
 
         /// Seed information used for clustering
@@ -72,7 +72,7 @@ class SnarlDistanceIndexClusterer {
             //TODO: This gets copied because it needs to be mutable
             //Cached values from the minimizer
             //Use MIPayload::node_record_offset(minimizer_cache), etc to get values
-            gbwtgraph::payload_type minimizer_cache;
+            gbwtgraph::Payload minimizer_cache;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds

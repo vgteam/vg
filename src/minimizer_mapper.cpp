@@ -3162,7 +3162,7 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const VectorVie
     std::sort(sorted_ids.begin(), sorted_ids.end());
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
-        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::Payload) {
             if (minimizer.value.is_reverse) {
                 size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
                 pos = reverse_base_pos(pos, node_length);
@@ -3246,10 +3246,10 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
         this->minimizer_index.minimizer_regions(sequence);
     for (auto& m : minimizers) {
         double score = 0.0;
-        auto hits = this->minimizer_index.count_and_find(get<0>(m));
-        if (hits.first > 0) {
-            if (hits.first <= this->hard_hit_cap) {
-                score = base_score - std::log(hits.first);
+        auto hits = this->minimizer_index.find(get<0>(m));
+        if (hits.second > 0) {
+            if (hits.second <= this->hard_hit_cap) {
+                score = base_score - std::log(hits.second);
             } else {
                 score = 1.0;
             }
@@ -3271,7 +3271,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
             agglomeration_length = match_length;
         }
         
-        result.push_back({ value, agglomeration_start, agglomeration_length, hits.first, hits.second,
+        result.push_back({ value, agglomeration_start, agglomeration_length, hits.second, hits.first,
                             match_length, candidate_count, score });
     }
     
@@ -3477,7 +3477,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
 
             // Locate the hits.
             for (size_t j = 0; j < minimizer.hits; j++) {
-                pos_t hit = gbwtgraph::Position::decode(minimizer.occs[j].pos);
+                pos_t hit = minimizer.occs[j].position.decode();
                 // Reverse the hits for a reverse minimizer
                 if (minimizer.value.is_reverse) {
                     size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(hit)));
@@ -3486,7 +3486,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const VectorView<
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
-                gbwtgraph::payload_type chain_info = no_chain_info();
+                gbwtgraph::Payload chain_info = no_chain_info();
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
                     chain_info = minimizer.occs[j].payload;
                 }

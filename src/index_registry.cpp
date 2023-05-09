@@ -3820,7 +3820,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
                 
-        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::Payload {
             return MIPayload::encode(get_minimizer_distances(*distance_index, pos));
         });
         

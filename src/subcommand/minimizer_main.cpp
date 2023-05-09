@@ -260,11 +260,11 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << std::endl;
     }
     if (distance_name.empty()) {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::Payload {
             return MIPayload::NO_CODE;
         });
     } else {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
             return MIPayload::encode(get_minimizer_distances(*distance_index,pos));
         });
     }
@@ -272,7 +272,7 @@ int main_minimizer(int argc, char** argv) {
     // Index statistics.
     if (progress) {
         std::cerr << index->size() << " keys (" << index->unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index->values() << std::endl;
+        std::cerr << "Minimizer occurrences: " << index->number_of_values() << std::endl;
         std::cerr << "Load factor: " << index->load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;

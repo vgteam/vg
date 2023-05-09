@@ -343,7 +343,7 @@ cerr << "Add all seeds to nodes: " << endl;
             //cached values are:
             //(0)record offset of node, (1)record offset of parent, (2)node record offset, (3)node length, (4)is_reversed, 
             // (5)is_trivial_chain, (6)parent is chain, (7)parent is root, (8)prefix sum, (9)chain_component
-            gbwtgraph::payload_type old_cache = seed.minimizer_cache;
+            gbwtgraph::Payload old_cache = seed.minimizer_cache;
 
             //TODO: For now, we're either storing all values or none
             bool has_cached_values = old_cache != MIPayload::NO_CODE;
@@ -3375,8 +3375,8 @@ size_t SnarlDistanceIndexClusterer::distance_between_seeds(const Seed& seed1, co
      */
     pos_t pos1 = seed1.pos;
     pos_t pos2 = seed2.pos;
-    gbwtgraph::payload_type payload1 = seed1.minimizer_cache;
-    gbwtgraph::payload_type payload2 = seed2.minimizer_cache;
+    gbwtgraph::Payload payload1 = seed1.minimizer_cache;
+    gbwtgraph::Payload payload2 = seed2.minimizer_cache;
 
     bool has_cached_values1 = payload1 != MIPayload::NO_CODE;
     bool has_cached_values2 = payload2 != MIPayload::NO_CODE;

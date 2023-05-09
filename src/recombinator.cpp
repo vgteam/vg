@@ -252,7 +252,7 @@ size_t Haplotypes::simple_sds_size() const {
 HaplotypePartitioner::HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
     const gbwt::FastLocate& r_index,
     const SnarlDistanceIndex& distance_index,
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+    const minimizer_index_type& minimizer_index,
     Verbosity verbosity) :
     gbz(gbz), r_index(r_index), distance_index(distance_index), minimizer_index(minimizer_index),
     verbosity(verbosity)
@@ -555,7 +555,7 @@ std::string generate_haplotype(gbwt::edge_type pos, handle_t end, size_t start_m
 
 // Return the sorted set of kmers that are minimizers in the sequence and have a single
 // occurrence in the graph.
-std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(const std::string& sequence, const gbwtgraph::DefaultMinimizerIndex& minimizer_index) {
+std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(const std::string& sequence, const HaplotypePartitioner::minimizer_index_type& minimizer_index) {
     std::vector<HaplotypePartitioner::kmer_type> result;
     auto minimizers = minimizer_index.minimizers(sequence);
     result.reserve(minimizers.size());
