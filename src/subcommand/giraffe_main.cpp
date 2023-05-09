@@ -59,6 +59,9 @@ struct GiraffeMainOptions {
     /// How long should we wait while mapping a read before complaining, in seconds.
     static constexpr size_t default_watchdog_timeout = 10;
     size_t watchdog_timeout = default_watchdog_timeout;
+    /// How many reads to send to a thread at a time
+    static constexpr size_t default_batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
+    size_t batch_size = default_batch_size;
 };
 
 static GroupedOptionGroup get_options() {
@@ -70,6 +73,12 @@ static GroupedOptionGroup get_options() {
         "watchdog-timeout", 
         &GiraffeMainOptions::watchdog_timeout,
         GiraffeMainOptions::default_watchdog_timeout,
+        "complain after INT seconds working on a read or read pair"
+    );
+    main_opts.add_range(
+        "batch-size", 'B', 
+        &GiraffeMainOptions::batch_size,
+        GiraffeMainOptions::default_batch_size,
         "complain after INT seconds working on a read or read pair"
     );
     
@@ -393,7 +402,6 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
-    << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
 }
 
@@ -466,8 +474,6 @@ int main_giraffe(int argc, char** argv) {
     
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
-    // How many reads per batch to run at a time?
-    uint64_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
     
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = parser.get_iterator();
@@ -518,10 +524,14 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("extension-score", 1);
     // And a default preset that doesn't.
     presets["default"];
-    // And a chaining preset (TODO: make into PacBio and Nanopore)
-    presets["chaining"]
+    // And a long read preset (TODO: make into PacBio and Nanopore)
+    presets["lr"]
         .add_entry<bool>("align-from-chains", true)
-        .add_entry<size_t>("watchdog-timeout", 30);
+        .add_entry<size_t>("watchdog-timeout", 30)
+        .add_entry<size_t>("batch-size", 10)
+        // Use downsampling instead of max unique minimizer count
+        .add_entry<size_t>("max-min", 0)
+        .add_entry<size_t>("downsample-min", 300);
    
     std::vector<struct option> long_options =
     {
@@ -554,13 +564,12 @@ int main_giraffe(int argc, char** argv) {
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
-        {"batch-size", required_argument, 0, 'B'},
         {"threads", required_argument, 0, 't'},
     };
     parser.make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
-    std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:B:t:A:";
+    std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:";
     parser.make_short_options(short_options);
 
     int c;
@@ -818,10 +827,6 @@ int main_giraffe(int argc, char** argv) {
                 show_work = true;
                 // Also turn on saving explanations
                 Explainer::save_explanations = true;
-                break;
-                
-            case 'B':
-                batch_size = parse<uint64_t>(optarg);
                 break;
                 
             case 't':
@@ -1396,12 +1401,12 @@ int main_giraffe(int argc, char** argv) {
                     });
                 } else if (!fastq_filename_2.empty()) {
                     //A pair of FASTQ files to map
-                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready, batch_size);
+                    fastq_paired_two_files_for_each_parallel_after_wait(fastq_filename_1, fastq_filename_2, map_read_pair, distribution_is_ready, main_options.batch_size);
 
 
                 } else if ( !fastq_filename_1.empty()) {
                     // An interleaved FASTQ file to map, map all its pairs in parallel.
-                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready, batch_size);
+                    fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready, main_options.batch_size);
                 }
 
                 // Now map all the ambiguous pairs
@@ -1463,13 +1468,13 @@ int main_giraffe(int argc, char** argv) {
                     // GAM file to remap
                     get_input_file(gam_filename, [&](istream& in) {
                         // Open it and map all the reads in parallel.
-                        vg::io::for_each_parallel<Alignment>(in, map_read, batch_size);
+                        vg::io::for_each_parallel<Alignment>(in, map_read, main_options.batch_size);
                     });
                 }
                 
                 if (!fastq_filename_1.empty()) {
                     // FASTQ file to map, map all its reads in parallel.
-                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read, batch_size);
+                    fastq_unpaired_for_each_parallel(fastq_filename_1, map_read, main_options.batch_size);
                 }
             }
         

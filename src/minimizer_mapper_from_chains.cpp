@@ -1242,6 +1242,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_fragment-connection-coverage-threshold", fragment_connection_coverage_threshold);
         set_annotation(mappings[0], "param_min-fragment-connections", (double) min_fragment_connections);
         set_annotation(mappings[0], "param_max-fragment-connections", (double) max_fragment_connections);
+        set_annotation(mappings[0], "param_min-buckets-to-fragment", (double) min_buckets_to_fragment);
         set_annotation(mappings[0], "param_max-buckets-to-fragment", (double) max_buckets_to_fragment);
         set_annotation(mappings[0], "param_reseed-search-distance", (double) reseed_search_distance);
         

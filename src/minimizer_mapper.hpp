@@ -244,7 +244,7 @@ public:
     size_t min_buckets_to_fragment = default_min_buckets_to_fragment;
 
     /// How many buckets should we produce fragments for, max?
-    static constexpr size_t default_max_buckets_to_fragment = 2;
+    static constexpr size_t default_max_buckets_to_fragment = 10;
     size_t max_buckets_to_fragment = default_max_buckets_to_fragment;
 
     /// When converting chains to alignments, what's the longest gap between
