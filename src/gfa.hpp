@@ -26,7 +26,8 @@ using namespace std;
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
                   const set<string>& rgfa_paths = {},
                   bool rgfa_pline = false,
-                  bool use_w_lines = true);
+                  bool use_w_lines = true,
+                  const string& rgfa_sample_name = "");
 
 
 /// Prototype code to tag paths as rGFA paths. Either needs to be completely scrapped
@@ -52,10 +53,10 @@ int get_rgfa_rank(const string& path_name, const string& rgfa_sample="_rGFA_");
 /// Add the rgfa rank to a pathname, also setting its sample to the special rgfa sample and
 /// moving its old sample into the locus field
 string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& subrange,
-                             const string& rgfa_sample="_rGFA_");
+                             const string& rgfa_sample);
 
 /// Remove the rGFA information from a path name, effectively undoing set_rgfa_rank
-string strip_rgfa_path_name(const string& path_name, const string& rgfa_sample="_rGFA_");
+string strip_rgfa_path_name(const string& path_name);
 
 /// Compute the rGFA path cover
 /// graph: the graph
@@ -67,6 +68,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       SnarlManager* snarl_manager,
                       const unordered_set<path_handle_t>& reference_paths,
                       int64_t minimum_length,
+                      const string& rgfa_sample_name,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals = {});
 
 void rgfa_snarl_cover(const PathHandleGraph* graph,

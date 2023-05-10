@@ -20,7 +20,7 @@ static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t p
 static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
-                  bool rgfa_pline, bool use_w_lines) {
+                  bool rgfa_pline, bool use_w_lines, const string& rgfa_sample_name) {
     
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
@@ -335,7 +335,7 @@ string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subra
                                           PathMetadata::NO_PHASE_BLOCK, rgfa_subrange);
 }
 
-string strip_rgfa_path_name(const string& path_name, const string& rgfa_sample) {
+string strip_rgfa_path_name(const string& path_name) {
 
     PathSense path_sense;
     string path_sample;
@@ -352,7 +352,6 @@ string strip_rgfa_path_name(const string& path_name, const string& rgfa_sample) 
     if (sr_pos != string::npos && path_locus.length() - sr_pos >= 6) {
         size_t sn_pos = path_locus.rfind("SN:Z:", sr_pos - 1);
         assert(sn_pos != string::npos);
-        assert(path_sample == rgfa_sample);
 
         string orig_sample;
         if (sn_pos > 0) {
@@ -376,6 +375,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       SnarlManager* snarl_manager,
                       const unordered_set<path_handle_t>& reference_paths,
                       int64_t minimum_length,
+                      const string& rgfa_sample_name,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals){
 
     // for sanity's sake, we don't want to ever support multiple rgfa covers, so start by
@@ -499,7 +499,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
             subrange_t rgfa_frag_subrange = graph->get_subrange(path_handle);
             rgfa_frag_subrange.first = rgfa_frag_pos + (rgfa_frag_subrange != PathMetadata::NO_SUBRANGE ? rgfa_frag_subrange.first : 0);
             rgfa_frag_subrange.second = rgfa_frag_subrange.first + rgfa_frag_length;
-            string rgfa_frag_name = create_rgfa_path_name(path_name, rgfa_rank, rgfa_frag_subrange);
+            string rgfa_frag_name = create_rgfa_path_name(path_name, rgfa_rank, rgfa_frag_subrange, rgfa_sample_name);
 
 #ifdef debug
 #pragma omp critical(cerr)

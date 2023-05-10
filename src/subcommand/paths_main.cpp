@@ -42,8 +42,9 @@ void help_paths(char** argv) {
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
          << "  rGFA cover" << endl
          << "    -R, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
+         << "    -N, --rgfa-sample STR    give all rGFA cover fragments sample name (path prefix) STR (default: _rGFA_)." << endl
          << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover (-R)." << endl
-         << "    -t, --threads N          use up to N threads when computing rGFA covoer (default: all available)" << endl
+         << "    -t, --threads N          use up to N threads when computing rGFA cover (default: all available)" << endl
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
@@ -107,6 +108,7 @@ int main_paths(int argc, char** argv) {
     bool drop_paths = false;
     bool retain_paths = false;
     int64_t rgfa_min_len = -1;
+    string rgfa_sample_name = "_rGFA_";
     string snarl_filename;
     string graph_file;
     string gbwt_file;
@@ -141,6 +143,7 @@ int main_paths(int argc, char** argv) {
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
             {"rgfa-cover", required_argument, 0, 'R'},
+            {"rgfa-sample", required_argument, 0, 'N'},
             {"snarls", required_argument, 0, 's'},
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
@@ -163,7 +166,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drR:s:aGp:ct:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drR:N:s:aGp:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -204,6 +207,10 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
+        case 'N':
+            rgfa_sample_name = optarg;
+            break;
+            
         case 's':
             snarl_filename = optarg;
             break;
@@ -622,7 +629,7 @@ int main_paths(int argc, char** argv) {
                     }
                 });
 
-                rgfa_graph_cover(mutable_graph, snarl_manager.get(), reference_paths, rgfa_min_len);  
+                rgfa_graph_cover(mutable_graph, snarl_manager.get(), reference_paths, rgfa_min_len, rgfa_sample_name);  
             }
             
             // output the graph
