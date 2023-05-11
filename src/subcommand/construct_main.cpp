@@ -12,6 +12,8 @@
 #include "../msa_converter.hpp"
 #include "../region.hpp"
 
+#include <bdsg/hash_graph.hpp>
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -35,6 +37,7 @@ void help_construct(char** argv) {
          << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
          << "    -l, --parse-max N      don't chop up alternate alleles from input VCF longer than N (default: 100)" << endl
          << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
+         << "    -N, --in-memory        construct the entire graph in memory before outputting it." <<endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
          << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
@@ -66,6 +69,7 @@ int main_construct(int argc, char** argv) {
     string msa_filename;
     int max_node_size = 32;
     bool keep_paths = true;
+    bool construct_in_memory = false;
     string msa_format = "fasta";
     bool show_progress = false;
 
@@ -94,11 +98,12 @@ int main_construct(int argc, char** argv) {
                 {"flat-alts", no_argument, 0, 'f'},
                 {"parse-max", required_argument, 0, 'l'},
                 {"no-trim-indels", no_argument, 0, 'i'},
+                {"in-memory", no_argument, 0, 'N'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aCfl:SI:M:dF:i",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aCfl:SI:M:dF:iN",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -125,6 +130,10 @@ int main_construct(int argc, char** argv) {
 
         case 'i':
             constructor.trim_indels = false;
+            break;
+
+        case 'N':
+            construct_in_memory = true;
             break;
 
         case 'r':
@@ -220,31 +229,6 @@ int main_construct(int argc, char** argv) {
         // Actually use the Constructor.
         // TODO: If we aren't always going to use the Constructor, refactor the subcommand to not always create and configure it.
 
-        // Make an emitter that serializes the actual Graph objects, with buffering.
-        // But just serialize one graph at a time in each group.
-        // Make sure to compress the output.
-        vg::io::ProtobufEmitter<Graph> emitter(cout, true, 1);
-
-        // We need a callback to handle pieces of graph as they are produced.
-        auto callback = [&](Graph& big_chunk) {
-            // Sort the nodes by ID so that the serialized chunks come out in sorted order
-            // TODO: We still interleave chunks from different threads working on different contigs
-            std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
-                // Return true if a comes before b
-                return a.id() < b.id();
-            });
-        
-            // We don't validate the chunk because its end node may be held
-            // back for the next chunk, while edges and path mappings for it
-            // still live in this chunk. Also, we no longer create a VG to
-            // re-chunk the chunk (because we can now handle chunks up to about
-            // 1 GB serialized), and the VG class has the validator.
-            
-            // One thread at a time can write to the emitter and the output stream
-#pragma omp critical (emitter)
-            emitter.write_copy(big_chunk); 
-        };
-        
         // Copy shared parameters into the constructor
         constructor.max_node_size = max_node_size;
         constructor.show_progress = show_progress;
@@ -302,16 +286,47 @@ int main_construct(int argc, char** argv) {
             exit(1);
         }
         
-        
-        // Construct the graph.
-        constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, callback);
-                                    
-        // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
-        // Don't add an extra EOF marker or anything.
-        
-        // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
-        // this would free all the memory used by protobuf:
-        //ShutdownProtobufLibrary();
+        if (construct_in_memory) {
+            // Build the whole thing into memory
+            bdsg::HashGraph constructed;
+            constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, &constructed);
+            constructed.serialize(cout);
+        } else {
+            // Make an emitter that serializes the actual Graph objects, with buffering.
+            // But just serialize one graph at a time in each group.
+            // Make sure to compress the output.
+            vg::io::ProtobufEmitter<Graph> emitter(cout, true, 1);
+
+            // We need a callback to handle pieces of graph as they are produced.
+            auto callback = [&](Graph& big_chunk) {
+                // Sort the nodes by ID so that the serialized chunks come out in sorted order
+                // TODO: We still interleave chunks from different threads working on different contigs
+                std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
+                    // Return true if a comes before b
+                    return a.id() < b.id();
+                });
+            
+                // We don't validate the chunk because its end node may be held
+                // back for the next chunk, while edges and path mappings for it
+                // still live in this chunk. Also, we no longer create a VG to
+                // re-chunk the chunk (because we can now handle chunks up to about
+                // 1 GB serialized), and the VG class has the validator.
+                
+                // One thread at a time can write to the emitter and the output stream
+    #pragma omp critical (emitter)
+                emitter.write_copy(big_chunk); 
+            };
+            
+            // Construct the graph.
+            constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, callback);
+
+            // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
+            // Don't add an extra EOF marker or anything.
+            
+            // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
+            // this would free all the memory used by protobuf:
+            //ShutdownProtobufLibrary();
+        }
     }
     else if (!msa_filename.empty()) {
         

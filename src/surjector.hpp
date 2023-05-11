@@ -125,6 +125,11 @@ using namespace std;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
         
+        /// How many anchors (per path) will we use when surjecting using
+        /// anchors?
+        /// Excessive anchors will be pruned away.
+        size_t max_anchors = 200;
+        
         bool annotate_with_all_path_scores = false;
         
     protected:

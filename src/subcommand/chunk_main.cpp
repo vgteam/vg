@@ -78,7 +78,7 @@ void help_chunk(char** argv) {
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl
          << "    --no-embedded-haplotypes Don't load haplotypes from the graph. It is possible to -T without any haplotypes available." << endl
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [vg]" << endl
+         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [pg (vg with -T)]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -111,7 +111,8 @@ int main_chunk(int argc, char** argv) {
     bool fully_contained = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
-    string output_format = "vg";
+    string output_format = "pg";
+    bool output_format_set = false;
     bool components = false;
     bool path_components = false;
     string snarl_filename;
@@ -274,6 +275,7 @@ int main_chunk(int argc, char** argv) {
             
         case 'O':
             output_format = optarg;
+            output_format_set = true;
             break;
 
         case 'h':
@@ -319,6 +321,19 @@ int main_chunk(int argc, char** argv) {
         cerr << "error[vg chunk]: invalid output format" << endl;
         return 1;
     }
+    if (trace && output_format != "vg") {
+        // todo: trace code goes through vg conversion anyway and according to unit tests
+        //       fails when not outputting vg
+        output_format = "vg";
+        if (output_format_set) {
+            cerr << "warning[vg chunk]: ignoring -O and setting output format to vg, as required by -T" << endl;
+        }
+        
+    }
+    else if (output_format == "vg") {
+        cerr << "warning[vg chunk]: the vg-protobuf format is DEPRECATED. you probably want to use PackedGraph (pg) instead" << endl;
+    }    
+    string output_ext = output_format == "gfa" ? ".gfa"  : ".vg";
 
     // figure out which outputs we want.  the graph always
     // needs to be chunked, even if only gam output is requested,
@@ -747,7 +762,7 @@ int main_chunk(int argc, char** argv) {
             } else {
                 // Otherwise, we write files under the specified prefix, using
                 // a prefix-i-seq-start-end convention.
-                string name = chunk_name(out_chunk_prefix, i, output_regions[i], "." + output_format, 0, components);
+                string name = chunk_name(out_chunk_prefix, i, output_regions[i], output_ext, 0, components);
                 out_file.open(name);
                 if (!out_file) {
                     cerr << "error[vg chunk]: can't open output chunk file " << name << endl;
@@ -833,7 +848,7 @@ int main_chunk(int argc, char** argv) {
             const Region& oregion = output_regions[i];
             string seq = id_range ? "ids" : oregion.seq;
             obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
-                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : "." + output_format, 0, components);
+                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : output_ext, 0, components);
             if (trace) {
                 obed << "\t" << chunk_name(out_chunk_prefix, i, oregion, ".annotate.txt", 0, components);
             }
