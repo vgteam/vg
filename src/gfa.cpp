@@ -20,8 +20,8 @@ static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t p
 static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
-                  bool rgfa_pline, bool use_w_lines, const string& rgfa_sample_name) {
-    
+                  bool rgfa_pline, bool use_w_lines) {
+
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
     
@@ -118,7 +118,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 
     vector<path_handle_t> w_line_paths;
 
-    bool warned_about_tags_as_paths = false;
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
         auto path_name = graph->get_path_name(h);
@@ -126,9 +125,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             if (!rgfa_paths.empty()) {
                 // the path was put into tags, no reason to deal with it here
                 continue;
-            } else if (!warned_about_tags_as_paths) {
-                cerr << "warning [gfa]: outputing rGFA cover (rank>=1) path(s) as a P-line(s) and not tags because no reference (rank==0) selected" << endl;
-                warned_about_tags_as_paths = true;
             }
         }
         if (rgfa_pline || !rgfa_paths.count(path_name)) {
@@ -171,9 +167,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 if (!rgfa_paths.empty()) {
                     // the path was put into tags, no reason to deal with it here
                     continue;
-                } else if (!warned_about_tags_as_paths) {
-                    cerr << "warning [gfa]: outputing rGFA cover (rank>=1) path(s) as a W-line(s) and not tags because no reference (rank==0) selected" << endl;
-                    warned_about_tags_as_paths = true;
                 }
             }
             write_w_line(graph, out, h, last_phase_block_end);
@@ -282,7 +275,7 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
     out << "\n";
 }
 
-int get_rgfa_rank(const string& path_name, const string& rgfa_sample) {
+int get_rgfa_rank(const string& path_name) {
     int rank = -1;
 
     PathSense path_sense;
@@ -296,7 +289,6 @@ int get_rgfa_rank(const string& path_name, const string& rgfa_sample) {
     
     size_t pos = path_locus.rfind(":SR:i:");
     if (pos != string::npos && path_locus.length() - pos >= 6) {
-        assert(path_sample == rgfa_sample);
         pos += 6;
         size_t pos2 = path_locus.find(":", pos);
         size_t len = pos2 == string::npos ? pos2 : pos2 - pos;
@@ -399,10 +391,10 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
     size_t thread_count = get_thread_count();
     vector<vector<pair<int64_t, vector<step_handle_t>>>> thread_covers(thread_count);
     
-    // we process top-level snarl_manager in parallel
+    // we process top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output
-        // each fragment is a rank and vector of steps, the cove is a list of fragments
+        // each fragment is a rank and vector of steps, the cover is a list of fragments
         // TODO: we can store just a first step and count instead of every fragment
         vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments = thread_covers.at(omp_get_thread_num());
         // we also index the fragments by their node ids for fast lookups of what's covered by what

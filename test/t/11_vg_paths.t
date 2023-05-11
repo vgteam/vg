@@ -59,46 +59,46 @@ is $? 0 "vg path coverage reports correct lengths in first column"
 
 rm -f q.vg q.cov.len q.len
 
-vg paths -v rgfa/rgfa_tiny.gfa -R 1 -Q x | vg view - > rgfa_tiny.rgfa
-printf "P	y[33-34]:SR:i:1	10+	*
-P	y[38-39]:SR:i:1	13+	*
-P	y[8-10]:SR:i:1	2+,4+	*\n" > rgfa_tiny_expected_fragments.rgfa
+vg paths -v rgfa/rgfa_tiny.gfa -R 1 -Q x -N c | vg convert - -fW > rgfa_tiny.rgfa
+printf "P	c#0#SN:Z:y:SR:i:1[33-34]	10+	*
+P	c#0#SN:Z:y:SR:i:1[38-39]	13+	*
+P	c#0#SN:Z:y:SR:i:1[8-10]	2+,4+	*\n" > rgfa_tiny_expected_fragments.rgfa
 grep ^P rgfa_tiny.rgfa | grep SR | sort > rgfa_tiny_fragments.rgfa
 diff rgfa_tiny_fragments.rgfa rgfa_tiny_expected_fragments.rgfa
 is $? 0 "Found the expected rgfa SNP cover of tiny graph"
 
 rm -f rgfa_tiny.rgfa rgfa_tiny_expected_fragments.rgfa rgfa_tiny_fragments.rgfa
 
-vg paths -v rgfa/rgfa_ins.gfa -R 5 -Q x | vg view - > rgfa_ins.rgfa
-printf "P	z[8-17]:SR:i:1	2+,3+,4+	*\n" > rgfa_ins_expected_fragments.rgfa
+vg paths -v rgfa/rgfa_ins.gfa -R 5 -Q x -N c | vg convert - -fW >  rgfa_ins.rgfa
+printf "P	c#0#SN:Z:z:SR:i:1[8-17]	2+,3+,4+	*\n" > rgfa_ins_expected_fragments.rgfa
 grep ^P rgfa_ins.rgfa | grep SR | sort > rgfa_ins_fragments.rgfa
 diff rgfa_ins_fragments.rgfa rgfa_ins_expected_fragments.rgfa
 is $? 0 "Found the expected rgfa cover for simple nested insertion"
 
 rm -f rgfa_ins.rgfa rgfa_ins_expected_fragments.rgfa rgfa_ins_fragments.rgfa
 
-vg paths -v rgfa/rgfa_ins2.gfa -R 3 -Q x | vg view - > rgfa_ins2.rgfa
-printf "P	y[8-24]:SR:i:1	2+,6+,4+	*
-P	z[11-14]:SR:i:2	3+	*\n" > rgfa_ins2_expected_fragments.rgfa
+vg paths -v rgfa/rgfa_ins2.gfa -R 3 -Q x | vg convert - -fW > rgfa_ins2.rgfa
+printf "P	_rGFA_#0#SN:Z:y:SR:i:1[8-24]	2+,6+,4+	*
+P	_rGFA_#0#SN:Z:z:SR:i:2[11-14]	3+	*\n" > rgfa_ins2_expected_fragments.rgfa
 grep ^P rgfa_ins2.rgfa | grep SR | sort > rgfa_ins2_fragments.rgfa
 diff rgfa_ins2_fragments.rgfa rgfa_ins2_expected_fragments.rgfa
 is $? 0 "Found the expected rgfa cover for simple nested insertion that requires two fragments"
 
 rm -f rgfa_ins2.rgfa rgfa_ins2_expected_fragments.rgfa rgfa_ins2_fragments.rgfa
 
-vg paths -v rgfa/rgfa_ins2.gfa -R 5 -Q x | vg view - > rgfa_ins2R5.rgfa
-printf "P	y[8-24]:SR:i:1	2+,6+,4+	*\n" > rgfa_ins2R5_expected_fragments.rgfa
+vg paths -v rgfa/rgfa_ins2.gfa -R 5 -Q x -N c | vg convert - -fW > rgfa_ins2R5.rgfa
+printf "P	c#0#SN:Z:y:SR:i:1[8-24]	2+,6+,4+	*\n" > rgfa_ins2R5_expected_fragments.rgfa
 grep ^P rgfa_ins2R5.rgfa | grep SR | sort > rgfa_ins2R5_fragments.rgfa
 diff rgfa_ins2R5_fragments.rgfa rgfa_ins2R5_expected_fragments.rgfa
 is $? 0 "rgfa Minimum fragment length filters out small fragment"
 
 rm -f rgfa_ins2R5.rgfa rgfa_ins2R5_expected_fragments.rgfa rgfa_ins2R5_fragments.rgfa
 
-vg paths -v rgfa/rgfa_ins3.gfa -R 3 -Q x | vg view - > rgfa_ins3.rgfa
+vg paths -v rgfa/rgfa_ins3.gfa -R 3 -Q x -N c | vg convert - -fW  > rgfa_ins3.rgfa
 printf "P	x	1+,5+	*
-P	y[3-19]:SR:i:1	4+,6+,2+	*
+P	c#0#SN:Z:y:SR:i:1[3-19]	4+,6+,2+	*
 P	y	5-,4+,6+,2+,1-	*
-P	z[11-14]:SR:i:2	3+	*
+P	c#0#SN:Z:z:SR:i:2[11-14]	3+	*
 P	z	1+,2-,3+,4-,5+	*\n" | sort > rgfa_ins3_expected_fragments.rgfa
 grep ^P rgfa_ins3.rgfa | sort > rgfa_ins3_fragments.rgfa
 diff rgfa_ins3_fragments.rgfa rgfa_ins3_expected_fragments.rgfa

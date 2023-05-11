@@ -26,8 +26,7 @@ using namespace std;
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
                   const set<string>& rgfa_paths = {},
                   bool rgfa_pline = false,
-                  bool use_w_lines = true,
-                  const string& rgfa_sample_name = "");
+                  bool use_w_lines = true);
 
 
 /// Prototype code to tag paths as rGFA paths. Either needs to be completely scrapped
@@ -48,7 +47,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
 /// Returns the RGFA rank (SR) of a path. This will be 0 for the reference
 /// backbone, and higher the further number of (nested) bubbles away it is.
 /// If the path is not an RGFA path, then return -1
-int get_rgfa_rank(const string& path_name, const string& rgfa_sample="_rGFA_");
+int get_rgfa_rank(const string& path_name);
 
 /// Add the rgfa rank to a pathname, also setting its sample to the special rgfa sample and
 /// moving its old sample into the locus field
