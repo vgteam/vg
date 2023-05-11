@@ -152,7 +152,7 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
-        SECTION( "One cluster on the same node" ) {
+        SECTION( "One cluster" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(make_pos_t(2, false, 0));
@@ -303,6 +303,7 @@ namespace unittest {
             }
             vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
             REQUIRE(clusters.size() == 2); 
+            REQUIRE((clusters[0].seeds.size() == 1 || clusters[1].seeds.size() == 1));
             
 
 
@@ -320,6 +321,13 @@ namespace unittest {
             }
             vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds,  10); 
             REQUIRE(clusters.size() == 2); 
+            REQUIRE((clusters[0].seeds.size() == 1 || clusters[0].seeds.size() == 3));
+            REQUIRE((clusters[1].seeds.size() == 1 || clusters[1].seeds.size() == 3));
+            for (auto& cluster : clusters) {
+                if (cluster.seeds.size() == 1) {
+                    REQUIRE(cluster.seeds[0] == 3);
+                }
+            }
             
 
 
@@ -337,6 +345,11 @@ namespace unittest {
             }
             vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
             REQUIRE(clusters.size() == 3); 
+            for (auto& cluster : clusters) {
+                if (cluster.seeds.size() == 1) {
+                    REQUIRE((cluster.seeds[0] == 2 || cluster.seeds[0] == 3));
+                }
+            }
             
 
 

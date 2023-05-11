@@ -702,6 +702,25 @@ size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
 const bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                         const size_t& depth) {
 
+    if (depth >= decoder1.decoder_length()) {
+        for (size_t i = decoder1.decoder_length() ; i <= depth ; i++) {
+            bool done = decoder1.fill_in_next_decoder();
+            if (i < depth && done) {
+                //If the first zipcode is shallower than depth
+                return false;
+            }
+        }
+    }
+    if (depth >= decoder2.decoder_length()) {
+        for (size_t i = decoder2.decoder_length() ; i <= depth ; i++) {
+            bool done = decoder2.fill_in_next_decoder();
+            if (i < depth && done) {
+                //If the second zipcode is shallower than depth
+                return false;
+            }
+        }
+    }
+
     //First, check if the code types are the same
     code_type_t type1 = decoder1.get_code_type(depth);
     code_type_t type2 = decoder2.get_code_type(depth);
