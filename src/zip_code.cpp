@@ -699,7 +699,7 @@ size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
 
 }
 
-bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
+const bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                         const size_t& depth) {
 
     //First, check if the code types are the same

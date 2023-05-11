@@ -263,7 +263,7 @@ class ZipCodeDecoder {
     ///This only checks if the values in the zipcode are the same at the given depth, 
     ///so if the preceeding snarl tree nodes are different, 
     ///then this might actually refer to different things
-    static inline bool is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
+    const static bool is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                 const size_t& depth);
 
 };
