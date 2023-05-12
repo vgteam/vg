@@ -1587,12 +1587,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a213d22fbc9d8056efb8082e529ab0f22"><td class="memItemLeft" align="right" valign="top">std::vector&lt; uint8_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a213d22fbc9d8056efb8082e529ab0f22">kff_reverse_complement</a> (const uint8_t *kmer, size_t k, const uint8_t *encoding)</td></tr>
 <tr class="memdesc:a213d22fbc9d8056efb8082e529ab0f22"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the reverse complement of a KFF kmer.  <a href="namespacevg.html#a213d22fbc9d8056efb8082e529ab0f22">More...</a><br /></td></tr>
 <tr class="separator:a213d22fbc9d8056efb8082e529ab0f22"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Key64::value_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae4b8625853b4a17f731c9fbd5a040fd7">minimizer_reverse_complement</a> (gbwtgraph::Key64::value_type kmer, size_t k)</td></tr>
-<tr class="memdesc:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the reverse complement of a minimizer index kmer.  <a href="namespacevg.html#ae4b8625853b4a17f731c9fbd5a040fd7">More...</a><br /></td></tr>
-<tr class="separator:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8290bb0f46f4410bd8d19a9214f42d9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae8290bb0f46f4410bd8d19a9214f42d9">kff_bytes</a> (size_t k)</td></tr>
 <tr class="memdesc:ae8290bb0f46f4410bd8d19a9214f42d9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of bytes required for a kmer in KFF format.  <a href="namespacevg.html#ae8290bb0f46f4410bd8d19a9214f42d9">More...</a><br /></td></tr>
 <tr class="separator:ae8290bb0f46f4410bd8d19a9214f42d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="memItemLeft" align="right" valign="top">gbwtgraph::Key64::value_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae4b8625853b4a17f731c9fbd5a040fd7">minimizer_reverse_complement</a> (gbwtgraph::Key64::value_type kmer, size_t k)</td></tr>
+<tr class="memdesc:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the reverse complement of a minimizer index kmer.  <a href="namespacevg.html#ae4b8625853b4a17f731c9fbd5a040fd7">More...</a><br /></td></tr>
+<tr class="separator:ae4b8625853b4a17f731c9fbd5a040fd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3d4de4fa2fda6bfcd6eaa77080c67ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab3d4de4fa2fda6bfcd6eaa77080c67ad">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> head_id, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> tail_id, atomic&lt; int &gt; *stop_flag)</td></tr>
 <tr class="separator:ab3d4de4fa2fda6bfcd6eaa77080c67ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0e459d4a7dda13edf5b79ea8996cfd82"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0e459d4a7dda13edf5b79ea8996cfd82">operator&lt;&lt;</a> (ostream &amp;out, const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;kmer)</td></tr>
@@ -2049,8 +2049,8 @@ Functions</h2></td></tr>
 <tr class="separator:aaac16668663556af1aea74159a73d4ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a117021c748aad14cfa190bbd2452405d"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a117021c748aad14cfa190bbd2452405d">generate_haplotype</a> (gbwt::edge_type pos, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> end, size_t start_max, size_t end_max, const gbwtgraph::GBWTGraph &amp;graph)</td></tr>
 <tr class="separator:a117021c748aad14cfa190bbd2452405d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afc64443321ef5b17233dac0ca11e98ed"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afc64443321ef5b17233dac0ca11e98ed">take_unique_minimizers</a> (const std::string &amp;sequence, const gbwtgraph::DefaultMinimizerIndex &amp;minimizer_index)</td></tr>
-<tr class="separator:afc64443321ef5b17233dac0ca11e98ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aced59c99c3795653e7d70f176edf9c82"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aced59c99c3795653e7d70f176edf9c82">take_unique_minimizers</a> (const std::string &amp;sequence, const <a class="el" href="classvg_1_1HaplotypePartitioner.html#a9a059ded0fd7ed983801fa4d16f7cd5d">HaplotypePartitioner::minimizer_index_type</a> &amp;minimizer_index)</td></tr>
+<tr class="separator:aced59c99c3795653e7d70f176edf9c82"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a348af3d255543b4880fc1240e8ef442f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a348af3d255543b4880fc1240e8ef442f">present_kmers</a> (const std::vector&lt; std::vector&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a> &gt;&gt; &amp;sequences, std::vector&lt; std::pair&lt; <a class="el" href="classvg_1_1HaplotypePartitioner.html#a2780337120cfec8463356829af22aa97">HaplotypePartitioner::kmer_type</a>, size_t &gt;&gt; &amp;all_kmers, sdsl::bit_vector &amp;kmers_present)</td></tr>
 <tr class="separator:a348af3d255543b4880fc1240e8ef442f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4043431a579c18af5497acef2f414710"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4043431a579c18af5497acef2f414710">add_path</a> (const gbwt::GBWT &amp;source, gbwt::size_type path_id, gbwt::GBWTBuilder &amp;builder)</td></tr>
@@ -15784,6 +15784,9 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">gbwtgraph::Key64::value_type vg::minimizer_reverse_complement </td>
@@ -15803,6 +15806,11 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>Returns the reverse complement of a minimizer index kmer. </p>
@@ -23097,8 +23105,8 @@ template&lt;typename Number &gt; </div>
 
 </div>
 </div>
-<a id="afc64443321ef5b17233dac0ca11e98ed"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afc64443321ef5b17233dac0ca11e98ed">&#9670;&nbsp;</a></span>take_unique_minimizers()</h2>
+<a id="aced59c99c3795653e7d70f176edf9c82"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aced59c99c3795653e7d70f176edf9c82">&#9670;&nbsp;</a></span>take_unique_minimizers()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -23112,7 +23120,7 @@ template&lt;typename Number &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const gbwtgraph::DefaultMinimizerIndex &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HaplotypePartitioner.html#a9a059ded0fd7ed983801fa4d16f7cd5d">HaplotypePartitioner::minimizer_index_type</a> &amp;&#160;</td>
           <td class="paramname"><em>minimizer_index</em>&#160;</td>
         </tr>
         <tr>

@@ -518,11 +518,11 @@ Protected Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
 Static Protected Member Functions</h2></td></tr>
-<tr class="memitem:ac02dd2af48ecc74bcb39d6a23e57aae3"><td class="memItemLeft" align="right" valign="top">static gbwtgraph::payload_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac02dd2af48ecc74bcb39d6a23e57aae3">no_chain_info</a> ()</td></tr>
-<tr class="memdesc:ac02dd2af48ecc74bcb39d6a23e57aae3"><td class="mdescLeft">&#160;</td><td class="mdescRight">How should we initialize chain info when it's not stored in the minimizer index?  <a href="classvg_1_1MinimizerMapper.html#ac02dd2af48ecc74bcb39d6a23e57aae3">More...</a><br /></td></tr>
-<tr class="separator:ac02dd2af48ecc74bcb39d6a23e57aae3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab19f157dd4654012f36303b3d6490199"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab19f157dd4654012f36303b3d6490199">chain_info_to_seed</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;hit, size_t minimizer, const gbwtgraph::payload_type &amp;chain_info)</td></tr>
-<tr class="separator:ab19f157dd4654012f36303b3d6490199"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b9a4518b171aa85909da6ccde88e0a8"><td class="memItemLeft" align="right" valign="top">static gbwtgraph::Payload&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3b9a4518b171aa85909da6ccde88e0a8">no_chain_info</a> ()</td></tr>
+<tr class="memdesc:a3b9a4518b171aa85909da6ccde88e0a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">How should we initialize chain info when it's not stored in the minimizer index?  <a href="classvg_1_1MinimizerMapper.html#a3b9a4518b171aa85909da6ccde88e0a8">More...</a><br /></td></tr>
+<tr class="separator:a3b9a4518b171aa85909da6ccde88e0a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa9ba43769c1e0e6526f7216e511b98be"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1MinimizerMapper.html#ab964411462aea4fc777127a887a9a6f7">Seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa9ba43769c1e0e6526f7216e511b98be">chain_info_to_seed</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;hit, size_t minimizer, const gbwtgraph::Payload &amp;chain_info)</td></tr>
+<tr class="separator:aa9ba43769c1e0e6526f7216e511b98be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2c8ab02743227cb2550fcfd295043253"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, int gap_open_penalty, int gap_extend_penalty)</td></tr>
 <tr class="separator:a2c8ab02743227cb2550fcfd295043253"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96b3c359c5f86557ddccfdedd67af570"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a96b3c359c5f86557ddccfdedd67af570">with_dagified_local_graph</a> (const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;left_anchor, const <a class="el" href="namespacevg.html#a8232142f432c4dd8e7cfe96e1f50e039">pos_t</a> &amp;right_anchor, size_t max_path_length, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const std::function&lt; void(<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;, const std::function&lt; std::pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool &gt;(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;)&gt; &amp;callback)</td></tr>
@@ -933,8 +933,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ab19f157dd4654012f36303b3d6490199"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab19f157dd4654012f36303b3d6490199">&#9670;&nbsp;</a></span>chain_info_to_seed()</h2>
+<a id="aa9ba43769c1e0e6526f7216e511b98be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa9ba43769c1e0e6526f7216e511b98be">&#9670;&nbsp;</a></span>chain_info_to_seed()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -957,7 +957,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const gbwtgraph::payload_type &amp;&#160;</td>
+          <td class="paramtype">const gbwtgraph::Payload &amp;&#160;</td>
           <td class="paramname"><em>chain_info</em>&#160;</td>
         </tr>
         <tr>
@@ -2822,8 +2822,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ac02dd2af48ecc74bcb39d6a23e57aae3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac02dd2af48ecc74bcb39d6a23e57aae3">&#9670;&nbsp;</a></span>no_chain_info()</h2>
+<a id="a3b9a4518b171aa85909da6ccde88e0a8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b9a4518b171aa85909da6ccde88e0a8">&#9670;&nbsp;</a></span>no_chain_info()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2832,7 +2832,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">static gbwtgraph::payload_type vg::MinimizerMapper::no_chain_info </td>
+          <td class="memname">static gbwtgraph::Payload vg::MinimizerMapper::no_chain_info </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>

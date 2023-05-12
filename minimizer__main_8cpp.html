@@ -92,15 +92,29 @@ $(function() {
 Functions</h2></td></tr>
 <tr class="memitem:a849308cddbd36f5fc06c5e1289112bae"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a849308cddbd36f5fc06c5e1289112bae">get_default_threads</a> ()</td></tr>
 <tr class="separator:a849308cddbd36f5fc06c5e1289112bae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f3588cd2c21ddbe85727345718e9ca3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a2f3588cd2c21ddbe85727345718e9ca3">estimate_hash_table_size</a> (const gbwtgraph::GBZ &amp;gbz, bool progress)</td></tr>
+<tr class="separator:a2f3588cd2c21ddbe85727345718e9ca3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45dc67f0fe9ce978202fda58585b6b52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a45dc67f0fe9ce978202fda58585b6b52">help_minimizer</a> (char **argv)</td></tr>
 <tr class="separator:a45dc67f0fe9ce978202fda58585b6b52"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a43d1ef287159cce46f07df1b8b088d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a5a43d1ef287159cce46f07df1b8b088d">main_minimizer</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a5a43d1ef287159cce46f07df1b8b088d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a82ed012045f022c7d023ef32c84a9df3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a82ed012045f022c7d023ef32c84a9df3">trailing_zeros</a> (size_t value)</td></tr>
+<tr class="separator:a82ed012045f022c7d023ef32c84a9df3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
 <tr class="memitem:a5b3b08bd8224196307cb86df71ff927d"><td class="memItemLeft" align="right" valign="top">constexpr int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a5b3b08bd8224196307cb86df71ff927d">DEFAULT_MAX_THREADS</a> = 16</td></tr>
 <tr class="separator:a5b3b08bd8224196307cb86df71ff927d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a777231a8126ad759ff713c50090c6bfb"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a777231a8126ad759ff713c50090c6bfb">DEFAULT_THRESHOLD</a> = 500</td></tr>
+<tr class="separator:a777231a8126ad759ff713c50090c6bfb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a62c07e69eba05821e728bdf3389a500d"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a62c07e69eba05821e728bdf3389a500d">DEFAULT_ITERATIONS</a> = 3</td></tr>
+<tr class="separator:a62c07e69eba05821e728bdf3389a500d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a932fcab549241f3cf9efead93803fabc"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a932fcab549241f3cf9efead93803fabc">MAX_ITERATIONS</a> = gbwtgraph::MinimizerHeader::FLAG_WEIGHT_MASK &gt;&gt; gbwtgraph::MinimizerHeader::FLAG_WEIGHT_OFFSET</td></tr>
+<tr class="separator:a932fcab549241f3cf9efead93803fabc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0b28c6a5c118414fc8ca717901f2054"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#ab0b28c6a5c118414fc8ca717901f2054">HASH_TABLE_MIN_WIDTH</a> = 10</td></tr>
+<tr class="separator:ab0b28c6a5c118414fc8ca717901f2054"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6eb56e166572ca736f815a988e170c68"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a6eb56e166572ca736f815a988e170c68">HASH_TABLE_MAX_WIDTH</a> = 36</td></tr>
+<tr class="separator:a6eb56e166572ca736f815a988e170c68"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg minimizer" subcommand, which builds the minimizer index.</p>
@@ -111,6 +125,34 @@ Variables</h2></td></tr>
 <li>Extract all k'-mers from the subgraph and use them to determine where the minimizers can start. </li>
 </ul>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="a2f3588cd2c21ddbe85727345718e9ca3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2f3588cd2c21ddbe85727345718e9ca3">&#9670;&nbsp;</a></span>estimate_hash_table_size()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t estimate_hash_table_size </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a849308cddbd36f5fc06c5e1289112bae"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a849308cddbd36f5fc06c5e1289112bae">&#9670;&nbsp;</a></span>get_default_threads()</h2>
 
@@ -174,7 +216,47 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a id="a82ed012045f022c7d023ef32c84a9df3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a82ed012045f022c7d023ef32c84a9df3">&#9670;&nbsp;</a></span>trailing_zeros()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t trailing_zeros </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>value</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Variable Documentation</h2>
+<a id="a62c07e69eba05821e728bdf3389a500d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a62c07e69eba05821e728bdf3389a500d">&#9670;&nbsp;</a></span>DEFAULT_ITERATIONS</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t DEFAULT_ITERATIONS = 3</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a5b3b08bd8224196307cb86df71ff927d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5b3b08bd8224196307cb86df71ff927d">&#9670;&nbsp;</a></span>DEFAULT_MAX_THREADS</h2>
 
@@ -186,6 +268,94 @@ Variables</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">constexpr int DEFAULT_MAX_THREADS = 16</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a777231a8126ad759ff713c50090c6bfb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a777231a8126ad759ff713c50090c6bfb">&#9670;&nbsp;</a></span>DEFAULT_THRESHOLD</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t DEFAULT_THRESHOLD = 500</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6eb56e166572ca736f815a988e170c68"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6eb56e166572ca736f815a988e170c68">&#9670;&nbsp;</a></span>HASH_TABLE_MAX_WIDTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t HASH_TABLE_MAX_WIDTH = 36</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab0b28c6a5c118414fc8ca717901f2054"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab0b28c6a5c118414fc8ca717901f2054">&#9670;&nbsp;</a></span>HASH_TABLE_MIN_WIDTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t HASH_TABLE_MIN_WIDTH = 10</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a932fcab549241f3cf9efead93803fabc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a932fcab549241f3cf9efead93803fabc">&#9670;&nbsp;</a></span>MAX_ITERATIONS</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t MAX_ITERATIONS = gbwtgraph::MinimizerHeader::FLAG_WEIGHT_MASK &gt;&gt; gbwtgraph::MinimizerHeader::FLAG_WEIGHT_OFFSET</td>
         </tr>
       </table>
   </td>
