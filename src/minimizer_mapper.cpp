@@ -3329,7 +3329,7 @@ std::vector<size_t> MinimizerMapper::sort_minimizers_by_score(const std::vector<
     return sort_permutation(minimizers.begin(), minimizers.end());
 }
 
-std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln,  Funnel& funnel) const {
+std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector<Minimizer>& minimizers_in_read_order, const VectorView<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
     if (this->track_provenance) {
         // Start the minimizer locating stage
@@ -3338,12 +3338,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     
     // One of the filters accepts minimizers until selected_score reaches target_score.
     double base_target_score = 0.0;
-    for (const Minimizer& minimizer : minimizers) {
-        base_target_score += minimizer.score;
-    }
-    double target_score = (base_target_score * this->minimizer_score_fraction) + 0.000001;
+    double target_score = 0.0;
     double selected_score = 0.0;
-
+    if (this->hit_cap != 0 || this->minimizer_score_fraction != 1.0) {
+        // Actually use a score fraction filter
+        for (const Minimizer& minimizer : minimizers) {
+            base_target_score += minimizer.score;
+        }
+        target_score = (base_target_score * this->minimizer_score_fraction) + 0.000001;
+    }
+    
     // We group all all occurrences of the same minimizer in the read together
     // and either take all of them (if the total number of hits is low enough)
     // or skip all of them. Such minimizers are expensive to process, because
@@ -3434,7 +3438,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     std::vector<filter_t> minimizer_filters;
     minimizer_filters.reserve(5);
     if (this->minimizer_downsampling_window_size != 0) {
-        // Drop minimizers if we cleared their downsampling flag. Sneakily go back from minimizer itself to index in the array.
+        // Drop minimizers if we didn't select them at downsampling.
+        // TODO: Downsampling isn't actually by run, and that's kind of the point?
         minimizer_filters.emplace_back(
             "window-downsampling", 
             [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
@@ -3486,25 +3491,27 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             [](const Minimizer& m) {}
         );
     }
-    minimizer_filters.emplace_back(
-        "hit-cap||score-fraction",
-        [&](const Minimizer& m) {
-            return (m.hits <= this->hit_cap) || // We pass if we are under the soft hit cap
-            (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hit cap and we need the score
-            (taking_run); // Or we already took one duplicate and we want to finish out the run 
-        },
-        [&](const Minimizer& m) {
-            return (selected_score + m.score) / base_target_score;
-        },
-        [&](const Minimizer& m) {
-            // Remember that we took this minimizer for evaluating later ones
-            selected_score += m.score;
-        },
-        [&](const Minimizer& m) {
-            //Stop looking for more minimizers once we fail the score fraction
-            target_score = selected_score; 
-        }
-    );
+    if (this->hit_cap != 0 || this->minimizer_score_fraction != 1.0) {
+        minimizer_filters.emplace_back(
+            "hit-cap||score-fraction",
+            [&](const Minimizer& m) {
+                return (m.hits <= this->hit_cap) || // We pass if we are under the soft hit cap
+                (run_hits <= this->hard_hit_cap && selected_score + m.score <= target_score) || // Or the run as a whole is under the hard hit cap and we need the score
+                (taking_run); // Or we already took one duplicate and we want to finish out the run 
+            },
+            [&](const Minimizer& m) {
+                return (selected_score + m.score) / base_target_score;
+            },
+            [&](const Minimizer& m) {
+                // Remember that we took this minimizer for evaluating later ones
+                selected_score += m.score;
+            },
+            [&](const Minimizer& m) {
+                //Stop looking for more minimizers once we fail the score fraction
+                target_score = selected_score; 
+            }
+        );
+    }
      
     
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.

@@ -531,7 +531,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 300);
+        .add_entry<size_t>("downsample-min", 300)
+        // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
+        .add_entry<size_t>("hit-cap", 0)
+        .add_entry<double>("score-fraction", 1.0);
    
     std::vector<struct option> long_options =
     {
