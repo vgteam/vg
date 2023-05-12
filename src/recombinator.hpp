@@ -223,6 +223,9 @@ public:
     /// An encoded kmer.
     typedef Haplotypes::Subchain::kmer_type kmer_type;
 
+    /// Minimizer index without payloads.
+    typedef gbwtgraph::MinimizerIndex<gbwtgraph::Key64, gbwtgraph::Position> minimizer_index_type;
+
     /**
      * A subchain is a substring of a top-level chain defined by at most two
      * boundary nodes.
@@ -258,7 +261,7 @@ public:
     HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
         const gbwt::FastLocate& r_index,
         const SnarlDistanceIndex& distance_index,
-        const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+        const minimizer_index_type& minimizer_index,
         Verbosity verbosity);
 
     /// Parameters for `partition_haplotypes()`.
@@ -292,7 +295,7 @@ public:
     const gbwtgraph::GBZ& gbz;
     const gbwt::FastLocate& r_index;
     const SnarlDistanceIndex& distance_index;
-    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
+    const minimizer_index_type& minimizer_index;
 
     Verbosity verbosity;
 

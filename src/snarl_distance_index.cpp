@@ -1880,7 +1880,7 @@ MIPayloadValues get_minimizer_distances (const SnarlDistanceIndex& distance_inde
     
 
 
-constexpr gbwtgraph::payload_type MIPayload::NO_CODE; 
+constexpr gbwtgraph::Payload MIPayload::NO_CODE; 
 constexpr size_t MIPayload::NO_VALUE;
 }
 
