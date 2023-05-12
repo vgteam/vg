@@ -61,7 +61,7 @@ using namespace std;
         SECTION("n1 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -296,7 +296,7 @@ using namespace std;
         SECTION("n1 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -306,7 +306,7 @@ using namespace std;
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -316,7 +316,7 @@ using namespace std;
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -326,7 +326,7 @@ using namespace std;
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                  ZipCode decoded;
                  decoded.fill_in_zipcode_from_payload(payload);
@@ -336,7 +336,7 @@ using namespace std;
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -346,7 +346,7 @@ using namespace std;
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -820,7 +820,7 @@ using namespace std;
         SECTION("n1 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -830,7 +830,7 @@ using namespace std;
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -840,7 +840,7 @@ using namespace std;
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -850,7 +850,7 @@ using namespace std;
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -860,7 +860,7 @@ using namespace std;
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -870,7 +870,7 @@ using namespace std;
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -880,7 +880,7 @@ using namespace std;
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -890,7 +890,7 @@ using namespace std;
         SECTION("n8 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n8->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1079,7 +1079,7 @@ using namespace std;
         SECTION("n1 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1089,7 +1089,7 @@ using namespace std;
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1099,7 +1099,7 @@ using namespace std;
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1109,7 +1109,7 @@ using namespace std;
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1119,7 +1119,7 @@ using namespace std;
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1129,7 +1129,7 @@ using namespace std;
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1139,7 +1139,7 @@ using namespace std;
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1330,7 +1330,7 @@ using namespace std;
         SECTION("n1 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1340,7 +1340,7 @@ using namespace std;
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1350,7 +1350,7 @@ using namespace std;
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1360,7 +1360,7 @@ using namespace std;
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1370,7 +1370,7 @@ using namespace std;
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1380,7 +1380,7 @@ using namespace std;
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1390,7 +1390,7 @@ using namespace std;
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1495,7 +1495,7 @@ using namespace std;
         SECTION("n1 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n1->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1505,7 +1505,7 @@ using namespace std;
         SECTION("n2 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n2->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1515,7 +1515,7 @@ using namespace std;
         SECTION("n3 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n3->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1525,7 +1525,7 @@ using namespace std;
         SECTION("n4 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n4->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1535,7 +1535,7 @@ using namespace std;
         SECTION("n5 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n5->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1545,7 +1545,7 @@ using namespace std;
         SECTION("n6 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n6->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);
@@ -1555,7 +1555,7 @@ using namespace std;
         SECTION("n7 as payload") {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(distance_index, make_pos_t(n7->id(), 0, false));
-            gbwtgraph::payload_type payload = zipcode.get_payload_from_zip();
+            gbwtgraph::Payload payload = zipcode.get_payload_from_zip();
             if (zipcode.byte_count() <= 15) {
                 ZipCode decoded;
                 decoded.fill_in_zipcode_from_payload(payload);

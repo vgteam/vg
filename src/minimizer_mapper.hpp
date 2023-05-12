@@ -421,7 +421,7 @@ public:
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
-        const gbwtgraph::hit_type* occs;
+        const typename gbwtgraph::DefaultMinimizerIndex::value_type* occs;
         int32_t length; // How long is the minimizer (index's k)
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
@@ -469,7 +469,7 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// How should we initialize chain info when it's not stored in the minimizer index?
-    inline static gbwtgraph::payload_type no_chain_info() {
+    inline static gbwtgraph::Payload no_chain_info() {
         return MIPayload::NO_CODE;  
     } 
     

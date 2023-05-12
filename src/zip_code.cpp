@@ -1459,7 +1459,7 @@ bool ZipCode::is_farther_than(const ZipCode& zip1, const ZipCode& zip2, const si
     }
 }
 
-gbwtgraph::payload_type ZipCode::get_payload_from_zip() const {
+gbwtgraph::Payload ZipCode::get_payload_from_zip() const {
     if (byte_count() > 15) {
         //If there aren't enough bits to represent the zip code
         return MIPayload::NO_CODE;
@@ -1491,7 +1491,7 @@ gbwtgraph::payload_type ZipCode::get_payload_from_zip() const {
 
 }
 
-void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload) {
+void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     assert(payload != MIPayload::NO_CODE);
 
     //get one byte at a time from the payload and add it to the zip code

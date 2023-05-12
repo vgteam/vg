@@ -45,9 +45,18 @@ using namespace vg;
 // Using too many threads just wastes CPU time without speeding up the construction.
 constexpr int DEFAULT_MAX_THREADS = 16;
 
+// For weighted minimizers.
+constexpr size_t DEFAULT_THRESHOLD = 500; // This should be Giraffe hard hit cap.
+constexpr size_t DEFAULT_ITERATIONS = 3;
+constexpr size_t MAX_ITERATIONS = gbwtgraph::MinimizerHeader::FLAG_WEIGHT_MASK >> gbwtgraph::MinimizerHeader::FLAG_WEIGHT_OFFSET;
+constexpr size_t HASH_TABLE_MIN_WIDTH = 10;
+constexpr size_t HASH_TABLE_MAX_WIDTH = 36;
+
 int get_default_threads() {
     return std::min(omp_get_max_threads(), DEFAULT_MAX_THREADS);
 }
+
+size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress);
 
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer [options] graph" << std::endl;
@@ -65,12 +74,20 @@ void help_minimizer(char** argv) {
     std::cerr << "    -c, --closed-syncmers   index closed syncmers instead of minimizers" << std::endl;
     std::cerr << "    -s, --smer-length N     use smers of length N in closed syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
     std::cerr << std::endl;
+    std::cerr << "Weighted minimizers:" << std::endl;
+    std::cerr << "    -W, --weighted          use weighted minimizers" << std::endl;
+    std::cerr << "        --threshold N       downweight kmers with more than N hits (default " << DEFAULT_THRESHOLD << ")" << std::endl;
+    std::cerr << "        --iterations N      downweight frequent kmers by N iterations (default " << DEFAULT_ITERATIONS << ")" << std::endl;
+    std::cerr << "        --fast-counting     use the fast kmer counting algorithm (default)" << std::endl;
+    std::cerr << "        --save-memory       use the space-efficient kmer counting algorithm" << std::endl;
+    std::cerr << "        --hash-table N      use 2^N-cell hash tables for kmer counting (default: guess)" << std::endl;
+    std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
     std::cerr << "    -z, --zipcode-name X    store the distances that are too big to file X" << std::endl;
     std::cerr << "                            if -z is not specified, some distances may be discarded" << std::endl;
     std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
-    std::cerr << "                            (overrides minimizer options)" << std::endl;
+    std::cerr << "                            (overrides minimizer / weighted minimizer options)" << std::endl;
     std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X (required with a non-GBZ graph)" << std::endl;
     std::cerr << "    -p, --progress          show progress information" << std::endl;
     std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
@@ -88,8 +105,16 @@ int main_minimizer(int argc, char** argv) {
     // Command-line options.
     std::string output_name, distance_name, zipcode_name, load_index, gbwt_name, graph_name;
     bool use_syncmers = false;
+    bool weighted = false, space_efficient_counting = false;
+    size_t threshold = DEFAULT_THRESHOLD, iterations = DEFAULT_ITERATIONS, hash_table_size = 0;
     bool progress = false;
     int threads = get_default_threads();
+
+    constexpr int OPT_THRESHOLD = 1001;
+    constexpr int OPT_ITERATIONS = 1002;
+    constexpr int OPT_FAST_COUNTING = 1003;
+    constexpr int OPT_SAVE_MEMORY = 1004;
+    constexpr int OPT_HASH_TABLE = 1005;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -104,6 +129,12 @@ int main_minimizer(int argc, char** argv) {
             { "bounded-syncmers", no_argument, 0, 'b' }, // deprecated
             { "closed-syncmers", no_argument, 0, 'c' },
             { "smer-length", required_argument, 0, 's' },
+            { "weighted", no_argument, 0, 'W' },
+            { "threshold", required_argument, 0, OPT_THRESHOLD },
+            { "iterations", required_argument, 0, OPT_ITERATIONS },
+            { "fast-counting", no_argument, 0, OPT_FAST_COUNTING },
+            { "save-memory", no_argument, 0, OPT_SAVE_MEMORY },
+            { "hash-table", required_argument, 0, OPT_HASH_TABLE },
             { "distance-index", required_argument, 0, 'd' },
             { "zipcode-index", required_argument, 0, 'z' },
             { "load-index", required_argument, 0, 'l' },
@@ -114,7 +145,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:o:i:k:w:bcs:d:z:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:o:i:k:w:bcs:Wd:z:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -129,6 +160,7 @@ int main_minimizer(int argc, char** argv) {
             std::cerr << "[vg minimizer] warning: --index-name is deprecated, use --output-name instead" << std::endl;
             output_name = optarg;
             break;
+
         case 'k':
             IndexingParameters::minimizer_k = parse<size_t>(optarg);
             break;
@@ -145,6 +177,33 @@ int main_minimizer(int argc, char** argv) {
         case 's':
             IndexingParameters::minimizer_s = parse<size_t>(optarg);
             break;
+
+        case 'W':
+            weighted = true;
+            break;
+        case OPT_THRESHOLD:
+            threshold = parse<size_t>(optarg);
+            break;
+        case OPT_ITERATIONS:
+            iterations = parse<size_t>(optarg);
+            iterations = std::max(iterations, size_t(1));
+            iterations = std::min(iterations, MAX_ITERATIONS);
+            break;
+        case OPT_FAST_COUNTING:
+            space_efficient_counting = false;
+            break;
+        case OPT_SAVE_MEMORY:
+            space_efficient_counting = true;
+            break;
+        case OPT_HASH_TABLE:
+            {
+                size_t width = parse<size_t>(optarg);
+                width = std::max(width, HASH_TABLE_MIN_WIDTH);
+                width = std::min(width, HASH_TABLE_MAX_WIDTH);
+                hash_table_size = size_t(1) << width;
+            }
+            break;
+
         case 'd':
             distance_name = optarg;
             break;
@@ -183,7 +242,11 @@ int main_minimizer(int argc, char** argv) {
         return 1;
     }
     graph_name = argv[optind];
+    if (!load_index.empty() || use_syncmers) {
+        weighted = false;
+    }
     omp_set_num_threads(threads);
+
 
     double start = gbwt::readTimer();
    
@@ -233,12 +296,35 @@ int main_minimizer(int argc, char** argv) {
         return 1;
     }
 
+    // Find frequent kmers.
+    std::vector<gbwtgraph::Key64> frequent_kmers;
+    if (weighted) {
+        double checkpoint = gbwt::readTimer();
+        if (progress) {
+            std::string algorithm = (space_efficient_counting ? "space-efficient" : "fast");
+            std::cerr << "Finding frequent kmers using the " << algorithm << " algorithm" << std::endl;
+        }
+        if (hash_table_size == 0) {
+            hash_table_size = estimate_hash_table_size(*gbz, progress);
+        }
+        frequent_kmers = gbwtgraph::frequent_kmers<gbwtgraph::Key64>(
+            gbz->graph, IndexingParameters::minimizer_k, threshold, space_efficient_counting, hash_table_size
+        );
+        if (progress) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "Found " << frequent_kmers.size() << " kmers with more than " << threshold << " hits in " << seconds << " seconds" << std::endl;
+        }
+    }
+
     // Minimizer index.
     std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index;
     if (load_index.empty()) {
         index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::minimizer_k, 
             (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::minimizer_w),
             use_syncmers);
+        if (weighted && !frequent_kmers.empty()) {
+            index->add_frequent_kmers(frequent_kmers, iterations);
+        }
     } else {
         if (progress) {
             std::cerr << "Loading MinimizerIndex from " << load_index << std::endl;
@@ -277,11 +363,11 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << std::endl;
     }
     if (distance_name.empty()) {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, *index, [](const pos_t&) -> gbwtgraph::Payload {
             return MIPayload::NO_CODE;
         });
     } else {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::Payload {
             ZipCode zipcode;
             zipcode.fill_in_zipcode(*distance_index, pos);
             #ifdef WRITE_MINIMIZER_ZIPCODES
@@ -328,7 +414,7 @@ int main_minimizer(int argc, char** argv) {
     // Index statistics.
     if (progress) {
         std::cerr << index->size() << " keys (" << index->unique_keys() << " unique)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index->values() << std::endl;
+        std::cerr << "Minimizer occurrences: " << index->number_of_values() << std::endl;
         std::cerr << "Load factor: " << index->load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
@@ -354,6 +440,59 @@ int main_minimizer(int argc, char** argv) {
 
     return 0;
 }
+
+//------------------------------------------------------------------------------
+
+size_t trailing_zeros(size_t value) {
+    size_t result = 0;
+    if (value == 0) {
+        return result;
+    }
+    while ((value & 1) == 0) {
+        value >>= 1;
+        result++;
+    }
+    return result;
+}
+
+size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress) {
+    if (progress) {
+        std::cerr << "Estimating genome size" << std::endl;
+    }
+    size_t genome_size = 0;
+
+    if (gbz.graph.get_path_count() > 0) {
+        gbz.graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+            gbz.graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
+                handle_t handle = gbz.graph.get_handle_of_step(step_handle);
+                genome_size += gbz.graph.get_length(handle);
+            });
+        });
+        if (progress) {
+            std::cerr << "Estimated size based on reference / generic paths: " << genome_size << std::endl;
+        }
+    }
+
+    if (genome_size == 0) {
+        gbz.graph.for_each_handle([&](const handle_t& handle) {
+            genome_size += gbz.graph.get_length(handle);
+        });
+        if (progress) {
+            std::cerr << "Estimated size based on total sequence length: " << genome_size << std::endl;
+        }
+    }
+
+    // Genome size / 2 should be a reasonably tight upper bound for the number of kmers
+    // with any specific base in the middle position.
+    size_t hash_table_size = gbwtgraph::KmerIndex<gbwtgraph::Key64, gbwtgraph::Position>::minimum_size(genome_size / 2);
+    if (progress) {
+        std::cerr << "Estimated hash table size: 2^" << trailing_zeros(hash_table_size) << std::endl; 
+    }
+
+    return hash_table_size;
+}
+
+//------------------------------------------------------------------------------
 
 // Register subcommand
 static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index", vg::subcommand::TOOLKIT, main_minimizer);

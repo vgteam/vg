@@ -238,9 +238,10 @@ int main_zipcode(int argc, char** argv) {
                         
                         // Locate it in the graph. We do not have to reverse the hits for a
                         // reverse minimizers, as the zipcodes only cares about node ids.
-                        for (auto& hit : minimizer_index->find(minimizers[i])) {
+                        auto hits = minimizer_index->find(minimizers[i]);
+                        for (auto hit = hits.first; hit != hits.first + hits.second; ++hit) {
                             // For each position, remember it and what minimizer it came from
-                            seeds.push_back(hit.first);
+                            seeds.push_back(hit->position.decode());
                             seed_to_source.push_back(i);
                         }
                     }

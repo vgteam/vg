@@ -53,7 +53,7 @@ class ZipCode {
         void fill_in_zipcode (const SnarlDistanceIndex& distance_index, const vg::pos_t& pos);
 
         //Fill in an empty zipcode using the information that was stored in a payload
-        void fill_in_zipcode_from_payload(const gbwtgraph::payload_type& payload); 
+        void fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload); 
 
         //Get the exact minimum distance between two positions and their zip codes
         //If distance_limit is set, return std::numeric_limits<size_t>::max() if the distance
@@ -92,8 +92,8 @@ class ZipCode {
         // switch from zipcodes to payloads and back
 
         //Encode zip code so it can be stored in the payload
-        gbwtgraph::payload_type get_payload_from_zip() const;
-        typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
+        gbwtgraph::Payload get_payload_from_zip() const;
+        typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
 
 
         ///How many bytes were used to store this zipcode?
@@ -271,11 +271,11 @@ std::ostream& operator<<(std::ostream& out, const ZipCodeDecoder& decoder);
     usable by the clusterer, which expects the old payload format
 */
 struct MIPayload {
-    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
+    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::Payload.
     //typedef std::pair<code_type, code_type> payload_type;
 
     
-    constexpr static gbwtgraph::payload_type NO_CODE = {0, 0};
+    constexpr static gbwtgraph::Payload NO_CODE = {0, 0};
     constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
 

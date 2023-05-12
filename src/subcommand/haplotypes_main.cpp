@@ -81,7 +81,7 @@ struct HaplotypesConfig {
     // File names.
     std::string graph_name;
     std::string gbz_output, haplotype_output;
-    std::string distance_name, minimizer_name, r_index_name;
+    std::string distance_name, r_index_name;
     std::string haplotype_input, kmer_input, vcf_input;
 
     // Computational parameters.
@@ -180,7 +180,6 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << std::endl;
     std::cerr << "Input files:" << std::endl;
     std::cerr << "    -d, --distance-index X    use this distance index (default: <basename>.dist)" << std::endl;
-    std::cerr << "    -m, --minimizer-index X   use this minimizer index (default: build the index)" << std::endl;
     std::cerr << "    -r, --r-index X           use this r-index (default: <basename>.ri)" << std::endl;
     std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate the information)" << std::endl;
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
@@ -232,7 +231,6 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "gbz-output", required_argument, 0, 'g' },
         { "haplotype-output", required_argument, 0, 'H' },
         { "distance-index", required_argument, 0, 'd' },
-        { "minimizer-index", required_argument, 0, 'm' },
         { "r-index", required_argument, 0, 'r' },
         { "haplotype-input", required_argument, 0, 'i' },
         { "kmer-input", required_argument, 0, 'k' },
@@ -259,7 +257,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     optind = 2; // force optind past command positional argument
     while (true) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:H:d:m:r:i:k:v:t:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:H:d:r:i:k:v:t:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -273,9 +271,6 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 
         case 'd':
             this->distance_name = optarg;
-            break;
-        case 'm':
-            this->minimizer_name = optarg;
             break;
         case 'r':
             this->r_index_name = optarg;
@@ -414,7 +409,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
 void validate_haplotypes(const Haplotypes& haplotypes,
                          const gbwtgraph::GBWTGraph& graph,
                          const gbwt::FastLocate& r_index,
-                         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+                         const HaplotypePartitioner::minimizer_index_type& minimizer_index,
                          size_t expected_chains,
                          HaplotypePartitioner::Verbosity verbosity);
 
@@ -457,21 +452,17 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
     });
 
     // Minimizer index.
-    gbwtgraph::DefaultMinimizerIndex minimizer_index(config.k, config.w, false);
-    if (config.minimizer_name.empty()) {
+    HaplotypePartitioner::minimizer_index_type minimizer_index(config.k, config.w, false);
+    {
         double minimizer = gbwt::readTimer();
         if (config.verbosity >= HaplotypePartitioner::verbosity_basic) {
             std::cerr << "Building minimizer index" << std::endl;
         }
-        gbwtgraph::index_haplotypes(gbz.graph, minimizer_index, [&](const pos_t&) -> gbwtgraph::payload_type {
-            return gbwtgraph::DefaultMinimizerIndex::DEFAULT_PAYLOAD;
-        });
+        gbwtgraph::index_haplotypes(gbz.graph, minimizer_index);
         if (config.verbosity >= HaplotypePartitioner::verbosity_basic) {
             double seconds = gbwt::readTimer() - minimizer;
             std::cerr << "Built the minimizer index in " << seconds << " seconds" << std::endl;
         }
-    } else {
-        load_minimizer(minimizer_index, config.minimizer_name, config.verbosity >= HaplotypePartitioner::verbosity_basic);
     }
 
     // R-index.
@@ -928,7 +919,7 @@ std::string get_haplotype(const gbwtgraph::GBWTGraph& graph, Haplotypes::sequenc
 void validate_chain(const Haplotypes::TopLevelChain& chain,
                     const gbwtgraph::GBWTGraph& graph,
                     const gbwt::FastLocate& r_index,
-                    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+                    const HaplotypePartitioner::minimizer_index_type& minimizer_index,
                     size_t chain_id,
                     HaplotypePartitioner::Verbosity verbosity) {
     if (chain.offset != chain_id) {
@@ -1110,7 +1101,7 @@ std::string subchain_to_string(size_t chain_id, size_t subchain_id, const Haplot
 void validate_haplotypes(const Haplotypes& haplotypes,
                          const gbwtgraph::GBWTGraph& graph,
                          const gbwt::FastLocate& r_index,
-                         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
+                         const HaplotypePartitioner::minimizer_index_type& minimizer_index,
                          size_t expected_chains,
                          HaplotypePartitioner::Verbosity verbosity) {
     if (verbosity >= HaplotypePartitioner::verbosity_basic) {

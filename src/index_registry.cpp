@@ -3821,7 +3821,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
                 
-        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::Payload {
             ZipCode zip;
             zip.fill_in_zipcode(*distance_index, pos);
             return zip.get_payload_from_zip();
