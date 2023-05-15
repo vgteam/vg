@@ -663,15 +663,22 @@ size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
     }
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
-    assert(get_code_type(depth-1) == IRREGULAR_SNARL); 
+    assert((get_code_type(depth-1) == IRREGULAR_SNARL || get_code_type(depth-1) == REGULAR_SNARL)); 
 #endif
     
-    size_t zip_value; 
-    size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_START_OFFSET ; i++) {
-        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+    if (get_code_type(depth-1) == IRREGULAR_SNARL){
+        //If the parent is an irregular snarl, get the saved value
+        size_t zip_value; 
+        size_t zip_index = decoder[depth-1].second;
+        for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_START_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+        }
+        return zip_value;
+    } else {
+        //Otherwise, the parent must be a regular snarl so return 0,
+        //since we only want the minimum distance from either side of the child
+        return 0;
     }
-    return zip_value;
 
 }
 
@@ -687,15 +694,23 @@ size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
     }
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
-    assert(get_code_type(depth-1) == IRREGULAR_SNARL); 
+    assert((get_code_type(depth-1) == IRREGULAR_SNARL || get_code_type(depth-1) == REGULAR_SNARL)); 
 #endif
     
-    size_t zip_value; 
-    size_t zip_index = decoder[depth].second;
-    for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_END_OFFSET ; i++) {
-        std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+
+    if (get_code_type(depth-1) == IRREGULAR_SNARL ) {
+        //If the parent is an irregular snarl, then get the saved value
+        size_t zip_value; 
+        size_t zip_index = decoder[depth-1].second;
+        for (size_t i = 0 ; i <= ZipCode::IRREGULAR_SNARL_DISTANCE_END_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+        }
+        return zip_value;
+    } else {
+        //Otherwise, the parent must be a regular snarl and the distance is 0
+        //because we are looking for the minimum distance from either side
+        return 0;
     }
-    return zip_value;
 
 }
 

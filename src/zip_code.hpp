@@ -1,4 +1,5 @@
 #ifndef VG_ZIP_CODE_HPP_INCLUDED
+
 #define VG_ZIP_CODE_HPP_INCLUDED
 
 #include "varint.hpp"
@@ -235,8 +236,7 @@ class ZipCodeDecoder {
     ///Doesn't use a given distance index if it isn't needed
     size_t get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) ;
 
-    ///Get the handle of the thing at the given depth. This can only be used for
-    ///Root-level structures or irregular snarls
+    ///Is the snarl tree node backwards relative to its parent
     bool get_is_reversed_in_parent(const size_t& depth);
 
     ///Get the handle of the thing at the given depth. This can only be used for
