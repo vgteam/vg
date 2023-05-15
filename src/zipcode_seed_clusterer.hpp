@@ -57,11 +57,11 @@ namespace vg {
 
             //We need to be able to jump from the first seed in a snarl tree node to the last seed in the same node,
             // so that we don't traverse the whole list when partitioning its parent
-            //start_count stores the number of levels in the snarl tree for which this is the first seed of many in the same node
-            //end_count does the same for seeds that are the last seed in a run
-            //When the level that uses this seed as the first/last in a run is passed, start/end_count get decremented 
-            size_t start_count = 0;
-            size_t end_count = 0;
+            //These are treated as bit_vectors, with each bit set if there is a 
+            //parenthesis open or closed at that depth 
+            // (if start_at_depth & 1 << depth)
+            size_t start_at_depth = 0;
+            size_t end_at_depth = 0;
 
             //This is used for partitioning snarls
             size_t union_find_index;
@@ -111,6 +111,11 @@ namespace vg {
             ///Split the partition containing range_start and range_end,
             ///creating a new partition containing range_start and range_end 
             void split_partition (size_t range_start, size_t range_end);
+
+            ///Get the index of the next seed in a linked list
+            size_t get_next(size_t i) {return data[i].next;}
+            ///Get the index of the previous seed in a linked list
+            size_t get_prev(size_t i) {return data[i].prev;}
 
 
             /////////////////////// DATA //////////////////////////////
@@ -168,7 +173,7 @@ namespace vg {
         /// Doesn't alter the order of anything in all_partitions.data
         /// This should also handle nodes
         void partition_by_chain(const vector<Seed>& seeds,  
-            const partitioning_problem_t& current_problem, 
+            const partitioning_problem_t current_problem, 
             partition_set_t& all_partitions,
             std::list<partitioning_problem_t>& to_partition,
             const size_t& distance_limit);
@@ -182,7 +187,7 @@ namespace vg {
         /// This may change the order of the snarl's children in the vector all_partitions.data,
         /// but the order of seeds within the children will remain the same
         void partition_by_snarl(const vector<Seed>& seeds,  
-            const partitioning_problem_t& current_problem, 
+            const partitioning_problem_t current_problem, 
             partition_set_t& all_partitions,
             std::list<partitioning_problem_t>& to_partition,
             const size_t& distance_limit);
