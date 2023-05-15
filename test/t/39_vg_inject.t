@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 10
+plan tests 12
 
 vg construct -r small/x.fa > j.vg
 vg index -x j.xg j.vg
@@ -47,3 +47,10 @@ is "$(vg inject -x x.xg small/i.bam | vg view -a - | wc -l)" 470 "vg inject pres
 
 is "$(vg inject -x x.xg small/i.bam | vg view -a - | jq .path.mapping[0].position.is_reverse | grep -v true | wc -l)" \
     0 "vg inject works perfectly for the reads flagged as is_reverse"
+
+cat <(samtools view -H small/x.bam) <(printf "name\t4\t*\t0\t0\t*\t*\t0\t0\tACGTACGTACGT\tHHHHHHHHHHHH\n") > unmapped.sam
+is "$(vg inject -x x.xg unmapped.sam | vg view -aj - | grep "path" | wc -l)" 0 "vg inject does not make an alignment for an umapped read"
+is "$(echo $?)" 0 "vg inject does not crash on an unmapped read"
+
+
+rm j.vg j.xg x.vg x.gcsa x.gcsa.lcp x.xg unmapped.sam

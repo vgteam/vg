@@ -1250,7 +1250,7 @@ Alignment bam_to_alignment(const bam1_t *b,
         
     }
     
-    if (graph != nullptr && bh != nullptr) {
+    if (graph != nullptr && bh != nullptr && b->core.tid >= 0) {
         alignment.set_mapping_quality(b->core.qual);
         // Look for the path handle this is against.
         auto found = tid_path_handle.find(b->core.tid);
