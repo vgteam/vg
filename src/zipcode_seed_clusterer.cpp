@@ -1,6 +1,6 @@
 #include "zipcode_seed_clusterer.hpp"
 
-//#define DEBUG_ZIPCODE_CLUSTERING
+#define DEBUG_ZIPCODE_CLUSTERING
 
 namespace vg {
 
@@ -236,7 +236,8 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
 #endif
 
             //Remember to partition everything from the start to i-1
-            if (i != last_connected_component_start+1) {
+            if (i > last_connected_component_start) {
+                //If this connected component has something in it
                 to_partition.push_back({last_connected_component_start, i+1, 0});
             }
 
@@ -699,11 +700,6 @@ void ZipcodeClusterer::partition_by_snarl(const vector<Seed>& seeds, const parti
                 }
                 current_index = all_partitions.get_next(current_index);
 
-#ifdef DEBUG_ZIPCODE_CLUSTERING
-                if (current_index == std::numeric_limits<size_t>::max()) {
-                    assert(previous_index == current_problem.range_end);
-                }
-#endif
             }
         }
         return;
