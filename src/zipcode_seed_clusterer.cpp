@@ -1,6 +1,6 @@
 #include "zipcode_seed_clusterer.hpp"
 
-#define DEBUG_ZIPCODE_CLUSTERING
+//#define DEBUG_ZIPCODE_CLUSTERING
 
 namespace vg {
 
@@ -87,8 +87,18 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
                 return offset_a < offset_b;
             }
         } else if (seeds[a.seed].zipcode_decoder->get_code_type(depth-1) == REGULAR_SNARL) {
-            //If the parent is a regular snarl, then sort by child number
-            return seeds[a.seed].zipcode_decoder->get_rank_in_snarl(depth) < seeds[b.seed].zipcode_decoder->get_rank_in_snarl(depth);
+            //If the parent is a regular snarl, then sort by order along the parent chai
+            size_t offset1 = is_rev(seeds[a.seed].pos) 
+                           ? seeds[a.seed].zipcode_decoder->get_length(depth) - offset(seeds[a.seed].pos) - 1
+                           : offset(seeds[a.seed].pos); 
+            size_t offset2 = is_rev(seeds[b.seed].pos) 
+                           ? seeds[b.seed].zipcode_decoder->get_length(depth) - offset(seeds[b.seed].pos) - 1
+                           : offset(seeds[b.seed].pos);
+            if (seeds[a.seed].zipcode_decoder->get_is_reversed_in_parent(depth)) {
+                return offset1 < offset2;
+            } else {
+                return offset2 < offset1;
+            }
         } else {
             //Otherwise, they are children of an irregular snarl
             return seeds[a.seed].zipcode_decoder->get_distance_to_snarl_start(depth) < seeds[b.seed].zipcode_decoder->get_distance_to_snarl_start(depth);
@@ -159,13 +169,13 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
                 !ZipCodeDecoder::is_equal(current_decoder, *seeds[all_partitions.data[i-1].seed].zipcode_decoder, depth)) {
                 different_at_earlier_depth = true;
                 //If the previous thing was in a different snarl tree node at this depth
-                cerr << "At seed " << seeds[all_partitions.data[i].seed].pos << ", new snarl tree node at depth " << depth << endl;
 
-                if (first_zipcode_at_depth[depth] != i-1 || i == all_partitions.data.size() - 1) {
-                    //If the first seed of the last child wasn't the seed right before this one
-                    //Remember where the last run of seeds started and ended
+                //We want to remember this run of seeds to skip later if it it's an
+                //irregular snarl or child of an irregular snarl
+                if ((current_depth >= depth && current_decoder.get_code_type(depth) == IRREGULAR_SNARL) ||
+                    (depth != 0 && current_decoder.get_code_type(depth-1) == IRREGULAR_SNARL &&
+                     first_zipcode_at_depth[depth] != i-1)) {
                     all_partitions.data[first_zipcode_at_depth[depth]].start_at_depth |= 1 << depth;
-                    cerr << "New start at " << first_zipcode_at_depth[depth] << " with depth " << depth << endl;
                     all_partitions.child_start_bv[first_zipcode_at_depth[depth]] = 1;
 
                     if (i == all_partitions.data.size() - 1) {
@@ -293,7 +303,6 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
         to_partition.pop_front();
 
         code_type_t code_type = seeds[all_partitions.data[current_problem.range_start].seed].zipcode_decoder->get_code_type(current_problem.depth);
-        cerr << "CODE TYPE " << code_type << endl;
 
         if (code_type == CHAIN || code_type == NODE || code_type == ROOT_CHAIN) {
             partition_by_chain(seeds, current_problem, all_partitions, to_partition, distance_limit);
@@ -387,16 +396,11 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
     size_t current_index = all_partitions.get_last_index_at_depth(previous_index, depth+1, seeds);
 
     //If the first seed was in a snarl with other seeds, then remember to partition the snarl
-    cerr <<  previous_index <<  " and " << current_index << endl;
-    cerr << seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth) << endl;
-    if (!is_node && (current_index != previous_index ||
-            seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth+1) == IRREGULAR_SNARL ||
-            seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth+1) == REGULAR_SNARL)) {
-        cerr << "ADD SNARL TO PARTITION " << previous_index << " to " << current_index+1 << endl;
+    if (!is_node && //current_index != previous_index &&
+            seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth+1) == IRREGULAR_SNARL) {
         to_partition.push_back({previous_index, current_index+1, depth+1});
     }
     current_index = all_partitions.data[current_index].next;
-    cerr << "Next index " << current_index << endl;
 
     /*Walk through the sorted list of seeds and partition
     */
@@ -410,52 +414,169 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
 
         //Get the values we need to calculate distance
         //If this chain is really a node, then get the distances from the positions
-        size_t current_prefix_sum; 
-        size_t previous_prefix_sum;
+
+        //Are the two seeds close to each other
+        bool is_close;
         if (is_node ) {
-            current_prefix_sum = node_rev != is_rev(seeds[all_partitions.data[current_index].seed].pos) 
+            //If the chain is really just a node, then check the positions
+            size_t current_prefix_sum = node_rev != is_rev(seeds[all_partitions.data[current_index].seed].pos) 
                                ? node_length - offset(seeds[all_partitions.data[current_index].seed].pos)
                                : offset(seeds[all_partitions.data[current_index].seed].pos)+1;
-            previous_prefix_sum = node_rev != is_rev(seeds[all_partitions.data[previous_index].seed].pos) 
+            size_t previous_prefix_sum = node_rev != is_rev(seeds[all_partitions.data[previous_index].seed].pos) 
                                ? node_length - offset(seeds[all_partitions.data[previous_index].seed].pos)
                                : offset(seeds[all_partitions.data[previous_index].seed].pos)+1;
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "Distance on a node with prefix sum values: " << current_prefix_sum << " and " << previous_prefix_sum << endl;
+#endif
+            is_close = (current_prefix_sum - previous_prefix_sum) <= distance_limit;
 
         } else {
-            current_prefix_sum = curr_decoder.get_offset_in_chain(depth+1);
-            previous_prefix_sum = prev_decoder.get_offset_in_chain(depth+1);
+            //Otherwise, this chain is actually a chain and we determine the distance
+            //differently depending on what the children are
 
-            //If these are nodes, add the offsets of the positions
-            if (curr_decoder.get_code_type(depth+1) == NODE) {
-                current_prefix_sum = SnarlDistanceIndex::sum(current_prefix_sum,
-                    curr_decoder.get_is_reversed_in_parent(depth+1) 
-                        ? curr_decoder.get_length(depth+1) 
-                          - offset(seeds[all_partitions.data[current_index].seed].pos)
-                        : offset(seeds[all_partitions.data[current_index].seed].pos)+1
-                );
-            }
-            if (prev_decoder.get_code_type(depth+1) == NODE) {
-                previous_prefix_sum = SnarlDistanceIndex::sum(previous_prefix_sum,
-                    prev_decoder.get_is_reversed_in_parent(depth+1) 
-                        ? prev_decoder.get_length(depth+1) 
-                          - offset(seeds[all_partitions.data[previous_index].seed].pos)
-                        : offset(seeds[all_partitions.data[previous_index].seed].pos)+1
-                );
-            } else if (!ZipCodeDecoder::is_equal(prev_decoder, curr_decoder, depth+1)) {
-                //If these are on different children, add the length of the previous one
-                previous_prefix_sum= SnarlDistanceIndex::sum(previous_prefix_sum, 
-                                                             prev_decoder.get_length(depth+1)); 
+            code_type_t current_type = curr_decoder.get_code_type(depth+1);
+            code_type_t previous_type = prev_decoder.get_code_type(depth+1);
+            if (current_type == NODE && previous_type == NODE) {
+                //If both are nodes, then just use the offsets of the positions on the chain
+                size_t current_prefix_sum = SnarlDistanceIndex::sum(curr_decoder.get_offset_in_chain(depth+1),
+                        curr_decoder.get_is_reversed_in_parent(depth+1) 
+                            ? curr_decoder.get_length(depth+1) 
+                              - offset(seeds[all_partitions.data[current_index].seed].pos)
+                            : offset(seeds[all_partitions.data[current_index].seed].pos)+1
+                    );
+                size_t previous_prefix_sum = SnarlDistanceIndex::sum(prev_decoder.get_offset_in_chain(depth+1),
+                        prev_decoder.get_is_reversed_in_parent(depth+1) 
+                            ? prev_decoder.get_length(depth+1) 
+                              - offset(seeds[all_partitions.data[previous_index].seed].pos)
+                            : offset(seeds[all_partitions.data[previous_index].seed].pos)+1
+                    );
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+                cerr << "Distance between two nodes with prefix sum values: " << current_prefix_sum << " and " << previous_prefix_sum << endl;
+#endif
+                is_close = (current_prefix_sum - previous_prefix_sum) <= distance_limit;
+            } else if (current_type == NODE && 
+                       (previous_type == REGULAR_SNARL || previous_type == IRREGULAR_SNARL)) {
+                //If this is a node and the previous thing was a snarl, then they are connected
+                //if the node is close enough to the right side of the snarl 
+                //If both are nodes, then just use the offsets of the positions on the chain
+                size_t current_prefix_sum = SnarlDistanceIndex::sum(curr_decoder.get_offset_in_chain(depth+1),
+                        curr_decoder.get_is_reversed_in_parent(depth+1) 
+                            ? curr_decoder.get_length(depth+1) 
+                              - offset(seeds[all_partitions.data[current_index].seed].pos)
+                            : offset(seeds[all_partitions.data[current_index].seed].pos)+1
+                    );
+                size_t previous_prefix_sum = SnarlDistanceIndex::sum(prev_decoder.get_offset_in_chain(depth+1),
+                        prev_decoder.get_length(depth+1));
+
+                if (previous_type == REGULAR_SNARL && 
+                    prev_decoder.get_length(depth+1) > distance_limit) {
+                    //If the previous thing was a regular snarl, and its length is big enough that
+                    //this node will never reach past the snarl, then we can compare the node to
+                    //the thing in the snarl, which is guaranteed to be the closest one to the node
+                    node_length = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_length(depth+2);
+                    node_rev = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_is_reversed_in_parent(depth+2);
+
+                    previous_prefix_sum = SnarlDistanceIndex::sum(previous_prefix_sum,
+                              node_rev != is_rev(seeds[all_partitions.data[previous_index].seed].pos) 
+                              ? offset(seeds[all_partitions.data[previous_index].seed].pos)+1
+                              : node_length - offset(seeds[all_partitions.data[previous_index].seed].pos));
+                        
+                }
+                is_close = (current_prefix_sum - previous_prefix_sum) <= distance_limit;
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+                cerr << "Distance between a node and a snarl with prefix sum values: " << current_prefix_sum << " and " << previous_prefix_sum << endl;
+#endif
+            } else if ((current_type == IRREGULAR_SNARL || current_type == REGULAR_SNARL) 
+                        && previous_type == NODE) {
+                //If this is a snarl and the previous thing was a node, then get check the 
+                //distance from the position on the node to the left side of this snarl
+                size_t current_prefix_sum = curr_decoder.get_offset_in_chain(depth+1);
+                size_t previous_prefix_sum = SnarlDistanceIndex::sum(prev_decoder.get_offset_in_chain(depth+1),
+                        prev_decoder.get_is_reversed_in_parent(depth+1) 
+                            ? prev_decoder.get_length(depth+1) 
+                              - offset(seeds[all_partitions.data[previous_index].seed].pos)
+                            : offset(seeds[all_partitions.data[previous_index].seed].pos)+1
+                    );
+                if (current_type == REGULAR_SNARL && 
+                    curr_decoder.get_length(depth+1) > distance_limit) {
+                    //If the snarl is large enough that the previous node will never reach
+                    //anything after the snarl, then we can detach it from the snarl,
+                    //so check the additional distance into the snarl
+                    node_length = seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_length(depth+2);
+                    node_rev = seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_is_reversed_in_parent(depth+2);
+
+                    current_prefix_sum = SnarlDistanceIndex::sum(current_prefix_sum,
+                              node_rev != is_rev(seeds[all_partitions.data[current_index].seed].pos) 
+                              ? node_length - offset(seeds[all_partitions.data[current_index].seed].pos)
+                              : offset(seeds[all_partitions.data[current_index].seed].pos)+1);
+                        
+                }
+                is_close = (current_prefix_sum - previous_prefix_sum) <= distance_limit;
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+                cerr << "Distance between a snarl and a node with prefix sum values: " << current_prefix_sum << " and " << previous_prefix_sum << endl;
+#endif
+            } else if (current_type == REGULAR_SNARL && previous_type == REGULAR_SNARL &&
+                        ZipCodeDecoder::is_equal(prev_decoder, curr_decoder, depth+1)) {
+                //If both this and the previous seed were on the same regular snarl, 
+                //then get the distance between them on the node
+
+                //The node is two levels deeper than the chain
+                node_length = seeds[previous_item.seed].zipcode_decoder->get_length(depth+2);
+                node_rev = seeds[previous_item.seed].zipcode_decoder->get_is_reversed_in_parent(depth+2);
+                size_t current_prefix_sum = node_rev != is_rev(seeds[all_partitions.data[current_index].seed].pos) 
+                                   ? node_length - offset(seeds[all_partitions.data[current_index].seed].pos)
+                                   : offset(seeds[all_partitions.data[current_index].seed].pos)+1;
+                size_t previous_prefix_sum = node_rev != is_rev(seeds[all_partitions.data[previous_index].seed].pos) 
+                                   ? node_length - offset(seeds[all_partitions.data[previous_index].seed].pos)
+                                   : offset(seeds[all_partitions.data[previous_index].seed].pos)+1;
+                is_close = (current_prefix_sum - previous_prefix_sum) <= distance_limit;
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+                cerr << "Distance between nodes on the same regular snarl: " << current_prefix_sum << " and " << previous_prefix_sum << endl;
+#endif
+            
+            } else {
+                //If they are two different snarls (regular or irregular), then find the distance between
+                //the positions in the chain
+
+                //The distance from the right side of the previous snarl to the left side of this one
+                size_t distance_between_snarls = curr_decoder.get_offset_in_chain(depth+1) - 
+                          SnarlDistanceIndex::sum(prev_decoder.get_offset_in_chain(depth+1), 
+                                                  prev_decoder.get_length(depth+1));
+
+
+                //The additional distance to be added to get to the current or previous seed
+                size_t current_offset;
+                size_t previous_offset;
+
+                if (current_type == REGULAR_SNARL) {
+                    //If the seed is in a regular snarl, then add the offset in the node
+                    current_offset = seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_is_reversed_in_parent(depth+2) != is_rev(seeds[all_partitions.data[current_index].seed].pos)
+                                   ? seeds[all_partitions.data[current_index].seed].zipcode_decoder->get_length(depth+2) - offset(seeds[all_partitions.data[current_index].seed].pos)
+                                   : offset(seeds[all_partitions.data[current_index].seed].pos)+1;
+                } else {
+                    //Don't add anything for an irregular snarl; it will be added later
+                    current_offset = 0;
+                }
+
+                if (previous_type == REGULAR_SNARL) {
+                    previous_offset = seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_is_reversed_in_parent(depth+2) != is_rev(seeds[all_partitions.data[previous_index].seed].pos)
+                                   ? offset(seeds[all_partitions.data[previous_index].seed].pos)+1
+                                   : seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_length(depth+2) - offset(seeds[all_partitions.data[previous_index].seed].pos);
+                } else {
+                    previous_offset = 0;
+                }
+                is_close = SnarlDistanceIndex::sum(current_offset, SnarlDistanceIndex::sum(previous_offset, distance_between_snarls)) <= distance_limit; 
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+                cerr << "Distance between two snarls: " << distance_between_snarls << " and " << current_offset << " and " << previous_offset << endl;
+#endif
+
             }
         }
 
-        if (previous_prefix_sum != std::numeric_limits<size_t>::max() &&
-            current_prefix_sum != std::numeric_limits<size_t>::max() &&
-            SnarlDistanceIndex::minus(current_prefix_sum, previous_prefix_sum) 
-                   > distance_limit) {
+        if (!is_close) {
 
 #ifdef DEBUG_ZIPCODE_CLUSTERING
             cerr << "\tthis is too far from the last seed so make a new cluster" << endl;
-            cerr << "\tLast prefix sum: " << previous_prefix_sum <<  " this prefix sum: " << current_prefix_sum << endl;
-            assert(previous_prefix_sum <= current_prefix_sum);
 #endif
             //If too far from the last seed, then split off a new cluster
             all_partitions.split_partition(current_index);
@@ -463,9 +584,7 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
 #ifdef DEBUG_ZIPCODE_CLUSTERING
         else {
             cerr << "\tthis is close enough to the last thing, so it is in the same cluster" << endl;
-            cerr << "\tLast prefix sum: " << previous_prefix_sum <<  " this prefix sum: " << current_prefix_sum << endl;
         }
-            assert(previous_prefix_sum <= current_prefix_sum);
 #endif
 
         //Update to the next thing in the list
@@ -481,12 +600,9 @@ void ZipcodeClusterer::partition_by_chain(const vector<Seed>& seeds, const parti
             //Current index points to the last seed in the same child
             current_index = all_partitions.get_last_index_at_depth(previous_index, depth+1, seeds);
 
-    cerr <<  previous_index << " and " << current_index << endl;
             //If this skipped a snarl in the chain, then remember to cluster it later
-            if (!is_node && (current_index != previous_index ||
-                seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth+1) == IRREGULAR_SNARL ||
-                seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth+1) == REGULAR_SNARL)) {
-                cerr << "Add snarl " << previous_index << " and " << current_index+1 << endl;
+            if (!is_node && //(current_index != previous_index ||
+                seeds[all_partitions.data[previous_index].seed].zipcode_decoder->get_code_type(current_problem.depth+1) == IRREGULAR_SNARL) {
                 to_partition.push_back({previous_index, current_index+1, depth+1});
             }
             current_index = all_partitions.get_next(current_index);
@@ -729,7 +845,6 @@ void ZipcodeClusterer::partition_by_snarl(const vector<Seed>& seeds, const parti
         while (all_partitions.data[index].prev != std::numeric_limits<size_t>::max() 
                && index != current_problem.range_start) {
             size_t rank = list_heads_rank(index - current_problem.range_start);
-            cerr << "Get list head from rank " << rank << endl;
             size_t head_index = rank == 0 ? current_problem.range_start 
                                           : list_heads_select(rank) + current_problem.range_start;
             if (head_index == current_problem.range_start ||
@@ -911,35 +1026,28 @@ void ZipcodeClusterer::partition_set_t::reserve(const size_t& size) {
 
 size_t ZipcodeClusterer::partition_set_t::get_last_index_at_depth(const size_t& current_index, 
         const size_t& depth, const vector<Seed>& seeds) {
-    cerr << "Get next index at depth " << current_index << " " << depth << endl;
     partition_item_t& current_item = data[current_index];
     if (!(current_item.start_at_depth & (1 << depth))) {
         //If this is not the start of any run of seeds
-        cerr << "NEXT thing is something else" << endl;
         return current_index;
     } else if (current_item.next == std::numeric_limits<size_t>::max() ||
                !ZipCodeDecoder::is_equal(*seeds[data[current_item.next].seed].zipcode_decoder, 
                                          *seeds[current_item.seed].zipcode_decoder, depth)) {
         //If this is the start of a run of seeds, but this is a different child than the next thing at this depth
-        cerr << "NEXT thing is something else at this depth" << endl;
         return current_index;
     } else {
         //This is the start of a run of seeds at this depth.
         //Walk through the child_start_bv and child_end bv to find the end of this run at this depth
 
         //Get the next seed with an end parenthesis
-        cerr << "Get rank from " << current_index << endl;
         size_t end_rank = child_end_rank(current_index) + 1;
-        cerr << "END RANK: " << end_rank << endl;
         size_t end_index = child_end_select(end_rank);
-        cerr << "END INDEX " << end_index << endl;
 
         while (end_index < seeds.size()) {
             //Check the next seed that ends a run
 
             if (data[end_index].end_at_depth & (1 << depth)) {
                 //If this is the last seed
-                cerr << "Found the last seed at " << end_index << endl;
                 return end_index;
             }
 
@@ -1002,7 +1110,6 @@ void ZipcodeClusterer::partition_set_t::sort(size_t range_start, size_t range_en
         //If the start of the list was in the range, then we need to replace the start of the linked list in partition_heads 
         for (size_t i = 0 ; i < partition_heads.size() ; i++) {
             if (partition_heads[i] == old_start) {
-                cerr << "REPLACE PARTITION HEAD " << old_start << " WITH " << range_start << endl;
                 partition_heads[i] = range_start;
                 break;
             }
