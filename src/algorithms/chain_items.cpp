@@ -565,9 +565,9 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 
 //#define skip_zipcodes
 //#define debug
-//#define double_check_distances
+#define double_check_distances
 //#define stop_on_mismatch
-//#define replace_on_mismatch
+#define replace_on_mismatch
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
