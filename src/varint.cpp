@@ -141,4 +141,28 @@ void varint_vector_t::print_self() const {
              << ((byte & (1<<0)) ? "1" : "0") << endl;
     }
 }
+
+std::vector<size_t> varint_vector_t::to_vector() const {
+    std::vector<size_t> to_return;
+
+    std::pair<size_t, size_t> value_and_index = {0, 0};
+
+    while (value_and_index.second < data.size()) {
+        // Until we hit the end of our data, decode values and store them.
+        value_and_index = get_value_and_next_index(value_and_index.second);
+        to_return.push_back(value_and_index.first);
+    }
+
+    return to_return;
+}
+
+void varint_vector_t::from_vector(const std::vector<size_t>& values) {
+    // Throw away anything we have already
+    data.clear();
+    for (auto& v : values) {
+        // And encode all the values we were given
+        add_value(v);
+    }
+}
+
 }

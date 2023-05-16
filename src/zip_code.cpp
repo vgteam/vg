@@ -101,6 +101,14 @@ void ZipCode::fill_in_zipcode (const SnarlDistanceIndex& distance_index, const p
     }
 }
 
+std::vector<size_t> ZipCode::to_vector() const {
+    return zipcode.to_vector();
+}
+
+void ZipCode::from_vector(const std::vector<size_t>& values) {
+    zipcode.from_vector(values);
+}
+
 ZipCodeDecoder::ZipCodeDecoder(const ZipCode* zipcode, const size_t& depth) :
     zipcode(zipcode), decoder(0) {
     if (depth == std::numeric_limits<size_t>::max()) {
@@ -750,6 +758,24 @@ bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2
             //Since the type is the same, this is sufficient
             return decoder1.get_offset_in_chain(depth) == decoder2.get_offset_in_chain(depth);
         }
+    }
+}
+
+void ZipCodeDecoder::dump(std::ostream& out) const {
+    if (!zipcode) {
+        // We're decoding nothing
+        out << *this;
+    } else {
+        std::vector<size_t> numbers = zipcode->to_vector();
+        // Print out the numbers in a way that is easy to copy-paste as a vector literal.
+        out << "<decoder for {";
+        for (size_t i = 0; i < numbers.size(); i++) {
+            out << numbers[i];
+            if (i + 1 < numbers.size()) {
+                out << ", ";
+            }
+        }
+        out << "}>";
     }
 }
 

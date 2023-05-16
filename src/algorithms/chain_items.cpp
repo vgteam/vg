@@ -566,6 +566,8 @@ int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceInde
 //#define skip_zipcodes
 //#define debug
 //#define double_check_distances
+//#define stop_on_mismatch
+//#define replace_on_mismatch
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit) {
     auto from_pos = from.graph_end();
     auto& to_pos = to.graph_start();
@@ -581,7 +583,14 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
     if (from_hint && to_hint) {
 #endif
 #ifdef debug
-        std::cerr << "Finding distance from " << from_pos << " to " << to_pos << " using hints " << *from_hint << " and " << *to_hint << std::endl;
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "Finding distance from " << from_pos << " to " << to_pos << " using hints ";
+            from_hint->dump(std::cerr);
+            std::cerr << " and ";
+            to_hint->dump(std::cerr);
+            std::cerr << std::endl;
+        }
 #endif
     
         // Can use zip code based oriented distance
@@ -593,6 +602,7 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
                                                      &graph);
 
 #ifdef debug
+        #pragma omp critical (cerr)
         std::cerr << "Zipcodes report " << distance << std::endl;
 #endif
 
@@ -604,12 +614,18 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
             false, &graph);
 
         if (check_distance > distance) {
-            distance = check_distance;
-
 #ifdef debug
-            std::cerr << "Distance index reports " << check_distance << " so using that instead" << std::endl;
+            #pragma omp critical (cerr)
+            std::cerr << "Distance index reports " << check_distance << " instead" << std::endl;
 #endif  
-        }
+          
+#ifdef stop_on_mismatch
+            throw std::runtime_error("Zipcode distance mismatch");
+#endif
+#ifdef replace_on_mismatch
+            distance = check_distance;
+#endif
+    }
 
 #endif
     } else {

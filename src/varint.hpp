@@ -46,7 +46,14 @@ using namespace std;
             return data.size();
         }
         
+        /// Print bit representation for debugging.
         void print_self() const;
+
+        /// Dump to a normal vector
+        std::vector<size_t> to_vector() const;
+
+        /// Load from a normal vector
+        void from_vector(const std::vector<size_t>& values);
 
         
         private:

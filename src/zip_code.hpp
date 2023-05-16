@@ -111,6 +111,12 @@ class ZipCode {
             return zipcode == other.zipcode;
         }
 
+        /// Dump to a normal vector
+        std::vector<size_t> to_vector() const;
+
+        /// Load from a normal vector
+        void from_vector(const std::vector<size_t>& values);
+
     private:
 
         /* These offsets are used to define each type of "code"
@@ -259,6 +265,10 @@ class ZipCodeDecoder {
     ///then this might actually refer to different things
     static inline bool is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                 const size_t& depth);
+
+    /// Dump a ZipCodeDecoder to a stream so that it can be reconstructed for a
+    /// unit test from the resulting information.
+    void dump(std::ostream& out) const;
 
 };
 
