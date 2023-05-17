@@ -127,7 +127,7 @@ namespace vg {
             /// The partitions of the data
             /// This stores the first node in the linked list of each partition
             /// as an index into data
-            vector<size_t> partition_heads;
+            hash_set<size_t> partition_heads;
 
             ///These are used to store the locations of each seed that is the first seed for a run of children
             sdsl::bit_vector child_start_bv;

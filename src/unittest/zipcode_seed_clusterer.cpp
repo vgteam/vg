@@ -257,7 +257,7 @@ namespace unittest {
     }
 
     TEST_CASE( "zipcode cluster simple chain with multiple connected components",
-                   "[zip_cluster][bug]" ) {
+                   "[zip_cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -372,7 +372,7 @@ namespace unittest {
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n3);
-        Edge* e3 = graph.create_edge(n2, n2);
+        Edge* e3 = graph.create_edge(n2, n3);
         Edge* e4 = graph.create_edge(n2, n4);
         Edge* e5 = graph.create_edge(n3, n4);
         Edge* e6 = graph.create_edge(n3, n5);
@@ -409,6 +409,24 @@ namespace unittest {
             vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
             REQUIRE(clusters.size() == 3); 
         }
+        SECTION( "Two sides of irregular snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(1, true, 0));
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(8, false, 0));
+            positions.emplace_back(make_pos_t(9, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
+            REQUIRE(clusters.size() == 2); 
+            REQUIRE(clusters[0].seeds.size() == 2);
+        }
     }
     TEST_CASE( "zipcode cluster long snarl in chain",
                    "[zip_cluster]" ) {
@@ -436,7 +454,24 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
-        SECTION( "Three clusters including snarl" ) {
+        SECTION( "Two clusters around snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, true, 0));
+            positions.emplace_back(make_pos_t(5, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 5); 
+
+            REQUIRE(clusters.size() == 2); 
+        }
+
+        SECTION( "One clusters including snarl" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(make_pos_t(2, true, 0));
@@ -474,220 +509,313 @@ namespace unittest {
             }
             vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
             REQUIRE(clusters.size() == 3); 
+        }
+        SECTION( "Two clusters including snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, true, 2));
+            positions.emplace_back(make_pos_t(3, false, 0));
+            positions.emplace_back(make_pos_t(5, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
 
+            //There should be two clusters: 2,3 and 5
+            REQUIRE(clusters.size() == 2); 
+            if (clusters[0].seeds.size() == 1) {
+                REQUIRE(clusters[0].seeds[0] == 2); 
+            } else {
+                REQUIRE(clusters[1].seeds[0] == 2);
+            }
+        }
+        SECTION( "Two clusters including snarl onthe other side" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, true, 2));
+            positions.emplace_back(make_pos_t(3, false, 15));
+            positions.emplace_back(make_pos_t(5, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(dist_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<ZipcodeClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
 
+            //There should be two clusters: 2 and 3,5
+            REQUIRE(clusters.size() == 2); 
+            if (clusters[0].seeds.size() == 1) {
+                REQUIRE(clusters[0].seeds[0] == 0); 
+            } else {
+                REQUIRE(clusters[1].seeds[0] == 0);
+            }
         }
     }
-//
-//    TEST_CASE("zipcode Use path through big snarl", "[zip_cluster]") {
-//        //Chain: 1 - (snarl 2-7) - 8
-//        
-//        VG graph;
-//        
-//        Node* n1 = graph.create_node("GCA");
-//        Node* n2 = graph.create_node("C");
-//        Node* n3 = graph.create_node("A");
-//        Node* n4 = graph.create_node("CTGA");
-//        Node* n5 = graph.create_node("GCA");
-//        Node* n6 = graph.create_node("T");
-//        Node* n7 = graph.create_node("G");
-//        Node* n8 = graph.create_node("AGTA");
-//        Node* n9 = graph.create_node("AGTAAGTA");
-//        Node* n10 = graph.create_node("A");
-//        Node* n11 = graph.create_node("AGTAAAA");
-//        Node* n12 = graph.create_node("AG");
-//        Node* n13 = graph.create_node("AGT");
-//        Node* n14 = graph.create_node("AG");
-//        Node* n15 = graph.create_node("AGTA");
-//        
-//        Edge* e1 = graph.create_edge(n1, n2);
-//        Edge* e3 = graph.create_edge(n2, n4);
-//        Edge* e4 = graph.create_edge(n3, n4);
-//        Edge* e5 = graph.create_edge(n4, n5);
-//        Edge* e6 = graph.create_edge(n4, n6);
-//        Edge* e7 = graph.create_edge(n5, n6);
-//        Edge* e8 = graph.create_edge(n6, n2, false, true);
-//        Edge* e9 = graph.create_edge(n6, n7);
-//        Edge* e10 = graph.create_edge(n7, n8);
-//        Edge* e11 = graph.create_edge(n4, n9);
-//        Edge* e12 = graph.create_edge(n9, n7);
-//        Edge* e13 = graph.create_edge(n8, n11);
-//        Edge* e14 = graph.create_edge(n8, n10);
-//        Edge* e15 = graph.create_edge(n10, n12);
-//        Edge* e16 = graph.create_edge(n10, n13);
-//        Edge* e17 = graph.create_edge(n11, n12);
-//        Edge* e18 = graph.create_edge(n11, n15);
-//        Edge* e19 = graph.create_edge(n12, n14);
-//        Edge* e20 = graph.create_edge(n14, n15);
-//        Edge* e21 = graph.create_edge(n11, n14);
-//        
-//        IntegratedSnarlFinder snarl_finder(graph);
-//        SnarlDistanceIndex distance_index;
-//        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-//        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-//        SECTION("one cluster in same snarl") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(10, false, 0));
-//            positions.emplace_back(make_pos_t(12, false, 1));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {false, true} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
-//                REQUIRE(clusters.size() == 1); 
-//            }
-//        }
-//        SECTION("two clusters in same snarl") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(10, false, 0));
-//            positions.emplace_back(make_pos_t(12, false, 1));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {false, true} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 1); 
-//                REQUIRE(clusters.size() == 2); 
-//            }
-//        }
-//        SECTION("one cluster in same snarl separated by one node") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(10, false, 0));
-//            positions.emplace_back(make_pos_t(14, false, 0));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {false, true} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
-//                REQUIRE(clusters.size() == 1); 
-//            }
-//        }
-//        SECTION("two clusters in same snarl separated by one node") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(10, false, 0));
-//            positions.emplace_back(make_pos_t(14, false, 0));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {false, true} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
-//                REQUIRE(clusters.size() == 2); 
-//            }
-//        }
-//        SECTION("two clusters using path in different snarl") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(5, false, 0));
-//            positions.emplace_back(make_pos_t(12, false, 0));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {false, true} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 9); 
-//                REQUIRE(clusters.size() == 2); 
-//            }
-//        }
-//        SECTION("one cluster using path in different snarl") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(5, false, 0));
-//            positions.emplace_back(make_pos_t(12, false, 0));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {false, true} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
-//                REQUIRE(clusters.size() == 1); 
-//            }
-//        }
-//        SECTION("one cluster") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(2, false, 0));
-//            positions.emplace_back(make_pos_t(4, false, 0));
-//            positions.emplace_back(make_pos_t(9, true, 2));
-//            positions.emplace_back(make_pos_t(7, false, 0));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {true, false} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 8); 
-//                REQUIRE(clusters.size() == 1); 
-//            }
-//        }
-//        SECTION("two clusters") {
-//            vector<pos_t> positions;
-//            positions.emplace_back(make_pos_t(12, false, 0));
-//            positions.emplace_back(make_pos_t(7, false, 0));
-//            //all are in the same cluster
-//            for (bool use_minimizers : {true, false} ) {
-//                vector<SnarlDistanceIndexClusterer::Seed> seeds;
-//                for (pos_t pos : positions) {
-//                    ZipCode zipcode;
-//                    zipcode.fill_in_zipcode(distance_index, pos);
-//                    if (use_minimizers) {
-//                        seeds.push_back({ pos, 0, zipcode});
-//                    } else {
-//                        seeds.push_back({ pos, 0});
-//                    }
-//                }
-//                vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 4); 
-//                REQUIRE(clusters.size() == 2); 
-//            }
-//        }
-//    }
+
+    TEST_CASE("zipcode Use path through big snarl", "[zip_cluster]") {
+        //Chain: 1 - (snarl 2-7) - 8
+        
+        VG graph;
+        
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("C");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("AGTA");
+        Node* n9 = graph.create_node("AGTAAGTA");
+        Node* n10 = graph.create_node("A");
+        Node* n11 = graph.create_node("AGTAAAA");
+        Node* n12 = graph.create_node("AG");
+        Node* n13 = graph.create_node("AGT");
+        Node* n14 = graph.create_node("AG");
+        Node* n15 = graph.create_node("AGTA");
+        
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n2, false, true);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n8);
+        Edge* e11 = graph.create_edge(n4, n9);
+        Edge* e12 = graph.create_edge(n9, n7);
+        Edge* e13 = graph.create_edge(n8, n11);
+        Edge* e14 = graph.create_edge(n8, n10);
+        Edge* e15 = graph.create_edge(n10, n12);
+        Edge* e16 = graph.create_edge(n10, n13);
+        Edge* e17 = graph.create_edge(n11, n12);
+        Edge* e18 = graph.create_edge(n11, n15);
+        Edge* e19 = graph.create_edge(n12, n14);
+        Edge* e20 = graph.create_edge(n14, n15);
+        Edge* e21 = graph.create_edge(n11, n14);
+        
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        ZipcodeClusterer clusterer(distance_index, graph);
+        SECTION("one cluster in same snarl") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 1));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
+            REQUIRE(clusters.size() == 1); 
+            
+        }
+        SECTION("two clusters in same snarl") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 1));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 1); 
+            REQUIRE(clusters.size() == 2); 
+            
+        }
+        SECTION("one cluster in same snarl separated by one node") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(14, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 4); 
+            REQUIRE(clusters.size() == 1); 
+            
+        }
+        SECTION("two clusters in same snarl separated by one node") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(14, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
+            REQUIRE(clusters.size() == 2); 
+        }
+        SECTION("two clusters between two snarls on a chain") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(5, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 4); 
+            REQUIRE(clusters.size() == 2); 
+            
+        }
+        SECTION("one cluster between two snarls on a chain") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(5, false, 0));
+            positions.emplace_back(make_pos_t(12, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 10); 
+            REQUIRE(clusters.size() == 1); 
+            
+        }
+        SECTION("one cluster") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(4, false, 0));
+            positions.emplace_back(make_pos_t(9, true, 2));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            //all are in the same cluster
+
+            net_handle_t n2 = distance_index.get_node_net_handle(2);
+            net_handle_t n4 = distance_index.get_node_net_handle(4);
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 8); 
+            REQUIRE(clusters.size() == 1); 
+            
+        }
+        SECTION("two clusters") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(12, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 4); 
+            REQUIRE(clusters.size() == 2); 
+            
+        }
+    }
+    TEST_CASE("zipcode irregular snarl", "[zip_cluster][bug]") {
+        //snarl from 1 to 8 plus an extra tail to keep it a chain
+        
+        VG graph;
+        
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("GCA");
+        Node* n3 = graph.create_node("AAA");
+        Node* n4 = graph.create_node("CTA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("TCC");
+        Node* n7 = graph.create_node("GAA");
+        Node* n8 = graph.create_node("AGT");
+        Node* n9 = graph.create_node("AGACACATTT");
+        Node* n10 = graph.create_node("AAAAACCTTGA");
+        
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n1, n4);
+        Edge* e4 = graph.create_edge(n1, n5);
+        Edge* e5 = graph.create_edge(n1, n8);
+        Edge* e6 = graph.create_edge(n2, n3);
+        Edge* e7 = graph.create_edge(n3, n4);
+        Edge* e8 = graph.create_edge(n4, n8);
+        Edge* e9 = graph.create_edge(n5, n6);
+        Edge* e10 = graph.create_edge(n5, n8);
+        Edge* e11 = graph.create_edge(n6, n7);
+        Edge* e12 = graph.create_edge(n6, n8);
+        Edge* e13 = graph.create_edge(n7, n8);
+        Edge* e14 = graph.create_edge(n8, n9);
+        Edge* e15 = graph.create_edge(n9, n10);
+        
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        ZipcodeClusterer clusterer(distance_index, graph);
+        SECTION("Connect the irregular snarl from the start but not end") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(4, false, 0));
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
+            REQUIRE(clusters.size() == 1); 
+            
+        }
+        SECTION("Connect the irregular snarl from the end but not start") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(5, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 2); 
+            REQUIRE(clusters.size() == 1); 
+            
+        }
+        SECTION("Two clusters") {
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(1, false, 0));
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            positions.emplace_back(make_pos_t(8, false, 0));
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+            vector<SnarlDistanceIndexClusterer::Cluster> clusters = clusterer.coarse_cluster_seeds(seeds, 3); 
+            REQUIRE(clusters.size() == 2); 
+            
+        }
+    }
 //
 //    TEST_CASE( "zipcode Weird loop with three components of the root",
 //                   "[zip_cluster]" ) {
