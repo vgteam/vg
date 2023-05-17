@@ -48,14 +48,24 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
     //Sort
     all_partitions.sort(0, seeds.size(), [&] (const partition_item_t& a, const partition_item_t& b) {
         //Comparator for sorting. Returns a < b
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+        cerr << "Comparing seeds " << seeds[a.seed].pos << " and " << seeds[b.seed].pos << endl;
+#endif
         size_t depth = 0;
         while (depth < seeds[a.seed].zipcode_decoder->decoder_length()-1 &&
                depth < seeds[b.seed].zipcode_decoder->decoder_length()-1 &&
                ZipCodeDecoder::is_equal(*seeds[a.seed].zipcode_decoder, *seeds[b.seed].zipcode_decoder, depth)) {
+            cerr << "at depth " << depth << endl;
             depth++;
         }
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+        cerr << "\tdifferent at depth " << depth << endl;
+#endif
         //Either depth is the last thing in a or b, or they are different at this depth 
         if ( ZipCodeDecoder::is_equal(*seeds[a.seed].zipcode_decoder, *seeds[b.seed].zipcode_decoder, depth)) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tthey are on the same node" << endl;
+#endif
             //If they are equal, then they must be on the same node
 
             size_t offset1 = is_rev(seeds[a.seed].pos) 
@@ -73,10 +83,16 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
                 return offset2 < offset1;
             }
         } else if (depth == 0) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\tThey are on different connected components" << endl;
+#endif
             //If they are on different connected components, sort by connected component
             return seeds[a.seed].zipcode_decoder->get_distance_index_address(0) < seeds[b.seed].zipcode_decoder->get_distance_index_address(0);
             
         } else if (seeds[a.seed].zipcode_decoder->get_code_type(depth-1) == CHAIN || seeds[a.seed].zipcode_decoder->get_code_type(depth-1) == ROOT_CHAIN) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\t they are children of a common chain" << endl;
+#endif
             //If a and b are both children of a chain
             size_t offset_a = seeds[a.seed].zipcode_decoder->get_offset_in_chain(depth);
             size_t offset_b = seeds[b.seed].zipcode_decoder->get_offset_in_chain(depth);
@@ -87,6 +103,9 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
                 return offset_a < offset_b;
             }
         } else if (seeds[a.seed].zipcode_decoder->get_code_type(depth-1) == REGULAR_SNARL) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\t they are children of a common regular snarl" << endl;
+#endif
             //If the parent is a regular snarl, then sort by order along the parent chai
             size_t offset1 = is_rev(seeds[a.seed].pos) 
                            ? seeds[a.seed].zipcode_decoder->get_length(depth) - offset(seeds[a.seed].pos) - 1
@@ -100,7 +119,11 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
                 return offset2 < offset1;
             }
         } else {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+            cerr << "\t they are children of a common irregular snarl" << endl;
+#endif
             //Otherwise, they are children of an irregular snarl
+            cerr << " With distances " << seeds[a.seed].zipcode_decoder->get_distance_to_snarl_start(depth) << " and " << seeds[b.seed].zipcode_decoder->get_distance_to_snarl_start(depth) << endl;
             return seeds[a.seed].zipcode_decoder->get_distance_to_snarl_start(depth) < seeds[b.seed].zipcode_decoder->get_distance_to_snarl_start(depth);
         }
     });
@@ -156,51 +179,69 @@ vector<ZipcodeClusterer::Cluster> ZipcodeClusterer::coarse_cluster_seeds(const v
 
 
     for (size_t i = 1 ; i < all_partitions.data.size() ; i++ ) {
+#ifdef DEBUG_ZIPCODE_CLUSTERING
+        cerr << "Check seed " << seeds[all_partitions.data[i].seed].pos << endl;
+#endif
 
         auto& current_decoder = *seeds[all_partitions.data[i].seed].zipcode_decoder;
 
-        size_t current_depth = current_decoder.decoder_length();
+        size_t current_decoder_length = current_decoder.decoder_length();
 
         bool different_at_earlier_depth = false;
         //Check if this is the seed in any snarl tree node
         for (size_t depth = 0 ; depth < first_zipcode_at_depth.size() ; depth++) {
-            if (different_at_earlier_depth || current_depth < depth ||
-                i == all_partitions.data.size()-1 ||
+            if (different_at_earlier_depth || current_decoder_length < depth ||
                 !ZipCodeDecoder::is_equal(current_decoder, *seeds[all_partitions.data[i-1].seed].zipcode_decoder, depth)) {
+                cerr << "Different at depth " << depth << endl;
                 different_at_earlier_depth = true;
                 //If the previous thing was in a different snarl tree node at this depth
 
                 //We want to remember this run of seeds to skip later if it it's an
                 //irregular snarl or child of an irregular snarl
-                if ((current_depth >= depth && current_decoder.get_code_type(depth) == IRREGULAR_SNARL) ||
-                    (depth != 0 && current_decoder.get_code_type(depth-1) == IRREGULAR_SNARL &&
-                     first_zipcode_at_depth[depth] != i-1)) {
+                if ((current_decoder_length >= depth && seeds[all_partitions.data[i-1].seed].zipcode_decoder->get_code_type(depth) == IRREGULAR_SNARL) ||
+                    (depth != 0 && seeds[all_partitions.data[i-1].seed].zipcode_decoder->get_code_type(depth-1) == IRREGULAR_SNARL &&
+                    first_zipcode_at_depth[depth] != i-1)) {
+
+                    cerr << "Worth recording" << endl;
                     all_partitions.data[first_zipcode_at_depth[depth]].start_at_depth |= 1 << depth;
                     all_partitions.child_start_bv[first_zipcode_at_depth[depth]] = 1;
 
-                    if (i == all_partitions.data.size() - 1) {
-                        all_partitions.data[i].end_at_depth |= 1 << depth;
-                        all_partitions.child_end_bv[i] = 1;
-                    } else {
-                        all_partitions.data[i-1].end_at_depth |= 1 << depth;
-                        all_partitions.child_end_bv[i-1] = 1;
-                    }
+                    all_partitions.data[i-1].end_at_depth |= 1 << depth;
+                    all_partitions.child_end_bv[i-1] = 1;
                 }
                 first_zipcode_at_depth[depth] = i;
 
+            } else if (i == all_partitions.data.size()-1) {
+                //If this was in the same thing as the previous seed, but it's the last seed in the list
+
+                //We want to remember this run of seeds to skip later if it it's an
+                //irregular snarl or child of an irregular snarl
+                if ((current_decoder_length >= depth && seeds[all_partitions.data[i-1].seed].zipcode_decoder->get_code_type(depth) == IRREGULAR_SNARL) ||
+                    (depth != 0 && seeds[all_partitions.data[i-1].seed].zipcode_decoder->get_code_type(depth-1) == IRREGULAR_SNARL &&
+                    first_zipcode_at_depth[depth] != i-1)) {
+
+                    cerr << "Worth recording" << endl;
+                    all_partitions.data[first_zipcode_at_depth[depth]].start_at_depth |= 1 << depth;
+                    all_partitions.child_start_bv[first_zipcode_at_depth[depth]] = 1;
+
+                    all_partitions.data[i].end_at_depth |= 1 << depth;
+                    all_partitions.child_end_bv[i] = 1;
+                }
             }
         }
-        if (current_depth > first_zipcode_at_depth.size()) {
+        if (current_decoder_length > first_zipcode_at_depth.size()) {
             //We need to add things
-            while (first_zipcode_at_depth.size() <= current_depth) {
+            while (first_zipcode_at_depth.size() < current_decoder_length) {
                 first_zipcode_at_depth.emplace_back(i);
             }
-        } else if (current_depth < first_zipcode_at_depth.size()) {
+        } else if (current_decoder_length < first_zipcode_at_depth.size()) {
             //We need to remove things
-            while (first_zipcode_at_depth.size() > current_depth+1) {
+            while (first_zipcode_at_depth.size() > current_decoder_length) {
                 first_zipcode_at_depth.pop_back();
             }
         }
+        cerr << first_zipcode_at_depth.size() << " " << current_decoder_length << endl;
+        assert(first_zipcode_at_depth.size() == current_decoder_length);
 
         //Now check if this is the start of a new connected component
         if (!ZipCodeDecoder::is_equal(*seeds[all_partitions.data[i-1].seed].zipcode_decoder, 
