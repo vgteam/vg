@@ -12,6 +12,7 @@
 #include "algorithms/find_translation.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
+#include "gfa.hpp"
 
 #include <sstream>
 
@@ -178,7 +179,10 @@ pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path
         auto& path = get<0>(path_info);
         auto& own_length = get<1>(path_info);
         auto& base_length = get<2>(path_info);
-        string base_path_name = subpath_support ? get_path_base_name(graph, path) : graph.get_path_name(path);
+        string base_path_name = graph.get_path_name(path);
+        if (subpath_support && get_rgfa_rank(base_path_name) < 0) {
+            base_path_name = get_path_base_name(graph, path);
+        }
         if (!base_path_set.count(base_path_name)) {
             path_names_and_lengths.push_back(make_pair(base_path_name, base_length));
             base_path_set.insert(base_path_name);
@@ -355,9 +359,14 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
         
         // When we find a path or subpath we want, we will keep it.
         auto keep_path_or_subpath = [&](const path_handle_t& path) {
-            string base_name = get_path_base_name(graph, path);
+            string base_name = graph.get_path_name(path);
+            bool is_rgfa = get_rgfa_rank(base_name) >= 0;
+            if (!is_rgfa) {                
+                // only process subpaths if not rgfa
+                base_name = get_path_base_name(graph, path);
+            }
             int64_t base_length = -1;
-            if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
+            if (is_rgfa || graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
                 // This is a full path so we can determine base length now.
                 base_length = graph.get_path_length(path);
             }
@@ -691,11 +700,13 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     pos_rev = aln.refpos(0).is_reverse();
     cigar = cigar_against_path(aln, pos_rev, pos, path_len, 0);
 
-    // Resolve subpath naming / offset
-    subrange_t subrange;
-    path_name = Paths::strip_subrange(path_name, &subrange);
-    if (subrange != PathMetadata::NO_SUBRANGE) {
-        pos += subrange.first;
+    if (get_rgfa_rank(path_name) < 0) {
+        // Resolve subpath naming / offset (if not rGFA)
+        subrange_t subrange;
+        path_name = Paths::strip_subrange(path_name, &subrange);
+        if (subrange != PathMetadata::NO_SUBRANGE) {
+            pos += subrange.first;
+        }
     }
 }
 
