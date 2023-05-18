@@ -756,7 +756,6 @@ bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2
         } else {
             //Otherwise, check the offset in the chain
             //Since the type is the same, this is sufficient
-           cerr <<" Checking is equal at depth " << depth << " with offsets " << decoder1.get_offset_in_chain(depth) << " and " << decoder2.get_offset_in_chain(depth) << endl;
             return decoder1.get_offset_in_chain(depth) == decoder2.get_offset_in_chain(depth);
         }
     }
@@ -797,12 +796,6 @@ vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDista
     node_code.emplace_back(prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
     node_code.emplace_back(distance_index.minimum_length(node)+1);
     node_code.emplace_back(distance_index.is_reversed_in_parent(node));
-    cerr << "Getting node code for " << distance_index.net_handle_as_string(node) << endl;
-    cerr << "Prefix sum " << prefix_sum << endl;
-    for (auto x : node_code) {
-        cerr << x << " " ;
-    }
-    cerr << endl;
     return node_code;
 
 }
@@ -956,6 +949,7 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
         } else if (parent_type == CHAIN) {
             if (decoder.get_code_type(child_depth) == NODE && 
                 decoder.get_is_reversed_in_parent(child_depth)){ 
+                //If this is reversed in the chain
 
                 distance_start_left = std::numeric_limits<size_t>::max();
                 distance_end_right = std::numeric_limits<size_t>::max();
@@ -967,6 +961,7 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
                         decoder.get_offset_in_chain(child_depth, &distance_index)), 
                         decoder.get_length(child_depth, &distance_index));
             } else {
+                //If it is a node that isn't reversed in the chain, or it's a snarl which is never reversed
                 distance_end_left = std::numeric_limits<size_t>::max();
                 distance_start_right = std::numeric_limits<size_t>::max();
                 //Prefix sum of the child
@@ -982,12 +977,14 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
 #endif
         }
 
+
         size_t new_distance_to_start = std::min(SnarlDistanceIndex::sum(distance_start_left, distance_to_start),
                                       SnarlDistanceIndex::sum(distance_end_left, distance_to_end));
         size_t new_distance_to_end = std::min(SnarlDistanceIndex::sum(distance_start_right, distance_to_start),
                                       SnarlDistanceIndex::sum(distance_end_right, distance_to_end));
         distance_to_start = new_distance_to_start;
         distance_to_end = new_distance_to_end;
+
 
     };
 
@@ -1161,24 +1158,15 @@ cerr << "Finding distances to ancestors of second position" << endl;
             //If this ancestor is a chain
 
             //If the children are reversed in the chain, then flip their distances
-            if (zip1_decoder.get_code_type(depth+1) == NODE && 
-                zip1_decoder.get_is_reversed_in_parent(depth+1)) {
-#ifdef DEBUG_ZIPCODE
-                cerr << "Reverse child1 distances" << endl;
-#endif
-                size_t temp = distance_to_start1;
-                distance_to_start1 = distance_to_end1;
-                distance_to_end1 = temp;
-            }
-            if (zip2_decoder.get_code_type(depth+1) == NODE && 
-                zip2_decoder.get_is_reversed_in_parent(depth+1)) {
-#ifdef DEBUG_ZIPCODE
-                cerr << "Reverse child2 distances" << endl;
-#endif
-                size_t temp = distance_to_start2;
-                distance_to_start2 = distance_to_end2;
-                distance_to_end2 = temp;
-            }
+            bool rev1 = (zip1_decoder.get_code_type(depth+1) == NODE && 
+                zip1_decoder.get_is_reversed_in_parent(depth+1));
+            size_t dist_start1 = rev1 ? distance_to_end1 : distance_to_start1;
+            size_t dist_end1 = rev1 ? distance_to_start1 : distance_to_end1;
+
+            bool rev2 = zip2_decoder.get_code_type(depth+1) == NODE && 
+                zip2_decoder.get_is_reversed_in_parent(depth+1);
+            size_t dist_start2 = rev2 ? distance_to_end2 : distance_to_start2;
+            size_t dist_end2 = rev2 ? distance_to_start2 : distance_to_end2;
 
             //If they are the same child, then there is no path between them in the chain because we don't allow loops
             //So first check that they aren't the same
@@ -1201,38 +1189,38 @@ cerr << "Finding distances to ancestors of second position" << endl;
 
 #ifdef DEBUG_ZIPCODE
                         cerr << "First child comes first in the chain and it is a snarl" << endl;
-                        cerr << "Find distances from : " << prefix_sum2 << " " << distance_to_start2 << " " << prefix_sum1 << " " << zip1_decoder.get_length(depth+1, &distance_index)  << " " << distance_to_end1 << endl;
+                        cerr << "Find distances from : " << prefix_sum2 << " " << dist_start2 << " " << prefix_sum1 << " " << zip1_decoder.get_length(depth+1, &distance_index)  << " " << dist_end1 << endl;
 #endif
-                        if (distance_to_start2 != std::numeric_limits<size_t>::max()
-                            && distance_to_end1 != std::numeric_limits<size_t>::max()) {
+                        if (dist_start2 != std::numeric_limits<size_t>::max()
+                            && dist_end1 != std::numeric_limits<size_t>::max()) {
                             distance_between = std::min(distance_between,
                                                         SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(
                                                             SnarlDistanceIndex::minus(
                                                                 SnarlDistanceIndex::sum(prefix_sum2, 
-                                                                                        distance_to_start2), 
+                                                                                        dist_start2), 
                                                                 SnarlDistanceIndex::sum(prefix_sum1,
                                                                                         zip1_decoder.get_length(depth+1, &distance_index))),
-                                                             distance_to_end1),1));
+                                                             dist_end1),1));
                         }
                     } else {
                         //Otherwise, all that matters is the prefix sums
                         //(Prefix sum 2  + distance left 2) - (prefix sum1+ length 1) + distance right 1
 #ifdef DEBUG_ZIPCODE
                         cerr << "First child comes first in the chain and it isn't a snarl" << endl;
-                        cerr << "Find distances from : " << prefix_sum2 << " " << distance_to_start2 << " " << prefix_sum1 << " " << distance_to_end1 << " " << zip1_decoder.get_length(depth+1, &distance_index) << endl;
+                        cerr << "Find distances from : " << prefix_sum2 << " " << dist_start2 << " " << prefix_sum1 << " " << dist_end1 << " " << zip1_decoder.get_length(depth+1, &distance_index) << endl;
 #endif
-                        if (distance_to_start2 != std::numeric_limits<size_t>::max()
-                            && distance_to_end1 != std::numeric_limits<size_t>::max()) {
+                        if (dist_start2 != std::numeric_limits<size_t>::max()
+                            && dist_end1 != std::numeric_limits<size_t>::max()) {
                             distance_between = std::min(distance_between,
                                                         SnarlDistanceIndex::minus(
                                                         SnarlDistanceIndex::sum(
                                                         SnarlDistanceIndex::minus(
                                                             SnarlDistanceIndex::sum(prefix_sum2, 
-                                                                                    distance_to_start2),
+                                                                                    dist_start2),
                                                             SnarlDistanceIndex::sum(prefix_sum1,
                                                                                     zip1_decoder.get_length(depth+1, &distance_index))), 
 
-                                                            distance_to_end1),1) );
+                                                            dist_end1),1) );
                         }
                     }
                 } else {
@@ -1242,38 +1230,38 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         //(prefix sum 1 + distance left 1) - (prefix sum 2 + length 2) + distance right 2
 #ifdef DEBUG_ZIPCODE
                         cerr << "Second child comes first in the chain and it is a snarl" << endl;
-                        cerr << "Find distances from : " << prefix_sum1 << " " << distance_to_start1 << " " << prefix_sum2 << " " << zip2_decoder.get_length(depth+1, &distance_index)  << " " << distance_to_end2 << endl;
+                        cerr << "Find distances from : " << prefix_sum1 << " " << dist_start1 << " " << prefix_sum2 << " " << zip2_decoder.get_length(depth+1, &distance_index)  << " " << dist_end2 << endl;
 #endif
-                        if (distance_to_start1 != std::numeric_limits<size_t>::max() 
-                             && distance_to_end2 != std::numeric_limits<size_t>::max() ){
+                        if (dist_start1 != std::numeric_limits<size_t>::max() 
+                             && dist_end2 != std::numeric_limits<size_t>::max() ){
                             distance_between = std::min(distance_between,
                                                         SnarlDistanceIndex::minus(SnarlDistanceIndex::sum(
                                                             SnarlDistanceIndex::minus(
                                                                 SnarlDistanceIndex::sum(prefix_sum1, 
-                                                                                        distance_to_start1), 
+                                                                                        dist_start1), 
                                                                 SnarlDistanceIndex::sum(prefix_sum2,
                                                                                         zip2_decoder.get_length(depth+1, &distance_index))),
-                                                             distance_to_end2), 1));
+                                                             dist_end2), 1));
                         }
                     } else {
                         //Otherwise, all that matters is the prefix sums
                         //(Prefix sum 1  + distance left 1) - (prefix sum2 + length 2) + distance right 2
 #ifdef DEBUG_ZIPCODE
                         cerr << "Second child comes first in the chain and it isn't a snarl" << endl;
-                        cerr << "Find distances from : " << prefix_sum1 << " " << distance_to_start1 << " " << prefix_sum2 << " " << distance_to_end2 << endl;
+                        cerr << "Find distances from : " << prefix_sum1 << " " << dist_start1 << " " << prefix_sum2 << " " << dist_end2 << endl;
 #endif
-                        if (distance_to_start1 != std::numeric_limits<size_t>::max() 
-                             && distance_to_end2 != std::numeric_limits<size_t>::max() ){
+                        if (dist_start1 != std::numeric_limits<size_t>::max() 
+                             && dist_end2 != std::numeric_limits<size_t>::max() ){
                             distance_between = std::min(distance_between,
                                                         SnarlDistanceIndex::minus(
                                                         SnarlDistanceIndex::sum(
                                                         SnarlDistanceIndex::minus(
                                                             SnarlDistanceIndex::sum(prefix_sum1, 
-                                                                                    distance_to_start1),
+                                                                                    dist_start1),
                                                             SnarlDistanceIndex::sum(prefix_sum2,
                                                                                     zip2_decoder.get_length(depth+1, &distance_index))), 
 
-                                                            distance_to_end2),1) );
+                                                            dist_end2),1) );
                         }
                     }
                 }
