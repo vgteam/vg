@@ -1266,6 +1266,9 @@ cerr << "Finding distances to ancestors of second position" << endl;
                     }
                 }
             }
+            //Update distances from the ends of the children (at depth+1) to parent (depth)
+            update_distances_to_ends_of_parent(zip1_decoder, depth+1, distance_to_start1, distance_to_end1);
+            update_distances_to_ends_of_parent(zip2_decoder, depth+1, distance_to_start2, distance_to_end2);
         } else {
 
 #ifdef DEBUG_ZIPCODE
@@ -1311,10 +1314,10 @@ cerr << "Finding distances to ancestors of second position" << endl;
                 cerr << "\tAncestor is a regular snarl so there is no path between the children" << endl;
             }
 #endif
+            //Update distances from the ends of the children (at depth+1) to parent (depth)
+            update_distances_to_ends_of_parent(zip1_decoder, depth+1, distance_to_start1, distance_to_end1);
+            update_distances_to_ends_of_parent(zip2_decoder, depth+1, distance_to_start2, distance_to_end2);
         }
-        //Update distances from the ends of the children (at depth+1) to parent (depth)
-        update_distances_to_ends_of_parent(zip1_decoder, depth+1, distance_to_start1, distance_to_end1);
-        update_distances_to_ends_of_parent(zip2_decoder, depth+1, distance_to_start2, distance_to_end2);
 #ifdef DEBUG_ZIPCODE
         cerr << "distance in ancestor: " << distance_between << endl;
 #endif
