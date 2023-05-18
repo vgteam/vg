@@ -756,6 +756,7 @@ bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2
         } else {
             //Otherwise, check the offset in the chain
             //Since the type is the same, this is sufficient
+           cerr <<" Checking is equal at depth " << depth << " with offsets " << decoder1.get_offset_in_chain(depth) << " and " << decoder2.get_offset_in_chain(depth) << endl;
             return decoder1.get_offset_in_chain(depth) == decoder2.get_offset_in_chain(depth);
         }
     }
@@ -796,6 +797,12 @@ vector<size_t> ZipCode::get_node_code(const net_handle_t& node, const SnarlDista
     node_code.emplace_back(prefix_sum == std::numeric_limits<size_t>::max() ? 0 : prefix_sum+1);
     node_code.emplace_back(distance_index.minimum_length(node)+1);
     node_code.emplace_back(distance_index.is_reversed_in_parent(node));
+    cerr << "Getting node code for " << distance_index.net_handle_as_string(node) << endl;
+    cerr << "Prefix sum " << prefix_sum << endl;
+    for (auto x : node_code) {
+        cerr << x << " " ;
+    }
+    cerr << endl;
     return node_code;
 
 }
@@ -886,12 +893,31 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
     ZipCode check_zip2;
     check_zip2.fill_in_zipcode(distance_index, pos2);
     assert(*zip2_decoder.zipcode == check_zip2);
+
+    cerr << endl << "Minimum distance between " << pos1 << " and " << pos2 << " using zipcodes" << endl;
+    cerr << "Ancestors for " << pos1 << endl;
+    net_handle_t net1 = distance_index.get_node_net_handle(id(pos1));
+    while ( !distance_index.is_root(net1)){
+        cerr << "\t" << distance_index.net_handle_as_string(net1) << endl;
+        net1 = distance_index.get_parent(net1);
+    }
+    cerr << "\t" << distance_index.net_handle_as_string(net1) << endl;
+    cerr << "Ancestors for " << pos2 << endl;
+    net_handle_t net2 = distance_index.get_node_net_handle(id(pos2));
+    while ( !distance_index.is_root(net2)){
+        cerr << "\t" << distance_index.net_handle_as_string(net2) << endl;
+        net2 = distance_index.get_parent(net2);
+    }
+    cerr << "\t" << distance_index.net_handle_as_string(net2) << endl;
 #endif
 
     //Helper function to update the distances to the ends of the parent
     //distance_start and distance_end get updated
     auto update_distances_to_ends_of_parent = [&] (ZipCodeDecoder& decoder, const size_t& child_depth, 
                                             size_t& distance_to_start, size_t& distance_to_end) {
+#ifdef DEBUG_ZIPCODE
+        cerr << "Update distance to ends of parent at depth " << child_depth << endl;
+#endif
         //The distances from the start/end of current child to the start/end(left/right) of the parent
         size_t distance_start_left, distance_start_right, distance_end_left, distance_end_right;
         code_type_t parent_type = decoder.get_code_type(child_depth-1);
@@ -1193,7 +1219,7 @@ cerr << "Finding distances to ancestors of second position" << endl;
                         //(Prefix sum 2  + distance left 2) - (prefix sum1+ length 1) + distance right 1
 #ifdef DEBUG_ZIPCODE
                         cerr << "First child comes first in the chain and it isn't a snarl" << endl;
-                        cerr << "Find distances from : " << prefix_sum2 << " " << distance_to_start2 << " " << prefix_sum1 << " " << distance_to_end1 << endl;
+                        cerr << "Find distances from : " << prefix_sum2 << " " << distance_to_start2 << " " << prefix_sum1 << " " << distance_to_end1 << " " << zip1_decoder.get_length(depth+1, &distance_index) << endl;
 #endif
                         if (distance_to_start2 != std::numeric_limits<size_t>::max()
                             && distance_to_end1 != std::numeric_limits<size_t>::max()) {
@@ -1297,10 +1323,10 @@ cerr << "Finding distances to ancestors of second position" << endl;
                 cerr << "\tAncestor is a regular snarl so there is no path between the children" << endl;
             }
 #endif
-            //Update distances from the ends of the children (at depth+1) to parent (depth)
-            update_distances_to_ends_of_parent(zip1_decoder, depth+1, distance_to_start1, distance_to_end1);
-            update_distances_to_ends_of_parent(zip2_decoder, depth+1, distance_to_start2, distance_to_end2);
         }
+        //Update distances from the ends of the children (at depth+1) to parent (depth)
+        update_distances_to_ends_of_parent(zip1_decoder, depth+1, distance_to_start1, distance_to_end1);
+        update_distances_to_ends_of_parent(zip2_decoder, depth+1, distance_to_start2, distance_to_end2);
 #ifdef DEBUG_ZIPCODE
         cerr << "distance in ancestor: " << distance_between << endl;
 #endif
