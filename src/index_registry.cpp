@@ -3003,7 +3003,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         assert(constructing.size() == 4 || constructing.size() == 2);
         bool making_hsts = constructing.size() == 4;
         assert(inputs.size() == 2 || inputs.size() == 3);
-        bool projecting_transcripts = (inputs.size() == 3);
+        bool projecting_transcripts = (inputs.size() == 2);
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             if (making_hsts) {
