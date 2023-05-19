@@ -3443,7 +3443,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         minimizer_filters.emplace_back(
             "window-downsampling", 
             [&](const Minimizer& m) { return downsampled.empty() || downsampled.count(&m); },
-            [](const Minimizer& m) { return nan(""); },
+            [&](const Minimizer& m) { return (double)m.hits; },
             [](const Minimizer& m) {},
             [](const Minimizer& m) {}
         );
