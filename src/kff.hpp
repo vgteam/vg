@@ -70,7 +70,9 @@ std::vector<gbwtgraph::Key64::value_type> kff_recode(const uint8_t* kmers, size_
 std::vector<uint8_t> kff_reverse_complement(const uint8_t* kmer, size_t k, const uint8_t* encoding);
 
 /// Returns the reverse complement of a minimizer index kmer.
-gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::value_type kmer, size_t k);
+inline gbwtgraph::Key64::value_type minimizer_reverse_complement(gbwtgraph::Key64::value_type kmer, size_t k) {
+    return gbwtgraph::Key64(kmer).reverse_complement(k).get_key();
+}
 
 //------------------------------------------------------------------------------
 
