@@ -3004,7 +3004,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         bool making_hsts = constructing.size() == 4;
         assert(inputs.size() == 2 || inputs.size() == 3);
         bool projecting_transcripts = (inputs.size() == 2);
-        
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             if (making_hsts) {
                 cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and spliced graph from GBZ-format graph." << endl;
@@ -3053,7 +3052,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto gbz_filenames = inputs[0]->get_filenames();
         auto tx_filenames = inputs[1]->get_filenames();
         vector<string> haplo_tx_filenames;
-        if (projecting_transcripts) {
+        if (!projecting_transcripts) {
             haplo_tx_filenames = inputs[2]->get_filenames();
         }
         assert(gbz_filenames.size() == 1);
