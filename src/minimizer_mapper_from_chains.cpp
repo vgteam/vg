@@ -318,7 +318,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Computing chain over " << cluster_seeds_sorted.size() << " seeds" << endl;
+                    cerr << log_name() << "Computing chain over " << cluster_seeds_sorted.size() << " seeds for cluster " << cluster_num << endl;
                 }
             }
             
@@ -563,6 +563,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     fragment_cfg.max_chains_per_cluster = this->max_fragments_per_bucket;
     
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "=====Creating fragments=====" << endl;
+        }
+    }
+
     // Go get fragments from the buckets. Note that this doesn't process all buckets! It will really only do the best ones!
     auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
@@ -673,8 +680,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         // Do O(n^2) easy way to compute coverage in top k fragments up to this many.
         std::vector<size_t> top_fragments;
         top_fragments.reserve(fragment_count);
-        for (size_t i = 0; i < fragment_count; i++) {
-            top_fragments.push_back(best_bucket_fragments[i]);
+        for (size_t i = 0; i < fragment_count && i < best_bucket_fragments.size(); i++) {
+            top_fragments.push_back(best_bucket_fragments.at(i));
         }
         best_bucket_fragment_coverage_at_top[fragment_count] = get_read_coverage(aln, {fragments, top_fragments}, seeds, minimizers);
     }
@@ -753,6 +760,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
     
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "=====Creating chains=====" << endl;
+        }
+    }
+
     for (auto& kv : bucket_good_fragment_nums) {
         auto& bucket_num = kv.first;
         // Get a view of all the good fragments in the bucket.
@@ -767,6 +781,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             } 
             continue;
         }
+        
+        if (show_work) {
+            #pragma omp critical (cerr)
+            std::cerr << log_name() << "Chaining bucket " << bucket_num << std::endl;
+        } 
 
         // Chain up the fragments
         std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
@@ -1339,7 +1358,9 @@ double MinimizerMapper::get_read_coverage(
         
         for (auto& seed_index : list) {
             // Which means we look at the minimizer for each seed
-            auto& minimizer = minimizers[seeds[seed_index].source];
+            auto& seed = seeds.at(seed_index);
+            crash_unless(seed.source < minimizers.size());
+            auto& minimizer = minimizers[seed.source];
             
             if (minimizer.forward_offset() < read_range.first) {
                 // Min all their starts to get the start

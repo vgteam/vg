@@ -305,6 +305,12 @@ static GroupedOptionGroup get_options() {
         MinimizerMapper::default_lookback_item_hard_cap,
         "maximum items to consider coming from when chaining"
     );
+    chaining_opts.add_range(
+        "item-bonus",
+        &MinimizerMapper::item_bonus,
+        MinimizerMapper::default_item_bonus,
+        "bonus for taking each item when fragmenting or chaining"
+    );
     
     chaining_opts.add_range(
         "chain-score-threshold",

@@ -3556,13 +3556,15 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             if (passing) {
                 // Pass this filter
                 if (this->track_provenance) {
-                    funnel.pass(filter_name, i, filter_stat_function(minimizer));
+                    auto stat = filter_stat_function(minimizer);
+                    funnel.pass(filter_name, i, stat);
                 }
                 filter_pass_function(minimizer);
             } else {
                 // Fail this filter.
                 if (this->track_provenance) {
-                    funnel.fail(filter_name, i, filter_stat_function(minimizer));
+                    auto stat = filter_stat_function(minimizer);
+                    funnel.fail(filter_name, i, stat);
                 }
                 filter_fail_function(minimizer);
                 // Don't do later filters
