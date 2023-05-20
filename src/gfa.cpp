@@ -299,8 +299,15 @@ int get_rgfa_rank(const string& path_name) {
 }
 
 string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& rgfa_subrange,
-                     const string& rgfa_sample) {
-
+                             const string& rgfa_sample,
+                             const string& start_parent_rgfa_path_name,
+                             int64_t start_parent_offset,
+                             int64_t start_parent_node_id,
+                             bool start_parent_node_reversed,
+                             const string& end_parent_rgfa_path_name,
+                             int64_t end_parent_offset,
+                             int64_t end_parent_node_id,
+                             bool end_parent_node_reversed) {
     PathSense path_sense;
     string path_sample;
     string path_locus;
@@ -320,6 +327,19 @@ string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subra
 
     // and we also load in our rGFA tag
     base_name += ":SR:i:" + std::to_string(rgfa_rank);
+
+    // start parent information
+    if (!start_parent_rgfa_path_name.empty()) {
+        base_name += ":SPP:Z:" + start_parent_rgfa_path_name +
+            ":SPO:i:" + std::to_string(start_parent_offset) +
+            ":SPH:Z:" + (start_parent_node_reversed ? "<" : ">") + std::to_string(start_parent_node_id);
+    }
+    // end parent information
+    if (!end_parent_rgfa_path_name.empty()) {
+        base_name += ":EPP:Z:" + end_parent_rgfa_path_name +
+            ":EPO:i:" + std::to_string(end_parent_offset) +
+            ":EPH:Z:" + (end_parent_node_reversed ? "<" : ">") + std::to_string(end_parent_node_id);
+    }    
 
     // and return the final path, with sample/locus/rgfa-rank embedded in locus
     // (as it's a reference path, we alsos strip out the phase block)
@@ -389,14 +409,15 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
         
     // we collect the rgfa cover in parallel as a list of path fragments
     size_t thread_count = get_thread_count();
-    vector<vector<pair<int64_t, vector<step_handle_t>>>> thread_covers(thread_count);
+    vector<vector<RGFAFragment>> thread_covers(thread_count);
     
     // we process top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
         // per-thread output
         // each fragment is a rank and vector of steps, the cover is a list of fragments
         // TODO: we can store just a first step and count instead of every fragment
-        vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments = thread_covers.at(omp_get_thread_num());
+        // The last two numbers are the indexes of the start and end parent fragments (ie values in cover_not_to_fragment)
+        vector<RGFAFragment>& cover_fragments = thread_covers.at(omp_get_thread_num());
         // we also index the fragments by their node ids for fast lookups of what's covered by what
         // the value here is an index in the above vector
         unordered_map<nid_t, int64_t> cover_node_to_fragment;
@@ -429,12 +450,18 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
     });
 
     // merge up the thread covers
-    vector<pair<int64_t, vector<step_handle_t>>> rgfa_fragments = std::move(thread_covers.at(0));
+    vector<RGFAFragment> rgfa_fragments = std::move(thread_covers.at(0));
     for (size_t t = 1; t < thread_count; ++t) {
         rgfa_fragments.reserve(rgfa_fragments.size() + thread_covers.at(t).size());
+        // adjust the offsets into each vector
+        for (auto& other_frag : thread_covers.at(t)) {
+            other_frag.start_parent_idx += rgfa_fragments.size();
+            other_frag.end_parent_idx += rgfa_fragments.size();
+        }
         std::move(thread_covers.at(t).begin(), thread_covers.at(t).end(), std::back_inserter(rgfa_fragments));
     }
     thread_covers.clear();
+
     
     // we don't have a path position interface, and even if we did we probably wouldn't have it on every path
     // so to keep running time linear, we need to index the fragments so their offsets can be computed in one scan
@@ -442,64 +469,127 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
     unordered_map<path_handle_t, vector<int64_t>> path_to_fragments;
     for (size_t i = 0; i <rgfa_fragments.size(); ++i) {
         const auto& rgfa_fragment = rgfa_fragments[i];
-        path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_fragment.second.front());
+        path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_fragment.steps.front());
         path_to_fragments[path_handle].push_back(i);
     }
+
+    unordered_map<step_handle_t, int64_t> step_to_pos;
 
     for (const auto& path_fragments : path_to_fragments) {
         const path_handle_t& path_handle = path_fragments.first;
         string path_name = graph->get_path_name(path_handle);
-        
-        const vector<int64_t>& fragments = path_fragments.second;
 
-        // for each path, start by finding the positional offset of all relevant steps in the path by brute-force scan
-        unordered_map<step_handle_t, int64_t> step_to_pos;
+        const vector<int64_t>& fragments = get<1>(path_fragments);
+
+        // for each path, start by finding the positional offset of all relevant steps in the path by brute-force scann
+        int64_t set_count = 0;
         for (const int64_t& frag_idx : fragments) {
-            const vector<step_handle_t>& rgfa_fragment = rgfa_fragments.at(frag_idx).second;
-            step_to_pos[rgfa_fragment.front()] = -1;
-            // todo: need to figure out where exactly we handle all the different orientation cases
-            if (rgfa_fragment.size() > 1) {
-                step_to_pos[rgfa_fragment.back()] = -1;
+            const vector<step_handle_t>& rgfa_fragment = rgfa_fragments.at(frag_idx).steps;
+            for (const step_handle_t& step: rgfa_fragment) {
+                step_to_pos[step] = -1;
+                cerr << "setting " << graph->get_id(graph->get_handle_of_step(step)) << " to -1" << endl;
+                assert(graph->get_path_handle_of_step(step) == path_handle);
+                ++set_count;
             }
         }
-        size_t pos_count = 0;
         size_t pos = 0;
         graph->for_each_step_in_path(path_handle, [&](const step_handle_t& step_handle) {
             if (step_to_pos.count(step_handle)) {
                 step_to_pos[step_handle] = pos;
-                ++pos_count;
-                if (pos_count == step_to_pos.size()) {
-                    return false;
-                }
+                cerr << "resetting " << graph->get_id(graph->get_handle_of_step(step_handle)) << " to "  << pos << endl;
+                --set_count;
             }                
             handle_t handle = graph->get_handle_of_step(step_handle);                
             pos += graph->get_length(handle);
             return true;
         });
-        assert(pos_count == step_to_pos.size());
+        //assert(set_count == 0);
+    }
+
+    for (const auto& path_fragments : path_to_fragments) {
+        const path_handle_t& path_handle = path_fragments.first;
+        string path_name = graph->get_path_name(path_handle);
+
+        const vector<int64_t>& fragments = get<1>(path_fragments);
         
         // second pass to make the path fragments, now that we know the positional offsets of their endpoints
         for (const int64_t frag_idx : fragments) {
-            int64_t rgfa_rank = rgfa_fragments.at(frag_idx).first;
-            const vector<step_handle_t>& rgfa_fragment = rgfa_fragments.at(frag_idx).second;
+            const RGFAFragment& rgfa_fragment = rgfa_fragments.at(frag_idx);
+            // don't do anything for rank-0, which we only kept to help with metadata for other fragments
+            // todo: can we upstream this check?
+            if (rgfa_fragment.rank == 0) {
+                continue;
+            }
             
-            size_t rgfa_frag_pos = step_to_pos[rgfa_fragment.front()];
+            size_t rgfa_frag_pos = step_to_pos[rgfa_fragment.steps.front()];
             size_t rgfa_frag_length = 0;
-            for (const step_handle_t& step : rgfa_fragment) {
+            for (const step_handle_t& step : rgfa_fragment.steps) {
                 rgfa_frag_length += graph->get_length(graph->get_handle_of_step(step));
             }
             subrange_t rgfa_frag_subrange = graph->get_subrange(path_handle);
             rgfa_frag_subrange.first = rgfa_frag_pos + (rgfa_frag_subrange != PathMetadata::NO_SUBRANGE ? rgfa_frag_subrange.first : 0);
             rgfa_frag_subrange.second = rgfa_frag_subrange.first + rgfa_frag_length;
-            string rgfa_frag_name = create_rgfa_path_name(path_name, rgfa_rank, rgfa_frag_subrange, rgfa_sample_name);
+
+
+            string start_parent_rgfa_path_name = "";
+            int64_t start_parent_offset = -1;                   
+            int64_t start_parent_node_id = -1;
+            bool start_parent_node_reversed = false;
+            
+            // get information about the start parent
+            if (rgfa_fragment.start_parent_idx >= 0) {
+                const RGFAFragment& start_parent_fragment = rgfa_fragments.at(rgfa_fragment.start_parent_idx);
+                path_handle_t start_parent_path_handle = graph->get_path_handle_of_step(start_parent_fragment.steps.front());
+                start_parent_rgfa_path_name = graph->get_path_name(start_parent_path_handle);
+                /*
+                cerr << "assert is gonna check " << graph->get_path_name(graph->get_path_handle_of_step(rgfa_fragment.start_parent_step)) << " vs " << graph->get_path_name(start_parent_path_handle) << endl;
+                assert(graph->get_path_handle_of_step(rgfa_fragment.start_parent_step) == start_parent_path_handle);
+                cerr << "checking step " << start_parent_rgfa_path_name << graph->get_id(graph->get_handle_of_step(rgfa_fragment.start_parent_step)) << ":" << graph->get_is_reverse(graph->get_handle_of_step(rgfa_fragment.start_parent_step)) << endl;
+                cerr << "via " << path_name << " " << graph->get_id(graph->get_handle_of_step(rgfa_fragment.steps.front()))
+                     << ":" << graph->get_is_reverse(graph->get_handle_of_step(rgfa_fragment.steps.front())) << endl;
+                */
+                start_parent_offset = step_to_pos.at(rgfa_fragment.start_parent_step);
+                subrange_t start_parent_subrange = graph->get_subrange(start_parent_path_handle);
+                if (start_parent_subrange != PathMetadata::NO_SUBRANGE) {
+                    start_parent_offset += start_parent_subrange.first;
+                }
+                start_parent_node_id = graph->get_id(graph->get_handle_of_step(start_parent_fragment.start_parent_step));
+                start_parent_node_reversed = graph->get_is_reverse(graph->get_handle_of_step(start_parent_fragment.start_parent_step));
+            }
+
+            string end_parent_rgfa_path_name = "";
+            int64_t end_parent_offset = -1;                   
+            int64_t end_parent_node_id = -1;
+            bool end_parent_node_reversed = false;
+            
+            // get information about the end parent
+            if (rgfa_fragment.end_parent_idx >= 0) {
+                const RGFAFragment& end_parent_fragment = rgfa_fragments.at(rgfa_fragment.end_parent_idx);
+                path_handle_t end_parent_path_handle = graph->get_path_handle_of_step(end_parent_fragment.steps.front());
+                end_parent_rgfa_path_name = graph->get_path_name(end_parent_path_handle);
+                assert(graph->get_path_handle_of_step(rgfa_fragment.end_parent_step) == end_parent_path_handle);                
+                end_parent_offset = step_to_pos.at(rgfa_fragment.end_parent_step);
+                subrange_t end_parent_subrange = graph->get_subrange(end_parent_path_handle);
+                if (end_parent_subrange != PathMetadata::NO_SUBRANGE) {
+                    end_parent_offset += end_parent_subrange.first;
+                }
+                end_parent_node_id = graph->get_id(graph->get_handle_of_step(end_parent_fragment.end_parent_step));
+                end_parent_node_reversed = graph->get_is_reverse(graph->get_handle_of_step(end_parent_fragment.end_parent_step));
+            }
+            
+            string rgfa_frag_name = create_rgfa_path_name(path_name, rgfa_fragment.rank, rgfa_frag_subrange, rgfa_sample_name,
+                                                          start_parent_rgfa_path_name, start_parent_offset,
+                                                          start_parent_node_id, start_parent_node_reversed,
+                                                          end_parent_rgfa_path_name, end_parent_offset,
+                                                          end_parent_node_id, end_parent_node_reversed);
 
 #ifdef debug
 #pragma omp critical(cerr)
-            cerr << "making new rgfa fragment with name " << rgfa_frag_name << " and " << rgfa_fragment.size() << " steps. subrange "
+            cerr << "making new rgfa fragment with name " << rgfa_frag_name << " and " << rgfa_fragment.steps.size() << " steps. subrange "
                  << rgfa_frag_subrange.first << "," << rgfa_frag_subrange.second << endl;
 #endif
             path_handle_t rgfa_fragment_handle = graph->create_path_handle(rgfa_frag_name);
-            for (const step_handle_t& step : rgfa_fragment) {
+            for (const step_handle_t& step : rgfa_fragment.steps) {
                 graph->append_step(rgfa_fragment_handle, graph->get_handle_of_step(step));
             }            
         }
@@ -514,7 +604,7 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                       PathTraversalFinder& path_trav_finder,
                       const unordered_set<path_handle_t>& reference_paths,
                       int64_t minimum_length,
-                      vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,                         
+                      vector<RGFAFragment>& cover_fragments,
                       unordered_map<nid_t, int64_t>& cover_node_to_fragment,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals) {
 
@@ -588,14 +678,21 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
     }
 
     if (!ref_paths.empty()) {
-        // reference paths are trivially covered outside the snarl decomposition
-        // all we do here is make sure the relevant nodes are flagged in the map
+        // update the cover: note that we won't actually make a path out of this
+        // since we leave rank-0 paths the way they are, but it's handy to have
+        // a consistent representation for the cover while linking up the
+        // various nesting metadata.
         vector<step_handle_t>& ref_trav = travs.at(ref_paths.begin()->second);
         for (step_handle_t ref_step_handle : ref_trav) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(ref_step_handle));
-            // using -1 as special signifier of the reference path
-            cover_node_to_fragment[node_id] = -1;
+            cover_node_to_fragment[node_id] = cover_fragments.size();
         }
+
+        // todo: check endpoints (and remove from ref_trav??)
+        RGFAFragment frag = {            
+            0, ref_trav, -1, -1, ref_trav.front(), ref_trav.back()
+        };
+        cover_fragments.push_back(frag);
     }
 
 #ifdef debug
@@ -738,8 +835,39 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
         if (min_frag_idx == -1) {
             fragment_rank = 1;
         } else {
-            fragment_rank = cover_fragments.at(min_frag_idx).first + 1;
+            fragment_rank = cover_fragments.at(min_frag_idx).rank + 1;
         }
+
+        // now we need to find the steps on the parent path, in order to link back to its position
+        // todo: can we avoid this enumeration by keeping track of the parent directly from the beginning?         
+        handle_t start_handle = graph->get_handle_of_step(trav[uncovered_interval.first - 1]);
+        vector<step_handle_t> start_handle_steps = graph->steps_of_handle(start_handle);
+        path_handle_t start_parent_path = graph->get_path_handle_of_step(cover_fragments.at(prev_frag_idx).steps.front());
+        vector<int64_t> start_parent_step_indexes;
+        for (int64_t i = 0; i < start_handle_steps.size(); ++i) {
+            if (graph->get_path_handle_of_step(start_handle_steps[i]) == start_parent_path) {
+                start_parent_step_indexes.push_back(i);
+            }
+        }
+        assert(start_parent_step_indexes.size() == 1);
+        step_handle_t start_parent_step = start_handle_steps[start_parent_step_indexes[0]];
+
+#ifdef debug
+#pragma omp critical(cerr)        
+        cerr << "adding step " << graph->get_path_name(start_parent_path) << " " << graph->get_id(graph->get_handle_of_step(start_parent_step)) << " as start parent for " << graph->get_path_name(graph->get_path_handle_of_step(trav.front())) << " starting at " << graph->get_id(graph->get_handle_of_step(trav.at(uncovered_interval.first))) << endl;
+#endif
+ 
+        handle_t end_handle = graph->get_handle_of_step(trav[uncovered_interval.second]);
+        vector<step_handle_t> end_handle_steps = graph->steps_of_handle(end_handle);
+        path_handle_t end_parent_path = graph->get_path_handle_of_step(cover_fragments.at(prev_frag_idx).steps.front());
+        vector<int64_t> end_parent_step_indexes;
+        for (int64_t i = 0; i < end_handle_steps.size(); ++i) {
+            if (graph->get_path_handle_of_step(end_handle_steps[i]) == end_parent_path) {
+                end_parent_step_indexes.push_back(i);
+            }
+        }
+        assert(end_parent_step_indexes.size() == 1);
+        step_handle_t end_parent_step = end_handle_steps[end_parent_step_indexes[0]];                    
 
         // update the cover
         vector<step_handle_t> interval;
@@ -748,7 +876,25 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
             interval.push_back(trav[i]);
             cover_node_to_fragment[graph->get_id(graph->get_handle_of_step(trav[i]))] = cover_fragments.size();
         }
-        cover_fragments.push_back(make_pair(fragment_rank, std::move(interval)));
+        RGFAFragment frag = {
+            fragment_rank, std::move(interval),
+            prev_frag_idx, next_frag_idx,
+            start_parent_step, end_parent_step
+        };
+
+#ifdef debug
+#pragma omp critical(cerr)
+{
+        cerr << "adding fragment path=" << graph->get_path_name(graph->get_path_handle_of_step(frag.steps.front())) << " rank=" << fragment_rank << " steps = ";
+        for (auto xx : frag.steps) {
+            cerr << graph->get_id(graph->get_handle_of_step(xx)) <<":" << graph->get_is_reverse(graph->get_handle_of_step(xx)) <<",";
+        }
+        cerr << " sps " <<  graph->get_id(graph->get_handle_of_step(start_parent_step)) <<":" << graph->get_is_reverse(graph->get_handle_of_step(start_parent_step));
+        cerr << " eps " <<  graph->get_id(graph->get_handle_of_step(end_parent_step)) <<":" << graph->get_is_reverse(graph->get_handle_of_step(end_parent_step));
+        cerr << endl;
+}
+#endif
+        cover_fragments.push_back(frag);
     }
 }
 

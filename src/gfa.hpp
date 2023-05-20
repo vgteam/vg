@@ -52,7 +52,16 @@ int get_rgfa_rank(const string& path_name);
 /// Add the rgfa rank to a pathname, also setting its sample to the special rgfa sample and
 /// moving its old sample into the locus field
 string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& subrange,
-                             const string& rgfa_sample);
+                             const string& rgfa_sample,
+                             const string& start_parent_rgfa_path_name = "",
+                             int64_t start_parent_offset = -1,                             
+                             int64_t start_parent_node_id = -1,
+                             bool start_parent_node_reversed = false,
+                             const string& end_parent_rgfa_path_name = "",
+                             int64_t end_parent_offset = -1,                             
+                             int64_t end_parent_node_id = -1,
+                             bool end_parent_node_reversed = false);
+
 
 /// Remove the rGFA information from a path name, effectively undoing set_rgfa_rank
 string strip_rgfa_path_name(const string& path_name);
@@ -70,12 +79,22 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       const string& rgfa_sample_name,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals = {});
 
+/// Some information about an RGFA fragment we pass around and index below
+struct RGFAFragment {
+   int64_t rank;
+   vector<step_handle_t> steps;
+   int64_t start_parent_idx;
+   int64_t end_parent_idx;
+   step_handle_t start_parent_step;
+   step_handle_t end_parent_step;   
+};
+
 void rgfa_snarl_cover(const PathHandleGraph* graph,
                       const Snarl& snarl,
                       PathTraversalFinder& path_trav_finder,
                       const unordered_set<path_handle_t>& reference_paths,
                       int64_t minimum_length,
-                      vector<pair<int64_t, vector<step_handle_t>>>& cover_fragments,                         
+                      vector<RGFAFragment>& cover_fragments,
                       unordered_map<nid_t, int64_t>& cover_node_to_fragment,
                       const unordered_map<string, vector<pair<int64_t, int64_t>>>& preferred_intervals);
 
