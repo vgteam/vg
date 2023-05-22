@@ -366,6 +366,9 @@ template<>
 const char* get_metavar<int>();
 
 template<>
+const char* get_metavar<int8_t>();
+
+template<>
 const char* get_metavar<bool>();
 
 template<>
@@ -609,10 +612,25 @@ struct ValueArgSpec : public ArgSpec<T, Receiver> {
         out << sep << get_metavar<T>();
     }
     virtual void print_value(ostream& out, const char* sep = "") const {
-        out << sep << value;
+        out << sep;
+        if (std::is_integral<T>::value) {
+            // Looks like a char, so print it as a number.
+            // See <https://stackoverflow.com/a/28414758>
+            out << +value;
+        } else {
+            out << value;
+        }
     }
     virtual void print_default(ostream& out) const {
-        out << " [" << this->default_value << "]";
+        out << " [";
+        if (std::is_integral<T>::value) {
+            // Looks like a char, so print it as a number.
+            // See <https://stackoverflow.com/a/28414758>
+            out << +(this->default_value);
+        } else {
+            out << this->default_value;
+        }
+        out << "]";
     }
     virtual struct option get_option_struct() const {
         return {this->option.c_str(), required_argument, 0, this->option_id};
