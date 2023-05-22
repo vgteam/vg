@@ -1056,9 +1056,6 @@ int main_giraffe(int argc, char** argv) {
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
-    // Apply scoring parameters
-    minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
-
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
@@ -1153,6 +1150,9 @@ int main_giraffe(int argc, char** argv) {
 
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
+
+        // Apply scoring parameters, after they have been parsed
+        minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
 
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();
