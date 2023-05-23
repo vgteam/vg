@@ -653,17 +653,20 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Select the "best" bucket.
     // Bucket with the best fragment score
     size_t best_bucket = 0;
+    // That fragment
+    size_t best_fragment = 0;
     // That score
     double best_bucket_fragment_score = 0;
     for (size_t i = 0; i < fragment_scores.size(); i++) {
         if (fragment_scores[i] >= best_bucket_fragment_score) {
             best_bucket_fragment_score = fragment_scores[i];
+            best_fragment = i;
             best_bucket = fragment_source_bucket[i];
         }
     }
     if (show_work) {
         #pragma omp critical (cerr)
-        std::cerr << log_name() << "Bucket " << best_bucket << " is best with fragment with score " << best_bucket_fragment_score << std::endl;
+        std::cerr << log_name() << "Bucket " << best_bucket << " is best with fragment " << best_fragment << " with score " << best_bucket_fragment_score << std::endl;
     }
     size_t best_bucket_seed_count = buckets.at(best_bucket).seeds.size();
 
@@ -675,6 +678,45 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             best_bucket_minimizers.insert(seeds.at(seed).source);
         }
         best_bucket_minimizer_count = best_bucket_minimizers.size();
+    }
+
+    if (show_work) {
+        // Log the best bucket's seed positions in read and linear reference
+        TSVExplainer exp("best-dotplot");
+
+        // We need to know which seeds are in the best fragment
+        std::unordered_set<size_t> best_fragment_seeds;
+        for (auto& seed_num : fragments.at(best_fragment)) {
+            best_fragment_seeds.insert(seed_num);
+        }
+
+        for (auto& seed_num : buckets.at(best_bucket).seeds) {
+            // For each seed in the best bucket
+            auto& seed = seeds.at(seed_num);
+            
+            // Get its effective path positions again
+            auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seed.pos, 100);
+
+            for (auto& handle_and_positions : offsets) {
+                std::string path_name = this->path_graph->get_path_name(handle_and_positions.first);
+                for (auto& position : handle_and_positions.second) {
+                    // For each position on a ref path that this seed is at, log a line
+                    exp.line();
+                    if (best_fragment_seeds.count(seed_num)) {
+                        // Contig and "-best"
+                        exp.field(path_name + "-best");
+                    } else {
+                        // Contig
+                        exp.field(path_name);
+                    }
+                    // Offset on contig
+                    exp.field(position.first);
+                    // Offset in read
+                    exp.field(minimizers[seed.source].forward_offset());
+                }
+            }
+
+        }
     }
     
     // Find the fragments that are in the best bucket

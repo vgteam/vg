@@ -23,6 +23,53 @@ Explainer::~Explainer() {
     // Nothing to do!
 }
 
+TSVExplainer::TSVExplainer(const std::string& name) : Explainer() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    out.open(name + std::to_string(explanation_number) + ".tsv");
+}
+TSVExplainer::~TSVExplainer() {
+    // Nothing to do!
+}
+
+void TSVExplainer::line() {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    if (need_line) {
+        // There's a previous line to put this new line after.
+        out << std::endl;
+    }
+    need_line = true;
+    // First value on the line does not need a tab.
+    need_tab = false;
+}
+
+void TSVExplainer::field(const std::string& value) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    if (need_tab) {
+        out << "\t";
+    }
+    out << value;
+    // Next value on the line needs a leading tab
+    need_tab = true;
+}
+
+void TSVExplainer::field(size_t value) {
+    if (!Explainer::save_explanations) {
+        return;
+    }
+    if (need_tab) {
+        out << "\t";
+    }
+    out << value;
+    // Next value on the line needs a leading tab
+    need_tab = true;
+}
+
 ProblemDumpExplainer::ProblemDumpExplainer(const std::string& name) : Explainer() {
     if (!Explainer::save_explanations) {
         return;

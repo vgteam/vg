@@ -48,6 +48,34 @@ protected:
 };
 
 /**
+ * Widget to log a TSV of data as an explanation.
+ */
+class TSVExplainer : public Explainer {
+public:
+    /// Construct a TSVExplainer that will save a table to a file.
+    TSVExplainer(const std::string& name = "data");
+    /// Close out the file being explained to
+    ~TSVExplainer();
+
+    /// Start a new line. Must call this before field().
+    void line();
+
+    /// Add a field with a string value
+    void field(const std::string& value);
+
+    /// Add a field with an integral value
+    void field(size_t value);
+
+protected:
+    /// Stream being written to
+    ofstream out;
+    /// Whether we need a tab befroe the next value
+    bool need_tab = false;
+    /// Whether we need a newline before the next line
+    bool need_line = false;
+};
+
+/**
  * Widget to serialize somewhat structured logs.
  */
 class ProblemDumpExplainer : public Explainer {
