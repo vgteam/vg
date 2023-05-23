@@ -361,6 +361,21 @@ string Funnel::last_correct_stage(size_t tag_start, size_t tag_length) const {
     return last_tagged_stage(State::CORRECT, tag_start, tag_length); 
 }
 
+void Funnel::position(size_t item, const path_handle_t& path, size_t offset) {
+    // Figure out which item to add the position to
+    auto& to_mark = get_item(item);
+    // Pack up the one position into a map
+    std::unordered_map<path_handle_t, std::pair<size_t, size_t>> to_merge;
+    to_merge[path] = std::make_pair(offset, offset);
+    // Apply it
+    effective_position_union(to_mark.effective_position, to_merge);
+}
+
+std::unordered_map<path_handle_t, std::pair<size_t, size_t>> Funnel::get_positions(size_t item) const {
+    assert(!stages.empty());
+    return stages.back().items.at(item).effective_position;
+}
+
 size_t Funnel::latest() const {
     assert(!stages.empty());
     assert(!stages.back().items.empty());
@@ -661,6 +676,22 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
             }
             filter_num++;
         });
+}
+
+void Funnel::effective_position_union(effective_position_t& dest, const effective_position_t& other) {
+    for (auto& kv : other) {
+        // For every range in the thing to add in
+        // See if we have that path already
+        auto found = dest.find(kv.first);
+        if (found == dest.end()) {
+            // If not, just copy the range
+            dest.insert(found, kv);
+        } else {
+            // Otherwise, min and max in
+            found->second.first = std::min(found->second.first, kv.second.first);
+            found->second.second = std::max(found->second.second, kv.second.second);
+        }
+    }
 }
 
 Funnel::Item& Funnel::get_item(size_t index) {

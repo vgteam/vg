@@ -3685,56 +3685,67 @@ void MinimizerMapper::tag_seeds(const Alignment& aln, const std::vector<Seed>::c
         
         // We know the seed is placed somewhere.
         Funnel::State tag = Funnel::State::PLACED;
-        if (this->track_correctness && aln.refpos_size() != 0) {
-            // It might also be correct
+        if (this->track_correctness) {
+            // We are interested in correctness and positions.
+
             // Find every seed's reference positions. This maps from path handle to pairs of offset and orientation.
             auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, it->pos, 100);
+            
+            if (aln.refpos_size() != 0) {
+                // It might be correct
+                for (auto& handle_and_positions : offsets) {
+                    // For every path we have positions on
+                    // See if we have any refposes on that path
+                    auto found = refpos_by_path.find(this->path_graph->get_path_name(handle_and_positions.first));
+                    if (found != refpos_by_path.end()) {
+                        // We do have reference positiions on this path.
+                        std::vector<const Position*>& refposes = found->second;
+                        // And we have to check them against these mapped positions on the path.
+                        std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second; 
+                        // Sort the positions we mapped to by coordinate also
+                        std::sort(mapped_positions.begin(), mapped_positions.end(), [&](const std::pair<size_t, bool>& a, const std::pair<size_t, bool>& b) {
+                            return a.first < b.first;
+                        });
 
-            for (auto& handle_and_positions : offsets) {
-                // For every path we have positions on
-                // See if we have any refposes on that path
-                auto found = refpos_by_path.find(this->path_graph->get_path_name(handle_and_positions.first));
-                if (found != refpos_by_path.end()) {
-                    // We do have reference positiions on this path.
-                    std::vector<const Position*>& refposes = found->second;
-                    // And we have to check them against these mapped positions on the path.
-                    std::vector<std::pair<size_t, bool>>& mapped_positions = handle_and_positions.second; 
-                    // Sort the positions we mapped to by coordinate also
-                    std::sort(mapped_positions.begin(), mapped_positions.end(), [&](const std::pair<size_t, bool>& a, const std::pair<size_t, bool>& b) {
-                        return a.first < b.first;
-                    });
+                        // Compare all the refposes to all the positions we mapped to
+                        
+                        // Start two cursors
+                        auto ref_it = refposes.begin();
+                        auto mapped_it = mapped_positions.begin();
+                        while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
+                            // As long as they are both in their collections, compare them
+                            if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < 200) {
+                                // If they are close enough, we have a match
+                                tag = Funnel::State::CORRECT;
+                                break;
+                            }
+                            // Otherwise, advance the one with the lower coordinate.
+                            if ((*ref_it)->offset() < mapped_it->first) {
+                                ++ref_it;
+                            } else {
+                                ++mapped_it;
+                            }
+                        }
 
-                    // Compare all the refposes to all the positions we mapped to
-                    
-                    // Start two cursors
-                    auto ref_it = refposes.begin();
-                    auto mapped_it = mapped_positions.begin();
-                    while(ref_it != refposes.end() && mapped_it != mapped_positions.end()) {
-                        // As long as they are both in their collections, compare them
-                        if (abs((int64_t)(*ref_it)->offset() - (int64_t) mapped_it->first) < 200) {
-                            // If they are close enough, we have a match
-                            tag = Funnel::State::CORRECT;
+                        if (tag == Funnel::State::CORRECT) {
+                            // Stop checking paths if we find a hit
                             break;
                         }
-                        // Otherwise, advance the one with the lower coordinate.
-                        if ((*ref_it)->offset() < mapped_it->first) {
-                            ++ref_it;
-                        } else {
-                            ++mapped_it;
-                        }
                     }
+                }
+            }
 
-                    if (tag == Funnel::State::CORRECT) {
-                        // Stop checking paths if we find a hit
-                        break;
-                    }
+            for (auto& handle_and_positions : offsets) {
+                for (auto& position : handle_and_positions.second) {
+                    // Tell the funnel all the effective positions, ignoring orientation
+                    funnel.position(funnel_index, handle_and_positions.first, position.first);
                 }
             }
         }
                 
         // Tag this seed as making some of the read space placed or even correct.
         funnel.tag(funnel_index, tag, minimizers[it->source].forward_offset(), minimizers[it->source].length);
-        
+
         // Look at the next seed
         funnel_index++;
     }

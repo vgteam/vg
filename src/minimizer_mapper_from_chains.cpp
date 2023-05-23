@@ -522,6 +522,21 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             funnel.merge_group(bucket.seeds.begin(), bucket.seeds.end());
             funnel.score(funnel.latest(), bucket.score);
 
+            if (show_work) {
+                auto bucket_positions = funnel.get_positions(funnel.latest());
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << log_name() << "Positions for bucket " << i << ":" << std::endl;
+                    for (auto& handle_and_range : bucket_positions) {
+                        // Log each range on a path associated with the bucket.
+                        std::cerr << log_name() << "\t"
+                            << this->path_graph->get_path_name(handle_and_range.first)
+                            << ":" << handle_and_range.second.first
+                            << "-" << handle_and_range.second.second << std::endl;
+                    }
+                }
+            }
+
             // Say we made it.
             funnel.produced_output();
         }
@@ -651,6 +666,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         std::cerr << log_name() << "Bucket " << best_bucket << " is best with fragment with score " << best_bucket_fragment_score << std::endl;
     }
     size_t best_bucket_seed_count = buckets.at(best_bucket).seeds.size();
+
+    // Count up all the minimizers in the best bucket
+    size_t best_bucket_minimizer_count;
+    {
+        std::unordered_set<size_t> best_bucket_minimizers;
+        for (auto& seed : buckets.at(best_bucket).seeds) {
+            best_bucket_minimizers.insert(seeds.at(seed).source);
+        }
+        best_bucket_minimizer_count = best_bucket_minimizers.size();
+    }
     
     // Find the fragments that are in the best bucket
     std::vector<size_t> best_bucket_fragments;
@@ -1288,6 +1313,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     set_annotation(mappings[0], "fragment_scores", fragment_scores);
     set_annotation(mappings[0], "best_bucket_fragment_coverage_at_top", best_bucket_fragment_coverage_at_top);
     set_annotation(mappings[0], "best_bucket_seed_count", (double)best_bucket_seed_count);
+    set_annotation(mappings[0], "best_bucket_minimizer_count", (double)best_bucket_minimizer_count);
     if (track_correctness) {
         set_annotation(mappings[0], "best_chain_correct", best_chain_correct);
     }
