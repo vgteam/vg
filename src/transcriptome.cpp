@@ -498,7 +498,7 @@ void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron
 
             if (error_on_missing_path) {
 
-                cerr << "\tERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
+                cerr << "\tERROR: Chromosome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
                 exit(1);
             
             } else {
@@ -611,7 +611,7 @@ int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, uint3
 
             if (error_on_missing_path) {
 
-                cerr << "\tERROR: Chromomsome path \"" << chrom << "\" not found in graph or haplotypes index (line " << line_number << ")." << endl;
+                cerr << "\tERROR: Chromosome path \"" << chrom << "\" not found in graph or haplotypes index (line " << line_number << ")." << endl;
                 exit(1);
             
             } else {
