@@ -140,7 +140,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int item_bonus,
                            size_t max_indel_bases) {
     
-    DiagramExplainer diagram;
+    DiagramExplainer diagram(false);
     diagram.add_globals({{"rankdir", "LR"}});
     
 #ifdef debug_chaining

@@ -72,6 +72,45 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
     return position;
 }
 
+void MinimizerMapper::dump_debug_dotplot(const std::string& name, const std::string& marker, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& included_seeds, const std::vector<size_t>& highlighted_seeds, const PathPositionHandleGraph* path_graph) {
+    // Log the best bucket's seed positions in read and linear reference
+    TSVExplainer exp(true, name + "-dotplot");
+
+    // We need to know which seeds to highlight
+    std::unordered_set<size_t> highlight_set;
+    for (auto& seed_num : highlighted_seeds) {
+        highlight_set.insert(seed_num);
+    }
+
+    for (auto& seed_num : included_seeds) {
+        // For each seed in the best bucket
+        auto& seed = seeds.at(seed_num);
+        
+        // Get its effective path positions again
+        auto offsets = algorithms::nearest_offsets_in_paths(path_graph, seed.pos, 100);
+
+        for (auto& handle_and_positions : offsets) {
+            std::string path_name = path_graph->get_path_name(handle_and_positions.first);
+            for (auto& position : handle_and_positions.second) {
+                // For each position on a ref path that this seed is at, log a line
+                exp.line();
+                if (highlight_set.count(seed_num)) {
+                    // Contig and a marker
+                    exp.field(path_name + "-" + marker);
+                } else {
+                    // Contig
+                    exp.field(path_name);
+                }
+                // Offset on contig
+                exp.field(position.first);
+                // Offset in read
+                exp.field(minimizers[seed.source].forward_offset());
+            }
+        }
+
+    }
+}
+
 std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
     size_t read_region_start,
     size_t read_region_end,
@@ -681,42 +720,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     if (show_work) {
-        // Log the best bucket's seed positions in read and linear reference
-        TSVExplainer exp("best-dotplot");
-
-        // We need to know which seeds are in the best fragment
-        std::unordered_set<size_t> best_fragment_seeds;
-        for (auto& seed_num : fragments.at(best_fragment)) {
-            best_fragment_seeds.insert(seed_num);
-        }
-
-        for (auto& seed_num : buckets.at(best_bucket).seeds) {
-            // For each seed in the best bucket
-            auto& seed = seeds.at(seed_num);
-            
-            // Get its effective path positions again
-            auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seed.pos, 100);
-
-            for (auto& handle_and_positions : offsets) {
-                std::string path_name = this->path_graph->get_path_name(handle_and_positions.first);
-                for (auto& position : handle_and_positions.second) {
-                    // For each position on a ref path that this seed is at, log a line
-                    exp.line();
-                    if (best_fragment_seeds.count(seed_num)) {
-                        // Contig and "-best"
-                        exp.field(path_name + "-best");
-                    } else {
-                        // Contig
-                        exp.field(path_name);
-                    }
-                    // Offset on contig
-                    exp.field(position.first);
-                    // Offset in read
-                    exp.field(minimizers[seed.source].forward_offset());
-                }
-            }
-
-        }
+        // Dump the best bucket's best fragment
+        dump_debug_dotplot("best-fragment", "fragment", minimizers, seeds, buckets.at(best_bucket).seeds, fragments.at(best_fragment), this->path_graph);
     }
     
     // Find the fragments that are in the best bucket
@@ -760,6 +765,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // For each chain, we need:
     // The chain itself, pointing into seeds
     std::vector<std::vector<size_t>> chains;
+    // The bucket it came from
+    std::vector<size_t> chain_source_buckets;
     // An estimated alignment score
     std::vector<int> chain_score_estimates;
     // A count, for each minimizer, of how many hits of it could have been in the chain, or were considered when making the chain.
@@ -876,6 +883,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             // Each chain of fragments becomes a chain of seeds
             chains.emplace_back();
             auto& chain = chains.back();
+            // With a bucket
+            chain_source_buckets.push_back(bucket_num);
             // With a score
             chain_score_estimates.emplace_back(0);
             int& score = chain_score_estimates.back();
@@ -922,11 +931,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             if (show_work) {
                 #pragma omp critical (cerr)
-                std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
-                for (auto& f : chain_fragment_nums_overall) {
-                    std::cerr << " " << f;
-                } 
-                std::cerr << std::endl;
+                {
+                    std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
+                    for (auto& f : chain_fragment_nums_overall) {
+                        std::cerr << " " << f;
+                    } 
+                    std::cerr << std::endl;
+                }
             } 
         }
     }
@@ -947,6 +958,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (funnel.is_correct(best_chain)) {
             best_chain_correct = true;
         }
+    }
+
+    if (show_work) {
+        // Dump the best chain
+        dump_debug_dotplot("best-chain", "chain", minimizers, seeds, buckets.at(chain_source_buckets.at(best_chain)).seeds, chains.at(best_chain), this->path_graph);
     }
     
     // Find its coverage
@@ -1406,7 +1422,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
         
         // Otherwise/also, if we are dumping explanations, dump it to a file
-        DotDumpExplainer<Funnel> explainer(funnel);
+        DotDumpExplainer<Funnel> explainer(true, funnel);
     }
 
     return mappings;

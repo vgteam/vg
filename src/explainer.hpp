@@ -34,7 +34,7 @@ public:
     static bool save_explanations;
 
     /// Construct an Explainer that will save to one or more files
-    Explainer();
+    Explainer(bool enabled);
     
     /// Close out the files being explained to
     virtual ~Explainer();
@@ -43,8 +43,16 @@ protected:
     /// What number explanation are we? Distinguishes different objects.
     size_t explanation_number;
     
+    /// Determines if this explainer should generate explanations.
+    bool enabled;
+
     /// Counter used to give different explanations their own unique filenames.
     static std::atomic<size_t> next_explanation_number;
+
+    /// Function to check if we should be explaining.
+    inline bool explaining() const {
+        return this->enabled && Explainer::save_explanations;
+    }
 };
 
 /**
@@ -53,7 +61,7 @@ protected:
 class TSVExplainer : public Explainer {
 public:
     /// Construct a TSVExplainer that will save a table to a file.
-    TSVExplainer(const std::string& name = "data");
+    TSVExplainer(bool enabled, const std::string& name = "data");
     /// Close out the file being explained to
     ~TSVExplainer();
 
@@ -81,7 +89,7 @@ protected:
 class ProblemDumpExplainer : public Explainer {
 public:
     /// Construct a ProblemDumpExplainer that will save a dump of a problem to a file.
-    ProblemDumpExplainer(const std::string& name = "problem");
+    ProblemDumpExplainer(bool enabled, const std::string& name = "problem");
     /// Close out the file being explained to
     ~ProblemDumpExplainer();
     
@@ -146,7 +154,7 @@ public:
     using annotation_t = std::vector<std::pair<std::string, std::string>>;
 
     /// Construct a DiagramExplainer that will save a diagram to one or more files.
-    DiagramExplainer();
+    DiagramExplainer(bool enabled);
     /// Close out the files being explained to
     ~DiagramExplainer();
     
@@ -225,12 +233,12 @@ template<typename T>
 class DotDumpExplainer : public Explainer {
 public:
     /// Construct a DotDumpExplainer that will save a diagram to a file
-    DotDumpExplainer(const T& to_dump);
+    DotDumpExplainer(bool enabled, const T& to_dump);
 };
 
 template<typename T>
-DotDumpExplainer<T>::DotDumpExplainer(const T& to_dump) : Explainer() {
-    if (!Explainer::save_explanations) {
+DotDumpExplainer<T>::DotDumpExplainer(bool enabled, const T& to_dump) : Explainer(enabled) {
+    if (!explaining()) {
         return;
     }
     // Open the dot file

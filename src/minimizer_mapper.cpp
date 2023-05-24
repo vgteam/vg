@@ -178,7 +178,7 @@ string MinimizerMapper::log_bits(const std::vector<bool>& bits) {
 }
 
 void MinimizerMapper::dump_chaining_problem(const std::vector<algorithms::Anchor>& anchors, const std::vector<size_t>& cluster_seeds_sorted, const HandleGraph& graph) {
-    ProblemDumpExplainer exp;
+    ProblemDumpExplainer exp(true);
     
     // We need to keep track of all the points we want in our problem subgraph.
     std::vector<pos_t> seed_positions;
