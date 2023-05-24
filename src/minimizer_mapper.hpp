@@ -217,6 +217,9 @@ public:
     /// In fragments, how many sources should we allow ourselves to consider ever?
     static constexpr size_t default_fragment_lookback_item_hard_cap = 3;
     size_t fragment_lookback_item_hard_cap = default_fragment_lookback_item_hard_cap;
+    /// How many bases of indel should we allow in fragments?
+    static constexpr size_t default_fragment_max_indel_bases = 50;
+    size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
     /// If the read coverage of a fragment connection is less than the best of any
     /// by more than this much, don't extend it

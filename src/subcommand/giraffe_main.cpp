@@ -264,6 +264,12 @@ static GroupedOptionGroup get_options() {
         "maximum items to consider coming from when making fragments"
     );
     chaining_opts.add_range(
+        "fragment-max-indel-bases",
+        &MinimizerMapper::fragment_max_indel_bases,
+        MinimizerMapper::default_fragment_max_indel_bases,
+        "maximum indel length in a transition when making fragments"
+    );
+    chaining_opts.add_range(
         "chaining-cluster-distance",
         &MinimizerMapper::chaining_cluster_distance,
         MinimizerMapper::default_chaining_cluster_distance,
@@ -298,6 +304,12 @@ static GroupedOptionGroup get_options() {
         &MinimizerMapper::min_lookback_items,
         MinimizerMapper::default_min_lookback_items,
         "minimum items to consider coming from when chaining"
+    );
+    chaining_opts.add_range(
+        "max-indel-bases",
+        &MinimizerMapper::max_indel_bases,
+        MinimizerMapper::default_max_indel_bases,
+        "maximum indel length in a transition when chaining"
     );
     chaining_opts.add_range(
         "lookback-item-hard-cap",

@@ -601,7 +601,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     fragment_cfg.min_good_transition_score_per_base = this->min_good_transition_score_per_base;
     
     fragment_cfg.item_bonus = this->item_bonus;
-    fragment_cfg.max_indel_bases = 50;
+    fragment_cfg.max_indel_bases = this->fragment_max_indel_bases;
     
     // Do all the ones that are 75% as good as the best, or down to 50% as good
     // as the best if that is what it takes to get the second best
