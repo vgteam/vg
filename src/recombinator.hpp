@@ -353,16 +353,16 @@ public:
 
     /// Multiplier to the score of a present kmer every time a haplotype with that
     /// kmer is selected.
-    constexpr static double PRESENT_DISCOUNT = 0.7;
+    constexpr static double PRESENT_DISCOUNT = 0.9;
 
     /// Adjustment to the score of a heterozygous kmer every time a haplotype with
     /// (-) or without (+) that kmer is selected.
-    constexpr static double HET_ADJUSTMENT = 0.2;
+    constexpr static double HET_ADJUSTMENT = 0.05;
 
     /// Score for getting an absent kmer right/wrong. This should be less than 1, if
     /// we assume that having the right variants in the graph is more important than
     /// keeping wrong variants out.
-    constexpr static double ABSENT_SCORE = 0.7;
+    constexpr static double ABSENT_SCORE = 0.8;
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
     typedef Haplotypes::sequence_type sequence_type;
