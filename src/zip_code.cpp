@@ -311,6 +311,12 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
     }    
 }
 
+size_t ZipCodeDecoder::max_depth() {
+    fill_in_full_decoder();
+    return decoder_length()-1;
+
+}
+
 code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
     //First, make sure that the decoder has enough in it
     if (depth >= decoder_length()) {

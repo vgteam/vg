@@ -62,9 +62,6 @@ namespace vg {
             // (if start_at_depth & 1 << depth)
             size_t start_at_depth = 0;
             size_t end_at_depth = 0;
-
-            //This is used for partitioning snarls
-            size_t union_find_index;
         };
 
 
@@ -116,6 +113,9 @@ namespace vg {
             size_t get_next(size_t i) {return data[i].next;}
             ///Get the index of the previous seed in a linked list
             size_t get_prev(size_t i) {return data[i].prev;}
+
+            ///Helper function to print the contents of the list to cerr
+            void print_self(const vector<Seed>&) const;
 
 
             /////////////////////// DATA //////////////////////////////
@@ -184,13 +184,23 @@ namespace vg {
         ///  be added to to_partition
         /// Assumes that the seeds in the snarl are sorted by the distance to
         ///  the start of the snarl
-        /// This may change the order of the snarl's children in the vector all_partitions.data,
-        /// but the order of seeds within the children will remain the same
         void partition_by_snarl(const vector<Seed>& seeds,  
             const partitioning_problem_t current_problem, 
             partition_set_t& all_partitions,
             std::list<partitioning_problem_t>& to_partition,
             const size_t& distance_limit);
+
+        /// Partition the seeds on a top-level irregular snarl, 
+        /// Each new partition that is made must be added to all_partitions
+        /// This will be a slow step that requires an all-pairwise comparison
+        /// of the children and the distance index
+        /// I think it is necessary though
+        void partition_by_top_level_snarl(const vector<Seed>& seeds,  
+            const partitioning_problem_t current_problem, 
+            partition_set_t& all_partitions,
+            std::list<partitioning_problem_t>& to_partition,
+            const size_t& distance_limit,
+            const SnarlDistanceIndex& distance_index);
     };
 }
 #endif

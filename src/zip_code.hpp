@@ -34,7 +34,8 @@ class ZipCodeDecoder;
 
 
 ///The type of codes that can be stored in the zipcode
-enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE};
+///EMPTY doesn't actually mean anything, it's used to catch errors
+enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
 
 ///A struct to interpret the minimizer payload
 ///I want to use zipcodes as the payload but at the moment clustering still expects the old payload
@@ -214,6 +215,10 @@ class ZipCodeDecoder {
     ///Fill in one more item in the decoder
     ///Returns true if this is the last thing in the zipcode and false if there is more to decode
     bool fill_in_next_decoder();
+
+    ///What is the maximum depth of this zipcode?
+    ///This will entirely fill in the zipcode
+    size_t max_depth();
 
     ///How many codes in the zipcode have been decoded?
     size_t decoder_length() {return decoder.size();}
