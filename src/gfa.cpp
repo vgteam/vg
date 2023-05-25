@@ -76,8 +76,17 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         out << graph->get_sequence(h);
         auto it = node_offsets_and_ranks.find(node_id);
         if (it != node_offsets_and_ranks.end()) {
-            // hack off the rgfa tag
-            string base_name = strip_rgfa_path_name(graph->get_path_name(get<0>(it->second)));
+            // hack off the rgfa stuff from the path, and move into tags
+            string path_name = graph->get_path_name(get<0>(it->second));
+            string rgfa_tags;
+            string base_name;
+            if (get_rgfa_rank(path_name) >= 0) {
+                base_name = parse_rgfa_name_into_tags(graph->get_path_name(get<0>(it->second)), rgfa_tags);
+            } else {
+                // no tags, must be the rank-0 reference
+                base_name = path_name;
+                rgfa_tags = "SR:i:0";
+            }                
             // hack off the subrange offset (and add it to SO)
             PathSense sense;
             string sample, locus;
@@ -90,7 +99,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             // add rGFA tags            
             out << "\t" << "SN:Z:" << base_name
                 << "\t" << "SO:i:" << (base_offset + get<1>(it->second))
-                << "\t" << "SR:i:" << get<2>(it->second); 
+                << "\t" << rgfa_tags;
         }
         out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
@@ -300,12 +309,10 @@ int get_rgfa_rank(const string& path_name) {
 
 string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& rgfa_subrange,
                              const string& rgfa_sample,
-                             const string& start_parent_rgfa_path_name,
-                             int64_t start_parent_offset,
+                             const string& start_parent_path_name,
                              int64_t start_parent_node_id,
                              bool start_parent_node_reversed,
-                             const string& end_parent_rgfa_path_name,
-                             int64_t end_parent_offset,
+                             const string& end_parent_path_name,
                              int64_t end_parent_node_id,
                              bool end_parent_node_reversed) {
     PathSense path_sense;
@@ -317,35 +324,251 @@ string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subra
     PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
                                   path_haplotype, path_phase_block, path_subrange);
 
-    // we're going to replace the existing sample name; so move it out into locus behind SN:Z:
+    // we're going to store absolutely everything in the locus name, including the sample name (behind SN:Z:)
     assert(path_locus != PathMetadata::NO_LOCUS_NAME);
     string base_name;
     if (path_sample != PathMetadata::NO_SAMPLE_NAME) {
-        base_name = path_sample + ":";
+        base_name = "SN:Z:" + path_sample;
     }
-    base_name += "SN:Z:" + path_locus;
+    // the contig name will be behind SC...
+    base_name += ":SC:Z:" + path_locus;
 
-    // and we also load in our rGFA tag
+    // and we also load in our rGFA rank
     base_name += ":SR:i:" + std::to_string(rgfa_rank);
 
-    // start parent information
-    if (!start_parent_rgfa_path_name.empty()) {
-        base_name += ":SPP:Z:" + start_parent_rgfa_path_name +
-            ":SPO:i:" + std::to_string(start_parent_offset) +
-            ":SPH:Z:" + (start_parent_node_reversed ? "<" : ">") + std::to_string(start_parent_node_id);
+    // start parent parent path is embedded as tags (so its own #'s don't muck up the structure)
+    // todo: this is way too verbose and should be fixed. 
+    if (!start_parent_path_name.empty()) {
+        PathSense start_parent_path_sense;
+        string start_parent_path_sample;
+        string start_parent_path_locus;
+        size_t start_parent_path_haplotype;
+        size_t start_parent_path_phase_block;
+        subrange_t start_parent_path_subrange;
+        PathMetadata::parse_path_name(start_parent_path_name, start_parent_path_sense, start_parent_path_sample,
+                                      start_parent_path_locus, start_parent_path_haplotype,
+                                      start_parent_path_phase_block, start_parent_path_subrange);
+        if (start_parent_path_sample != PathMetadata::NO_SAMPLE_NAME) {
+            base_name += ":SPS:Z:" + start_parent_path_sample;
+        }
+        if (start_parent_path_locus != PathMetadata::NO_LOCUS_NAME) {
+            base_name += ":SPC:Z:" + start_parent_path_locus;
+        }
+        if (start_parent_path_haplotype != PathMetadata::NO_HAPLOTYPE) {
+            base_name += ":SPH:i:" + to_string(start_parent_path_haplotype);
+        }
+        if (start_parent_path_phase_block != PathMetadata::NO_PHASE_BLOCK) {
+            base_name += ":SPB:i:" + to_string(start_parent_path_phase_block);
+        }
+        if (start_parent_path_subrange != PathMetadata::NO_SUBRANGE) {
+            base_name += ":SPO:i:" + to_string(start_parent_path_subrange.first);
+        }
+        base_name += ":SPN:Z:" + string(start_parent_node_reversed ? "<" : ">") + to_string(start_parent_node_id);
     }
-    // end parent information
-    if (!end_parent_rgfa_path_name.empty()) {
-        base_name += ":EPP:Z:" + end_parent_rgfa_path_name +
-            ":EPO:i:" + std::to_string(end_parent_offset) +
-            ":EPH:Z:" + (end_parent_node_reversed ? "<" : ">") + std::to_string(end_parent_node_id);
-    }    
+
+    // same for the end parent
+    if (!end_parent_path_name.empty()) {
+        PathSense end_parent_path_sense;
+        string end_parent_path_sample;
+        string end_parent_path_locus;
+        size_t end_parent_path_haplotype;
+        size_t end_parent_path_phase_block;
+        subrange_t end_parent_path_subrange;
+        PathMetadata::parse_path_name(end_parent_path_name, end_parent_path_sense, end_parent_path_sample,
+                                      end_parent_path_locus, end_parent_path_haplotype,
+                                      end_parent_path_phase_block, end_parent_path_subrange);
+        if (end_parent_path_sample != PathMetadata::NO_SAMPLE_NAME) {
+            base_name += ":EPS:Z:" + end_parent_path_sample;
+        }
+        if (end_parent_path_locus != PathMetadata::NO_LOCUS_NAME) {
+            base_name += ":EPC:Z:" + end_parent_path_locus;
+        }
+        if (end_parent_path_haplotype != PathMetadata::NO_HAPLOTYPE) {
+            base_name += ":EPH:i:" + to_string(end_parent_path_haplotype);
+        }
+        if (end_parent_path_phase_block != PathMetadata::NO_PHASE_BLOCK) {
+            base_name += ":EPB:i:" + to_string(end_parent_path_phase_block);
+        }
+        if (end_parent_path_subrange != PathMetadata::NO_SUBRANGE) {
+            base_name += ":EPO:i:" + to_string(end_parent_path_subrange.first);
+        }
+        base_name += ":EPN:Z:" + string(end_parent_node_reversed ? "<" : ">") + to_string(end_parent_node_id);                
+    }
 
     // and return the final path, with sample/locus/rgfa-rank embedded in locus
     // (as it's a reference path, we alsos strip out the phase block)
     return PathMetadata::create_path_name(PathSense::REFERENCE, rgfa_sample, base_name, path_haplotype,
                                           PathMetadata::NO_PHASE_BLOCK, rgfa_subrange);
 }
+
+string parse_rgfa_path_name(const string& path_name, int* rgfa_rank,
+                            string* rgfa_sample,
+                            string* start_parent_path_name,
+                            int64_t* start_parent_node_id,
+                            bool* start_parent_node_reversed,
+                            string* end_parent_path_name,
+                            int64_t* end_parent_node_id,
+                            bool* end_parent_node_reversed) {
+
+
+    // begin by parsing the # structure of the path
+    // note that all the rgfa stuff we're pulling out here will be embedded in the "locus"
+    PathSense path_sense;
+    string path_sample;
+    string path_locus;
+    size_t path_haplotype;
+    size_t path_phase_block;
+    subrange_t path_subrange;
+    PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
+                                  path_haplotype, path_phase_block, path_subrange);
+
+    if (rgfa_sample) {
+        *rgfa_sample = path_sample;
+    }
+
+    string sample_name;
+    string contig_name;
+    string start_parent_sample = PathMetadata::NO_SAMPLE_NAME;
+    string start_parent_contig = PathMetadata::NO_LOCUS_NAME;
+    int64_t start_parent_haplotype = PathMetadata::NO_HAPLOTYPE;
+    int64_t start_parent_phase_block = PathMetadata::NO_PHASE_BLOCK;
+    subrange_t start_parent_subrange = PathMetadata::NO_SUBRANGE;
+    string end_parent_sample = PathMetadata::NO_SAMPLE_NAME;
+    string end_parent_contig = PathMetadata::NO_LOCUS_NAME;
+    int64_t end_parent_haplotype = PathMetadata::NO_HAPLOTYPE;
+    int64_t end_parent_phase_block = PathMetadata::NO_PHASE_BLOCK;
+    subrange_t end_parent_subrange = PathMetadata::NO_SUBRANGE;
+    
+    // now we parse the locus which is just a list of tags sepearted by :
+    // todo (again), this is too wordy and should be compacted
+    vector<string> toks = split_delims(path_locus, ":");
+    assert(toks.size() % 3 == 0);
+    for (int64_t i = 0; i < toks.size(); i+=3) {
+        if (toks[i] == "SN") {
+            assert(toks[i+1] == "Z");
+            sample_name = toks[i+2];
+        } else if (toks[i] == "SC") {
+            assert(toks[i+1] == "Z");
+            contig_name = toks[i+2];
+        } else if (toks[i] == "SR" && rgfa_rank) {
+            assert(toks[i+1] == "i");
+            *rgfa_rank = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "SPS") {
+            assert(toks[i+1] == "Z");
+            start_parent_sample = toks[i+2];
+        } else if (toks[i] == "SPC") {
+            assert(toks[i+1] == "Z");
+            start_parent_contig = toks[i+2];
+        } else if (toks[i] == "SPH") {
+            assert(toks[i+1] == "i");
+            start_parent_haplotype = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "SPB") {
+            assert(toks[i+1] == "i");
+            start_parent_phase_block = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "SPO") {
+            assert(toks[i+1] == "i");
+            start_parent_subrange.first = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "SPN") {
+            assert(toks[i+1] == "Z");
+            if (start_parent_node_id) {
+                *start_parent_node_id = parse<int64_t>(toks[i+2].substr(1));
+            }
+            if (start_parent_node_reversed) {
+                *start_parent_node_reversed = toks[i+2][0] == '<';
+            }
+        } else if (toks[i] == "EPS") {
+            assert(toks[i+1] == "Z");
+            end_parent_sample = toks[i+2];
+        } else if (toks[i] == "EPC") {
+            assert(toks[i+1] == "Z");
+            end_parent_contig = toks[i+2];
+        } else if (toks[i] == "EPH") {
+            assert(toks[i+1] == "i");
+            end_parent_haplotype = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "EPB") {
+            assert(toks[i+1] == "i");
+            end_parent_phase_block = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "EPO") {
+            assert(toks[i+1] == "i");
+            end_parent_subrange.first = parse<int64_t>(toks[i+2]);
+        } else if (toks[i] == "EPN") {
+            assert(toks[i+1] == "Z");
+            if (end_parent_node_id) {
+                *end_parent_node_id = parse<int64_t>(toks[i+2].substr(1));
+            }
+            if (end_parent_node_reversed) {
+                *end_parent_node_reversed = toks[i+2][0] == '<';
+            }
+        } else {
+            assert(false);
+        }
+    }
+        
+    // reconstruct the vg path
+    string orig_path_name = PathMetadata::create_path_name(path_sense,
+                                                           sample_name,
+                                                           contig_name,
+                                                           path_haplotype,
+                                                           path_phase_block,
+                                                           path_subrange);
+
+    if (start_parent_path_name) {
+        // reconstruct the start path name
+        PathSense start_parent_path_sense = start_parent_haplotype == PathMetadata::NO_HAPLOTYPE ? PathSense::REFERENCE : PathSense::HAPLOTYPE;
+        *start_parent_path_name = PathMetadata::create_path_name(start_parent_path_sense,
+                                                                 start_parent_sample,
+                                                                 start_parent_contig,
+                                                                 start_parent_haplotype,
+                                                                 start_parent_phase_block,
+                                                                 start_parent_subrange);        
+    }
+
+    if (end_parent_path_name) {
+        // reconstruc the end path name
+        PathSense end_parent_path_sense = end_parent_haplotype == PathMetadata::NO_HAPLOTYPE ? PathSense::REFERENCE : PathSense::HAPLOTYPE;
+        *end_parent_path_name = PathMetadata::create_path_name(end_parent_path_sense,
+                                                               end_parent_sample,
+                                                               end_parent_contig,
+                                                               end_parent_haplotype,
+                                                               end_parent_phase_block,
+                                                               end_parent_subrange);        
+    }
+
+    return orig_path_name;                                                  
+}
+
+string parse_rgfa_name_into_tags(const string& path_name, string& rgfa_tags) {
+    int rgfa_rank;
+    string rgfa_sample; 
+    string start_parent_rgfa_path_name;
+    int64_t start_parent_node_id;
+    bool start_parent_node_reversed;
+    string end_parent_rgfa_path_name;
+    int64_t end_parent_node_id;
+    bool end_parent_node_reversed;
+    string vg_path_name = parse_rgfa_path_name(path_name, &rgfa_rank,
+                                               &rgfa_sample,
+                                               &start_parent_rgfa_path_name,
+                                               &start_parent_node_id,
+                                               &start_parent_node_reversed,
+                                               &end_parent_rgfa_path_name,
+                                               &end_parent_node_id,
+                                               &end_parent_node_reversed);
+    
+    rgfa_tags += "SR:i:" + to_string(rgfa_rank);
+    if (!start_parent_rgfa_path_name.empty()) {
+        rgfa_tags += "\tSPP:Z:" + start_parent_rgfa_path_name +
+            "\tSPN:Z:" + (start_parent_node_reversed ? "<" : ">") + to_string(start_parent_node_id);
+    }
+    if (!end_parent_rgfa_path_name.empty()) {
+        rgfa_tags += "\tEPP:Z:" + end_parent_rgfa_path_name +
+            "\tEPN:Z:" + (end_parent_node_reversed ? "<" : ">") + to_string(end_parent_node_id);
+    }    
+    
+    return vg_path_name;
+}
+
+
 
 string strip_rgfa_path_name(const string& path_name) {
 
@@ -382,6 +605,24 @@ string strip_rgfa_path_name(const string& path_name) {
     return path_name;
 }
 
+void increment_subrange_start(string& path_name, int64_t offset) {
+    PathSense path_sense;
+    string path_sample;
+    string path_locus;
+    size_t path_haplotype;
+    size_t path_phase_block;
+    subrange_t path_subrange;
+    PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
+                                  path_haplotype, path_phase_block, path_subrange);
+
+    if (path_subrange == PathMetadata::NO_SUBRANGE) {
+        path_subrange.first = offset;
+    } else {
+        path_subrange.first += offset;
+    }
+    path_name = PathMetadata::create_path_name(path_sense, path_sample, path_locus,
+                                               path_haplotype, path_phase_block, path_subrange);
+}
 
 void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                       SnarlManager* snarl_manager,
@@ -549,10 +790,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                      << ":" << graph->get_is_reverse(graph->get_handle_of_step(rgfa_fragment.steps.front())) << endl;
                 */
                 start_parent_offset = step_to_pos.at(rgfa_fragment.start_parent_step);
-                subrange_t start_parent_subrange = graph->get_subrange(start_parent_path_handle);
-                if (start_parent_subrange != PathMetadata::NO_SUBRANGE) {
-                    start_parent_offset += start_parent_subrange.first;
-                }
+                increment_subrange_start(start_parent_rgfa_path_name, start_parent_offset);
                 start_parent_node_id = graph->get_id(graph->get_handle_of_step(start_parent_fragment.start_parent_step));
                 start_parent_node_reversed = graph->get_is_reverse(graph->get_handle_of_step(start_parent_fragment.start_parent_step));
             }
@@ -569,18 +807,15 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
                 end_parent_rgfa_path_name = graph->get_path_name(end_parent_path_handle);
                 assert(graph->get_path_handle_of_step(rgfa_fragment.end_parent_step) == end_parent_path_handle);                
                 end_parent_offset = step_to_pos.at(rgfa_fragment.end_parent_step);
-                subrange_t end_parent_subrange = graph->get_subrange(end_parent_path_handle);
-                if (end_parent_subrange != PathMetadata::NO_SUBRANGE) {
-                    end_parent_offset += end_parent_subrange.first;
-                }
+                increment_subrange_start(end_parent_rgfa_path_name, end_parent_offset);
                 end_parent_node_id = graph->get_id(graph->get_handle_of_step(end_parent_fragment.end_parent_step));
                 end_parent_node_reversed = graph->get_is_reverse(graph->get_handle_of_step(end_parent_fragment.end_parent_step));
             }
             
             string rgfa_frag_name = create_rgfa_path_name(path_name, rgfa_fragment.rank, rgfa_frag_subrange, rgfa_sample_name,
-                                                          start_parent_rgfa_path_name, start_parent_offset,
+                                                          start_parent_rgfa_path_name,
                                                           start_parent_node_id, start_parent_node_reversed,
-                                                          end_parent_rgfa_path_name, end_parent_offset,
+                                                          end_parent_rgfa_path_name,
                                                           end_parent_node_id, end_parent_node_reversed);
 
 #ifdef debug

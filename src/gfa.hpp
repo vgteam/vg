@@ -49,22 +49,38 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
 /// If the path is not an RGFA path, then return -1
 int get_rgfa_rank(const string& path_name);
 
+/// Remove the rGFA information from a path name, effectively undoing set_rgfa_rank
+string strip_rgfa_path_name(const string& path_name);
+
+/// Edit the subrange of a path name
+void increment_subrange_start(string& path_name, int64_t offset);
+
 /// Add the rgfa rank to a pathname, also setting its sample to the special rgfa sample and
 /// moving its old sample into the locus field
 string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& subrange,
                              const string& rgfa_sample,
-                             const string& start_parent_rgfa_path_name = "",
-                             int64_t start_parent_offset = -1,                             
+                             const string& start_parent_path_name = "",
                              int64_t start_parent_node_id = -1,
                              bool start_parent_node_reversed = false,
-                             const string& end_parent_rgfa_path_name = "",
-                             int64_t end_parent_offset = -1,                             
+                             const string& end_parent_path_name = "",
                              int64_t end_parent_node_id = -1,
                              bool end_parent_node_reversed = false);
 
 
-/// Remove the rGFA information from a path name, effectively undoing set_rgfa_rank
-string strip_rgfa_path_name(const string& path_name);
+/// Parse (and remove) all rgfa-specific information, copying it into the various input paramters
+/// The rgfa-information-free vg path name is returned (ie the path_name input to carete_rgfa_path_name)
+string parse_rgfa_path_name(const string& path_name, int* rgfa_rank = nullptr,
+                            string* rgfa_sample = nullptr,
+                            string* start_parent_rgfa_path_name = nullptr,
+                            int64_t* start_parent_node_id = nullptr,
+                            bool* start_parent_node_reversed = nullptr,
+                            string* end_parent_rgfa_path_name = nullptr,
+                            int64_t* end_parent_node_id = nullptr,
+                            bool* end_parent_node_reversed = nullptr);
+
+/// Like above, but put the rgfa stuff into tags
+string parse_rgfa_name_into_tags(const string& path_name, string& rgfa_tags);
+
 
 /// Compute the rGFA path cover
 /// graph: the graph
