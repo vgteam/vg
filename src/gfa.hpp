@@ -52,17 +52,19 @@ int get_rgfa_rank(const string& path_name);
 /// Remove the rGFA information from a path name, effectively undoing set_rgfa_rank
 string strip_rgfa_path_name(const string& path_name);
 
-/// Edit the subrange of a path name
-void increment_subrange_start(string& path_name, int64_t offset);
+/// Clamp a path to given subrange (taking into account an existing subrange)
+void clamp_path_subrange(string& path_name, int64_t start, int64_t end);
 
 /// Add the rgfa rank to a pathname, also setting its sample to the special rgfa sample and
 /// moving its old sample into the locus field
 string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subrange_t& subrange,
                              const string& rgfa_sample,
                              const string& start_parent_path_name = "",
+                             int64_t start_parent_offset = -1,
                              int64_t start_parent_node_id = -1,
                              bool start_parent_node_reversed = false,
                              const string& end_parent_path_name = "",
+                             int64_t end_parent_offset = -1,
                              int64_t end_parent_node_id = -1,
                              bool end_parent_node_reversed = false);
 
@@ -72,9 +74,11 @@ string create_rgfa_path_name(const string& path_name, int rgfa_rank, const subra
 string parse_rgfa_path_name(const string& path_name, int* rgfa_rank = nullptr,
                             string* rgfa_sample = nullptr,
                             string* start_parent_rgfa_path_name = nullptr,
+                            int64_t*  start_parent_offset = nullptr,
                             int64_t* start_parent_node_id = nullptr,
                             bool* start_parent_node_reversed = nullptr,
                             string* end_parent_rgfa_path_name = nullptr,
+                            int64_t* end_parent_offset = nullptr,
                             int64_t* end_parent_node_id = nullptr,
                             bool* end_parent_node_reversed = nullptr);
 
@@ -99,6 +103,7 @@ void rgfa_graph_cover(MutablePathMutableHandleGraph* graph,
 struct RGFAFragment {
    int64_t rank;
    vector<step_handle_t> steps;
+   int64_t length;
    int64_t start_parent_idx;
    int64_t end_parent_idx;
    step_handle_t start_parent_step;
