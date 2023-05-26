@@ -73,6 +73,11 @@ static pos_t forward_pos(const MinimizerMapper::Seed& seed, const VectorView<Min
 }
 
 void MinimizerMapper::dump_debug_dotplot(const std::string& name, const std::string& marker, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& included_seeds, const std::vector<size_t>& highlighted_seeds, const PathPositionHandleGraph* path_graph) {
+    if (!path_graph) {
+        // We don't have a path positional graph for this
+        return;
+    }
+
     // Log the best bucket's seed positions in read and linear reference
     TSVExplainer exp(true, name + "-dotplot");
 
