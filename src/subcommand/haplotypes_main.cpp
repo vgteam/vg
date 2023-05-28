@@ -188,7 +188,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
-    std::cerr << "        --coverage N          read coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
+    std::cerr << "        --coverage N          kmer coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
@@ -306,7 +306,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
             if (this->recombinator_parameters.coverage == 0) {
-                std::cerr << "error: [vg haplotypes] read coverage cannot be 0" << std::endl;
+                std::cerr << "error: [vg haplotypes] kmer coverage cannot be 0" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             break;
@@ -320,21 +320,21 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         case OPT_PRESENT_DISCOUNT:
             this->recombinator_parameters.present_discount = parse<double>(optarg);
             if (this->recombinator_parameters.present_discount < 0.0 || this->recombinator_parameters.present_discount > 1.0) {
-                std::cerr << "error: [vg haplotypes] discount factor must be between 0.0 and 1.0" << std::endl;
+                std::cerr << "error: [vg haplotypes] present discount must be between 0.0 and 1.0" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             break;
         case OPT_HET_ADJUSTMENT:
             this->recombinator_parameters.het_adjustment = parse<double>(optarg);
             if (this->recombinator_parameters.het_adjustment < 0.0) {
-                std::cerr << "error: [vg haplotypes] adjustment term must be non-negative" << std::endl;
+                std::cerr << "error: [vg haplotypes] het adjustment must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             break;
         case OPT_ABSENT_SCORE:
             this->recombinator_parameters.absent_score = parse<double>(optarg);
             if (this->recombinator_parameters.absent_score < 0.0) {
-                std::cerr << "error: [vg haplotypes] scores must be non-negative" << std::endl;
+                std::cerr << "error: [vg haplotypes] absent score must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             break;
@@ -1161,7 +1161,8 @@ void validate_haplotypes(const Haplotypes& haplotypes,
                 if (iter != kmers.end()) {
                     const Haplotypes::Subchain& prev = haplotypes.chains[iter->second.first].subchains[iter->second.second];
                     if (chain_id == iter->second.first && subchain_id == iter->second.second + 1 && subchain.type == Haplotypes::Subchain::prefix && prev.type == Haplotypes::Subchain::suffix) {
-                        // TODO: Maybe warn that there are shared kmers in a snarl broken into a suffix and a prefix.
+                        // A prefix subchain may overlap the preceding suffix subchain and
+                        // contain the same kmers.
                     } else {
                         std::string message = subchain.to_string() + ": kmer " + std::to_string(i) + " also found in " + subchain_to_string(iter->second.first, iter->second.second, prev);
                         validate_error_subchain(chain_id, subchain_id, message);

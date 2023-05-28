@@ -289,6 +289,9 @@ public:
      *
      * Haplotypes crossing each subchain are represented using minimizers with a
      * single occurrence in the graph.
+     *
+     * Throws `std::runtime_error` on error in single-threaded parts and exits
+     * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
      */
     Haplotypes partition_haplotypes(const Parameters& parameters) const;
 
@@ -530,6 +533,9 @@ public:
      * the middle of a chain create fragment breaks. If the chain starts without
      * a prefix (ends without a suffix), the haplotype chosen for the first (last)
      * subchain is used from the start (continued until the end).
+     *
+     * Throws `std::runtime_error` on error in single-threaded parts and exits
+     * with `std::exit(EXIT_FAILURE)` in multi-threaded parts.
      */
     gbwt::GBWT generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const;
 

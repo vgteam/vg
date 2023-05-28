@@ -262,7 +262,16 @@ HaplotypePartitioner::HaplotypePartitioner(const gbwtgraph::GBZ& gbz,
 //------------------------------------------------------------------------------
 
 Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& parameters) const {
-    // FIXME parameter sanity checks
+
+    // Sanity checks.
+    if (parameters.subchain_length == 0) {
+        std::string msg = "HaplotypePartitioner::partition_haplotypes(): subchain length cannot be 0";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.approximate_jobs == 0) {
+        std::string msg = "HaplotypePartitioner::partition_haplotypes(): number of jobs cannot be 0";
+        throw std::runtime_error(msg);
+    }
 
     Haplotypes result;
     result.header.k = this->minimizer_index.k();
@@ -300,8 +309,8 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
         nid_t node_id = gbwt::Node::id(path.from.first);
         auto iter = jobs.node_to_job.find(node_id);
         if (iter == jobs.node_to_job.end()) {
-            std::cerr << "error: [HaplotypePartitioner::partition_haplotypes()]: cannot assign node " << node_id << " to a job" << std::endl;
-            std::exit(EXIT_FAILURE);
+            std::string msg = "HaplotypePartitioner::partition_haplotypes(): cannot assign node " + std::to_string(node_id) + " to a job";
+            throw std::runtime_error(msg);
         }
         result.jobs_for_cached_paths.push_back(iter->second);
     }
@@ -675,7 +684,8 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
     }
 
     // Take entire sequences if we could not generate any haplotypes.
-    // TODO: Maybe we don't need kmers here, as the sequences should be identical.
+    // Note that the kmer sets should be empty, as the sequences should
+    // be identical.
     if (subchains.empty()) {
         output.subchains.push_back({
             Haplotypes::Subchain::full_haplotype,
@@ -899,7 +909,28 @@ void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuild
 
 gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const {
 
-    // FIXME sanity checks for parameters
+    // Sanity checks.
+    if (parameters.coverage == 0) {
+        // TODO: estimate coverage
+        std::string msg = "Recombinator::generate_haplotypes(): kmer coverage cannot be 0";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.num_haplotypes == 0) {
+        std::string msg = "Recombinator::generate_haplotypes(): number of haplotypes cannot be 0";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.present_discount < 0.0 || parameters.present_discount > 1.0) {
+        std::string msg = "Recombinator::generate_haplotypes(): present discount must be between 0.0 and 1.0";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.het_adjustment < 0.0) {
+        std::string msg = "Recombinator::generate_haplotypes(): het adjustment must be non-negative";
+        throw std::runtime_error(msg);
+    }
+    if (parameters.absent_score < 0.0) {
+        std::string msg = "Recombinator::generate_haplotypes(): absent score must be non-negative";
+        throw std::runtime_error(msg);
+    }
 
     // Get kmer counts.
     double start = gbwt::readTimer();
@@ -907,12 +938,8 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
         std::cerr << "Reading kmer counts" << std::endl;
     }
     hash_map<Haplotypes::Subchain::kmer_type, size_t> counts;
-    try {
-        counts = haplotypes.kmer_counts(kff_file, this->verbosity >= HaplotypePartitioner::verbosity_detailed);
-    } catch (const std::runtime_error& e) {
-        std::cerr << "error: " << e.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+    // This may throw.
+    counts = haplotypes.kmer_counts(kff_file, this->verbosity >= HaplotypePartitioner::verbosity_detailed);
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Read the kmer counts in " << seconds << " seconds" << std::endl;
@@ -1036,7 +1063,8 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     Statistics statistics;
     statistics.chains = 1; statistics.haplotypes = parameters.num_haplotypes;
     if (chain.subchains.size() == 1 && chain.subchains.front().type == Haplotypes::Subchain::full_haplotype) {
-        // TODO: Full haplotypes should all be identical, because there are no snarls. Therefore we do not need kmers.
+        // Full haplotypes should all be identical, because there are no snarls.
+        // Therefore we do not need kmers.
         auto& subchain = chain.subchains.front();
         for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
             assert(!subchain.sequences.empty());
