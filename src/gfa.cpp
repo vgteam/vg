@@ -1059,7 +1059,7 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
  
         handle_t end_handle = graph->get_handle_of_step(trav[uncovered_interval.second]);
         vector<step_handle_t> end_handle_steps = graph->steps_of_handle(end_handle);
-        path_handle_t end_parent_path = graph->get_path_handle_of_step(cover_fragments.at(prev_frag_idx).steps.front());
+        path_handle_t end_parent_path = graph->get_path_handle_of_step(cover_fragments.at(next_frag_idx).steps.front());
         vector<int64_t> end_parent_step_indexes;
         for (int64_t i = 0; i < end_handle_steps.size(); ++i) {
             if (graph->get_path_handle_of_step(end_handle_steps[i]) == end_parent_path) {
