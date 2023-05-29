@@ -1049,6 +1049,18 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                 start_parent_step_indexes.push_back(i);
             }
         }
+        if (start_parent_step_indexes.size() > 1) {
+            // fall back to brute force scan of the entire parent path
+            start_parent_step_indexes.clear();
+            start_handle_steps.clear();
+            for (const auto& parent_step : cover_fragments.at(prev_frag_idx).steps) {
+                if (graph->get_handle_of_step(parent_step) == start_handle) {
+                    start_parent_step_indexes.push_back(start_handle_steps.size());
+                    start_handle_steps.push_back(parent_step);
+                    // todo: break (but leave out for now to do below assertion)
+                }
+            }
+        }
         assert(start_parent_step_indexes.size() == 1);
         step_handle_t start_parent_step = start_handle_steps[start_parent_step_indexes[0]];
 
@@ -1066,6 +1078,18 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
                 end_parent_step_indexes.push_back(i);
             }
         }
+        if (end_parent_step_indexes.size() > 1) {
+            // fall back to brute force scan of the entire parent path
+            end_parent_step_indexes.clear();
+            end_handle_steps.clear();
+            for (const auto& parent_step : cover_fragments.at(next_frag_idx).steps) {
+                if (graph->get_handle_of_step(parent_step) == end_handle) {
+                    end_parent_step_indexes.push_back(end_handle_steps.size());
+                    end_handle_steps.push_back(parent_step);
+                    // todo: break (but leave out for now to do below assertion)
+                }
+            }
+        }        
         assert(end_parent_step_indexes.size() == 1);
         step_handle_t end_parent_step = end_handle_steps[end_parent_step_indexes[0]];                    
 
