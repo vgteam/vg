@@ -906,13 +906,18 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
     function<vector<pair<int64_t, int64_t>>(const vector<step_handle_t>&)> get_uncovered_intervals = [&](const vector<step_handle_t>& trav) {
         vector<pair<int64_t, int64_t>> intervals;
         int64_t start = -1;
+        unordered_set<nid_t> dupe_check;
         for (size_t i = 0; i < trav.size(); ++i) {
-            bool covered = cover_node_to_fragment.count(graph->get_id(graph->get_handle_of_step(trav[i])));
-            if (covered) {
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(trav[i]));
+            bool covered = cover_node_to_fragment.count(node_id);
+            // we break at dupes even if uncovered -- never want same id twice in an interval
+            bool dupe = !covered && dupe_check.count(node_id);
+            dupe_check.insert(node_id);
+            if (covered || dupe) {
                 if (start != -1) {
                     intervals.push_back(make_pair(start, i));
                 }
-                start = -1;
+                start = dupe ? i : -1;
             } else {
                 if (start == -1) {
                     start = i;
@@ -1054,7 +1059,7 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
             start_parent_step_indexes.clear();
             start_handle_steps.clear();
             for (const auto& parent_step : cover_fragments.at(prev_frag_idx).steps) {
-                if (graph->get_handle_of_step(parent_step) == start_handle) {
+                if (graph->get_id(graph->get_handle_of_step(parent_step)) == graph->get_id(start_handle)) {
                     start_parent_step_indexes.push_back(start_handle_steps.size());
                     start_handle_steps.push_back(parent_step);
                     // todo: break (but leave out for now to do below assertion)
@@ -1083,7 +1088,7 @@ void rgfa_snarl_cover(const PathHandleGraph* graph,
             end_parent_step_indexes.clear();
             end_handle_steps.clear();
             for (const auto& parent_step : cover_fragments.at(next_frag_idx).steps) {
-                if (graph->get_handle_of_step(parent_step) == end_handle) {
+                if (graph->get_id(graph->get_handle_of_step(parent_step)) == graph->get_id(end_handle)) {
                     end_parent_step_indexes.push_back(end_handle_steps.size());
                     end_handle_steps.push_back(parent_step);
                     // todo: break (but leave out for now to do below assertion)
