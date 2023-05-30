@@ -181,14 +181,14 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "Input files:" << std::endl;
     std::cerr << "    -d, --distance-index X    use this distance index (default: <basename>.dist)" << std::endl;
     std::cerr << "    -r, --r-index X           use this r-index (default: <basename>.ri)" << std::endl;
-    std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate the information)" << std::endl;
+    std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate)" << std::endl;
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Computational parameters:" << std::endl;
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
-    std::cerr << "        --coverage N          kmer coverage in the KFF file (default: " << haplotypes_default_coverage() << ")" << std::endl;
+    std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
@@ -305,10 +305,6 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_COVERAGE:
             this->recombinator_parameters.coverage = parse<size_t>(optarg);
-            if (this->recombinator_parameters.coverage == 0) {
-                std::cerr << "error: [vg haplotypes] kmer coverage cannot be 0" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
             break;
         case OPT_NUM_HAPLOTYPES:
             this->recombinator_parameters.num_haplotypes = parse<size_t>(optarg);

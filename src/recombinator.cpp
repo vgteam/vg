@@ -1,6 +1,7 @@
 #include "recombinator.hpp"
 
 #include "kff.hpp"
+#include "statistics.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -910,11 +911,6 @@ void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuild
 gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const std::string& kff_file, const Parameters& parameters) const {
 
     // Sanity checks.
-    if (parameters.coverage == 0) {
-        // TODO: estimate coverage
-        std::string msg = "Recombinator::generate_haplotypes(): kmer coverage cannot be 0";
-        throw std::runtime_error(msg);
-    }
     if (parameters.num_haplotypes == 0) {
         std::string msg = "Recombinator::generate_haplotypes(): number of haplotypes cannot be 0";
         throw std::runtime_error(msg);
@@ -943,6 +939,36 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
     if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Read the kmer counts in " << seconds << " seconds" << std::endl;
+    }
+
+    // TODO: What is the right estimate?
+    double coverage = parameters.coverage;
+    if (coverage == 0.0) {
+        start = gbwt::readTimer();
+        if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
+            std::cerr << "Estimating kmer coverage" << std::endl;
+        }
+        std::map<size_t, size_t> count_to_frequency;
+        for (auto iter = counts.begin(); iter != counts.end(); ++iter) {
+            // We are only interested in kmers with multiple occurrences, as unique
+            // kmers are likely sequencing errors.
+            if (iter->second > 1) {
+                count_to_frequency[iter->second]++;
+            }
+        }
+        auto statistics = summary_statistics(count_to_frequency);
+        coverage = std::max(statistics.median, statistics.mode);
+        if (this->verbosity >= HaplotypePartitioner::verbosity_detailed) {
+            std::cerr << "Coverage: median " << statistics.median
+                << ", mean " << statistics.mean
+                << ", stdev " << statistics.stdev
+                << ", mode " << statistics.mode
+                << "; using " << coverage << std::endl;
+        }
+        if (this->verbosity >= HaplotypePartitioner::verbosity_basic) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "Estimated kmer coverage in " << seconds << " seconds" << std::endl;
+        }
     }
 
     start = gbwt::readTimer();
@@ -988,7 +1014,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
         // Add haplotypes for each chain.
         for (auto chain_id : jobs[job]) {
             try {
-                Statistics chain_statistics = this->generate_haplotypes(haplotypes.chains[chain_id], counts, builder, parameters);
+                Statistics chain_statistics = this->generate_haplotypes(haplotypes.chains[chain_id], counts, builder, parameters, coverage);
                 job_statistics.combine(chain_statistics);
             } catch (const std::runtime_error& e) {
                 std::cerr << "error: [job " << job << "]: " << e.what() << std::endl;
@@ -1044,13 +1070,14 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
 Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::TopLevelChain& chain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
     gbwt::GBWTBuilder& builder,
-    const Parameters& parameters) const {
+    const Parameters& parameters,
+    double coverage) const {
 
     // TODO: What are the proper thresholds?
     enum kmer_presence { absent, heterozygous, present, ignore };
-    double absent_threshold = parameters.coverage * 0.1;
-    double heterozygous_threshold = parameters.coverage / std::log(4.0);
-    double homozygous_threshold = parameters.coverage * 2.0;
+    double absent_threshold = coverage * 0.1;
+    double heterozygous_threshold = coverage / std::log(4.0);
+    double homozygous_threshold = coverage * 2.5;
 
     std::vector<Haplotype> haplotypes;
     for (size_t i = 0; i < parameters.num_haplotypes; i++) {

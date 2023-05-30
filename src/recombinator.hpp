@@ -348,8 +348,8 @@ public:
     /// Number of haplotypes to be generated.
     constexpr static size_t NUM_HAPLOTYPES = 8;
 
-    /// Expected read coverage.
-    constexpr static size_t COVERAGE = 30;
+    /// Expected kmer coverage. Use 0 to estimate from kmer counts.
+    constexpr static size_t COVERAGE = 0;
 
     /// Block size (in kmers) for reading KFF files.
     constexpr static size_t KFF_BLOCK_SIZE = 1000000;
@@ -493,7 +493,7 @@ public:
         /// Number of haplotypes to be generated.
         size_t num_haplotypes = NUM_HAPLOTYPES;
 
-        /// Read coverage.
+        /// Kmer coverage. Use 0 to estimate from kmer counts.
         size_t coverage = COVERAGE;
 
         /// Buffer size (in nodes) for GBWT construction.
@@ -547,7 +547,7 @@ private:
     Statistics generate_haplotypes(const Haplotypes::TopLevelChain& chain,
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
         gbwt::GBWTBuilder& builder,
-        const Parameters& parameters) const;
+        const Parameters& parameters, double coverage) const;
 };
 
 //------------------------------------------------------------------------------
