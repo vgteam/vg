@@ -12,7 +12,7 @@
 #include "vg/io/alignment_emitter.hpp"
 #include "gbwt_extender.hpp"
 #include "snarl_seed_clusterer.hpp"
-#include "zipcode_seed_clusterer.hpp"
+#include "zip_code_tree.hpp"
 #include "mapper.hpp"
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
@@ -497,8 +497,6 @@ protected:
     /// We have a clusterer
     SnarlDistanceIndexClusterer clusterer;
 
-    /// And a clusterer that uses zipcodes
-    ZipcodeClusterer zip_clusterer;
 
     /// We have a distribution for read fragment lengths that takes care of
     /// knowing when we've observed enough good ones to learn a good

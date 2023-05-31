@@ -53,7 +53,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     distance_index(distance_index),  
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
-    zip_clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())),
     fragment_length_distr(1000,1000,0.95) {
