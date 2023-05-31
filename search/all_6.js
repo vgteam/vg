@@ -330,7 +330,7 @@ var searchData=
   ['full_1793',['full',['../structvg_1_1GaplessExtension.html#a1d1eb14643690ee92b30b2f0bdb5d82c',1,'vg::GaplessExtension']]],
   ['full_5fhaplotype_1794',['full_haplotype',['../structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea5f4dff4ab82d6475d46abc492168ad11',1,'vg::Haplotypes::Subchain']]],
   ['full_5fhaplotypes_1795',['full_haplotypes',['../structvg_1_1Recombinator_1_1Statistics.html#a5ae651194a7e9670ae435f46cedf00f3',1,'vg::Recombinator::Statistics']]],
-  ['full_5flength_5fbonus_1796',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
+  ['full_5flength_5fbonus_1796',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner::full_length_bonus()'],['../structScoringOptions.html#a86fa76ce2c5e6a086ea66dd60a8e9701',1,'ScoringOptions::full_length_bonus()']]],
   ['full_5flength_5fextensions_1797',['full_length_extensions',['../classvg_1_1GaplessExtender.html#a0381d55bcbba7e1ea297dc9a915dac1d',1,'vg::GaplessExtender']]],
   ['fulltrace_1798',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]],
   ['funnel_1799',['Funnel',['../classvg_1_1Funnel.html',1,'vg']]],

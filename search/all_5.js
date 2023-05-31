@@ -208,7 +208,7 @@ var searchData=
   ['extend_5fover_1421',['extend_over',['../classvg_1_1WFATree.html#a603505e155401ecbb0f706c92945a4ae',1,'vg::WFATree']]],
   ['extend_5fpath_1422',['extend_path',['../classvg_1_1PhaseUnfolder.html#a40a20697627b7742f98776111b8dbc66',1,'vg::PhaseUnfolder::extend_path()'],['../namespacevg.html#afcc55b3037b4e078c4268f08dda7cf4b',1,'vg::extend_path()']]],
   ['extend_5fstate_1423',['extend_state',['../classvg_1_1PhaseUnfolder.html#a610d8256b9dc58fe6d04b1ff7aaafebb',1,'vg::PhaseUnfolder']]],
-  ['extender_1424',['extender',['../classvg_1_1MinimizerMapper.html#a7384299b6fd570ee8454c6f74c7a6583',1,'vg::MinimizerMapper']]],
+  ['extender_1424',['extender',['../classvg_1_1MinimizerMapper.html#a30d6a39763a954968818b76b0463aa89',1,'vg::MinimizerMapper']]],
   ['extension_5fscore_5fthreshold_1425',['extension_score_threshold',['../classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0',1,'vg::MinimizerMapper']]],
   ['extension_5fset_5fmin_5fscore_1426',['extension_set_min_score',['../classvg_1_1MinimizerMapper.html#aceeb71c78d5d236c86272ee14592cd10',1,'vg::MinimizerMapper']]],
   ['extension_5fset_5fscore_5fthreshold_1427',['extension_set_score_threshold',['../classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee',1,'vg::MinimizerMapper']]],

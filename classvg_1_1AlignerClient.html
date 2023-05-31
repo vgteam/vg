@@ -95,12 +95,12 @@ Inheritance diagram for vg::AlignerClient:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a1fde3e4537147030d153d403fd04ec77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a1fde3e4537147030d153d403fd04ec77">set_alignment_scores</a> (int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
+<tr class="memitem:a1fde3e4537147030d153d403fd04ec77"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a1fde3e4537147030d153d403fd04ec77">set_alignment_scores</a> (int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="memdesc:a1fde3e4537147030d153d403fd04ec77"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set all the aligner scoring parameters and create the stored aligner instances.  <a href="classvg_1_1AlignerClient.html#a1fde3e4537147030d153d403fd04ec77">More...</a><br /></td></tr>
 <tr class="separator:a1fde3e4537147030d153d403fd04ec77"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adbdd2fabd7a36353526663aede3cb555"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#adbdd2fabd7a36353526663aede3cb555">set_alignment_scores</a> (std::istream &amp;matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
+<tr class="memitem:adbdd2fabd7a36353526663aede3cb555"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#adbdd2fabd7a36353526663aede3cb555">set_alignment_scores</a> (std::istream &amp;matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="separator:adbdd2fabd7a36353526663aede3cb555"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79424f53b6e4f588da23ea531a600b84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a79424f53b6e4f588da23ea531a600b84">set_alignment_scores</a> (const int8_t *score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
+<tr class="memitem:a79424f53b6e4f588da23ea531a600b84"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a79424f53b6e4f588da23ea531a600b84">set_alignment_scores</a> (const int8_t *score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="separator:a79424f53b6e4f588da23ea531a600b84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
@@ -275,6 +275,9 @@ Private Attributes</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::AlignerClient::set_alignment_scores </td>
@@ -306,8 +309,15 @@ Private Attributes</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
-<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT) </p>
+<p>Set the algner scoring parameters and create the stored aligner instances. The score matrix should by a 4 x 4 array in the order (ACGT). Other overloads of set_alignment_scores all call this one. </p>
+
+<p>Reimplemented in <a class="el" href="classvg_1_1MultipathMapper.html#ad897513b9554b2dabebea47cc3f3da9f">vg::MultipathMapper</a>, and <a class="el" href="classvg_1_1MinimizerMapper.html#a98a602ac6b9f20d9da825d8a542ceebd">vg::MinimizerMapper</a>.</p>
 
 </div>
 </div>
@@ -316,6 +326,9 @@ Private Attributes</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::AlignerClient::set_alignment_scores </td>
@@ -353,6 +366,11 @@ Private Attributes</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>Set all the aligner scoring parameters and create the stored aligner instances. </p>
@@ -364,6 +382,9 @@ Private Attributes</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::AlignerClient::set_alignment_scores </td>
@@ -395,6 +416,11 @@ Private Attributes</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 <p>Set the algner scoring parameters and create the stored aligner instances. The stream should contain a 4 x 4 whitespace-separated substitution matrix (in the order ACGT) </p>
 
