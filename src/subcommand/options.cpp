@@ -58,6 +58,11 @@ const char* get_metavar<int>() {
 }
 
 template<>
+const char* get_metavar<int8_t>() {
+    return "INT";
+}
+
+template<>
 const char* get_metavar<bool>() {
     return "BOOL";
 }

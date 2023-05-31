@@ -81,14 +81,8 @@ namespace vg {
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
         
-        /// Set all the aligner scoring parameters and create the stored aligner instances.
-        void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
-        
-        /// Set the algner scoring parameters and create the stored aligner instances. The
-        /// stream should contain a 4 x 4 whitespace-separated substitution matrix (in the
-        /// order ACGT)
-        void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
-        
+        using AlignerClient::set_alignment_scores;
+
         /// Set the algner scoring parameters and create the stored aligner instances. The
         /// score matrix should by a 4 x 4 array in the order (ACGT)
         void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);

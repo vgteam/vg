@@ -2426,12 +2426,9 @@ void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t g
             matrix[i] = -mismatch;
         }
     }
-    
-    qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(matrix, gap_open, gap_extend,
-                                                                     full_length_bonus, gc_content_estimate));
-    regular_aligner = unique_ptr<Aligner>(new Aligner(matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate));
-                  
+
+    this->set_alignment_scores(matrix, gap_open, gap_extend, full_length_bonus);
+
     free(matrix);
 }
 
@@ -2447,10 +2444,7 @@ void AlignerClient::set_alignment_scores(const int8_t* score_matrix, int8_t gap_
 
 void AlignerClient::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
     int8_t* score_matrix = parse_matrix(matrix_stream);
-    qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(score_matrix, gap_open, gap_extend,
-                                                                     full_length_bonus, gc_content_estimate));
-    regular_aligner = unique_ptr<Aligner>(new Aligner(score_matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate));
+    this->set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
     free(score_matrix);
 }
 
