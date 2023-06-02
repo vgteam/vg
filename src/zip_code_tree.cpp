@@ -327,6 +327,10 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
     }
 }
 
+ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end) : it(it), end(end) {
+    // Nothing to do!
+}
+
 auto ZipCodeTree::iterator::operator++() -> iterator& {
     ++it;
     while (it != end && it->type != SEED) {
@@ -345,10 +349,6 @@ auto ZipCodeTree::iterator::operator*() const -> size_t {
     return it->value;
 }
 
-ZipCodeTree::iterator::iterator(vector<tree_item_t>::iterator it, vector<tree_item_t>::iterator end) : it(it), end(end) {
-    // Nothing to do!
-}
-
 auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
     return end - it;
 }
@@ -359,6 +359,14 @@ auto ZipCodeTree::begin() const -> iterator {
 
 auto ZipCodeTree::end() const -> iterator {
     return iterator(zip_code_tree.end(), zip_code_tree.end());
+}
+
+ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(it), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
+    while (it != rend && !tick()) {
+        // Skip ahead to the first seed we actually want to yield, or to the end of the data.
+        ++it;
+    }
+    // As the end of the constructor, the iterator points to a seed that has been ticked and yielded, or is rend.
 }
 
 auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
@@ -384,14 +392,6 @@ auto ZipCodeTree::reverse_iterator::operator*() const -> std::pair<size_t, size_
     crash_unless(!stack.empty());
     // We know the running distance to this seed will be at the top of the stack.
     return {it->value, stack.top()};
-}
-
-ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::reverse_iterator it, vector<tree_item_t>::reverse_iterator rend, size_t distance_limit) : it(it), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
-    while (it != rend && !tick()) {
-        // Skip ahead to the first seed we actually want to yield, or to the end of the data.
-        ++it;
-    }
-    // As the end of the constructor, the iterator points to a seed that has been ticked and yielded, or is rend.
 }
 
 auto ZipCodeTree::reverse_iterator::push(size_t value) -> void {
@@ -448,7 +448,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             state(S_SCAN_CHAIN);
             break;
         default:
-            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     case S_SCAN_CHAIN:
@@ -503,7 +503,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             }
             break;
         default:
-            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     case S_STACK_SNARL:
@@ -540,7 +540,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             }
             break;
         default:
-            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     case S_SCAN_SNARL:
@@ -575,7 +575,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             // it.
             break;
         default:
-            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     case S_SKIP_CHAIN:
@@ -619,11 +619,11 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             // Ignore edge values
             break;
         default:
-            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     default:
-        throw std::domain_error("Unimplemented state " + std::to_string(state)); 
+        throw std::domain_error("Unimplemented state " + std::to_string(current_state)); 
     }
     // Unless we yield something, we don't yield anything.
     return false;
@@ -633,7 +633,7 @@ auto ZipCodeTree::look_back(const iterator& from, size_t distance_limit) const -
     return reverse_iterator(zip_code_tree.rbegin() + from.remaining_tree(), zip_code_tree.rend(), distance_limit);
 }
 auto ZipCodeTree::rend() const -> reverse_iterator {
-    return reverse_iterator(zip_code_tree.rend(), zip_code_tree.rend(), 0)
+    return reverse_iterator(zip_code_tree.rend(), zip_code_tree.rend(), 0);
 }
 
 

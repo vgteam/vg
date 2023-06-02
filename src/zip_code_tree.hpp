@@ -72,6 +72,15 @@ public:
      */
     class iterator {
     public:
+        /// Make an iterator wrapping the given iterator, until the given end.
+        iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end);
+        
+        // Iterators are copyable and movable.
+        iterator(const iterator& other) = default;
+        iterator(iterator&& other) = default;
+        iterator& operator=(const iterator& other) = default;
+        iterator& operator=(iterator&& other) = default;
+
         /// Advance right
         iterator& operator++();
 
@@ -86,18 +95,15 @@ public:
         /// Get the index of the seed we are currently at.
         size_t operator*() const;
 
-        /// Make an iterator wrapping the given iterator, until the given end.
-        iterator(vector<tree_item_t>::iterator it, vector<tree_item_t>::iterator end);
-
         /// Get the number of tree storage slots left in the iterator. We need
         /// this to make reverse iterators from forward ones.
         size_t remaining_tree() const;
 
     private:
         /// Where we are in the stored tree.
-        vector<tree_item_t>::iterator it;
+        vector<tree_item_t>::const_iterator it;
         /// Where the stored tree ends. We keep this to avoid needing a reference back to the ZipCodeTree.
-        vector<tree_item_t>::iterator end;
+        vector<tree_item_t>::const_iterator end;
     };
 
     /// Get an iterator over indexes of seeds in the tree, left to right.
@@ -112,6 +118,16 @@ public:
      */
     class reverse_iterator {
     public:
+        /// Make a reverse iterator wrapping the given reverse iterator, until
+        /// the given rend, with the given distance limit.
+        reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
+
+        // Reverse iterators are not copyable but are movable, because the stack is big.
+        reverse_iterator(const reverse_iterator& other) = delete;
+        reverse_iterator(reverse_iterator&& other) = default;
+        reverse_iterator& operator=(const reverse_iterator& other) = delete;
+        reverse_iterator& operator=(reverse_iterator&& other) = default;
+
         /// Move left
         reverse_iterator& operator++();
 
@@ -125,16 +141,11 @@ public:
         
         /// Get the index of the seed we are currently at, and the distance to it.
         std::pair<size_t, size_t> operator*() const;
-
-        /// Make a reverse iterator wrapping the given reverse iterator, until
-        /// the given rend, with the given distance limit.
-        reverse_iterator(vector<tree_item_t>::reverse_iterator it, vector<tree_item_t>::reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
-
     private:
         /// Where we are in the stored tree.
-        vector<tree_item_t>::reverse_iterator it;
+        vector<tree_item_t>::const_reverse_iterator it;
         /// Where the rend is where we have to stop
-        vector<tree_item_t>::reverse_iterator rend;
+        vector<tree_item_t>::const_reverse_iterator rend;
         /// Distance limit we will go up to
         size_t distance_limit;
         /// Stack for computing distances
