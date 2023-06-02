@@ -21,30 +21,22 @@ The tree can be traversed to find distances between seeds
 */
 class ZipCodeTree {
 
+    typedef SnarlDistanceIndexClusterer::Seed Seed;
+
     public:
 
     /**
      * Constructor
      * The constructor creates a tree of the input seeds that is used for calculating distances
      */
-    ZipCodeTree(vector<SnarlDistanceIndexClusterer::Seed>& seeds);
-
-    /** Given a seed, run iteratee on all seeds that are reachable with a minimum distance
-     * less than or equal to the distance_limit
-     *
-     * iteratee returns false to stop ant true to continue
-     * returns false if the iteration stopped early, and true if it completed
-     */
-    bool for_each_seed_within_distance_range(SnarlDistanceIndexClusterer::Seed& seed, 
-            const size_t distance_limit,
-            const std::function<bool(SnarlDistanceIndexClusterer::Seed&, size_t)>& iteratee) const;
+    ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index);
 
     private:
 
     //The seeds to that are taken as input
     //The order of the seeds will never change, but the vector is not const because the zipcodes
     //decoders may change
-    vector<SnarlDistanceIndexClusterer::Seed>& seeds;
+    vector<Seed>& seeds;
 
 
     /*
@@ -57,11 +49,11 @@ class ZipCodeTree {
       TODO: Fill in a description once it's finalized more
      */
 
-    enum tree_item_t {SEED, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
-    struct tree_item {
+    enum tree_item_type_t {SEED, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
+    struct tree_item_t {
 
         //Is this a seed, boundary, or an edge
-        tree_item_t type;
+        tree_item_type_t type;
 
         //For a seed, the index into seeds
         //For an edge, the distance value
@@ -70,8 +62,7 @@ class ZipCodeTree {
     };
 
     //The actual tree structure
-    vector<tree_item> zip_code_tree;
-
+    vector<tree_item_t> zip_code_tree;
 
     
 };

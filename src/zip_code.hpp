@@ -34,6 +34,7 @@ class ZipCodeDecoder;
 
 
 ///The type of codes that can be stored in the zipcode
+///Trivial chains that are children of snarls get saved as a chain with no child node
 ///EMPTY doesn't actually mean anything, it's used to catch errors
 enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
 
