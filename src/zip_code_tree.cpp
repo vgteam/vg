@@ -2,6 +2,8 @@
 
 #include "zip_code_tree.hpp"
 
+#include "crash.hpp"
+
 using namespace std;
 namespace vg {
 
@@ -324,5 +326,224 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
         }
     }
 }
+
+auto ZipCodeTree::iterator::operator++() -> iterator& {
+    ++it;
+    while (it != end && it->type != SEED) {
+        // Advance to the next seed, or the end.
+        ++it;
+    }
+    return *this;
+}
+
+auto ZipCodeTree::iterator::operator==(const iterator& other) const -> bool {
+    // Ends don't matter for comparison.
+    return it == other.it;
+}
+    
+auto ZipCodeTree::iterator::operator*() const -> size_t {
+    return it->value;
+}
+
+ZipCodeTree::iterator::iterator(vector<tree_item_t>::iterator it, vector<tree_item_t>::iterator end) : it(it), end(end) {
+    // Nothing to do!
+}
+
+auto ZipCodeTree::begin() const -> iterator {
+    return iterator(zip_code_tree.begin(), zip_code_tree.end());
+}
+
+auto ZipCodeTree::end() const -> iterator {
+    return iterator(zip_code_tree.end(), zip_code_tree.end());
+}
+
+auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
+    ++it;
+    while (it != rend && it->type != SEED) {
+        // Consume symbols until we hit the end or find a seed
+        tick();
+        ++it;
+    }
+    if (it != rend) {
+        // Now we're at a seed so handle it.
+        //
+        // We really only handle seeds to catch if we are in the wrong state
+        // when we get there; in the right state the seed doesn't cause any
+        // changes.
+        tick();
+    }
+    return *this;
+}
+
+auto ZipCodeTree::reverse_iterator::operator==(const reverse_iterator& other) const -> bool {
+    // Ends and other state don't matter for comparison.
+    return it == other.it;
+}
+
+auto ZipCodeTree::reverse_iterator::operator*() const -> std::pair<size_t, size_t> {
+    // We are always at a seed, so show that seed
+    crash_unless(it != rend);
+    crash_unless(it->type == SEED);
+    crash_unless(!stack.empty());
+    // We know the running distance to this seed will be at the top of the stack.
+    return {it->value, stack.top()};
+}
+
+ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::reverse_iterator it, vector<tree_item_t>::reverse_iterator rend, size_t distance_limit) : it(it), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
+    if (it != rend) {
+        // If we are starting iteration we need an initial tick to handle the seed we start at.
+        tick();
+    }
+}
+
+auto ZipCodeTree::reverse_iterator::push(size_t value) -> void {
+    stack.push(value);
+}
+
+auto ZipCodeTree::reverse_iterator::pop() -> size_t {
+    size_t value = stack.top();
+    stack.pop();
+    return value;
+}
+
+auto ZipCodeTree::reverse_iterator::dup() -> void {
+    push(stack.top());
+}
+
+auto ZipCodeTree::reverse_iterator::depth() const -> size_t {
+    return stack.size();
+}
+
+auto ZipCodeTree::reverse_iterator::reverse(size_t depth) -> void {
+    // We reverse by moving from a stack to a queue and back.
+    // TODO: would using a backing vector and STL algorithms be better?
+    std::queue<size_t> queue;
+    for (size_t i = 0; i < depth; i++) {
+        queue.push(stack.top());
+        stack.pop();
+    }
+    for (size_t i = 0; i < depth; i++) {
+        stack.push(queue.front());
+        queue.pop();
+    }
+}
+
+auto ZipCodeTree::reverse_iterator::tick() -> void {
+    switch (current_state) {
+    case S_START:
+        // Stack is empty and we must be at a seed to start at.
+        switch (it->type) {
+        case SEED:
+            push(0);
+            state(S_SCAN_CHAIN);
+            break;
+        default:
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+        }
+        break;
+    case S_SCAN_CHAIN:
+        // Stack has at the top the running distance along the chain, and under
+        // that running distances to use at the other chains in the snarl, and
+        // under that running distances to use for the other chains in the
+        // snarl's parent snarl, etc.
+        switch (it->type) {
+        case SEED:
+            // Emit seed here with distance at top of stack.
+            // We don't have to do anything for this, the iterator dereference handles it.
+            break;
+        case SNARL_END:
+            // Running distance along chain is on stack, and will need to be added to all the stored distances.
+            push(0); // Depth of stack that needs reversing after we read all the distances into it
+            state(S_STACK_SNARL); // Stack up pre-made scratch distances for all the distances right left of here
+            break;
+        case CHAIN_START:
+            if (depth() == 1) {
+                // We never entered the parent snarl of this chain, so stack up
+                // the distances left of here as options added to the
+                // distance along this chain.
+                //
+                // Running distance along chain is on stack, and will need to
+                // be added to all the stored distances.
+                push(0); // Depth of stack that needs reversing after we read all the distances into it
+                state(S_STACK_SNARL);
+            } else {
+                // We did enter the parent snarl already.
+                // Discard the running distance along this chain, which no longer matters.
+                pop();
+                // Running distance for next chain, or running distance to cross the snarl, will be under it.
+                state(S_SCAN_SNARL);
+            }
+            break;
+        case EDGE:
+            // Distance between things in a chain.
+            // Add value into top of stack.
+            push(pop() + it->value);
+            break;
+        default:
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+        }
+        break;
+    case S_STACK_SNARL:
+        // Stack has at the top the number of edges we have stacked up, and
+        // under that the running distance along the parent chain, and under
+        // that the stacked running distances for items in the snarl.
+        switch (it->type) {
+        case EDGE:
+            // Swap top 2 elements to bring parent running distance to the top
+            reverse(2);
+            // Duplicate it
+            dup();
+            // Add in the edge value to make a running distance for the thing this edge is for
+            push(pop() + it->value);
+            // Flip top 3 elements, so now edge count is on top, over parent running distance, over edge running distance.
+            reverse(3);
+            // Add 1 to the edge count
+            push(pop() + 1);
+            break;
+        case CHAIN_END:
+            // Bring parent running distance above edge count
+            reverse(2);
+            // Throw it out
+            pop();
+            // Re-order all the edge running distances so we can pop them in the order we encounter the edge targets.
+            reverse(pop());
+            state(S_SCAN_CHAIN);
+            break;
+        default:
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+        }
+        break;
+    case S_SCAN_SNARL:
+        // Stack has at the top running distances to use for each chain still
+        // to be visited in the snarl, and under those the same for the snarl
+        // above that, etc.
+        switch (it->type) {
+        case SNARL_START:
+            // Stack holds running distance along parent chain plus edge
+            // distance to cross the snarl, or running distance out of chain we
+            // started in plus distance to exit the snarl.
+            //
+            // This is the right running distance to use for the parent chain now.
+            // So go back to scanning the parent chain.
+            state(S_SCAN_CHAIN);
+            break;
+        case CHAIN_END:
+            // We've encountered a chain to look at, and the running distance
+            // into the chain is already on the stack, so we can just start
+            // scanning the child chain.
+            state(S_SCAN_CHAIN);
+            break;
+        case EDGE:
+            // We've found edge data in the snarl, but we already know the
+            // running distances to everythign we will encounter, so we ignore
+            // it.
+            break;
+        default:
+            throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(state)); 
+        }
+        break;
+    }
+}
+
 
 }
