@@ -8,18 +8,18 @@ namespace vg {
 void parse_region(const string& target, string& name, int64_t& start, int64_t& end) {
     start = -1;
     end = -1;
-    size_t foundFirstColon = target.find(":");
+    size_t foundLastColon = target.rfind(":");
     // we only have a single string, use the whole sequence as the target
-    if (foundFirstColon == string::npos) {
+    if (foundLastColon == string::npos) {
         name = target;
     } else {
-        name = target.substr(0, foundFirstColon);
-	    size_t foundRangeDash = target.find("-", foundFirstColon);
+        name = target.substr(0, foundLastColon);
+	    size_t foundRangeDash = target.find("-", foundLastColon);
         if (foundRangeDash == string::npos) {
-            start = atoi(target.substr(foundFirstColon + 1).c_str());
+            start = atoi(target.substr(foundLastColon + 1).c_str());
             end = start;
         } else {
-            start = atoi(target.substr(foundFirstColon + 1, foundRangeDash - foundRangeDash - 1).c_str());
+            start = atoi(target.substr(foundLastColon + 1, foundRangeDash - foundRangeDash - 1).c_str());
             end = atoi(target.substr(foundRangeDash + 1).c_str());
         }
     }
