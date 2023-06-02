@@ -424,28 +424,16 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     int sample_ploidy = ploidy;
     int min_phase = 1;
     int max_phase = ploidy;
-    if (has_phasing) {
-        // override ploidy with information about all phases found in input
-        std::tie(min_phase, max_phase) = gbwt_sample_to_phase_range.at(sample_name);
-        // shift left by 1 unless min phase is 0
-        sample_ploidy = min_phase == 0 ? max_phase + 1 : max_phase;
-        assert(sample_ploidy > 0);
-        
-        set<int> used_phases;
-        for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
-            int phase = gbwt_phases.at(sorted_travs[i]);
-            if (!used_phases.count(phase)) {
-                if (trav_to_allele[sorted_travs[i]] >= 0) {
-                    most_frequent_travs.push_back(sorted_travs[i]);
-                    used_phases.insert(phase);
-                }
-            } else {
-                phasing_conflict = true;
-            }
-        }
-    } else if (path_to_sample_phase) {
-        sample_ploidy = sample_ploidys.at(sample_name);
-        
+    if (has_phasing || path_to_sample_phase) {
+        if (has_phasing) {
+            // override ploidy with information about all phases found in input
+            std::tie(min_phase, max_phase) = gbwt_sample_to_phase_range.at(sample_name);
+            // shift left by 1 unless min phase is 0
+            sample_ploidy = min_phase == 0 ? max_phase + 1 : max_phase;
+            assert(sample_ploidy > 0);
+        } else {
+            sample_ploidy = sample_ploidys.at(sample_name);
+        }        
         set<int> used_phases;
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
             int phase = gbwt_phases.at(sorted_travs[i]);
