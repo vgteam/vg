@@ -89,6 +89,10 @@ public:
         /// Make an iterator wrapping the given iterator, until the given end.
         iterator(vector<tree_item_t>::iterator it, vector<tree_item_t>::iterator end);
 
+        /// Get the number of tree storage slots left in the iterator. We need
+        /// this to make reverse iterators from forward ones.
+        size_t remaining_tree() const;
+
     private:
         /// Where we are in the stored tree.
         vector<tree_item_t>::iterator it;
@@ -124,7 +128,7 @@ public:
 
         /// Make a reverse iterator wrapping the given reverse iterator, until
         /// the given rend, with the given distance limit.
-        reverse_iterator(vector<tree_item_t>::reverse_iterator it, vector<tree_item_t>::reverse_iterator rend, size_t distance_limit);
+        reverse_iterator(vector<tree_item_t>::reverse_iterator it, vector<tree_item_t>::reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
 
     private:
         /// Where we are in the stored tree.
@@ -145,6 +149,9 @@ public:
         /// Pop a value from the stack
         size_t pop();
 
+        /// Get a mutable reference to the value on top of the stack
+        size_t& top();
+
         /// Duplicate the top item on the stack
         void dup();
 
@@ -160,17 +167,31 @@ public:
             S_START,
             S_SCAN_CHAIN,
             S_STACK_SNARL,
-            S_SCAN_SNARL
+            S_SCAN_SNARL,
+            S_SKIP_CHAIN
         };
 
         /// Current state of the automaton
         State current_state;
 
+        /// Adopt a new state.
+        void state(State new_state);
+
+        /// Stop parsing because nothing else can be below the distance limit.
+        /// This moves the current iterator it.
+        void halt();
+
         /// Tick the automaton, looking at the symbol at *it and updating the
-        /// stack and current_state.
-        void tick();
+        /// stack and current_state. Returns true to yield a value at the
+        /// current symbol and false otherwise.
+        bool tick();
 
     };
+
+    /// Get a reverse iterator looking left from where a forward iterator is, up to a distance limit.
+    reverse_iterator look_back(const iterator& from, size_t distance_limit) const;
+    /// Get the reverse end iterator for looking back from seeds.
+    reverse_iterator rend() const;
 
 };
 }
