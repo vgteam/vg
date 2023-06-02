@@ -472,7 +472,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
                   [&](int t1, int t2) {return gbwt_phases.at(t1) < gbwt_phases.at(t2);});
         if (max_phase > 0) {
             // pad out by phase
-            assert(gbwt_phases.at(most_frequent_travs.back()) <= max_phase);
+            assert(most_frequent_travs.empty() || gbwt_phases.at(most_frequent_travs.back()) <= max_phase);
             assert(max_phase < 1000);
             // we normally expect to have phases 1,2,3, ...
             // in this case, we shift them all back, otherwise leave 0-based
