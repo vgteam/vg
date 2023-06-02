@@ -1755,8 +1755,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
         });
     }
 }
-
-    
+   
 
 
 }

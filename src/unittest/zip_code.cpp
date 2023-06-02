@@ -954,9 +954,6 @@ using namespace std;
             REQUIRE(value_and_index.first == 0);
 
             net_handle_t irregular_snarl = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
-            //Snarl record offset
-            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
-            REQUIRE(value_and_index.first == distance_index.get_record_offset(irregular_snarl));
 
             //Snarl prefix sum
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
@@ -967,6 +964,18 @@ using namespace std;
             //Snarl length
             value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
             REQUIRE(value_and_index.first == distance_index.minimum_length(irregular_snarl)+1);
+
+            //Snarl record offset
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == distance_index.get_record_offset(irregular_snarl));
+
+            //Distance to snarl start
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 0 : 1));
+
+            //Distance to snarl end
+            value_and_index = zipcode.zipcode.get_value_and_next_index(value_and_index.second);
+            REQUIRE(value_and_index.first == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 1 : 0));
 
             //Node 3 as a chain
             REQUIRE(decoder.decoder[2] == std::make_pair(true, value_and_index.second));
@@ -997,12 +1006,14 @@ using namespace std;
 
             //Snarl1 at depth 1
             REQUIRE(decoder.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 6 : 3));
-            REQUIRE(decoder.get_code_type(1) == TOP_LEVEL_IRREGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(1) == IRREGULAR_SNARL);
 
             //chain3 at depth 3
             REQUIRE(decoder.get_length(2) == 1);
             REQUIRE(decoder.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain3));
             REQUIRE(decoder.get_code_type(2) == CHAIN);
+            REQUIRE(decoder.get_distance_to_snarl_end(2) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 1 : 0));
+            REQUIRE(decoder.get_distance_to_snarl_start(2) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 0 : 1));
         }
         SECTION("Distances") {
             ZipCode zip1;

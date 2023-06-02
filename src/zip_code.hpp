@@ -1,4 +1,5 @@
 #ifndef VG_ZIP_CODE_HPP_INCLUDED
+
 #define VG_ZIP_CODE_HPP_INCLUDED
 
 #include "varint.hpp"
@@ -33,8 +34,9 @@ class ZipCodeDecoder;
 
 
 ///The type of codes that can be stored in the zipcode
-///TOP_LEVEL_IRREGULAR_SNARL is kind of a special case of an irregular snarl that is the child of a top-level chain
-enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, TOP_LEVEL_IRREGULAR_SNARL};
+///Trivial chains that are children of snarls get saved as a chain with no child node
+///EMPTY doesn't actually mean anything, it's used to catch errors
+enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
 
 ///A struct to interpret the minimizer payload
 ///I want to use zipcodes as the payload but at the moment clustering still expects the old payload
@@ -142,19 +144,20 @@ class ZipCode {
 
         ///Offsets for snarl codes
         const static size_t REGULAR_SNARL_SIZE = 4;
-        const static size_t IRREGULAR_SNARL_SIZE = 2;
-        const static size_t TOP_LEVEL_IRREGULAR_SNARL_SIZE = 4;
-        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+        const static size_t IRREGULAR_SNARL_SIZE = 6;
 
-        const static size_t REGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
-        const static size_t REGULAR_SNARL_LENGTH_OFFSET = 2;
+        //Both regular and irregular snarls have these
+        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+        const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
+        const static size_t SNARL_LENGTH_OFFSET = 2;
+
+        //Only for regular snarls
         const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
 
-        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 1;
-
-        //These are only for top-level irregular snarls
-        const static size_t IRREGULAR_SNARL_OFFSET_IN_CHAIN_OFFSET = 2;
-        const static size_t IRREGULAR_SNARL_LENGTH_OFFSET = 3;
+        //Only for irregular snarls
+        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 3;
+        const static size_t IRREGULAR_SNARL_DISTANCE_START_OFFSET = 4;
+        const static size_t IRREGULAR_SNARL_DISTANCE_END_OFFSET = 5;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -174,9 +177,7 @@ class ZipCode {
         inline vector<size_t> get_regular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, 
                                                             const SnarlDistanceIndex& distance_index);
         //Return a vector of size_ts that will represent the snarl in the zip code
-        inline vector<size_t> get_top_level_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
-        //Return a vector of size_ts that will represent the snarl in the zip code
-        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const SnarlDistanceIndex& distance_index);
+        inline vector<size_t> get_irregular_snarl_code(const net_handle_t& snarl, const net_handle_t& snarl_child, const SnarlDistanceIndex& distance_index);
     friend class ZipCodeDecoder;
 };
 
@@ -222,6 +223,10 @@ class ZipCodeDecoder {
     ///Returns true if this is the last thing in the zipcode and false if there is more to decode
     bool fill_in_next_decoder();
 
+    ///What is the maximum depth of this zipcode?
+    ///This will entirely fill in the zipcode
+    size_t max_depth();
+
     ///How many codes in the zipcode have been decoded?
     size_t decoder_length() {return decoder.size();}
 
@@ -243,8 +248,7 @@ class ZipCodeDecoder {
     ///Doesn't use a given distance index if it isn't needed
     size_t get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) ;
 
-    ///Get the handle of the thing at the given depth. This can only be used for
-    ///Root-level structures or irregular snarls
+    ///Is the snarl tree node backwards relative to its parent
     bool get_is_reversed_in_parent(const size_t& depth);
 
     ///Get the handle of the thing at the given depth. This can only be used for
@@ -258,12 +262,20 @@ class ZipCodeDecoder {
     ///Use get_net_handle for getting the actual handle
     size_t get_distance_index_address(const size_t& depth) ;
 
+    ///Only for children of irregular snarls
+    /// The minimum distance from either side of the child to the start of the snarl
+    size_t get_distance_to_snarl_start(const size_t& depth);
+
+    ///Only for children of irregular snarls
+    /// The minimum distance from either side of the child to the end of the snarl
+    size_t get_distance_to_snarl_end(const size_t& depth);
+
 
     ///Are the two decoders pointing to the same snarl tree node at the given depth
     ///This only checks if the values in the zipcode are the same at the given depth, 
     ///so if the preceeding snarl tree nodes are different, 
     ///then this might actually refer to different things
-    static inline bool is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
+    const static bool is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& decoder2,
                                 const size_t& depth);
 
     /// Dump a ZipCodeDecoder to a stream so that it can be reconstructed for a
