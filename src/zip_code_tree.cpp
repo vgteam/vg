@@ -498,6 +498,8 @@ auto ZipCodeTree::reverse_iterator::halt() -> void {
 auto ZipCodeTree::reverse_iterator::tick() -> bool {
     switch (current_state) {
     case S_START:
+        // Initial state.
+        //
         // Stack is empty and we must be at a seed to start at.
         switch (it->type) {
         case SEED:
@@ -509,6 +511,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_SCAN_CHAIN:
+        // State where we are scanning a chain leftward up to its start.
+        //
         // Stack has at the top the running distance along the chain, and under
         // that running distances to use at the other chains in the snarl, and
         // under that running distances to use for the other chains in the
@@ -564,6 +568,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_STACK_SNARL:
+        // State where we are stacking up the stored edge values, the first time we get to a particular snarl.
+        //
         // Stack has at the top the number of edges we have stacked up, and
         // under that the running distance along the parent chain, and under
         // that the stacked running distances for items in the snarl.
@@ -601,6 +607,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_SCAN_SNARL:
+        // State where we are going through a snarl and doing all its chains.
+        //
         // Stack has at the top running distances to use for each chain still
         // to be visited in the snarl, and under those the same for the snarl
         // above that, etc.
@@ -636,13 +644,15 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_SKIP_CHAIN:
-        /// Stack has the nesting level of child snarls we are reading over
-        /// until we get back to the level we want to skip past the chain
-        /// start.
-        /// Under that is the running distance along the chain being skipped.
-        /// And under that it has the running distance for ther next thing in
-        /// the snarl, which had better exist or we shouldn't be trying to skip
-        /// the chain, we should have halted.
+        // State where we are skipping over the rest of a chain because we hit the distance limit, but we might need to do other chains in a parent snarl.
+        //
+        // Stack has the nesting level of child snarls we are reading over
+        // until we get back to the level we want to skip past the chain
+        // start.
+        // Under that is the running distance along the chain being skipped.
+        // And under that it has the running distance for ther next thing in
+        // the snarl, which had better exist or we shouldn't be trying to skip
+        // the chain, we should have halted.
         switch (it->type) {
         case SEED:
             // We don't emit seeds until the chain is over
@@ -682,7 +692,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
     default:
         throw std::domain_error("Unimplemented state " + std::to_string(current_state)); 
     }
-    // Unless we yield something, we don't yield anything.
+    // Unless we yield something, we don't want to pause the scan here.
     return false;
 }
 
