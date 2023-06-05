@@ -473,18 +473,14 @@ auto ZipCodeTree::reverse_iterator::depth() const -> size_t {
     return stack.size();
 }
 
-auto ZipCodeTree::reverse_iterator::reverse(size_t depth) -> void {
-    // We reverse by moving from a stack to a queue and back.
-    // TODO: would using a backing vector and STL algorithms be better?
-    std::queue<size_t> queue;
-    for (size_t i = 0; i < depth; i++) {
-        queue.push(stack.top());
-        stack.pop();
-    }
-    for (size_t i = 0; i < depth; i++) {
-        stack.push(queue.front());
-        queue.pop();
-    }
+auto ZipCodeTree::reverse_iterator::swap() -> void {
+    // Grab the top item
+    size_t temp = stack.top();
+    stack.pop();
+    // Swap it with what was under it
+    std::swap(temp, stack.top());
+    // And put that back on top
+    stack.push(temp);
 }
 
 auto ZipCodeTree::reverse_iterator::state(State new_state) -> void {
@@ -524,8 +520,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             break;
         case SNARL_END:
             // Running distance along chain is on stack, and will need to be added to all the stored distances.
-            push(0); // Depth of stack that needs reversing after we read all the distances into it
-            state(S_STACK_SNARL); // Stack up pre-made scratch distances for all the distances right left of here
+            state(S_STACK_SNARL); // Stack up pre-made scratch distances for all the things in the snarl.
             break;
         case CHAIN_START:
             if (depth() == 1) {
@@ -535,7 +530,6 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                 //
                 // Running distance along chain is on stack, and will need to
                 // be added to all the stored distances.
-                push(0); // Depth of stack that needs reversing after we read all the distances into it
                 state(S_STACK_SNARL);
             } else {
                 // We did enter the parent snarl already.
@@ -568,31 +562,24 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_STACK_SNARL:
-        // State where we are stacking up the stored edge values, the first time we get to a particular snarl.
+        // State where we are stacking up the stored edge values, the first
+        // time we get to a particular snarl.
         //
-        // Stack has at the top the number of edges we have stacked up, and
-        // under that the running distance along the parent chain, and under
+        // Stack has the running distance along the parent chain, and under
         // that the stacked running distances for items in the snarl.
         switch (it->type) {
         case EDGE:
-            // Swap top 2 elements to bring parent running distance to the top
-            reverse(2);
-            // Duplicate it
+            // Duplicate parent running distance
             dup();
             // Add in the edge value to make a running distance for the thing this edge is for
             top() += it->value;
-            // Flip top 3 elements, so now edge count is on top, over parent running distance, over edge running distance.
-            reverse(3);
-            // Add 1 to the edge count
-            top()++;
+            // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
+            swap();
             break;
         case CHAIN_END:
-            // Bring parent running distance above edge count
-            reverse(2);
-            // Throw it out
+            // Throw out parent running distance
             pop();
-            // Re-order all the edge running distances so we can pop them in the order we encounter the edge targets.
-            reverse(pop());
+            // So now we have the running distance for this next chain.
             if (top() > distance_limit) {
                 // Running distance is already too high so skip over the chain
                 push(0);
@@ -644,7 +631,9 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_SKIP_CHAIN:
-        // State where we are skipping over the rest of a chain because we hit the distance limit, but we might need to do other chains in a parent snarl.
+        // State where we are skipping over the rest of a chain because we hit
+        // the distance limit, but we might need to do other chains in a parent
+        // snarl.
         //
         // Stack has the nesting level of child snarls we are reading over
         // until we get back to the level we want to skip past the chain

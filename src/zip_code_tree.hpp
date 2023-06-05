@@ -157,7 +157,7 @@ public:
         /// Push a value to the stack
         void push(size_t value);
 
-        /// Pop a value from the stack
+        /// Pop a value from the stack and return it
         size_t pop();
 
         /// Get a mutable reference to the value on top of the stack
@@ -169,8 +169,8 @@ public:
         /// Check stack depth
         size_t depth() const;
 
-        /// Reverse the top n elements of the stack
-        void reverse(size_t depth);
+        /// Reverse the top two elements of the stack
+        void swap();
 
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton
