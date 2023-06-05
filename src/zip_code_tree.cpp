@@ -433,6 +433,7 @@ auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
         // Skip ahead to the next seed we actually want to yield, or to the end of the data.
         ++it;
     }
+    return *this;
 }
 
 auto ZipCodeTree::reverse_iterator::operator==(const reverse_iterator& other) const -> bool {
