@@ -33,6 +33,12 @@ class ZipCodeTree {
      */
     ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index);
 
+    ///Print the zip code tree to stderr
+    /// ( and ) are used for the starts and ends of snarls
+    /// [ and ] are used for the starts and ends of chains
+    /// seeds are printed as their positions
+    void print_self();
+
     private:
 
     //The seeds to that are taken as input

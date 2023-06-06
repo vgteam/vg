@@ -30,10 +30,10 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
 
     //Sort the indices
     std::sort(seed_indices.begin(), seed_indices.end(), [&] (const size_t& a, const size_t& b) {
-        //Comparator returning a < b
 #ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "Comparing seeds " << seeds[a].pos << " and " << seeds[b].pos << endl;
+        //cerr << "Comparing seeds " << seeds[a].pos << " and " << seeds[b].pos << endl;
 #endif
+        //Comparator returning a < b
         size_t depth = 0;
 
         //Keep track of the orientation of each seed
@@ -61,7 +61,7 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
             b_is_reversed = !b_is_reversed;
         }
 #ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\t different at depth " << depth << endl;
+        //cerr << "\t different at depth " << depth << endl;
 #endif
         //Either depth is the last thing in a or b, or they are different at this depth
 
@@ -88,14 +88,14 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
             }
         }  else if (depth == 0) {
 #ifdef DEBUG_ZIPCODE_CLUSTERING
-            cerr << "\tThey are on different connected components" << endl;
+            //cerr << "\tThey are on different connected components" << endl;
 #endif
             //If they are on different connected components, sort by connected component
             return seeds[a].zipcode_decoder->get_distance_index_address(0) < seeds[b].zipcode_decoder->get_distance_index_address(0);
             
         }  else if (seeds[a].zipcode_decoder->get_code_type(depth-1) == CHAIN || seeds[a].zipcode_decoder->get_code_type(depth-1) == ROOT_CHAIN) {
 #ifdef DEBUG_ZIPCODE_CLUSTERING
-            cerr << "\t they are children of a common chain" << endl;
+            //cerr << "\t they are children of a common chain" << endl;
 #endif
             //If a and b are both children of a chain
             size_t offset_a = seeds[a].zipcode_decoder->get_offset_in_chain(depth);
@@ -109,7 +109,7 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
             }
         } else if (seeds[a].zipcode_decoder->get_code_type(depth-1) == REGULAR_SNARL) {
 #ifdef DEBUG_ZIPCODE_CLUSTERING
-            cerr << "\t they are children of a common regular snarl" << endl;
+            //cerr << "\t they are children of a common regular snarl" << endl;
 #endif
             //If the parent is a regular snarl, then sort by order along the parent chain
             size_t offset1 = is_rev(seeds[a].pos) 
@@ -125,7 +125,7 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
             }
         } else {
 #ifdef DEBUG_ZIPCODE_CLUSTERING
-            cerr << "\t they are children of a common irregular snarl" << endl;
+            //cerr << "\t they are children of a common irregular snarl" << endl;
 #endif
             //Otherwise, they are children of an irregular snarl
             //Sort by the distance to the start of the irregular snarl
@@ -142,6 +142,13 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
             }
         } 
     });
+
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Sorted positions:" << endl;
+    for (const size_t& i : seed_indices) {
+        cerr << seeds[seed_indices[i]].pos << endl;
+    }
+#endif
 
     //seed_indices is now sorted roughly along snarls and chains
 
@@ -169,6 +176,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
     */
 
     for (size_t i = 0 ; i < seed_indices.size() ; i++) {
+#ifdef DEBUG_ZIP_CODE_TREE
+        cerr << "At " << i << "st/nd/th seed: " << seeds[seed_indices[i]] << endl;
+#endif
 
         //1. First, find the lowest common ancestor with the previous seed.
         //2. To finish the ancestors of the previous seed that are different from this one,
@@ -225,6 +235,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 }
             }
         }
+#ifdef DEBUG_ZIP_CODE_TREE
+        cerr << "\tthe depth of the first ancestor different than the previous seed is " << first_different_ancestor_depth << endl;
+#endif
 
         //Now, close anything that ended at the previous seed, starting from the leaf of the previous seed
         //If there was no previous seed, then the loop is never entered
@@ -252,12 +265,15 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 //If this is the end of the snarl, then we need to save the distances to 
                 //all previous children of the snarl
 
-                for (const auto& sibling : sibling_indices_at_depth[depth]) {
+                zip_code_tree.resize(zip_code_tree.size() + sibling_indices_at_depth[depth].size());
+
+                for (size_t sibling_i = 0 ; sibling_i < sibling_indices_at_depth[depth].size() ; sibling_i++) {
+                    const auto& sibling = sibling_indices_at_depth[depth][sibling_i];
                     const size_t& sibling_index = sibling.index;
                     if (zip_code_tree[sibling_index].type == SNARL_START) {
                         //First, the distance between ends of the snarl, which is the length
-                        zip_code_tree.push_back({EDGE,
-                            previous_seed.zipcode_decoder->get_length(depth)});
+                        zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
+                            previous_seed.zipcode_decoder->get_length(depth)};
                     } else {
                         //For the rest of the children, find the distance from the child to
                         //the end
@@ -265,10 +281,10 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                         assert(zip_code_tree[sibling_index].type == SEED);
 #endif
                         //If the child is reversed relative to the top-level chain, then get the distance to start
-                        zip_code_tree.push_back({EDGE,
+                        zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             previous_is_reversed 
                                 ? seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_start(depth)
-                                :seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_end(depth)});
+                                :seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_end(depth)};
 
                     }
                 }
@@ -381,6 +397,29 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
             }
         }
     }
+}
+
+void ZipCodeTree::print_self() {
+    for (const tree_item_t item : zip_code_tree) {
+        if (item.type == SEED) {
+            cerr << seeds[item.value].pos;
+        } else if (item.type == SNARL_START) {
+            cerr << "(";
+        } else if (item.type == SNARL_END) {
+            cerr << ")";
+        } else if (item.type == CHAIN_START) {
+            cerr << "[";
+        } else if (item.type == CHAIN_END) {
+            cerr << "]";
+        } else if (item.type == EDGE) {
+            cerr << item.value << " ";
+        } else if (item.type == NODE_COUNT) {
+            cerr << item.value << " ";
+        } else {
+            throw std::runtime_error("[zip tree]: Trying to print a zip tree item of the wrong type");
+        }
+    }
+    cerr << endl;
 }
 
 ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end) : it(it), end(end) {
