@@ -346,7 +346,7 @@ private:
 class Recombinator {
 public:
     /// Number of haplotypes to be generated.
-    constexpr static size_t NUM_HAPLOTYPES = 8;
+    constexpr static size_t NUM_HAPLOTYPES = 4;
 
     /// Expected kmer coverage. Use 0 to estimate from kmer counts.
     constexpr static size_t COVERAGE = 0;
