@@ -33,11 +33,6 @@ class ZipCodeTree {
      */
     ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index);
 
-    ///Print the zip code tree to stderr
-    /// ( and ) are used for the starts and ends of snarls
-    /// [ and ] are used for the starts and ends of chains
-    /// seeds are printed as their positions
-    void print_self();
 
     private:
 
@@ -57,6 +52,7 @@ class ZipCodeTree {
       TODO: Fill in a description once it's finalized more
      */
 
+    public:
     enum tree_item_type_t {SEED, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
     struct tree_item_t {
 
@@ -69,8 +65,22 @@ class ZipCodeTree {
         size_t value;
     };
 
+    private:
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
+
+public:
+
+    ///Print the zip code tree to stderr
+    /// ( and ) are used for the starts and ends of snarls
+    /// [ and ] are used for the starts and ends of chains
+    /// seeds are printed as their positions
+    void print_self() const;
+
+    ///Helper function that returns the number of items in the zip_code_tree
+    size_t get_tree_size() const {return zip_code_tree.size();};
+    ///Helper function to access the values in the zip_code_tree
+    tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
 public:
     /**
