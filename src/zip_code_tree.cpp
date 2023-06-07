@@ -163,9 +163,12 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
     //the vector at index 0 would have the chain start, seeds that are on the chain, and the start
     //of snarls on the chain. Similarly, for a top-level snarl at depth 1, the second vector would contain
     //the starts of chains at depth 2 
+    //For the children of a chain, the value is the prefix sum in the chain (relative to the orientation 
+    //of the top-level chain, not necessarily the chain itself)
+    //For the children of a snarl, the value is the index of the seed
     struct child_info_t {
-        size_t index;  //Index of the tree_item_t in zip_code_tree
-        size_t value;  //A value associated with the item, could be offset in a chain, etc
+        tree_item_type_t type;  //the type of the item
+        size_t value;  //A value associated with the item, could be offset in a chain, index of the seed
     };
     vector<vector<child_info_t>> sibling_indices_at_depth;
 
@@ -271,6 +274,12 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
 
                 zip_code_tree.push_back({CHAIN_END, std::numeric_limits<size_t>::max()});
 
+                //Remember this chain as a child of its parent snarl, if applicable
+                if (depth != 0 && i != 0) {
+                    sibling_indices_at_depth[depth-1].push_back({CHAIN_END,
+                                                                 seed_indices[i-1]});
+                }
+
             } else if (previous_type == REGULAR_SNARL || previous_type == IRREGULAR_SNARL) { 
 #ifdef DEBUG_ZIP_CODE_TREE
                 cerr << "\t\tclose a snarl at depth " << depth << endl;
@@ -282,22 +291,20 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
 
                 for (size_t sibling_i = 0 ; sibling_i < sibling_indices_at_depth[depth].size() ; sibling_i++) {
                     const auto& sibling = sibling_indices_at_depth[depth][sibling_i];
-                    const size_t& sibling_index = sibling.index;
-                    if (zip_code_tree[sibling_index].type == SNARL_START) {
+                    if (sibling.type == SNARL_START) {
                         //First, the distance between ends of the snarl, which is the length
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             previous_seed.zipcode_decoder->get_length(depth)};
+                            cerr << "Add distance to snarl start" << endl;
                     } else {
                         //For the rest of the children, find the distance from the child to
                         //the end
-#ifdef DEBUG_ZIP_CODE_TREE 
-                        assert(zip_code_tree[sibling_index].type == SEED);
-#endif
                         //If the child is reversed relative to the top-level chain, then get the distance to start
+                                cerr << "Add distance to child with index " << sibling.value<< endl;
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             previous_is_reversed 
-                                ? seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_start(depth)
-                                :seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_end(depth)};
+                                ? seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_start(depth)
+                                :seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_end(depth)};
 
                     }
                 }
@@ -332,9 +339,8 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 if (current_type == ROOT_NODE && sibling_indices_at_depth[depth].empty()) {
                     //If this is a root-level node and the first time we've seen it,
                     //then open the node
-                    cerr << "Add sibling" << endl;
                     zip_code_tree.push_back({CHAIN_START, std::numeric_limits<size_t>::max()});
-                    sibling_indices_at_depth[depth].push_back({zip_code_tree.size()-1, 0});
+                    sibling_indices_at_depth[depth].push_back({CHAIN_START, 0});
                 }
 
                 ///////////////// Get the offset in the parent chain (or node)
@@ -343,7 +349,6 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 //If we're traversing this chain backwards, then the offset is the offset from the end
                 bool current_parent_is_reversed = current_seed.zipcode_decoder->get_is_reversed_in_parent(depth) 
                     ? !current_is_reversed : current_is_reversed;
-                    cerr << "current is reversed " << current_is_reversed << " " << current_parent_is_reversed << endl;
 
                 //First, get the prefix sum in the chain
                 if (current_type == ROOT_NODE) {
@@ -380,9 +385,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
 #endif
 
                 ///////////////////// Record the distance from the previous thing in the chain/node
-                if (!(depth == 0 && zip_code_tree[sibling_indices_at_depth[depth][0].index].type == CHAIN_START) &&
+                if (!(depth == 0 && sibling_indices_at_depth[depth][0].type == CHAIN_START) &&
                     !(depth == 1 && current_seed.zipcode_decoder->get_code_type(depth-1) == ROOT_CHAIN &&
-                       zip_code_tree[sibling_indices_at_depth[depth-1][0].index].type == CHAIN_START)) {
+                       sibling_indices_at_depth[depth-1][0].type == CHAIN_START)) {
                     //for everything except the first thing in a root node, or root chain
                     zip_code_tree.push_back({EDGE, current_offset-previous_offset});
                 }
@@ -402,7 +407,7 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                     zip_code_tree.push_back({SNARL_START, std::numeric_limits<size_t>::max()});
 
                     //Remember the start of the snarl
-                    sibling_indices_at_depth[depth].push_back({zip_code_tree.size()-1, std::numeric_limits<size_t>::max()});
+                    sibling_indices_at_depth[depth].push_back({SNARL_START, std::numeric_limits<size_t>::max()});
 
                     //For finding the distance to the next thing in the chain, the offset
                     //stored should be the offset of the end bound of the snarl, so add the 
@@ -415,10 +420,11 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 //Remember this thing for the next sibling in the chain
                 if (depth == 0) {
                     sibling_indices_at_depth[depth].pop_back();
-                    sibling_indices_at_depth[depth].push_back({zip_code_tree.size()-1, current_offset}); 
+                    sibling_indices_at_depth[depth].push_back({SEED, current_offset}); 
                 } else {
                     sibling_indices_at_depth[depth-1].pop_back();
-                    sibling_indices_at_depth[depth-1].push_back({zip_code_tree.size()-1, current_offset}); 
+                    //THis may or may not be a seed but it doesn't matter, as long as its a child of a chain
+                    sibling_indices_at_depth[depth-1].push_back({SEED, current_offset}); 
                 }
             } else if (same_node) {
                 //If this is the same node and not the child of a chain, then it is the child of 
@@ -428,41 +434,60 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 assert(false);
             } else {
                 assert(current_type == CHAIN || current_type == ROOT_CHAIN);
+                if (sibling_indices_at_depth[depth].size() == 0) {
+                    //If this is the start of a new chain
 #ifdef DEBUG_ZIP_CODE_TREE
-                cerr << "\t\tOpen new chain at depth " << depth << endl;
+                    cerr << "\t\tOpen new chain at depth " << depth << endl;
 #endif
-                //Otherwise, the parent is a snarl and this is the start of a new child chain
 
-                //For each sibling in the snarl, record the distance from the sibling to this
-                if (current_type == CHAIN) {
-                    //If this is a non-root chain, then it is the child of a snarl and 
-                    //we need to find the distances to the previous things in the snarl
-                    for (const auto& sibling : sibling_indices_at_depth[depth-1]) {
-                        if (zip_code_tree[sibling.index].type == SNARL_START) {
-                            zip_code_tree.push_back({EDGE, 
-                                current_is_reversed
-                                    ? current_seed.zipcode_decoder->get_distance_to_snarl_end(depth)
-                                    : current_seed.zipcode_decoder->get_distance_to_snarl_start(depth)});
-                        } else {
-                            //Otherwise, the previous thing was another child of the snarl
-                            //and we need to record the distance between these two
-                            //TODO: This can be improved for simple snarls
-                            net_handle_t snarl_handle = current_seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
-                            size_t rank1 = current_seed.zipcode_decoder->get_rank_in_snarl(depth);
-                            size_t rank2 = previous_seed.zipcode_decoder->get_rank_in_snarl(depth);
-                            //TODO: idk about this distance
-                            size_t distance = distance_index.distance_in_snarl(snarl_handle, rank1, false, rank2, false);
-                            zip_code_tree.push_back({EDGE, distance});
+                    //For each sibling in the snarl, record the distance from the sibling to this
+                    if (current_type == CHAIN) {
+                        //If this is the start of a non-root chain, then it is the child of a snarl and 
+                        //we need to find the distances to the previous things in the snarl
+                        for (const auto& sibling : sibling_indices_at_depth[depth-1]) {
+                            if (sibling.type == SNARL_START) {
+                                cerr << "Add distance to sibling start" << endl;
+                                zip_code_tree.push_back({EDGE, 
+                                    current_is_reversed
+                                        ? current_seed.zipcode_decoder->get_distance_to_snarl_end(depth)
+                                        : current_seed.zipcode_decoder->get_distance_to_snarl_start(depth)});
+                            } else {
+                                //Otherwise, the previous thing was another child of the snarl
+                                //and we need to record the distance between these two
+                                //TODO: This can be improved for simple snarls
+                                net_handle_t snarl_handle = current_seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
+                                size_t rank2 = current_seed.zipcode_decoder->get_rank_in_snarl(depth);
+                                size_t rank1 = seeds[sibling.value].zipcode_decoder->get_rank_in_snarl(depth);
+                                //TODO: idk about this distance- I think the orientations need to change
+                                size_t distance = distance_index.distance_in_snarl(snarl_handle, rank1, false, rank2, false);
+                                zip_code_tree.push_back({EDGE, distance});
+                            }
+
                         }
-
                     }
+
+                    //Now record the start of this chain
+                    zip_code_tree.push_back({CHAIN_START, std::numeric_limits<size_t>::max()});
+
+                    //Remember the start of the chain, with the prefix sum value
+                    sibling_indices_at_depth[depth].push_back({CHAIN_START, 0});
                 }
 
-                //Now record the start of this chain
-                zip_code_tree.push_back({CHAIN_START, std::numeric_limits<size_t>::max()});
+                if (current_type == CHAIN && depth == current_max_depth) {
+                    //If this is a trivial chain, then also add the seed and the distance to the 
+                    //thing before it
+                    size_t current_offset = current_is_reversed
+                            ? current_seed.zipcode_decoder->get_length(depth) - offset(current_seed.pos)
+                            : offset(current_seed.pos)+1;
 
-                //Remember the start of the chain, with the prefix sum value
-                sibling_indices_at_depth[depth].push_back({zip_code_tree.size()-1, 0});
+                    zip_code_tree.push_back({EDGE, current_offset - sibling_indices_at_depth[depth].back().value}); 
+                    zip_code_tree.push_back({SEED, seed_indices[i]}); 
+
+                    //And update sibling_indices_at_depth to remember this child
+                    sibling_indices_at_depth[depth].pop_back();
+                    sibling_indices_at_depth[depth].push_back({SEED, current_offset});
+                    
+                }
             }
             
             //Finished with this depth, so update current_is_reversed to be for the next ancestor
@@ -521,22 +546,19 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
 
                 for (size_t sibling_i = 0 ; sibling_i < sibling_indices_at_depth[depth].size() ; sibling_i++) {
                     const auto& sibling = sibling_indices_at_depth[depth][sibling_i];
-                    const size_t& sibling_index = sibling.index;
-                    if (zip_code_tree[sibling_index].type == SNARL_START) {
+                    if (sibling.type == SNARL_START) {
                         //First, the distance between ends of the snarl, which is the length
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             last_seed.zipcode_decoder->get_length(depth)};
                     } else {
                         //For the rest of the children, find the distance from the child to
                         //the end
-#ifdef DEBUG_ZIP_CODE_TREE 
-                        assert(zip_code_tree[sibling_index].type == SEED);
-#endif
                         //If the child is reversed relative to the top-level chain, then get the distance to start
+                        cerr << "Get distance to snarl start" << endl;
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             last_is_reversed 
-                                ? seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_start(depth)
-                                :seeds[zip_code_tree[sibling_index].value].zipcode_decoder->get_distance_to_snarl_end(depth)};
+                                ? seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_start(depth)
+                                : seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_end(depth)};
 
                     }
                 }
