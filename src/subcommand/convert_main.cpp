@@ -224,6 +224,10 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: paths cannot be converted to reference sense when writing GFA output" << endl;
         return 1;
     }
+    if (output_format == "vg") {
+          cerr << "[vg convert] warning: vg-protobuf output (-v / --vg-out) is depreacted. please use -p instead." << endl;
+    }
+
     
     // with -F or -G we convert an alignment and not a graph
     if (input == input_gam || input == input_gaf) {
