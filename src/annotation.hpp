@@ -125,6 +125,20 @@ inline bool value_cast<bool>(const google::protobuf::Value& value) {
 
 template<>
 inline double value_cast<double>(const google::protobuf::Value& value) {
+    if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+        // If someone puts in an infinite or NAN double, Protobuf refuses to
+        // stringify those, so we do it ourselves. But now they want the double
+        // back so we need to undo that.
+        if (value.string_value() == "Infinity") {
+            return std::numeric_limits<double>::infinity();
+        } else if (value.string_value() == "-Infinity") {
+            return -std::numeric_limits<double>::infinity();
+        } else if (value.string_value() == "NaN") {
+            return nan("");
+        } else {
+            throw std::runtime_error("Cannot understand " + value.string_value() + " as a double.");
+        }
+    }
     assert(value.kind_case() == google::protobuf::Value::KindCase::kNumberValue);
     return value.number_value();
 }
@@ -145,7 +159,15 @@ inline google::protobuf::Value value_cast<bool>(const bool& wrap) {
 template<>
 inline google::protobuf::Value value_cast<double>(const double& wrap) {
     google::protobuf::Value to_return;
-    to_return.set_number_value(wrap);
+    // We need to represent inf and nan values as something else, since Protobuf now refuses to serialize them as anything.
+    // Previously it made them "Infinity", "-Infinity" and "NaN", so we do that too.
+    if (isinf(wrap)) {
+        to_return.set_string_value(wrap > 0 ? "Infinity" : "-Infinity");
+    } else if (isnan(wrap)) {
+        to_return.set_string_value("NaN");
+    } else {
+        to_return.set_number_value(wrap);
+    }
     return to_return;
 }
 
