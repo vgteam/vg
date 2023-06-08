@@ -9,6 +9,8 @@
 #include <string>
 #include <type_traits>
 #include <functional>
+#include <limits>
+#include <cmath>
 
 #include <google/protobuf/struct.pb.h>
 
