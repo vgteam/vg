@@ -444,9 +444,59 @@ namespace unittest {
             zip_tree.print_self();
 
             //The tree should be:
-            // [pos1 0 ( 0 [ 2 pos2 6 ] 0 1 ) 0  pos3 6 pos6]
+            // [pos1 0 ( 0 [ 2 pos2 6 ] 0 0 1 ) 0  pos3 6 pos6]
             //or backwards
-            REQUIRE(zip_tree.get_tree_size() == 18);
+            REQUIRE(zip_tree.get_tree_size() == 19);
+        }
+        SECTION( "Three seeds on snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 1);
+            positions.emplace_back(2, false, 2);
+            positions.emplace_back(2, false, 4);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(6, false, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree(seeds, distance_index);
+            zip_tree.print_self();
+
+            //The tree should be:
+            // [pos1 0 ( 0 [ 2 pos2 x pos2 x pos2 6 ] 0 0 1 ) 0  pos3 6 pos6]
+            //or backwards
+            REQUIRE(zip_tree.get_tree_size() == 23);
+        }
+        SECTION( "Two children of a snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(5, false, 1);
+            positions.emplace_back(6, false, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree(seeds, distance_index);
+            zip_tree.print_self();
+
+            //The tree should be:
+            // [pos1 0  pos3 0 ( 0 [ 0 pos4 3 ] 0 inf [ 0 pos5 1 pos5 2 ] 3 0 0 2) 0 pos6]
+            //or backwards
+            REQUIRE(zip_tree.get_tree_size() == 29);
         }
         
     }

@@ -426,12 +426,6 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                     //THis may or may not be a seed but it doesn't matter, as long as its a child of a chain
                     sibling_indices_at_depth[depth-1].push_back({SEED, current_offset}); 
                 }
-            } else if (same_node) {
-                //If this is the same node and not the child of a chain, then it is the child of 
-                //a node child of a snarl, and the previous seed was on the same node
-                //Just add the distance from the previous seed and this seed
-                //TODO: Actually I'm pretty sure it would still just be a chain so this shouldn't be needed
-                assert(false);
             } else {
                 assert(current_type == CHAIN || current_type == ROOT_CHAIN);
                 if (sibling_indices_at_depth[depth].size() == 0) {
@@ -455,11 +449,19 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                                 //Otherwise, the previous thing was another child of the snarl
                                 //and we need to record the distance between these two
                                 //TODO: This can be improved for simple snarls
-                                net_handle_t snarl_handle = current_seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
-                                size_t rank2 = current_seed.zipcode_decoder->get_rank_in_snarl(depth);
-                                size_t rank1 = seeds[sibling.value].zipcode_decoder->get_rank_in_snarl(depth);
-                                //TODO: idk about this distance- I think the orientations need to change
-                                size_t distance = distance_index.distance_in_snarl(snarl_handle, rank1, false, rank2, false);
+                                size_t distance;
+                                if (current_type == CHAIN && 
+                                    current_seed.zipcode_decoder->get_code_type(depth-1) == REGULAR_SNARL) {
+                                    //If this is the child of a regular snarl, then the distance between
+                                    //any two chains is inf
+                                    distance = std::numeric_limits<size_t>::max();
+                                } else {
+                                    net_handle_t snarl_handle = current_seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
+                                    size_t rank2 = current_seed.zipcode_decoder->get_rank_in_snarl(depth);
+                                    size_t rank1 = seeds[sibling.value].zipcode_decoder->get_rank_in_snarl(depth);
+                                    //TODO: idk about this distance- I think the orientations need to change
+                                    distance = distance_index.distance_in_snarl(snarl_handle, rank1, false, rank2, false);
+                                }
                                 zip_code_tree.push_back({EDGE, distance});
                             }
 
