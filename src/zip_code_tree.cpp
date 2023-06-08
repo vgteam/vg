@@ -268,8 +268,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 if (previous_type == CHAIN) {
                     //Only add the distance for a non-root chain
                     zip_code_tree.push_back({EDGE, 
+                      SnarlDistanceIndex::sum(1,
                         SnarlDistanceIndex::minus(previous_seed.zipcode_decoder->get_length(depth),
-                                                  sibling_indices_at_depth[depth].back().value)});
+                                                  sibling_indices_at_depth[depth].back().value))});
                 }
 
                 zip_code_tree.push_back({CHAIN_END, std::numeric_limits<size_t>::max()});
@@ -370,6 +371,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 /////////////////////// Get the offset of the previous thing in the parent chain/node
                 size_t previous_offset = depth == 0 ? sibling_indices_at_depth[depth][0].value 
                                                     : sibling_indices_at_depth[depth-1][0].value;
+                tree_item_type_t previous_type = depth == 0 ? sibling_indices_at_depth[depth][0].type 
+                                                    : sibling_indices_at_depth[depth-1][0].type;
+
 
 #ifdef DEBUG_ZIP_CODE_TREE
                 if (depth > 0) {
@@ -384,7 +388,12 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                     !(depth == 1 && current_seed.zipcode_decoder->get_code_type(depth-1) == ROOT_CHAIN &&
                        sibling_indices_at_depth[depth-1][0].type == CHAIN_START)) {
                     //for everything except the first thing in a root node, or root chain
-                    zip_code_tree.push_back({EDGE, current_offset-previous_offset});
+
+                    //If this is a snarl and the previous thing is a seed, then add 1 to get to the position
+                    size_t distance_between = (current_type == REGULAR_SNARL || current_type == IRREGULAR_SNARL) && previous_type == SEED 
+                        ? current_offset - previous_offset + 1
+                        : current_offset - previous_offset; 
+                    zip_code_tree.push_back({EDGE, distance_between});
                 }
 
                 /////////////////////////////Record this thing in the chain
@@ -515,7 +524,6 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
     // Now close anything that remained open
     const Seed& last_seed = seeds[seed_indices.back()];
     size_t last_max_depth = last_seed.zipcode_decoder->max_depth();
-    print_self();
 
     //Find out if this seed is reversed at the leaf of the snarl tree (the node)
     bool last_is_reversed = false;
@@ -526,7 +534,6 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
     }
     for (int depth = last_max_depth ; depth >= 0 ; depth--) {
         cerr << "At depth " << depth << endl;
-        print_self();
         if (sibling_indices_at_depth[depth].size() > 0) {
             code_type_t last_type = last_seed.zipcode_decoder->get_code_type(depth);
             if (last_type == CHAIN || last_type == ROOT_CHAIN || last_type == ROOT_NODE) {
@@ -543,8 +550,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                 // TODO: When we get C++20, change this to emplace_back aggregate initialization
                 if (last_type == CHAIN) {
                     zip_code_tree.push_back({EDGE, 
-                        SnarlDistanceIndex::minus(last_seed.zipcode_decoder->get_length(depth),
-                                                  sibling_indices_at_depth[depth].back().value)});
+                        SnarlDistanceIndex::sum(1,
+                            SnarlDistanceIndex::minus(last_seed.zipcode_decoder->get_length(depth),
+                                                  sibling_indices_at_depth[depth].back().value))});
                 }
 
                 zip_code_tree.push_back({CHAIN_END, std::numeric_limits<size_t>::max()});
