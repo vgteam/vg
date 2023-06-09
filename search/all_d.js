@@ -489,7 +489,7 @@ var searchData=
   ['mismatches_3488',['mismatches',['../structvg_1_1WFAExtender_1_1ErrorModel.html#ae28dd39b01ceed21e1a78fd24b32bcf6',1,'vg::WFAExtender::ErrorModel::mismatches()'],['../structvg_1_1GaplessExtension.html#a4898e2fabc109703f497e19f10bb164a',1,'vg::GaplessExtension::mismatches()']]],
   ['mixture_5fweights_3489',['mixture_weights',['../classvg_1_1SpliceStats.html#ab5f243b05a8a80f0bf80ea3d82960e7e',1,'vg::SpliceStats']]],
   ['mod_5fmain_2ecpp_3490',['mod_main.cpp',['../mod__main_8cpp.html',1,'']]],
-  ['mode_3491',['mode',['../structHaplotypesConfig.html#ac5dd4d9940ef4d3d9f2dbfb7cde9754b',1,'HaplotypesConfig']]],
+  ['mode_3491',['mode',['../structvg_1_1SummaryStatistics.html#a8aa060d244b54f34a06f0136d0572bd4',1,'vg::SummaryStatistics::mode()'],['../structHaplotypesConfig.html#ac5dd4d9940ef4d3d9f2dbfb7cde9754b',1,'HaplotypesConfig::mode()']]],
   ['mode_5finvalid_3492',['mode_invalid',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667afef1428e91bd487b53f44f88885ed506',1,'HaplotypesConfig']]],
   ['mode_5flog_5flikelihood_3493',['mode_log_likelihood',['../classvg_1_1SpliceStats.html#ad10b6fd62bdc23e8bb7afbf8c545f0bd',1,'vg::SpliceStats']]],
   ['mode_5fmap_5fvariants_3494',['mode_map_variants',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667ac11510277093ba13a92edaad15a143f4',1,'HaplotypesConfig']]],

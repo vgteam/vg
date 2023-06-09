@@ -495,7 +495,8 @@ Private Member Functions</h2></td></tr>
 <p>Creates a <code><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a></code> representation of the haplotypes in the GBWT index.</p>
 <p>Top-level chains (weakly connected components in the graph) are assigned to a number of jobs that can be later used as GBWT construction jobs. Multiple jobs are run in parallel using OpenMP threads.</p>
 <p>Each top-level chain is partitioned into subchains that consist of one or more snarls. Multiple snarls are combined into the same subchain if the minimum distance over the subchain is at most the target length and there are GBWT haplotypes that cross the subchain. If there are no snarls in a top-level chain, it is represented as a single subchain without boundary nodes.</p>
-<p><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> crossing each subchain are represented using minimizers with a single occurrence in the graph. </p>
+<p><a class="el" href="classvg_1_1Haplotypes.html">Haplotypes</a> crossing each subchain are represented using minimizers with a single occurrence in the graph.</p>
+<p>Throws <code>std::runtime_error</code> on error in single-threaded parts and exits with <code>std::exit(EXIT_FAILURE)</code> in multi-threaded parts. </p>
 
 </div>
 </div>

@@ -230,7 +230,7 @@ var searchData=
   ['mismatch_5fpositions_11840',['mismatch_positions',['../structvg_1_1GaplessExtension.html#a30b340b28d82e7070329e45aaa9e6486',1,'vg::GaplessExtension']]],
   ['mismatches_11841',['mismatches',['../structvg_1_1WFAExtender_1_1ErrorModel.html#ae28dd39b01ceed21e1a78fd24b32bcf6',1,'vg::WFAExtender::ErrorModel']]],
   ['mixture_5fweights_11842',['mixture_weights',['../classvg_1_1SpliceStats.html#ab5f243b05a8a80f0bf80ea3d82960e7e',1,'vg::SpliceStats']]],
-  ['mode_11843',['mode',['../structHaplotypesConfig.html#ac5dd4d9940ef4d3d9f2dbfb7cde9754b',1,'HaplotypesConfig']]],
+  ['mode_11843',['mode',['../structvg_1_1SummaryStatistics.html#a8aa060d244b54f34a06f0136d0572bd4',1,'vg::SummaryStatistics::mode()'],['../structHaplotypesConfig.html#ac5dd4d9940ef4d3d9f2dbfb7cde9754b',1,'HaplotypesConfig::mode()']]],
   ['mode_5flog_5flikelihood_11844',['mode_log_likelihood',['../classvg_1_1SpliceStats.html#ad10b6fd62bdc23e8bb7afbf8c545f0bd',1,'vg::SpliceStats']]],
   ['model_11845',['model',['../classvg_1_1MEMChainModel.html#a5f0fbf6a027827aa3a2ee1344588e7b7',1,'vg::MEMChainModel::model()'],['../classvg_1_1AlignmentChainModel.html#a18fbbeaa51ee69363983810e702fcf24',1,'vg::AlignmentChainModel::model()']]],
   ['motif_5fdata_11846',['motif_data',['../classvg_1_1SpliceStats.html#a6a48be87c666572f8e2893e8cf1df9a6',1,'vg::SpliceStats']]],
