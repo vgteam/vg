@@ -124,6 +124,9 @@ public:
     /// If set, exclude overlapping minimizers
     static constexpr bool default_exclude_overlapping_min = false;
     bool exclude_overlapping_min = default_exclude_overlapping_min;
+
+    ///Have we complained about minimizer not including distance hints?
+    atomic_flag warned_about_minimizer_payload = ATOMIC_FLAG_INIT;
     
     //////////////
     // Alignment-from-gapless-extension/short read Giraffe specific parameters:

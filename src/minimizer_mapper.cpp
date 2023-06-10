@@ -596,6 +596,15 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
 
+    if (seeds.size() > 0 && seeds.front().minimizer_cache == MIPayload::NO_CODE){
+        //If there is no payload
+        if (!warned_about_minimizer_payload.test_and_set()) {
+            cerr << "warning[vg::giraffe]: Running giraffe without distance hints in the minimizers." << endl;
+            cerr << "                      Mapping will be slow." << endl;
+            cerr << "                      To include distance hints, rebuilt the minimizers with vg minimizer -d" << endl;
+        }
+    }
+
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
