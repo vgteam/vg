@@ -598,11 +598,25 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
 
     if (seeds.size() > 0 && seeds.front().minimizer_cache == MIPayload::NO_CODE){
         //If there is no payload
-        if (!warned_about_minimizer_payload.test_and_set()) {
+        bool found_minimizer = found_minimizer_payload.test_and_set();
+        if (!found_minimizer &&
+            !warned_about_minimizer_payload.test_and_set()) {
             cerr << "warning[vg::giraffe]: Running giraffe without distance hints in the minimizers." << endl;
             cerr << "                      Mapping will be slow." << endl;
             cerr << "                      To include distance hints, rebuilt the minimizers with vg minimizer -d" << endl;
         }
+
+        //TODO: C++ 20 will let us use found_minimizer_payload.test(),
+        //which won't set the value to true.
+        //For now, check if it was false before getting set to true
+        //and reset it if necessary
+        if (!found_minimizer) {
+            found_minimizer_payload.clear();
+        }
+    } else {
+        //If we found a payload, make sure we remember it so we don't
+        //warn about it later
+        found_minimizer_payload.test_and_set();
     }
 
     // Cluster the seeds. Get sets of input seed indexes that go together.
