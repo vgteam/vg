@@ -442,7 +442,7 @@ int main_rmvdup(int argc, char *argv[]) {
     if (gam_index.get() != nullptr) {
         get_input_file(sorted_gam_name, [&](istream &in) {
 //            vg::io::for_each(in, pcr_removal);
-            vg::io::for_each_parallel(in, pcr_removal_pair_end);
+            vg::io::for_each_parallel_shuffled(in, pcr_removal_pair_end);
 //            vg::io::for_each_parallel(in, pcr_removal);
 
 
