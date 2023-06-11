@@ -522,6 +522,9 @@ namespace unittest {
         }
     }
     TEST_CASE( "zip tree non-simple DAG", "[zip_tree]" ) {
+
+        //bubble between 1 and 3, non-simple dag between 3 and 8 
+        //containing node 7 and chain 4-6
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -557,7 +560,7 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
-        SECTION( "Seeds on chain nodes" ) {
+        SECTION( "Make the zip tree" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
@@ -570,6 +573,113 @@ namespace unittest {
             positions.emplace_back(7, false, 1);
             positions.emplace_back(8, false, 0);
             positions.emplace_back(8, false, 2);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree(seeds, distance_index);
+            zip_tree.print_self();
+        }
+    }
+
+    TEST_CASE( "zip tree deeply nested bubbles", "[zip_tree]" ) {
+        //top-level chain 1-12-13-16
+        //bubble 2-10 containing two bubbles 3-5 and 6-9
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("GCA");
+        Node* n3 = graph.create_node("GCA");
+        Node* n4 = graph.create_node("GCA");
+        Node* n5 = graph.create_node("GAC");
+        Node* n6 = graph.create_node("GCA");
+        Node* n7 = graph.create_node("GCA");
+        Node* n8 = graph.create_node("GCA");
+        Node* n9 = graph.create_node("GCA");
+        Node* n10 = graph.create_node("GCA");
+        Node* n11 = graph.create_node("GCA");
+        Node* n12 = graph.create_node("GCA");
+        Node* n13 = graph.create_node("GCA");
+        Node* n14 = graph.create_node("GCA");
+        Node* n15 = graph.create_node("GCA");
+        Node* n16 = graph.create_node("GCGGGGGGGGGGGGGGGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n11);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n6);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n10);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n6, n8);
+        Edge* e11 = graph.create_edge(n7, n9);
+        Edge* e12 = graph.create_edge(n8, n9);
+        Edge* e13 = graph.create_edge(n9, n10);
+        Edge* e14 = graph.create_edge(n10, n12);
+        Edge* e15 = graph.create_edge(n11, n12);
+        Edge* e16 = graph.create_edge(n12, n13);
+        Edge* e17 = graph.create_edge(n13, n14);
+        Edge* e18 = graph.create_edge(n13, n15);
+        Edge* e19 = graph.create_edge(n14, n16);
+        Edge* e20 = graph.create_edge(n15, n16);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "Make the zip tree with a seed on each node" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+            positions.emplace_back(7, false, 1);
+            positions.emplace_back(8, false, 0);
+            positions.emplace_back(9, false, 2);
+            positions.emplace_back(10, false, 2);
+            positions.emplace_back(11, false, 2);
+            positions.emplace_back(12, false, 2);
+            positions.emplace_back(13, false, 2);
+            positions.emplace_back(14, false, 2);
+            positions.emplace_back(15, false, 2);
+            positions.emplace_back(16, false, 2);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree(seeds, distance_index);
+            zip_tree.print_self();
+        }
+        SECTION( "Make the zip tree with a few seeds" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+            positions.emplace_back(13, false, 2);
+            positions.emplace_back(15, false, 2);
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             for (pos_t pos : positions) {
