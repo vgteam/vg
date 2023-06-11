@@ -323,6 +323,8 @@ int main_rmvdup(int argc, char *argv[]) {
     // This is the function that works on pair_end data
     function<void(Alignment & )> pcr_removal_pair_end = [&](Alignment &aln) {
         int thread_number = omp_get_thread_num();
+        // TODO: Check this. I have to clear all the used alignments here and then use the memory again. right?
+//        unordered_map<string, Alignment>().swap(memory[thread_number]);
 
 
         if (gam_index.get() != nullptr) {
@@ -338,6 +340,8 @@ int main_rmvdup(int argc, char *argv[]) {
                     } else {
                         // We have the pair of our alignment
                         Alignment aln_pair = memory[thread_number][aln.name()];
+                        memory[thread_number].erase(aln.name());
+
                         // We have to find all the alignments that share nodes with both pairs and find if they are both end of a pair
                         // TODO: For now I check the equality of pairs using check_duplicate function which check
                         //  if they end the same and if they have at least one more same base. This could gets better.
