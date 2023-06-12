@@ -360,8 +360,8 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                         //If the child is reversed relative to the top-level chain, then get the distance to start
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             previous_is_reversed 
-                                ? seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_start(depth)
-                                :seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_end(depth)};
+                                ? seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_start(depth+1)
+                                : seeds[sibling.value].zipcode_decoder->get_distance_to_snarl_end(depth+1)};
 
                     }
                 }
@@ -508,12 +508,15 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
 
                         //The distances will be added in reverse order that they were found in
                         zip_code_tree.resize(zip_code_tree.size() + sibling_indices_at_depth[depth-1].size());
+
+                        bool current_parent_is_reversed = get_is_reversed_at_depth(current_seed, depth) 
+                            ? !current_is_reversed : current_is_reversed;
                         for ( size_t sibling_i = 0 ; sibling_i < sibling_indices_at_depth[depth-1].size() ; sibling_i++) {
                             const auto& sibling = sibling_indices_at_depth[depth-1][sibling_i];
                             if (sibling.type == SNARL_START) {
                                 zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = 
                                  {EDGE, 
-                                    current_is_reversed
+                                    current_parent_is_reversed
                                         ? current_seed.zipcode_decoder->get_distance_to_snarl_end(depth)
                                         : current_seed.zipcode_decoder->get_distance_to_snarl_start(depth)};
                             } else {
