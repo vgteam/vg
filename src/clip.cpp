@@ -529,12 +529,11 @@ void clip_low_depth_nodes_and_edges_generic(MutablePathMutableHandleGraph* graph
     }
 
     // now do the edges
-    size_t edge_count = graph->get_edge_count();
     vector<edge_t> edges;
-    edges.reserve(edge_count);
     graph->for_each_edge([&](edge_t edge) {
             edges.push_back(edge);
         });
+    size_t edge_count = edges.size();
     boomphf::mphf<edge_t, BBEdgeHash> edge_hash(edge_count, edges, get_thread_count(), 2.0, false, false);
     edges.clear();
     bdsg::PackedVector<> edge_depths;
