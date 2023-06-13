@@ -124,18 +124,6 @@ public:
     /// If set, exclude overlapping minimizers
     static constexpr bool default_exclude_overlapping_min = false;
     bool exclude_overlapping_min = default_exclude_overlapping_min;
-
-    ///Have we complained about minimizer not including distance hints?
-    atomic_flag warned_about_minimizer_payload = ATOMIC_FLAG_INIT;
-
-    //Some minimizer payloads are too big and don't get stored, so
-    //we might encounter empty ones even though we have the rest.
-    //Remember if we've seen any payloads so we don't complain about
-    //an anomalous empty one. This isn't perfect since it might warn
-    //about empty payloads if the first one is empty, but this is 
-    //unlikely
-    ///Have we found a minimizer payload yet?
-    atomic_flag found_minimizer_payload = ATOMIC_FLAG_INIT;
     
     //////////////
     // Alignment-from-gapless-extension/short read Giraffe specific parameters:

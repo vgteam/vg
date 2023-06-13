@@ -1154,6 +1154,47 @@ int main_giraffe(int argc, char** argv) {
         // Apply scoring parameters, after they have been parsed
         minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
 
+        //Check that the minimizer have distance hints, and warn the user if they don't
+        size_t minimizers_checked = 0; 
+        bool has_distance_hints = false;
+        minimizer_index->for_each_minimizer(
+        [&](const gbwtgraph::KmerIndex<gbwtgraph::DefaultMinimizerIndex::key_type, 
+                                       gbwtgraph::DefaultMinimizerIndex::value_type>::cell_type& cell){
+            if (cell.first.is_pointer()) {
+                //If there are multiple hits
+                for (const gbwtgraph::DefaultMinimizerIndex::value_type& value : *cell.second.pointer) {
+                    if (value.payload != MIPayload::NO_CODE) {
+                        //If this has a payload, remember it and return false to stop iterating
+                        has_distance_hints = true;
+                        return false;
+                    }
+                }
+            } else {
+                //If there is just one hit, cell.second is a gbwtgraph::DefaultMinimizerIndex::value_type
+                //which is a PositionPayload
+                if (cell.second.value.payload != MIPayload::NO_CODE) {
+                    //If this has a payload, remember it and return false to stop iterating
+                    has_distance_hints = true;
+                    return false;
+                }
+            }
+
+            //Stop checking after 1000 minimizers
+            if (minimizers_checked > 1000) {
+                return false;
+            }
+            minimizers_checked++;
+
+            //Return true to continue iterating
+            return true;
+            
+        });
+        if (!has_distance_hints) {
+            cerr << "warning[vg::giraffe]: Running giraffe without distance hints in the minimizers." << endl;
+            cerr << "                      Mapping will be slow." << endl;
+            cerr << "                      To include distance hints, rebuilt the minimizers with vg minimizer -d" << endl;
+        }
+
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();
 
