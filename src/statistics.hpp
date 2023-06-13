@@ -38,6 +38,7 @@ struct SummaryStatistics {
     double mean;
     double median;
     double stdev;
+    double mode;
     size_t number_of_values;
     double max_value;
     size_t count_of_max;
@@ -46,12 +47,16 @@ struct SummaryStatistics {
 /// Returns summary statistics for a multiset of numbers.
 template<typename Number>
 SummaryStatistics summary_statistics(const std::map<Number, size_t>& values) {
-    SummaryStatistics result { 0.0, 0.0, 0.0, 0, 0.0, 0 };
+    SummaryStatistics result { 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0 };
 
     double sum_of_values = 0.0;
+    size_t max_freq = 0;
     for (auto iter = values.begin(); iter != values.end(); ++iter) {
         sum_of_values += iter->first * iter->second;
         result.number_of_values += iter->second;
+        if (iter->second > max_freq) {
+            result.mode = iter->first; max_freq = iter->second;
+        }
     }
     if (result.number_of_values == 0) {
         return result;
