@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 47
+plan tests 49
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -39,6 +39,12 @@ is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
 is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l)" "1" "Mapping logs runtime per read"
 
 is "$(vg view -aj mapped1.gam | jq '.score')" "73" "Mapping produces the correct score"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b fast >/dev/null
+is "${?}" "0" "a read can be mapped with the fast preset"
+
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b default >/dev/null
+is "${?}" "0" "a read can be mapped with the default preset"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
 is "$(vg view -aj  mapped-nobonus.gam | jq '.score')" "63" "Mapping without a full length bonus produces the correct score"

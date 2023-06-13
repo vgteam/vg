@@ -516,11 +516,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-multimaps", 1)
         .add_entry<size_t>("max-extensions", 400)
         .add_entry<size_t>("max-alignments", 8)
-        .add_entry<size_t>("cluster-score", 50)
-        .add_entry<size_t>("pad-cluster-score", 0)
+        .add_entry<double>("cluster-score", 50)
+        .add_entry<double>("pad-cluster-score", 0)
         .add_entry<double>("cluster-coverage", 0.2)
-        .add_entry<size_t>("extension-set", 20)
-        .add_entry<size_t>("extension-score", 1);
+        .add_entry<double>("extension-set", 20)
+        .add_entry<int>("extension-score", 1);
     // And a default preset that doesn't.
     presets["default"];
     // And a chaining preset (TODO: make into PacBio and Nanopore)
