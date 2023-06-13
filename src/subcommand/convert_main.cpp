@@ -225,7 +225,7 @@ int main_convert(int argc, char** argv) {
         return 1;
     }
     if (output_format == "vg") {
-          cerr << "[vg convert] warning: vg-protobuf output (-v / --vg-out) is depreacted. please use -p instead." << endl;
+          cerr << "[vg convert] warning: vg-protobuf output (-v / --vg-out) is deprecated. please use -p instead." << endl;
     }
 
     

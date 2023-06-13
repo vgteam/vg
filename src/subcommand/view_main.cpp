@@ -475,7 +475,7 @@ int main_view(int argc, char** argv) {
         exit(1);
     }
     if (output_type == "vg") {
-        cerr << "[vg view] warning: vg-protobuf output (-v / --v) is depreacted. please use vg convert instead." << endl;
+        cerr << "[vg view] warning: vg-protobuf output (-v / --v) is deprecated. please use vg convert instead." << endl;
     }
     
     string file_name = get_input_file_name(optind, argc, argv);
