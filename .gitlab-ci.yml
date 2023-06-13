@@ -112,10 +112,6 @@ build-job:
     - DOCKER_TAG=ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}
     - make include/vg_git_version.hpp
     - cat include/vg_git_version.hpp
-    # Build but don't push, just fill the cache
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run -f Dockerfile .
-    # Run the tests
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile .
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     # Note that A LOCAL CACHE CAN ONLY HOLD ONE TAG/TARGET AT A TIME!
