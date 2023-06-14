@@ -442,9 +442,9 @@ namespace unittest {
             zip_tree.print_self();
 
             //The tree should be:
-            // [pos1 0 ( 0 [ 2 pos2 6 ] 0 0 1 ) 0  pos3 6 pos6]
+            // [pos1 3 ( 2 [ pos2 ] 6 0 1 ) 0  pos3 6 pos6]
             //or backwards
-            REQUIRE(zip_tree.get_tree_size() == 19);
+            REQUIRE(zip_tree.get_tree_size() == 17);
         }
         SECTION( "Three seeds on snarl" ) {
  
@@ -467,9 +467,9 @@ namespace unittest {
             zip_tree.print_self();
 
             //The tree should be:
-            // [pos1 0 ( 0 [ 2 pos2 x pos2 x pos2 6 ] 0 0 1 ) 0  pos3 6 pos6]
+            // [pos1 0 ( 0 [ pos2 x pos2 x pos2 ] 0 0 1 ) 0  pos3 6 pos6]
             //or backwards
-            REQUIRE(zip_tree.get_tree_size() == 23);
+            REQUIRE(zip_tree.get_tree_size() == 21);
         }
         SECTION( "Two children of a snarl" ) {
  
@@ -492,9 +492,9 @@ namespace unittest {
             zip_tree.print_self();
 
             //The tree should be:
-            // [pos1 0  pos3 0 ( 0 [ 0 pos4 3 ] inf 0 [ 0 pos5 1 pos5 2 ] 3 0 0 2) 0 pos6]
+            // [pos1 0  pos3 0 ( 0 [ pos4 ] inf 0 [ pos5 1 pos5 ] 2 3 3 2) 0 pos6]
             //or backwards
-            REQUIRE(zip_tree.get_tree_size() == 29);
+            REQUIRE(zip_tree.get_tree_size() == 25);
         }
         SECTION( "Only snarls in a snarl" ) {
  
@@ -516,9 +516,9 @@ namespace unittest {
             zip_tree.print_self();
 
             //The tree should be:
-            // [( 0 [ 0 pos2 7 ] 0 0 1) 3 ( 0 [0 pos4 3] inf 0 [0 pos5 1 pos5 2 ] 3 0 0 2 )]
+            // [( 0 [ pos2 ] 7 0 1) 3 ( 0 [pos4 ] 3 inf [pos5 1 pos5 ] 2 0 3 2 )]
             //or backwards
-            REQUIRE(zip_tree.get_tree_size() == 35);
+            REQUIRE(zip_tree.get_tree_size() == 29);
         }
     }
     TEST_CASE( "zip tree non-simple DAG", "[zip_tree]" ) {
@@ -553,10 +553,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
         
         //graph.to_dot(cerr);
 
