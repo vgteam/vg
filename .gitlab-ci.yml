@@ -98,6 +98,8 @@ local-build-test-job:
     - nvm use
     - npm ci
     - CI=true npm run test
+  after_script:
+    - true
   variables:
     VG_FULL_TRACEBACK: "1"
     GIT_SUBMODULE_STRATEGY: none
@@ -189,7 +191,11 @@ test-job:
   # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
   # We will find our share of tests from vgci/test-list.txt and run them
   # We ought to run one job per test, but we can wrap around.
-  parallel: 6 
+  parallel: 6
+  cache:
+    key: docker-pull-cache
+    paths:
+      - /var/lib/docker
   script:
     - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
     - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
@@ -201,6 +207,12 @@ test-job:
     - export GH_TOKEN=""
     # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
     - vgci/blockify.py bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
+  after_script:
+    - startdocker || true
+    # Don't leave each run's CI image laying around in the cache
+    - docker rmi "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
+    - stopdocker || true
+
   artifacts:
     # Let Gitlab see the junit report
     reports:
