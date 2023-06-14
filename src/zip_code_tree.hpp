@@ -60,7 +60,8 @@ class ZipCodeTree {
       The distances represent the number of nucleotides on the minimum-length path in the variation graph
       between the structures that the zip code tree nodes represent.
       For distances terminating at a SEED, the distance includes the nucleotide the position is on.
-      For distances between two SEEDs, the distance includes one of the positions.
+      For distances between two SEEDs, the distance includes both of the positions.
+      For two SEEDs on the same position, the distance between them would be 1.
       For distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner edge
       (relative to the snarl) of the boundary node, so it includes the length of the boundary node of the snarl
       For example, given a subgraph of a chain:

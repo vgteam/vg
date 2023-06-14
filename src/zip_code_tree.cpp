@@ -470,11 +470,11 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                     !(depth > 0 && sibling_indices_at_depth[depth-1][0].type == CHAIN_START)) {
                     //for everything except the first thing in a node/chain
 
-                    //If this is a snarl and the previous thing is a seed, then add 1 to get to the position
-
-                    size_t distance_between = (current_type == REGULAR_SNARL || current_type == IRREGULAR_SNARL) && previous_type == SEED 
+                    //If either child is a seed, then add 1 to get to the position
+                    size_t distance_between = current_type == NODE || current_type == ROOT_NODE || previous_type == SEED 
                         ? current_offset - previous_offset + 1
                         : current_offset - previous_offset; 
+
                     zip_code_tree.push_back({EDGE, distance_between});
                 }
 
@@ -623,9 +623,9 @@ ZipCodeTree::ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance
                     if (sibling_indices_at_depth[depth].back().type == CHAIN_START) {
                         //If the previous thing in the "chain" was the start, then don't add the distance,
                         //but remember it to add to snarl distances later
-                        sibling_indices_at_depth[depth].back().distances.first = current_offset - sibling_indices_at_depth[depth].back().value;
+                        sibling_indices_at_depth[depth].back().distances.first = current_offset;
                     } else {
-                        zip_code_tree.push_back({EDGE, current_offset - sibling_indices_at_depth[depth].back().value}); 
+                        zip_code_tree.push_back({EDGE, current_offset - sibling_indices_at_depth[depth].back().value+1}); 
                     }
                     zip_code_tree.push_back({SEED, seed_indices[i]}); 
 
