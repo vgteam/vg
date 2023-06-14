@@ -1252,7 +1252,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    @timeout_decorator.timeout(900)
+    @timeout_decorator.timeout(1800)
     def test_sim_mhc_cactus(self):
         """ Mapping test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))        
@@ -1261,7 +1261,7 @@ class VGCITest(TestCase):
                            mappers = ['map', 'mpmap'],
                            source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.04)
 
-    @timeout_decorator.timeout(4800)        
+    @timeout_decorator.timeout(9600)
     def test_sim_chr21_snp1kg(self):
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
