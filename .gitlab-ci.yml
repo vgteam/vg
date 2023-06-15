@@ -24,6 +24,8 @@ before_script:
         echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
       fi
     fi
+  # Restart or start the Docker daemon
+  - stopdocker || true
   - startdocker || true
   # Get buildx
   - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
@@ -112,10 +114,6 @@ build-job:
     - DOCKER_TAG=ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}
     - make include/vg_git_version.hpp
     - cat include/vg_git_version.hpp
-    # Build but don't push, just fill the cache
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run -f Dockerfile .
-    # Run the tests
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile .
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     # Note that A LOCAL CACHE CAN ONLY HOLD ONE TAG/TARGET AT A TIME!
