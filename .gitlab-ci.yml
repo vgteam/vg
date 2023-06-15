@@ -99,7 +99,7 @@ local-build-test-job:
     - npm ci
     - CI=true npm run test
   after_script:
-    - true
+    - echo "Don't do anything"
   variables:
     VG_FULL_TRACEBACK: "1"
     GIT_SUBMODULE_STRATEGY: none
