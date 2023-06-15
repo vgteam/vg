@@ -43,7 +43,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             REQUIRE(zip_tree.get_tree_size() == 3);
@@ -65,7 +66,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             REQUIRE(zip_tree.get_tree_size() == 5);
@@ -106,7 +108,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             REQUIRE(zip_tree.get_tree_size() == 7);
@@ -171,7 +174,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             REQUIRE(zip_tree.get_tree_size() == 7);
@@ -267,7 +271,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -307,7 +312,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -390,7 +396,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -438,7 +445,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -463,7 +471,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -488,7 +497,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -512,7 +522,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
 
             //The tree should be:
@@ -577,7 +588,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
         }
     }
@@ -664,7 +676,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
         }
         SECTION( "Make the zip tree with a few seeds" ) {
@@ -684,7 +697,8 @@ namespace unittest {
                 seeds.push_back({ pos, 0, zipcode});
             }
 
-            ZipCodeTree zip_tree(seeds, distance_index);
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
         }
     }

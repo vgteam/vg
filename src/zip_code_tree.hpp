@@ -31,7 +31,8 @@ class ZipCodeTree {
      * Constructor
      * The constructor creates a tree of the input seeds that is used for calculating distances
      */
-    ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index);
+    ZipCodeTree(){};
+    void fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index);
 
 
     private:
@@ -39,7 +40,7 @@ class ZipCodeTree {
     //The seeds that are taken as input
     //The order of the seeds will never change, but the vector is not const because the zipcodes
     //decoders may change
-    vector<Seed>& seeds;
+    vector<Seed>* seeds;
 
 
     /*
