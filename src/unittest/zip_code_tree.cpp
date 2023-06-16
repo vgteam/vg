@@ -52,6 +52,11 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(1).value == 0);
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::CHAIN_END);
+
+            std::vector<size_t> seed_indexes;
+            std::copy(zip_tree.begin(), zip_tree.end(), std::back_inserter(seed_indexes));
+            REQUIRE(seed_indexes.size() == 1);
+            REQUIRE(seed_indexes.at(0) == 0);
         }
 
         SECTION( "Two seeds" ) {
