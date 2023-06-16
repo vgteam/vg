@@ -192,10 +192,10 @@ public:
         /// the given rend, with the given distance limit.
         reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
 
-        // Reverse iterators are not copyable but are movable, because the stack is big.
-        reverse_iterator(const reverse_iterator& other) = delete;
+        // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
+        reverse_iterator(const reverse_iterator& other) = default;
         reverse_iterator(reverse_iterator&& other) = default;
-        reverse_iterator& operator=(const reverse_iterator& other) = delete;
+        reverse_iterator& operator=(const reverse_iterator& other) = default;
         reverse_iterator& operator=(reverse_iterator&& other) = default;
 
         /// Move left
@@ -270,7 +270,7 @@ public:
     };
 
     /// Get a reverse iterator looking left from where a forward iterator is, up to a distance limit.
-    reverse_iterator look_back(const iterator& from, size_t distance_limit) const;
+    reverse_iterator look_back(const iterator& from, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     /// Get the reverse end iterator for looking back from seeds.
     reverse_iterator rend() const;
 
