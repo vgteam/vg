@@ -31,26 +31,81 @@ class ZipCodeTree {
      * Constructor
      * The constructor creates a tree of the input seeds that is used for calculating distances
      */
-    ZipCodeTree(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index);
+    ZipCodeTree(){};
+    void fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index);
+
 
     private:
 
-    //The seeds to that are taken as input
+    //The seeds that are taken as input
     //The order of the seeds will never change, but the vector is not const because the zipcodes
     //decoders may change
-    vector<Seed>& seeds;
+    vector<Seed>* seeds;
 
 
     /*
-      The tree will represent the seeds' placement in the snarl tree 
-      Each node in the tree is either a seed (position on the graph) or the boundary of a snarl
+      The tree will represent the seeds' placement in the snarl tree.
+      Each node in the tree represents either a seed (position on the graph) or the 
+      boundary of a snarl or chain.
       Edges are labelled with the distance between the two nodes
 
       This graph is actually represented as a vector of the nodes and edges
-      Each item in the vector represents either a node (seed or boundary) or an edge (distance)
-      TODO: Fill in a description once it's finalized more
+      Each item in the vector represents either a node (seed or boundary), an edge (distance),
+      or the child count of a snarl
+
+      A chain in the vector is bounded by a CHAIN_START and a CHAIN_END.
+      The chain is comprised of alternating children (seed or snarl) and the distances between them.
+      For a root-level chain, there are no distances from the CHAIN_START/_END to the children.
+      For all other chains, the order would be:
+        CHAIN_START, distance, child, distance, child, ..., distance, CHAIN_END
+      The distances represent the number of nucleotides on the minimum-length path in the variation graph
+      between the structures that the zip code tree nodes represent.
+      For distances terminating at a SEED, the distance includes the nucleotide the position is on.
+      For distances between two SEEDs, the distance includes both of the positions.
+      For two SEEDs on the same position, the distance between them would be 1.
+      For distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner edge
+      (relative to the snarl) of the boundary node, so it includes the length of the boundary node of the snarl
+      For example, given a subgraph of a chain:
+
+                              n3
+                            [GACG] ...
+            n1      n2    / 
+            [A] - [AGAC]
+                          \   n4
+                            [ACAG] ...
+
+      for the sequence "SEED EDGE SNARL_START" representing a seed on n1 and the snarl starting at n2,
+      the edge value would be 5.
+
+
+      A snarl in the vector is bounded by a SNARL_START and a SNARL_END.
+      A snarl is comprised of the two bounds, one or more chains, and the distances among them.
+      SEEDs are always contained within a chain.
+      For each element of the snarl (boundary or child chain), the distance to each element preceding
+      it in the snarl is stored before the element.
+      The distances are stored in reverse order of the elements that they reach.
+      Immediately before the SNARL_END, there is a NODE_COUNT storing the number of children in the snarl
+      A snarl would look like:
+          SNARL_START, dist:start->c1, chain1, dist:c1->c2, dist:start->c2, chain2, ..., 
+                ..., dist:c2->end, dist:c1->end, dist:start->end, node_count, SNARL_END
+
+
+      Everything is ordered according to the order of the highest-level chain (top-level chain or child
+      of a top-level snarl).
+      For children of a snarl, the children are ordered according to the distance to the start of the snarl,
+      and if that value is equal, in reverse order to the distance to the end of the snarl.
+      In the variation graph, all chains are considered to be oriented "forward" in their parent snarl.
+      However, in a start-to-end traversal of the snarl, the child chain may be traversed end-to-start.
+      These chains would be considered to be reversed in the zip code tree, so the order of the children
+      of the chain may be backwards relative to their order in the variation graph.
+      If a snarl is the child of a chain that is traversed backwards in the zip tree, then that snarl
+      and all its children are also traversed backwards.
+
+
+      TODO: This is still just for DAGS
      */
 
+    public:
     enum tree_item_type_t {SEED, SNARL_START, SNARL_END, CHAIN_START, CHAIN_END, EDGE, NODE_COUNT};
     struct tree_item_t {
 
@@ -63,8 +118,23 @@ class ZipCodeTree {
         size_t value;
     };
 
+    private:
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
+
+public:
+
+    ///Print the zip code tree to stderr
+    /// ( and ) are used for the starts and ends of snarls
+    /// [ and ] are used for the starts and ends of chains
+    /// seeds are printed as their positions
+    void print_self() const;
+
+    ///Helper function that returns the number of items in the zip_code_tree
+    size_t get_tree_size() const {return zip_code_tree.size();};
+
+    ///Helper function to access the values in the zip_code_tree
+    tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
 public:
     /**
