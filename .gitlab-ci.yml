@@ -208,6 +208,8 @@ test-job:
     # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
     - vgci/blockify.py bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
   after_script:
+    - stopdocker || true
+    - rm -f /var/run/docker.sock
     - startdocker || true
     # Don't leave each run's CI image laying around in the cache
     - docker rmi "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
