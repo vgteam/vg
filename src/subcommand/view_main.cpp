@@ -37,7 +37,7 @@ void help_view(char** argv) {
          << "    -g, --gfa                  output GFA format (default)" << endl
          << "    -F, --gfa-in               input GFA format, reducing overlaps if they occur" << endl
 
-         << "    -v, --vg                   output VG format" << endl
+         << "    -v, --vg                   output VG format [DEPRECATED, use vg convert instead]" << endl
          << "    -V, --vg-in                input VG format only" << endl
 
          << "    -j, --json                 output JSON format" << endl
@@ -473,6 +473,9 @@ int main_view(int argc, char** argv) {
     if (optind >= argc) {
         cerr << "[vg view] error: no filename given" << endl;
         exit(1);
+    }
+    if (output_type == "vg") {
+        cerr << "[vg view] warning: vg-protobuf output (-v / --v) is deprecated. please use vg convert instead." << endl;
     }
     
     string file_name = get_input_file_name(optind, argc, argv);

@@ -517,7 +517,7 @@ struct ArgSpec : public BaseArgSpec<Receiver> {
                 this->set_value(as_typed->value);
             }
         } else {
-            throw std::runtime_error("Could not cast valuation");
+            throw std::runtime_error("Could not cast valuation for " + this->option + " from " + typeid(&entry).name() + " to " + typeid(Valuation<T>*).name());
         }
     }
     
@@ -529,7 +529,7 @@ struct ArgSpec : public BaseArgSpec<Receiver> {
             // Apply the value
             this->set_value(as_typed->value);
         } else {
-            throw std::runtime_error("Could not cast valuation");
+            throw std::runtime_error("Could not cast valuation for " + this->option + " from " + typeid(&entry).name() + " to " + typeid(Valuation<T>*).name());
         }
     }
     
@@ -541,7 +541,7 @@ struct ArgSpec : public BaseArgSpec<Receiver> {
             // Put our value in there.
             as_typed->value = this->get_value();
         } else {
-            throw std::runtime_error("Could not cast valuation");
+            throw std::runtime_error("Could not cast valuation for " + this->option + " from " + typeid(&entry).name() + " to " + typeid(Valuation<T>*).name());
         }
     }
     
