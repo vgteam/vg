@@ -766,11 +766,7 @@ void ZipCodeTree::print_self() const {
 ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end) : it(it), end(end) {
     while (this->it != this->end && this->it->type != SEED) {
         // Immediately advance to the first seed
-        std::cerr << this << " skip " << this->it->type << " value " << this->it->value << std::endl;
         ++this->it;
-    }
-    if (this->it != this->end) {
-        std::cerr << this << " start at seed " << this->it->value << std::endl;
     }
 }
 
@@ -778,11 +774,7 @@ auto ZipCodeTree::iterator::operator++() -> iterator& {
     ++it;
     while (it != end && it->type != SEED) {
         // Advance to the next seed, or the end.
-        std::cerr << this << " skip " << it->type << " value " << it->value << std::endl;
         ++it;
-    }
-    if (it != end) {
-        std::cerr << this << " show seed " << it->value << std::endl;
     }
     return *this;
 }
@@ -793,7 +785,6 @@ auto ZipCodeTree::iterator::operator==(const iterator& other) const -> bool {
 }
     
 auto ZipCodeTree::iterator::operator*() const -> size_t {
-    std::cerr << this << " dereferenced at " << it->type << " value " << it->value << std::endl;
     return it->value;
 }
 
