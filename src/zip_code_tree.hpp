@@ -211,6 +211,17 @@ public:
         
         /// Get the index of the seed we are currently at, and the distance to it.
         std::pair<size_t, size_t> operator*() const;
+
+        /// Type for the state of the
+        /// I-can't-believe-it's-not-a-pushdown-automaton
+        enum State {
+            S_START,
+            S_SCAN_CHAIN,
+            S_STACK_SNARL,
+            S_SCAN_SNARL,
+            S_SKIP_CHAIN
+        };
+
     private:
         /// Where we are in the stored tree.
         vector<tree_item_t>::const_reverse_iterator it;
@@ -242,16 +253,6 @@ public:
         /// Reverse the top two elements of the stack
         void swap();
 
-        /// Type for the state of the
-        /// I-can't-believe-it's-not-a-pushdown-automaton
-        enum State {
-            S_START,
-            S_SCAN_CHAIN,
-            S_STACK_SNARL,
-            S_SCAN_SNARL,
-            S_SKIP_CHAIN
-        };
-
         /// Current state of the automaton
         State current_state;
 
@@ -275,5 +276,17 @@ public:
     reverse_iterator rend() const;
 
 };
+
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type);
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator::State& state);
+
 }
+
+namespace std {
+
+std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type);
+std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state);
+
+}
+
 #endif

@@ -4,6 +4,8 @@
 
 #include "crash.hpp"
 
+//#define debug_parse
+
 using namespace std;
 namespace vg {
 
@@ -789,7 +791,7 @@ auto ZipCodeTree::iterator::operator*() const -> size_t {
 }
 
 auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
-    return end - it;
+    return end - it + 1;
 }
 
 auto ZipCodeTree::begin() const -> iterator {
@@ -875,6 +877,9 @@ auto ZipCodeTree::reverse_iterator::halt() -> void {
 }
 
 auto ZipCodeTree::reverse_iterator::tick() -> bool {
+#ifdef debug_parse
+    std::cerr << "Tick for state " << current_state << " on symbol " << it->type << std::endl;
+#endif
     switch (current_state) {
     case S_START:
         // Initial state.
@@ -1074,6 +1079,58 @@ auto ZipCodeTree::look_back(const iterator& from, size_t distance_limit) const -
 auto ZipCodeTree::rend() const -> reverse_iterator {
     return reverse_iterator(zip_code_tree.rend(), zip_code_tree.rend(), 0);
 }
+
+
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {
+    return out << std::to_string(type);
+}
+
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator::State& state) {
+    return out << std::to_string(state);
+}
+
+}
+
+namespace std {
+
+std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type) {
+    switch (type) {
+    case vg::ZipCodeTree::SEED:
+        return "SEED";
+    case vg::ZipCodeTree::SNARL_START:
+        return "SNARL_START";
+    case vg::ZipCodeTree::SNARL_END:
+        return "SNARL_END";
+    case vg::ZipCodeTree::CHAIN_START:
+        return "CHAIN_START";
+    case vg::ZipCodeTree::CHAIN_END:
+        return "CHAIN_END";
+    case vg::ZipCodeTree::EDGE:
+        return "EDGE";
+    case vg::ZipCodeTree::NODE_COUNT:
+        return "NODE_COUNT";
+    default:
+        throw std::runtime_error("Unimplemented zip code tree item type");
+    }
+}
+
+std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state) {
+    switch (state) {
+    case vg::ZipCodeTree::reverse_iterator::S_START:
+        return "S_START";
+    case vg::ZipCodeTree::reverse_iterator::S_SCAN_CHAIN:
+        return "S_SCAN_CHAIN";
+    case vg::ZipCodeTree::reverse_iterator::S_STACK_SNARL:
+        return "S_STACK_SNARL";
+    case vg::ZipCodeTree::reverse_iterator::S_SCAN_SNARL:
+        return "S_SCAN_SNARL";
+    case vg::ZipCodeTree::reverse_iterator::S_SKIP_CHAIN:
+        return "S_SKIP_CHAIN";
+    default:
+        throw std::runtime_error("Unimplemented zip code tree reverse iterator state");
+    }
+}
+
 
 
 }
