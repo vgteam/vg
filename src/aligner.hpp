@@ -503,16 +503,17 @@ namespace vg {
     public:
         
         /// Set all the aligner scoring parameters and create the stored aligner instances.
-        void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        virtual void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Set the algner scoring parameters and create the stored aligner instances. The
         /// stream should contain a 4 x 4 whitespace-separated substitution matrix (in the
         /// order ACGT)
-        void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        virtual void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Set the algner scoring parameters and create the stored aligner instances. The
-        /// score matrix should by a 4 x 4 array in the order (ACGT)
-        void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        /// score matrix should by a 4 x 4 array in the order (ACGT).
+        /// Other overloads of set_alignment_scores all call this one.
+        virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Allocates an array to hold a 4x4 substitution matrix and returns it
         static int8_t* parse_matrix(std::istream& matrix_stream);

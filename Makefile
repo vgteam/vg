@@ -54,7 +54,7 @@ PKG_CONFIG_STATIC_DEPS := protobuf jansson
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 # We don't ask for automatic Make dependency file (*.d) generation here because
 # the options we pass can interfere with similar options in dependency project.
-CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g $(CXXFLAGS)
+CXXFLAGS := -O3 -Werror=return-type -ggdb -g $(CXXFLAGS)
 # Keep dependency generation flags for just our own sources
 DEPGEN_FLAGS := -MMD -MP
 
@@ -64,7 +64,11 @@ DEPGEN_FLAGS := -MMD -MP
 # necessary on all platforms and suppresses warnings.
 # Also, pkg-config flags need to be made -isystem if our dependency install
 # directory is, or they might put a system HTSlib before ours.
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | sed 's/ -I/ -isystem /g')
+# Also, Protobuf produces an absurd number of these now, so we deduplicate them
+# even though that's not *always* safe. See
+# <https://stackoverflow.com/a/11532197> and
+# <https://github.com/protocolbuffers/protobuf/issues/12998>
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(UNITTEST_SUPPORT_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | tr ' ' '\n' | awk '!x[$$0]++' | tr '\n' ' ' | sed 's/ -I/ -isystem /g')
 
 # Define libraries to link vg against.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
@@ -100,6 +104,9 @@ ifeq ($(shell uname -s),Darwin)
     # Don't try and set an rpath on any dependency utilities because that's not
     # a thing and install names will work.
     LD_UTIL_RPATH_FLAGS=""
+
+    # Homebrew installs a Protobuf that uses an Abseil that is built with C++17, so we need to build with at least C++17
+    CXX_STANDARD=17
 
     # We may need libraries from Macports
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -219,6 +226,9 @@ else
     $(info OS is Linux)
     $(info Compiler $(CXX) is assumed to be GCC)
 
+    # Linux can have some old compilers so we want to work back to C++14
+    CXX_STANDARD=14
+
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
     LD_LIB_FLAGS += $(LD_UTIL_RPATH_FLAGS)
@@ -246,6 +256,9 @@ else
 
 
 endif
+
+# Set the C++ standard we are using
+CXXFLAGS := -std=c++$(CXX_STANDARD) $(CXXFLAGS)
 
 # Propagate CXXFLAGS and LDFLAGS to child makes and other build processes
 export CXXFLAGS
@@ -622,7 +635,7 @@ $(LIB_DIR)/cleaned_old_elfutils:
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake  -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON .. && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r ../src/include/handlegraph $(CWD)/$(INC_DIR)

@@ -33,8 +33,13 @@ make docs
 # Get ready to deploy the docs
 
 # Make a scratch directory *outside* our normal git repo
-SCRATCH_DIR="$(pwd)/../tmp"
-mkdir -p "${SCRATCH_DIR}"
+SCRATCH_DIR="$(mktemp -d)"
+# And clean it up when we stop
+function cleanup {
+  rm -Rf ${SCRATCH_DIR}
+}
+trap cleanup EXIT
+
 
 
 # Set up our SSH key

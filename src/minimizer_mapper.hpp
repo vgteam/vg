@@ -44,6 +44,9 @@ public:
          const vector<ZipCode>* zipcodes,
          const PathPositionHandleGraph* path_graph = nullptr);
 
+    using AlignerClient::set_alignment_scores;
+    virtual void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
      * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
@@ -503,7 +506,10 @@ protected:
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
     /// We have a gapless extender to extend seed hits in haplotype space.
-    GaplessExtender extender;
+    /// Because this needs a reference to an Aligner, and because changing the
+    /// scoring parameters deletes all the alignmers, we need to keep this
+    /// somewhere we can clear out.
+    std::unique_ptr<GaplessExtender> extender;
     
     /// We have a clusterer
     SnarlDistanceIndexClusterer clusterer;
