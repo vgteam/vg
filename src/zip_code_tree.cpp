@@ -181,7 +181,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
             size_t offset2 = is_rev(seeds->at(b).pos) 
                            ? seeds->at(b).zipcode_decoder->get_length(depth) - offset(seeds->at(b).pos) - 1
                            : offset(seeds->at(b).pos);
-            if (a_is_reversed) {
+            if (!parent_of_a_is_reversed) {
                 return offset1 < offset2;
             } else {
                 return offset2 < offset1;
@@ -192,14 +192,23 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #endif
             //Otherwise, they are children of an irregular snarl
             //Sort by the distance to the start of the irregular snarl
-            size_t distance_to_start_a = seeds->at(a).zipcode_decoder->get_distance_to_snarl_start(depth);
-            size_t distance_to_start_b = seeds->at(b).zipcode_decoder->get_distance_to_snarl_start(depth);
+            size_t distance_to_start_a = parent_of_a_is_reversed
+                                       ? seeds->at(a).zipcode_decoder->get_distance_to_snarl_end(depth)
+                                       : seeds->at(a).zipcode_decoder->get_distance_to_snarl_start(depth);
+            size_t distance_to_start_b = parent_of_a_is_reversed
+                                       ? seeds->at(b).zipcode_decoder->get_distance_to_snarl_end(depth)
+                                       : seeds->at(b).zipcode_decoder->get_distance_to_snarl_start(depth);
             if (distance_to_start_a == distance_to_start_b) {
                 //If they are equi-distant to the start of the snarl, then put the one that is
                 //farther from the end first
-
-                return seeds->at(a).zipcode_decoder->get_distance_to_snarl_end(depth) >
-                       seeds->at(b).zipcode_decoder->get_distance_to_snarl_end(depth);
+                size_t distance_to_end_a = parent_of_a_is_reversed
+                                           ? seeds->at(a).zipcode_decoder->get_distance_to_snarl_start(depth)
+                                           : seeds->at(a).zipcode_decoder->get_distance_to_snarl_end(depth);
+                size_t distance_to_end_b = parent_of_a_is_reversed
+                                           ? seeds->at(b).zipcode_decoder->get_distance_to_snarl_start(depth)
+                                           : seeds->at(b).zipcode_decoder->get_distance_to_snarl_end(depth);
+    
+                return distance_to_end_a > distance_to_end_b;
             } else {
                 return distance_to_start_a < distance_to_start_b;
             }
