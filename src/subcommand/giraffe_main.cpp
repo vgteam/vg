@@ -64,6 +64,15 @@ struct GiraffeMainOptions {
     size_t batch_size = default_batch_size;
 };
 
+/// Options struct for scoring-related parameters. Defaults are in aligner.hpp.
+struct ScoringOptions {
+    int8_t match = default_match;
+    int8_t mismatch = default_mismatch;
+    int8_t gap_open = default_gap_open;
+    int8_t gap_extend = default_gap_extension;
+    int8_t full_length_bonus = default_full_length_bonus;
+};
+
 static GroupedOptionGroup get_options() {
     GroupedOptionGroup parser;
     
@@ -82,6 +91,39 @@ static GroupedOptionGroup get_options() {
         "complain after INT seconds working on a read or read pair"
     );
     
+    // Configure scoring
+    auto& scoring_opts = parser.add_group<ScoringOptions>("scoring options");
+    scoring_opts.add_range(
+        "match",
+        &ScoringOptions::match,
+        default_match,
+        "use this match score"
+    );
+    scoring_opts.add_range(
+        "mismatch",
+        &ScoringOptions::mismatch,
+        default_mismatch,
+        "use this mismatch penalty"
+    );
+    scoring_opts.add_range(
+        "gap-open",
+        &ScoringOptions::gap_open,
+        default_gap_open,
+        "use this gap open penalty"
+    );
+    scoring_opts.add_range(
+        "gap-extend",
+        &ScoringOptions::gap_extend,
+        default_gap_extension,
+        "use this gap extension penalty"
+    );
+    scoring_opts.add_range(
+        "full-l-bonus",
+        &ScoringOptions::full_length_bonus,
+        default_full_length_bonus,
+        "the full-length alignment bonus"
+    );
+
     // Configure output settings on the MinimizerMapper
     auto& result_opts = parser.add_group<MinimizerMapper>("result options");
     result_opts.add_range(
@@ -456,6 +498,8 @@ int main_giraffe(int argc, char** argv) {
     // Main Giraffe program options struct
     // Not really initialized until after we load all the indexes though...
     GiraffeMainOptions main_options;
+    // Scoring options struct
+    ScoringOptions scoring_options;
     // What GAM should we realign?
     string gam_filename;
     // What FASTQs should we align.
@@ -535,11 +579,11 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-multimaps", 1)
         .add_entry<size_t>("max-extensions", 400)
         .add_entry<size_t>("max-alignments", 8)
-        .add_entry<size_t>("cluster-score", 50)
-        .add_entry<size_t>("pad-cluster-score", 0)
+        .add_entry<double>("cluster-score", 50)
+        .add_entry<double>("pad-cluster-score", 0)
         .add_entry<double>("cluster-coverage", 0.2)
-        .add_entry<size_t>("extension-set", 20)
-        .add_entry<size_t>("extension-score", 1);
+        .add_entry<double>("extension-set", 20)
+        .add_entry<int>("extension-score", 1);
     // And a default preset that doesn't.
     presets["default"];
     // And a long read preset (TODO: make into PacBio and Nanopore)
@@ -1102,7 +1146,6 @@ int main_giraffe(int argc, char** argv) {
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
-
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
@@ -1161,6 +1204,7 @@ int main_giraffe(int argc, char** argv) {
         }
         parser.apply(minimizer_mapper);
         parser.apply(main_options);
+        parser.apply(scoring_options);
         
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
@@ -1196,6 +1240,9 @@ int main_giraffe(int argc, char** argv) {
 
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
+
+        // Apply scoring parameters, after they have been parsed
+        minimizer_mapper.set_alignment_scores(scoring_options.match, scoring_options.mismatch, scoring_options.gap_open, scoring_options.gap_extend, scoring_options.full_length_bonus);
 
         // Work out the number of threads we will have
         size_t thread_count = omp_get_max_threads();

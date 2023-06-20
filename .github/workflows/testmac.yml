@@ -50,7 +50,15 @@ jobs:
         # to avoid problems with ABI changes with/without -DNDEBUG.
         # And we update libomp to make extra sure it will be picked up by the compiler.
         # We pre-install a pinned txm to work around https://github.com/anko/txm/issues/8
-        run: brew bundle cleanup --force && brew bundle install && brew update && brew install protobuf && brew install libomp && npm install -g txm@7.4.5
+        run: |
+          brew bundle cleanup --force && \
+          brew bundle install && \
+          brew update && \
+          brew install protobuf && \
+          brew install libomp && \
+          npm install -g txm@7.4.5 && \
+          brew config && \
+          (brew doctor || echo "brew doctor is unhappy")
 
       - name: Run build and test
         run: |

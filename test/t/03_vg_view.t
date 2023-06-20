@@ -48,17 +48,17 @@ is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number o
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -v - >x.vg
 is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output produces the expected number of chunks"
 
-is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | wc -l)" 0 "duplicate warnings can be suppressed when loading as vg::VG"
+is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | grep -v deprecated | wc -l)" 0 "duplicate warnings can be suppressed when loading as vg::VG"
 
 rm x.vg
 
 vg view -Fv overlaps/two_snvs_assembly1.gfa >/dev/null 2>errors.txt
 is "${?}" "1" "gfa graphs with overlaps are rejected"
-is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message when overlaps are present"
+is "$(cat errors.txt | grep -v deprecated | wc -l)" "2" "GFA import produces a concise error message when overlaps are present"
 
 vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null 2>errors.txt
 is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its sequences"
-is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message in that case"
+is "$(cat errors.txt | grep -v deprecated | wc -l)" "2" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
 

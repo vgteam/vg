@@ -55,11 +55,20 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     zipcodes(zipcodes),
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
-    extender(gbwt_graph, *(get_regular_aligner())),
+    extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
     fragment_length_distr(1000,1000,0.95) {
     
     // The GBWTGraph needs a GBWT
     crash_unless(graph.index != nullptr);
+}
+
+void MinimizerMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+    // Clear the extender before the aligners go away
+    extender.reset();
+    // Call the base class method and remake the aligners
+    AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+    // Remake the extender with new references
+    extender.reset(new GaplessExtender(gbwt_graph, *(get_regular_aligner())));
 }
 
 //-----------------------------------------------------------------------------
@@ -3072,7 +3081,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     if (seeds.size() > this->rescue_seed_limit) {
         return;
     }
-    std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
+    std::vector<GaplessExtension> extensions = this->extender->extend(seeds, rescued_alignment.sequence(), &cached_graph);
 
     // If we have a full-length extension, use it as the rescued alignment.
     if (GaplessExtender::full_length_extensions(extensions)) {
@@ -3865,7 +3874,7 @@ vector<GaplessExtension> MinimizerMapper::extend_cluster(const Cluster& cluster,
         }
     }
     
-    vector<GaplessExtension> cluster_extension = extender.extend(seed_matchings, sequence);
+    vector<GaplessExtension> cluster_extension = extender->extend(seed_matchings, sequence);
 
     if (show_work) {
         #pragma omp critical (cerr)

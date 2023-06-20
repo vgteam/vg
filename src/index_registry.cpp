@@ -1197,11 +1197,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         exit(1);
                     }
                     if (phased_vcf && bcf_hdr_nsamples(header_out) == 0) {
-                        cerr << "warning:[IndexRegistry] VCF inputs from file(s)";
-                        for (auto vcf_idx : vcf_indexes) {
-                            cerr << " " << vcf_filenames[vcf_idx];
+                        if (!vcf_indexes.empty()) {
+                            cerr << "warning:[IndexRegistry] VCF inputs from file(s)";
+                            for (auto vcf_idx : vcf_indexes) {
+                                cerr << " " << vcf_filenames[vcf_idx];
+                            }
+                            cerr << " have been identified as phased but contain no samples. Are these valid inputs?" << endl;
                         }
-                        cerr << " have been identified as phased but contain no samples. Are these valid inputs?" << endl;
                         
                         // let's add a dummy so that HaplotypeIndexer doesn't get mad later
                         int sample_add_code = bcf_hdr_add_sample(header_out, "dummy");
