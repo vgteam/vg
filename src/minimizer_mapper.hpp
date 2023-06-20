@@ -514,6 +514,9 @@ protected:
     /// We have a clusterer
     SnarlDistanceIndexClusterer clusterer;
 
+    /// We have a zip code tree for finding distances between seeds 
+    ZipCodeTree zip_tree;
+
 
     /// We have a distribution for read fragment lengths that takes care of
     /// knowing when we've observed enough good ones to learn a good
