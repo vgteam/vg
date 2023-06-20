@@ -65,8 +65,8 @@ namespace unittest {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 1);
-            REQUIRE(reverse_views.count(0));
             // The only seed can't see any other seeds
+            REQUIRE(reverse_views.count(0));
             REQUIRE(reverse_views[0].size() == 0);
         }
 
@@ -115,6 +115,21 @@ namespace unittest {
             REQUIRE(seed_indexes.size() == 2);
             REQUIRE(seed_indexes.at(0) == 0);
             REQUIRE(seed_indexes.at(1) == 1);
+
+            // For each seed, what seeds and distances do we see in reverse form it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 2);
+            // The first seed can't see any other seeds
+            REQUIRE(reverse_views.count(0));
+            REQUIRE(reverse_views[0].size() == 0);
+            // The second seed can see the first seed at distance 0
+            REQUIRE(reverse_views.count(1));
+            REQUIRE(reverse_views[1].size() == 1);
+            REQUIRE(reverse_views[1][0].first == 0);
+            REQUIRE(reverse_views[1][0].second == 0);
         }
 
         SECTION( "Three seeds" ) {
@@ -173,6 +188,29 @@ namespace unittest {
             REQUIRE(seed_indexes.at(0) == 0);
             REQUIRE(seed_indexes.at(1) == 1);
             REQUIRE(seed_indexes.at(2) == 2);
+
+            // For each seed, what seeds and distances do we see in reverse form it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::cerr << "Look back from seed number " << *forward << std::endl;
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 3);
+            // The first seed can't see any other seeds
+            REQUIRE(reverse_views.count(0));
+            REQUIRE(reverse_views[0].size() == 0);
+            // The second seed can see the first seed at distance 0
+            REQUIRE(reverse_views.count(1));
+            REQUIRE(reverse_views[1].size() == 1);
+            REQUIRE(reverse_views[1][0].first == 0);
+            REQUIRE(reverse_views[1][0].second == 0);
+            // The third seed can see both previous seeds, in reverse order, at distance 2.
+            REQUIRE(reverse_views.count(2));
+            REQUIRE(reverse_views[2].size() == 2);
+            REQUIRE(reverse_views[2][0].first == 1);
+            REQUIRE(reverse_views[2][0].second == 2);
+            REQUIRE(reverse_views[2][1].first == 0);
+            REQUIRE(reverse_views[2][1].second == 2);
         }
     }
     TEST_CASE( "zip tree two node chain", "[zip_tree]" ) {

@@ -4,7 +4,7 @@
 
 #include "crash.hpp"
 
-//#define debug_parse
+#define debug_parse
 
 using namespace std;
 namespace vg {
@@ -790,7 +790,7 @@ void ZipCodeTree::print_self() const {
 }
 
 
-ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end) : it(it), end(end) {
+ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
     while (this->it != this->end && this->it->type != SEED) {
         // Immediately advance to the first seed
         ++this->it;
@@ -816,7 +816,11 @@ auto ZipCodeTree::iterator::operator*() const -> size_t {
 }
 
 auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
-    return end - it + 1;
+    size_t to_return = end - it - 1;
+#ifdef debug_parse
+    std::cerr << "From " << &*it << " there are " << to_return << " slots after" << std::endl;
+#endif
+    return to_return;
 }
 
 auto ZipCodeTree::begin() const -> iterator {
@@ -827,23 +831,50 @@ auto ZipCodeTree::end() const -> iterator {
     return iterator(zip_code_tree.end(), zip_code_tree.end());
 }
 
-ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(it), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
-    while (it != rend && !tick()) {
+ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(rbegin), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
+#ifdef debug_parse
+    if (this->it != rend) {
+        std::cerr << "Able to do first initial tick." << std::endl;
+    }
+#endif
+    if (this->it == rend) {
+        // We are an end iterator. Nothing else to do.
+        return;
+    }
+    while (this->it != rend && !tick()) {
         // Skip ahead to the first seed we actually want to yield, or to the end of the data.
-        ++it;
+        ++this->it;
+#ifdef debug_parse
+        if (this->it != rend) {
+            std::cerr << "Able to do another initial tick." << std::endl;
+        }
+#endif
     }
     // As the end of the constructor, the iterator points to a seed that has been ticked and yielded, or is rend.
+#ifdef debug_parse
+    if (this->it == rend) {
+        std::cerr << "Ran out of tree looking for first seed." << std::endl;
+    }
+#endif
 }
 
 auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
     // Invariant: the iterator points to a seed that has been ticked and yielded, or to rend.
     if (it != rend) {
+#ifdef debug_parse
+        std::cerr << "Skipping over a " << it->type << " which we assume was handled already." << std::endl;
         ++it;
+#endif
     }
     while (it != rend && !tick()) {
         // Skip ahead to the next seed we actually want to yield, or to the end of the data.
         ++it;
     }
+#ifdef debug_parse
+    if (it == rend) {
+        std::cerr << "Ran out of tree looking for next seed." << std::endl;
+    }
+#endif
     return *this;
 }
 
@@ -898,12 +929,15 @@ auto ZipCodeTree::reverse_iterator::state(State new_state) -> void {
 }
 
 auto ZipCodeTree::reverse_iterator::halt() -> void {
+#ifdef debug_parse
+    std::cerr << "Halt iteration!" << std::endl;
+#endif
     it = rend;
 }
 
 auto ZipCodeTree::reverse_iterator::tick() -> bool {
 #ifdef debug_parse
-    std::cerr << "Tick for state " << current_state << " on symbol " << it->type << std::endl;
+    std::cerr << "Tick for state " << current_state << " on symbol " << it->type << " at " << &*it << std::endl;
 #endif
     switch (current_state) {
     case S_START:
@@ -912,6 +946,9 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         // Stack is empty and we must be at a seed to start at.
         switch (it->type) {
         case SEED:
+#ifdef debug_parse
+            std::cerr << "Skip over seed " << it->value << std::endl;
+#endif
             push(0);
             state(S_SCAN_CHAIN);
             break;
@@ -929,6 +966,10 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         switch (it->type) {
         case SEED:
             // Emit seed here with distance at top of stack.
+            crash_unless(depth() > 0);
+#ifdef debug_parse
+            std::cerr << "Yield seed " << it->value << ", distance " << top() << std::endl;
+#endif
             return true;
             break;
         case SNARL_END:
@@ -955,7 +996,10 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case EDGE:
             // Distance between things in a chain.
             // Add value into running distance.
-            top() += it->value;
+            // Except the stored distance seems to be 1 more than the actual distance.
+            // TODO: why?
+            crash_unless(it->value > 0);
+            top() += (it->value - 1);
             if (top() > distance_limit) {
                 // Skip over the rest of this chain
                 if (depth() == 1) {

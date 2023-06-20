@@ -143,7 +143,7 @@ public:
     class iterator {
     public:
         /// Make an iterator wrapping the given iterator, until the given end.
-        iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end);
+        iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end);
         
         // Iterators are copyable and movable.
         iterator(const iterator& other) = default;
@@ -190,7 +190,7 @@ public:
     public:
         /// Make a reverse iterator wrapping the given reverse iterator, until
         /// the given rend, with the given distance limit.
-        reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
+        reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
 
         // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
         reverse_iterator(const reverse_iterator& other) = default;
