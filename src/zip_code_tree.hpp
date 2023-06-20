@@ -265,7 +265,7 @@ public:
 
         /// Tick the automaton, looking at the symbol at *it and updating the
         /// stack and current_state. Returns true to yield a value at the
-        /// current symbol and false otherwise.
+        /// current symbol, or to halt, and false otherwise.
         bool tick();
 
     };

@@ -192,7 +192,6 @@ namespace unittest {
             // For each seed, what seeds and distances do we see in reverse form it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-                std::cerr << "Look back from seed number " << *forward << std::endl;
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
             }
             REQUIRE(reverse_views.size() == 3);
@@ -306,6 +305,28 @@ namespace unittest {
                 //Chain end
                 REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
             }
+
+            // For each seed, what seeds and distances do we see in reverse form it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 3);
+            // The first seed can't see any other seeds
+            REQUIRE(reverse_views.count(0));
+            REQUIRE(reverse_views[0].size() == 0);
+            // The second seed can see the first seed at distance 1
+            REQUIRE(reverse_views.count(1));
+            REQUIRE(reverse_views[1].size() == 1);
+            REQUIRE(reverse_views[1][0].first == 0);
+            REQUIRE(reverse_views[1][0].second == 1);
+            // The third seed can see both previous seeds, in reverse order, at distances 4 and 5.
+            REQUIRE(reverse_views.count(2));
+            REQUIRE(reverse_views[2].size() == 2);
+            REQUIRE(reverse_views[2][0].first == 1);
+            REQUIRE(reverse_views[2][0].second == 4);
+            REQUIRE(reverse_views[2][1].first == 0);
+            REQUIRE(reverse_views[2][1].second == 5);
         }
     }
     TEST_CASE( "zip tree two two node chains", "[zip_tree]" ) {
@@ -365,6 +386,18 @@ namespace unittest {
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::CHAIN_END);
+
+            // For each seed, what seeds and distances do we see in reverse form it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 2);
+            // Neither seed can see any other seeds
+            REQUIRE(reverse_views.count(0));
+            REQUIRE(reverse_views[0].size() == 0);
+            REQUIRE(reverse_views.count(1));
+            REQUIRE(reverse_views[1].size() == 0);
         }
         SECTION( "Four seeds" ) {
  
@@ -423,6 +456,29 @@ namespace unittest {
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(9).type == ZipCodeTree::CHAIN_END);
+
+            // For each seed, what seeds and distances do we see in reverse form it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 4);
+            // The first seed can't see any other seeds
+            REQUIRE(reverse_views.count(0));
+            REQUIRE(reverse_views[0].size() == 0);
+            // The second seed can see the first seed at distance 5
+            REQUIRE(reverse_views.count(1));
+            REQUIRE(reverse_views[1].size() == 1);
+            REQUIRE(reverse_views[1][0].first == 0);
+            REQUIRE(reverse_views[1][0].second == 5);
+            // The third seed can't see any other seeds
+            REQUIRE(reverse_views.count(2));
+            REQUIRE(reverse_views[2].size() == 0);
+            // The fourth seed can see the third seed at distance 5
+            REQUIRE(reverse_views.count(3));
+            REQUIRE(reverse_views[3].size() == 1);
+            REQUIRE(reverse_views[3][0].first == 2);
+            REQUIRE(reverse_views[3][0].second == 5);
         }
     }
     TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree]" ) {

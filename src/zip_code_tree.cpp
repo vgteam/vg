@@ -903,6 +903,7 @@ auto ZipCodeTree::reverse_iterator::pop() -> size_t {
 }
 
 auto ZipCodeTree::reverse_iterator::top() -> size_t& {
+    crash_unless(depth() > 0);
     return stack.top();
 }
 
@@ -1004,8 +1005,11 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                 // Skip over the rest of this chain
                 if (depth() == 1) {
                     // We never entered the parent snarl of this chain.
-                    // So if the distance along the chain is too much, there are not going to be any results with a smaller distance.
+                    // So if the distance along the chain is too much, there
+                    // are not going to be any results with a smaller distance.
                     halt();
+                    // When we halt we have to return true to show the halting position.
+                    return true;
                 } else {
                     // We need to try the next thing in the parent snarl, so skip the rest of the chain.
                     // We're skipping in 0 nested snarls right now.
@@ -1036,14 +1040,22 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case CHAIN_END:
             // Throw out parent running distance
             pop();
-            // So now we have the running distance for this next chain.
-            if (top() > distance_limit) {
-                // Running distance is already too high so skip over the chain
-                push(0);
-                state(S_SKIP_CHAIN);
+            if (depth() == 0) {
+                // We left a chain and immediately entered a chain without a distance.
+                // This means the chains aren't actually connected.
+                halt();
+                // When we halt we have to return true to show the halting position.
+                return true;
             } else {
-                // Do the chain
-                state(S_SCAN_CHAIN);
+                // So now we have the running distance for this next chain.
+                if (top() > distance_limit) {
+                    // Running distance is already too high so skip over the chain
+                    push(0);
+                    state(S_SKIP_CHAIN);
+                } else {
+                    // Do the chain
+                    state(S_SCAN_CHAIN);
+                }
             }
             break;
         default:
