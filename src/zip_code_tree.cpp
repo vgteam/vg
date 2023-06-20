@@ -65,11 +65,9 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
         seed_indices[i] = i;
     }
     assert(seeds->size() == seed_indices.size());
-    cerr << "Sorting: " << seeds->size() << " seeds" << endl;
 
     //Sort the indices
     std::sort(seed_indices.begin(), seed_indices.end(), [&] (const size_t& a, const size_t& b) {
-        cerr << b << " " << seeds->size() << " " << seed_indices.size() << endl;
         for (auto x : seed_indices) {
             assert (x < seed_indices.size());
         }
