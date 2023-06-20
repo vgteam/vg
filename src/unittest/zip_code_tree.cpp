@@ -59,7 +59,7 @@ namespace unittest {
             REQUIRE(seed_indexes.size() == 1);
             REQUIRE(seed_indexes.at(0) == 0);
 
-            // For each seed, what seeds and distances do we see in reverse form it?
+            // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
@@ -116,7 +116,7 @@ namespace unittest {
             REQUIRE(seed_indexes.at(0) == 0);
             REQUIRE(seed_indexes.at(1) == 1);
 
-            // For each seed, what seeds and distances do we see in reverse form it?
+            // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
@@ -189,7 +189,7 @@ namespace unittest {
             REQUIRE(seed_indexes.at(1) == 1);
             REQUIRE(seed_indexes.at(2) == 2);
 
-            // For each seed, what seeds and distances do we see in reverse form it?
+            // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
@@ -306,7 +306,7 @@ namespace unittest {
                 REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
             }
 
-            // For each seed, what seeds and distances do we see in reverse form it?
+            // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
@@ -387,7 +387,7 @@ namespace unittest {
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::CHAIN_END);
 
-            // For each seed, what seeds and distances do we see in reverse form it?
+            // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
@@ -457,7 +457,7 @@ namespace unittest {
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(9).type == ZipCodeTree::CHAIN_END);
 
-            // For each seed, what seeds and distances do we see in reverse form it?
+            // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
                 std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
@@ -554,6 +554,40 @@ namespace unittest {
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+
+
+            // TODO: This time we happen to visit the seeds in reverse order.
+            // How are we doing querying in a particular direction relative to a particular seed?
+
+            // We see all the seeds in order
+            std::vector<size_t> seed_indexes;
+            std::copy(zip_tree.begin(), zip_tree.end(), std::back_inserter(seed_indexes));
+            REQUIRE(seed_indexes.size() == 3);
+            REQUIRE(seed_indexes.at(0) == 0);
+            REQUIRE(seed_indexes.at(1) == 1);
+            REQUIRE(seed_indexes.at(2) == 2);
+
+            // For each seed, what seeds and distances do we see in reverse from it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 3);
+            // The first seed can't see any other seeds
+            REQUIRE(reverse_views.count(0));
+            REQUIRE(reverse_views[0].size() == 0);
+            // The second seed can see the first seed at distance 2
+            REQUIRE(reverse_views.count(1));
+            REQUIRE(reverse_views[1].size() == 1);
+            REQUIRE(reverse_views[1][0].first == 0);
+            REQUIRE(reverse_views[1][0].second == 2);
+            // The third seed can't see both the others at distances 5 and 7
+            REQUIRE(reverse_views.count(2));
+            REQUIRE(reverse_views[2].size() == 2);
+            REQUIRE(reverse_views[2][0].first == 1);
+            REQUIRE(reverse_views[2][0].second == 5);
+            REQUIRE(reverse_views[2][1].first == 2);
+            REQUIRE(reverse_views[2][1].second == 7);
         }
         SECTION( "One seed on snarl" ) {
  
