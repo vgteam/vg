@@ -764,6 +764,67 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
     }
 }
 
+std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index) const {
+    size_t dag_count = 0;
+    size_t non_dag_count = 0;
+
+    /* Walk through everything in the zip code tree and at the first seed in each snarl, 
+       check if it is a dag or not
+    */
+
+    //Keep track of the depth to check the zip codes
+    size_t current_depth = 0;
+
+    //When we encounter the start of a snarl, make a note of the depth. At the next seed,
+    //check the snarls at the depths recorded
+    vector<size_t> snarl_depths;
+
+    for (size_t i = 0 ; i < zip_code_tree.size() ; i++ ) {
+        const tree_item_t& current_item = zip_code_tree[i];
+        if (current_item.type == SNARL_START) {
+            //For the start of a snarl, make a note of the depth to check the next seed
+            snarl_depths.emplace_back(current_depth);
+
+            //Increment the depth
+            current_depth++;
+        } else if (current_item.type == CHAIN_START) {
+            //For the start of a chain, increment the depth
+            current_depth++;
+        } else if (current_item.type == CHAIN_END || current_item.type == SNARL_END) {
+            //For the end of a snarl or chain, decrement the depth
+            current_depth--;
+        } else if (current_item.type == SEED) {
+            //If this is a seed, check the snarls we've seen previously
+            for (const size_t& snarl_depth : snarl_depths) {
+                if (seeds[current_item.value].zipcode_decoder->get_code_type(snarl_depth) == REGULAR_SNARL) {
+                    //If this is a regular snarl, then it must be a DAG too
+                    dag_count++;
+                } else {
+                    //If this is an irregular snarl
+
+                    //Check the snarl in the distance index
+                    net_handle_t snarl_handle = seeds[current_item.value].zipcode_decoder->get_net_handle(snarl_depth, &distance_index);
+#ifdef DEBUG_ZIP_CODE_TREE
+                    assert(seeds[current_item.value].zipcode_decoder->get_code_type(snarl_depth) == IRREGULAR_SNARL ||
+                           seeds[current_item.value].zipcode_decoder->get_code_type(snarl_depth) == ROOT_SNARL);
+                    assert(distance_index.is_snarl(snarl_handle));
+#endif
+                    if (distance_index.is_dag(snarl_handle)) {
+                        dag_count++;
+                    } else {
+                        non_dag_count++;
+                    }
+                }
+
+            }
+            //Clear the snarls
+            snarl_depths.clear();
+        }
+    }
+
+    return std::make_pair(dag_count, non_dag_count);
+}
+
 void ZipCodeTree::print_self() const {
     for (const tree_item_t item : zip_code_tree) {
         if (item.type == SEED) {
