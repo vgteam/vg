@@ -476,6 +476,74 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
         }
+        SECTION( "Seeds on chain nodes one reversed" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, true, 2);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(6, false, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
+            zip_tree.print_self();
+
+            //The tree should be:
+            // [pos1 3 pos3 6 pos6]
+            //or backwards
+            REQUIRE(zip_tree.get_tree_size() == 7);
+
+            //Chain start
+            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+
+            //first seed 
+            //This is either the first seed on 1 going backwards, or the third seed on 6 going backwards
+            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(1).value == 0) {
+                REQUIRE(zip_tree.get_item_at_index(1).is_reversed);
+            } else {
+                REQUIRE(zip_tree.get_item_at_index(1).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(1).is_reversed);
+            }
+
+            //distance between them
+            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(2).value == 4 ||
+                    zip_tree.get_item_at_index(2).value == 7));
+
+            //the next seed
+            REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(3).value == 1);
+
+            //distance between them
+            REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(4).value == 4 ||
+                    zip_tree.get_item_at_index(4).value == 7));
+
+            //the last seed
+            REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(5).value == 0) {
+                REQUIRE(!zip_tree.get_item_at_index(5).is_reversed);
+            } else {
+                REQUIRE(zip_tree.get_item_at_index(5).value == 2);
+                REQUIRE(!zip_tree.get_item_at_index(5).is_reversed);
+            }
+
+            //Chain end
+            REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
+        }
         SECTION( "One seed on snarl" ) {
  
             vector<pos_t> positions;
