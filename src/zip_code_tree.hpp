@@ -116,6 +116,9 @@ class ZipCodeTree {
         //For an edge, the distance value
         //Empty for a bound
         size_t value;
+
+        //For seeds, is the position of the seed traversed backwards in the tree?
+        bool is_reversed;
     };
 
     private:
