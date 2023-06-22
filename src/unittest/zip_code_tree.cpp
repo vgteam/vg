@@ -52,6 +52,22 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(1).value == 0);
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::CHAIN_END);
+
+            // We see all the seeds in order
+            std::vector<size_t> seed_indexes;
+            std::copy(zip_tree.begin(), zip_tree.end(), std::back_inserter(seed_indexes));
+            REQUIRE(seed_indexes.size() == 1);
+            REQUIRE(seed_indexes.at(0) == 0);
+
+            // For each seed, what seeds and distances do we see in reverse form it?
+            std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
+            for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+            }
+            REQUIRE(reverse_views.size() == 1);
+            REQUIRE(reverse_views.count(0));
+            // The only seed can't see any other seeds
+            REQUIRE(reverse_views[0].size() == 0);
         }
 
         SECTION( "Two seeds" ) {
@@ -92,6 +108,13 @@ namespace unittest {
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::CHAIN_END);
+
+            // We see all the seeds in order
+            std::vector<size_t> seed_indexes;
+            std::copy(zip_tree.begin(), zip_tree.end(), std::back_inserter(seed_indexes));
+            REQUIRE(seed_indexes.size() == 2);
+            REQUIRE(seed_indexes.at(0) == 0);
+            REQUIRE(seed_indexes.at(1) == 1);
         }
 
         SECTION( "Three seeds" ) {
@@ -136,12 +159,20 @@ namespace unittest {
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
             REQUIRE(zip_tree.get_item_at_index(4).value == 3);
 
-            //THe other seed
+            //The other seed
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
             REQUIRE(zip_tree.get_item_at_index(5).value == 2);
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+
+            // We see all the seeds in order
+            std::vector<size_t> seed_indexes;
+            std::copy(zip_tree.begin(), zip_tree.end(), std::back_inserter(seed_indexes));
+            REQUIRE(seed_indexes.size() == 3);
+            REQUIRE(seed_indexes.at(0) == 0);
+            REQUIRE(seed_indexes.at(1) == 1);
+            REQUIRE(seed_indexes.at(2) == 2);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
