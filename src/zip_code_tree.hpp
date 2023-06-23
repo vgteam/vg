@@ -145,6 +145,22 @@ public:
     tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
 public:
+    
+    /**
+     * Exposed type for a reference to an orientation of a seed.
+     */
+    struct oriented_seed_t {
+        size_t seed,
+        bool is_reverse
+    };
+
+    /**
+     * Exposed type for a reference to an oriented seed at an associated distance.
+     */
+    struct seed_result_t : public oriented_seed_t {
+        size_t distance
+    };
+
     /**
      * Iterator that visits all seeds right to left in the tree's in-order traversal.
      */
@@ -171,7 +187,7 @@ public:
         }
         
         /// Get the index and orientation of the seed we are currently at.
-        std::pair<size_t, bool> operator*() const;
+        oriented_seed_t operator*() const;
 
         /// Get the number of tree storage slots left in the iterator. We need
         /// this to make reverse iterators from forward ones.
@@ -218,7 +234,7 @@ public:
         }
         
         /// Get the index and orientation of the seed we are currently at, and the distance to it.
-        std::tuple<size_t, bool, size_t> operator*() const;
+        seed_result_t operator*() const;
 
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton

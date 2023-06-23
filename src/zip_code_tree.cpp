@@ -880,7 +880,7 @@ auto ZipCodeTree::iterator::operator==(const iterator& other) const -> bool {
     return it == other.it;
 }
     
-auto ZipCodeTree::iterator::operator*() const -> std::pair<size_t, bool> {
+auto ZipCodeTree::iterator::operator*() const -> oriented_seed_t {
     return {it->value, it->is_reversed};
 }
 
@@ -952,7 +952,7 @@ auto ZipCodeTree::reverse_iterator::operator==(const reverse_iterator& other) co
     return it == other.it;
 }
 
-auto ZipCodeTree::reverse_iterator::operator*() const -> std::tuple<size_t, bool, size_t> {
+auto ZipCodeTree::reverse_iterator::operator*() const -> seed_result_t {
     // We are always at a seed, so show that seed
     crash_unless(it != rend);
     crash_unless(it->type == SEED);
