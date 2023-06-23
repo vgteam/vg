@@ -12,6 +12,7 @@
 #include <bdsg/hash_graph.hpp>
 #include "../algorithms/back_translate.hpp"
 #include "catch.hpp"
+#include "alignment.hpp"
 
 namespace vg {
 namespace unittest {
@@ -274,6 +275,10 @@ TEST_CASE("An Alignment can be back-translated while converting to GAF", "[algor
     Alignment a;
     json2pb(a, alignment_string.c_str(), alignment_string.size());
 
+    REQUIRE(alignment_from_length(a) == 9);
+    REQUIRE(alignment_to_length(a) == 7);
+    size_t block_length = std::max(alignment_from_length(a), alignment_to_length(a));
+
     SECTION("Translating GAF generation produces the right GAF") {
         auto node_space = vg::io::alignment_to_gaf(g, a);
         stringstream s;
@@ -283,7 +288,8 @@ TEST_CASE("An Alignment can be back-translated while converting to GAF", "[algor
         // Alignment block length is longest involved sequence.
         // Note that we combine adjacent duplicate operations in cs across node boundaries.
         // Note that end position is 0-based inclusive
-        REQUIRE(s.str() == "francine\t7\t0\t7\t+\t>2>3>4\t13\t2\t10\t6\t8\t30\tcs:Z::1-G:1+T:2-CA:2");
+        // Path length is 13 bp, and we run [2 to 11) (9 bases)
+        REQUIRE(s.str() == "francine\t7\t0\t7\t+\t>2>3>4\t13\t2\t11\t6\t" + std::to_string(block_length) + "\t30\tcs:Z::1-G:1+T:2-CA:2");
     }
     
     SECTION("Translating GAF generation with a translation produces the right GAF") {
@@ -291,7 +297,7 @@ TEST_CASE("An Alignment can be back-translated while converting to GAF", "[algor
         stringstream s;
         s << back_translated;
         
-        REQUIRE(s.str() == "francine\t7\t0\t7\t+\t>FirstSegment>SecondSegment\t15\t3\t11\t6\t8\t30\tcs:Z::1-G:1+T:2-CA:2");
+        REQUIRE(s.str() == "francine\t7\t0\t7\t+\t>FirstSegment>SecondSegment\t15\t3\t12\t6\t" + std::to_string(block_length) + "\t30\tcs:Z::1-G:1+T:2-CA:2");
     }
 }
 
@@ -343,15 +349,23 @@ TEST_CASE("A reverse-strand Alignment can be back-translated while converting to
         }
     )";
     
+    // We take up 3 bases.
+    // We leave 1 base of node 3 on the left, and 2 bases of node 4 on the right.
+    // We leave 1 base of segment 1 on the left and 3 bases of segment 1 on the right.
+
     Alignment a;
     json2pb(a, alignment_string.c_str(), alignment_string.size());
+
+    REQUIRE(alignment_from_length(a) == 3);
+    REQUIRE(alignment_to_length(a) == 3);
+    size_t block_length = std::max(alignment_from_length(a), alignment_to_length(a));
     
     auto back_translated = vg::io::alignment_to_gaf(g, a, &trans);
     stringstream s;
     s << back_translated;
     
-    // Should be mapped to a length-7 path, at offset 1 to 4, 3 matches in a lenght 3 block.
-    REQUIRE(s.str() == "steve\t3\t0\t3\t+\t<FirstSegment\t7\t1\t4\t3\t3\t30\tcs:Z::3");
+    // Should be mapped to a length-7 path, at offset 1 to 4, 3 matches in a length 3 block.
+    REQUIRE(s.str() == "steve\t3\t0\t3\t+\t<FirstSegment\t7\t1\t4\t3\t" + std::to_string(block_length) + "\t30\tcs:Z::3");
 }
 
     
