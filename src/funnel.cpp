@@ -678,6 +678,21 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness
         });
 }
 
+vector<vector<size_t>> Funnel::map_stage_results_to_previous_stage(string stage_name) const {
+    vector<vector<size_t>> result;
+    for (auto& stage : stages) {
+        if (stage.name == stage_name) {
+            for (auto& item : stage.items) {
+                result.emplace_back();
+                for (auto x : item.prev_stage_items) {
+                    result.back().emplace_back(x);
+                }
+            }
+        }
+    }
+    return result;
+}
+
 void Funnel::effective_position_union(effective_position_t& dest, const effective_position_t& other) {
     for (auto& kv : other) {
         // For every range in the thing to add in

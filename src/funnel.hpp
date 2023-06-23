@@ -257,6 +257,10 @@ public:
     /// tracking correctness all along
     void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) const;
     
+    /// For each item in a given stage, what are the indices of the items of the
+    /// previous stage that gave rise to it?
+    vector<vector<size_t>> map_stage_results_to_previous_stage(string stage_name) const;
+    
 protected:
     
     /// Pick a clock to use for measuring stage duration
