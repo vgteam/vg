@@ -470,7 +470,7 @@ $(LIB_DIR)/libvg.a: $(LIBVG_DEPS)
 	
 $(LIB_DIR)/libvg.$(SHARED_SUFFIX): $(LIBVG_SHARED_DEPS)
 	rm -f $@
-	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ)
+	$(CXX) -shared -o $@ $(SHARED_OBJ) $(ALGORITHMS_SHARED_OBJ) $(IO_SHARED_OBJ) $(DEP_SHARED_OBJ) $(LDFLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS) 
 
 # Each test set can have its own binary, and not link everything static
 $(UNITTEST_EXE): $(UNITTEST_BIN_DIR)/%: $(UNITTEST_OBJ_DIR)/%.o $(UNITTEST_SUPPORT_OBJ) $(CONFIG_OBJ) $(LIB_DIR)/libvg.$(SHARED_SUFFIX)
