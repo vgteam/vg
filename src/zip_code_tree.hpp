@@ -116,6 +116,9 @@ class ZipCodeTree {
         //For an edge, the distance value
         //Empty for a bound
         size_t value;
+
+        //For seeds, is the position of the seed traversed backwards in the tree?
+        bool is_reversed;
     };
 
     private:
@@ -123,6 +126,11 @@ class ZipCodeTree {
     vector<tree_item_t> zip_code_tree;
 
 public:
+
+    /// Count the number of snarls involved in the tree
+    /// Returns a pair of <dag count, non-dag count>
+    /// Assumes that the tree has already been filled in
+    std::pair<size_t, size_t> dag_and_non_dag_snarl_count(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index) const;
 
     ///Print the zip code tree to stderr
     /// ( and ) are used for the starts and ends of snarls

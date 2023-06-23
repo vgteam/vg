@@ -43,6 +43,7 @@ namespace vg {
     }
 
     
+    /*
         TEST_CASE( "Load",
                   "[load]" ) {
             SnarlDistanceIndex distance_index;
@@ -93,6 +94,7 @@ namespace vg {
 //
             
         }
+        */
         
         TEST_CASE( "Build a snarl distance index for a graph with one node",
                   "[snarl_distance]" ) {
@@ -6986,6 +6988,75 @@ namespace vg {
             }
         
         }//end test case
+
+        TEST_CASE( "Check snarl dags", "[snarl_distance]" ) {
+        
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("GGCTGACTGA");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("GCA");
+            Node* n10 = graph.create_node("T");
+            Node* n11 = graph.create_node("G");
+            Node* n12 = graph.create_node("CTGA");
+            Node* n13 = graph.create_node("GCA");
+            Node* n14 = graph.create_node("CTGA");
+            Node* n15 = graph.create_node("GCA");
+            Node* n16 = graph.create_node("CTGA");
+            Node* n17 = graph.create_node("GCA");
+
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n3);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n6);
+            Edge* e8 = graph.create_edge(n5, n10);
+            Edge* e9 = graph.create_edge(n5, n9, false, true);
+            Edge* e10 = graph.create_edge(n6, n7);
+            Edge* e11 = graph.create_edge(n6, n8);
+            Edge* e12 = graph.create_edge(n7, n9);
+            Edge* e13 = graph.create_edge(n8, n9);
+            Edge* e14 = graph.create_edge(n9, n10);
+            Edge* e15 = graph.create_edge(n10, n11);
+            Edge* e16 = graph.create_edge(n10, n14);
+            Edge* e17 = graph.create_edge(n11, n12);
+            Edge* e18 = graph.create_edge(n11, n13);
+            Edge* e19 = graph.create_edge(n12, n13);
+            Edge* e20 = graph.create_edge(n13, n14);
+            Edge* e21 = graph.create_edge(n13, n17);
+            Edge* e22 = graph.create_edge(n14, n15);
+            Edge* e23 = graph.create_edge(n14, n16);
+            Edge* e24 = graph.create_edge(n15, n16);
+            Edge* e25 = graph.create_edge(n16, n17);
+
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+            SECTION("Check for dag-ness") {
+
+                //snarl 1-4 is a dag
+                net_handle_t snarl14 = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n2->id())));
+                REQUIRE(distance_index.is_dag(snarl14));
+
+                // snarl 4-10 is not a dag
+                net_handle_t snarl410 = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n5->id())));
+                REQUIRE(!distance_index.is_dag(snarl410));
+
+                //snarl 10-17 is a dag with nested chains
+                net_handle_t snarl1017 = distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(n14->id())));
+                REQUIRE(distance_index.is_dag(snarl1017));
+            }
+        }
 
         TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
 

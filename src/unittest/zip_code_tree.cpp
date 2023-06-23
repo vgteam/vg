@@ -189,6 +189,12 @@ namespace unittest {
             REQUIRE(seed_indexes.at(1) == 1);
             REQUIRE(seed_indexes.at(2) == 2);
 
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
+
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
@@ -258,6 +264,7 @@ namespace unittest {
                 //first seed 
                 REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
                 REQUIRE(zip_tree.get_item_at_index(1).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(1).is_reversed == true);
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
@@ -266,6 +273,7 @@ namespace unittest {
                 //The next seed
                 REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
                 REQUIRE(zip_tree.get_item_at_index(3).value == 1);
+                REQUIRE(zip_tree.get_item_at_index(3).is_reversed == true);
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
@@ -274,6 +282,7 @@ namespace unittest {
                 //The last seed
                 REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
                 REQUIRE(zip_tree.get_item_at_index(5).value == 0);
+                REQUIRE(zip_tree.get_item_at_index(5).is_reversed == true);
 
                 //Chain end
                 REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
@@ -285,6 +294,7 @@ namespace unittest {
                 //first seed 
                 REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
                 REQUIRE(zip_tree.get_item_at_index(1).value == 0);
+                REQUIRE(zip_tree.get_item_at_index(1).is_reversed == false);
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
@@ -293,6 +303,7 @@ namespace unittest {
                 //The next seed
                 REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
                 REQUIRE(zip_tree.get_item_at_index(3).value == 1);
+                REQUIRE(zip_tree.get_item_at_index(3).is_reversed == false);
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
@@ -301,9 +312,16 @@ namespace unittest {
                 //The last seed
                 REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
                 REQUIRE(zip_tree.get_item_at_index(5).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(5).is_reversed == false);
 
                 //Chain end
                 REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+            }
+            
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
             }
 
             // For each seed, what seeds and distances do we see in reverse from it?
@@ -386,7 +404,13 @@ namespace unittest {
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::CHAIN_END);
-
+            
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
+            
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
             for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
@@ -456,6 +480,12 @@ namespace unittest {
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(9).type == ZipCodeTree::CHAIN_END);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
 
             // For each seed, what seeds and distances do we see in reverse from it?
             std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> reverse_views;
@@ -535,6 +565,11 @@ namespace unittest {
 
             //first seed 
             REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(1).is_reversed) {
+                REQUIRE(zip_tree.get_item_at_index(1).value == 2);
+            } else {
+                REQUIRE(zip_tree.get_item_at_index(1).value == 0);
+            }
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
@@ -543,6 +578,7 @@ namespace unittest {
 
             //the next seed
             REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(3).value == 1);
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
@@ -551,10 +587,20 @@ namespace unittest {
 
             //the last seed
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(5).is_reversed) {
+                REQUIRE(zip_tree.get_item_at_index(5).value == 0);
+            } else {
+                REQUIRE(zip_tree.get_item_at_index(5).value == 2);
+            }
 
             //Chain end
             REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
-
+            
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
 
             // TODO: This time we happen to visit the seeds in reverse order.
             // How are we doing querying in a particular direction relative to a particular seed?
@@ -589,6 +635,74 @@ namespace unittest {
             REQUIRE(reverse_views[2][1].first == 2);
             REQUIRE(reverse_views[2][1].second == 7);
         }
+        SECTION( "Seeds on chain nodes one reversed" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, true, 2);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(6, false, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
+            zip_tree.print_self();
+
+            //The tree should be:
+            // [pos1 3 pos3 6 pos6]
+            //or backwards
+            REQUIRE(zip_tree.get_tree_size() == 7);
+
+            //Chain start
+            REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+
+            //first seed 
+            //This is either the first seed on 1 going backwards, or the third seed on 6 going backwards
+            REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(1).value == 0) {
+                REQUIRE(zip_tree.get_item_at_index(1).is_reversed);
+            } else {
+                REQUIRE(zip_tree.get_item_at_index(1).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(1).is_reversed);
+            }
+
+            //distance between them
+            REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(2).value == 4 ||
+                    zip_tree.get_item_at_index(2).value == 7));
+
+            //the next seed
+            REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
+            REQUIRE(zip_tree.get_item_at_index(3).value == 1);
+
+            //distance between them
+            REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
+            REQUIRE((zip_tree.get_item_at_index(4).value == 4 ||
+                    zip_tree.get_item_at_index(4).value == 7));
+
+            //the last seed
+            REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
+            if (zip_tree.get_item_at_index(5).value == 0) {
+                REQUIRE(!zip_tree.get_item_at_index(5).is_reversed);
+            } else {
+                REQUIRE(zip_tree.get_item_at_index(5).value == 2);
+                REQUIRE(!zip_tree.get_item_at_index(5).is_reversed);
+            }
+
+            //Chain end
+            REQUIRE(zip_tree.get_item_at_index(6).type == ZipCodeTree::CHAIN_END);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
+        }
         SECTION( "One seed on snarl" ) {
  
             vector<pos_t> positions;
@@ -612,6 +726,12 @@ namespace unittest {
             // [pos1 3 ( 2 [ pos2 ] 6 0 1 ) 0  pos3 6 pos6]
             //or backwards
             REQUIRE(zip_tree.get_tree_size() == 17);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 1);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
         SECTION( "Three seeds on snarl" ) {
  
@@ -638,6 +758,12 @@ namespace unittest {
             // [pos1 0 ( 0 [ pos2 x pos2 x pos2 ] 0 0 1 ) 0  pos3 6 pos6]
             //or backwards
             REQUIRE(zip_tree.get_tree_size() == 21);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 1);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
         SECTION( "Two children of a snarl" ) {
  
@@ -664,6 +790,12 @@ namespace unittest {
             // [pos1 0  pos3 0 ( 0 [ pos4 ] inf 0 [ pos5 1 pos5 ] 2 3 3 2) 0 pos6]
             //or backwards
             REQUIRE(zip_tree.get_tree_size() == 25);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 1);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
         SECTION( "Only snarls in a snarl" ) {
  
@@ -689,6 +821,12 @@ namespace unittest {
             // [( 0 [ pos2 ] 7 0 1) 3 ( 0 [pos4 ] 3 inf [pos5 1 pos5 ] 2 0 3 2 )]
             //or backwards
             REQUIRE(zip_tree.get_tree_size() == 29);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 2);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
     }
     TEST_CASE( "zip tree non-simple DAG", "[zip_tree]" ) {
@@ -750,6 +888,12 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 3);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
     }
 
@@ -838,6 +982,12 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 5);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
         SECTION( "Make the zip tree with a few seeds" ) {
  
@@ -859,7 +1009,73 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 3);
+                REQUIRE(dag_non_dag_count.second == 0);
+            }
         }
+    }
+
+    TEST_CASE( "zip tree non-dag", "[zip_tree]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("GCA");
+        Node* n3 = graph.create_node("GCA");
+        Node* n4 = graph.create_node("GCA");
+        Node* n5 = graph.create_node("GAC");
+        Node* n6 = graph.create_node("GCA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n3, false, true);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n4, n6);
+        Edge* e8 = graph.create_edge(n5, n6);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "Make the zip tree with a seed on each node" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeTree zip_tree;
+            zip_tree.fill_in_tree(seeds, distance_index);
+            zip_tree.print_self();
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 1);
+                REQUIRE(dag_non_dag_count.second == 1);
+            }
+        }
+
     }
 }
 }

@@ -321,8 +321,12 @@ int main_cluster(int argc, char** argv) {
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
 
+                std::pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
+
                 // Annotate with the time spent making the zip tree
                 set_annotation(aln, "zip_tree_construction_seconds", elapsed_seconds.count());
+                set_annotation(aln, "zip_tree_dag_count", dag_non_dag_count.first);
+                set_annotation(aln, "zip_tree_non_dag_count", dag_non_dag_count.second);
 
                 // TODO: parallelize this
                 #pragma omp critical (cout)
