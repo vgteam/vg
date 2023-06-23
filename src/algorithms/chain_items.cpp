@@ -5,6 +5,7 @@
 
 
 #include "chain_items.hpp"
+#include "crash.hpp"
 
 #include <handlegraph/algorithms/dijkstra.hpp>
 #include <structures/immutable_list.hpp>
@@ -125,28 +126,24 @@ void sort_and_shadow(std::vector<Anchor>& items) {
     items = std::move(kept_items);
 }
 
-TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
-                           const VectorView<Anchor>& to_chain,
-                           const SnarlDistanceIndex& distance_index,
-                           const HandleGraph& graph,
-                           int gap_open,
-                           int gap_extension,
-                           size_t max_lookback_bases,
-                           size_t min_lookback_items,
-                           size_t lookback_item_hard_cap,
-                           size_t initial_lookback_threshold,
-                           double lookback_scale_factor,
-                           double min_good_transition_score_per_base,
-                           int item_bonus,
-                           size_t max_indel_bases) {
-    
-    DiagramExplainer diagram(false);
-    diagram.add_globals({{"rankdir", "LR"}});
-    
-#ifdef debug_chaining
-    cerr << "Chaining group of " << to_chain.size() << " items" << endl;
-#endif
-    
+/// Go throuch all the anchors and call the given callback with pairs of anchor numbers, and their read and graph distances.
+/// Transitions are always between anchors earlier and later in the read.
+/// Transitions are from the first anchor, to the second.
+/// Transitions are visited in order: all transititions to an anchor are visited before any transitions from it.
+/// callback must return a score for the given transition, and the score it achieves for the destination item.
+/// to_chain must be sorted by read start.
+void for_each_transition(const VectorView<Anchor>& to_chain,
+                         const SnarlDistanceIndex& distance_index,
+                         const HandleGraph& graph,
+                         size_t max_lookback_bases,
+                         size_t min_lookback_items,
+                         size_t lookback_item_hard_cap,
+                         size_t initial_lookback_threshold,
+                         double lookback_scale_factor,
+                         double min_good_transition_score_per_base,
+                         size_t max_indel_bases,
+                         const std::function<std::pair<int, int>(size_t, size_t, size_t, size_t)>& callback) {
+
     // We want to consider all the important transitions in the graph of what
     // items can come before what other items. We aren't allowing any
     // transitions between items that overlap in the read. We're going through
@@ -162,21 +159,14 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     // We use first overlapping instead of last non-overlapping because we can
     // just initialize first overlapping at the beginning and be right.
     auto first_overlapping_it = read_end_order.begin();
-    
-    // Make our DP table big enough
-    chain_scores.clear();
-    chain_scores.resize(to_chain.size(), TracedScore::unset());
-    
-    // What's the winner so far?
-    TracedScore best_score = TracedScore::unset();
-    
+
     for (size_t i = 0; i < to_chain.size(); i++) {
         // For each item
         auto& here = to_chain[i];
         
         if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
             // The items are not actually sorted by read start
-            throw std::runtime_error("chain_items_dp: items are not sorted by read start");
+            throw std::runtime_error("for_each_transition: items are not sorted by read start");
         }
         
         while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
@@ -184,16 +174,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // to the first overlapping item that ends earliest.
             // Ordering physics *should* constrain the iterator to not run off the end.
             ++first_overlapping_it;
-            assert(first_overlapping_it != read_end_order.end());
+            crash_unless(first_overlapping_it != read_end_order.end());
         }
-        
-        // How many points is it worth to collect?
-        auto item_points = here.score() + item_bonus;
-        
-        std::string here_gvnode = "i" + std::to_string(i);
-        
-        // If we come from nowhere, we get those points.
-        chain_scores[i] = std::max(chain_scores[i], {item_points, TracedScore::nowhere()});
         
 #ifdef debug_chaining
         cerr << "Look at transitions to #" << i
@@ -267,95 +249,168 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             }
             
             // Now it's safe to make a distance query
-#ifdef debug_chaining
-            cerr << "\t\tCome from score " << chain_scores[*predecessor_index_it]
-                << " across " << source << " to " << here << endl;
-#endif
-            
-            // We will actually evaluate the source.
             
             // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
             size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
             
-            // How much does it pay (+) or cost (-) to make the jump from there
-            // to here?
-            // Don't allow the transition if it seems like we're going the long
-            // way around an inversion and needing a huge indel.
-            int jump_points;
-            
-            if (read_distance == numeric_limits<size_t>::max()) {
-                // Overlap in read, so not allowed.
-                jump_points = std::numeric_limits<int>::min();
-            } else if (graph_distance == numeric_limits<size_t>::max()) {
-                // No graph connection
-                jump_points = std::numeric_limits<int>::min();
-            } else {
-                // Decide how much length changed
-                size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
-                
-#ifdef debug_chaining
-                cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
-#endif
-
-                if (indel_length > max_indel_bases) {
-                    // Don't allow an indel this long
-                    jump_points = std::numeric_limits<int>::min();
-                } else {
-                    // Then charge for that indel
-                    jump_points = score_gap(indel_length, gap_open, gap_extension);
-                }
-            }
-            
-            // And how much do we end up with overall coming from there.
-            int achieved_score;
-            
-            if (jump_points != numeric_limits<int>::min()) {
-                // Get the score we are coming from
-                TracedScore source_score = TracedScore::score_from(chain_scores, *predecessor_index_it);
-                
-                // And the score with the transition and the points from the item
-                TracedScore from_source_score = source_score.add_points(jump_points + item_points);
-                
-                // Remember that we could make this jump
-                chain_scores[i] = std::max(chain_scores[i], from_source_score);
-                                               
-#ifdef debug_chaining
-                cerr << "\t\tWe can reach #" << i << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
-#endif
-                if (from_source_score.score > 0) {
-                    // Only explain edges that were actual candidates since we
-                    // won't let local score go negative
-                    
-                    std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
-                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
-                        {"label", std::to_string(jump_points)},
-                        {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
-                    });
-                }
-                
-                achieved_score = from_source_score.score;
-            } else {
-#ifdef debug_chaining
-                cerr << "\t\tTransition is impossible." << endl;
-#endif
-                achieved_score = std::numeric_limits<size_t>::min();
+            std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
+            if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
+                // Transition seems possible, so yield it.
+                scores = callback(*predecessor_index_it, i, read_distance, graph_distance);
             }
             
             // Note that we checked out this transition and saw the observed scores and distances.
-            best_transition_found = std::max(best_transition_found, jump_points);
-            if (achieved_score > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
+            best_transition_found = std::max(best_transition_found, scores.first);
+            if (scores.second > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
                 // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
                 good_score_found = true;
             }
-        }
+        } 
+    }
+}
+
+TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
+                           const VectorView<Anchor>& to_chain,
+                           const SnarlDistanceIndex& distance_index,
+                           const HandleGraph& graph,
+                           int gap_open,
+                           int gap_extension,
+                           size_t max_lookback_bases,
+                           size_t min_lookback_items,
+                           size_t lookback_item_hard_cap,
+                           size_t initial_lookback_threshold,
+                           double lookback_scale_factor,
+                           double min_good_transition_score_per_base,
+                           int item_bonus,
+                           size_t max_indel_bases) {
+    
+    DiagramExplainer diagram(false);
+    diagram.add_globals({{"rankdir", "LR"}});
+    
+#ifdef debug_chaining
+    cerr << "Chaining group of " << to_chain.size() << " items" << endl;
+#endif
+
+    chain_scores.resize(to_chain.size());
+    for (size_t i = 0; i < to_chain.size(); i++) {
+        // Set up DP table so we can start anywhere with that item's score.
+        chain_scores[i] = {to_chain[i].score(), TracedScore::nowhere()};
+    }
+
+    // We will run this over every transition in a good DP order.
+    auto iteratee = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+        
+        crash_unless(chain_scores.size() > to_anchor);
+        crash_unless(chain_scores.size() > from_anchor);
+        
+        // For each item
+        auto& here = to_chain[to_anchor];
+        
+        // How many points is it worth to collect?
+        auto item_points = here.score() + item_bonus;
+        
+        std::string here_gvnode = "i" + std::to_string(to_anchor);
+        
+        // If we come from nowhere, we get those points.
+        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {item_points, TracedScore::nowhere()});
+        
+        // For each source we could come from
+        auto& source = to_chain[from_anchor];
+            
+#ifdef debug_chaining
+        cerr << "\t\tCome from score " << chain_scores[from_anchor]
+            << " across " << source << " to " << here << endl;
+#endif
+            
+        // How much does it pay (+) or cost (-) to make the jump from there
+        // to here?
+        // Don't allow the transition if it seems like we're going the long
+        // way around an inversion and needing a huge indel.
+        int jump_points;
+            
+        // Decide how much length changed
+        size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
         
 #ifdef debug_chaining
-        cerr << "\tBest way to reach #" << i << " is " << chain_scores[i] << endl;
+        cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
+#endif
+
+        if (indel_length > max_indel_bases) {
+            // Don't allow an indel this long
+            jump_points = std::numeric_limits<int>::min();
+        } else {
+            // Then charge for that indel
+            jump_points = score_gap(indel_length, gap_open, gap_extension);
+        }
+            
+        // And how much do we end up with overall coming from there.
+        int achieved_score;
+            
+        if (jump_points != numeric_limits<int>::min()) {
+            // Get the score we are coming from
+            TracedScore source_score = TracedScore::score_from(chain_scores, from_anchor);
+            
+            // And the score with the transition and the points from the item
+            TracedScore from_source_score = source_score.add_points(jump_points + item_points);
+            
+            // Remember that we could make this jump
+            chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);
+                                           
+#ifdef debug_chaining
+            cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
+#endif
+            if (from_source_score.score > 0) {
+                // Only explain edges that were actual candidates since we
+                // won't let local score go negative
+                
+                std::string source_gvnode = "i" + std::to_string(from_anchor);
+                // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
+                    {"label", std::to_string(jump_points)},
+                    {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
+                });
+            }
+            
+            achieved_score = from_source_score.score;
+        } else {
+#ifdef debug_chaining
+            cerr << "\t\tTransition is impossible." << endl;
+#endif
+            achieved_score = std::numeric_limits<size_t>::min();
+        }
+            
+        return std::make_pair(jump_points, achieved_score);
+    };
+
+    // Run it over all the transitions.
+    for_each_transition(to_chain,
+                        distance_index,
+                        graph,
+                        max_lookback_bases,
+                        min_lookback_items,
+                        lookback_item_hard_cap,
+                        initial_lookback_threshold,
+                        lookback_scale_factor,
+                        min_good_transition_score_per_base,
+                        max_indel_bases,
+                        iteratee);
+        
+   
+    TracedScore best_score = TracedScore::unset();
+
+    for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
+        // For each destination anchor, now that it is finished, see if it is the winner.
+        auto& here = to_chain[to_anchor];
+        auto item_points = here.score() + item_bonus;
+
+#ifdef debug_chaining
+        cerr << "\tBest way to reach #" << to_anchor << " is " << chain_scores[to_anchor] << endl;
 #endif
         
+        // Draw the item in the diagram
+        std::string here_gvnode = "i" + std::to_string(to_anchor);
         std::stringstream label_stream;
-        label_stream << "#" << i << " " << here << " = " << item_points << "/" << chain_scores[i].score;
+        label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
         diagram.add_node(here_gvnode, {
             {"label", label_stream.str()}
         });
@@ -377,7 +432,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
         
         // See if this is the best overall
-        best_score.max_in(chain_scores, i);
+        best_score.max_in(chain_scores, to_anchor);
         
 #ifdef debug_chaining
         cerr << "\tBest chain end so far: " << best_score << endl;
