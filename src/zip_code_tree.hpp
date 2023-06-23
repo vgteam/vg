@@ -150,15 +150,35 @@ public:
      * Exposed type for a reference to an orientation of a seed.
      */
     struct oriented_seed_t {
-        size_t seed,
-        bool is_reverse
+        size_t seed;
+        bool is_reverse;
+        
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator==(const oriented_seed_t& other) const {
+            return seed == other.seed && is_reverse == other.is_reverse;
+        }
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator!=(const oriented_seed_t& other) const {
+            return !(*this == other);
+        }
     };
 
     /**
      * Exposed type for a reference to an oriented seed at an associated distance.
      */
     struct seed_result_t : public oriented_seed_t {
-        size_t distance
+        size_t distance;
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator==(const seed_result_t& other) const {
+            return distance == other.distance && oriented_seed_t::operator==((oriented_seed_t)other);
+        }
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator!=(const seed_result_t& other) const {
+            return !(*this == other);
+        }
     };
 
     /**
@@ -301,15 +321,41 @@ public:
 
 };
 
+/// Print an item type to a stream
 std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type);
+/// Pritn an iterator state to a stream
 std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator::State& state);
 
 }
 
 namespace std {
 
+/// Make an item type into a string
 std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type);
+/// Make an iterator state into a string
 std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state);
+
+/// Hash functor to hash oriented_seed_t with std::hash
+template <> struct hash<vg::ZipCodeTree::oriented_seed_t>
+{
+    /// Produce a hash of an oriented_seed_t.
+    size_t operator()(const vg::ZipCodeTree::oriented_seed_t& item) const
+    {
+        // Hash it just as we would a pair.
+        return hash<pair<size_t, bool>>()(make_pair(item.seed, item.is_reverse));
+    }
+};
+
+/// Hash functor to hash oriented_seed_t with std::hash
+template <> struct hash<vg::ZipCodeTree::seed_result_t>
+{
+    /// Produce a hash of an oriented_seed_t.
+    size_t operator()(const vg::ZipCodeTree::seed_result_t& item) const
+    {
+        // Hash it just as we would a tuple.
+        return hash<tuple<size_t, bool, size_t>>()(make_tuple(item.seed, item.is_reverse, item.distance));
+    }
+};
 
 }
 

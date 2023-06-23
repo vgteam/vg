@@ -4,7 +4,7 @@
 
 #include "crash.hpp"
 
-#define debug_parse
+//#define debug_parse
 
 using namespace std;
 namespace vg {
@@ -932,8 +932,9 @@ auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
     if (it != rend) {
 #ifdef debug_parse
         std::cerr << "Skipping over a " << it->type << " which we assume was handled already." << std::endl;
-        ++it;
 #endif
+        ++it;
+
     }
     while (it != rend && !tick()) {
         // Skip ahead to the next seed we actually want to yield, or to the end of the data.
