@@ -170,8 +170,8 @@ public:
             return !(*this == other);
         }
         
-        /// Get the index of the seed we are currently at.
-        size_t operator*() const;
+        /// Get the index and orientation of the seed we are currently at.
+        std::pair<size_t, bool> operator*() const;
 
         /// Get the number of tree storage slots left in the iterator. We need
         /// this to make reverse iterators from forward ones.
@@ -217,8 +217,8 @@ public:
             return !(*this == other);
         }
         
-        /// Get the index of the seed we are currently at, and the distance to it.
-        std::pair<size_t, size_t> operator*() const;
+        /// Get the index and orientation of the seed we are currently at, and the distance to it.
+        std::tuple<size_t, bool, size_t> operator*() const;
 
         /// Type for the state of the
         /// I-can't-believe-it's-not-a-pushdown-automaton

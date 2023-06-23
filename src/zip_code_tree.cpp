@@ -880,8 +880,8 @@ auto ZipCodeTree::iterator::operator==(const iterator& other) const -> bool {
     return it == other.it;
 }
     
-auto ZipCodeTree::iterator::operator*() const -> size_t {
-    return it->value;
+auto ZipCodeTree::iterator::operator*() const -> std::pair<size_t, bool> {
+    return {it->value, it->is_reversed};
 }
 
 auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
@@ -952,13 +952,13 @@ auto ZipCodeTree::reverse_iterator::operator==(const reverse_iterator& other) co
     return it == other.it;
 }
 
-auto ZipCodeTree::reverse_iterator::operator*() const -> std::pair<size_t, size_t> {
+auto ZipCodeTree::reverse_iterator::operator*() const -> std::tuple<size_t, bool, size_t> {
     // We are always at a seed, so show that seed
     crash_unless(it != rend);
     crash_unless(it->type == SEED);
     crash_unless(!stack.empty());
     // We know the running distance to this seed will be at the top of the stack.
-    return {it->value, stack.top()};
+    return {it->value, it->is_reversed, stack.top()};
 }
 
 auto ZipCodeTree::reverse_iterator::push(size_t value) -> void {
