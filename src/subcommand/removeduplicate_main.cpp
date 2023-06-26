@@ -230,8 +230,6 @@ vector<int> find_indexes(const std::vector<std::vector<long long>> &batch_nodes,
 
 
 void help_rmvdup(char **argv) {
-// TODO: add whatever option is needed to this list. Change long_option and getopt_long if want to add an option.
-// TODO: see what input and output file forintmats is possible
     cerr << "usage: " << argv[0] << " rmvdup [options] inputfile.gam > output.gam " << endl
          << "Remove duplicate PCRs from the input file. A gam index file (.gam.gai) must exists." << endl
          << "  -s --single_end                  set this flag if the input gam file is single-end read" << endl
@@ -318,15 +316,20 @@ int main_rmvdup(int argc, char *argv[]) {
         });
     }
 
-    vector<vector<string>> fill_hash_memory(threads);
+    vector<vector<string>> fill_hash_memory(get_thread_count());
+    vector<string> keys;
 
     function<void(Alignment & )> fill_hash = [&](const Alignment &aln) {
         int thread_number = omp_get_thread_num();
         fill_hash_memory[thread_number].push_back(name_id(aln));
+//        keys.push_back(name_id(aln));
     };
+    get_input_file(sorted_gam_name, [&](istream &in) {
+        vg::io::for_each_parallel(in, fill_hash);
+    });
 
     // Making hashing multi-threaded
-    vector<string> keys;
+
     size_t totalSize = 0;
 
     // Calculate the total size of all vectors
@@ -339,12 +342,10 @@ int main_rmvdup(int argc, char *argv[]) {
 
     // Merge the vectors
     for (const auto& vec : fill_hash_memory) {
-        mergedVector.insert(keys.end(), vec.begin(), vec.end());
+        keys.insert(keys.end(), vec.begin(), vec.end());
     }
 
-    get_input_file(sorted_gam_name, [&](istream &in) {
-        vg::io::for_each_parallel(in, fill_hash);
-    });
+
 
 
     int alignment_numbers = keys.size();
@@ -519,7 +520,6 @@ int main_rmvdup(int argc, char *argv[]) {
 //    // This is the function that works on pair_end data
 //    function<void(Alignment & )> pcr_removal_pair_end = [&](Alignment &aln) {
 //        int thread_number = omp_get_thread_num();
-//        // TODO: Check this. I have to clear all the used alignments here and then use the memory again. right?
 ////        unordered_map<string, Alignment>().swap(memory[thread_number]);
 //
 //
@@ -642,12 +642,11 @@ int main_rmvdup(int argc, char *argv[]) {
     vector <vector<Alignment>> batch(get_thread_count());
     int batch_size = 64;
     int processed_alignments = 0;
-    function<void(Alignment & , Alignment &, bool)> batch_pair_removal = [&](Alignment &aln, Alignment &aln_pair,
-                                                                              bool is_last = false) {
+//    bool is_last = false;
+    function<void(Alignment & , Alignment &, bool)> batch_pair_removal = [&](Alignment &aln, Alignment &aln_pair, bool is_last) {
 
         int thread_number = omp_get_thread_num();
-        // TODO: handle the end case when there might be less than batch size alignments left
-        if (batch[thread_number].size() == batch_size - 2 || is_last) {
+        if ((batch[thread_number].size() == batch_size - 2) || is_last) {
             if (!is_last) {
                 batch[thread_number].push_back(aln);
                 batch[thread_number].push_back(aln_pair);
@@ -660,6 +659,8 @@ int main_rmvdup(int argc, char *argv[]) {
                 }
 
             }
+                batch[thread_number].push_back(aln);
+                batch[thread_number].push_back(aln_pair);
 
 
             vector <pair<long long, long long>> intervals_batch = make_coalesced_sorted_intervals_batch(
@@ -811,21 +812,44 @@ int main_rmvdup(int argc, char *argv[]) {
 
     };
 
-    if (gam_index.get() != nullptr) {
-        get_input_file(sorted_gam_name, [&](istream &in) {
 
-            if (single_ended){
+        function<void(Alignment &, Alignment &)> batch_pair_two_var = [&](Alignment &o1, Alignment &o2) {
+        batch_pair_removal(o1, o2, false);
+        };
+    if (gam_index.get() != nullptr) {
+
+        if (single_ended){
+
+            get_input_file(sorted_gam_name, [&](istream &in) {
                 vg::io::for_each_parallel(in, pcr_removal);
-            } else {
-                std::function<void(Alignment &, Alignment &)> batch_pair_two_var = [&](Alignment &o1, Alignment &o2) {
-                    batch_pair_removal(o1, o2, false);
-                };
+
+            });
+        } else {
+            get_input_file(sorted_gam_name, [&](istream &in) {
                 vg::io::for_each_parallel_shuffled_double(in, batch_pair_two_var);
-                Alignment a, b;
-                batch_pair_removal(a, b, true);
-            }
-        });
+
+            });
+
+
+//            is_last = true;
+            Alignment a, b;
+            batch_pair_removal(a, b, true);
+        }
+
+
     }
+//
+//    function<void(Alignment &, Alignment &)> batch_pair_two_var = [&](Alignment &o1, Alignment &o2) {
+//        batch_pair_removal(o1, o2, false);
+//    };
+//    if (gam_index.get() != nullptr) {
+//        get_input_file(sorted_gam_name, [&](istream &in) {
+////            vg::io::for_each(in, pcr_removal);
+//            vg::io::for_each_parallel_shuffled_double(in, batch_pair_two_var);
+//
+//        });
+//    }
+
 
 
     return 0;
