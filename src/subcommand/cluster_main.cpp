@@ -502,8 +502,8 @@ int main_cluster(int argc, char** argv) {
 
                 std::pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
 
-                // Annotate with cluster time
-                set_annotation(aln, "cluster_seconds", elapsed_seconds.count());
+                // And with hit count clustered
+                set_annotation(aln, "seed_count", (double)seeds.size());
 
                 // Annotate with the time spent making the zip tree
                 set_annotation(aln, "zip_tree_construction_seconds", elapsed_seconds.count());
