@@ -296,14 +296,19 @@ int main_cluster(int argc, char** argv) {
     };
     
     // create in-memory objects for mems
-    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
+    PathPositionHandleGraph* xg_index;
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
-    if (!gcsa_name.empty()) {
-        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
+
+    if (!use_minimizers) {
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xg_index = overlay_helper.apply(path_handle_graph.get());
+        if (!gcsa_name.empty()) {
+            gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+            lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
+        }
     }
 
     //Get the minimizer indexes using the index registry
@@ -384,11 +389,6 @@ int main_cluster(int argc, char** argv) {
                         ? vg::io::VPKG::load_one<SnarlDistanceIndex>(registry.require("Giraffe Distance Index").at(0))
                         : vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
 
-    //Get the xg
-    PathHandleGraph* base_graph = &gbz->graph;
-    auto xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
-    base_graph = xg_graph.get();
-    auto path_position_graph = overlay_helper.apply(base_graph);
 
 
     // Make the clusterer
@@ -453,7 +453,7 @@ int main_cluster(int argc, char** argv) {
                 //Use a MinimizerMapper to find the minimizers, using the provided parameters
                 //This will have an empty gbwtgraph::GBWTGraph, so it shouldn't be used
                 //for anything except finding minimizers
-                TestMinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*distance_index), &oversized_zipcodes, path_position_graph);
+                TestMinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*distance_index), &oversized_zipcodes, nullptr);
 
                 //Set the parameters
                 minimizer_mapper.hit_cap = hit_cap;
