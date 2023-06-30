@@ -272,7 +272,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                 }
             } 
         }
-    }
+    };
 
     return iterator;
 }
