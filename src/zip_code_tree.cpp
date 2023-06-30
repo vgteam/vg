@@ -1,4 +1,5 @@
 //#define DEBUG_ZIP_CODE_TREE
+//#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
 
@@ -820,6 +821,13 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(vector<Seed>&
                         dag_count++;
                     } else {
                         non_dag_count++;
+#ifdef PRINT_NON_DAG_SNARLS
+                        size_t child_count = 0;
+                        distance_index.for_each_child(snarl_handle, [&](const net_handle_t& child) {
+                            child_count++;
+                        });
+                        cerr << distance_index.net_handle_as_string(snarl_handle) << "\t" << child_count << endl;
+#endif
                     }
                 }
 
