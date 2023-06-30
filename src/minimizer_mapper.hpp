@@ -489,7 +489,7 @@ protected:
     std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const;
     
     /// Convert a single seed to a single chaining anchor.
-    algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const Seed& seed) const;
+    algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const;
     
     /// Convert an Anchor to a WFAAlignment
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor) const; 

@@ -2286,16 +2286,17 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
 std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
-    for (auto& seed : seeds) {
-        to_return.push_back(this->to_anchor(aln, minimizers, seed));
+    for (size_t i = 0; i < seeds.size(); i++) {
+        to_return.push_back(this->to_anchor(aln, minimizers, seeds, i));
     }
     return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const Seed& seed) const {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, ane for
     // reverse-strand minimizers) falls.
+    auto& seed = seeds[seed_number];
     auto& source = minimizers[seed.source];
     size_t length;
     pos_t graph_start;
@@ -2326,7 +2327,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed.zipcode_decoder.get()); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get()); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {

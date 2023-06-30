@@ -277,6 +277,99 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
     return iterator;
 }
 
+transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
+    return [&zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
+                                                 const SnarlDistanceIndex& distance_index,
+                                                 const HandleGraph& graph,
+                                                 size_t max_indel_bases,
+                                                 const transition_iteratee& callback) {
+                            
+        // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about. So we need to index the anchors by leading/trailing seed.
+        // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
+        std::unordered_map<size_t, size_t> seed_to_starting;
+        std::unordered_map<size_t, size_t> seed_to_ending;
+        for (size_t anchor_num = 0; anchor_num < to_chain.size(); anchor_num++) {
+            seed_to_starting[to_chain[anchor_num].seed_start()] = anchor_num;
+            seed_to_ending[to_chain[anchor_num].seed_end()] = anchor_num;
+        }
+
+        // Emit a transition between a source and destination anchor, or skip if actually unreachable.
+        auto handle_transition = [&](size_t source_anchor_index, size_t dest_anchor_index) {
+            auto& source_anchor = to_chain[source_anchor_index];
+            auto& dest_anchor = to_chain[dest_anchor_index];
+            size_t read_distance = get_read_distance(source_anchor, dest_anchor);
+            if (read_distance == std::numeric_limits<size_t>::max()) {
+                // Not reachable in read
+                return;
+            }
+            size_t graph_distance = get_graph_distance(source_anchor, dest_anchor, distance_index, graph, max_lookback_bases);
+            if (graph_distance == std::numeric_limits<size_t>::max()) {
+                // Not reachable in graph (somehow)
+                // TODO: Should never happen!
+                return;
+            }
+            callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
+        };
+
+        // If we find we are actually walking through the graph in opposition
+        // to the read, we need to defer transitions from source on the read
+        // forward strand to dest on the read forward strand, so we can go them
+        // in order along the read forward strand.
+        std::stack<std::pair<size_t, size_t>> deferred;
+
+        for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
+            // For each destination seed left to right
+            ZipCodeTree::oriented_seed_t dest_seed = *dest;
+
+            // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
+            std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
+
+            for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
+                // For each source seed right to left
+                ZipCodeTree::oriented_seed_t source_seed = *source;
+
+                if (!source_seed.is_reverse && !dest_seed.is_reverse) {
+                    // Both of these are in the same orientation relative to
+                    // the read, and we're going through the graph in the
+                    // read's forward orientation as assigned by these seeds.
+                    // So we can just visit this transition.
+
+                    // They might not be at anchor borders though, so check.
+                    auto found_source_anchor = seed_to_ending.find(source_seed.seed);
+                    if (found_dest_anchor != seed_to_starting.end() && found_source_anchor != seed_to_ending.end()) {
+                        // We can transition between these seeds without jumping to/from the middle of an anchor.
+
+                        // We can't have any reverse-relative-to-read transitions in play.
+                        crash_unless(deferred.empty());
+
+                        handle_transition(found_source_anchor->second, found_dest_anchor->second);
+                    }
+                } else if (source_seed.is_reverse && dest_seed.is_reverse) {
+                    // Both of these are in the same orientation but it is opposite to the read.
+                    // We need to find source as an anchor *started*, and then queue them up flipped for later.
+                    auto found_source_anchor = seed_to_starting.find(source_seed.seed);
+                    if (found_dest_anchor != seed_to_ending.end() && found_source_anchor != seed_to_starting.end()) {
+                        // We can transition between these seeds without jumping to/from the middle of an anchor.
+                        // Queue them up, flipped
+                        deferred.emplace(found_dest_anchor->second, found_source_anchor->second);
+                    }
+                } else {
+                    // We have a transition between different orientations relative to the read. Don't show that.
+                    continue;
+                }
+            }
+        }
+
+        while (!deferred.empty()) {
+            // Now if we were going reverse relative to the read, we can
+            // unstack everything in the right order for forward relative to
+            // the read.
+            handle_transition(deferred.top().first, deferred.top().second);
+            deferred.pop();
+        }
+    };
+}
+
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,

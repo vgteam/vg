@@ -23,6 +23,7 @@
 
 #include "../gbwt_extender.hpp"
 #include "../snarl_seed_clusterer.hpp"
+#include "../zip_code_tree.hpp"
 #include "../handle.hpp"
 #include "../explainer.hpp"
 #include "../utility.hpp"
@@ -78,6 +79,18 @@ public:
         return end_pos;
     }
     
+    /// Get the number of the seed at the start of the anchor, or
+    /// std::numeric_limits<size_t>::max() if not set.
+    inline size_t seed_start() const {
+        return start_seed;
+    }
+    
+    /// Get the number of the seed at the end of the chain, or
+    /// std::numeric_limits<size_t>::max() if not set.
+    inline size_t seed_end() const {
+        return end_seed;
+    }
+
     /// Get the distance-finding hint information (i.e. "zip code") for
     /// accelerating distance queries to the start of this anchor, or null if
     /// none is set.
@@ -95,15 +108,15 @@ public:
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
-    /// Can also bring along a distance hint
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_decoder(hint), end_decoder(hint) {
+    /// Can also bring along a distance hint and a seed number.
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint) {
         // Nothing to do!
     }
     
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_decoder(first.start_hint()), end_decoder(last.end_hint()) {
+    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()) {
         // Nothing to do!
     }
     
@@ -120,6 +133,8 @@ protected:
     pos_t start_pos;
     pos_t end_pos;
     int points;
+    size_t start_seed;
+    size_t end_seed;
     ZipCodeDecoder* start_decoder;
     ZipCodeDecoder* end_decoder;
 };
@@ -272,6 +287,11 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                                                  size_t initial_lookback_threshold,
                                                  double lookback_scale_factor,
                                                  double min_good_transition_score_per_base);
+
+/**
+ * Return a transition iterator that uses zip code tree iteration to select traversals.
+ */
+transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
