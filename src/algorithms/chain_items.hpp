@@ -291,7 +291,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 /**
  * Return a transition iterator that uses zip code tree iteration to select traversals.
  */
-transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree);
+transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree, size_t max_lookback_bases);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each

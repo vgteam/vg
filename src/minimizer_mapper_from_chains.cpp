@@ -237,7 +237,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
                                         
 }
 
-MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
+MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeTree& zip_code_tree, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
 
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
@@ -377,13 +377,9 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             cluster_chain_seeds.emplace_back();
                 
             // Find chains from this cluster
-            algorithms::transition_iterator for_each_transition = algorithms::lookback_transition_iterator(
-                cfg.max_lookback_bases,
-                cfg.min_lookback_items,
-                cfg.lookback_item_hard_cap,
-                cfg.initial_lookback_threshold,
-                cfg.lookback_scale_factor,
-                cfg.min_good_transition_score_per_base
+            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                zip_code_tree,
+                cfg.max_lookback_bases
             ); 
             VectorView<algorithms::Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
             std::vector<std::pair<int, std::vector<size_t>>> chains = algorithms::find_best_chains(
@@ -533,6 +529,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+    // Make them into a zip code tree
+    ZipCodeTree zip_code_tree;
+    crash_unless(distance_index);
+    zip_code_tree.fill_in_tree(seeds, *distance_index);
     
     // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
     if (track_provenance) {
@@ -633,7 +633,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Go get fragments from the buckets. Note that this doesn't process all buckets! It will really only do the best ones!
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, zip_code_tree, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
         funnel.substage("translate-fragments");
@@ -870,13 +870,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         } 
 
         // Chain up the fragments
-        algorithms::transition_iterator for_each_transition = algorithms::lookback_transition_iterator(
-            this->max_lookback_bases,
-            this->min_lookback_items,
-            this->lookback_item_hard_cap,
-            this->initial_lookback_threshold,
-            this->lookback_scale_factor,
-            this->min_good_transition_score_per_base
+        algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+            zip_code_tree,
+            this->max_lookback_bases
         ); 
         std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
             bucket_fragment_view,
