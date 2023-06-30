@@ -277,8 +277,6 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
     return iterator;
 }
 
-#define debug_chaining
-
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
     return [&seeds, &zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
@@ -380,8 +378,6 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         }
     };
 }
-
-#undef debug_chaining
 
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
