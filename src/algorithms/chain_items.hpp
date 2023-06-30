@@ -230,6 +230,50 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
 void sort_and_shadow(std::vector<Anchor>& items);
 
 /**
+ * Iteratee function type which can be called with each transition between
+ * anchors.
+ * 
+ * Takes two anchor numbers (source and destination), and their read and graph
+ * distances, in that order.
+ *
+ * Returns a score for the given transition, and the best score yet achieved
+ * for the destination item.
+ */
+using transition_iteratee = std::function<std::pair<int, int>(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
+
+/**
+ * Iterator function type which lets you iterate over transitions between
+ * items, by calling a callback.
+ *
+ * Implementation will go throuch all the anchors and call the given callback
+ * with pairs of anchor numbers, and their read and graph distances.
+ * 
+ * Transitions are always between anchors earlier and later in the read.
+ * 
+ * Transitions are from the first anchor, to the second.
+ * 
+ * Transitions are visited in order: all transititions to an anchor are visited
+ * before any transitions from it.
+ * 
+ * callback must return a score for the given transition, and the score it
+ * achieves for the destination item.
+ * 
+ * to_chain must be sorted by read start.
+ */
+using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
+
+/**
+ * Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions.
+ * Closes over the arguments by value.
+ */
+transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
+                                                 size_t min_lookback_items,
+                                                 size_t lookback_item_hard_cap,
+                                                 size_t initial_lookback_threshold,
+                                                 double lookback_scale_factor,
+                                                 double min_good_transition_score_per_base);
+
+/**
  * Fill in the given DP table for the explored chain scores ending with each
  * item. Returns the best observed score overall from that table, with
  * provenance to its location in the table, if tracked in the type. Assumes

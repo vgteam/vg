@@ -126,147 +126,155 @@ void sort_and_shadow(std::vector<Anchor>& items) {
     items = std::move(kept_items);
 }
 
-/// Go throuch all the anchors and call the given callback with pairs of anchor numbers, and their read and graph distances.
-/// Transitions are always between anchors earlier and later in the read.
-/// Transitions are from the first anchor, to the second.
-/// Transitions are visited in order: all transititions to an anchor are visited before any transitions from it.
-/// callback must return a score for the given transition, and the score it achieves for the destination item.
-/// to_chain must be sorted by read start.
-void for_each_transition(const VectorView<Anchor>& to_chain,
-                         const SnarlDistanceIndex& distance_index,
-                         const HandleGraph& graph,
-                         size_t max_lookback_bases,
-                         size_t min_lookback_items,
-                         size_t lookback_item_hard_cap,
-                         size_t initial_lookback_threshold,
-                         double lookback_scale_factor,
-                         double min_good_transition_score_per_base,
-                         size_t max_indel_bases,
-                         const std::function<std::pair<int, int>(size_t, size_t, size_t, size_t)>& callback) {
+transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
+                                                 size_t min_lookback_items,
+                                                 size_t lookback_item_hard_cap,
+                                                 size_t initial_lookback_threshold,
+                                                 double lookback_scale_factor,
+                                                 double min_good_transition_score_per_base) {
 
-    // We want to consider all the important transitions in the graph of what
-    // items can come before what other items. We aren't allowing any
-    // transitions between items that overlap in the read. We're going through
-    // the destination items in order by read start, so we should also keep a
-    // list of them in order by read end, and sweep a cursor over that, so we
-    // always know the fisrt item that overlaps with or passes the current
-    // destination item, in the read. Then when we look for possible
-    // predecessors of the destination item, we can start just before there and
-    // look left.
-    vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Anchor& a, const Anchor& b) {
-        return a.read_end() < b.read_end();
-    });
-    // We use first overlapping instead of last non-overlapping because we can
-    // just initialize first overlapping at the beginning and be right.
-    auto first_overlapping_it = read_end_order.begin();
+    
+    // Capture all the arguments by value into a lambda
+    transition_iterator iterator = [max_lookback_bases,
+                                    min_lookback_items,
+                                    lookback_item_hard_cap,
+                                    initial_lookback_threshold,
+                                    lookback_scale_factor,
+                                    min_good_transition_score_per_base](const VectorView<Anchor>& to_chain,
+                                                                        const SnarlDistanceIndex& distance_index,
+                                                                        const HandleGraph& graph,
+                                                                        size_t max_indel_bases,
+                                                                        const transition_iteratee& callback) {
 
-    for (size_t i = 0; i < to_chain.size(); i++) {
-        // For each item
-        auto& here = to_chain[i];
-        
-        if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
-            // The items are not actually sorted by read start
-            throw std::runtime_error("for_each_transition: items are not sorted by read start");
-        }
-        
-        while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
-            // Scan ahead through non-overlapping items that past-end too soon,
-            // to the first overlapping item that ends earliest.
-            // Ordering physics *should* constrain the iterator to not run off the end.
-            ++first_overlapping_it;
-            crash_unless(first_overlapping_it != read_end_order.end());
-        }
-        
-#ifdef debug_chaining
-        cerr << "Look at transitions to #" << i
-            << " at " << here;
-        cerr << endl;
-#endif
+    
 
-#ifdef debug_chaining
-        cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
-#endif
-        
-        // Set up lookback control algorithm.
-        // Until we have looked at a certain number of items, we keep going
-        // even if we meet other stopping conditions.
-        size_t items_considered = 0;
-        // If we are looking back further than this
-        size_t lookback_threshold = initial_lookback_threshold;
-        // And a gooid score has been found, stop
-        bool good_score_found = false;
-        // A good score will be positive and have a transition component that
-        // looks good relative to how far we are looking back. The further we
-        // look back the lower our transition score standards get, so remember
-        // the best one we have seen so far in case the standard goes below it. 
-        int best_transition_found = std::numeric_limits<int>::min();
-        
-        // Start considering predecessors for this item.
-        auto predecessor_index_it = first_overlapping_it;
-        while (predecessor_index_it != read_end_order.begin()) {
-            --predecessor_index_it;
+
+        // We want to consider all the important transitions in the graph of what
+        // items can come before what other items. We aren't allowing any
+        // transitions between items that overlap in the read. We're going through
+        // the destination items in order by read start, so we should also keep a
+        // list of them in order by read end, and sweep a cursor over that, so we
+        // always know the fisrt item that overlaps with or passes the current
+        // destination item, in the read. Then when we look for possible
+        // predecessors of the destination item, we can start just before there and
+        // look left.
+        vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Anchor& a, const Anchor& b) {
+            return a.read_end() < b.read_end();
+        });
+        // We use first overlapping instead of last non-overlapping because we can
+        // just initialize first overlapping at the beginning and be right.
+        auto first_overlapping_it = read_end_order.begin();
+
+        for (size_t i = 0; i < to_chain.size(); i++) {
+            // For each item
+            auto& here = to_chain[i];
             
-            // How many items have we considered before this one?
-            size_t item_number = items_considered++;
-            
-            // For each source that ended before here started, in reverse order by end position...
-            auto& source = to_chain[*predecessor_index_it];
-            
-#ifdef debug_chaining
-            cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << source << endl;
-#endif
-            
-            // How far do we go in the read?
-            size_t read_distance = get_read_distance(source, here);
-            
-            if (item_number > lookback_item_hard_cap) {
-                // This would be too many
-#ifdef debug_chaining
-                cerr << "\t\tDisregard due to hitting lookback item hard cap" << endl;
-#endif
-                break;
+            if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
+                // The items are not actually sorted by read start
+                throw std::runtime_error("lookback_transition_iterator: items are not sorted by read start");
             }
-            if (item_number >= min_lookback_items) {
-                // We have looked at enough predecessors that we might consider stopping.
-                // See if we should look back this far.
-                if (read_distance > max_lookback_bases) {
-                    // This is further in the read than the real hard limit.
+            
+            while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
+                // Scan ahead through non-overlapping items that past-end too soon,
+                // to the first overlapping item that ends earliest.
+                // Ordering physics *should* constrain the iterator to not run off the end.
+                ++first_overlapping_it;
+                crash_unless(first_overlapping_it != read_end_order.end());
+            }
+            
 #ifdef debug_chaining
-                cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
+            cerr << "Look at transitions to #" << i
+                << " at " << here;
+            cerr << endl;
 #endif
-                    break;
-                } else if (read_distance > lookback_threshold && good_score_found) {
-                    // We already found something good enough.
+
 #ifdef debug_chaining
-                cerr << "\t\tDisregard due to read distance " << read_distance << " over threashold " << lookback_threshold << " and good score already found" << endl;
+            cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
+#endif
+            
+            // Set up lookback control algorithm.
+            // Until we have looked at a certain number of items, we keep going
+            // even if we meet other stopping conditions.
+            size_t items_considered = 0;
+            // If we are looking back further than this
+            size_t lookback_threshold = initial_lookback_threshold;
+            // And a gooid score has been found, stop
+            bool good_score_found = false;
+            // A good score will be positive and have a transition component that
+            // looks good relative to how far we are looking back. The further we
+            // look back the lower our transition score standards get, so remember
+            // the best one we have seen so far in case the standard goes below it. 
+            int best_transition_found = std::numeric_limits<int>::min();
+            
+            // Start considering predecessors for this item.
+            auto predecessor_index_it = first_overlapping_it;
+            while (predecessor_index_it != read_end_order.begin()) {
+                --predecessor_index_it;
+                
+                // How many items have we considered before this one?
+                size_t item_number = items_considered++;
+                
+                // For each source that ended before here started, in reverse order by end position...
+                auto& source = to_chain[*predecessor_index_it];
+                
+#ifdef debug_chaining
+                cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << source << endl;
+#endif
+                
+                // How far do we go in the read?
+                size_t read_distance = get_read_distance(source, here);
+                
+                if (item_number > lookback_item_hard_cap) {
+                    // This would be too many
+#ifdef debug_chaining
+                    cerr << "\t\tDisregard due to hitting lookback item hard cap" << endl;
 #endif
                     break;
                 }
-            }
-            if (read_distance > lookback_threshold && !good_score_found) {
-                // We still haven't found anything good, so raise the threshold.
-                lookback_threshold *= lookback_scale_factor;
-            }
-            
-            // Now it's safe to make a distance query
-            
-            // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
-            size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
-            
-            std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
-            if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
-                // Transition seems possible, so yield it.
-                scores = callback(*predecessor_index_it, i, read_distance, graph_distance);
-            }
-            
-            // Note that we checked out this transition and saw the observed scores and distances.
-            best_transition_found = std::max(best_transition_found, scores.first);
-            if (scores.second > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
-                // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
-                good_score_found = true;
-            }
-        } 
+                if (item_number >= min_lookback_items) {
+                    // We have looked at enough predecessors that we might consider stopping.
+                    // See if we should look back this far.
+                    if (read_distance > max_lookback_bases) {
+                        // This is further in the read than the real hard limit.
+#ifdef debug_chaining
+                    cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
+#endif
+                        break;
+                    } else if (read_distance > lookback_threshold && good_score_found) {
+                        // We already found something good enough.
+#ifdef debug_chaining
+                    cerr << "\t\tDisregard due to read distance " << read_distance << " over threashold " << lookback_threshold << " and good score already found" << endl;
+#endif
+                        break;
+                    }
+                }
+                if (read_distance > lookback_threshold && !good_score_found) {
+                    // We still haven't found anything good, so raise the threshold.
+                    lookback_threshold *= lookback_scale_factor;
+                }
+                
+                // Now it's safe to make a distance query
+                
+                // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
+                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
+                
+                std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
+                if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
+                    // Transition seems possible, so yield it.
+                    scores = callback(*predecessor_index_it, i, read_distance, graph_distance);
+                }
+                
+                // Note that we checked out this transition and saw the observed scores and distances.
+                best_transition_found = std::max(best_transition_found, scores.first);
+                if (scores.second > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
+                    // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
+                    good_score_found = true;
+                }
+            } 
+        }
     }
+
+    return iterator;
 }
 
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
@@ -382,16 +390,18 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         return std::make_pair(jump_points, achieved_score);
     };
 
-    // Run it over all the transitions.
+    
+    // Set up a way to get all the transitions with the given lookback parameters
+    transition_iterator for_each_transition = lookback_transition_iterator(max_lookback_bases,
+                                                                           min_lookback_items,
+                                                                           lookback_item_hard_cap,
+                                                                           initial_lookback_threshold,
+                                                                           lookback_scale_factor,
+                                                                           min_good_transition_score_per_base);
+    // Run our DP step over all the transitions.
     for_each_transition(to_chain,
                         distance_index,
                         graph,
-                        max_lookback_bases,
-                        min_lookback_items,
-                        lookback_item_hard_cap,
-                        initial_lookback_threshold,
-                        lookback_scale_factor,
-                        min_good_transition_score_per_base,
                         max_indel_bases,
                         iteratee);
         
