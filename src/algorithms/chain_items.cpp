@@ -283,12 +283,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           size_t max_lookback_bases,
-                           size_t min_lookback_items,
-                           size_t lookback_item_hard_cap,
-                           size_t initial_lookback_threshold,
-                           double lookback_scale_factor,
-                           double min_good_transition_score_per_base,
+                           const transition_iterator& for_each_transition,
                            int item_bonus,
                            size_t max_indel_bases) {
     
@@ -390,14 +385,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         return std::make_pair(jump_points, achieved_score);
     };
 
-    
-    // Set up a way to get all the transitions with the given lookback parameters
-    transition_iterator for_each_transition = lookback_transition_iterator(max_lookback_bases,
-                                                                           min_lookback_items,
-                                                                           lookback_item_hard_cap,
-                                                                           initial_lookback_threshold,
-                                                                           lookback_scale_factor,
-                                                                           min_good_transition_score_per_base);
     // Run our DP step over all the transitions.
     for_each_transition(to_chain,
                         distance_index,
@@ -535,12 +522,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int gap_open,
                                                    int gap_extension,
                                                    size_t max_chains,
-                                                   size_t max_lookback_bases,
-                                                   size_t min_lookback_items,
-                                                   size_t lookback_item_hard_cap,
-                                                   size_t initial_lookback_threshold,
-                                                   double lookback_scale_factor,
-                                                   double min_good_transition_score_per_base,
+                                                   const transition_iterator& for_each_transition, 
                                                    int item_bonus,
                                                    size_t max_indel_bases) {
                                                                          
@@ -556,12 +538,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
-                                                             max_lookback_bases,
-                                                             min_lookback_items,
-                                                             lookback_item_hard_cap,
-                                                             initial_lookback_threshold,
-                                                             lookback_scale_factor,
-                                                             min_good_transition_score_per_base,
+                                                             for_each_transition,
                                                              item_bonus,
                                                              max_indel_bases);
     // Then do the tracebacks
@@ -589,12 +566,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
-                                          size_t max_lookback_bases,
-                                          size_t min_lookback_items,
-                                          size_t lookback_item_hard_cap,
-                                          size_t initial_lookback_threshold,
-                                          double lookback_scale_factor,
-                                          double min_good_transition_score_per_base,
+                                          const transition_iterator& for_each_transition,
                                           int item_bonus,
                                           size_t max_indel_bases) {
                                                                  
@@ -605,12 +577,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         gap_open,
         gap_extension,
         1,
-        max_lookback_bases,
-        min_lookback_items,
-        lookback_item_hard_cap,
-        initial_lookback_threshold,
-        lookback_scale_factor,
-        min_good_transition_score_per_base,
+        for_each_transition,
         item_bonus,
         max_indel_bases
     ).front();

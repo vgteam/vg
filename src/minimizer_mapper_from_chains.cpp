@@ -377,6 +377,14 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             cluster_chain_seeds.emplace_back();
                 
             // Find chains from this cluster
+            algorithms::transition_iterator for_each_transition = algorithms::lookback_transition_iterator(
+                cfg.max_lookback_bases,
+                cfg.min_lookback_items,
+                cfg.lookback_item_hard_cap,
+                cfg.initial_lookback_threshold,
+                cfg.lookback_scale_factor,
+                cfg.min_good_transition_score_per_base
+            ); 
             VectorView<algorithms::Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
             std::vector<std::pair<int, std::vector<size_t>>> chains = algorithms::find_best_chains(
                 cluster_view,
@@ -385,12 +393,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
                 cfg.max_chains_per_cluster,
-                cfg.max_lookback_bases,
-                cfg.min_lookback_items,
-                cfg.lookback_item_hard_cap,
-                cfg.initial_lookback_threshold,
-                cfg.lookback_scale_factor,
-                cfg.min_good_transition_score_per_base,
+                for_each_transition,
                 cfg.item_bonus,
                 cfg.max_indel_bases
             );
@@ -867,6 +870,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         } 
 
         // Chain up the fragments
+        algorithms::transition_iterator for_each_transition = algorithms::lookback_transition_iterator(
+            this->max_lookback_bases,
+            this->min_lookback_items,
+            this->lookback_item_hard_cap,
+            this->initial_lookback_threshold,
+            this->lookback_scale_factor,
+            this->min_good_transition_score_per_base
+        ); 
         std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
             bucket_fragment_view,
             *distance_index,
@@ -874,12 +885,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             get_regular_aligner()->gap_open,
             get_regular_aligner()->gap_extension,
             2,
-            this->max_lookback_bases,
-            this->min_lookback_items,
-            this->lookback_item_hard_cap,
-            this->initial_lookback_threshold,
-            this->lookback_scale_factor,
-            this->min_good_transition_score_per_base,
+            for_each_transition,
             this->item_bonus,
             this->max_indel_bases
         );
