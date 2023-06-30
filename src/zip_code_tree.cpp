@@ -1148,6 +1148,11 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             crash_unless(depth() > 0);
             state(S_SCAN_CHAIN);
             break;
+        case NODE_COUNT:
+            // We've found the node count in the snarl. We don't need it, so
+            // skip it.
+            // TODO: Use it if skipping the snarl.
+            break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
@@ -1182,8 +1187,12 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             break;
         case EDGE:
             // We've found edge data in the snarl, but we already know the
-            // running distances to everythign we will encounter, so we ignore
+            // running distances to everything we will encounter, so we ignore
             // it.
+            break;
+        case NODE_COUNT:
+            // We've found the node count in the snarl. We don't need it, so
+            // skip it.
             break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
@@ -1232,6 +1241,10 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             break;
         case EDGE:
             // Ignore edge values
+            break;
+        case NODE_COUNT:
+            // Ignore node counts
+            // TODO: We should read these and jump along instead!
             break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
