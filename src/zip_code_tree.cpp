@@ -1136,6 +1136,18 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                 }
             }
             break;
+        case SNARL_START:
+            // We didn't hit another chain in the snarl, we hit the start of
+            // the snarl. We should have stacked exactly one distance.
+
+            // Throw out parent running distance
+            pop();
+
+            // There should be a running distance on the stack still, and we
+            // will continue with that in the parent chain.
+            crash_unless(depth() > 0);
+            state(S_SCAN_CHAIN);
+            break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
