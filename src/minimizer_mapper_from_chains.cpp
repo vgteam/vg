@@ -378,6 +378,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 
             // Find chains from this cluster
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                seeds,
                 zip_code_tree,
                 cfg.max_lookback_bases
             ); 
@@ -534,6 +535,14 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     crash_unless(distance_index);
     zip_code_tree.fill_in_tree(seeds, *distance_index);
     
+    if (show_work) {
+        #pragma omp critical cerr
+        {
+            std::cerr << log_name() << "Zip code tree:";
+            zip_code_tree.print_self();
+        }
+    }
+
     // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("bucket");
@@ -871,6 +880,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
         // Chain up the fragments
         algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+            seeds,
             zip_code_tree,
             this->max_lookback_bases
         ); 

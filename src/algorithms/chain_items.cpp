@@ -277,12 +277,15 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
     return iterator;
 }
 
-transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
-    return [&zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
-                                                 const SnarlDistanceIndex& distance_index,
-                                                 const HandleGraph& graph,
-                                                 size_t max_indel_bases,
-                                                 const transition_iteratee& callback) {
+#define debug_chaining
+
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
+    // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
+    return [&seeds, &zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
+                                                         const SnarlDistanceIndex& distance_index,
+                                                         const HandleGraph& graph,
+                                                         size_t max_indel_bases,
+                                                         const transition_iteratee& callback) {
                             
         // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about. So we need to index the anchors by leading/trailing seed.
         // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
@@ -321,12 +324,20 @@ transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tre
             // For each destination seed left to right
             ZipCodeTree::oriented_seed_t dest_seed = *dest;
 
+#ifdef debug_chaining
+            std::cerr << "Consider destination seed " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << std::endl;
+#endif
+
             // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
             std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
 
             for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::oriented_seed_t source_seed = *source;
+
+#ifdef debug_chaining
+                std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << std::endl;
+#endif
 
                 if (!source_seed.is_reverse && !dest_seed.is_reverse) {
                     // Both of these are in the same orientation relative to
@@ -369,6 +380,8 @@ transition_iterator zip_tree_transition_iterator(const ZipCodeTree& zip_code_tre
         }
     };
 }
+
+#undef debug_chaining
 
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
