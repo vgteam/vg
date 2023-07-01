@@ -863,10 +863,15 @@ void populate_snarl_index(
             }
             current_index=parent_index;
         }
+#ifdef debug_distance_indexing
+        if (is_reversed) {
+            cerr << "\tsnarl is reversed relative to the top-level chain" << endl;
+        }
+#endif
 
         //Where do we start the topological sort? The start or end bound
-        handle_t topological_sort_start = is_reversed ? graph->get_handle(temp_snarl_record.start_node_id,temp_snarl_record.start_node_rev)
-                                                      : graph->get_handle(temp_snarl_record.end_node_id,!temp_snarl_record.end_node_rev);
+        handle_t topological_sort_start = is_reversed ? graph->get_handle(temp_snarl_record.end_node_id,!temp_snarl_record.end_node_rev)
+                                                      : graph->get_handle(temp_snarl_record.start_node_id,temp_snarl_record.start_node_rev);
 
 
         //This will hold the new order of the children. Each value is an index into all_children, which 
