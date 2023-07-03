@@ -196,6 +196,20 @@ class ZipCodeCollection {
     ZipCode at(size_t i) const {return zipcodes.at(i);}
     void emplace_back(ZipCode zip) {zipcodes.emplace_back(zip);}
     size_t size() const { return zipcodes.size();}
+
+    private:
+
+    //magic number to identify the file
+    constexpr static uint32_t magic_number = 0x5a495031; //ZIP1
+
+    public:
+    const static std::uint32_t get_magic_number() {return magic_number;}
+    const static std::string get_magic_number_as_string() {
+        std::uint32_t num = get_magic_number();
+        return std::string(reinterpret_cast<char*>(num), sizeof(num));
+    }
+
+
 };
 
 

@@ -17,7 +17,7 @@ using namespace vg::io;
 
 void register_loader_saver_zip_codes() {
 
-    Registry::register_bare_loader_saver_with_magic_and_filename<ZipCodeCollection>("ZIPCODES", "zip_v1", 
+    Registry::register_bare_loader_saver_with_magic_and_filename<ZipCodeCollection>("ZIPCODES", ZipCodeCollection::get_magic_number_as_string(), 
     [](istream& input, const string& filename) -> void* {
         // Allocate an index and hand it the stream
         ZipCodeCollection* zipcodes = new ZipCodeCollection();
