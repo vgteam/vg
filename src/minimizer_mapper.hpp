@@ -41,7 +41,7 @@ public:
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          SnarlDistanceIndex* distance_index,
-         const vector<ZipCode>* zipcodes,
+         const ZipCodeCollection* zipcodes,
          const PathPositionHandleGraph* path_graph = nullptr);
 
     using AlignerClient::set_alignment_scores;
@@ -501,7 +501,7 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     SnarlDistanceIndex* distance_index;
-    const vector<ZipCode>* zipcodes;
+    const ZipCodeCollection* zipcodes;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     

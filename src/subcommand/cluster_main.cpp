@@ -371,12 +371,11 @@ int main_cluster(int argc, char** argv) {
                          : nullptr;
 
     //Get the zipcodes
-    vector<ZipCode> oversized_zipcodes;
+    ZipCodeCollection oversized_zipcodes;
     if (!zipcode_name.empty()) {
-        zipcode_vector_t zipcode_vector (&oversized_zipcodes);
 
         ifstream zip_in (zipcode_name);
-        zipcode_vector.deserialize(zip_in);
+        oversized_zipcodes.deserialize(zip_in);
     }
 
     // Grab the GBZ

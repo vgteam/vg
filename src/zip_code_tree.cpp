@@ -191,28 +191,12 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "\t they are children of a common irregular snarl" << endl;
 #endif
-            //Otherwise, they are children of an irregular snarl
-            //Sort by the distance to the start of the irregular snarl
-            size_t distance_to_start_a = parent_of_a_is_reversed
-                                       ? seeds->at(a).zipcode_decoder->get_distance_to_snarl_end(depth)
-                                       : seeds->at(a).zipcode_decoder->get_distance_to_snarl_start(depth);
-            size_t distance_to_start_b = parent_of_a_is_reversed
-                                       ? seeds->at(b).zipcode_decoder->get_distance_to_snarl_end(depth)
-                                       : seeds->at(b).zipcode_decoder->get_distance_to_snarl_start(depth);
-            if (distance_to_start_a == distance_to_start_b) {
-                //If they are equi-distant to the start of the snarl, then put the one that is
-                //farther from the end first
-                size_t distance_to_end_a = parent_of_a_is_reversed
-                                           ? seeds->at(a).zipcode_decoder->get_distance_to_snarl_start(depth)
-                                           : seeds->at(a).zipcode_decoder->get_distance_to_snarl_end(depth);
-                size_t distance_to_end_b = parent_of_a_is_reversed
-                                           ? seeds->at(b).zipcode_decoder->get_distance_to_snarl_start(depth)
-                                           : seeds->at(b).zipcode_decoder->get_distance_to_snarl_end(depth);
-    
-                return distance_to_end_a > distance_to_end_b;
-            } else {
-                return distance_to_start_a < distance_to_start_b;
-            }
+            // Otherwise, they are children of an irregular snarl
+            // Sort by a topological ordering from the start of the snarl
+            // The ranks of children in snarls are in a topological order, so 
+            // sort on the ranks
+            return seeds->at(a).zipcode_decoder->get_rank_in_snarl(depth) <
+                   seeds->at(b).zipcode_decoder->get_rank_in_snarl(depth);
         } 
     });
 
