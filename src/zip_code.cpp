@@ -1559,12 +1559,12 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     }
 }
 
-void zipcode_vector_t::serialize(std::ostream& out) const {
+void ZipCodeCollection::serialize(std::ostream& out) const {
     //The zipcode vector will be serialized as a bunch of varint_vector_ts
     //The first varint_vector_t will have one value, which will be the length of the
     //zipcode that follows it
 
-    for (const ZipCode& zip : *zipcodes) {
+    for (const ZipCode& zip : zipcodes) {
     
         //How many bytes are going to be saved for the zipcode? 
         size_t byte_count = zip.byte_count();
@@ -1592,7 +1592,7 @@ void zipcode_vector_t::serialize(std::ostream& out) const {
     }
 
 }
-void zipcode_vector_t::deserialize(std::istream& in) {
+void ZipCodeCollection::deserialize(std::istream& in) {
     while (in.peek() != EOF) {
 
         //First, get the number of bytes used by the zipcode
@@ -1629,7 +1629,7 @@ void zipcode_vector_t::deserialize(std::istream& in) {
         for (const char& character : line) {
             zip.zipcode.add_one_byte(uint8_t(character));
         }
-        zipcodes->emplace_back(std::move(zip));
+        zipcodes.emplace_back(std::move(zip));
     }
 
 }

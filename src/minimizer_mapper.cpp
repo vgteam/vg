@@ -48,7 +48,7 @@ using namespace std;
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     SnarlDistanceIndex* distance_index, 
-    const vector<ZipCode>* zipcodes, 
+    const ZipCodeCollection* zipcodes, 
     const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index),  
@@ -3610,8 +3610,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     //If the zipcocde wasn't saved, then calculate it
                     seeds.back().zipcode.fill_in_zipcode(*(this->distance_index), hit);
                 } else if (minimizer.occs[j].payload.first == 0) {
-                    //If the minimizer stored the index into a list of zipcodes
-                    if (this->zipcodes != nullptr) {
+                    //If the minimizer stored the index into a list of jipcodes
+                    if (!this->zipcodes->empty()) {
                         //If we have the oversized zipcodes
                         seeds.back().zipcode = zipcodes->at(minimizer.occs[j].payload.second);
                     } else {

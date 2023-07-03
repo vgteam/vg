@@ -1083,12 +1083,11 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Loading Zipcodes" << endl;
     }
-    vector<ZipCode> oversized_zipcodes;
+    ZipCodeCollection oversized_zipcodes;
     if (!zipcode_name.empty()) {
-        zipcode_vector_t zipcode_vector (&oversized_zipcodes);
 
         ifstream zip_in (zipcode_name);
-        zipcode_vector.deserialize(zip_in);
+        oversized_zipcodes.deserialize(zip_in);
     }
 
 

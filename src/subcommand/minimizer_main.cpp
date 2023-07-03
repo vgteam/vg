@@ -346,7 +346,7 @@ int main_minimizer(int argc, char** argv) {
     //Zipcodes
 
     //oversized_zipcodes may be stored alongside the minimizer index in the file specified by zipcode_name
-    std::vector<ZipCode> oversized_zipcodes;
+    ZipCodeCollection oversized_zipcodes;
 
     //oversized_zipcodes will be made as zipcodes are found in minimizers, so there may be duplicates that
     //only get stored once. This maps node id to the index in oversized_zipcodes 
@@ -426,8 +426,7 @@ int main_minimizer(int argc, char** argv) {
     //If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 
         ofstream zip_out (zipcode_name);
-        zipcode_vector_t zip_vector (&oversized_zipcodes);
-        zip_vector.serialize(zip_out);
+        oversized_zipcodes.serialize(zip_out);
 
     }
 

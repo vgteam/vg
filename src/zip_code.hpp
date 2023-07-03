@@ -181,16 +181,21 @@ class ZipCode {
     friend class ZipCodeDecoder;
 };
 
-//A struct for holding a vector of zipcodes
+//A structure for holding a vector of zipcodes
 //This is really just used for serializing
-struct zipcode_vector_t {
-    vector<ZipCode>* zipcodes;
-    zipcode_vector_t (vector<ZipCode>* z) {
-        zipcodes = z;
-    }
+class ZipCodeCollection {
+    private:
+    vector<ZipCode> zipcodes;
+
+    public:
+    ZipCodeCollection () {}
 
     void serialize(std::ostream& out) const;
     void deserialize(std::istream& in);
+    bool empty() const {return zipcodes.empty();}
+    ZipCode at(size_t i) const {return zipcodes.at(i);}
+    void emplace_back(ZipCode zip) {zipcodes.emplace_back(zip);}
+    size_t size() const { return zipcodes.size();}
 };
 
 
