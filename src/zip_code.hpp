@@ -206,7 +206,7 @@ class ZipCodeCollection {
     const static std::uint32_t get_magic_number() {return magic_number;}
     const static std::string get_magic_number_as_string() {
         std::uint32_t num = get_magic_number();
-        return std::string(reinterpret_cast<char*>(num), sizeof(num));
+        return std::string(reinterpret_cast<char*>(&num), sizeof(num));
     }
 
 
