@@ -425,7 +425,8 @@ int main_minimizer(int argc, char** argv) {
 
     //If using it, write the larger zipcodes to a file
     if (!zipcode_name.empty()) { 
-        vg::io::VPKG::save<ZipCodeCollection>(oversized_zipcodes, zipcode_name);
+        ofstream zip_out (zipcode_name);
+        oversized_zipcodes.serialize(zip_out);
 
     }
 

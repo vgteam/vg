@@ -1083,9 +1083,12 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Loading Zipcodes" << endl;
     }
-    auto oversized_zipcodes = zipcode_name.empty() ? nullptr
-                            : vg::io::VPKG::load_one<ZipCodeCollection>(zipcode_name);
+    ZipCodeCollection oversized_zipcodes;
+    if (!zipcode_name.empty()) {
 
+        ifstream zip_in (zipcode_name);
+        oversized_zipcodes.deserialize(zip_in);
+    }
 
 
     // Grab the GBZ
@@ -1138,7 +1141,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &*oversized_zipcodes, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &*distance_index, &oversized_zipcodes, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }

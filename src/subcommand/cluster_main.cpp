@@ -371,8 +371,12 @@ int main_cluster(int argc, char** argv) {
                          : nullptr;
 
     //Get the zipcodes
-    auto oversized_zipcodes = zipcode_name.empty() ? nullptr
-                            : vg::io::VPKG::load_one<ZipCodeCollection>(zipcode_name);
+    ZipCodeCollection oversized_zipcodes;
+    if (!zipcode_name.empty()) {
+
+        ifstream zip_in (zipcode_name);
+        oversized_zipcodes.deserialize(zip_in);
+    }
 
     // Grab the GBZ
     auto gbz = use_minimizers
@@ -448,7 +452,7 @@ int main_cluster(int argc, char** argv) {
                 //Use a MinimizerMapper to find the minimizers, using the provided parameters
                 //This will have an empty gbwtgraph::GBWTGraph, so it shouldn't be used
                 //for anything except finding minimizers
-                TestMinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*distance_index), &*oversized_zipcodes, nullptr);
+                TestMinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*distance_index), &oversized_zipcodes, nullptr);
 
                 //Set the parameters
                 minimizer_mapper.hit_cap = hit_cap;
