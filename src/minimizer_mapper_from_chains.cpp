@@ -536,7 +536,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     zip_code_tree.fill_in_tree(seeds, *distance_index);
     
     if (show_work) {
-        #pragma omp critical cerr
+        #pragma omp critical (cerr)
         {
             std::cerr << log_name() << "Zip code tree:";
             zip_code_tree.print_self();

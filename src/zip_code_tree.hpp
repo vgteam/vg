@@ -357,6 +357,23 @@ template <> struct hash<vg::ZipCodeTree::seed_result_t>
     }
 };
 
+/// Explain to the STL algorithms what kind of iterator the zip code tree
+/// forward iterator is.
+template<>
+struct iterator_traits<vg::ZipCodeTree::iterator>{
+    using value_type = vg::ZipCodeTree::oriented_seed_t;   
+    using iterator_category = forward_iterator_tag;
+};
+
+/// Explain to the STL algorithms what kind of iterator the zip code tree
+/// reverse iterator is.
+template<>
+struct iterator_traits<vg::ZipCodeTree::reverse_iterator>{
+    using value_type = vg::ZipCodeTree::seed_result_t;   
+    using iterator_category = forward_iterator_tag;
+};
+
+
 }
 
 #endif

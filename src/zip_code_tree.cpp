@@ -951,7 +951,11 @@ auto ZipCodeTree::reverse_iterator::operator*() const -> seed_result_t {
     crash_unless(it->type == SEED);
     crash_unless(!stack.empty());
     // We know the running distance to this seed will be at the top of the stack.
-    return {it->value, it->is_reversed, stack.top()};
+    seed_result_t to_return;
+    to_return.seed = it->value;
+    to_return.is_reverse = it->is_reversed;
+    to_return.distance = stack.top();
+    return to_return;
 }
 
 auto ZipCodeTree::reverse_iterator::push(size_t value) -> void {
