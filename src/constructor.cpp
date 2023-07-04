@@ -2480,7 +2480,7 @@ namespace vg {
             // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
             // helpful message.
             
-            // We can't invoke stat woithout a place for it to write. But all we
+            // We can't invoke stat without a place for it to write. But all we
             // really want is its return value.
             struct stat temp;
             if(stat(vcf_filename.c_str(), &temp)) {
