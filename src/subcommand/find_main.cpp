@@ -478,7 +478,6 @@ int main_find(int argc, char** argv) {
         } else if (!sorted_gaf_name.empty()) {
             // read GAF slice in region 'reg'
             string reg = "{node}:" + convert(start_id) + "-" + convert(end_id);
-            cout << reg << endl;
             hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
             kstring_t str = {0,0,0};
             if ( itr ) {
@@ -521,7 +520,6 @@ int main_find(int argc, char** argv) {
                 // loop over ranges and print GAF records
                 for (auto range : ranges) {
                     string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
-                    cout << reg << endl;
                     hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
                     kstring_t str = {0,0,0};
                     if ( itr ) {
