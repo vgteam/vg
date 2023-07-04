@@ -848,6 +848,49 @@ void ZipCodeTree::print_self() const {
     cerr << endl;
 }
 
+void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) const {
+    // Go through the zipcode tree and check distances and snarl tree relationships
+
+    //Start from the end of the zip tree and walk left, checking each pair of seeds
+    for (auto start_itr_left  = zip_code_tree.rbegin() ; 
+         start_itr_left != zip_code_tree.rend() ; ++ start_itr_left ) {
+        //Get a reverse iterator to the vector, starting from the end and going left
+        if (start_itr_left->type != SEED) {
+            continue;
+        }
+
+        //The seed that the iterator points to
+        const Seed& start_seed = seeds->at(start_itr_left->value);
+        bool start_is_reversed = start_itr_left->is_reversed;
+
+        //Walk through the tree starting from the vector iterator going left, and check the distance
+        for (reverse_iterator tree_itr_left (start_itr_left, zip_code_tree.rend()) ;
+             tree_itr_left != reverse_iterator(zip_code_tree.rend(), zip_code_tree.rend()) ;
+             ++tree_itr_left) {
+            const Seed& next_seed = seeds->at((*tree_itr_left).first);
+            //const bool next_is_reversed = zip_code_tree[(*tree_itr_left).first].is_reversed;
+
+            size_t tree_distance = (*tree_itr_left).second;
+
+            net_handle_t start_handle = distance_index.get_node_net_handle(
+                                            id(start_seed.pos),
+                                            is_rev(start_seed.pos) != start_is_reversed);
+            net_handle_t next_handle = distance_index.get_node_net_handle(
+                                            id(next_seed.pos),
+                                            is_rev(next_seed.pos)); //!= next_is_reversed);
+            size_t index_distance = distance_index.minimum_distance(
+                    id(start_seed.pos), is_rev(start_seed.pos) != start_is_reversed,
+                    (is_rev(start_seed.pos) != start_is_reversed) ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
+                                                                  : offset(start_seed.pos),
+                    id(next_seed.pos), is_rev(next_seed.pos),// != next_is_reversed,
+                    (is_rev(next_seed.pos)) ? distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1 
+                                                                  : offset(next_seed.pos));
+            cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
+            //assert(tree_distance == index_distance);
+        }
+    }
+}
+
 
 ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end) : it(it), end(end) {
     // Nothing to do!

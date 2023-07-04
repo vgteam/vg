@@ -54,10 +54,9 @@ class ZipCodeTree {
       or the child count of a snarl
 
       A chain in the vector is bounded by a CHAIN_START and a CHAIN_END.
-      The chain is comprised of alternating children (seed or snarl) and the distances between them.
-      For a root-level chain, there are no distances from the CHAIN_START/_END to the children.
-      For all other chains, the order would be:
-        CHAIN_START, distance, child, distance, child, ..., distance, CHAIN_END
+      The chain is comprised of alternating children (seed or snarl) and the distances between them,
+      starting and ending with a child. The order would be:
+        CHAIN_START, child, distance, child, distance, ..., child, CHAIN_END
       The distances represent the number of nucleotides on the minimum-length path in the variation graph
       between the structures that the zip code tree nodes represent.
       For distances terminating at a SEED, the distance includes the nucleotide the position is on.
@@ -140,6 +139,9 @@ public:
 
     ///Helper function that returns the number of items in the zip_code_tree
     size_t get_tree_size() const {return zip_code_tree.size();};
+
+    ///Check that the tree is correct
+    void validate_zip_tree(const SnarlDistanceIndex& distance_index) const;
 
     ///Helper function to access the values in the zip_code_tree
     tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
