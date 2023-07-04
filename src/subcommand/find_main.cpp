@@ -441,17 +441,17 @@ int main_find(int argc, char** argv) {
     tbx_t *gaf_tbx = NULL;
     htsFile *gaf_fp = NULL;
     if (!sorted_gaf_name.empty()){
-      gaf_tbx = tbx_index_load3(sorted_gaf_name.c_str(), NULL, 0);
-      if ( !gaf_tbx ){
-        cerr << "Could not load .tbi/.csi index of " << sorted_gaf_name << endl;
-        exit(1);
-      }
-      int nseq;
-      gaf_fp = hts_open(sorted_gaf_name.c_str(),"r");
-      if ( !gaf_fp ) {
-        cerr << "Could not open " << sorted_gaf_name << endl;
-        exit(1);
-      }
+        gaf_tbx = tbx_index_load3(sorted_gaf_name.c_str(), NULL, 0);
+        if ( !gaf_tbx ){
+            cerr << "Could not load .tbi/.csi index of " << sorted_gaf_name << endl;
+            exit(1);
+        }
+        int nseq;
+        gaf_fp = hts_open(sorted_gaf_name.c_str(),"r");
+        if ( !gaf_fp ) {
+            cerr << "Could not open " << sorted_gaf_name << endl;
+            exit(1);
+        }
     }
     
     if (!aln_on_id_range.empty()) {
@@ -476,23 +476,23 @@ int main_find(int argc, char** argv) {
                 gam_index->find(cursor, start_id, end_id, vg::io::emit_to<Alignment>(cout));
             });
         } else if (!sorted_gaf_name.empty()) {
-          // read GAF slice in region 'reg'
-          string reg = "{node}:" + convert(start_id) + "-" + convert(end_id);
-          cout << reg << endl;
-          hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
-          kstring_t str = {0,0,0};
-          if ( itr ) {
-            while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
-              puts(str.s);
+            // read GAF slice in region 'reg'
+            string reg = "{node}:" + convert(start_id) + "-" + convert(end_id);
+            cout << reg << endl;
+            hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
+            kstring_t str = {0,0,0};
+            if ( itr ) {
+                while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
+                    puts(str.s);
+                }
+                tbx_itr_destroy(itr);
             }
-            tbx_itr_destroy(itr);
-          }
-    } else {
+        } else {
             cerr << "error [vg find]: Cannot find alignments on range without a sorted GAM or GAF" << endl;
             exit(1);
         }
     }
-
+    
     if (!to_graph_file.empty()) {
         // Find alignments touching a graph
         
@@ -506,31 +506,31 @@ int main_find(int argc, char** argv) {
             graph.reset();
             
             if (gam_index.get() != nullptr) {
-              // Find in sorted GAM
-              get_input_file(sorted_gam_name, [&](istream& in) {
-                // Make a cursor for input
-                // TODO: Refactor so we can put everything with the GAM index inside one get_input_file call to deduplicate code
-                vg::io::ProtobufIterator<Alignment> cursor(in);
+                // Find in sorted GAM
+                get_input_file(sorted_gam_name, [&](istream& in) {
+                    // Make a cursor for input
+                    // TODO: Refactor so we can put everything with the GAM index inside one get_input_file call to deduplicate code
+                    vg::io::ProtobufIterator<Alignment> cursor(in);
                 
-                // Find the alignments and send them to cout
-                gam_index->find(cursor, ranges, vg::io::emit_to<Alignment>(cout)); 
-              });
+                    // Find the alignments and send them to cout
+                    gam_index->find(cursor, ranges, vg::io::emit_to<Alignment>(cout)); 
+                });
               
             } else if (!sorted_gaf_name.empty()) {
-              // Find in sorted GAF
-              // loop over ranges and print GAF records
-              for (auto range : ranges) {
-                string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
-                cout << reg << endl;
-                hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
-                kstring_t str = {0,0,0};
-                if ( itr ) {
-                  while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
-                    puts(str.s);
-                  }
-                  tbx_itr_destroy(itr);
+                // Find in sorted GAF
+                // loop over ranges and print GAF records
+                for (auto range : ranges) {
+                    string reg = "{node}:" + convert(range.first) + "-" + convert(range.second);
+                    cout << reg << endl;
+                    hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
+                    kstring_t str = {0,0,0};
+                    if ( itr ) {
+                        while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
+                            puts(str.s);
+                        }
+                        tbx_itr_destroy(itr);
+                    }
                 }
-              }
             }
         } else {
             cerr << "error [vg find]: Cannot find alignments on graph without a sorted GAM" << endl;
