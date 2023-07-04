@@ -439,7 +439,7 @@ int main_find(int argc, char** argv) {
 
     // load GAF index
     tbx_t *gaf_tbx = NULL;
-    htsFile *fp = NULL;
+    htsFile *gaf_fp = NULL;
     if (!sorted_gaf_name.empty()){
       gaf_tbx = tbx_index_load3(sorted_gaf_name.c_str(), NULL, 0);
       if ( !gaf_tbx ){
@@ -447,12 +447,11 @@ int main_find(int argc, char** argv) {
         exit(1);
       }
       int nseq;
-      fp = hts_open(sorted_gaf_name.c_str(),"r");
-      if ( !fp ) {
+      gaf_fp = hts_open(sorted_gaf_name.c_str(),"r");
+      if ( !gaf_fp ) {
         cerr << "Could not open " << sorted_gaf_name << endl;
         exit(1);
       }
-
     }
     
     if (!aln_on_id_range.empty()) {
@@ -483,7 +482,7 @@ int main_find(int argc, char** argv) {
           hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
           kstring_t str = {0,0,0};
           if ( itr ) {
-            while (tbx_itr_next(fp, gaf_tbx, itr, &str) >= 0) {
+            while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
               puts(str.s);
             }
             tbx_itr_destroy(itr);
@@ -526,7 +525,7 @@ int main_find(int argc, char** argv) {
                 hts_itr_t *itr = tbx_itr_querys(gaf_tbx, reg.c_str());
                 kstring_t str = {0,0,0};
                 if ( itr ) {
-                  while (tbx_itr_next(fp, gaf_tbx, itr, &str) >= 0) {
+                  while (tbx_itr_next(gaf_fp, gaf_tbx, itr, &str) >= 0) {
                     puts(str.s);
                   }
                   tbx_itr_destroy(itr);
