@@ -279,7 +279,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
-    return [&seeds, &zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
+    return [&seeds, &zip_code_tree, max_lookback_bases](const VectorView<Anchor>& to_chain,
                                                          const SnarlDistanceIndex& distance_index,
                                                          const HandleGraph& graph,
                                                          size_t max_indel_bases,
