@@ -46,6 +46,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             REQUIRE(zip_tree.get_tree_size() == 3);
             REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
@@ -69,6 +70,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             REQUIRE(zip_tree.get_tree_size() == 5);
 
@@ -111,6 +113,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             REQUIRE(zip_tree.get_tree_size() == 7);
 
@@ -183,6 +186,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             REQUIRE(zip_tree.get_tree_size() == 7);
 
@@ -291,6 +295,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1] [pos3]
@@ -338,6 +343,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1 6 pos2] [pos3 6 pos4]
@@ -428,6 +434,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1 3 pos3 6 pos6]
@@ -493,6 +500,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1 3 pos3 6 pos6]
@@ -562,6 +570,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1 3 ( 2 [ pos2 ] 6 0 1 ) 0  pos3 6 pos6]
@@ -594,6 +603,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1 0 ( 0 [ pos2 x pos2 x pos2 ] 0 0 1 ) 0  pos3 6 pos6]
@@ -626,6 +636,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [pos1 0  pos3 0 ( 0 [ pos4 ] inf 0 [ pos5 1 pos5 ] 2 3 3 2) 0 pos6]
@@ -657,6 +668,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
             // [( 0 [ pos2 ] 7 0 1) 3 ( 0 [pos4 ] 3 inf [pos5 1 pos5 ] 2 0 3 2 )]
@@ -729,6 +741,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
@@ -823,6 +836,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
@@ -850,6 +864,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
@@ -909,6 +924,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index);
             zip_tree.print_self();
+            zip_tree.validate_zip_tree(distance_index);
 
             SECTION( "Count dags" ) {
                 pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
