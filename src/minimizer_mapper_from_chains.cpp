@@ -237,7 +237,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
                                         
 }
 
-MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
+MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeTree& zip_code_tree, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
 
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
@@ -377,6 +377,11 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             cluster_chain_seeds.emplace_back();
                 
             // Find chains from this cluster
+            algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+                seeds,
+                zip_code_tree,
+                cfg.max_lookback_bases
+            ); 
             VectorView<algorithms::Anchor> cluster_view {seed_anchors, cluster_seeds_sorted};
             std::vector<std::pair<int, std::vector<size_t>>> chains = algorithms::find_best_chains(
                 cluster_view,
@@ -385,12 +390,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 get_regular_aligner()->gap_open,
                 get_regular_aligner()->gap_extension,
                 cfg.max_chains_per_cluster,
-                cfg.max_lookback_bases,
-                cfg.min_lookback_items,
-                cfg.lookback_item_hard_cap,
-                cfg.initial_lookback_threshold,
-                cfg.lookback_scale_factor,
-                cfg.min_good_transition_score_per_base,
+                for_each_transition,
                 cfg.item_bonus,
                 cfg.max_indel_bases
             );
@@ -530,7 +530,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+    // Make them into a zip code tree
+    ZipCodeTree zip_code_tree;
+    crash_unless(distance_index);
+    zip_code_tree.fill_in_tree(seeds, *distance_index);
     
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Zip code tree:";
+            zip_code_tree.print_self();
+        }
+    }
+
     // Pre-cluster just the seeds we have. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("bucket");
@@ -630,7 +642,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Go get fragments from the buckets. Note that this doesn't process all buckets! It will really only do the best ones!
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, zip_code_tree, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
         funnel.substage("translate-fragments");
@@ -867,6 +879,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         } 
 
         // Chain up the fragments
+        algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(
+            seeds,
+            zip_code_tree,
+            this->max_lookback_bases
+        ); 
         std::vector<std::pair<int, std::vector<size_t>>> chain_results = algorithms::find_best_chains(
             bucket_fragment_view,
             *distance_index,
@@ -874,12 +891,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             get_regular_aligner()->gap_open,
             get_regular_aligner()->gap_extension,
             2,
-            this->max_lookback_bases,
-            this->min_lookback_items,
-            this->lookback_item_hard_cap,
-            this->initial_lookback_threshold,
-            this->lookback_scale_factor,
-            this->min_good_transition_score_per_base,
+            for_each_transition,
             this->item_bonus,
             this->max_indel_bases
         );
@@ -2280,16 +2292,17 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
 std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
-    for (auto& seed : seeds) {
-        to_return.push_back(this->to_anchor(aln, minimizers, seed));
+    for (size_t i = 0; i < seeds.size(); i++) {
+        to_return.push_back(this->to_anchor(aln, minimizers, seeds, i));
     }
     return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const Seed& seed) const {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, ane for
     // reverse-strand minimizers) falls.
+    auto& seed = seeds[seed_number];
     auto& source = minimizers[seed.source];
     size_t length;
     pos_t graph_start;
@@ -2320,7 +2333,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed.zipcode_decoder.get()); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get()); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {

@@ -489,7 +489,7 @@ protected:
     std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const;
     
     /// Convert a single seed to a single chaining anchor.
-    algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const Seed& seed) const;
+    algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const;
     
     /// Convert an Anchor to a WFAAlignment
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor) const; 
@@ -628,7 +628,7 @@ protected:
     /**
      * Run chaining on some clusters. Returns the chains and the context needed to interpret them.
      */
-    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
+    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeTree& zip_code_tree, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.

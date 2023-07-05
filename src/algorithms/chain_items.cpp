@@ -5,6 +5,7 @@
 
 
 #include "chain_items.hpp"
+#include "crash.hpp"
 
 #include <handlegraph/algorithms/dijkstra.hpp>
 #include <structures/immutable_list.hpp>
@@ -125,18 +126,262 @@ void sort_and_shadow(std::vector<Anchor>& items) {
     items = std::move(kept_items);
 }
 
+transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
+                                                 size_t min_lookback_items,
+                                                 size_t lookback_item_hard_cap,
+                                                 size_t initial_lookback_threshold,
+                                                 double lookback_scale_factor,
+                                                 double min_good_transition_score_per_base) {
+
+    
+    // Capture all the arguments by value into a lambda
+    transition_iterator iterator = [max_lookback_bases,
+                                    min_lookback_items,
+                                    lookback_item_hard_cap,
+                                    initial_lookback_threshold,
+                                    lookback_scale_factor,
+                                    min_good_transition_score_per_base](const VectorView<Anchor>& to_chain,
+                                                                        const SnarlDistanceIndex& distance_index,
+                                                                        const HandleGraph& graph,
+                                                                        size_t max_indel_bases,
+                                                                        const transition_iteratee& callback) {
+
+    
+
+
+        // We want to consider all the important transitions in the graph of what
+        // items can come before what other items. We aren't allowing any
+        // transitions between items that overlap in the read. We're going through
+        // the destination items in order by read start, so we should also keep a
+        // list of them in order by read end, and sweep a cursor over that, so we
+        // always know the fisrt item that overlaps with or passes the current
+        // destination item, in the read. Then when we look for possible
+        // predecessors of the destination item, we can start just before there and
+        // look left.
+        vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Anchor& a, const Anchor& b) {
+            return a.read_end() < b.read_end();
+        });
+        // We use first overlapping instead of last non-overlapping because we can
+        // just initialize first overlapping at the beginning and be right.
+        auto first_overlapping_it = read_end_order.begin();
+
+        for (size_t i = 0; i < to_chain.size(); i++) {
+            // For each item
+            auto& here = to_chain[i];
+            
+            if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
+                // The items are not actually sorted by read start
+                throw std::runtime_error("lookback_transition_iterator: items are not sorted by read start");
+            }
+            
+            while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
+                // Scan ahead through non-overlapping items that past-end too soon,
+                // to the first overlapping item that ends earliest.
+                // Ordering physics *should* constrain the iterator to not run off the end.
+                ++first_overlapping_it;
+                crash_unless(first_overlapping_it != read_end_order.end());
+            }
+            
+#ifdef debug_chaining
+            cerr << "Look at transitions to #" << i
+                << " at " << here;
+            cerr << endl;
+#endif
+
+#ifdef debug_chaining
+            cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
+#endif
+            
+            // Set up lookback control algorithm.
+            // Until we have looked at a certain number of items, we keep going
+            // even if we meet other stopping conditions.
+            size_t items_considered = 0;
+            // If we are looking back further than this
+            size_t lookback_threshold = initial_lookback_threshold;
+            // And a gooid score has been found, stop
+            bool good_score_found = false;
+            // A good score will be positive and have a transition component that
+            // looks good relative to how far we are looking back. The further we
+            // look back the lower our transition score standards get, so remember
+            // the best one we have seen so far in case the standard goes below it. 
+            int best_transition_found = std::numeric_limits<int>::min();
+            
+            // Start considering predecessors for this item.
+            auto predecessor_index_it = first_overlapping_it;
+            while (predecessor_index_it != read_end_order.begin()) {
+                --predecessor_index_it;
+                
+                // How many items have we considered before this one?
+                size_t item_number = items_considered++;
+                
+                // For each source that ended before here started, in reverse order by end position...
+                auto& source = to_chain[*predecessor_index_it];
+                
+#ifdef debug_chaining
+                cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << source << endl;
+#endif
+                
+                // How far do we go in the read?
+                size_t read_distance = get_read_distance(source, here);
+                
+                if (item_number > lookback_item_hard_cap) {
+                    // This would be too many
+#ifdef debug_chaining
+                    cerr << "\t\tDisregard due to hitting lookback item hard cap" << endl;
+#endif
+                    break;
+                }
+                if (item_number >= min_lookback_items) {
+                    // We have looked at enough predecessors that we might consider stopping.
+                    // See if we should look back this far.
+                    if (read_distance > max_lookback_bases) {
+                        // This is further in the read than the real hard limit.
+#ifdef debug_chaining
+                    cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
+#endif
+                        break;
+                    } else if (read_distance > lookback_threshold && good_score_found) {
+                        // We already found something good enough.
+#ifdef debug_chaining
+                    cerr << "\t\tDisregard due to read distance " << read_distance << " over threashold " << lookback_threshold << " and good score already found" << endl;
+#endif
+                        break;
+                    }
+                }
+                if (read_distance > lookback_threshold && !good_score_found) {
+                    // We still haven't found anything good, so raise the threshold.
+                    lookback_threshold *= lookback_scale_factor;
+                }
+                
+                // Now it's safe to make a distance query
+                
+                // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
+                size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
+                
+                std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
+                if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
+                    // Transition seems possible, so yield it.
+                    scores = callback(*predecessor_index_it, i, read_distance, graph_distance);
+                }
+                
+                // Note that we checked out this transition and saw the observed scores and distances.
+                best_transition_found = std::max(best_transition_found, scores.first);
+                if (scores.second > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
+                    // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
+                    good_score_found = true;
+                }
+            } 
+        }
+    };
+
+    return iterator;
+}
+
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
+    // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
+    return [&seeds, &zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
+                                                         const SnarlDistanceIndex& distance_index,
+                                                         const HandleGraph& graph,
+                                                         size_t max_indel_bases,
+                                                         const transition_iteratee& callback) {
+                            
+        // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about. So we need to index the anchors by leading/trailing seed.
+        // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
+        std::unordered_map<size_t, size_t> seed_to_starting;
+        std::unordered_map<size_t, size_t> seed_to_ending;
+        for (size_t anchor_num = 0; anchor_num < to_chain.size(); anchor_num++) {
+            seed_to_starting[to_chain[anchor_num].seed_start()] = anchor_num;
+            seed_to_ending[to_chain[anchor_num].seed_end()] = anchor_num;
+        }
+
+        // Emit a transition between a source and destination anchor, or skip if actually unreachable.
+        auto handle_transition = [&](size_t source_anchor_index, size_t dest_anchor_index) {
+            auto& source_anchor = to_chain[source_anchor_index];
+            auto& dest_anchor = to_chain[dest_anchor_index];
+            size_t read_distance = get_read_distance(source_anchor, dest_anchor);
+            if (read_distance == std::numeric_limits<size_t>::max()) {
+                // Not reachable in read
+                return;
+            }
+            size_t graph_distance = get_graph_distance(source_anchor, dest_anchor, distance_index, graph, max_lookback_bases);
+            if (graph_distance == std::numeric_limits<size_t>::max()) {
+                // Not reachable in graph (somehow)
+                // TODO: Should never happen!
+                return;
+            }
+            callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
+        };
+
+        // If we find we are actually walking through the graph in opposition
+        // to the read, we need to defer transitions from source on the read
+        // forward strand to dest on the read forward strand, so we can go them
+        // in order along the read forward strand.
+        std::stack<std::pair<size_t, size_t>> deferred;
+
+        for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
+            // For each destination seed left to right
+            ZipCodeTree::oriented_seed_t dest_seed = *dest;
+
+#ifdef debug_chaining
+            std::cerr << "Consider destination seed " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << std::endl;
+#endif
+
+            // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
+            std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
+
+            for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
+                // For each source seed right to left
+                ZipCodeTree::oriented_seed_t source_seed = *source;
+
+#ifdef debug_chaining
+                std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << std::endl;
+#endif
+
+                if (!source_seed.is_reverse && !dest_seed.is_reverse) {
+                    // Both of these are in the same orientation relative to
+                    // the read, and we're going through the graph in the
+                    // read's forward orientation as assigned by these seeds.
+                    // So we can just visit this transition.
+
+                    // They might not be at anchor borders though, so check.
+                    auto found_source_anchor = seed_to_ending.find(source_seed.seed);
+                    if (found_dest_anchor != seed_to_starting.end() && found_source_anchor != seed_to_ending.end()) {
+                        // We can transition between these seeds without jumping to/from the middle of an anchor.
+                        handle_transition(found_source_anchor->second, found_dest_anchor->second);
+                    }
+                } else if (source_seed.is_reverse && dest_seed.is_reverse) {
+                    // Both of these are in the same orientation but it is opposite to the read.
+                    // We need to find source as an anchor *started*, and then queue them up flipped for later.
+                    auto found_source_anchor = seed_to_starting.find(source_seed.seed);
+                    if (found_dest_anchor != seed_to_ending.end() && found_source_anchor != seed_to_starting.end()) {
+                        // We can transition between these seeds without jumping to/from the middle of an anchor.
+                        // Queue them up, flipped
+                        deferred.emplace(found_dest_anchor->second, found_source_anchor->second);
+                    }
+                } else {
+                    // We have a transition between different orientations relative to the read. Don't show that.
+                    continue;
+                }
+            }
+        }
+
+        while (!deferred.empty()) {
+            // Now if we were going reverse relative to the read, we can
+            // unstack everything in the right order for forward relative to
+            // the read.
+            handle_transition(deferred.top().first, deferred.top().second);
+            deferred.pop();
+        }
+    };
+}
+
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           size_t max_lookback_bases,
-                           size_t min_lookback_items,
-                           size_t lookback_item_hard_cap,
-                           size_t initial_lookback_threshold,
-                           double lookback_scale_factor,
-                           double min_good_transition_score_per_base,
+                           const transition_iterator& for_each_transition,
                            int item_bonus,
                            size_t max_indel_bases) {
     
@@ -146,216 +391,121 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 #ifdef debug_chaining
     cerr << "Chaining group of " << to_chain.size() << " items" << endl;
 #endif
-    
-    // We want to consider all the important transitions in the graph of what
-    // items can come before what other items. We aren't allowing any
-    // transitions between items that overlap in the read. We're going through
-    // the destination items in order by read start, so we should also keep a
-    // list of them in order by read end, and sweep a cursor over that, so we
-    // always know the fisrt item that overlaps with or passes the current
-    // destination item, in the read. Then when we look for possible
-    // predecessors of the destination item, we can start just before there and
-    // look left.
-    vector<size_t> read_end_order = sort_permutation(to_chain.begin(), to_chain.end(), [&](const Anchor& a, const Anchor& b) {
-        return a.read_end() < b.read_end();
-    });
-    // We use first overlapping instead of last non-overlapping because we can
-    // just initialize first overlapping at the beginning and be right.
-    auto first_overlapping_it = read_end_order.begin();
-    
-    // Make our DP table big enough
-    chain_scores.clear();
-    chain_scores.resize(to_chain.size(), TracedScore::unset());
-    
-    // What's the winner so far?
-    TracedScore best_score = TracedScore::unset();
-    
+
+    chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
+        // Set up DP table so we can start anywhere with that item's score.
+        chain_scores[i] = {to_chain[i].score(), TracedScore::nowhere()};
+    }
+
+    // We will run this over every transition in a good DP order.
+    auto iteratee = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+        
+        crash_unless(chain_scores.size() > to_anchor);
+        crash_unless(chain_scores.size() > from_anchor);
+        
         // For each item
-        auto& here = to_chain[i];
-        
-        if (i > 0 && to_chain[i-1].read_start() > here.read_start()) {
-            // The items are not actually sorted by read start
-            throw std::runtime_error("chain_items_dp: items are not sorted by read start");
-        }
-        
-        while (to_chain[*first_overlapping_it].read_end() <= here.read_start()) {
-            // Scan ahead through non-overlapping items that past-end too soon,
-            // to the first overlapping item that ends earliest.
-            // Ordering physics *should* constrain the iterator to not run off the end.
-            ++first_overlapping_it;
-            assert(first_overlapping_it != read_end_order.end());
-        }
+        auto& here = to_chain[to_anchor];
         
         // How many points is it worth to collect?
         auto item_points = here.score() + item_bonus;
         
-        std::string here_gvnode = "i" + std::to_string(i);
+        std::string here_gvnode = "i" + std::to_string(to_anchor);
         
         // If we come from nowhere, we get those points.
-        chain_scores[i] = std::max(chain_scores[i], {item_points, TracedScore::nowhere()});
+        chain_scores[to_anchor] = std::max(chain_scores[to_anchor], {item_points, TracedScore::nowhere()});
+        
+        // For each source we could come from
+        auto& source = to_chain[from_anchor];
+            
+#ifdef debug_chaining
+        cerr << "\t\tCome from score " << chain_scores[from_anchor]
+            << " across " << source << " to " << here << endl;
+#endif
+            
+        // How much does it pay (+) or cost (-) to make the jump from there
+        // to here?
+        // Don't allow the transition if it seems like we're going the long
+        // way around an inversion and needing a huge indel.
+        int jump_points;
+            
+        // Decide how much length changed
+        size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
         
 #ifdef debug_chaining
-        cerr << "Look at transitions to #" << i
-            << " at " << here;
-        cerr << endl;
+        cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
 #endif
 
-#ifdef debug_chaining
-        cerr << "\tFirst item overlapping #" << i << " beginning at " << here.read_start() << " is #" << *first_overlapping_it << " past-ending at " << to_chain[*first_overlapping_it].read_end() << " so start before there." << std::endl;
-#endif
-        
-        // Set up lookback control algorithm.
-        // Until we have looked at a certain number of items, we keep going
-        // even if we meet other stopping conditions.
-        size_t items_considered = 0;
-        // If we are looking back further than this
-        size_t lookback_threshold = initial_lookback_threshold;
-        // And a gooid score has been found, stop
-        bool good_score_found = false;
-        // A good score will be positive and have a transition component that
-        // looks good relative to how far we are looking back. The further we
-        // look back the lower our transition score standards get, so remember
-        // the best one we have seen so far in case the standard goes below it. 
-        int best_transition_found = std::numeric_limits<int>::min();
-        
-        // Start considering predecessors for this item.
-        auto predecessor_index_it = first_overlapping_it;
-        while (predecessor_index_it != read_end_order.begin()) {
-            --predecessor_index_it;
-            
-            // How many items have we considered before this one?
-            size_t item_number = items_considered++;
-            
-            // For each source that ended before here started, in reverse order by end position...
-            auto& source = to_chain[*predecessor_index_it];
-            
-#ifdef debug_chaining
-            cerr << "\tConsider transition from #" << *predecessor_index_it << ": " << source << endl;
-#endif
-            
-            // How far do we go in the read?
-            size_t read_distance = get_read_distance(source, here);
-            
-            if (item_number > lookback_item_hard_cap) {
-                // This would be too many
-#ifdef debug_chaining
-                cerr << "\t\tDisregard due to hitting lookback item hard cap" << endl;
-#endif
-                break;
-            }
-            if (item_number >= min_lookback_items) {
-                // We have looked at enough predecessors that we might consider stopping.
-                // See if we should look back this far.
-                if (read_distance > max_lookback_bases) {
-                    // This is further in the read than the real hard limit.
-#ifdef debug_chaining
-                cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
-#endif
-                    break;
-                } else if (read_distance > lookback_threshold && good_score_found) {
-                    // We already found something good enough.
-#ifdef debug_chaining
-                cerr << "\t\tDisregard due to read distance " << read_distance << " over threashold " << lookback_threshold << " and good score already found" << endl;
-#endif
-                    break;
-                }
-            }
-            if (read_distance > lookback_threshold && !good_score_found) {
-                // We still haven't found anything good, so raise the threshold.
-                lookback_threshold *= lookback_scale_factor;
-            }
-            
-            // Now it's safe to make a distance query
-#ifdef debug_chaining
-            cerr << "\t\tCome from score " << chain_scores[*predecessor_index_it]
-                << " across " << source << " to " << here << endl;
-#endif
-            
-            // We will actually evaluate the source.
-            
-            // How far do we go in the graph? Don't bother finding out exactly if it is too much longer than in the read.
-            size_t graph_distance = get_graph_distance(source, here, distance_index, graph, read_distance + max_indel_bases);
-            
-            // How much does it pay (+) or cost (-) to make the jump from there
-            // to here?
-            // Don't allow the transition if it seems like we're going the long
-            // way around an inversion and needing a huge indel.
-            int jump_points;
-            
-            if (read_distance == numeric_limits<size_t>::max()) {
-                // Overlap in read, so not allowed.
-                jump_points = std::numeric_limits<int>::min();
-            } else if (graph_distance == numeric_limits<size_t>::max()) {
-                // No graph connection
-                jump_points = std::numeric_limits<int>::min();
-            } else {
-                // Decide how much length changed
-                size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
-                
-#ifdef debug_chaining
-                cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
-#endif
-
-                if (indel_length > max_indel_bases) {
-                    // Don't allow an indel this long
-                    jump_points = std::numeric_limits<int>::min();
-                } else {
-                    // Then charge for that indel
-                    jump_points = score_gap(indel_length, gap_open, gap_extension);
-                }
-            }
-            
-            // And how much do we end up with overall coming from there.
-            int achieved_score;
-            
-            if (jump_points != numeric_limits<int>::min()) {
-                // Get the score we are coming from
-                TracedScore source_score = TracedScore::score_from(chain_scores, *predecessor_index_it);
-                
-                // And the score with the transition and the points from the item
-                TracedScore from_source_score = source_score.add_points(jump_points + item_points);
-                
-                // Remember that we could make this jump
-                chain_scores[i] = std::max(chain_scores[i], from_source_score);
-                                               
-#ifdef debug_chaining
-                cerr << "\t\tWe can reach #" << i << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
-#endif
-                if (from_source_score.score > 0) {
-                    // Only explain edges that were actual candidates since we
-                    // won't let local score go negative
-                    
-                    std::string source_gvnode = "i" + std::to_string(*predecessor_index_it);
-                    // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
-                    diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
-                        {"label", std::to_string(jump_points)},
-                        {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
-                    });
-                }
-                
-                achieved_score = from_source_score.score;
-            } else {
-#ifdef debug_chaining
-                cerr << "\t\tTransition is impossible." << endl;
-#endif
-                achieved_score = std::numeric_limits<size_t>::min();
-            }
-            
-            // Note that we checked out this transition and saw the observed scores and distances.
-            best_transition_found = std::max(best_transition_found, jump_points);
-            if (achieved_score > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
-                // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
-                good_score_found = true;
-            }
+        if (indel_length > max_indel_bases) {
+            // Don't allow an indel this long
+            jump_points = std::numeric_limits<int>::min();
+        } else {
+            // Then charge for that indel
+            jump_points = score_gap(indel_length, gap_open, gap_extension);
         }
-        
+            
+        // And how much do we end up with overall coming from there.
+        int achieved_score;
+            
+        if (jump_points != numeric_limits<int>::min()) {
+            // Get the score we are coming from
+            TracedScore source_score = TracedScore::score_from(chain_scores, from_anchor);
+            
+            // And the score with the transition and the points from the item
+            TracedScore from_source_score = source_score.add_points(jump_points + item_points);
+            
+            // Remember that we could make this jump
+            chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);
+                                           
 #ifdef debug_chaining
-        cerr << "\tBest way to reach #" << i << " is " << chain_scores[i] << endl;
+            cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
+#endif
+            if (from_source_score.score > 0) {
+                // Only explain edges that were actual candidates since we
+                // won't let local score go negative
+                
+                std::string source_gvnode = "i" + std::to_string(from_anchor);
+                // Suggest that we have an edge, where the edges that are the best routes here are the most likely to actually show up.
+                diagram.suggest_edge(source_gvnode, here_gvnode, here_gvnode, from_source_score.score, {
+                    {"label", std::to_string(jump_points)},
+                    {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
+                });
+            }
+            
+            achieved_score = from_source_score.score;
+        } else {
+#ifdef debug_chaining
+            cerr << "\t\tTransition is impossible." << endl;
+#endif
+            achieved_score = std::numeric_limits<size_t>::min();
+        }
+            
+        return std::make_pair(jump_points, achieved_score);
+    };
+
+    // Run our DP step over all the transitions.
+    for_each_transition(to_chain,
+                        distance_index,
+                        graph,
+                        max_indel_bases,
+                        iteratee);
+        
+   
+    TracedScore best_score = TracedScore::unset();
+
+    for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
+        // For each destination anchor, now that it is finished, see if it is the winner.
+        auto& here = to_chain[to_anchor];
+        auto item_points = here.score() + item_bonus;
+
+#ifdef debug_chaining
+        cerr << "\tBest way to reach #" << to_anchor << " is " << chain_scores[to_anchor] << endl;
 #endif
         
+        // Draw the item in the diagram
+        std::string here_gvnode = "i" + std::to_string(to_anchor);
         std::stringstream label_stream;
-        label_stream << "#" << i << " " << here << " = " << item_points << "/" << chain_scores[i].score;
+        label_stream << "#" << to_anchor << " " << here << " = " << item_points << "/" << chain_scores[to_anchor].score;
         diagram.add_node(here_gvnode, {
             {"label", label_stream.str()}
         });
@@ -377,7 +527,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         diagram.ensure_edge(graph_gvnode, graph_gvnode2, {{"color", "gray"}});
         
         // See if this is the best overall
-        best_score.max_in(chain_scores, i);
+        best_score.max_in(chain_scores, to_anchor);
         
 #ifdef debug_chaining
         cerr << "\tBest chain end so far: " << best_score << endl;
@@ -470,12 +620,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int gap_open,
                                                    int gap_extension,
                                                    size_t max_chains,
-                                                   size_t max_lookback_bases,
-                                                   size_t min_lookback_items,
-                                                   size_t lookback_item_hard_cap,
-                                                   size_t initial_lookback_threshold,
-                                                   double lookback_scale_factor,
-                                                   double min_good_transition_score_per_base,
+                                                   const transition_iterator& for_each_transition, 
                                                    int item_bonus,
                                                    size_t max_indel_bases) {
                                                                          
@@ -491,12 +636,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              graph,
                                                              gap_open,
                                                              gap_extension,
-                                                             max_lookback_bases,
-                                                             min_lookback_items,
-                                                             lookback_item_hard_cap,
-                                                             initial_lookback_threshold,
-                                                             lookback_scale_factor,
-                                                             min_good_transition_score_per_base,
+                                                             for_each_transition,
                                                              item_bonus,
                                                              max_indel_bases);
     // Then do the tracebacks
@@ -524,12 +664,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
-                                          size_t max_lookback_bases,
-                                          size_t min_lookback_items,
-                                          size_t lookback_item_hard_cap,
-                                          size_t initial_lookback_threshold,
-                                          double lookback_scale_factor,
-                                          double min_good_transition_score_per_base,
+                                          const transition_iterator& for_each_transition,
                                           int item_bonus,
                                           size_t max_indel_bases) {
                                                                  
@@ -540,12 +675,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         gap_open,
         gap_extension,
         1,
-        max_lookback_bases,
-        min_lookback_items,
-        lookback_item_hard_cap,
-        initial_lookback_threshold,
-        lookback_scale_factor,
-        min_good_transition_score_per_base,
+        for_each_transition,
         item_bonus,
         max_indel_bases
     ).front();

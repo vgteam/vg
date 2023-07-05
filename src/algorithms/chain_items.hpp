@@ -23,6 +23,7 @@
 
 #include "../gbwt_extender.hpp"
 #include "../snarl_seed_clusterer.hpp"
+#include "../zip_code_tree.hpp"
 #include "../handle.hpp"
 #include "../explainer.hpp"
 #include "../utility.hpp"
@@ -78,6 +79,18 @@ public:
         return end_pos;
     }
     
+    /// Get the number of the seed at the start of the anchor, or
+    /// std::numeric_limits<size_t>::max() if not set.
+    inline size_t seed_start() const {
+        return start_seed;
+    }
+    
+    /// Get the number of the seed at the end of the chain, or
+    /// std::numeric_limits<size_t>::max() if not set.
+    inline size_t seed_end() const {
+        return end_seed;
+    }
+
     /// Get the distance-finding hint information (i.e. "zip code") for
     /// accelerating distance queries to the start of this anchor, or null if
     /// none is set.
@@ -95,15 +108,15 @@ public:
     // Construction
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
-    /// Can also bring along a distance hint
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_decoder(hint), end_decoder(hint) {
+    /// Can also bring along a distance hint and a seed number.
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, size_t seed_number = std::numeric_limits<size_t>::max(), ZipCodeDecoder* hint = nullptr) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_decoder(hint), end_decoder(hint) {
         // Nothing to do!
     }
     
     /// Compose two Anchors into an Anchor that represents coming in through
     /// the first one and going out through the second, like a tunnel. Useful
     /// for representing chains as chainable items.
-    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_decoder(first.start_hint()), end_decoder(last.end_hint()) {
+    inline Anchor(const Anchor& first, const Anchor& last, int score) : start(first.read_start()), size(last.read_end() - first.read_start()), start_pos(first.graph_start()), end_pos(last.graph_end()), points(score), start_seed(first.seed_start()), end_seed(last.seed_end()), start_decoder(first.start_hint()), end_decoder(last.end_hint()) {
         // Nothing to do!
     }
     
@@ -120,6 +133,8 @@ protected:
     pos_t start_pos;
     pos_t end_pos;
     int points;
+    size_t start_seed;
+    size_t end_seed;
     ZipCodeDecoder* start_decoder;
     ZipCodeDecoder* end_decoder;
 };
@@ -230,6 +245,55 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
 void sort_and_shadow(std::vector<Anchor>& items);
 
 /**
+ * Iteratee function type which can be called with each transition between
+ * anchors.
+ * 
+ * Takes two anchor numbers (source and destination), and their read and graph
+ * distances, in that order.
+ *
+ * Returns a score for the given transition, and the best score yet achieved
+ * for the destination item.
+ */
+using transition_iteratee = std::function<std::pair<int, int>(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
+
+/**
+ * Iterator function type which lets you iterate over transitions between
+ * items, by calling a callback.
+ *
+ * Implementation will go throuch all the anchors and call the given callback
+ * with pairs of anchor numbers, and their read and graph distances.
+ * 
+ * Transitions are always between anchors earlier and later in the read.
+ * 
+ * Transitions are from the first anchor, to the second.
+ * 
+ * Transitions are visited in order: all transititions to an anchor are visited
+ * before any transitions from it.
+ * 
+ * callback must return a score for the given transition, and the score it
+ * achieves for the destination item.
+ * 
+ * to_chain must be sorted by read start.
+ */
+using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
+
+/**
+ * Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions.
+ * Closes over the arguments by value.
+ */
+transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
+                                                 size_t min_lookback_items,
+                                                 size_t lookback_item_hard_cap,
+                                                 size_t initial_lookback_threshold,
+                                                 double lookback_scale_factor,
+                                                 double min_good_transition_score_per_base);
+
+/**
+ * Return a transition iterator that uses zip code tree iteration to select traversals.
+ */
+transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases);
+
+/**
  * Fill in the given DP table for the explored chain scores ending with each
  * item. Returns the best observed score overall from that table, with
  * provenance to its location in the table, if tracked in the type. Assumes
@@ -255,12 +319,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           size_t max_lookback_bases = 150,
-                           size_t min_lookback_items = 0,
-                           size_t lookback_item_hard_cap = 100,
-                           size_t initial_lookback_threshold = 10,
-                           double lookback_scale_factor = 2.0,
-                           double min_good_transition_score_per_base = -0.1,
+                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
                            int item_bonus = 0,
                            size_t max_indel_bases = 100);
 
@@ -300,12 +359,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int gap_open,
                                                    int gap_extension,
                                                    size_t max_chains = 1,
-                                                   size_t max_lookback_bases = 150,
-                                                   size_t min_lookback_items = 0,
-                                                   size_t lookback_item_hard_cap = 100,
-                                                   size_t initial_lookback_threshold = 10,
-                                                   double lookback_scale_factor = 2.0,
-                                                   double min_good_transition_score_per_base = -0.1,
+                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1), 
                                                    int item_bonus = 0,
                                                    size_t max_indel_bases = 100);
 
@@ -323,12 +377,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
-                                          size_t max_lookback_bases = 150,
-                                          size_t min_lookback_items = 0,
-                                          size_t lookback_item_hard_cap = 100,
-                                          size_t initial_lookback_threshold = 10,
-                                          double lookback_scale_factor = 2.0,
-                                          double min_good_transition_score_per_base = -0.1,
+                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
                                           int item_bonus = 0,
                                           size_t max_indel_bases = 100);
                                           

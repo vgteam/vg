@@ -5,6 +5,8 @@
 
 #include "crash.hpp"
 
+//#define debug_parse
+
 using namespace std;
 namespace vg {
 
@@ -892,8 +894,11 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 }
 
 
-ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end) : it(it), end(end) {
-    // Nothing to do!
+ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
+    while (this->it != this->end && this->it->type != SEED) {
+        // Immediately advance to the first seed
+        ++this->it;
+    }
 }
 
 auto ZipCodeTree::iterator::operator++() -> iterator& {
@@ -910,12 +915,16 @@ auto ZipCodeTree::iterator::operator==(const iterator& other) const -> bool {
     return it == other.it;
 }
     
-auto ZipCodeTree::iterator::operator*() const -> size_t {
-    return it->value;
+auto ZipCodeTree::iterator::operator*() const -> oriented_seed_t {
+    return {it->value, it->is_reversed};
 }
 
 auto ZipCodeTree::iterator::remaining_tree() const -> size_t {
-    return end - it;
+    size_t to_return = end - it - 1;
+#ifdef debug_parse
+    std::cerr << "From " << &*it << " there are " << to_return << " slots after" << std::endl;
+#endif
+    return to_return;
 }
 
 auto ZipCodeTree::begin() const -> iterator {
@@ -926,23 +935,51 @@ auto ZipCodeTree::end() const -> iterator {
     return iterator(zip_code_tree.end(), zip_code_tree.end());
 }
 
-ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(it), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
-    while (it != rend && !tick()) {
+ZipCodeTree::reverse_iterator::reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit) : it(rbegin), rend(rend), distance_limit(distance_limit), stack(), current_state(S_START) {
+#ifdef debug_parse
+    if (this->it != rend) {
+        std::cerr << "Able to do first initial tick." << std::endl;
+    }
+#endif
+    if (this->it == rend) {
+        // We are an end iterator. Nothing else to do.
+        return;
+    }
+    while (this->it != rend && !tick()) {
         // Skip ahead to the first seed we actually want to yield, or to the end of the data.
-        ++it;
+        ++this->it;
+#ifdef debug_parse
+        if (this->it != rend) {
+            std::cerr << "Able to do another initial tick." << std::endl;
+        }
+#endif
     }
     // As the end of the constructor, the iterator points to a seed that has been ticked and yielded, or is rend.
+#ifdef debug_parse
+    if (this->it == rend) {
+        std::cerr << "Ran out of tree looking for first seed." << std::endl;
+    }
+#endif
 }
 
 auto ZipCodeTree::reverse_iterator::operator++() -> reverse_iterator& {
     // Invariant: the iterator points to a seed that has been ticked and yielded, or to rend.
     if (it != rend) {
+#ifdef debug_parse
+        std::cerr << "Skipping over a " << it->type << " which we assume was handled already." << std::endl;
+#endif
         ++it;
+
     }
     while (it != rend && !tick()) {
         // Skip ahead to the next seed we actually want to yield, or to the end of the data.
         ++it;
     }
+#ifdef debug_parse
+    if (it == rend) {
+        std::cerr << "Ran out of tree looking for next seed." << std::endl;
+    }
+#endif
     return *this;
 }
 
@@ -951,13 +988,17 @@ auto ZipCodeTree::reverse_iterator::operator==(const reverse_iterator& other) co
     return it == other.it;
 }
 
-auto ZipCodeTree::reverse_iterator::operator*() const -> std::pair<size_t, size_t> {
+auto ZipCodeTree::reverse_iterator::operator*() const -> seed_result_t {
     // We are always at a seed, so show that seed
     crash_unless(it != rend);
     crash_unless(it->type == SEED);
     crash_unless(!stack.empty());
     // We know the running distance to this seed will be at the top of the stack.
-    return {it->value, stack.top()};
+    seed_result_t to_return;
+    to_return.seed = it->value;
+    to_return.is_reverse = it->is_reversed;
+    to_return.distance = stack.top();
+    return to_return;
 }
 
 auto ZipCodeTree::reverse_iterator::push(size_t value) -> void {
@@ -971,6 +1012,7 @@ auto ZipCodeTree::reverse_iterator::pop() -> size_t {
 }
 
 auto ZipCodeTree::reverse_iterator::top() -> size_t& {
+    crash_unless(depth() > 0);
     return stack.top();
 }
 
@@ -982,18 +1024,14 @@ auto ZipCodeTree::reverse_iterator::depth() const -> size_t {
     return stack.size();
 }
 
-auto ZipCodeTree::reverse_iterator::reverse(size_t depth) -> void {
-    // We reverse by moving from a stack to a queue and back.
-    // TODO: would using a backing vector and STL algorithms be better?
-    std::queue<size_t> queue;
-    for (size_t i = 0; i < depth; i++) {
-        queue.push(stack.top());
-        stack.pop();
-    }
-    for (size_t i = 0; i < depth; i++) {
-        stack.push(queue.front());
-        queue.pop();
-    }
+auto ZipCodeTree::reverse_iterator::swap() -> void {
+    // Grab the top item
+    size_t temp = stack.top();
+    stack.pop();
+    // Swap it with what was under it
+    std::swap(temp, stack.top());
+    // And put that back on top
+    stack.push(temp);
 }
 
 auto ZipCodeTree::reverse_iterator::state(State new_state) -> void {
@@ -1001,15 +1039,26 @@ auto ZipCodeTree::reverse_iterator::state(State new_state) -> void {
 }
 
 auto ZipCodeTree::reverse_iterator::halt() -> void {
+#ifdef debug_parse
+    std::cerr << "Halt iteration!" << std::endl;
+#endif
     it = rend;
 }
 
 auto ZipCodeTree::reverse_iterator::tick() -> bool {
+#ifdef debug_parse
+    std::cerr << "Tick for state " << current_state << " on symbol " << it->type << " at " << &*it << std::endl;
+#endif
     switch (current_state) {
     case S_START:
+        // Initial state.
+        //
         // Stack is empty and we must be at a seed to start at.
         switch (it->type) {
         case SEED:
+#ifdef debug_parse
+            std::cerr << "Skip over seed " << it->value << std::endl;
+#endif
             push(0);
             state(S_SCAN_CHAIN);
             break;
@@ -1018,6 +1067,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_SCAN_CHAIN:
+        // State where we are scanning a chain leftward up to its start.
+        //
         // Stack has at the top the running distance along the chain, and under
         // that running distances to use at the other chains in the snarl, and
         // under that running distances to use for the other chains in the
@@ -1025,12 +1076,15 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         switch (it->type) {
         case SEED:
             // Emit seed here with distance at top of stack.
+            crash_unless(depth() > 0);
+#ifdef debug_parse
+            std::cerr << "Yield seed " << it->value << ", distance " << top() << std::endl;
+#endif
             return true;
             break;
         case SNARL_END:
             // Running distance along chain is on stack, and will need to be added to all the stored distances.
-            push(0); // Depth of stack that needs reversing after we read all the distances into it
-            state(S_STACK_SNARL); // Stack up pre-made scratch distances for all the distances right left of here
+            state(S_STACK_SNARL); // Stack up pre-made scratch distances for all the things in the snarl.
             break;
         case CHAIN_START:
             if (depth() == 1) {
@@ -1040,7 +1094,6 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                 //
                 // Running distance along chain is on stack, and will need to
                 // be added to all the stored distances.
-                push(0); // Depth of stack that needs reversing after we read all the distances into it
                 state(S_STACK_SNARL);
             } else {
                 // We did enter the parent snarl already.
@@ -1053,13 +1106,19 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case EDGE:
             // Distance between things in a chain.
             // Add value into running distance.
-            top() += it->value;
+            // Except the stored distance seems to be 1 more than the actual distance.
+            // TODO: why?
+            crash_unless(it->value > 0);
+            top() += (it->value - 1);
             if (top() > distance_limit) {
                 // Skip over the rest of this chain
                 if (depth() == 1) {
                     // We never entered the parent snarl of this chain.
-                    // So if the distance along the chain is too much, there are not going to be any results with a smaller distance.
+                    // So if the distance along the chain is too much, there
+                    // are not going to be any results with a smaller distance.
                     halt();
+                    // When we halt we have to return true to show the halting position.
+                    return true;
                 } else {
                     // We need to try the next thing in the parent snarl, so skip the rest of the chain.
                     // We're skipping in 0 nested snarls right now.
@@ -1073,43 +1132,65 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         }
         break;
     case S_STACK_SNARL:
-        // Stack has at the top the number of edges we have stacked up, and
-        // under that the running distance along the parent chain, and under
+        // State where we are stacking up the stored edge values, the first
+        // time we get to a particular snarl.
+        //
+        // Stack has the running distance along the parent chain, and under
         // that the stacked running distances for items in the snarl.
         switch (it->type) {
         case EDGE:
-            // Swap top 2 elements to bring parent running distance to the top
-            reverse(2);
-            // Duplicate it
+            // Duplicate parent running distance
             dup();
             // Add in the edge value to make a running distance for the thing this edge is for
             top() += it->value;
-            // Flip top 3 elements, so now edge count is on top, over parent running distance, over edge running distance.
-            reverse(3);
-            // Add 1 to the edge count
-            top()++;
+            // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
+            swap();
             break;
         case CHAIN_END:
-            // Bring parent running distance above edge count
-            reverse(2);
-            // Throw it out
+            // Throw out parent running distance
             pop();
-            // Re-order all the edge running distances so we can pop them in the order we encounter the edge targets.
-            reverse(pop());
-            if (top() > distance_limit) {
-                // Running distance is already too high so skip over the chain
-                push(0);
-                state(S_SKIP_CHAIN);
+            if (depth() == 0) {
+                // We left a chain and immediately entered a chain without a distance.
+                // This means the chains aren't actually connected.
+                halt();
+                // When we halt we have to return true to show the halting position.
+                return true;
             } else {
-                // Do the chain
-                state(S_SCAN_CHAIN);
+                // So now we have the running distance for this next chain.
+                if (top() > distance_limit) {
+                    // Running distance is already too high so skip over the chain
+                    push(0);
+                    state(S_SKIP_CHAIN);
+                } else {
+                    // Do the chain
+                    state(S_SCAN_CHAIN);
+                }
             }
+            break;
+        case SNARL_START:
+            // We didn't hit another chain in the snarl, we hit the start of
+            // the snarl. We should have stacked exactly one distance.
+
+            // Throw out parent running distance
+            pop();
+
+            // There should be a running distance on the stack still, and we
+            // will continue with that in the parent chain.
+            crash_unless(depth() > 0);
+            state(S_SCAN_CHAIN);
+            break;
+        case NODE_COUNT:
+            // We've found the node count in the snarl. We don't need it, so
+            // skip it.
+            // TODO: Use it if skipping the snarl.
             break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     case S_SCAN_SNARL:
+        // State where we are going through a snarl and doing all its chains.
+        //
         // Stack has at the top running distances to use for each chain still
         // to be visited in the snarl, and under those the same for the snarl
         // above that, etc.
@@ -1137,21 +1218,29 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             break;
         case EDGE:
             // We've found edge data in the snarl, but we already know the
-            // running distances to everythign we will encounter, so we ignore
+            // running distances to everything we will encounter, so we ignore
             // it.
+            break;
+        case NODE_COUNT:
+            // We've found the node count in the snarl. We don't need it, so
+            // skip it.
             break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
         break;
     case S_SKIP_CHAIN:
-        /// Stack has the nesting level of child snarls we are reading over
-        /// until we get back to the level we want to skip past the chain
-        /// start.
-        /// Under that is the running distance along the chain being skipped.
-        /// And under that it has the running distance for ther next thing in
-        /// the snarl, which had better exist or we shouldn't be trying to skip
-        /// the chain, we should have halted.
+        // State where we are skipping over the rest of a chain because we hit
+        // the distance limit, but we might need to do other chains in a parent
+        // snarl.
+        //
+        // Stack has the nesting level of child snarls we are reading over
+        // until we get back to the level we want to skip past the chain
+        // start.
+        // Under that is the running distance along the chain being skipped.
+        // And under that it has the running distance for ther next thing in
+        // the snarl, which had better exist or we shouldn't be trying to skip
+        // the chain, we should have halted.
         switch (it->type) {
         case SEED:
             // We don't emit seeds until the chain is over
@@ -1184,6 +1273,10 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case EDGE:
             // Ignore edge values
             break;
+        case NODE_COUNT:
+            // Ignore node counts
+            // TODO: We should read these and jump along instead!
+            break;
         default:
             throw std::domain_error("Unimplemented symbol " + std::to_string(it->type) + " for state " + std::to_string(current_state)); 
         }
@@ -1191,7 +1284,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
     default:
         throw std::domain_error("Unimplemented state " + std::to_string(current_state)); 
     }
-    // Unless we yield something, we don't yield anything.
+    // Unless we yield something, we don't want to pause the scan here.
     return false;
 }
 
@@ -1201,6 +1294,58 @@ auto ZipCodeTree::look_back(const iterator& from, size_t distance_limit) const -
 auto ZipCodeTree::rend() const -> reverse_iterator {
     return reverse_iterator(zip_code_tree.rend(), zip_code_tree.rend(), 0);
 }
+
+
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type) {
+    return out << std::to_string(type);
+}
+
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator::State& state) {
+    return out << std::to_string(state);
+}
+
+}
+
+namespace std {
+
+std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type) {
+    switch (type) {
+    case vg::ZipCodeTree::SEED:
+        return "SEED";
+    case vg::ZipCodeTree::SNARL_START:
+        return "SNARL_START";
+    case vg::ZipCodeTree::SNARL_END:
+        return "SNARL_END";
+    case vg::ZipCodeTree::CHAIN_START:
+        return "CHAIN_START";
+    case vg::ZipCodeTree::CHAIN_END:
+        return "CHAIN_END";
+    case vg::ZipCodeTree::EDGE:
+        return "EDGE";
+    case vg::ZipCodeTree::NODE_COUNT:
+        return "NODE_COUNT";
+    default:
+        throw std::runtime_error("Unimplemented zip code tree item type");
+    }
+}
+
+std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state) {
+    switch (state) {
+    case vg::ZipCodeTree::reverse_iterator::S_START:
+        return "S_START";
+    case vg::ZipCodeTree::reverse_iterator::S_SCAN_CHAIN:
+        return "S_SCAN_CHAIN";
+    case vg::ZipCodeTree::reverse_iterator::S_STACK_SNARL:
+        return "S_STACK_SNARL";
+    case vg::ZipCodeTree::reverse_iterator::S_SCAN_SNARL:
+        return "S_SCAN_SNARL";
+    case vg::ZipCodeTree::reverse_iterator::S_SKIP_CHAIN:
+        return "S_SKIP_CHAIN";
+    default:
+        throw std::runtime_error("Unimplemented zip code tree reverse iterator state");
+    }
+}
+
 
 
 }

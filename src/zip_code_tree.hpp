@@ -147,13 +147,49 @@ public:
     tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
 
 public:
+    
+    /**
+     * Exposed type for a reference to an orientation of a seed.
+     */
+    struct oriented_seed_t {
+        size_t seed;
+        bool is_reverse;
+        
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator==(const oriented_seed_t& other) const {
+            return seed == other.seed && is_reverse == other.is_reverse;
+        }
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator!=(const oriented_seed_t& other) const {
+            return !(*this == other);
+        }
+    };
+
+    /**
+     * Exposed type for a reference to an oriented seed at an associated distance.
+     */
+    struct seed_result_t : public oriented_seed_t {
+        size_t distance;
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator==(const seed_result_t& other) const {
+            return distance == other.distance && oriented_seed_t::operator==((oriented_seed_t)other);
+        }
+
+        /// Compare to other instances. TODO: Use default when we get C++20. 
+        inline bool operator!=(const seed_result_t& other) const {
+            return !(*this == other);
+        }
+    };
+
     /**
      * Iterator that visits all seeds right to left in the tree's in-order traversal.
      */
     class iterator {
     public:
         /// Make an iterator wrapping the given iterator, until the given end.
-        iterator(vector<tree_item_t>::const_iterator it, vector<tree_item_t>::const_iterator end);
+        iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end);
         
         // Iterators are copyable and movable.
         iterator(const iterator& other) = default;
@@ -172,8 +208,8 @@ public:
             return !(*this == other);
         }
         
-        /// Get the index of the seed we are currently at.
-        size_t operator*() const;
+        /// Get the index and orientation of the seed we are currently at.
+        oriented_seed_t operator*() const;
 
         /// Get the number of tree storage slots left in the iterator. We need
         /// this to make reverse iterators from forward ones.
@@ -200,12 +236,12 @@ public:
     public:
         /// Make a reverse iterator wrapping the given reverse iterator, until
         /// the given rend, with the given distance limit.
-        reverse_iterator(vector<tree_item_t>::const_reverse_iterator it, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
+        reverse_iterator(vector<tree_item_t>::const_reverse_iterator rbegin, vector<tree_item_t>::const_reverse_iterator rend, size_t distance_limit = std::numeric_limits<size_t>::max());
 
-        // Reverse iterators are not copyable but are movable, because the stack is big.
-        reverse_iterator(const reverse_iterator& other) = delete;
+        // Reverse iterators need to be copyable for STL algorithms despite the relatively large stack.
+        reverse_iterator(const reverse_iterator& other) = default;
         reverse_iterator(reverse_iterator&& other) = default;
-        reverse_iterator& operator=(const reverse_iterator& other) = delete;
+        reverse_iterator& operator=(const reverse_iterator& other) = default;
         reverse_iterator& operator=(reverse_iterator&& other) = default;
 
         /// Move left
@@ -219,8 +255,19 @@ public:
             return !(*this == other);
         }
         
-        /// Get the index of the seed we are currently at, and the distance to it.
-        std::pair<size_t, size_t> operator*() const;
+        /// Get the index and orientation of the seed we are currently at, and the distance to it.
+        seed_result_t operator*() const;
+
+        /// Type for the state of the
+        /// I-can't-believe-it's-not-a-pushdown-automaton
+        enum State {
+            S_START,
+            S_SCAN_CHAIN,
+            S_STACK_SNARL,
+            S_SCAN_SNARL,
+            S_SKIP_CHAIN
+        };
+
     private:
         /// Where we are in the stored tree.
         vector<tree_item_t>::const_reverse_iterator it;
@@ -237,7 +284,7 @@ public:
         /// Push a value to the stack
         void push(size_t value);
 
-        /// Pop a value from the stack
+        /// Pop a value from the stack and return it
         size_t pop();
 
         /// Get a mutable reference to the value on top of the stack
@@ -249,18 +296,8 @@ public:
         /// Check stack depth
         size_t depth() const;
 
-        /// Reverse the top n elements of the stack
-        void reverse(size_t depth);
-
-        /// Type for the state of the
-        /// I-can't-believe-it's-not-a-pushdown-automaton
-        enum State {
-            S_START,
-            S_SCAN_CHAIN,
-            S_STACK_SNARL,
-            S_SCAN_SNARL,
-            S_SKIP_CHAIN
-        };
+        /// Reverse the top two elements of the stack
+        void swap();
 
         /// Current state of the automaton
         State current_state;
@@ -274,16 +311,71 @@ public:
 
         /// Tick the automaton, looking at the symbol at *it and updating the
         /// stack and current_state. Returns true to yield a value at the
-        /// current symbol and false otherwise.
+        /// current symbol, or to halt, and false otherwise.
         bool tick();
 
     };
 
     /// Get a reverse iterator looking left from where a forward iterator is, up to a distance limit.
-    reverse_iterator look_back(const iterator& from, size_t distance_limit) const;
+    reverse_iterator look_back(const iterator& from, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     /// Get the reverse end iterator for looking back from seeds.
     reverse_iterator rend() const;
 
 };
+
+/// Print an item type to a stream
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::tree_item_type_t& type);
+/// Pritn an iterator state to a stream
+std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator::State& state);
+
 }
+
+namespace std {
+
+/// Make an item type into a string
+std::string to_string(const vg::ZipCodeTree::tree_item_type_t& type);
+/// Make an iterator state into a string
+std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state);
+
+/// Hash functor to hash oriented_seed_t with std::hash
+template <> struct hash<vg::ZipCodeTree::oriented_seed_t>
+{
+    /// Produce a hash of an oriented_seed_t.
+    size_t operator()(const vg::ZipCodeTree::oriented_seed_t& item) const
+    {
+        // Hash it just as we would a pair.
+        return hash<pair<size_t, bool>>()(make_pair(item.seed, item.is_reverse));
+    }
+};
+
+/// Hash functor to hash oriented_seed_t with std::hash
+template <> struct hash<vg::ZipCodeTree::seed_result_t>
+{
+    /// Produce a hash of an oriented_seed_t.
+    size_t operator()(const vg::ZipCodeTree::seed_result_t& item) const
+    {
+        // Hash it just as we would a tuple.
+        return hash<tuple<size_t, bool, size_t>>()(make_tuple(item.seed, item.is_reverse, item.distance));
+    }
+};
+
+/// Explain to the STL algorithms what kind of iterator the zip code tree
+/// forward iterator is.
+template<>
+struct iterator_traits<vg::ZipCodeTree::iterator>{
+    using value_type = vg::ZipCodeTree::oriented_seed_t;   
+    using iterator_category = forward_iterator_tag;
+};
+
+/// Explain to the STL algorithms what kind of iterator the zip code tree
+/// reverse iterator is.
+template<>
+struct iterator_traits<vg::ZipCodeTree::reverse_iterator>{
+    using value_type = vg::ZipCodeTree::seed_result_t;   
+    using iterator_category = forward_iterator_tag;
+};
+
+
+}
+
 #endif
