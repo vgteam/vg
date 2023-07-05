@@ -349,7 +349,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_dest_anchor != seed_to_starting.end() && found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
-                        handle_transition(found_source_anchor->second, found_dest_anchor->second);
+                        handle_transition(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
                     }
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.

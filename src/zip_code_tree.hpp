@@ -346,10 +346,10 @@ template <> struct hash<vg::ZipCodeTree::oriented_seed_t>
     }
 };
 
-/// Hash functor to hash oriented_seed_t with std::hash
+/// Hash functor to hash seed_result_t with std::hash
 template <> struct hash<vg::ZipCodeTree::seed_result_t>
 {
-    /// Produce a hash of an oriented_seed_t.
+    /// Produce a hash of a seed_result_t.
     size_t operator()(const vg::ZipCodeTree::seed_result_t& item) const
     {
         // Hash it just as we would a tuple.
