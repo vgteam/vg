@@ -5,7 +5,7 @@
 
 #include "crash.hpp"
 
-//#define debug_parse
+#define debug_parse
 
 using namespace std;
 namespace vg {
@@ -1065,8 +1065,17 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             // Add value into running distance.
             // Except the stored distance seems to be 1 more than the actual distance.
             // TODO: why?
-            crash_unless(it->value > 0);
-            top() += (it->value - 1);
+            
+            if(it->value == 0 || it->value == std::numeric_limits<size_t>::max()) {
+                // TODO: We assume a 0 distance can't be crossed because it is really infinite.
+                // TODO: Which of these are actually supposed to mean that?
+                
+                // Adjust top of stack to distance limit so we hit the stopping condition.
+                top() = distance_limit;
+            } else {
+                // Add in the actual distance
+                top() += (it->value - 1);
+            } 
             if (top() > distance_limit) {
                 // Skip over the rest of this chain
                 if (depth() == 1) {
@@ -1098,7 +1107,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case EDGE:
             // Duplicate parent running distance
             dup();
-            // Add in the edge value to make a running distance for the thing this edge is for
+            // Add in the edge value to make a running distance for the thing this edge is for.
+            // TODO: We subtract out 1 for snarl edge distances; should we be doing that here???
             top() += it->value;
             // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
             swap();
