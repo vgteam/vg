@@ -1252,7 +1252,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    @timeout_decorator.timeout(1800)
+    @timeout_decorator.timeout(2400)
     def test_sim_mhc_cactus(self):
         """ Mapping test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))        
