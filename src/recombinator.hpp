@@ -440,9 +440,6 @@ public:
         /// the wrong variants out.
         double absent_score = ABSENT_SCORE;
 
-        /// Sample randomly instead of by score.
-        bool random_sampling = false;
-
         /// Include named and reference paths.
         bool include_reference = false;
     };
@@ -488,7 +485,10 @@ public:
      *
      * Throws `std::runtime_error` on error.
      */
-    std::vector<LocalHaplotype> extract_sequences(const Haplotypes& haplotypes, const std::string& kff_file, size_t chain_id, size_t subchain_id) const;
+    std::vector<LocalHaplotype> extract_sequences(
+        const Haplotypes& haplotypes, const std::string& kff_file,
+        size_t chain_id, size_t subchain_id, const Parameters& parameters
+    ) const;
 
     const gbwtgraph::GBZ& gbz;
     Verbosity verbosity;
