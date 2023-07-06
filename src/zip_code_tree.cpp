@@ -863,32 +863,44 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 
         //The seed that the iterator points to
         const Seed& start_seed = seeds->at(start_itr_left->value);
-        bool start_is_reversed = start_itr_left->is_reversed;
+
+        //Do we want the distance going left in the node
+        //This takes into account the position and the orientation of the tree traversal
+        bool start_is_reversed = start_itr_left->is_reversed != is_rev(start_seed.pos);
 
         //Walk through the tree starting from the vector iterator going left, and check the distance
         for (reverse_iterator tree_itr_left (start_itr_left, zip_code_tree.rend()) ;
              tree_itr_left != reverse_iterator(zip_code_tree.rend(), zip_code_tree.rend()) ;
              ++tree_itr_left) {
-            const Seed& next_seed = seeds->at((*tree_itr_left).first);
-            //const bool next_is_reversed = zip_code_tree[(*tree_itr_left).first].is_reversed;
+            seed_result_t next_seed_result = *tree_itr_left;
+            const Seed& next_seed = seeds->at(next_seed_result.seed);
+            const bool next_is_reversed = next_seed_result.is_reverse != is_rev(next_seed.pos);
 
-            size_t tree_distance = (*tree_itr_left).second;
+            size_t tree_distance = next_seed_result.distance;
 
             net_handle_t start_handle = distance_index.get_node_net_handle(
                                             id(start_seed.pos),
                                             is_rev(start_seed.pos) != start_is_reversed);
             net_handle_t next_handle = distance_index.get_node_net_handle(
                                             id(next_seed.pos),
-                                            is_rev(next_seed.pos)); //!= next_is_reversed);
-            size_t index_distance = distance_index.minimum_distance(
-                    id(start_seed.pos), is_rev(start_seed.pos) != start_is_reversed,
-                    (is_rev(start_seed.pos) != start_is_reversed) ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
-                                                                  : offset(start_seed.pos),
-                    id(next_seed.pos), is_rev(next_seed.pos),// != next_is_reversed,
-                    (is_rev(next_seed.pos)) ? distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1 
-                                                                  : offset(next_seed.pos));
+                                            is_rev(next_seed.pos) != next_is_reversed);
+            cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
+            cerr << "Values: " << id(next_seed.pos) << " " <<  (is_rev(next_seed.pos) != next_is_reversed ? "rev" : "fd" ) << " " << 
+                    (is_rev(next_seed.pos) == next_is_reversed ? offset(next_seed.pos)
+                                                                  : distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1) << " " << 
+                    id(start_seed.pos) << " " <<  (is_rev(start_seed.pos) != start_is_reversed ? "rev" : "fd")<< " " << 
+                    (is_rev(start_seed.pos) == start_is_reversed ? offset(start_seed.pos)
+                                                                  : distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 ) << endl;
+
+            size_t index_distance = distance_index.minimum_distance(id(next_seed.pos), next_is_reversed,
+                    is_rev(next_seed.pos) == next_is_reversed ? offset(next_seed.pos)
+                                                                  : distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1 ,
+                    id(start_seed.pos), start_is_reversed,
+                    is_rev(start_seed.pos) == start_is_reversed ? offset(start_seed.pos)
+                                                                  : distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
+                    );
             cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
-            //assert(tree_distance == index_distance);
+            assert(tree_distance == index_distance);
         }
     }
 }

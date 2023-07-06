@@ -549,6 +549,11 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+
+
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
         
         //graph.to_dot(cerr);
 
@@ -998,8 +1003,6 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
 
         
         //graph.to_dot(cerr);
@@ -1095,9 +1098,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
 
         
         //graph.to_dot(cerr);
