@@ -337,10 +337,13 @@ void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const 
             mapped = true;
         }
     }
-    // hacky way to inform the conversion code that the read is mapped
     if (mapped) {
+        // hacky way to inform the conversion code that the read is mapped
         shim.mutable_path()->add_mapping();
+        // and we'll also communicate the alignment score
+        shim.set_score(optimal_alignment_score(mp_aln, true));
     }
+    
     // this tag comes from surject and is used in both
     if (mp_aln.has_annotation("all_scores")) {
         auto anno = mp_aln.get_annotation("all_scores");
