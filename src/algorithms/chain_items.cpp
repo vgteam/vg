@@ -11,7 +11,7 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
+#define debug_chaining
 
 namespace vg {
 namespace algorithms {
@@ -279,7 +279,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
-    return [&seeds, &zip_code_tree, &max_lookback_bases](const VectorView<Anchor>& to_chain,
+    return [&seeds, &zip_code_tree, max_lookback_bases](const VectorView<Anchor>& to_chain,
                                                          const SnarlDistanceIndex& distance_index,
                                                          const HandleGraph& graph,
                                                          size_t max_indel_bases,
@@ -295,7 +295,13 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         }
 
         // Emit a transition between a source and destination anchor, or skip if actually unreachable.
-        auto handle_transition = [&](size_t source_anchor_index, size_t dest_anchor_index) {
+        auto handle_transition = [&](size_t source_anchor_index, size_t dest_anchor_index, size_t graph_distance) {
+            if (graph_distance == std::numeric_limits<size_t>::max()) {
+                // Not reachable in graph (somehow)
+                // TODO: Should never happen!
+                return;
+            }
+
             auto& source_anchor = to_chain[source_anchor_index];
             auto& dest_anchor = to_chain[dest_anchor_index];
             size_t read_distance = get_read_distance(source_anchor, dest_anchor);
@@ -303,12 +309,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // Not reachable in read
                 return;
             }
-            size_t graph_distance = get_graph_distance(source_anchor, dest_anchor, distance_index, graph, max_lookback_bases);
-            if (graph_distance == std::numeric_limits<size_t>::max()) {
-                // Not reachable in graph (somehow)
-                // TODO: Should never happen!
-                return;
-            }
+            
             callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
         };
 
@@ -316,7 +317,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // to the read, we need to defer transitions from source on the read
         // forward strand to dest on the read forward strand, so we can go them
         // in order along the read forward strand.
-        std::stack<std::pair<size_t, size_t>> deferred;
+        // This holds source, dest, and graph distance.
+        std::stack<std::tuple<size_t, size_t, size_t>> deferred;
 
         for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
             // For each destination seed left to right
@@ -331,10 +333,10 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 
             for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
                 // For each source seed right to left
-                ZipCodeTree::oriented_seed_t source_seed = *source;
+                ZipCodeTree::seed_result_t source_seed = *source;
 
 #ifdef debug_chaining
-                std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << std::endl;
+                std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << std::endl;
 #endif
 
                 if (!source_seed.is_reverse && !dest_seed.is_reverse) {
@@ -347,7 +349,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_dest_anchor != seed_to_starting.end() && found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
-                        handle_transition(found_source_anchor->second, found_dest_anchor->second);
+                        handle_transition(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
                     }
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
@@ -356,7 +358,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     if (found_dest_anchor != seed_to_ending.end() && found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
-                        deferred.emplace(found_dest_anchor->second, found_source_anchor->second);
+                        deferred.emplace(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
                     }
                 } else {
                     // We have a transition between different orientations relative to the read. Don't show that.
@@ -369,7 +371,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // Now if we were going reverse relative to the read, we can
             // unstack everything in the right order for forward relative to
             // the read.
-            handle_transition(deferred.top().first, deferred.top().second);
+            handle_transition(std::get<0>(deferred.top()), std::get<1>(deferred.top()), std::get<2>(deferred.top()));
             deferred.pop();
         }
     };

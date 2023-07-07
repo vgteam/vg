@@ -370,7 +370,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     if (sibling.type == SNARL_START) {
                         //First, the distance between ends of the snarl, which is the length
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
-                            previous_seed.zipcode_decoder->get_length(depth), false};
+                            previous_seed.zipcode_decoder->get_length(depth)+1, false};
                     } else {
                         //For the rest of the children, find the distance from the child to
                         //the end
@@ -486,7 +486,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                         //then add 1 to get to the positions
                         bool current_is_seed = current_type == NODE || current_type == ROOT_NODE;
                         bool previous_is_seed = previous_type == SEED;
-                        distance_between = (current_is_seed && previous_is_seed) || (!current_is_seed && previous_is_seed) 
+                        distance_between = (current_is_seed && previous_is_seed) || (!current_is_seed && previous_is_seed) || (!current_is_seed && !previous_is_seed) 
                             ? current_offset - previous_offset + 1
                             : current_offset - previous_offset; 
                     }
@@ -1124,8 +1124,17 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             // Add value into running distance.
             // Except the stored distance seems to be 1 more than the actual distance.
             // TODO: why?
-            //crash_unless(it->value > 0);
-            top() += (it->value - 1);
+            
+            if(it->value == 0 || it->value == std::numeric_limits<size_t>::max()) {
+                // TODO: We assume a 0 distance can't be crossed because it is really infinite.
+                // TODO: Which of these are actually supposed to mean that?
+                
+                // Adjust top of stack to distance limit so we hit the stopping condition.
+                top() = distance_limit;
+            } else {
+                // Add in the actual distance
+                top() += (it->value - 1);
+            } 
             if (top() > distance_limit) {
                 // Skip over the rest of this chain
                 if (depth() == 1) {
@@ -1157,7 +1166,8 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         case EDGE:
             // Duplicate parent running distance
             dup();
-            // Add in the edge value to make a running distance for the thing this edge is for
+            // Add in the edge value to make a running distance for the thing this edge is for.
+            // TODO: We subtract out 1 for snarl edge distances; should we be doing that here???
             top() += it->value;
             // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
             swap();
