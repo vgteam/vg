@@ -101,7 +101,7 @@ namespace unittest {
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).value == 1);
+            REQUIRE(zip_tree.get_item_at_index(2).value == 0);
 
             //THe other seed
             REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -167,7 +167,7 @@ namespace unittest {
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).value == 1);
+            REQUIRE(zip_tree.get_item_at_index(2).value == 0);
 
             //THe other seed
             REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -176,7 +176,7 @@ namespace unittest {
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(4).value == 3);
+            REQUIRE(zip_tree.get_item_at_index(4).value == 2);
 
             //The other seed
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
@@ -276,7 +276,7 @@ namespace unittest {
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(2).value == 5);
+                REQUIRE(zip_tree.get_item_at_index(2).value == 4);
 
                 //The next seed
                 REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -285,7 +285,7 @@ namespace unittest {
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(4).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(4).value == 1);
 
                 //The last seed
                 REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
@@ -306,7 +306,7 @@ namespace unittest {
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(2).value == 2);
+                REQUIRE(zip_tree.get_item_at_index(2).value == 1);
 
                 //The next seed
                 REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -315,7 +315,7 @@ namespace unittest {
 
                 //Distance between the seeds
                 REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-                REQUIRE(zip_tree.get_item_at_index(4).value == 5);
+                REQUIRE(zip_tree.get_item_at_index(4).value == 4);
 
                 //The last seed
                 REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
@@ -456,9 +456,9 @@ namespace unittest {
             zip_tree.validate_zip_tree(distance_index);
 
             //The tree should be:
-            // [pos1 6 pos2] [pos3 6 pos4]
+            // [pos1 5 pos2] [pos3 5 pos4]
             // of
-            // [pos2 6 pos1] [ pos3 6 pos4]
+            // [pos2 5 pos1] [ pos3 5 pos4]
             // etc...
             REQUIRE(zip_tree.get_tree_size() == 10);
 
@@ -470,7 +470,7 @@ namespace unittest {
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(2).value == 6);
+            REQUIRE(zip_tree.get_item_at_index(2).value == 5);
 
             //The next seed
             REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -486,7 +486,7 @@ namespace unittest {
 
             //Distance between the seeds
             REQUIRE(zip_tree.get_item_at_index(7).type == ZipCodeTree::EDGE);
-            REQUIRE(zip_tree.get_item_at_index(7).value == 6);
+            REQUIRE(zip_tree.get_item_at_index(7).value == 5);
 
             //The last seed
             REQUIRE(zip_tree.get_item_at_index(8).type == ZipCodeTree::SEED);
@@ -594,8 +594,8 @@ namespace unittest {
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(2).value == 4 ||
-                    zip_tree.get_item_at_index(2).value == 7));
+            REQUIRE((zip_tree.get_item_at_index(2).value == 3 ||
+                    zip_tree.get_item_at_index(2).value == 6));
 
             //the next seed
             REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -603,8 +603,8 @@ namespace unittest {
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(4).value == 4 ||
-                    zip_tree.get_item_at_index(4).value == 7));
+            REQUIRE((zip_tree.get_item_at_index(4).value == 3 ||
+                    zip_tree.get_item_at_index(4).value == 6));
 
             //the last seed
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
@@ -725,8 +725,8 @@ namespace unittest {
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(2).value == 4 ||
-                    zip_tree.get_item_at_index(2).value == 7));
+            REQUIRE((zip_tree.get_item_at_index(2).value == 3 ||
+                    zip_tree.get_item_at_index(2).value == 6));
 
             //the next seed
             REQUIRE(zip_tree.get_item_at_index(3).type == ZipCodeTree::SEED);
@@ -734,8 +734,8 @@ namespace unittest {
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(4).value == 4 ||
-                    zip_tree.get_item_at_index(4).value == 7));
+            REQUIRE((zip_tree.get_item_at_index(4).value == 3 ||
+                    zip_tree.get_item_at_index(4).value == 6));
 
             //the last seed
             REQUIRE(zip_tree.get_item_at_index(5).type == ZipCodeTree::SEED);
