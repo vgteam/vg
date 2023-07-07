@@ -5,7 +5,7 @@
 
 #include "crash.hpp"
 
-#define debug_parse
+//#define debug_parse
 
 using namespace std;
 namespace vg {
@@ -514,7 +514,9 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     sibling_indices_at_depth[depth-1].pop_back();
                     sibling_indices_at_depth[depth-1].push_back({(current_type == NODE || current_type == ROOT_NODE) ? SEED : SNARL_START, current_offset}); 
                 }
+#ifdef DEBUG_ZIP_CODE_TREE
                 cerr << "Add sibling with type " << current_type << endl;
+#endif
             } else {
                 //Otherwise, this is a chain or root chain
                 //If it is a chain, then it is the child of a snarl, so we need to find distances
