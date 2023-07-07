@@ -262,8 +262,7 @@ public:
         /// I-can't-believe-it's-not-a-pushdown-automaton
         enum State {
             S_START,
-            S_SCAN_CHAIN_SEED,
-            S_SCAN_CHAIN_OTHER,
+            S_SCAN_CHAIN,
             S_STACK_SNARL,
             S_SCAN_SNARL,
             S_SKIP_CHAIN
