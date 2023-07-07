@@ -5,7 +5,7 @@
 
 #include "crash.hpp"
 
-//#define debug_parse
+#define debug_parse
 
 using namespace std;
 namespace vg {
@@ -1164,13 +1164,21 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
         // that the stacked running distances for items in the snarl.
         switch (it->type) {
         case EDGE:
-            // Duplicate parent running distance
-            dup();
-            // Add in the edge value to make a running distance for the thing this edge is for.
-            // TODO: We subtract out 1 for snarl edge distances; should we be doing that here???
-            top() += it->value;
-            // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
-            swap();
+            if (it->value == std::numeric_limits<size_t>::max()) {
+                // Unreachable placeholder, so push it
+                push(std::numeric_limits<size_t>::max());
+                // And make it be under parent running distance.
+                swap();
+            } else {
+                // We need to add this actual number to parent running distance.
+                // Duplicate parent running distance
+                dup();
+                // Add in the edge value to make a running distance for the thing this edge is for.
+                // TODO: We subtract out 1 for snarl edge distances; should we be doing that here???
+                top() += it->value;
+                // Flip top 2 elements, so now parent running distance is on top, over edge running distance.
+                swap();
+            }
             break;
         case CHAIN_END:
             // Throw out parent running distance
