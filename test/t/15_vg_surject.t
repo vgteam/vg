@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 46
+plan tests 47
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -36,7 +36,9 @@ is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc
 
 is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject doesn't need to be told which path to use"
-    
+
+is $(vg surject -x x.xg -t 1 -s x.gam | grep AS | wc -l) 100 "vg surject reports alignment scores"
+
 vg paths -X -x x.vg | vg view -aj - | jq '.name = "sample#0#x#0"' | vg view -JGa - > paths.gam
 vg paths -X -x x.vg | vg view -aj - | jq '.name = "ref#0#x[55]"' | vg view -JGa - >> paths.gam
 vg augment x.vg -i paths.gam > x.aug.vg
