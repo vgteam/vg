@@ -29,7 +29,7 @@ set -ex
 : "${PBSIM_PARAMS:=--depth 1 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
 # This needs to be a command line which can execute Stephen's script that adds qualities from a FASTQ back into a SAM that is missing them.
 # Arguments are space-separated and internal spaces must be escaped.
-# TODO: Put the script up somewhere so it can be run!
+# This script is at https://gist.github.com/adamnovak/45ae4f500a8ec63ce12ace4ca77afc21
 : "${ADD_QUALITIES:=python3 /public/groups/vg/sjhwang/vg_scripts/bin/readers/sam_reader.py}"
 # Directory to save results in
 : "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME}}"

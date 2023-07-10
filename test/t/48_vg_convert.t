@@ -102,11 +102,12 @@ diff mut.gaf mut-back.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice in presence of indels and snps"
   
 #hand-code cg example.  this is (for reference) mut.gaf:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GA*GA:8+TTT:16*GA*TA:18-AC-T-AG:16\n" > mut.cs.gaf
+# Except with the to length fixed (it is 80 bp if you decode the cs tag with https://github.com/lh3/minimap2#cs) 
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GA*GA:8+TTT:16*GA*TA:18-AC-T-AG:16\n" > mut.cs.gaf
 #manually convert to cg:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 #this is what we expect back, mut.gaf where insertions and snps are converted to Ns:
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	102	71	80	60	AS:i:47	cs:Z::13*GN*GN:8+NNN:16*GN*TN:18-ACTAG:16\n" > mut.cs.exp.gaf
 vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
 is "$?" 0 "vg convert cg-gaf -> gam -> cs-gaf gives expected output (snps converted to matches, insertion converted to Ns)"

@@ -187,7 +187,7 @@ int main_convert(int argc, char** argv) {
             {
                 num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
-                    cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    cerr << "error:[vg convert] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
                 }
                 omp_set_num_threads(num_threads);
@@ -224,6 +224,10 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: paths cannot be converted to reference sense when writing GFA output" << endl;
         return 1;
     }
+    if (output_format == "vg") {
+          cerr << "[vg convert] warning: vg-protobuf output (-v / --vg-out) is deprecated. please use -p instead." << endl;
+    }
+
     
     // with -F or -G we convert an alignment and not a graph
     if (input == input_gam || input == input_gaf) {

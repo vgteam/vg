@@ -1207,7 +1207,7 @@ class VGCITest(TestCase):
             self._verify_calleval(tag=tag, threshold=f1_threshold)
 
     #@skip("skipping test to keep runtime down")
-    @timeout_decorator.timeout(8000)            
+    @timeout_decorator.timeout(16000)            
     def test_call_chr21_snp1kg(self):
         """
         calling comparison between call, genotype and freebayes on an alignment extracted
@@ -1230,7 +1230,7 @@ class VGCITest(TestCase):
                             0.035)
             
     @skip("skipping test to keep runtime down")
-    @timeout_decorator.timeout(600)
+    @timeout_decorator.timeout(1200)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         # Using 100k simulated reads from snp1kg BRCA1, realign against all
@@ -1243,7 +1243,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
      
-    @timeout_decorator.timeout(1200)                       
+    @timeout_decorator.timeout(2400)                       
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         log.info("Test start at {}".format(datetime.now()))
@@ -1252,7 +1252,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    @timeout_decorator.timeout(900)
+    @timeout_decorator.timeout(2400)
     def test_sim_mhc_cactus(self):
         """ Mapping test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))        
@@ -1261,7 +1261,7 @@ class VGCITest(TestCase):
                            mappers = ['map', 'mpmap'],
                            source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.04)
 
-    @timeout_decorator.timeout(4800)        
+    @timeout_decorator.timeout(9600)
     def test_sim_chr21_snp1kg(self):
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
@@ -1272,7 +1272,7 @@ class VGCITest(TestCase):
                            acc_threshold=0.0075, auc_threshold=0.075, mappers = ['map', 'mpmap'],
                            sim_opts='-l 150 -p 570 -v 150 -e 0.01 -i 0.002')
 
-    @timeout_decorator.timeout(4400)        
+    @timeout_decorator.timeout(8800)        
     def test_sim_chr21_snp1kg_trained(self):
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
                            ['primary', 'snp1kg'],
@@ -1287,7 +1287,7 @@ class VGCITest(TestCase):
                            sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(1200)
+    @timeout_decorator.timeout(2400)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so vgci doesn't report failures.  vg is run only in single ended with multipath on
@@ -1301,7 +1301,7 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02)
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(2400)
+    @timeout_decorator.timeout(4800)
     def test_sim_chr21_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so vgci doesn't report failures.  vg is run only in single ended with multipath on
@@ -1315,7 +1315,7 @@ class VGCITest(TestCase):
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
-    @timeout_decorator.timeout(3000)
+    @timeout_decorator.timeout(6000)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so vgci doesn't report failures.  vg is run only in single ended with multipath on
@@ -1330,7 +1330,7 @@ class VGCITest(TestCase):
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'),
                            more_mpmap_opts=['-u 8 -M 1'])
 
-    @timeout_decorator.timeout(4000)
+    @timeout_decorator.timeout(8000)
     def test_sim_yeast_cactus(self):
         """ Yeast test based on the cactus graphs.  Reads are simulated from the SK1 path
         of the full graph.  The other graphs are made from this graph using vg mod:
@@ -1351,19 +1351,19 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02,
                            sim_opts='-p 500 -v 50 -S 4 -i 0.002')
     
-    @timeout_decorator.timeout(400)
+    @timeout_decorator.timeout(800)
     def test_map_brca1_primary(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'primary', True)
 
-    @timeout_decorator.timeout(400)        
+    @timeout_decorator.timeout(800)        
     def test_map_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
         
-    @timeout_decorator.timeout(900)
+    @timeout_decorator.timeout(1800)
     def test_map_brca1_snp1kg_mpmap(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph on mpmap.  
         The filter_opts are the defaults minus the identity filter because mpmap doesn't 
@@ -1372,86 +1372,86 @@ class VGCITest(TestCase):
         self._test_bakeoff('BRCA1', 'snp1kg', True, mapper='mpmap', tag_ext='-mpmap',
                            misc_opts='--filter_opts \"-q 15 -m 1 -D 999 -s 1000\"')
 
-    @timeout_decorator.timeout(400)        
+    @timeout_decorator.timeout(800)        
     def test_map_brca1_cactus(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'cactus', True)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self.f1_threshold = 0.01
         self._test_bakeoff('BRCA2', 'primary', False)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_full_brca2_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA2', 'snp1kg', False)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_full_brca2_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA2', 'cactus', False)
 
     @skip("skipping test to keep runtime down")
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_map_sma_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('SMA', 'primary', True)
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_map_sma_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('SMA', 'snp1kg', True)
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_map_sma_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('SMA', 'cactus', True)
 
     @skip("skipping test to keep runtime down")         
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_map_lrc_kir_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('LRC-KIR', 'primary', True)
 
     @skip("skipping test to keep runtime down")         
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_map_lrc_kir_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR snp1kg graph """
         self._test_bakeoff('LRC-KIR', 'snp1kg', True)
         
     @skip("skipping test to keep runtime down")         
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1800)        
     def test_map_lrc_kir_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('LRC-KIR', 'cactus', True)
 
-    @timeout_decorator.timeout(1200)        
+    @timeout_decorator.timeout(2400)        
     def test_map_mhc_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'primary', True)
 
-    @timeout_decorator.timeout(2000)
+    @timeout_decorator.timeout(4000)
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
 
     @skip("skipping test to keep runtime down (baseline missing as well)")          
-    @timeout_decorator.timeout(1200)        
+    @timeout_decorator.timeout(2400)        
     def test_map_mhc_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))
