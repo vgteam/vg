@@ -11,6 +11,7 @@
 #include "../recombinator.hpp"
 
 #include <cmath>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <thread>
@@ -81,7 +82,7 @@ struct HaplotypesConfig {
 
     // File names.
     std::string graph_name;
-    std::string gbz_output, haplotype_output;
+    std::string gbz_output, haplotype_output, score_output;
     std::string distance_name, r_index_name;
     std::string haplotype_input, kmer_input, vcf_input;
 
@@ -197,10 +198,12 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "    -i, --haplotype-input X   use this haplotype information (default: generate)" << std::endl;
     std::cerr << "    -k, --kmer-input X        use kmer counts from this KFF file (required for --gbz-output)" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Computational parameters:" << std::endl;
+    std::cerr << "Options for generating haplotype information:" << std::endl;
     std::cerr << "        --kmer-length N       kmer length for building the minimizer index (default: " << haplotypes_default_k() << ")" << std::endl;
     std::cerr << "        --window-length N     window length for building the minimizer index (default: " << haplotypes_default_w() << ")" << std::endl;
     std::cerr << "        --subchain-length N   target length (in bp) for subchains (default: " << haplotypes_default_subchain_length() << ")" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Options for sampling haplotypes:" << std::endl;
     std::cerr << "        --coverage N          kmer coverage in the KFF file (default: estimate)" << std::endl;
     std::cerr << "        --num-haplotypes N    generate N haplotypes (default: " << haplotypes_default_n() << ")" << std::endl;
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
@@ -218,6 +221,7 @@ void help_haplotypes(char** argv, bool developer_options) {
         std::cerr << "        --vcf-input X         map the variants in VCF file X to subchains" << std::endl;
         std::cerr << "        --contig-prefix X     a prefix for transforming VCF contig names into GBWT contig names" << std::endl;
         std::cerr << "        --extract M:N         extract haplotypes in chain M, subchain N in FASTA format" << std::endl;
+        std::cerr << "        --score-output X      write haplotype scores to X" << std::endl;
         std::cerr << std::endl;
     }
 }
@@ -238,6 +242,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_VCF_INPUT = 1500;
     constexpr int OPT_CONTIG_PREFIX = 1501;
     constexpr int OPT_EXTRACT = 1600;
+    constexpr int OPT_SCORE_OUTPUT = 1601;
 
     static struct option long_options[] =
     {
@@ -262,6 +267,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "vcf-input", required_argument, 0, OPT_VCF_INPUT },
         { "contig-prefix", required_argument, 0, OPT_CONTIG_PREFIX },
         { "extract", required_argument, 0, OPT_EXTRACT },
+        { "score-output", required_argument, 0, OPT_SCORE_OUTPUT },
         { 0, 0, 0, 0 }
     };
 
@@ -390,6 +396,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 this->chain_id = parse<size_t>(arg.substr(0, offset));
                 this->subchain_id = parse<size_t>(arg.substr(offset + 1));
             }
+            break;
+        case OPT_SCORE_OUTPUT:
+            this->score_output = optarg;
             break;
 
         case 'h':
@@ -849,7 +858,24 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
         write_fasta_sequence(sequence.name, sequence.sequence, std::cout);
     }
 
-    // FIXME scores
+    if (!config.score_output.empty()) {
+        std::ofstream out(config.score_output, std::ios_base::binary);
+        if (!out) {
+            std::cerr << "error: [vg haplotypes] cannot open score file " << config.score_output << " for writing" << std::endl;
+            return;
+        }
+        for (auto& sequence : result) {
+            out << sequence.name;
+            for (size_t i = 0; i < config.recombinator_parameters.num_haplotypes; i++) {
+                if (i < sequence.scores.size()) {
+                    out << "\t" << sequence.scores[i].first << "\t" << sequence.scores[i].second;
+                } else {
+                    out << "\t-\t-";
+                }
+            }
+            out << "\n";
+        }
+    }
 }
 
 //----------------------------------------------------------------------------

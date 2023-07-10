@@ -1306,6 +1306,10 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
 
             // Try to match the existing haplotypes with the selected sequences based on
             // GBWT sequence id.
+            // TODO: There are often many equally good haplotypes, and because we choose
+            // a different subset of them in each subchain, we often cannot connect the
+            // same haplotype from subchain to subchain, even when it would be one of the
+            // top ones in each of them.
             std::vector<size_t> haplotype_to_selected(haplotypes.size(), haplotypes.size());
             sdsl::bit_vector selected_in_use(haplotypes.size(), 0);
             for (size_t haplotype = 0; haplotype < haplotypes.size(); haplotype++) {
