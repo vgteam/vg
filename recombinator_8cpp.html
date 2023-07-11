@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
@@ -79,8 +80,12 @@ $(function() {
 <code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;cmath&gt;</code><br />
 <code>#include &lt;map&gt;</code><br />
-<code>#include &lt;random&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1RecombinatorHaplotype.html">vg::RecombinatorHaplotype</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
@@ -102,6 +107,12 @@ Functions</h2></td></tr>
 <tr class="separator:a348af3d255543b4880fc1240e8ef442f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4043431a579c18af5497acef2f414710"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4043431a579c18af5497acef2f414710">vg::add_path</a> (const gbwt::GBWT &amp;source, gbwt::size_type path_id, gbwt::GBWTBuilder &amp;builder)</td></tr>
 <tr class="separator:a4043431a579c18af5497acef2f414710"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa81f31f29a47e669812c3ef57bd1aab6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa81f31f29a47e669812c3ef57bd1aab6">vg::recombinator_sanity_checks</a> (const Recombinator::Parameters &amp;parameters)</td></tr>
+<tr class="separator:aa81f31f29a47e669812c3ef57bd1aab6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba3f6bc9cc27f9c6bb91dc27c7fb28b8"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aba3f6bc9cc27f9c6bb91dc27c7fb28b8">vg::get_or_estimate_coverage</a> (const hash_map&lt; Haplotypes::Subchain::kmer_type, size_t &gt; &amp;counts, const Recombinator::Parameters &amp;parameters, Haplotypes::Verbosity verbosity)</td></tr>
+<tr class="separator:aba3f6bc9cc27f9c6bb91dc27c7fb28b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4581c4cc941ffa194e5d0128d19cddeb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::pair&lt; size_t, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4581c4cc941ffa194e5d0128d19cddeb">vg::select_haplotypes</a> (const Haplotypes::Subchain &amp;subchain, const hash_map&lt; Haplotypes::Subchain::kmer_type, size_t &gt; &amp;kmer_counts, double coverage, Recombinator::Statistics *statistics, std::vector&lt; Recombinator::LocalHaplotype &gt; *local_haplotypes, const Recombinator::Parameters &amp;parameters)</td></tr>
+<tr class="separator:a4581c4cc941ffa194e5d0128d19cddeb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

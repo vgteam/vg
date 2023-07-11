@@ -93,6 +93,13 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
+<tr class="memitem:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> : size_t { <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aadd4472c60bf6446f52a09a0d41140a21">verbosity_silent</a> = 0, 
+<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa718364c23222ec5e7444240be0799449">verbosity_basic</a> = 1, 
+<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aa8c3562efded9b2b9ae9fd7ee05594ce0">verbosity_detailed</a> = 2, 
+<a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241">verbosity_debug</a> = 3
+ }</td></tr>
+<tr class="memdesc:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The amount of progress information that should be printed to stderr.  <a href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">More...</a><br /></td></tr>
+<tr class="separator:a2e2fbea03cc9fb69389a653d3d8fc28a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aebc70f387d48bd0e5c8f0c607c496535"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; gbwt::size_type, gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">sequence_type</a></td></tr>
 <tr class="memdesc:aebc70f387d48bd0e5c8f0c607c496535"><td class="mdescLeft">&#160;</td><td class="mdescRight">A GBWT sequence as (sequence identifier, offset in a node).  <a href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">More...</a><br /></td></tr>
 <tr class="separator:aebc70f387d48bd0e5c8f0c607c496535"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -108,8 +115,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af081161e7b2e1867d83aef6427082cd5"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#af081161e7b2e1867d83aef6427082cd5">k</a> () const</td></tr>
 <tr class="memdesc:af081161e7b2e1867d83aef6427082cd5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the length of the kmers.  <a href="classvg_1_1Haplotypes.html#af081161e7b2e1867d83aef6427082cd5">More...</a><br /></td></tr>
 <tr class="separator:af081161e7b2e1867d83aef6427082cd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abf3b2366649a86a70fffaa76586438ad"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Subchain::kmer_type</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#abf3b2366649a86a70fffaa76586438ad">kmer_counts</a> (const std::string &amp;kff_file, bool verbose) const</td></tr>
-<tr class="separator:abf3b2366649a86a70fffaa76586438ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a48ed72eff81d77df7a4159afd0c6d20e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a13b4b76384742f4ee127b52faff37aa6">Subchain::kmer_type</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a48ed72eff81d77df7a4159afd0c6d20e">kmer_counts</a> (const std::string &amp;kff_file, <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a> verbosity) const</td></tr>
+<tr class="separator:a48ed72eff81d77df7a4159afd0c6d20e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3a5a36c107109c893cf382064ad9ea69"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Haplotypes.html#a3a5a36c107109c893cf382064ad9ea69">simple_sds_serialize</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:a3a5a36c107109c893cf382064ad9ea69"><td class="mdescLeft">&#160;</td><td class="mdescRight">Serializes the object to a stream in the simple-sds format.  <a href="classvg_1_1Haplotypes.html#a3a5a36c107109c893cf382064ad9ea69">More...</a><br /></td></tr>
 <tr class="separator:a3a5a36c107109c893cf382064ad9ea69"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -148,6 +155,33 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>A GBWT sequence as (sequence identifier, offset in a node). </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Enumeration Documentation</h2>
+<a id="a2e2fbea03cc9fb69389a653d3d8fc28a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e2fbea03cc9fb69389a653d3d8fc28a">&#9670;&nbsp;</a></span>Verbosity</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">vg::Haplotypes::Verbosity</a> : size_t</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The amount of progress information that should be printed to stderr. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a2e2fbea03cc9fb69389a653d3d8fc28aadd4472c60bf6446f52a09a0d41140a21"></a>verbosity_silent&#160;</td><td class="fielddoc"><p>No progress information. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a2e2fbea03cc9fb69389a653d3d8fc28aa718364c23222ec5e7444240be0799449"></a>verbosity_basic&#160;</td><td class="fielddoc"><p>Basic information. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a2e2fbea03cc9fb69389a653d3d8fc28aa8c3562efded9b2b9ae9fd7ee05594ce0"></a>verbosity_detailed&#160;</td><td class="fielddoc"><p>Basic information and detailed statistics. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a2e2fbea03cc9fb69389a653d3d8fc28aaa92669d64637a1583a113eb279234241"></a>verbosity_debug&#160;</td><td class="fielddoc"><p>Basic information, detailed statistics, and debug information. </p>
+</td></tr>
+</table>
 
 </div>
 </div>
@@ -233,8 +267,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="abf3b2366649a86a70fffaa76586438ad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abf3b2366649a86a70fffaa76586438ad">&#9670;&nbsp;</a></span>kmer_counts()</h2>
+<a id="a48ed72eff81d77df7a4159afd0c6d20e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a48ed72eff81d77df7a4159afd0c6d20e">&#9670;&nbsp;</a></span>kmer_counts()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -248,8 +282,8 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>verbose</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1Haplotypes.html#a2e2fbea03cc9fb69389a653d3d8fc28a">Verbosity</a>&#160;</td>
+          <td class="paramname"><em>verbosity</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

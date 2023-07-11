@@ -322,6 +322,9 @@ $(function() {
 , <a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">vg::GSSWAligner</a>
 , <a class="el" href="classvg_1_1QualAdjAligner.html#ada69f388d291f6c3693812d91c84231a">vg::QualAdjAligner</a>
 </li>
+<li>score_output
+: <a class="el" href="structHaplotypesConfig.html#aea2a24fbc9fbe00f814c1b98d8607079">HaplotypesConfig</a>
+</li>
 <li>score_partial_alignment()
 : <a class="el" href="classvg_1_1Aligner.html#a4537844a4aa7783f6a41c7cefd758602">vg::Aligner</a>
 , <a class="el" href="classvg_1_1GSSWAligner.html#adc950708e8d5ff812a838116c6b50910">vg::GSSWAligner</a>
@@ -332,6 +335,9 @@ $(function() {
 </li>
 <li>score_to_unnormalized_likelihood_ln()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a59623587d4dfb1e0310fb608e9def2f0">vg::GSSWAligner</a>
+</li>
+<li>scores
+: <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html#ab466534da431354516132617d0f14e95">vg::Recombinator::LocalHaplotype</a>
 </li>
 <li>scratch
 : <a class="el" href="structvg_1_1ChainIterator.html#a277447dceb98d18d597a73f2c790e15c">vg::ChainIterator</a>
@@ -436,12 +442,13 @@ $(function() {
 , <a class="el" href="structvg_1_1MultipathAlignment.html#ae6c263b75effad9b08e514c5852f1221">vg::MultipathAlignment</a>
 , <a class="el" href="structvg_1_1Node.html#a9a0e8995bc48aa5e24977d1bd20e91a3">vg::Node</a>
 , <a class="el" href="structvg_1_1PathIndex.html#a0b807b5252299d9b0f1c9168079a591f">vg::PathIndex</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1LocalHaplotype.html#a2e6f784aa4bde512d84c0f1d3cedd01f">vg::Recombinator::LocalHaplotype</a>
 , <a class="el" href="classvg_1_1Sampler.html#a355de4870a71a88834406f3e7f297272">vg::Sampler</a>
 , <a class="el" href="classvg_1_1WFATree.html#abbd67ff2f910ad5a4c0c1f49b10394a5">vg::WFATree</a>
 </li>
 <li>sequence_id
 : <a class="el" href="structvg_1_1GFFRecord.html#a91b952a4d9d5c4f44e6def80e33073c8">vg::GFFRecord</a>
-, <a class="el" href="structvg_1_1Recombinator_1_1Haplotype.html#a0e3e6903a01789763687215a30359904">vg::Recombinator::Haplotype</a>
+, <a class="el" href="structvg_1_1RecombinatorHaplotype.html#a3b372fd165a3e707a50e2a0a1f61cef5">vg::RecombinatorHaplotype</a>
 </li>
 <li>sequence_positions()
 : <a class="el" href="classvg_1_1BaseMapper.html#a1fc5077e5ea4a236ddf8edcf93288eb9">vg::BaseMapper</a>
@@ -453,6 +460,7 @@ $(function() {
 : <a class="el" href="classvg_1_1HaplotypePartitioner.html#aa06fc618c54377342c05b7306b8dec72">vg::HaplotypePartitioner</a>
 , <a class="el" href="classvg_1_1Haplotypes.html#aebc70f387d48bd0e5c8f0c607c496535">vg::Haplotypes</a>
 , <a class="el" href="classvg_1_1Recombinator.html#a8a1ad77c3ad37fbcfa48dc5f89f591af">vg::Recombinator</a>
+, <a class="el" href="structvg_1_1RecombinatorHaplotype.html#a20c784c55500a6e02c9ad4762be12176">vg::RecombinatorHaplotype</a>
 </li>
 <li>sequences
 : <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#a79ecd7d8893cb88a4d2a5c76a2a4ab4e">vg::Haplotypes::Subchain</a>
@@ -1026,7 +1034,7 @@ $(function() {
 , <a class="el" href="classvg_1_1VG.html#a902d516631c77d074aa2a11ae70a6957">vg::VG</a>
 </li>
 <li>sort_and_compute_mapping_quality()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a2994778198719e960d1a2875fa0815e8">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#afcc5ceaad2a3f21c4c38beb05c59f474">vg::MultipathMapper</a>
 </li>
 <li>sort_by_mapping_rank()
 : <a class="el" href="classvg_1_1Paths.html#a2970302cae3a54ef7f4296dbf49266fd">vg::Paths</a>
@@ -1099,7 +1107,7 @@ $(function() {
 , <a class="el" href="structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9aaf22613489ec859693457e82fd026e3b">vg::Counts</a>
 </li>
 <li>split_multicomponent_alignments()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a9257a7f9cc75ddd76a8daef803f2d031">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#af91f97b8331648b4df7587a461ca36b2">vg::MultipathMapper</a>
 </li>
 <li>split_read_filter()
 : <a class="el" href="classvg_1_1Filter.html#a0bc2a72604a0cb134c1f5bad7889a1bf">vg::Filter</a>
@@ -1156,7 +1164,7 @@ $(function() {
 , <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#af564269e9eaf8eb68f4c4c3ce1ba3932">vg::GraphSynchronizer::Lock</a>
 , <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Subchain.html#a16932e227f0ac0972fb63bc300a5374d">vg::HaplotypePartitioner::Subchain</a>
 , <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#af3baaf52c08ac684ac2571a9f4f56ec0">vg::Haplotypes::Subchain</a>
-, <a class="el" href="classvg_1_1multipath__alignment__t.html#ae79344b60aed1577a39391b4b42574f3">vg::multipath_alignment_t</a>
+, <a class="el" href="classvg_1_1multipath__alignment__t.html#a4cd9b91704e89c799019d9c8962b16bb">vg::multipath_alignment_t</a>
 , <a class="el" href="structvg_1_1MultipathAlignment.html#a8003b8991108e99465d8fd80fc74cc03">vg::MultipathAlignment</a>
 , <a class="el" href="classvg_1_1NetGraph.html#a2d7b0b659aae1f47312bb76aae43dda0">vg::NetGraph</a>
 , <a class="el" href="structvg_1_1Range.html#a372fbc9ba00e9eb4785fcd049b2451cf">vg::Range&lt; Number &gt;</a>
@@ -1290,7 +1298,7 @@ $(function() {
 : <a class="el" href="classvg_1_1NGSSimulator.html#a71a4b2c30a477a86d4b7c9f5d6ab3a28">vg::NGSSimulator</a>
 </li>
 <li>StrandSplitGraph()
-: <a class="el" href="classvg_1_1StrandSplitGraph.html#aede16e10fc0b17f2527a62861f155c6d">vg::StrandSplitGraph</a>
+: <a class="el" href="classvg_1_1StrandSplitGraph.html#a0e170b8ad07ca370e31497b804932220">vg::StrandSplitGraph</a>
 </li>
 <li>stream_sort()
 : <a class="el" href="classvg_1_1StreamSorter.html#a3ef7c0c822f58db91184e6b069c3ce59">vg::StreamSorter&lt; Message &gt;</a>
@@ -1302,7 +1310,7 @@ $(function() {
 : <a class="el" href="classvg_1_1StreamIndex.html#a3508617dbf1b8e8d1df051f4a214fa5e">vg::StreamIndex&lt; Message &gt;</a>
 </li>
 <li>StreamIndexBase()
-: <a class="el" href="classvg_1_1StreamIndexBase.html#a2df03d2ee53e9f171e4aa519a079901e">vg::StreamIndexBase</a>
+: <a class="el" href="classvg_1_1StreamIndexBase.html#a85207efd00788e14df4df717d88233b7">vg::StreamIndexBase</a>
 </li>
 <li>streaming_merge()
 : <a class="el" href="classvg_1_1StreamSorter.html#a1c19cdfb158ff9771e471fbbc2b4ac74">vg::StreamSorter&lt; Message &gt;</a>
@@ -1311,7 +1319,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1streamistream.html#a0b87c404670f610d20f49f1e2c166648">vg::io::streamistream</a>
 </li>
 <li>StreamMultiplexer()
-: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#ad8b06aab5797747b1ce3d544be0cc965">vg::io::StreamMultiplexer</a>
+: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#ae72f4179a6cb14beb1b6460603d88233">vg::io::StreamMultiplexer</a>
 </li>
 <li>StreamSorter()
 : <a class="el" href="classvg_1_1StreamSorter.html#a0abd72f6a1ec534bb2071b3389231d97">vg::StreamSorter&lt; Message &gt;</a>
@@ -1352,6 +1360,9 @@ $(function() {
 <li>sub_score
 : <a class="el" href="classvg_1_1ReadFilter.html#a529c0b978b3855bab3dc1074fd18a711">vg::ReadFilter&lt; Read &gt;</a>
 </li>
+<li>subchain_id
+: <a class="el" href="structHaplotypesConfig.html#ae5e75f47f0768d4e5da28a15baaa702e">HaplotypesConfig</a>
+</li>
 <li>subchain_length
 : <a class="el" href="structvg_1_1HaplotypePartitioner_1_1Parameters.html#ac912479fc22acc7c9078978e71597ad9">vg::HaplotypePartitioner::Parameters</a>
 </li>
@@ -1366,7 +1377,7 @@ $(function() {
 , <a class="el" href="structvg_1_1Recombinator_1_1Statistics.html#ab6d38eac9e036f7b2b0f19736529e3a9">vg::Recombinator::Statistics</a>
 </li>
 <li>Subcommand()
-: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad5faf589dd98c3ff0c0d1071fcf90090">vg::subcommand::Subcommand</a>
+: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#a38458556194aa9d47b1a49fc8958f345">vg::subcommand::Subcommand</a>
 </li>
 <li>subgraph
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#aae76f24549ed2f49dc12176f46dfea8d">vg::GraphSynchronizer::Lock</a>
@@ -1389,7 +1400,7 @@ $(function() {
 , <a class="el" href="classvg_1_1SubHandleGraph.html#ae02101c50fc316637a11ed674637e6a4">vg::SubHandleGraph</a>
 </li>
 <li>subpath()
-: <a class="el" href="classvg_1_1multipath__alignment__t.html#a5544e1c157233fda1b528bdd3e426f90">vg::multipath_alignment_t</a>
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a87bb864c7cd6e424fe9487cc662cade6">vg::multipath_alignment_t</a>
 , <a class="el" href="structvg_1_1MultipathAlignment.html#aa92c4cbfee9b5e076c41ca466b44617c">vg::MultipathAlignment</a>
 </li>
 <li>subpath_size()
@@ -1422,7 +1433,7 @@ $(function() {
 <li>suffix
 : <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html#ae7dc63ea57faea66afbaf0b84bb9cbdea831a2ebb5fe5a6b08270dfa5b9b6c7ac">vg::Haplotypes::Subchain</a>
 , <a class="el" href="classvg_1_1IndexFile.html#acc1a7b94cb2a464d4941e7092aa83612">vg::IndexFile</a>
-, <a class="el" href="structvg_1_1Recombinator_1_1Haplotype.html#ad577de95970c0824e56317c3433d6f96">vg::Recombinator::Haplotype</a>
+, <a class="el" href="structvg_1_1RecombinatorHaplotype.html#ae22f7c420e3d76d6494f66e817ffb342">vg::RecombinatorHaplotype</a>
 , <a class="el" href="classvg_1_1WFAExtender.html#a73ca61152596774e30d6c6f40aeea984">vg::WFAExtender</a>
 </li>
 <li>suffixes
@@ -1530,7 +1541,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#afee31880eaf65a1a6d1a250663271b54">vg::VG</a>
 </li>
 <li>swap_node_ids()
-: <a class="el" href="classvg_1_1Paths.html#aba01c4d1b1d415622634db97f62b1188">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a3190f22ab39a9039ec9288e1c065ca9c">vg::Paths</a>
 </li>
 <li>swap_nodes()
 : <a class="el" href="classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3">vg::VG</a>
