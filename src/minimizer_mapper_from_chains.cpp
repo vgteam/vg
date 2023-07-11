@@ -1796,7 +1796,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // This would be too long for GSSW to handle and might overflow 16-bit scores in its matrix.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
                 }
                 // Just jump to right tail
                 break;
@@ -1806,7 +1806,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
             
             Alignment link_aln;
@@ -2300,13 +2300,14 @@ std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
     // Turn each seed into the part of its match on the node where the
-    // anchoring end (start for forward-strand minimizers, ane for
+    // anchoring end (start for forward-strand minimizers, end for
     // reverse-strand minimizers) falls.
     auto& seed = seeds[seed_number];
     auto& source = minimizers[seed.source];
     size_t length;
     pos_t graph_start;
     size_t read_start;
+    size_t hint_start;
     if (source.value.is_reverse) {
         // Seed stores the final base of the match in the graph.
         // So get the past-end position.
@@ -2318,6 +2319,8 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         graph_start = make_pos_t(id(graph_end), is_rev(graph_end), offset(graph_end) - length);
         // And the read start
         read_start = source.value.offset + 1 - length;
+        // The seed is actually the last 1bp interval
+        hint_start = length - 1;
     } else {
         // Seed stores the first base of the match in the graph
         graph_start = seed.pos;
@@ -2329,11 +2332,13 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         
         // And we store the read start position already in the item
         read_start = source.value.offset;
+        // The seed is actually at the start
+        hint_start = 0;
     }
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get()); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {
