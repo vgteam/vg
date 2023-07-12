@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <set>
-#include "vg/io/json2pb.h"
+#include "../io/json2graph.hpp"
 #include "../vg.hpp"
 #include "catch.hpp"
 #include "bdsg/hash_graph.hpp"
@@ -1130,6 +1130,47 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 1);
             }
         }
+
+    }
+
+    TEST_CASE("zip tree handles complicated nested snarls") {
+        
+        // Load an example graph
+        VG graph;
+        io::json2graph(R"({"node":[{"id":"63004428","sequence":"T"},{"id":"63004425","sequence":"T"},{"id":"63004426","sequence":"ATATCTATACATATAATACAG"},{"id":"63004421","sequence":"AT"},{"id":"63004422","sequence":"T"},{"id":"63004424","sequence":"A"},{"id":"63004429","sequence":"C"},{"id":"63004430","sequence":"AT"},{"id":"63004427","sequence":"A"},{"id":"63004423","sequence":"C"}],"edge":[{"from":"63004428","to":"63004430"},{"from":"63004425","to":"63004426"},{"from":"63004426","to":"63004427"},{"from":"63004421","to":"63004422"},{"from":"63004422","to":"63004427"},{"from":"63004422","to":"63004423","to_end":true},{"from":"63004422","to":"63004424"},{"from":"63004424","to":"63004425"},{"from":"63004429","to":"63004430"},{"from":"63004427","to":"63004428"},{"from":"63004427","to":"63004429"},{"from":"63004423","from_start":true,"to":"63004428"}]})", &graph);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+
+        // I observed:
+        // 63004421+0 2 ( 4 [63004426+1] 19  2  1) 2 63004430+1 22 63004438+3
+        // But we want 63004426+1 to 63004430+1 to be 23 and not 21.
+
+        vector<pos_t> positions;
+        positions.emplace_back(63004421, false, 0);
+        positions.emplace_back(63004426, false, 1);
+        positions.emplace_back(63004430, false, 1);
+        positions.emplace_back(63004438, false, 3);
+        
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (pos_t pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            seeds.push_back({ pos, 0, zipcode});
+        }
+
+        ZipCodeTree zip_tree;
+        zip_tree.fill_in_tree(seeds, distance_index);
+        zip_tree.print_self();
+        zip_tree.validate_zip_tree(distance_index);
+
+        REQUIRE(zip_tree.get_tree_size() == 3);
+        REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
+        REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
+        REQUIRE(zip_tree.get_item_at_index(1).value == 0);
+        REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::CHAIN_END);
 
     }
 }
