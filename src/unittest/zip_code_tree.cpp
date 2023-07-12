@@ -1137,7 +1137,7 @@ namespace unittest {
         
         // Load an example graph
         VG graph;
-        io::json2graph(R"({"node":[{"id":"63004428","sequence":"T"},{"id":"63004425","sequence":"T"},{"id":"63004426","sequence":"ATATCTATACATATAATACAG"},{"id":"63004421","sequence":"AT"},{"id":"63004422","sequence":"T"},{"id":"63004424","sequence":"A"},{"id":"63004429","sequence":"C"},{"id":"63004430","sequence":"AT"},{"id":"63004427","sequence":"A"},{"id":"63004423","sequence":"C"}],"edge":[{"from":"63004428","to":"63004430"},{"from":"63004425","to":"63004426"},{"from":"63004426","to":"63004427"},{"from":"63004421","to":"63004422"},{"from":"63004422","to":"63004427"},{"from":"63004422","to":"63004423","to_end":true},{"from":"63004422","to":"63004424"},{"from":"63004424","to":"63004425"},{"from":"63004429","to":"63004430"},{"from":"63004427","to":"63004428"},{"from":"63004427","to":"63004429"},{"from":"63004423","from_start":true,"to":"63004428"}]})", &graph);
+        io::json2graph(R"({"node":[{"id": "1","sequence":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},{"id":"2","sequence":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},{"id":"63004428","sequence":"T"},{"id":"63004425","sequence":"T"},{"id":"63004426","sequence":"ATATCTATACATATAATACAG"},{"id":"63004421","sequence":"AT"},{"id":"63004422","sequence":"T"},{"id":"63004424","sequence":"A"},{"id":"63004429","sequence":"C"},{"id":"63004430","sequence":"AT"},{"id":"63004427","sequence":"A"},{"id":"63004423","sequence":"C"}],"edge":[{"from":"63004428","to":"63004430"},{"from":"63004425","to":"63004426"},{"from":"63004426","to":"63004427"},{"from":"63004421","to":"63004422"},{"from":"63004422","to":"63004427"},{"from":"63004422","to":"63004423","to_end":true},{"from":"63004422","to":"63004424"},{"from":"63004424","to":"63004425"},{"from":"63004429","to":"63004430"},{"from":"63004427","to":"63004428"},{"from":"63004427","to":"63004429"},{"from":"63004423","from_start":true,"to":"63004428"},{"from":"1","to":"63004421"},{"from":"63004430","to":"2"}]})", &graph);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
@@ -1145,14 +1145,13 @@ namespace unittest {
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
         // I observed:
-        // 63004421+0 2 ( 4 [63004426+1] 19  2  1) 2 63004430+1 22 63004438+3
+        // 63004421+0 2 ( 4 [63004426+1] 19  2  1) 2 63004430+1 
         // But we want 63004426+1 to 63004430+1 to be 23 and not 21.
 
         vector<pos_t> positions;
         positions.emplace_back(63004421, false, 0);
         positions.emplace_back(63004426, false, 1);
         positions.emplace_back(63004430, false, 1);
-        positions.emplace_back(63004438, false, 3);
         
         vector<SnarlDistanceIndexClusterer::Seed> seeds;
         for (pos_t pos : positions) {
