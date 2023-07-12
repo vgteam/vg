@@ -11,7 +11,7 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-#define debug_chaining
+//#define debug_chaining
 
 namespace vg {
 namespace algorithms {
@@ -276,8 +276,6 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 
     return iterator;
 }
-
-#define double_check_distances
 
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
