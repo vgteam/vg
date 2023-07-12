@@ -8,7 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include <vg/io/json2graph.hpp>
+#include "../io/json2graph.hpp"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "traversal_support.hpp"
