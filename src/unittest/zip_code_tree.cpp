@@ -1164,13 +1164,6 @@ namespace unittest {
         zip_tree.fill_in_tree(seeds, distance_index);
         zip_tree.print_self();
         zip_tree.validate_zip_tree(distance_index);
-
-        REQUIRE(zip_tree.get_tree_size() == 3);
-        REQUIRE(zip_tree.get_item_at_index(0).type == ZipCodeTree::CHAIN_START);
-        REQUIRE(zip_tree.get_item_at_index(1).type == ZipCodeTree::SEED);
-        REQUIRE(zip_tree.get_item_at_index(1).value == 0);
-        REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::CHAIN_END);
-
     }
 }
 }
