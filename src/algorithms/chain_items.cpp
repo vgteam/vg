@@ -11,7 +11,7 @@
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
 
-//#define debug_chaining
+#define debug_chaining
 
 namespace vg {
 namespace algorithms {
@@ -280,10 +280,10 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
 transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistanceIndexClusterer::Seed>& seeds, const ZipCodeTree& zip_code_tree, size_t max_lookback_bases) {
     // TODO: Remove seeds because we only bring it here for debugging and it complicates the dependency relationships
     return [&seeds, &zip_code_tree, max_lookback_bases](const VectorView<Anchor>& to_chain,
-                                                         const SnarlDistanceIndex& distance_index,
-                                                         const HandleGraph& graph,
-                                                         size_t max_indel_bases,
-                                                         const transition_iteratee& callback) {
+                                                        const SnarlDistanceIndex& distance_index,
+                                                        const HandleGraph& graph,
+                                                        size_t max_indel_bases,
+                                                        const transition_iteratee& callback) {
                             
         // We need a way to map from the seeds that zip tree thinks about to the anchors that we think about. So we need to index the anchors by leading/trailing seed.
         // TODO: Should we make someone else do the indexing so we can make the Anchor not need to remember the seed?
@@ -296,17 +296,29 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 
         // Emit a transition between a source and destination anchor, or skip if actually unreachable.
         auto handle_transition = [&](size_t source_anchor_index, size_t dest_anchor_index, size_t graph_distance) {
+            
+            auto& source_anchor = to_chain[source_anchor_index];
+            auto& dest_anchor = to_chain[dest_anchor_index];
+
+#ifdef debug_chaining
+            std::cerr << "Handle transition " << source_anchor << " to " << dest_anchor << std::endl;
+#endif
+
             if (graph_distance == std::numeric_limits<size_t>::max()) {
                 // Not reachable in graph (somehow)
                 // TODO: Should never happen!
+#ifdef debug_chaining
+                std::cerr << "\tNot reachable in graph!" << std::endl;
+#endif
                 return;
             }
 
-            auto& source_anchor = to_chain[source_anchor_index];
-            auto& dest_anchor = to_chain[dest_anchor_index];
             size_t read_distance = get_read_distance(source_anchor, dest_anchor);
             if (read_distance == std::numeric_limits<size_t>::max()) {
                 // Not reachable in read
+#ifdef debug_chaining
+                std::cerr << "\tNot reachable in read." << std::endl;
+#endif
                 return;
             }
 
@@ -317,7 +329,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
 
 #ifdef debug_chaining
-            std::cerr << "Zip code tree sees " << graph_distance << " but we should back out " << distance_to_remove << std::endl;
+            std::cerr << "\tZip code tree sees " << graph_distance << " but we should back out " << distance_to_remove << std::endl;
 #endif
 
             if (distance_to_remove > graph_distance) {
@@ -330,7 +342,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             graph_distance -= distance_to_remove;
 
 #ifdef debug_chaining
-            std::cerr << "Zip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart" << std::endl;
+            std::cerr << "\tZip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart" << std::endl;
 #endif
 
 #ifdef double_check_distances
@@ -343,7 +355,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 false, &graph);
             if (check_distance != graph_distance) {
                 #pragma omp critical (cerr)
-                std::cerr << "Zip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart but they are actually " << check_distance << " apart" << std::endl;
+                std::cerr << "\tZip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart but they are actually " << check_distance << " apart" << std::endl;
                 crash_unless(check_distance == graph_distance);
             }
 
@@ -371,6 +383,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // Might be the start of an anchor if it is forward relative to the read, or the end of an anchor if it is reverse relative to the read
             std::unordered_map<size_t, size_t>::iterator found_dest_anchor = dest_seed.is_reverse ? seed_to_ending.find(dest_seed.seed) : seed_to_starting.find(dest_seed.seed);
 
+            if (found_dest_anchor == (dest_seed.is_reverse ? seed_to_ending.end() : seed_to_starting.end())) {
+                // We didn't find an anchor for this seed, maybe it lives in a different cluster. Skip it.
+#ifdef debug_chaining
+                std::cerr <<"\tDoes not correspond to an anchor in this cluster" << std::endl;
+#endif
+                continue;
+            }
+
             for (ZipCodeTree::reverse_iterator source = zip_code_tree.look_back(dest, max_lookback_bases); source != zip_code_tree.rend(); ++source) {
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
@@ -387,18 +407,26 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 
                     // They might not be at anchor borders though, so check.
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
-                    if (found_dest_anchor != seed_to_starting.end() && found_source_anchor != seed_to_ending.end()) {
+                    if (found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         handle_transition(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
+                    } else {
+#ifdef debug_chaining
+                        std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
+#endif
                     }
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
                     // We need to find source as an anchor *started*, and then queue them up flipped for later.
                     auto found_source_anchor = seed_to_starting.find(source_seed.seed);
-                    if (found_dest_anchor != seed_to_ending.end() && found_source_anchor != seed_to_starting.end()) {
+                    if (found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
                         deferred.emplace(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
+                    } else {
+#ifdef debug_chaining
+                        std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
+#endif
                     }
                 } else {
                     // We have a transition between different orientations relative to the read. Don't show that.
@@ -427,7 +455,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int item_bonus,
                            size_t max_indel_bases) {
     
+#ifdef debug_chaining
+    DiagramExplainer diagram(true);
+#else
     DiagramExplainer diagram(false);
+#endif
     diagram.add_globals({{"rankdir", "LR"}});
     
 #ifdef debug_chaining
@@ -541,7 +573,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto item_points = here.score() + item_bonus;
 
 #ifdef debug_chaining
-        cerr << "\tBest way to reach #" << to_anchor << " is " << chain_scores[to_anchor] << endl;
+        cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
 #endif
         
         // Draw the item in the diagram
