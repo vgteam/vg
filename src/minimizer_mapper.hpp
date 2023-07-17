@@ -290,6 +290,9 @@ public:
     /// How much of a bonus should we give to each item in chaining?
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
+    /// How much of a multiple should we apply to each item's non-bonus score in chaining?
+    static constexpr int default_item_scale = 1;
+    int item_scale = default_item_scale;
     /// How many bases of indel should we allow in chaining?
     static constexpr size_t default_max_indel_bases = 6000;
     size_t max_indel_bases = default_max_indel_bases;
@@ -591,6 +594,7 @@ protected:
         
         // Item and gap scoring
         int item_bonus;
+        int item_scale;
         size_t max_indel_bases;
         
         // Limits on clusters to keep

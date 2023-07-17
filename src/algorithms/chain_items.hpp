@@ -318,7 +318,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
  *
  * Input items must be sorted by start position in the read.
  *
- * Takes the given per-item bonus for each item collected.
+ * Takes the given per-item bonus for each item collected, and scales item scores by the given scale.
  *
  * Uses a finite lookback in items and in read bases when checking where we can
  * come from to reach an item. Also, once a given number of good-looking
@@ -335,6 +335,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int gap_extension,
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
                            int item_bonus = 0,
+                           int item_scale = 1,
                            size_t max_indel_bases = 100);
 
 /**
@@ -355,6 +356,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
                                                         int item_bonus = 0,
+                                                        int item_scale = 1,
                                                         size_t max_tracebacks = 1);
 
 
@@ -375,6 +377,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    size_t max_chains = 1,
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1), 
                                                    int item_bonus = 0,
+                                                   int item_scale = 1,
                                                    size_t max_indel_bases = 100);
 
 /**
@@ -393,6 +396,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int gap_extension,
                                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
                                           int item_bonus = 0,
+                                          int item_scale = 1,
                                           size_t max_indel_bases = 100);
                                           
 /**

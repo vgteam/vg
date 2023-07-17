@@ -365,6 +365,12 @@ static GroupedOptionGroup get_options() {
         MinimizerMapper::default_item_bonus,
         "bonus for taking each item when fragmenting or chaining"
     );
+    chaining_opts.add_range(
+        "item-scale",
+        &MinimizerMapper::item_scale,
+        MinimizerMapper::default_item_scale,
+        "scale for items' scores when fragmenting or chaining"
+    );
     
     chaining_opts.add_range(
         "chain-score-threshold",

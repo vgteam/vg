@@ -453,6 +453,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            int gap_extension,
                            const transition_iterator& for_each_transition,
                            int item_bonus,
+                           int item_scale,
                            size_t max_indel_bases) {
     
 #ifdef debug_chaining
@@ -482,7 +483,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() + item_bonus;
+        auto item_points = here.score() * item_scale + item_bonus;
         
         std::string here_gvnode = "i" + std::to_string(to_anchor);
         
@@ -570,7 +571,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
     for (size_t to_anchor = 0; to_anchor < to_chain.size(); ++to_anchor) {
         // For each destination anchor, now that it is finished, see if it is the winner.
         auto& here = to_chain[to_anchor];
-        auto item_points = here.score() + item_bonus;
+        auto item_points = here.score() * item_scale + item_bonus;
 
 #ifdef debug_chaining
         cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
@@ -616,6 +617,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                                                         const VectorView<Anchor>& to_chain,
                                                         const TracedScore& best_past_ending_score_ever,
                                                         int item_bonus,
+                                                        int item_scale,
                                                         size_t max_tracebacks) {
     
     // We will fill this in with all the tracebacks, and then sort and truncate.
@@ -656,7 +658,7 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
                     // Take away all the points we got for coming from there and being ourselves.
                     penalty += chain_scores[here].score;
                     // But then re-add our score for just us
-                    penalty -= (to_chain[here].score() + item_bonus);
+                    penalty -= (to_chain[here].score() * item_scale + item_bonus);
                     // TODO: Score this more simply.
                     // TODO: find the dege to nowhere???
                     break;
@@ -696,6 +698,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    size_t max_chains,
                                                    const transition_iterator& for_each_transition, 
                                                    int item_bonus,
+                                                   int item_scale,
                                                    size_t max_indel_bases) {
                                                                          
     if (to_chain.empty()) {
@@ -712,9 +715,10 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              gap_extension,
                                                              for_each_transition,
                                                              item_bonus,
+                                                             item_scale,
                                                              max_indel_bases);
     // Then do the tracebacks
-    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever, item_bonus, max_chains);
+    vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -740,6 +744,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           int gap_extension,
                                           const transition_iterator& for_each_transition,
                                           int item_bonus,
+                                          int item_scale,
                                           size_t max_indel_bases) {
                                                                  
     return find_best_chains(
@@ -751,6 +756,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
         1,
         for_each_transition,
         item_bonus,
+        item_scale,
         max_indel_bases
     ).front();
 }

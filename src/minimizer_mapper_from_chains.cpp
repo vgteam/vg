@@ -399,6 +399,7 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
                 cfg.max_chains_per_cluster,
                 for_each_transition,
                 cfg.item_bonus,
+                cfg.item_scale,
                 cfg.max_indel_bases
             );
             if (show_work) {
@@ -625,6 +626,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     fragment_cfg.min_good_transition_score_per_base = this->min_good_transition_score_per_base;
     
     fragment_cfg.item_bonus = this->item_bonus;
+    fragment_cfg.item_scale = this->item_scale;
     fragment_cfg.max_indel_bases = this->fragment_max_indel_bases;
     
     // Do all the ones that are 75% as good as the best, or down to 50% as good
@@ -900,6 +902,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             2,
             for_each_transition,
             this->item_bonus,
+            this->item_scale,
             this->max_indel_bases
         );
         
@@ -1385,6 +1388,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_lookback-scale-factor", lookback_scale_factor);
         set_annotation(mappings[0], "param_min-good-transition-score-per-base", min_good_transition_score_per_base);
         set_annotation(mappings[0], "param_item-bonus", (double) item_bonus);
+        set_annotation(mappings[0], "param_item-scale", (double) item_scale);
         set_annotation(mappings[0], "param_max-indel-bases", (double) max_indel_bases);
         
         set_annotation(mappings[0], "param_max-chain-connection", (double) max_chain_connection);
