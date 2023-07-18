@@ -44,6 +44,13 @@ namespace vg {
 
 using namespace std;
 
+/// Class for an error representing that chaining has backed us into some kind
+/// of corner and we can't actually produce an alignment. We can throw this to
+/// leave the read unmapped, complain, and try the next read.
+class ChainAlignmentFailedError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 static void set_coverage_flags(std::vector<bool>& flags, size_t start, size_t end) {
     for (size_t i = start; i < end; i++) {
         flags[i] = true;
@@ -1139,8 +1146,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // We currently just have the one best score and chain per cluster
                 vector<size_t>& chain = chains[processed_num];
                 
-                // Do the DP between the items in the chain. 
-                best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain);
+                try {
+                    // Do the DP between the items in the chain. 
+                    best_alignments[0] = find_chain_alignment(aln, seed_anchors, chain);
+                } catch (ChainAlignmentFailedError& e) {
+                    // We can't actually make an alignment from this chain
+                    #pragma omp critical (cerr)
+                    cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
+                    // Leave the read unmapped.
+                }
                     
                 // TODO: Come up with a good secondary for the cluster somehow.
             } else {
@@ -1488,7 +1502,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     const std::vector<size_t>& chain) const {
     
     if (chain.empty()) {
-        throw std::logic_error("Cannot find an alignment for an empty chain!");
+        throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
     }
     
     if (show_work) {
@@ -1567,7 +1581,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stringstream ss;
                 ss << "Aligning left tail " << left_tail << " from " << (*here).graph_start() << " produced wrong-length alignment ";
                 left_alignment.print(ss);
-                throw std::runtime_error(ss.str());
+                throw ChainAlignmentFailedError(ss.str());
             }
         }
         if (left_alignment) {
@@ -1763,7 +1777,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stringstream ss;
                 ss << "Aligning anchored link " << linking_bases << " (" << linking_bases.size() << " bp) from " << left_anchor << " - " << (*next).graph_start() << " against graph distance " << graph_length << " produced wrong-length alignment ";
                 link_alignment.print(ss);
-                throw std::runtime_error(ss.str());
+                throw ChainAlignmentFailedError(ss.str());
             } else {
                 // We got the right alignment.
                 // Put the alignment back into full read space
@@ -1796,7 +1810,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // This would be too long for GSSW to handle and might overflow 16-bit scores in its matrix.
                 #pragma omp critical (cerr)
                 {
-                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
+                    cerr << "warning[MinimizerMapper::find_chain_alignment]: Refusing to align " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << " to avoid overflow" << endl;
                 }
                 // Just jump to right tail
                 break;
@@ -1806,7 +1820,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
-                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
+                cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
             
             Alignment link_aln;
@@ -1886,7 +1900,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 stringstream ss;
                 ss << "Aligning right tail " << right_tail << " from " << left_anchor << " produced wrong-length alignment ";
                 right_alignment.print(ss);
-                throw std::runtime_error(ss.str());
+                throw ChainAlignmentFailedError(ss.str());
             }
 #ifdef debug_chaining
             if (show_work) {
@@ -1986,7 +2000,7 @@ void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignme
 void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph& graph, const std::function<void(DeletableHandleGraph&, const std::function<std::pair<nid_t, bool>(const handle_t&)>&)>& callback) {
     
     if (is_empty(left_anchor) && is_empty(right_anchor)) {
-        throw std::runtime_error("Cannot align sequence between two unset positions");
+        throw ChainAlignmentFailedError("Cannot align sequence between two unset positions");
     }
     
     // We need to get the graph to align to.
@@ -2045,7 +2059,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         ss << " with max path length of " << max_path_length;
         ss << " but from node was not present in the resulting translation";
         local_graph.serialize("crashdump.vg");
-        throw std::runtime_error(ss.str());
+        throw ChainAlignmentFailedError(ss.str());
     }
 
     if (!is_empty(right_anchor) && local_right_anchor_id == 0) {
@@ -2059,7 +2073,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         ss << " with max path length of " << max_path_length;
         ss << " but to node was not present in the resulting translation";
         local_graph.serialize("crashdump.vg");
-        throw std::runtime_error(ss.str());
+        throw ChainAlignmentFailedError(ss.str());
     }
     
     // And split by strand since we can only align to one strand
@@ -2082,7 +2096,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             ss << " with max path length of " << max_path_length;
             ss << " but from node local ID " << local_left_anchor_id << " was not present in the resulting graph";
             local_graph.serialize("crashdump.vg");
-            throw std::runtime_error(ss.str());
+            throw ChainAlignmentFailedError(ss.str());
         }
         handle_t local_handle = local_graph.get_handle(local_left_anchor_id, is_rev(left_anchor));
         
@@ -2106,7 +2120,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             ss << " with max path length of " << max_path_length;
             ss << " but to node local ID " << local_right_anchor_id << " was not present in the resulting graph";
             local_graph.serialize("crashdump.vg");
-            throw std::runtime_error(ss.str());
+            throw ChainAlignmentFailedError(ss.str());
         }
         handle_t local_handle = local_graph.get_handle(local_right_anchor_id, is_rev(right_anchor));
         
@@ -2130,7 +2144,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         bool dagified_is_reverse = dagified_graph.get_is_reverse(h);
         auto found_in_split = dagified_to_split.find(dagified_id);
         if (found_in_split == dagified_to_split.end()) {
-            throw std::runtime_error("ID " + std::to_string(dagified_id) + " from dagified graph not found in strand-split graph");
+            throw ChainAlignmentFailedError("ID " + std::to_string(dagified_id) + " from dagified graph not found in strand-split graph");
         }
         nid_t split_id = found_in_split->second;
         handle_t split_handle = split_graph.get_handle(split_id, dagified_is_reverse);
@@ -2140,7 +2154,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         bool local_is_reverse = local_graph.get_is_reverse(local_handle);
         auto found_in_base = local_to_base.find(local_id);
         if (found_in_base == local_to_base.end()) {
-            throw std::runtime_error("ID " + std::to_string(local_id) + " from local graph not found in full base graph");
+            throw ChainAlignmentFailedError("ID " + std::to_string(local_id) + " from local graph not found in full base graph");
         }
         nid_t base_id = found_in_base->second;
         return std::make_pair(base_id, local_is_reverse);
@@ -2300,13 +2314,14 @@ std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln
 
 algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
     // Turn each seed into the part of its match on the node where the
-    // anchoring end (start for forward-strand minimizers, ane for
+    // anchoring end (start for forward-strand minimizers, end for
     // reverse-strand minimizers) falls.
     auto& seed = seeds[seed_number];
     auto& source = minimizers[seed.source];
     size_t length;
     pos_t graph_start;
     size_t read_start;
+    size_t hint_start;
     if (source.value.is_reverse) {
         // Seed stores the final base of the match in the graph.
         // So get the past-end position.
@@ -2318,6 +2333,8 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         graph_start = make_pos_t(id(graph_end), is_rev(graph_end), offset(graph_end) - length);
         // And the read start
         read_start = source.value.offset + 1 - length;
+        // The seed is actually the last 1bp interval
+        hint_start = length - 1;
     } else {
         // Seed stores the first base of the match in the graph
         graph_start = seed.pos;
@@ -2329,11 +2346,13 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         
         // And we store the read start position already in the item
         read_start = source.value.offset;
+        // The seed is actually at the start
+        hint_start = 0;
     }
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get()); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {

@@ -19,7 +19,7 @@ namespace algorithms {
 using namespace std;
 
 ostream& operator<<(ostream& out, const Anchor& anchor) {
-    return out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "*" << anchor.length() << "}";
+    return out << "{R:" << anchor.read_start() << "=G:" << anchor.graph_start() << "(+" << anchor.start_hint_offset() << ")-"  << anchor.graph_end() << "(-" << anchor.end_hint_offset() << ")*" << anchor.length() << "}";
 }
 
 ostream& operator<<(ostream& out, const TracedScore& value) {
@@ -309,7 +309,47 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // Not reachable in read
                 return;
             }
+
+            // The zipcode tree is about point positions, but we need distances between whole anchors.
+            // The stored zipcode positions will be at distances from the start/end of the associated anchor.
             
+            // If the offset between the zip code point and the start of the destination is 0, and between the zip code point and the end of the source is 0, we subtract 0 from the measured distance. Otherwise we need to subtract something.
+            size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
+
+#ifdef debug_chaining
+            std::cerr << "Zip code tree sees " << graph_distance << " but we should back out " << distance_to_remove << std::endl;
+#endif
+
+            if (distance_to_remove > graph_distance) {
+                // We actually end further along the graph path to the next
+                // thing than where the next thing starts, so we can't actually
+                // get there.
+                return;
+            }
+            // Consume the length. 
+            graph_distance -= distance_to_remove;
+
+#ifdef debug_chaining
+            std::cerr << "Zip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart" << std::endl;
+#endif
+
+#ifdef double_check_distances
+
+            auto from_pos = source_anchor.graph_end();
+            auto to_pos = dest_anchor.graph_start();
+            size_t check_distance = distance_index.minimum_distance(
+                id(from_pos), is_rev(from_pos), offset(from_pos),
+                id(to_pos), is_rev(to_pos), offset(to_pos),
+                false, &graph);
+            if (check_distance != graph_distance) {
+                #pragma omp critical (cerr)
+                std::cerr << "Zip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart but they are actually " << check_distance << " apart" << std::endl;
+                crash_unless(check_distance == graph_distance);
+            }
+
+#endif
+
+            // Send it along.
             callback(source_anchor_index, dest_anchor_index, read_distance, graph_distance); 
         };
 
