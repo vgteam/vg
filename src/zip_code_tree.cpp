@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -436,11 +436,16 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                 }
 
                 if (depth == current_max_depth) {
-                    //If this is a node, then add the offset of the position in the node
+                    //If this is a node, then add the offset of the seed in the node
                     current_offset = SnarlDistanceIndex::sum(current_offset, 
                         current_is_reversed != is_rev(current_seed.pos)
                             ? current_seed.zipcode_decoder->get_length(depth) - offset(current_seed.pos)
                             : offset(current_seed.pos));
+                    //If the seed is reversed, then subtract 1 to make sure it is on the correct side of the position
+                    if (is_rev(current_seed.pos) && !current_is_reversed) {
+                        current_offset -= 1;
+                    }
+
                 }
 
                 /////////////////////// Get the offset of the previous thing in the parent chain/node
@@ -623,9 +628,14 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                 if (current_type == CHAIN && depth == current_max_depth) {
                     //If this is a trivial chain, then also add the seed and the distance to the 
                     //thing before it
-                    size_t current_offset = current_is_reversed
+                    size_t current_offset = current_is_reversed != is_rev(current_seed.pos)
                             ? current_seed.zipcode_decoder->get_length(depth) - offset(current_seed.pos)
                             : offset(current_seed.pos);
+                    //Make sure this reaches the correct side of the position
+                    if (is_rev(current_seed.pos) && !is_rev(current_seed.pos)) {
+                        current_offset -= 1;
+                    }
+
 
                     if (sibling_indices_at_depth[depth].back().type == CHAIN_START) {
                         //If the previous thing in the "chain" was the start, then don't add the distance,
