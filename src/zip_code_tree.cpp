@@ -441,10 +441,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                         current_is_reversed != is_rev(current_seed.pos)
                             ? current_seed.zipcode_decoder->get_length(depth) - offset(current_seed.pos)
                             : offset(current_seed.pos));
-                    //If the seed is reversed, then subtract 1 to make sure it is on the correct side of the position
-                    if (is_rev(current_seed.pos) && !current_is_reversed) {
-                        current_offset -= 1;
-                    }
 
                 }
 
@@ -631,10 +627,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     size_t current_offset = current_is_reversed != is_rev(current_seed.pos)
                             ? current_seed.zipcode_decoder->get_length(depth) - offset(current_seed.pos)
                             : offset(current_seed.pos);
-                    //Make sure this reaches the correct side of the position
-                    if (is_rev(current_seed.pos) && !is_rev(current_seed.pos)) {
-                        current_offset -= 1;
-                    }
 
 
                     if (sibling_indices_at_depth[depth].back().type == CHAIN_START) {
