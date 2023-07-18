@@ -550,11 +550,6 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
-
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-        
         //graph.to_dot(cerr);
 
         SECTION( "Seeds on chain nodes" ) {
@@ -725,7 +720,7 @@ namespace unittest {
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(2).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(2).value == 3 ||
+            REQUIRE((zip_tree.get_item_at_index(2).value == 2 ||
                     zip_tree.get_item_at_index(2).value == 6));
 
             //the next seed
@@ -734,7 +729,7 @@ namespace unittest {
 
             //distance between them
             REQUIRE(zip_tree.get_item_at_index(4).type == ZipCodeTree::EDGE);
-            REQUIRE((zip_tree.get_item_at_index(4).value == 3 ||
+            REQUIRE((zip_tree.get_item_at_index(4).value == 2 ||
                     zip_tree.get_item_at_index(4).value == 6));
 
             //the last seed
@@ -917,7 +912,7 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-        
+      
         //graph.to_dot(cerr);
 
         SECTION( "Make the zip tree" ) {
@@ -1144,10 +1139,11 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
-
+ 
         ofstream out ("testGraph.hg");
         graph.serialize(out);
 
+ 
 
         // I observed:
         // 63004421+0 2 ( 4 [63004426+1] 19  2  1) 2 63004430+1 
