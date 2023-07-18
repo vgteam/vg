@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -384,7 +384,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                 zip_code_tree.push_back({SNARL_END, std::numeric_limits<size_t>::max(), false});
             }
             //Update previous_is_reversed to the one before this
-            if (depth > 0 && get_is_reversed_at_depth(previous_seed, depth-1)) {
+            if (get_is_reversed_at_depth(previous_seed, depth)) {
                 previous_is_reversed = !previous_is_reversed;
             }
 
