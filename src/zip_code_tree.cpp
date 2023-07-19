@@ -853,7 +853,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 
         //Do we want the distance going left in the node
         //This takes into account the position and the orientation of the tree traversal
-        bool start_is_reversed = start_itr_left->is_reversed != is_rev(start_seed.pos);
+        bool start_is_reversed = start_itr_left->is_reversed ? !is_rev(start_seed.pos) : is_rev(start_seed.pos);
 
         //Walk through the tree starting from the vector iterator going left, and check the distance
         for (reverse_iterator tree_itr_left (start_itr_left, zip_code_tree.rend()) ;
@@ -861,7 +861,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
              ++tree_itr_left) {
             seed_result_t next_seed_result = *tree_itr_left;
             const Seed& next_seed = seeds->at(next_seed_result.seed);
-            const bool next_is_reversed = next_seed_result.is_reverse != is_rev(next_seed.pos);
+            const bool next_is_reversed = next_seed_result.is_reverse ? !is_rev(next_seed.pos) : is_rev(next_seed.pos);
 
             size_t tree_distance = next_seed_result.distance;
 
@@ -874,19 +874,19 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
             cerr << "Values: " << id(next_seed.pos) << " " <<  (is_rev(next_seed.pos) != next_is_reversed ? "rev" : "fd" ) << " " << 
-                    (is_rev(next_seed.pos) == next_is_reversed ? offset(next_seed.pos)
-                                                                  : distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1) << " " << 
+                    (next_seed_result.is_reverse ? distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1)
+                                                 : offset(next_seed.pos) << " " << 
                     id(start_seed.pos) << " " <<  (is_rev(start_seed.pos) != start_is_reversed ? "rev" : "fd")<< " " << 
-                    (is_rev(start_seed.pos) == start_is_reversed ? offset(start_seed.pos)
-                                                                  : distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 ) << endl;
+                    (start_itr_left->is_reversed ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
+                                                 : offset(start_seed.pos)) << endl;
 #endif
 
             size_t index_distance = distance_index.minimum_distance(id(next_seed.pos), next_is_reversed,
-                    is_rev(next_seed.pos) == next_is_reversed ? offset(next_seed.pos)
-                                                                  : distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1 ,
+                    next_seed_result.is_reverse ? distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1 
+                                                 : offset(next_seed.pos),
                     id(start_seed.pos), start_is_reversed,
-                    is_rev(start_seed.pos) == start_is_reversed ? offset(start_seed.pos)
-                                                                : distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
+                    start_itr_left->is_reversed ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
+                                                : offset(start_seed.pos)
                     );
             if (is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
