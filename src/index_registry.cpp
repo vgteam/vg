@@ -1804,13 +1804,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // make the graph from GFA, and save segment info to the translation file if there is nontrivial segment info.
         try {
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name);
+            // TODO: this could be fragile if we repurpose this lambda for Reference GFA w/ Haplotypes
+            // if we're constructing from a reference GFA, we don't need anything from W lines
+            unordered_set<PathSense> ignore{PathSense::HAPLOTYPE};
+            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name, &ignore);
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
             cerr << e.what() << endl;
             exit(1);
         }
+        
         
         // Now we need to append some splits to the output file.
         ofstream translation_outfile;
@@ -1821,10 +1825,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, size_t rev_offset, handle_t new_node) {
+            stringstream strm;
+            strm << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
 #pragma omp critical (translation_outfile)
             {
                 // Write each cut to a line in the translation file, after the segment names are defined.
-                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
+                translation_outfile << strm.str();
             }
         });
         
