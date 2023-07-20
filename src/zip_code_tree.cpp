@@ -277,6 +277,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
         size_t first_different_ancestor_depth = 0;
         bool same_node = false;
         size_t max_depth = std::min(current_max_depth, previous_max_depth);
+        size_t max_depth_checked = max_depth;
 
         for (size_t depth = 0 ; depth <= max_depth ; depth++) {
             first_different_ancestor_depth = depth;
@@ -291,14 +292,15 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
             }
             if (!ZipCodeDecoder::is_equal(*current_seed.zipcode_decoder, 
                         *previous_seed.zipcode_decoder, depth)) {
+                max_depth_checked = depth;
                 break;
             } else if (depth == max_depth) {
                 same_node = true;
             }
         }
-        if (previous_max_depth > current_max_depth) {
+        if (previous_max_depth > max_depth_checked) {
             //We might need to update previous_is_reversed
-            for (size_t depth = max_depth ; depth <= previous_max_depth ; depth++) {
+            for (size_t depth = max_depth_checked+1 ; depth <= previous_max_depth ; depth++) {
                 
                 if (get_is_reversed_at_depth(previous_seed, depth)) {
                     previous_is_reversed = !previous_is_reversed;
