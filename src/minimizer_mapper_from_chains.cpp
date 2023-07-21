@@ -1184,11 +1184,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 }
             };
             
+            if (!best_alignments.empty() && best_alignments[0].score() <= 0) {
+                if (show_work) {
+                    // Alignment won't be observed but log it anyway.
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Produced terrible best alignment from chain " << processed_num << ": " << log_alignment(best_alignments[0]) << endl;
+                    }
+                }
+            }
             for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
                 //For each additional alignment with score at least 0.8 of the best score
                 observe_alignment(*aln_it);
             }
-
            
             if (track_provenance) {
                 // We're done with this input item
@@ -1500,6 +1508,7 @@ double MinimizerMapper::get_read_coverage(
     return get_fraction_covered(covered);
 }
 
+#define debug_chaining
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
@@ -1545,8 +1554,7 @@ Alignment MinimizerMapper::find_chain_alignment(
         {
             cerr << log_name() << "First item " << *here_it
                 << " with overall index " << to_chain.backing_index(*here_it)
-                << " aligns source " << here->source
-                << " at " << (*here).read_start() << "-" << (*here).read_end()
+                << " aligns " << (*here).read_start() << "-" << (*here).read_end()
                 << " with " << (*here).graph_start() << "-" << (*here).graph_end()
                 << endl;
         }
@@ -1708,8 +1716,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             {
                 cerr << log_name() << "Next connectable item " << *next_it
                     << " with overall index " << to_chain.backing_index(*next_it)
-                    << " aligns source " << next->source
-                    << " at " << (*next).read_start() << "-" << (*next).read_end()
+                    << " aligns " << (*next).read_start() << "-" << (*next).read_end()
                     << " with " << (*next).graph_start() << "-" << (*next).graph_end()
                     << endl;
             }
@@ -1992,6 +1999,7 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     return result;
 }
+#undef debug_chaining
 
 void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const {
     *(alignment.mutable_path()) = wfa_alignment.to_path(this->gbwt_graph, alignment.sequence());

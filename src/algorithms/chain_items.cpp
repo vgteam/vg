@@ -66,6 +66,8 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
     // Sort everything by read start ascending, and read end descending
     sort_anchor_indexes(items, indexes);
     
+#ifdef do_shadowing
+
     // Keep a collection of the diagonals that are already represented,
     // and the read end position of the latest-ending item on those pairs that
     // we have taken. A diagonal is defined as a graph node ID, a graph strand,
@@ -112,6 +114,9 @@ void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& inde
     
     // Replace the indexes with the sorted and deduplicated ones.
     indexes = std::move(kept_indexes);
+
+#endif
+
 }
 
 void sort_and_shadow(std::vector<Anchor>& items) {
@@ -300,14 +305,14 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             auto& source_anchor = to_chain[source_anchor_index];
             auto& dest_anchor = to_chain[dest_anchor_index];
 
-#ifdef debug_chaining
+#ifdef debug_transition
             std::cerr << "Handle transition " << source_anchor << " to " << dest_anchor << std::endl;
 #endif
 
             if (graph_distance == std::numeric_limits<size_t>::max()) {
                 // Not reachable in graph (somehow)
                 // TODO: Should never happen!
-#ifdef debug_chaining
+#ifdef debug_transition
                 std::cerr << "\tNot reachable in graph!" << std::endl;
 #endif
                 return;
@@ -316,7 +321,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             size_t read_distance = get_read_distance(source_anchor, dest_anchor);
             if (read_distance == std::numeric_limits<size_t>::max()) {
                 // Not reachable in read
-#ifdef debug_chaining
+#ifdef debug_transition
                 std::cerr << "\tNot reachable in read." << std::endl;
 #endif
                 return;
@@ -328,7 +333,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // If the offset between the zip code point and the start of the destination is 0, and between the zip code point and the end of the source is 0, we subtract 0 from the measured distance. Otherwise we need to subtract something.
             size_t distance_to_remove = dest_anchor.start_hint_offset() + source_anchor.end_hint_offset();
 
-#ifdef debug_chaining
+#ifdef debug_transition
             std::cerr << "\tZip code tree sees " << graph_distance << " but we should back out " << distance_to_remove << std::endl;
 #endif
 
@@ -341,7 +346,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // Consume the length. 
             graph_distance -= distance_to_remove;
 
-#ifdef debug_chaining
+#ifdef debug_transition
             std::cerr << "\tZip code tree sees " << source_anchor << " and " << dest_anchor << " as " << graph_distance << " apart" << std::endl;
 #endif
 
@@ -376,7 +381,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             // For each destination seed left to right
             ZipCodeTree::oriented_seed_t dest_seed = *dest;
 
-#ifdef debug_chaining
+#ifdef debug_transition
             std::cerr << "Consider destination seed " << seeds[dest_seed.seed].pos << (dest_seed.is_reverse ? "rev" : "") << std::endl;
 #endif
 
@@ -385,7 +390,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
 
             if (found_dest_anchor == (dest_seed.is_reverse ? seed_to_ending.end() : seed_to_starting.end())) {
                 // We didn't find an anchor for this seed, maybe it lives in a different cluster. Skip it.
-#ifdef debug_chaining
+#ifdef debug_transition
                 std::cerr <<"\tDoes not correspond to an anchor in this cluster" << std::endl;
 #endif
                 continue;
@@ -395,7 +400,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                 // For each source seed right to left
                 ZipCodeTree::seed_result_t source_seed = *source;
 
-#ifdef debug_chaining
+#ifdef debug_transition
                 std::cerr << "\tConsider source seed " << seeds[source_seed.seed].pos << (source_seed.is_reverse ? "rev" : "") << " at distance " << source_seed.distance << "/" << max_lookback_bases << std::endl;
 #endif
 
@@ -411,7 +416,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         handle_transition(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
                     } else {
-#ifdef debug_chaining
+#ifdef debug_transition
                         std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
 #endif
                     }
@@ -424,7 +429,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                         // Queue them up, flipped
                         deferred.emplace(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
                     } else {
-#ifdef debug_chaining
+#ifdef debug_transition
                         std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
 #endif
                     }
