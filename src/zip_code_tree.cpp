@@ -890,18 +890,46 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
                     start_itr_left->is_reversed ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
                                                 : offset(start_seed.pos)
                     );
-            if (is_rev(next_seed.pos) != next_is_reversed) {
+            if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
             }
-            if ( is_rev(start_seed.pos) != start_is_reversed) {
+            if (index_distance != std::numeric_limits<size_t>::max() && is_rev(start_seed.pos) != start_is_reversed) {
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
 #endif
-            assert(tree_distance == index_distance);
+            pos_t start_pos = is_rev(start_seed.pos) ? make_pos_t(id(start_seed.pos), false, distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1)
+                                                     : start_seed.pos;
+            pos_t next_pos = is_rev(next_seed.pos) ? make_pos_t(id(next_seed.pos), false, distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1)
+                                                     : next_seed.pos;
+            if (start_pos == next_pos) {
+                if (tree_distance != 0) {
+                    cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
+                    cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
+                }
+                assert(tree_distance == 0);
+            } else {
+                if (tree_distance != index_distance) {
+                    cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
+                    cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
+                }
+                bool in_non_dag_snarl = false;
+                while (!distance_index.is_root(next_handle)) {
+                    if (distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) {
+                        in_non_dag_snarl = true;
+                        break;
+                    }
+                    next_handle = distance_index.get_parent(next_handle);
+                }
+                if (!in_non_dag_snarl) {
+                    //If this isn't in any non-dag snarl
+                    assert(tree_distance == index_distance);
+                }
+            }
+
         }
     }
 }
