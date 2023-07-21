@@ -445,6 +445,16 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
     };
 }
 
+/// Score a chaining gap using the Minimap2 method. See
+/// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
+static int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
+    if (distance_difference == 0) {
+        return 0;
+    } else {
+        return 0.01 * average_anchor_length * distance_difference + 0.5 * log2(distance_difference);
+    }
+}
+
 TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            const SnarlDistanceIndex& distance_index,
@@ -466,6 +476,13 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
 #ifdef debug_chaining
     cerr << "Chaining group of " << to_chain.size() << " items" << endl;
 #endif
+
+    // Compute an average anchor length
+    size_t average_anchor_length = 0;
+    for (auto& anchor : to_chain) {
+        average_anchor_length += anchor.length();
+    }
+    average_anchor_length /= to_chain.size();
 
     chain_scores.resize(to_chain.size());
     for (size_t i = 0; i < to_chain.size(); i++) {
@@ -506,6 +523,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
         // Decide how much length changed
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
+        size_t min_distance = std::min(read_distance, graph_distance);
         
 #ifdef debug_chaining
         cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
@@ -516,7 +534,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             jump_points = std::numeric_limits<int>::min();
         } else {
             // Then charge for that indel
-            jump_points = score_gap(indel_length, gap_open, gap_extension);
+            jump_points = std::min<int>((int) min_distance, (int) here.length()) - score_chain_gap(indel_length, average_anchor_length);
         }
             
         // And how much do we end up with overall coming from there.
