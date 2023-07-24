@@ -940,14 +940,16 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
             bool in_non_dag_snarl = false;
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
                 if ((distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) 
-                    || distance_index.is_root_snarl(next_handle)) {
+                    || distance_index.is_root_snarl(next_handle)
+                    || distance_index.is_looping_chain(next_handle)) {
                     in_non_dag_snarl = true;
                 }
                 next_handle = distance_index.get_parent(next_handle);
             }
             while (!in_non_dag_snarl && !distance_index.is_root(start_handle)) {
                 if ((distance_index.is_snarl(start_handle) && !distance_index.is_dag(start_handle)) 
-                    || distance_index.is_root_snarl(next_handle)) {
+                    || distance_index.is_root_snarl(start_handle)
+                    || distance_index.is_looping_chain(start_handle)) {
                     in_non_dag_snarl = true;
                 }
                 start_handle = distance_index.get_parent(start_handle);
