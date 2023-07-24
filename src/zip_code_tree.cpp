@@ -739,8 +739,8 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                         zip_code_tree[zip_code_tree.size() - 1 - sibling_i] = {EDGE,
                             SnarlDistanceIndex::sum(
                                 last_is_reversed 
-                                    ? seeds->at(sibling.value).zipcode_decoder->get_distance_to_snarl_start(depth)
-                                    : seeds->at(sibling.value).zipcode_decoder->get_distance_to_snarl_end(depth),
+                                    ? seeds->at(sibling.value).zipcode_decoder->get_distance_to_snarl_start(depth+1)
+                                    : seeds->at(sibling.value).zipcode_decoder->get_distance_to_snarl_end(depth+1),
                                  sibling.distances.second),
                              false};
                     }
