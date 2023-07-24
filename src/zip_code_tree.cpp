@@ -532,6 +532,16 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #ifdef DEBUG_ZIP_CODE_TREE
                 cerr << "Add sibling with type " << current_type << endl;
 #endif
+            } else if (current_type == ROOT_SNARL) {
+                //If this is a root snarl, then just add the start of the snarl
+                if (sibling_indices_at_depth[depth].size() == 0) {
+                    //IF this is the start of a new root snarl
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << "\t\tOpen new root snarl at depth " << depth << endl;
+#endif
+                    //Now record the start of this snarl
+                    zip_code_tree.push_back({SNARL_START, std::numeric_limits<size_t>::max(), false});
+                }
             } else {
                 //Otherwise, this is a chain or root chain
                 //If it is a chain, then it is the child of a snarl, so we need to find distances
@@ -748,6 +758,15 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                 //Note the count of children and the end of the snarl
                 zip_code_tree.push_back({NODE_COUNT, sibling_indices_at_depth[depth].size()-1, false});
                 zip_code_tree.push_back({SNARL_END, std::numeric_limits<size_t>::max(), false});
+            } else if (last_type == ROOT_SNARL) {
+
+#ifdef DEBUG_ZIP_CODE_TREE
+                cerr << "\t\tclose a root snarl at depth " << depth << endl;
+#endif
+                //Add the end of the root snarl to the zip code tree. Don't need distances to the ends of the snarl
+                zip_code_tree.push_back({SNARL_END, std::numeric_limits<size_t>::max(), false});
+
+
             }
         }
         //Update last_is_reversed to the one before this
@@ -920,13 +939,15 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 
             bool in_non_dag_snarl = false;
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
-                if (distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) {
+                if ((distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) 
+                    || distance_index.is_root_snarl(next_handle)) {
                     in_non_dag_snarl = true;
                 }
                 next_handle = distance_index.get_parent(next_handle);
             }
             while (!in_non_dag_snarl && !distance_index.is_root(start_handle)) {
-                if (distance_index.is_snarl(start_handle) && !distance_index.is_dag(start_handle)) {
+                if ((distance_index.is_snarl(start_handle) && !distance_index.is_dag(start_handle)) 
+                    || distance_index.is_root_snarl(next_handle)) {
                     in_non_dag_snarl = true;
                 }
                 start_handle = distance_index.get_parent(start_handle);

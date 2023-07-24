@@ -1166,6 +1166,117 @@ namespace unittest {
         zip_tree.print_self();
         zip_tree.validate_zip_tree(distance_index);
     }
+
+    TEST_CASE("Root snarl", "[zip_tree][bug]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GTGCACA");//8
+        Node* n2 = graph.create_node("GTGCACA");
+        Node* n3 = graph.create_node("GT");
+        Node* n4 = graph.create_node("GATTCTTATAG");//11
+
+        Edge* e1 = graph.create_edge(n1, n3);
+        Edge* e2 = graph.create_edge(n1, n4);
+        Edge* e3 = graph.create_edge(n3, n2);
+        Edge* e4 = graph.create_edge(n3, n4, false, true);
+        Edge* e5 = graph.create_edge(n2, n4);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+        vector<pos_t> positions;
+        positions.emplace_back(1, false, 0);
+        positions.emplace_back(2, false, 0);
+        positions.emplace_back(3, true, 0);
+        positions.emplace_back(4, false, 0);
+        
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (pos_t pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            seeds.push_back({ pos, 0, zipcode});
+        }
+
+        ZipCodeTree zip_tree;
+        zip_tree.fill_in_tree(seeds, distance_index);
+        zip_tree.print_self();
+        //TODO: This doesn't actually have the right distances yet, I just want to make sure it won't crash
+        zip_tree.validate_zip_tree(distance_index);
+    }
+
+
+    TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]"){
+    
+    
+        for (int i = 0; i < 100; i++) {
+            // For each random graph
+    
+            default_random_engine generator(time(NULL));
+            uniform_int_distribution<int> variant_count(1, 70);
+            uniform_int_distribution<int> chrom_len(10, 200);
+    
+            //Make a random graph with three chromosomes of random lengths
+            HashGraph graph;
+            random_graph({chrom_len(generator),chrom_len(generator),chrom_len(generator)}, 30, variant_count(generator), &graph);
+            graph.serialize("testGraph.hg");
+
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+            SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+
+            vector<id_t> all_nodes;
+            graph.for_each_handle([&](const handle_t& h)->bool{
+                id_t id = graph.get_id(h);
+                all_nodes.push_back(id);
+                return true;
+            });
+
+            uniform_int_distribution<int> randPosIndex(0, all_nodes.size()-1);
+
+            //Check k random sets of seeds
+            for (size_t k = 0; k < 10 ; k++) {
+
+                vector<SnarlDistanceIndexClusterer::Seed> seeds;
+
+                uniform_int_distribution<int> randPosCount(3, 70);
+                for (int j = 0; j < randPosCount(generator); j++) {
+                    //Check clusters of j random positions
+
+                    id_t nodeID1 = all_nodes[randPosIndex(generator)];
+                    handle_t node1 = graph.get_handle(nodeID1);
+
+                    offset_t offset1 = uniform_int_distribution<int>(0,graph.get_length(node1) - 1)(generator);
+
+                    pos_t pos = make_pos_t(nodeID1,
+                                           uniform_int_distribution<int>(0,1)(generator) == 0,
+                                           offset1 );
+
+                    ZipCode zipcode;
+                    zipcode.fill_in_zipcode(distance_index, pos);
+
+                    seeds.push_back({ pos, 0, zipcode});
+
+                }
+
+                ZipCodeTree zip_tree;
+                zip_tree.fill_in_tree(seeds, distance_index);
+                zip_tree.print_self();
+                zip_tree.validate_zip_tree(distance_index);
+                REQUIRE(true); //Just to count
+            }
+        }
+    }
+
+
+
+
+
+
  
 }
 }
