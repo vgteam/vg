@@ -1386,6 +1386,141 @@ std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator:
     return out << std::to_string(state);
 }
 
+vector<size_t> sort_zipcodes(const vector<ZipCode> zipcodes) {
+    /*
+      Sort the zipcodes in roughly linear/topological-ish order along the top-level chains
+
+      This sorts the zipcodes top-down along the snarl tree
+      Sorting is split into two different types of sort: radix sort or an n-log-n sort,
+      depending on which will be more efficient
+      Sorting begins at the root, with a radix sort to partition the zipcodes into connected component
+      For each partition (a chain presumably), an n-log-n sort will be done to sort along the chain
+      And so on down the snarl tree.
+      The two sorters will each sort on a slice of the  
+    */
+
+    //The sort order of the zipcodes. Each element is an index into zipcodes
+    //Gets updated as sorting happens
+    vector<size_t> zipcode_sort order = [i for i in range(len(zipcodes))]
+
+    //A vector of ranges in zipcode_sort_order that need to be sorted
+    //This gets updated as sorting precedes through each level of the snarl tree
+    //The tuple contains the start and end indices (into zipcode_sort_order) of the range to sort, 
+    //and a bool is_reversed indicating the orientation of the current
+    //snarl/chain/node in the snarl tree, relative to the top-level chain 
+    vector<tuple<size_t, size_t, bool>> intervals_to_sort;
+
+    //Start with the whole interval, to sort by connected component
+    //Nothing is reversed
+    intervals_to_sort.emplace_back( {0, len(zipcode_sort_order), false} );
+
+    //Depth of the snarl tree
+    size_t depth = 0;
+
+
+    //While there is still stuff to sort, walk down the snarl tree and sort each interval for each depth
+    while (!intervals_to_sort.empty()) {
+
+        //The intervals to sort at the next level of the snarl tree. To be filled in in this iteration
+        vector<tuple<size_t, size_t, bool>> new_intervals_to_sort;
+
+        for (tuple<size_t, size_t, bool> current_interval : intervals_to_sort) {
+
+            //Helper function to get the value to sort on from the zipcode
+            //This doesn't take into account the orientation, except for nodes offsets in chains
+            //It will actually be defined somewhere else
+            auto get_sort_value (ZipCode, depth) {
+                if (zipcode is child of a snarl or root snarl at depth) {
+                    //For the child of a snarl, return the rank in the snarl, which is its topological order
+                    return zipcode.get_snarl_rank(depth);
+                } else if (zipcode is the child of a chain at depth) {
+                    //For the child of a chain, return the offset along the chain
+                    return the prefix sum along the chain, including node offset;
+                }
+            };
+            bool is_reversed = new_intervals_to_sort[2];
+            if (radix sort is more efficient) {
+                //Sort the given interval using the value-getter and orientation
+                //Update new_intervals_to_sort with the intervals to sort at the next depth
+                radix_sort(zipcodes, current_interval[0], current_interval[1], get_sort_value, is_reversed, new_intervals_to_sort);
+            } else {
+                //Sort the given interval using the value-getter and orientation
+                //Update new_intervals_to_sort with the intervals to sort at the next depth
+                nlogn_sort(zipcodes, current_interval[0], current_interval[1], get_sort_value, is_reversed, new_intervals_to_sort);
+            }
+
+        }
+
+        //Update to the next depth
+        intervals_to_sort = new_intervals_to_sort;
+        depth++;
+    }
+
+    return zipcode_sort_order;
+}
+
+void radix_sort(vector<ZipCode> zipcodes, vector<size_t>zipcode_sort_order, size_t interval_start, size_t interval_end, function get_sort_value, bool is_reversed, vector<tuple< size_t, size_t, bool>> new_intervals_to_sort) {
+    //Radix sort the interval of zipcode_sort_order between interval_start and interval_end
+    //Add new intervals of equivalent values to new_intervals_to_sort for the next depth
+
+    //Mostly copied from Jordan
+
+    // count up occurrences of each rank
+    std::vector<size_t> counts;
+    for (size_t i : zipcode_sort_order, between interval_start and interval_end) {
+        size_t next_rank = get_sort_value(i) + 1;
+        while (counts.size() <= next_rank) {
+            counts.push_back(0);
+        }
+        ++counts[next_rank];
+    }
+    
+    for (size_t i = 1; i < counts.size(); ++i) {
+        counts[i] += counts[i - 1];
+    }
+    
+    for (size_t i : indexes) {
+        size_t rank = getter(i);
+        //If is_reversed, do this in the reverse order from interval_end
+        zipcode_sort_order[(counts[rank]++) + interval_start] = i;
+    }
+
+    //Now that it's sorted, find runs of equivalent values for new_interval_to_sort
+    //Also need to check the orientation
+    size_t start_of_current_run = interval_start
+    for (size_t i = interval_start+1 ; i < interval_end ;++) {
+        if (zipcode_sort_order[i] != zipcode_sort_order[i-1] &&
+            i-1 != start_of_current_run) {
+            //If this is the end of a run of more than one thing
+            bool current_is_reversed = is_reversed and check the orientation of the current snarl tree node
+            new_intervals_to_sort.empalce_back(start_of_current_run, i, current_is_reversed);
+        }
+    }
+}
+void nlogn_sort(vector<ZipCode> zipcodes, vector<size_t>zipcode_sort_order, size_t interval_start, size_t interval_end, function get_sort_value, bool is_reversed, vector<tuple< size_t, size_t, bool>> new_intervals_to_sort) {
+    //std::sort the interval of zipcode_sort_order between interval_start and interval_end
+    //Add new intervals of equivalent values to new_intervals_to_sort
+    
+    //Sort using std::sort 
+    std::sort(zipcode_sort_order, interval_start, interval_end, [&] (size_t a, size_t b) {
+        //If this snarl tree node is reversed, then reverse the sort order
+        return is_reversed ? get_sort_value(a) >= get_sort_value(b)
+                           : get_sort_value(a) < get_sort_value(b);
+    });
+
+    //Now that it's sorted, find runs of equivalent values for new_interval_to_sort
+    //Also check the orientation
+    size_t start_of_current_run = interval_start
+    for (size_t i = interval_start+1 ; i < interval_end ;++) {
+        if (zipcode_sort_order[i] != zipcode_sort_order[i-1] &&
+            i-1 != start_of_current_run) {
+            //If this is the end of a run of more than one thing
+            bool current_is_reversed = is_reversed and check the orientation of the current snarl tree node
+            new_intervals_to_sort.empalce_back(start_of_current_run, i, current_is_reversed);
+        }
+    }
+}
+
 }
 
 namespace std {
@@ -1431,3 +1566,4 @@ std::string to_string(const vg::ZipCodeTree::reverse_iterator::State& state) {
 
 
 }
+
