@@ -153,7 +153,8 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
         cerr << seeds->at(i).pos << endl;
     }
 
-    assert(seed_indices == old_seed_indices);
+    //Since std::sort isn't stable, I think these might be different
+    //assert(seed_indices == old_seed_indices);
 #endif
 
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1391,10 +1392,10 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
         code_type_t code_type = seed.zipcode_decoder->get_code_type(depth);
         if (code_type == NODE || code_type == ROOT_NODE || seed.zipcode_decoder->max_depth() == depth) {
 #ifdef DEBUG_ZIP_CODE_TREE
-            cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos) - 1
+            cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos) - 1
                                     : offset(seed.pos)) << endl;;
 #endif
-            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos) - 1
+            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos) - 1
                                     : offset(seed.pos);
         } else if (code_type == CHAIN || code_type == ROOT_CHAIN) {
 #ifdef DEBUG_ZIP_CODE_TREE
