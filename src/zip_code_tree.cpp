@@ -1533,7 +1533,7 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
         intervals_to_sort = new_intervals_to_sort;
         depth++;
 #ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "Order after depth " << depth << endl;
+        cerr << "Order after depth " << depth-1 << endl;
         for (size_t i : zipcode_sort_order) {
             cerr << seeds->at(i).pos << ", ";
         }
@@ -1576,7 +1576,7 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
     std::vector<size_t> sorted(interval.interval_end - interval.interval_start);
     for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
         size_t rank = get_sort_value(seeds->at(zipcode_sort_order[i]), depth);
-        sorted[counts[rank]++] = i;
+        sorted[counts[rank]++] = zipcode_sort_order[i];
     }
     
     //And place everything in the correct position
@@ -1586,6 +1586,7 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
         //If this is reversed in the top-level chain, then the order should be backwards
         //TODO: I'm not sure how this should work for a snarl
         if (interval.is_reversed) {
+            cerr << "Is reversed: " << endl;
             zipcode_sort_order[interval.interval_end - i - 1] = sorted[i];
         } else {
             zipcode_sort_order[i + interval.interval_start] = sorted[i];
@@ -1602,7 +1603,9 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
         bool is_different_from_previous = get_sort_value(seeds->at(zipcode_sort_order[i]), depth) 
                                           != get_sort_value(seeds->at(zipcode_sort_order[i-1]), depth);
         bool is_last = i == interval.interval_end-1;
-        if (is_different_from_previous && i-1 != start_of_current_run) {
+        if (is_node) {
+            start_of_current_run = i;
+        } else if (is_different_from_previous && i-1 != start_of_current_run) {
             //If this is the end of a run of more than one thing
             //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
             //it won't reach here
@@ -1613,15 +1616,13 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
             new_intervals.emplace_back(start_of_current_run, i == interval.interval_end-1 ? i+1 : i, current_is_reversed);
             
             start_of_current_run = i;
-        } else if (is_last && !is_different_from_previous && !is_node) {
+        } else if (is_last && !is_different_from_previous) {
             //If this is the last thing in the sorted list, and the previous thing was in the same run
 
             bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
                                      ? !interval.is_reversed
                                      : interval.is_reversed;
             new_intervals.emplace_back(start_of_current_run, i == interval.interval_end-1 ? i+1 : i, current_is_reversed);
-        } else if (is_node) {
-            start_of_current_run = i;
         }
     }
 }
