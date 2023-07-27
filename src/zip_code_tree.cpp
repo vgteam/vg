@@ -134,20 +134,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     return offset_a < offset_b;
                 }
             }
-        } else if (seeds->at(a).zipcode_decoder->get_code_type(depth-1) == REGULAR_SNARL) {
-            cerr << "\t they are children of a common regular snarl" << endl;
-            //If the parent is a regular snarl, then sort by order along the parent chain
-            size_t offset1 = is_rev(seeds->at(a).pos) 
-                           ? seeds->at(a).zipcode_decoder->get_length(depth) - offset(seeds->at(a).pos) - 1
-                           : offset(seeds->at(a).pos); 
-            size_t offset2 = is_rev(seeds->at(b).pos) 
-                           ? seeds->at(b).zipcode_decoder->get_length(depth) - offset(seeds->at(b).pos) - 1
-                           : offset(seeds->at(b).pos);
-            if (!parent_of_a_is_reversed) {
-                return offset1 < offset2;
-            } else {
-                return offset2 < offset1;
-            }
         } else {
             cerr << "\t they are children of a common irregular snarl" << endl;
             // Otherwise, they are children of an irregular snarl
@@ -1436,7 +1422,7 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
             return prefix_sum;
         } else {
 #ifdef DEBUG_ZIP_CODE_TREE
-            cerr << "\tThis is snarl, so return the rank in the snarl: " << endl;
+            cerr << "\tThis is snarl, so return the rank in the snarl: " << seed.zipcode_decoder->get_rank_in_snarl(depth+1) << endl;
 #endif
             // The ranks of children in irregular snarls are in a topological order, so 
             // sort on the ranks
@@ -1501,9 +1487,13 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
             bool use_radix;
 
             //One of the seeds getting sorted
-            const Seed& seed_to_sort = seeds->at(current_interval.interval_start);
+            const Seed& seed_to_sort = seeds->at(zipcode_sort_order[current_interval.interval_start]);
 
-            if (seed_to_sort.zipcode_decoder->get_code_type(depth) == NODE || seed_to_sort.zipcode_decoder->get_code_type(depth) == CHAIN) {
+            if (seed_to_sort.zipcode_decoder->get_code_type(depth) == ROOT_CHAIN) {
+                //IF this is a root chain, then use the default sort, because it's probably too big for radix and we can't tell
+                //anyways because we don't store the length of a root-chain
+                use_radix = false;
+            } else if (seed_to_sort.zipcode_decoder->get_code_type(depth) == NODE || seed_to_sort.zipcode_decoder->get_code_type(depth) == CHAIN) {
                 //If we're sorting a node or chain, then the range of values is the minimum length of the node/chain
                 // times 2 because it gets multiplied by 2 to differentiate nodes and snarls
                 size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(depth) * 2;
