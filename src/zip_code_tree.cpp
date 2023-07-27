@@ -1403,12 +1403,12 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
         cerr << "\tGet the sort value of seed " << seed.pos << " at depth " << depth << endl;
 #endif
         code_type_t code_type = seed.zipcode_decoder->get_code_type(depth);
-        if (code_type == NODE || code_type == ROOT_NODE) {
+        if (code_type == NODE || code_type == ROOT_NODE || seed.zipcode_decoder->max_depth() == depth) {
 #ifdef DEBUG_ZIP_CODE_TREE
-            cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+            cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos) - 1
                                     : offset(seed.pos)) << endl;;
 #endif
-            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos) - 1
                                     : offset(seed.pos);
         } else if (code_type == CHAIN || code_type == ROOT_CHAIN) {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1426,7 +1426,7 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
                 //If this is a node, then get the prefix sum value plus the offset in the position, and multiply by 2 
                 prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1),
                                                  seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
-                                                     ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+                                                     ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos) - 1
                                                      : offset(seed.pos));
                 prefix_sum *= 2;
             }
@@ -1603,9 +1603,7 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
         bool is_different_from_previous = get_sort_value(seeds->at(zipcode_sort_order[i]), depth) 
                                           != get_sort_value(seeds->at(zipcode_sort_order[i-1]), depth);
         bool is_last = i == interval.interval_end-1;
-        if (is_node) {
-            start_of_current_run = i;
-        } else if (is_different_from_previous && i-1 != start_of_current_run) {
+        if (is_different_from_previous && i-1 != start_of_current_run) {
             //If this is the end of a run of more than one thing
             //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
             //it won't reach here
@@ -1613,16 +1611,18 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
             bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
                                      ? !interval.is_reversed
                                      : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i == interval.interval_end-1 ? i+1 : i, current_is_reversed);
+            new_intervals.emplace_back(start_of_current_run,  i, current_is_reversed);
             
             start_of_current_run = i;
-        } else if (is_last && !is_different_from_previous) {
+        } else if (is_last && !is_different_from_previous && !is_node) {
             //If this is the last thing in the sorted list, and the previous thing was in the same run
 
             bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
                                      ? !interval.is_reversed
                                      : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i == interval.interval_end-1 ? i+1 : i, current_is_reversed);
+            new_intervals.emplace_back(start_of_current_run, i+1, current_is_reversed);
+        } else if (is_node || is_different_from_previous) {
+            start_of_current_run = i;
         }
     }
 }
@@ -1661,7 +1661,7 @@ void ZipCodeTree::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, cons
             bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
                                      ? !interval.is_reversed
                                      : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i == interval.interval_end-1 ? i+1 : i, current_is_reversed);
+            new_intervals.emplace_back(start_of_current_run, i, current_is_reversed);
             
             start_of_current_run = i;
         } else if (is_last && !is_different_from_previous && !is_node) {
@@ -1670,8 +1670,8 @@ void ZipCodeTree::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, cons
             bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
                                      ? !interval.is_reversed
                                      : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i == interval.interval_end-1 ? i+1 : i, current_is_reversed);
-        } else if (is_node) {
+            new_intervals.emplace_back(start_of_current_run, i+1, current_is_reversed);
+        } else if (is_node || is_different_from_previous) {
             start_of_current_run = i;
         }
     }
