@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -144,10 +144,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                    seeds->at(b).zipcode_decoder->get_rank_in_snarl(depth);
         } 
     });
-    cerr << "Sorted positions:" << endl;
-    for (const size_t& i : seed_indices) {
-        cerr << seeds->at(i).pos << endl;
-    }
     cerr << "old Sorted positions:" << endl;
     for (const size_t& i : old_seed_indices) {
         cerr << seeds->at(i).pos << endl;
