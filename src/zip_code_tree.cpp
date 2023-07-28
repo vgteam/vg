@@ -1573,7 +1573,6 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
         //If this is reversed in the top-level chain, then the order should be backwards
         //TODO: I'm not sure how this should work for a snarl
         if (interval.is_reversed) {
-            cerr << "Is reversed: " << endl;
             zipcode_sort_order[interval.interval_end - i - 1] = sorted[i];
         } else {
             zipcode_sort_order[i + interval.interval_start] = sorted[i];
