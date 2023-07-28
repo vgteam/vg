@@ -31,7 +31,7 @@
 #include <cfloat>
 
 // Turn on debugging prints
-#define debug
+//#define debug
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump local graphs that we align against 
@@ -2055,8 +2055,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
         );
     }
 
+#ifdef debug
     std::cerr << "Local graph:" << std::endl;
     dump_debug_graph(local_graph);
+#endif
     
     // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
     nid_t local_left_anchor_id = 0;
@@ -2101,8 +2103,10 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
 
+#ifdef debug
     std::cerr << "Split graph:" << std::endl;
     dump_debug_graph(split_graph);
+#endif
     
     // And make sure it's a DAG of the stuff reachable from our anchors
     bdsg::HashGraph dagified_graph;
@@ -2195,8 +2199,10 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
         [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
 
+#ifdef debug
         std::cerr << "Dagified graph:" << std::endl;
         dump_debug_graph(dagified_graph);
+#endif
     
         // Then trim off the tips that are either in the wrong orientation relative
         // to whether we want them to be a source or a sink, or extraneous
@@ -2252,8 +2258,10 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
                 trim_count++;
 
+#ifdef debug
                 std::cerr << "Dagified graph trim " << trim_count << ":" << std::endl;
                 dump_debug_graph(dagified_graph);
+#endif
             }
         } while (trimmed);
         if (trim_count > 0) {
@@ -2269,7 +2277,9 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             // We need to pick band padding based on what we are aligning, and
             // we want to use permissive banding.
             size_t band_padding = choose_band_padding(alignment, dagified_graph);
+#ifdef debug
             std::cerr << "Aligning with band padding: " << band_padding << " for alignment length " << alignment.sequence().size() << std::endl;
+#endif
             aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
         } else {
             // Do pinned alignment off the anchor we actually have.

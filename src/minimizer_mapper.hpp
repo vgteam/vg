@@ -8,6 +8,7 @@
 
 #include "algorithms/chain_items.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
+#include "algorithms/pad_band.hpp"
 #include "aligner.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gbwt_extender.hpp"
@@ -790,7 +791,7 @@ protected:
      * If one of the anchor positions is empty, does pinned alignment against
      * the other position.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = [](const Alignment&, const HandleGraph&) {return 0;});
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
     
     /**
      * Set pair partner references for paired mapping results.

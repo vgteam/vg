@@ -5,7 +5,6 @@
 #include <iostream>
 #include "vg/io/json2pb.h"
 #include "../io/json2graph.hpp"
-#include "../algorithms/pad_band.hpp"
 #include <vg/vg.pb.h>
 #include "../minimizer_mapper.hpp"
 #include "../build_index.hpp"
@@ -408,10 +407,8 @@ TEST_CASE("MinimizerMapper can align a reverse strand string to the middle of a 
         pos_t left_anchor {48732576, true, 193};
         pos_t right_anchor {48732576, true, 893};
         
-        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 800, &graph, &aligner, aln, std::numeric_limits<size_t>::max(), algorithms::pad_band_random_walk());
+        TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 800, &graph, &aligner, aln);
 
-        std::cerr << "Alignment: " << pb2json(aln) << std::endl;
-        
         // We demand a positive-score alignment
         REQUIRE(aln.score() > 0);
 }
