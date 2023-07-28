@@ -6,6 +6,8 @@
 
 #include "pad_band.hpp"
 
+#include <cmath>
+
 namespace vg {
 namespace algorithms {
 

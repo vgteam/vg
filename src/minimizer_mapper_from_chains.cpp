@@ -1659,6 +1659,14 @@ Alignment MinimizerMapper::find_chain_alignment(
                 size_t graph_horizon = left_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
                 // Align the left tail, anchoring the right end.
                 align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
+                
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_aln.score() << endl;
+                    }
+                }
+
                 // Since it's the left tail we can just clobber the path
                 composed_path = tail_aln.path();
                 composed_score = tail_aln.score();
@@ -1850,14 +1858,12 @@ Alignment MinimizerMapper::find_chain_alignment(
             size_t path_length = std::max(graph_length, link_length) + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
             MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells, this->choose_band_padding);
             
-#ifdef debug_chaining
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "Add link of length " << path_to_length(link_aln.path()) << " with score of " << link_aln.score() << endl;
                 }
             }
-#endif
             
             // Then tack that path and score on
             append_path(composed_path, link_aln.path());
@@ -1969,11 +1975,19 @@ Alignment MinimizerMapper::find_chain_alignment(
                 if (!aln.quality().empty()) {
                     tail_aln.set_quality(aln.quality().substr((*here).read_end(), right_tail_length));
                 }
-                
+
                 // Work out how far the tail can see
                 size_t graph_horizon = right_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
                 // Align the right tail, anchoring the left end.
                 align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
+                
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << "warning[MinimizerMapper::find_chain_alignment]: Fallback score: " << tail_aln.score() << endl;
+                    }
+                }
+
                 // Since it's the right tail we have to add it on
                 append_path(composed_path, tail_aln.path());
                 composed_score += tail_aln.score();

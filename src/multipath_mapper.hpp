@@ -198,6 +198,9 @@ namespace vg {
         // the maximum number of pairs of each motif that we will consider during spliced alignment
         size_t max_motif_pairs = 1024;
         unordered_set<path_handle_t> ref_path_handles;
+
+        // A function for computing band padding
+        std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -682,9 +685,6 @@ namespace vg {
         // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
         static const size_t gap_memo_max_size;
-        
-        // A function for computing band padding
-        std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
         
 #ifdef mpmap_instrument_mem_statistics
     public:
