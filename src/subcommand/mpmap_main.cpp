@@ -1901,7 +1901,7 @@ int main_mpmap(int argc, char** argv) {
     }
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
-    multipath_mapper.choose_band_padding = algorithms::pad_band_random_walk(band_padding_multiplier);
+    multipath_mapper.choose_band_padding = vg::algorithms::pad_band_random_walk(band_padding_multiplier);
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;

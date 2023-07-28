@@ -61,11 +61,11 @@ namespace vg {
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
                                      SnarlDistanceIndex* distance_index) :
         BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
+        choose_band_padding(algorithms::pad_band_random_walk(1.0, 0)),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
         path_component_index(distance_index ? nullptr : new PathComponentIndex(graph)),
-        splice_stats(*get_regular_aligner()),
-        choose_band_padding(algorithms::pad_band_random_walk(1.0, 0))
+        splice_stats(*get_regular_aligner())
     {
         set_max_merge_supression_length();
     }
