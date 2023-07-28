@@ -1447,7 +1447,7 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
     // Assume that the number of connected components is small enough that radix sort is more efficient
     interval_and_orientation_t first_interval(0, zipcode_sort_order.size(), false);
     radix_sort_zipcodes(zipcode_sort_order, first_interval, 
-                        intervals_to_sort, std::numeric_limits<size_t>::max(), distance_index,
+                        std::numeric_limits<size_t>::max(), distance_index,
                         [&](Seed& seed, size_t depth) {
                             //Sort on the connected component number
                             return seed.zipcode_decoder->get_distance_index_address(0);
@@ -1506,14 +1506,46 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
 
             if (use_radix) {
                 //Sort the given interval using the value-getter and orientation
-                //Update new_intervals_to_sort with the intervals to sort at the next depth
-                radix_sort_zipcodes(zipcode_sort_order, current_interval, new_intervals_to_sort, depth, distance_index, get_sort_value);
+                radix_sort_zipcodes(zipcode_sort_order, current_interval, depth, distance_index, get_sort_value);
             } else {
                 //Sort the given interval using the value-getter and orientation
-                //Update new_intervals_to_sort with the intervals to sort at the next depth
-                default_sort_zipcodes(zipcode_sort_order, current_interval, new_intervals_to_sort, depth, distance_index, get_sort_value);
+                default_sort_zipcodes(zipcode_sort_order, current_interval, depth, distance_index, get_sort_value);
             }
 
+
+            //Now that it's sorted, find runs of equivalent values for new_interval_to_sort
+            //Also need to check the orientation
+            size_t start_of_current_run = current_interval.interval_start;
+            for (size_t i = current_interval.interval_start+1 ; i < current_interval.interval_end ; i++) {
+                
+                //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
+                bool is_node = seeds->at(zipcode_sort_order[i]).zipcode_decoder->max_depth() == depth ||
+                               seeds->at(zipcode_sort_order[i]).zipcode_decoder->get_code_type(depth+1) == NODE;
+                bool is_different_from_previous = get_sort_value(seeds->at(zipcode_sort_order[i]), depth) 
+                                                  != get_sort_value(seeds->at(zipcode_sort_order[i-1]), depth);
+                bool is_last = i == current_interval.interval_end-1;
+                if (is_different_from_previous && i-1 != start_of_current_run) {
+                    //If this is the end of a run of more than one thing
+                    //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
+                    //it won't reach here
+
+                    bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
+                                             ? !current_interval.is_reversed
+                                             : current_interval.is_reversed;
+                    new_intervals_to_sort.emplace_back(start_of_current_run,  i, current_is_reversed);
+                    
+                    start_of_current_run = i;
+                } else if (is_last && !is_different_from_previous && !is_node) {
+                    //If this is the last thing in the sorted list, and the previous thing was in the same run
+
+                    bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
+                                             ? !current_interval.is_reversed
+                                             : current_interval.is_reversed;
+                    new_intervals_to_sort.emplace_back(start_of_current_run, i+1, current_is_reversed);
+                } else if (is_node || is_different_from_previous) {
+                    start_of_current_run = i;
+                }
+            }
         }
 
         //Update to the next depth
@@ -1532,11 +1564,9 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
 }
 
 void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                                   vector<interval_and_orientation_t>& new_intervals, size_t depth,
-                                   const SnarlDistanceIndex& distance_index, 
+                                   size_t depth, const SnarlDistanceIndex& distance_index, 
                                    const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const {
     //Radix sort the interval of zipcode_sort_order in the given interval
-    //Add new intervals of equivalent values to new_intervals for the next depth
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\tradix sort" << endl;
 #endif
@@ -1579,45 +1609,11 @@ void ZipCodeTree::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const 
         }
     }
 
-    //Now that it's sorted, find runs of equivalent values for new_interval_to_sort
-    //Also need to check the orientation
-    size_t start_of_current_run = interval.interval_start;
-    for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
-        
-        //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
-        bool is_node = seeds->at(zipcode_sort_order[i]).zipcode_decoder->max_depth() == depth;
-        bool is_different_from_previous = get_sort_value(seeds->at(zipcode_sort_order[i]), depth) 
-                                          != get_sort_value(seeds->at(zipcode_sort_order[i-1]), depth);
-        bool is_last = i == interval.interval_end-1;
-        if (is_different_from_previous && i-1 != start_of_current_run) {
-            //If this is the end of a run of more than one thing
-            //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
-            //it won't reach here
-
-            bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
-                                     ? !interval.is_reversed
-                                     : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run,  i, current_is_reversed);
-            
-            start_of_current_run = i;
-        } else if (is_last && !is_different_from_previous && !is_node) {
-            //If this is the last thing in the sorted list, and the previous thing was in the same run
-
-            bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
-                                     ? !interval.is_reversed
-                                     : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i+1, current_is_reversed);
-        } else if (is_node || is_different_from_previous) {
-            start_of_current_run = i;
-        }
-    }
 }
 void ZipCodeTree::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                                   vector<interval_and_orientation_t>& new_intervals, size_t depth,
-                                   const SnarlDistanceIndex& distance_index, 
+                                   size_t depth, const SnarlDistanceIndex& distance_index, 
                                    const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const { 
     //std::sort the interval of zipcode_sort_order between interval_start and interval_end
-    //Add new intervals of equivalent values to new_intervals
     
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\tdefault sort" << endl;
@@ -1628,39 +1624,6 @@ void ZipCodeTree::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, cons
         return interval.is_reversed ? get_sort_value(seeds->at(a), depth) >= get_sort_value(seeds->at(b), depth)
                                     : get_sort_value(seeds->at(a), depth) < get_sort_value(seeds->at(b), depth);
     });
-
-    //Now that it's sorted, find runs of equivalent values for new_interval_to_sort
-    //Also need to check the orientation
-    size_t start_of_current_run = interval.interval_start;
-    for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
-        
-        //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
-        bool is_node = seeds->at(zipcode_sort_order[i]).zipcode_decoder->max_depth() == depth;
-        bool is_different_from_previous = get_sort_value(seeds->at(zipcode_sort_order[i]), depth) 
-                                          != get_sort_value(seeds->at(zipcode_sort_order[i-1]), depth);
-        bool is_last = i == interval.interval_end-1;
-        if (is_different_from_previous && i-1 != start_of_current_run) {
-            //If this is the end of a run of more than one thing
-            //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
-            //it won't reach here
-
-            bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
-                                     ? !interval.is_reversed
-                                     : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i, current_is_reversed);
-            
-            start_of_current_run = i;
-        } else if (is_last && !is_different_from_previous && !is_node) {
-            //If this is the last thing in the sorted list, and the previous thing was in the same run
-
-            bool current_is_reversed = seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), depth+1, distance_index) 
-                                     ? !interval.is_reversed
-                                     : interval.is_reversed;
-            new_intervals.emplace_back(start_of_current_run, i+1, current_is_reversed);
-        } else if (is_node || is_different_from_previous) {
-            start_of_current_run = i;
-        }
-    }
 }
 
 }
