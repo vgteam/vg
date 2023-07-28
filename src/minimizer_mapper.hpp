@@ -320,7 +320,7 @@ public:
     /// alignment? If we want to do more than this, just leave tail unaligned.
     static constexpr size_t default_max_dp_cells = 16UL * 1024UL * 1024UL;
     size_t max_dp_cells = default_max_dp_cells;
-    
+
     /////////////////
     // More shared parameters:
     /////////////////
@@ -520,6 +520,9 @@ protected:
     /// We have a zip code tree for finding distances between seeds 
     ZipCodeTree zip_tree;
 
+    /// We have a function for determinign band paddding for banded alignment
+    /// when aligning from chains.
+    std::function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding;
 
     /// We have a distribution for read fragment lengths that takes care of
     /// knowing when we've observed enough good ones to learn a good
@@ -787,7 +790,7 @@ protected:
      * If one of the anchor positions is empty, does pinned alignment against
      * the other position.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max());
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = [](const Alignment&, const HandleGraph&) {return 0;});
     
     /**
      * Set pair partner references for paired mapping results.

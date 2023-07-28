@@ -19,6 +19,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/chain_items.hpp"
+#include "algorithms/pad_band.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -1657,7 +1658,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Work out how far the tail can see
                 size_t graph_horizon = left_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
                 // Align the left tail, anchoring the right end.
-                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells);
+                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
                 // Since it's the left tail we can just clobber the path
                 composed_path = tail_aln.path();
                 composed_score = tail_aln.score();
@@ -1847,7 +1848,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             }
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t path_length = std::max(graph_length, link_length) + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
-            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells);
+            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells, this->choose_band_padding);
             
 #ifdef debug_chaining
             if (show_work) {
@@ -1972,7 +1973,7 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Work out how far the tail can see
                 size_t graph_horizon = right_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
                 // Align the right tail, anchoring the left end.
-                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells);
+                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
                 // Since it's the right tail we have to add it on
                 append_path(composed_path, tail_aln.path());
                 composed_score += tail_aln.score();
@@ -2188,7 +2189,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     callback(dagified_graph, dagified_handle_to_base);
 }
 
-void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells) {
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
     
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
@@ -2262,8 +2263,14 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
             // Then align the linking bases, with global alignment so they have
-            // to go from a source to a sink. Banded alignment means we can safely do big problems.
-            aligner->align_global_banded(alignment, dagified_graph);
+            // to go from a source to a sink. Banded alignment means we can
+            // safely do big problems.
+            //
+            // We need to pick band padding based on what we are aligning, and
+            // we want to use permissive banding.
+            size_t band_padding = choose_band_padding(alignment, dagified_graph);
+            std::cerr << "Aligning with band padding: " << band_padding << " for alignment length " << alignment.sequence().size() << std::endl;
+            aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
         } else {
             // Do pinned alignment off the anchor we actually have.
             // Don't use X-Drop because Dozeu is known to just overwrite the
