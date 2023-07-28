@@ -862,7 +862,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "\tKept " << bucket_good_fragment_nums[kv.first].size() << " fragments." << endl;
+                cerr << log_name() << "\tKept " << bucket_good_fragment_nums[kv.first].size() << "/" << kv.second.size() << " fragments." << endl;
             }
         }
     }
