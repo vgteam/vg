@@ -268,7 +268,7 @@ public:
     /// scores less than this fraction of the best fragment's score int he
     /// bucket will not be used in chaining.
     static constexpr double default_fragment_score_fraction = 0.1;
-    size_t fragment_score_fraction = default_fragment_score_fraction;
+    double fragment_score_fraction = default_fragment_score_fraction;
     
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 10000;
