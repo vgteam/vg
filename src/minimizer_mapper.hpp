@@ -213,7 +213,7 @@ public:
     size_t max_fragments_per_bucket = default_max_fragments_per_bucket;
     
     /// How many bases should we look back when making fragments?
-    static constexpr size_t default_fragment_max_lookback_bases = 400;
+    static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
     /// In fragments, how many sources should we make sure to consider regardless of distance?
     static constexpr size_t default_fragment_min_lookback_items = 0;
@@ -222,7 +222,7 @@ public:
     static constexpr size_t default_fragment_lookback_item_hard_cap = 3;
     size_t fragment_lookback_item_hard_cap = default_fragment_lookback_item_hard_cap;
     /// How many bases of indel should we allow in fragments?
-    static constexpr size_t default_fragment_max_indel_bases = 50;
+    static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
     /// If the read coverage of a fragment connection is less than the best of any
@@ -271,7 +271,7 @@ public:
     double fragment_score_fraction = default_fragment_score_fraction;
     
     /// How many bases should we look back when chaining?
-    static constexpr size_t default_max_lookback_bases = 10000;
+    static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
     /// How many chaining sources should we make sure to consider regardless of distance?
     static constexpr size_t default_min_lookback_items = 1;
@@ -292,10 +292,10 @@ public:
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
     /// How much of a multiple should we apply to each item's non-bonus score in chaining?
-    static constexpr int default_item_scale = 1;
+    static constexpr int default_item_scale = 0;
     int item_scale = default_item_scale;
     /// How many bases of indel should we allow in chaining?
-    static constexpr size_t default_max_indel_bases = 6000;
+    static constexpr size_t default_max_indel_bases = 2000;
     size_t max_indel_bases = default_max_indel_bases;
     
     /// If a chain's score is smaller than the best 
