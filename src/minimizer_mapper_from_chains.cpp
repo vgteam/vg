@@ -366,8 +366,8 @@ MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& al
             // Sort all the seeds used in the cluster by start position, so we can chain them.
             std::vector<size_t> cluster_seeds_sorted = cluster.seeds;
             
-            // Sort seeds by read start of seeded region, and remove indexes for seeds that are redundant
-            algorithms::sort_and_shadow(seed_anchors, cluster_seeds_sorted);
+            // Sort seeds by read start of seeded region
+            algorithms::sort_anchor_indexes(seed_anchors, cluster_seeds_sorted);
             
             if (track_provenance) {
                 funnel.substage("find_chain");

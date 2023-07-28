@@ -241,23 +241,6 @@ ostream& operator<<(ostream& out, const TracedScore& value);
  */
 void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
 
-
-/**
- * Get rid of items that are shadowed or contained by (or are identical to) others.
- *
- * Erases items that didn't survive from indexes, and sorts them by read start
- * position.
- */
-void sort_and_shadow(const std::vector<Anchor>& items, std::vector<size_t>& indexes);
-
-/**
- * Get rid of items that are shadowed or contained by (or are identical to) others.
- *
- * Erases items that didn't survive from items, and sorts them by read start
- * position.
- */
-void sort_and_shadow(std::vector<Anchor>& items);
-
 /**
  * Iteratee function type which can be called with each transition between
  * anchors.
