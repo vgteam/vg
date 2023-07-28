@@ -1115,6 +1115,9 @@ protected:
 
     /// Dump dotplot information for seeds, highlighting some of them.
     static void dump_debug_dotplot(const std::string& name, const std::string& marker, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<size_t>& included_seeds, const std::vector<size_t>& highlighted_seeds, const PathPositionHandleGraph* path_graph);
+
+    /// Dump a graph
+    static void dump_debug_graph(const HandleGraph& graph);
     
     /// Length at which we cut over to long-alignment logging.
     const static size_t LONG_LIMIT = 256;

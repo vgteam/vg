@@ -30,7 +30,7 @@
 #include <cfloat>
 
 // Turn on debugging prints
-//#define debug
+#define debug
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
 // Dump local graphs that we align against 
@@ -121,6 +121,12 @@ void MinimizerMapper::dump_debug_dotplot(const std::string& name, const std::str
         }
 
     }
+}
+
+void MinimizerMapper::dump_debug_graph(const HandleGraph& graph) {
+    graph.for_each_handle([&](const handle_t& h) {
+        std::cerr << "Node " << graph.get_id(h) << ": " << graph.get_sequence(h) << std::endl;
+    });
 }
 
 std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
@@ -2047,6 +2053,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
             false
         );
     }
+
+    std::cerr << "Local graph:" << std::endl;
+    dump_debug_graph(local_graph);
     
     // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
     nid_t local_left_anchor_id = 0;
@@ -2090,6 +2099,9 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     
     // And split by strand since we can only align to one strand
     StrandSplitGraph split_graph(&local_graph);
+
+    std::cerr << "Split graph:" << std::endl;
+    dump_debug_graph(split_graph);
     
     // And make sure it's a DAG of the stuff reachable from our anchors
     bdsg::HashGraph dagified_graph;
@@ -2181,6 +2193,9 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
         [&](DeletableHandleGraph& dagified_graph, const std::function<std::pair<nid_t, bool>(const handle_t&)>& dagified_handle_to_base) {
+
+        std::cerr << "Dagified graph:" << std::endl;
+        dump_debug_graph(dagified_graph);
     
         // Then trim off the tips that are either in the wrong orientation relative
         // to whether we want them to be a source or a sink, or extraneous
@@ -2235,6 +2250,9 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 // algorithm function that we make actually good.
                 tip_handles = handlegraph::algorithms::find_tips(&dagified_graph);
                 trim_count++;
+
+                std::cerr << "Dagified graph trim " << trim_count << ":" << std::endl;
+                dump_debug_graph(dagified_graph);
             }
         } while (trimmed);
         if (trim_count > 0) {
@@ -2269,7 +2287,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 e->set_sequence(alignment.sequence());
                 return;
             } else {
-#ifdef debug_chaining
+#ifdef debug
                 #pragma omp critical (cerr)
                 std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
 #endif

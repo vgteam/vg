@@ -408,6 +408,8 @@ TEST_CASE("MinimizerMapper can align a reverse strand string to the middle of a 
         pos_t right_anchor {48732576, true, 893};
         
         TestMinimizerMapper::align_sequence_between(left_anchor, right_anchor, 800, &graph, &aligner, aln);
+
+        std::cerr << "Alignment: " << pb2json(aln) << std::endl;
         
         // We demand a positive-score alignment
         REQUIRE(aln.score() > 0);

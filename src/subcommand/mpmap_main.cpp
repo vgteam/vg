@@ -15,6 +15,7 @@
 
 #include <vg/io/vpkg.hpp>
 #include "../algorithms/component.hpp"
+#include "../algorithms/pad_band.hpp"
 #include "../multipath_mapper.hpp"
 #include "../mem_accelerator.hpp"
 #include "../surjector.hpp"
@@ -1900,8 +1901,7 @@ int main_mpmap(int argc, char** argv) {
     }
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
-    multipath_mapper.band_padding_multiplier = band_padding_multiplier;
-    multipath_mapper.init_band_padding_memo();
+    multipath_mapper.choose_band_padding = algorithms::pad_band_random_walk(band_padding_multiplier);
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;
