@@ -630,7 +630,7 @@ int main_chunk(int argc, char** argv) {
 
     // now ready to get our chunk on
     if (gam_split_size != 0) {
-        if(!gam_is_gaf){
+        if(gam_is_gaf){
             cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split." << endl;
             return 1;
         }
@@ -698,9 +698,11 @@ int main_chunk(int argc, char** argv) {
         unique_ptr<MutablePathMutableHandleGraph> subgraph;
         map<string, int> trace_thread_frequencies;
         if (!component_ids.empty()) {
+            cout << "here?" << endl;
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
             chunker.extract_component(component_ids[i], *subgraph, false);
             output_regions[i] = region;
+            cout << "nope" << endl;
         }
         else if (id_range == false) {
             subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
@@ -906,8 +908,8 @@ int main_chunk(int argc, char** argv) {
 
     // write out component gams
     if (chunk_gam && components) {
-        if(!gam_is_gaf){
-            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by chunked by component." << endl;
+        if(gam_is_gaf){
+            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by chunked by component. A workaround is to query one chromosome-component as the reference path and all contained snarls using '-p PATHNAME -S SNARLFILE'." << endl;
             return 1;
         }
 
