@@ -179,16 +179,18 @@ private:
     /// Helper function to sort the seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
     /// into seeds
+    /// reverse_order is true if the order should be reversed. The interval also has an is_reversed field,
+    /// which refers to the orientation in the snarl tree
     /// This should run in linear time, but it is dependent on the values being sorted on to have a small range
     void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             size_t depth, const SnarlDistanceIndex& distance_index, 
+                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
                              const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
 
     /// Helper function to sort the seeds using std::sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
     /// into seeds
     void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             size_t depth, const SnarlDistanceIndex& distance_index, 
+                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
                              const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
 
 
