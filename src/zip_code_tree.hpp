@@ -126,6 +126,11 @@ class ZipCodeTree {
 
 public:
 
+    /// Return the sort order of the seeds
+    /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
+    /// Uses radix_sort_zipcodes and default_sort_zipcodes
+    vector<size_t> sort_seeds_by_zipcode(const SnarlDistanceIndex& distance_index) const;
+
     /// Count the number of snarls involved in the tree
     /// Returns a pair of <dag count, non-dag count>
     /// Assumes that the tree has already been filled in
@@ -145,6 +150,50 @@ public:
 
     ///Helper function to access the values in the zip_code_tree
     tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
+private:
+
+    //Helper function to get the orientation of a snarl tree node at a given depth
+    //does the same thing as the zipcode decoder's get_is_reversed_in_parent, except
+    //that is also considers chains that are children of irregular snarls.
+    //We assume that all snarls are DAGs, so all children of snarls must only be
+    //traversable in one orientation through the snarl. In a start-to-end traversal
+    //of a snarl, each node will only be traversable start-to-end or end-to-start.
+    //If it is traversable end-to-start, then it is considered to be oriented
+    //backwards in its parent
+    bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) const;
+
+    /// This gets used for sorting
+    /// It represents one interval along zipcode_sort_order to be sorted
+    /// At the relevant depth, everything in the interval will be on the same
+    /// snarl tree node, and is_reversed is true if that snarl tree node
+    /// is reversed relative to the top-level chain
+    struct interval_and_orientation_t {
+        size_t interval_start : 32; //inclusive
+        size_t interval_end : 31;   //exclusive
+        bool is_reversed : 1;
+
+        interval_and_orientation_t (size_t start, size_t end, size_t rev) :
+            interval_start(start), interval_end(end), is_reversed(rev) {}
+    };
+
+    /// Helper function to sort the seeds using radix sort
+    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
+    /// into seeds
+    /// reverse_order is true if the order should be reversed. The interval also has an is_reversed field,
+    /// which refers to the orientation in the snarl tree
+    /// This should run in linear time, but it is dependent on the values being sorted on to have a small range
+    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
+                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
+                             const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
+
+    /// Helper function to sort the seeds using std::sort
+    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
+    /// into seeds
+    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
+                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
+                             const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
+
+
 
 public:
     
