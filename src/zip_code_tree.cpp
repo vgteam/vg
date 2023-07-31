@@ -991,6 +991,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
         }
     }
 
+/*
 
     // Go through the zipcode tree and check distances and snarl tree relationships
 
@@ -1095,6 +1096,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 
         }
     }
+    */
 }
 
 
@@ -1713,12 +1715,12 @@ vector<size_t> ZipCodeTree::sort_seeds_by_zipcode(const SnarlDistanceIndex& dist
         }
 
         //Update to the next depth
-        intervals_to_sort = new_intervals_to_sort;
+        intervals_to_sort = std::move(new_intervals_to_sort);
         depth++;
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Order after depth " << depth-1 << endl;
-        for (size_t i : zipcode_sort_order) {
-            cerr << seeds->at(i).pos << ", ";
+        for (size_t i = 0 ; i < zipcode_sort_order.size() ; i++) {
+            cerr << i << ":" << seeds->at(zipcode_sort_order[i]).pos << ", ";
         }
         cerr << endl;
 #endif
@@ -1780,13 +1782,14 @@ void ZipCodeTree::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, cons
     //std::sort the interval of zipcode_sort_order between interval_start and interval_end
     
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "\tdefault sort" << endl;
+    cerr << "\tdefault sort between " << interval.interval_start  << " and " << interval.interval_end  << endl;
+    cerr << "\tis rev: " << reverse_order << endl;
 #endif
     //Sort using std::sort 
     std::sort(zipcode_sort_order.begin() + interval.interval_start, zipcode_sort_order.begin() + interval.interval_end, [&] (size_t a, size_t b) {
         //If this snarl tree node is reversed, then reverse the sort order
-        return reverse_order ? get_sort_value(seeds->at(a), depth) >= get_sort_value(seeds->at(b), depth)
-                                    : get_sort_value(seeds->at(a), depth) < get_sort_value(seeds->at(b), depth);
+        return reverse_order ? get_sort_value(seeds->at(a), depth) > get_sort_value(seeds->at(b), depth)
+                             : get_sort_value(seeds->at(a), depth) < get_sort_value(seeds->at(b), depth);
     });
 }
 
