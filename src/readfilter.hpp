@@ -80,6 +80,9 @@ public:
     /// Filter to proper pairs
     bool only_proper_pairs = true;
     
+    /// Filter to only mapped reads
+    bool only_mapped = true;
+    
     /// Number of threads from omp
     int threads = -1;
     /// GAM output buffer size
@@ -131,12 +134,17 @@ public:
 private:
 
     /**
-     * quick and dirty filter to see if removing reads that can slip around
+     * quick and dirty filter to see if removing reads that can slip around
      * and still map perfectly helps vg call.  returns true if at either
      * end of read sequence, at least k bases are repetitive, checking repeats
      * of up to size 2k
      */
     bool has_repeat(const Read& read, int k) const;
+    
+    /**
+     * Check if the alignment includes any aligned bases
+     */
+    bool is_mapped(const Read& read) const;
     
     /**
      * Trim only the end of the given alignment, leaving the start alone. Two
@@ -257,9 +265,10 @@ private:
 
 // Keep some basic counts for when verbose mode is enabled
 struct Counts {
+    // note: "last" must be kept as the final value in this enum
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
         min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        proper_pair, last};
+        proper_pair, unmapped, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -513,6 +522,12 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
                 keep = false;
                 ++counts.counts[Counts::FilterName::defray_all];
             }
+        }
+    }
+    if ((keep || verbose) && only_mapped) {
+        if (!is_mapped(read)) {
+            ++counts.counts[Counts::FilterName::unmapped];
+            keep = false;
         }
     }
     if ((keep || verbose) && downsample_probability != 1.0) {
