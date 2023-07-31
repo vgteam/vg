@@ -727,8 +727,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
             last_is_reversed = !last_is_reversed;
         }
     }
-    print_self();
-    validate_zip_tree(distance_index);
 }
 
 bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) const {
@@ -991,7 +989,6 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
         }
     }
 
-/*
 
     // Go through the zipcode tree and check distances and snarl tree relationships
 
@@ -1096,7 +1093,6 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
 
         }
     }
-    */
 }
 
 
