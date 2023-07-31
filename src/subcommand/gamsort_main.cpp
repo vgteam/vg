@@ -155,6 +155,7 @@ int main_gamsort(int argc, char **argv)
         kstring_t s_buffer = KS_INITIALIZE;
         gafkluge::GafRecord gaf;
 
+        // TODO manage temporary files better
         std::string chunk_outf = "temp_gafsort_" + std::to_string(chunk_id) + ".gaf";
         if(show_progress){
             cerr << "Preparing temporary chunk " << chunk_outf << "..." << endl;
@@ -178,7 +179,7 @@ int main_gamsort(int argc, char **argv)
             }
             // write them as new GAF tags 'rk1' and 'rk2'
             // they'll get written in the temporary chunks to avoid having
-            // to find them again when mergin them
+            // to find them again when merging them
             gaf.opt_fields["rk1"] = make_pair('i', std::to_string(min_node));
             gaf.opt_fields["rk2"] = make_pair('i', std::to_string(max_node));
             current_gaf_chunk.push_back(gaf);

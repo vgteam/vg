@@ -631,7 +631,7 @@ int main_chunk(int argc, char** argv) {
     // now ready to get our chunk on
     if (gam_split_size != 0) {
         if(gam_is_gaf){
-            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split." << endl;
+            cerr << "error[vg chunk]: GAF file input toggled with -F but, currently, only GAM files can by split. A workaround would be to split the GAF file using split -l/-n which can split text files into chunks." << endl;
             return 1;
         }
         for (size_t gi = 0; gi < gam_files.size(); ++gi) {
