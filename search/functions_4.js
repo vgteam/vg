@@ -11,7 +11,7 @@ var searchData=
   ['decompose_5falignments_7913',['decompose_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a8e7fa26541aea68ea2c456d79c950377',1,'vg::MultipathAlignmentGraph']]],
   ['decompose_5fgenotype_5ffast_7914',['decompose_genotype_fast',['../classvg_1_1WindowedVcfBuffer.html#ae05d4861f68f92b5c11e293f1a34618b',1,'vg::WindowedVcfBuffer']]],
   ['decompressstring_7915',['DecompressString',['../namespacezstdutil.html#a96bc1e7d01552bb8397ffd2a8dbc0167',1,'zstdutil']]],
-  ['deconstruct_7916',['deconstruct',['../classvg_1_1Deconstructor.html#a04c9ed8292a419d07c5a07c322783fa2',1,'vg::Deconstructor']]],
+  ['deconstruct_7916',['deconstruct',['../classvg_1_1Deconstructor.html#ad21aa6192f431994ef8381151513a3f6',1,'vg::Deconstructor']]],
   ['deconstruct_5fsite_7917',['deconstruct_site',['../classvg_1_1Deconstructor.html#a63b7b50efbe8a928084e267441ed80c7',1,'vg::Deconstructor']]],
   ['deconstructor_7918',['Deconstructor',['../classvg_1_1Deconstructor.html#ac164fa41d5d207dec36a99b891d405be',1,'vg::Deconstructor']]],
   ['decrement_5fnode_5fids_7919',['decrement_node_ids',['../classvg_1_1VG.html#aae60b30eaa432d73f91dc28283679a18',1,'vg::VG']]],
