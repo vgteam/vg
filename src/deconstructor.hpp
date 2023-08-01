@@ -45,6 +45,7 @@ public:
                      bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
+                     bool long_ref_contig,
                      gbwt::GBWT* gbwt = nullptr);
     
 private:

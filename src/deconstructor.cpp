@@ -794,12 +794,16 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 contig_name = ref_trav_name;
             } else if (long_ref_contig) {
                 // the sample name isn't unique enough, so put a full ugly name in the vcf
-                contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                             PathMetadata::parse_sample_name(ref_trav_name),
-                                                             contig_name,
-                                                             PathMetadata::parse_haplotype(ref_trav_name),
-                                                             PathMetadata::NO_PHASE_BLOCK,
-                                                             PathMetadata::NO_SUBRANGE);
+                if (PathMetadata::parse_sense(ref_trav_name) == PathSense::GENERIC) {
+                    contig_name = ref_trav_name;
+                } else {
+                    contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                                 PathMetadata::parse_sample_name(ref_trav_name),
+                                                                 contig_name,
+                                                                 PathMetadata::parse_haplotype(ref_trav_name),
+                                                                 PathMetadata::NO_PHASE_BLOCK,
+                                                                 PathMetadata::NO_SUBRANGE);
+                }
             }
             
             // write variant's sequenceName (VCF contig)
@@ -888,6 +892,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool untangle_traversals,
                                 bool keep_conflicted,
                                 bool strict_conflicts,
+                                bool long_ref_contig,
                                 gbwt::GBWT* gbwt) {
 
     this->graph = graph;
@@ -916,7 +921,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         ref_samples.insert(PathMetadata::parse_sample_name(ref_path_name));
         ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
     }
-    long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
+    if (!long_ref_contig) {
+        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
+    }
+    this->long_ref_contig = long_ref_contig;
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
@@ -1022,12 +1030,16 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 locus_name = refpath;
             } else if (long_ref_contig) {
                 // the sample name isn't unique enough, so put a full ugly name in the vcf
-                locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                            graph->get_sample_name(path_handle),
-                                                            locus_name,
-                                                            graph->get_haplotype(path_handle),
-                                                            PathMetadata::NO_PHASE_BLOCK,
-                                                            PathMetadata::NO_SUBRANGE);                
+                if (graph->get_sense(path_handle) == PathSense::GENERIC) {
+                    locus_name = graph->get_path_name(path_handle);
+                } else {
+                    locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                                graph->get_sample_name(path_handle),
+                                                                locus_name,
+                                                                graph->get_haplotype(path_handle),
+                                                                PathMetadata::NO_PHASE_BLOCK,
+                                                                PathMetadata::NO_SUBRANGE);
+                }
             }            
 
             subrange_t subrange = graph->get_subrange(path_handle);
