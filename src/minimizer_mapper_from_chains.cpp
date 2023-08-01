@@ -565,9 +565,18 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Bucket the hits coarsely into sets that might be able to interact.
-    std::vector<Cluster> buckets = clusterer.cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
+    //std::vector<Cluster> buckets = clusterer.cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
     //std::vector<Cluster> buckets = zip_clusterer.coarse_cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
     
+    // Dump everything in one giant bucket
+    std::vector<Cluster> buckets;
+    buckets.resize(1);
+    buckets[0].score = 1000;
+    buckets[0].coverage = 1;
+    for (size_t i = 0; i < seeds.size(); i++) {
+        buckets[0].seeds.push_back(i);
+    }
+
     // Score all the buckets
     if (track_provenance) {
         funnel.substage("score-buckets");
