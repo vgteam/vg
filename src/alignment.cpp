@@ -1865,22 +1865,16 @@ void parse_bed_regions(istream& bedstream,
     size_t score = 0;
     string strand;
 
+    // in case we need to look for subpaths, keep the info store for reuse
+    unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
+
     for (int line = 1; getline(bedstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
             continue;
         }
         istringstream ss(row);
+
         ss >> seq;
-        
-        if (!graph->has_path(seq)) {
-            // This path doesn't exist, and we'll get a segfault or worse if
-            // we go look for positions in it.
-            cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
-            continue;
-        }
-        
-        path_handle_t path_handle = graph->get_path_handle(seq);
-        
         ss >> sbuf;
         ss >> ebuf;
 
@@ -1890,6 +1884,73 @@ void parse_bed_regions(istream& bedstream,
             continue;
         } 
         
+        if (!graph->has_path(seq)) {
+            // This path doesn't exist, and we'll get a segfault or worse if
+            // we go look for positions in it.
+            // but maybe it's chopped in subranges?
+            // first look in our cached subpaths
+            bool subpath_found = base_path_to_subpaths.count(seq) > 0;
+            // if not there, look in the graph
+            if(!subpath_found){
+                PathSense sense;
+                string sample;
+                string locus;
+                size_t haplotype;
+                size_t phase_block;
+                subrange_t subrange;
+                PathMetadata::parse_path_name(seq,
+                                              sense,
+                                              sample,
+                                              locus,
+                                              haplotype,
+                                              phase_block,
+                                              subrange);
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // the path name souldn't describe a subpath
+                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+                        if (graph->get_haplotype(match) != haplotype) {
+                            // Skip this haplotype
+                            return true;
+                        }
+                        if (graph->get_phase_block(match) != phase_block) {
+                            // Skip this phase block
+                            return true;
+                        }
+                        // we've found a subpath for that base name. save the handle
+                        base_path_to_subpaths[seq].push_back(match);
+                        subpath_found = true;
+                        return true;
+                    });
+                }
+            }
+            if(!subpath_found){
+                // we've looked for subpaths and couldn't found anything
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+                continue;
+            } else {
+                // update the path name to the subpaths and adjust sbuf/ebuf based on its offset
+                // look for the subpath containing the range [sbuf-ebuf]
+                for (auto& path : base_path_to_subpaths[seq]) {
+                    subrange_t subrange = graph->get_subrange(path);
+                    // TODO: one of these should be <=/>=, but which one...
+                    if(sbuf > subrange.first && sbuf < subrange.second){
+                        if(ebuf > subrange.first && ebuf < subrange.second){
+                            // we found the matching subpath, update handle and positions
+                            seq = graph->get_path_name(path);
+                            sbuf = sbuf - subrange.first;
+                            ebuf = ebuf - subrange.first;
+                        } else {
+                            cerr << "warning: path " << seq << " is chopped and the queried range "
+                                 << ebuf << "-" << sbuf << "overlaps two different subpaths "
+                                 << " in bed line " << line << ", skipping: " << row << endl;
+                        }
+                    }
+                }
+            }
+        }
+
+        path_handle_t path_handle = graph->get_path_handle(seq);
+        
         if (sbuf >= ebuf && !graph->get_is_circular(path_handle)) {
             // The start of the region can be after the end of the region only if the underlying path is circular.
             // That's not the case, so complain and skip the region.
@@ -1897,12 +1958,70 @@ void parse_bed_regions(istream& bedstream,
                 << line << ": " << row << endl;
             continue;
         }
-        
+
         if (ebuf > graph->get_path_length(path_handle)) {
-            // Skip ends that are too late
-            cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
-                << " in bed line " << line << ", skipping: " << row << endl;
-            continue;
+            // Could be that the path is chopped but the first subpath is named like the base/full path
+            // if so, it was found in the graph but is shorter than the actual full path
+            // in case that happened, check for other subpaths that might have that base name
+            // if we find one and the range match the queried range, use that
+            bool subpath_found = false;
+            if(!base_path_to_subpaths.count(seq)){
+                // not in our subpath cache, so let's look for subpaths
+                PathSense sense;
+                string sample;
+                string locus;
+                size_t haplotype;
+                size_t phase_block;
+                subrange_t subrange;
+                PathMetadata::parse_path_name(seq,
+                                              sense,
+                                              sample,
+                                              locus,
+                                              haplotype,
+                                              phase_block,
+                                              subrange);
+                
+                if (subrange == PathMetadata::NO_SUBRANGE) {
+                    // the path name souldn't describe a subpath
+                    graph->for_each_path_matching({sense}, {sample}, {locus}, [&](const path_handle_t& match) {
+                        if (graph->get_haplotype(match) != haplotype) {
+                            // Skip this haplotype
+                            return true;
+                        }
+                        if (graph->get_phase_block(match) != phase_block) {
+                            // Skip this phase block
+                            return true;
+                        }
+                        // we've found a subrange for this base path
+                        base_path_to_subpaths[seq].push_back(match);
+                        return true;
+                    });
+                }
+            }
+            if(base_path_to_subpaths.count(seq)){
+                // there are subpaths, let's look for the one containing [sbuf-ebuf]
+                for (auto& path : base_path_to_subpaths[seq]) {
+                    subrange_t subrange = graph->get_subrange(path);
+                    // TODO: one of these should be <=/>=, but which one...
+                    if(sbuf > subrange.first && sbuf < subrange.second){
+                        if(ebuf > subrange.first && ebuf < subrange.second){
+                            // we found the matching subpath, update handle and positions
+                            subpath_found = true;
+                            path_handle = path;
+                            sbuf = sbuf - subrange.first;
+                            ebuf = ebuf - subrange.first;
+                        } else {
+                            cerr << "warning: path " << seq << " is chopped and the queried range " << ebuf << "-" << sbuf << "overlaps two different subpaths " << " in bed line " << line << ", skipping: " << row << endl;
+                        }
+                    }
+                }
+            }
+            if(!subpath_found){
+                // Skip ends that are too late
+                cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
+                     << " in bed line " << line << ", skipping: " << row << endl;
+                continue;
+            }
         }
         
         if (sbuf >= graph->get_path_length(path_handle)) {
@@ -1995,6 +2114,7 @@ void parse_gff_regions(istream& gffstream,
                 is_reverse = true;
             }
 
+            // TODO HANDLE SUBPATH HERE TOO
             if (!graph->has_path(seq)) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
@@ -2139,7 +2259,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
                                 graph->get_path_name(path));
         }
         
-        // Split the proivided Mapping of edits at the path end/start junction
+        // Split the provided Mapping of edits at the path end/start junction
         auto part_mappings = cut_mapping_offset(cigar_mapping, path_len - pos1);
         
         // We extract from pos1 to the end
