@@ -573,9 +573,14 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                                     net_handle_t snarl_handle = current_seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
                                     size_t rank2 = current_seed.zipcode_decoder->get_rank_in_snarl(depth);
                                     size_t rank1 = seeds->at(sibling.value).zipcode_decoder->get_rank_in_snarl(depth);
+                                    bool rev1 = current_is_reversed;
+                                    bool rev2 = seed_is_reversed_at_depth(seeds->at(sibling.value), depth, distance_index);
                                     //TODO: idk about this distance- I think the orientations need to change
+                                    //The bools for this are true if the distance is to/from the right side of the child
+                                    //We want the right side of 1 (which comes first in the dag ordering) to the left side of 2
+                                    //relative to the orientation of the snarl
                                     distance = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
-                                        distance_index.distance_in_snarl(snarl_handle, rank1, false, rank2, false),
+                                        distance_index.distance_in_snarl(snarl_handle, rank1, !rev1, rank2, rev2),
                                         distance_to_start_of_current_child),
                                         distance_to_end_of_previous_child);
                                 }
@@ -1060,7 +1065,8 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
                 if ((distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) 
                     || distance_index.is_root_snarl(next_handle)
-                    || distance_index.is_looping_chain(next_handle)) {
+                    || distance_index.is_looping_chain(next_handle)
+                    || distance_index.is_multicomponent_chain(next_handle)) {
                     in_non_dag_snarl = true;
                 }
                 next_handle = distance_index.get_parent(next_handle);
@@ -1068,7 +1074,8 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
             while (!in_non_dag_snarl && !distance_index.is_root(start_handle)) {
                 if ((distance_index.is_snarl(start_handle) && !distance_index.is_dag(start_handle)) 
                     || distance_index.is_root_snarl(start_handle)
-                    || distance_index.is_looping_chain(start_handle)) {
+                    || distance_index.is_looping_chain(start_handle)
+                    || distance_index.is_multicomponent_chain(start_handle)) {
                     in_non_dag_snarl = true;
                 }
                 start_handle = distance_index.get_parent(start_handle);
