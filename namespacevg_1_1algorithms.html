@@ -258,15 +258,15 @@ Functions</h2></td></tr>
 <tr class="memitem:a031cb6d0db20a6aaee020c5a6909ba80"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a031cb6d0db20a6aaee020c5a6909ba80">gfa_to_handle_graph</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr)</td></tr>
 <tr class="memdesc:a031cb6d0db20a6aaee020c5a6909ba80"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a GFA from a stream (assumed not to be seekable or reopenable) into a HandleGraph.  <a href="namespacevg_1_1algorithms.html#a031cb6d0db20a6aaee020c5a6909ba80">More...</a><br /></td></tr>
 <tr class="separator:a031cb6d0db20a6aaee020c5a6909ba80"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a34b0719425313a01aa6449398cc9b59e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max())</td></tr>
-<tr class="memdesc:a34b0719425313a01aa6449398cc9b59e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.  <a href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e">More...</a><br /></td></tr>
-<tr class="separator:a34b0719425313a01aa6449398cc9b59e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0a8e69161f6693218d98c50c4af6f6b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad0a8e69161f6693218d98c50c4af6f6b">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_rgfa_rank, const string &amp;translation_filename)</td></tr>
-<tr class="memdesc:ad0a8e69161f6693218d98c50c4af6f6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Overload which serializes its translation to a file internally.  <a href="namespacevg_1_1algorithms.html#ad0a8e69161f6693218d98c50c4af6f6b">More...</a><br /></td></tr>
-<tr class="separator:ad0a8e69161f6693218d98c50c4af6f6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab58dbeff2a046503597e156be872ef47"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab58dbeff2a046503597e156be872ef47">gfa_to_path_handle_graph</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max())</td></tr>
-<tr class="memdesc:ab58dbeff2a046503597e156be872ef47"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.  <a href="namespacevg_1_1algorithms.html#ab58dbeff2a046503597e156be872ef47">More...</a><br /></td></tr>
-<tr class="separator:ab58dbeff2a046503597e156be872ef47"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f5c41c06269c778d2c97f39cbc79de8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9f5c41c06269c778d2c97f39cbc79de8">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max(), unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *ignore_sense=nullptr)</td></tr>
+<tr class="memdesc:a9f5c41c06269c778d2c97f39cbc79de8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.  <a href="namespacevg_1_1algorithms.html#a9f5c41c06269c778d2c97f39cbc79de8">More...</a><br /></td></tr>
+<tr class="separator:a9f5c41c06269c778d2c97f39cbc79de8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a61f2c7006c531ad5dd319ea30ec0087f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a61f2c7006c531ad5dd319ea30ec0087f">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_rgfa_rank, const string &amp;translation_filename, unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *ignore_sense=nullptr)</td></tr>
+<tr class="memdesc:a61f2c7006c531ad5dd319ea30ec0087f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Overload which serializes its translation to a file internally.  <a href="namespacevg_1_1algorithms.html#a61f2c7006c531ad5dd319ea30ec0087f">More...</a><br /></td></tr>
+<tr class="separator:a61f2c7006c531ad5dd319ea30ec0087f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8baa82611439357dc02996ba17ce6aa9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8baa82611439357dc02996ba17ce6aa9">gfa_to_path_handle_graph</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max(), unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *ignore_sense=nullptr)</td></tr>
+<tr class="memdesc:a8baa82611439357dc02996ba17ce6aa9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.  <a href="namespacevg_1_1algorithms.html#a8baa82611439357dc02996ba17ce6aa9">More...</a><br /></td></tr>
+<tr class="separator:a8baa82611439357dc02996ba17ce6aa9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54730e9452c2609633da201ba85a8bca"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a54730e9452c2609633da201ba85a8bca">id_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g)</td></tr>
 <tr class="separator:a54730e9452c2609633da201ba85a8bca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ce4dabb6661657c7d72593afc3f41df"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ce4dabb6661657c7d72593afc3f41df">intersect_path_offsets</a> (const <a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a> &amp;a_offsets, const <a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a> &amp;b_offsets, size_t <a class="el" href="namespacevg.html#a004ed92d4db665ce8ec4e527f150a7c4">maximum_distance</a>)</td></tr>
@@ -3060,8 +3060,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a34b0719425313a01aa6449398cc9b59e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a34b0719425313a01aa6449398cc9b59e">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[1/3]</span></h2>
+<a id="a9f5c41c06269c778d2c97f39cbc79de8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f5c41c06269c778d2c97f39cbc79de8">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3088,7 +3088,13 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>max_rgfa_rank</em>&#160;</td>
+          <td class="paramname"><em>max_rgfa_rank</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *&#160;</td>
+          <td class="paramname"><em>ignore_sense</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3102,8 +3108,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="ad0a8e69161f6693218d98c50c4af6f6b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad0a8e69161f6693218d98c50c4af6f6b">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[2/3]</span></h2>
+<a id="a61f2c7006c531ad5dd319ea30ec0087f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a61f2c7006c531ad5dd319ea30ec0087f">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3130,7 +3136,13 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>translation_filename</em>&#160;</td>
+          <td class="paramname"><em>translation_filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *&#160;</td>
+          <td class="paramname"><em>ignore_sense</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3144,8 +3156,8 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="ab58dbeff2a046503597e156be872ef47"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab58dbeff2a046503597e156be872ef47">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[3/3]</span></h2>
+<a id="a8baa82611439357dc02996ba17ce6aa9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8baa82611439357dc02996ba17ce6aa9">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3172,7 +3184,13 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>max_rgfa_rank</em>&#160;</td>
+          <td class="paramname"><em>max_rgfa_rank</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *&#160;</td>
+          <td class="paramname"><em>ignore_sense</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
