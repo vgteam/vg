@@ -440,7 +440,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #ifdef DEBUG_ZIP_CODE_TREE
                         cerr << "Add new bucket" << endl;
 #endif
-                        bucket_boundaries.emplace_back(zip_code_tree.size());
+                        buckets.emplace_back();
                     }
 
                 } else if (!(depth == 0 && sibling_indices_at_depth[depth][0].type == CHAIN_START) &&
@@ -462,14 +462,14 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #ifdef DEBUG_ZIP_CODE_TREE
                         cerr << "Add new bucket" << endl;
 #endif
-                        bucket_boundaries.emplace_back(zip_code_tree.size());
+                        buckets.emplace_back();
                     }
                 } else if (depth == 0 || depth == 1){
                     //For the first thing in a node/chain at the root
 #ifdef DEBUG_ZIP_CODE_TREE
                     cerr << "Add new bucket" << endl;
 #endif
-                    bucket_boundaries.emplace_back(zip_code_tree.size());
+                    buckets.emplace_back();
                 }
 
                 /////////////////////////////Record this thing in the chain
@@ -479,6 +479,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #endif
                     //If this was a node, just remember the seed
                     zip_code_tree.push_back({SEED, seed_indices[i], current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)});
+                    buckets.back().emplace_back(seed_indices[i]);
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
                     cerr << "\t\tOpen new snarl at depth " << depth << endl;
@@ -644,6 +645,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                                                  false}); 
                     }
                     zip_code_tree.push_back({SEED, seed_indices[i], current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)}); 
+                    buckets.back().emplace_back(seed_indices[i]);
 
                     //And update sibling_indices_at_depth to remember this child
                     sibling_indices_at_depth[depth].pop_back();
@@ -757,41 +759,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
     }
 }
 
-vector<vector<size_t>> ZipCodeTree::get_buckets() const {
-    //Walk through everything in the zip tree and add seeds to the current bucket
-    //When we reach the start of the next bucket, add a new bucket
-
-    //The index into bucket_boundaries of the start of the current bucket
-    size_t bucket_i = 0;
-    //The index into zip_code_trees of the next bucket
-    size_t next_bucket = bucket_i == bucket_boundaries.size()-1 ? std::numeric_limits<size_t>::max()
-                                                              : bucket_boundaries[bucket_i+1];
-    vector<vector<size_t>> all_buckets;
-    all_buckets.emplace_back();
-    for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
-
-        //If this is the start of the next bucket
-        if (i == next_bucket) {
-
-            //Make a new bucket to add to
-            all_buckets.emplace_back();
-
-            //Remember that we're in the next bucket
-            bucket_i++;
-            next_bucket = bucket_i == bucket_boundaries.size()-1 ? std::numeric_limits<size_t>::max()
-                                                              : bucket_boundaries[bucket_i+1];
-        }
-        //If this is a seed, then add it to the current bucket
-        if (zip_code_tree.at(i).type == SEED) {
-            all_buckets.back().emplace_back(zip_code_tree.at(i).value);
-        }
-    }
-#ifdef DEBUG_ZIP_CODE_TREE
-    assert(all_buckets.size() == bucket_boundaries.size());
-#endif
-
-    return all_buckets;
-}
 
 bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) const {
     if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {

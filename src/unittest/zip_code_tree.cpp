@@ -241,9 +241,8 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index, 5);
 
-            vector<vector<size_t>> buckets = zip_tree.get_buckets();
-            REQUIRE(buckets.size() == 1);
-            REQUIRE(buckets[0].size() == 3);
+            REQUIRE(zip_tree.buckets.size() == 1);
+            REQUIRE(zip_tree.buckets[0].size() == 3);
 
 
         }
@@ -264,10 +263,9 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index, 1);
 
-            vector<vector<size_t>> buckets = zip_tree.get_buckets();
-            REQUIRE(buckets.size() == 2);
-            REQUIRE(buckets[0].size() == 2);
-            REQUIRE(buckets[1].size() == 1);
+            REQUIRE(zip_tree.buckets.size() == 2);
+            REQUIRE(zip_tree.buckets[0].size() == 2);
+            REQUIRE(zip_tree.buckets[1].size() == 1);
 
 
         }
@@ -422,16 +420,15 @@ namespace unittest {
             zip_tree.fill_in_tree(seeds, distance_index, 4);
             zip_tree.print_self();
 
-            auto buckets = zip_tree.get_buckets();
-            REQUIRE(buckets.size() == 2);
+            REQUIRE(zip_tree.buckets.size() == 2);
 
             if (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()))) {
                 //If the graph is node 2 - node 1
-                REQUIRE(buckets[0].size() == 1);
-                REQUIRE(buckets[1].size() == 2);
+                REQUIRE(zip_tree.buckets[0].size() == 1);
+                REQUIRE(zip_tree.buckets[1].size() == 2);
             } else {
-                REQUIRE(buckets[0].size() == 2);
-                REQUIRE(buckets[1].size() == 1);
+                REQUIRE(zip_tree.buckets[0].size() == 2);
+                REQUIRE(zip_tree.buckets[1].size() == 1);
             }
         };
     }
@@ -620,8 +617,7 @@ namespace unittest {
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index, 4);
 
-            auto buckets = zip_tree.get_buckets();
-            REQUIRE(buckets.size() == 3);
+            REQUIRE(zip_tree.buckets.size() == 3);
         }
 
 
@@ -784,8 +780,7 @@ namespace unittest {
                 ZipCodeTree bucketed_zip_tree;
                 bucketed_zip_tree.fill_in_tree(seeds, distance_index, 5);
 
-                auto buckets = bucketed_zip_tree.get_buckets();
-                REQUIRE(buckets.size() == 2);
+                REQUIRE(bucketed_zip_tree.buckets.size() == 2);
             }
         }
         SECTION( "Seeds on chain nodes one reversed" ) {
@@ -860,8 +855,7 @@ namespace unittest {
                 ZipCodeTree bucketed_zip_tree;
                 bucketed_zip_tree.fill_in_tree(seeds, distance_index, 5);
 
-                auto buckets = bucketed_zip_tree.get_buckets();
-                REQUIRE(buckets.size() == 2);
+                REQUIRE(bucketed_zip_tree.buckets.size() == 2);
             }
         }
         SECTION( "One seed on snarl" ) {
@@ -898,8 +892,7 @@ namespace unittest {
                 ZipCodeTree bucketed_zip_tree;
                 bucketed_zip_tree.fill_in_tree(seeds, distance_index, 5);
 
-                auto buckets = bucketed_zip_tree.get_buckets();
-                REQUIRE(buckets.size() == 2);
+                REQUIRE(bucketed_zip_tree.buckets.size() == 2);
             }
         }
         SECTION( "Three seeds on snarl" ) {
@@ -1089,18 +1082,17 @@ namespace unittest {
 
             ZipCodeTree zip_tree;
             zip_tree.fill_in_tree(seeds, distance_index, 3);
-            auto buckets = zip_tree.get_buckets();
 
             //TODO: This would be different if we went deeper than the top-level chain
-            REQUIRE(buckets.size() == 3);
+            REQUIRE(zip_tree.buckets.size() == 3);
             if (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id()))){
-                REQUIRE(buckets[0].size() == 1);
-                REQUIRE(buckets[1].size() == 2);
-                REQUIRE(buckets[2].size() == 3);
+                REQUIRE(zip_tree.buckets[0].size() == 1);
+                REQUIRE(zip_tree.buckets[1].size() == 2);
+                REQUIRE(zip_tree.buckets[2].size() == 3);
             } else {
-                REQUIRE(buckets[0].size() == 3);
-                REQUIRE(buckets[1].size() == 2);
-                REQUIRE(buckets[2].size() == 1);
+                REQUIRE(zip_tree.buckets[0].size() == 3);
+                REQUIRE(zip_tree.buckets[1].size() == 2);
+                REQUIRE(zip_tree.buckets[2].size() == 1);
             }
 
         }
