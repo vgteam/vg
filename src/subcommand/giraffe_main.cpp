@@ -1088,6 +1088,7 @@ int main_giraffe(int argc, char** argv) {
 
         ifstream zip_in (zipcode_name);
         oversized_zipcodes.deserialize(zip_in);
+        zip_in.close();
     }
 
 
