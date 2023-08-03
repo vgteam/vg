@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -518,6 +518,9 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #endif
                     //Now record the start of this snarl
                     zip_code_tree.push_back({SNARL_START, std::numeric_limits<size_t>::max(), false});
+
+                    //Add a new bucket for the root snarl
+                    buckets.emplace_back();
                 }
             } else {
                 //Otherwise, this is a chain or root chain
