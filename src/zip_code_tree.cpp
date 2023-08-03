@@ -17,8 +17,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
     }
     seeds = &all_seeds;
 
-    bucket_boundaries.emplace_back(0);
-
     /*
     Constructor for the ZipCodeTree
     Takes a vector of seeds and constructs the tree
@@ -438,7 +436,10 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     sibling_indices_at_depth[depth-2][0].distances.first = current_offset;
 
                     //The next thing in the zip tree will be the first seed (or snarl), so add a new bucket
-                    if (depth == 0) {
+                    if (depth == 0 || depth == 1) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                        cerr << "Add new bucket" << endl;
+#endif
                         bucket_boundaries.emplace_back(zip_code_tree.size());
                     }
 
@@ -456,10 +457,19 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 
                     zip_code_tree.push_back({EDGE, distance_between, false});
 
-                    if (depth == 0 && distance_between > distance_limit) {
+                    if ((depth == 0 || depth == 1) && distance_between > distance_limit) {
                         //If this edge is big enough, then start a new bucket
+#ifdef DEBUG_ZIP_CODE_TREE
+                        cerr << "Add new bucket" << endl;
+#endif
                         bucket_boundaries.emplace_back(zip_code_tree.size());
                     }
+                } else if (depth == 0 || depth == 1){
+                    //For the first thing in a node/chain at the root
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << "Add new bucket" << endl;
+#endif
+                    bucket_boundaries.emplace_back(zip_code_tree.size());
                 }
 
                 /////////////////////////////Record this thing in the chain
@@ -757,6 +767,7 @@ vector<vector<size_t>> ZipCodeTree::get_buckets() const {
     size_t next_bucket = bucket_i == bucket_boundaries.size()-1 ? std::numeric_limits<size_t>::max()
                                                               : bucket_boundaries[bucket_i+1];
     vector<vector<size_t>> all_buckets;
+    all_buckets.emplace_back();
     for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
 
         //If this is the start of the next bucket
