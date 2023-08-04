@@ -33,128 +33,6 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
     vector<size_t> seed_indices = sort_seeds_by_zipcode(distance_index);
 
 #ifdef DEBUG_ZIP_CODE_TREE
-    //A vector of indexes into seeds
-    //To be sorted along each chain/snarl the snarl tree
-    vector<size_t> old_seed_indices (seeds->size(), 0);
-    for (size_t i = 0 ; i < old_seed_indices.size() ; i++) {
-        old_seed_indices[i] = i;
-    }
-    assert(seeds->size() == old_seed_indices.size());
-
-    //Sort the indices
-    std::sort(old_seed_indices.begin(), old_seed_indices.end(), [&] (const size_t& a, const size_t& b) {
-        for (auto x : old_seed_indices) {
-            assert (x < old_seed_indices.size());
-        }
-        assert(a < seeds->size());
-        assert(b < seeds->size());
-
-        cerr << "Comparing seeds " << seeds->at(a).pos << " and " << seeds->at(b).pos << endl;
-
-        //Comparator returning a < b
-        size_t depth = 0;
-
-        //Keep track of the orientation of each seed
-        //Everything should be sorted according to the orientation in the top-level structure,
-        //so if things are traversed backwards, reverse the orientation
-        bool a_is_reversed = false;
-        bool b_is_reversed = false;
-        while (depth < seeds->at(a).zipcode_decoder->max_depth() &&
-               depth < seeds->at(b).zipcode_decoder->max_depth() &&
-               ZipCodeDecoder::is_equal(*seeds->at(a).zipcode_decoder, *seeds->at(b).zipcode_decoder, depth)) {
-
-            //Remember the orientation
-            if (seed_is_reversed_at_depth(seeds->at(a), depth, distance_index)) { 
-                a_is_reversed = !a_is_reversed;
-            }
-            if (seed_is_reversed_at_depth(seeds->at(b), depth, distance_index)) {
-                b_is_reversed = !b_is_reversed;
-            }
-
-            depth++;
-        }
-
-        //Remember the orientation of the parent too
-        size_t parent_of_a_is_reversed = a_is_reversed;
-
-        //Check the orientations one last time
-        if (seed_is_reversed_at_depth(seeds->at(a), depth, distance_index)) { 
-            a_is_reversed = !a_is_reversed;
-        }
-        if (seed_is_reversed_at_depth(seeds->at(b), depth, distance_index)) {
-            b_is_reversed = !b_is_reversed;
-        }
-        
-        cerr << "\t different at depth " << depth << endl;
-        //Either depth is the last thing in a or b, or they are different at this depth
-
-
-        if ( ZipCodeDecoder::is_equal(*seeds->at(a).zipcode_decoder, *seeds->at(b).zipcode_decoder, depth)) {
-            cerr << "\tthey are on the same node" << endl;
-            //If they are equal, then they must be on the same node
-
-            size_t offset1 = is_rev(seeds->at(a).pos)
-                           ? seeds->at(a).zipcode_decoder->get_length(depth) - offset(seeds->at(a).pos) - 1
-                           : offset(seeds->at(a).pos);
-            size_t offset2 = is_rev(seeds->at(b).pos)
-                           ? seeds->at(b).zipcode_decoder->get_length(depth) - offset(seeds->at(b).pos) - 1
-                           : offset(seeds->at(b).pos);
-            if (!a_is_reversed) {
-                //If they are in a snarl or they are facing forward on a chain, then order by
-                //the offset in the node
-                return offset1 < offset2;
-            } else {
-                //Otherwise, the node is facing backwards in the chain, so order backwards in node
-                return offset2 < offset1;
-            }
-        }  else if (depth == 0) {
-            cerr << "\tThey are on different connected components" << endl;
-            //If they are on different connected components, sort by connected component
-            return seeds->at(a).zipcode_decoder->get_distance_index_address(0) < seeds->at(b).zipcode_decoder->get_distance_index_address(0);
-            
-        }  else if (seeds->at(a).zipcode_decoder->get_code_type(depth-1) == CHAIN || seeds->at(a).zipcode_decoder->get_code_type(depth-1) == ROOT_CHAIN) {
-            cerr << "\t they are children of a common chain" << endl;
-            //If a and b are both children of a chain
-            size_t offset_a = seeds->at(a).zipcode_decoder->get_offset_in_chain(depth);
-            size_t offset_b = seeds->at(b).zipcode_decoder->get_offset_in_chain(depth);
-
-            if ( offset_a == offset_b) {
-                //If they have the same prefix sum, then the snarl comes first
-                //They will never be on the same child at this depth
-                if (parent_of_a_is_reversed) {
-                    return seeds->at(b).zipcode_decoder->get_code_type(depth) != NODE && seeds->at(a).zipcode_decoder->get_code_type(depth) == NODE;  
-                } else {
-                    return seeds->at(a).zipcode_decoder->get_code_type(depth) != NODE && seeds->at(b).zipcode_decoder->get_code_type(depth) == NODE;  
-                }
-            } else {
-                //Check if the parent chain is reversed and if so, then the order should be reversed
-                //The parent could be reversed if it is in an irregular snarl and the 
-                if (parent_of_a_is_reversed) {
-                    return offset_b < offset_a;
-                } else {
-                    return offset_a < offset_b;
-                }
-            }
-        } else {
-            cerr << "\t they are children of a common irregular snarl" << endl;
-            // Otherwise, they are children of an irregular snarl
-            // Sort by a topological ordering from the start of the snarl
-            // The ranks of children in snarls are in a topological order, so 
-            // sort on the ranks
-            return seeds->at(a).zipcode_decoder->get_rank_in_snarl(depth) <
-                   seeds->at(b).zipcode_decoder->get_rank_in_snarl(depth);
-        } 
-    });
-    cerr << "old Sorted positions:" << endl;
-    for (const size_t& i : old_seed_indices) {
-        cerr << seeds->at(i).pos << endl;
-    }
-
-    //Since std::sort isn't stable, I think these might be different
-    //assert(seed_indices == old_seed_indices);
-#endif
-
-#ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Sorted positions:" << endl;
     for (const size_t& i : seed_indices) {
         cerr << seeds->at(i).pos << endl;
@@ -172,7 +50,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
     // and each start and child chain start of a snarl
     //The children are stored at the depth of their parents. For example, for a root chain,
     //the vector at index 0 would have the chain start, seeds that are on the chain, and the start
-    //of snarls on the chain. Similarly, for a top-level snarl at depth 1, the second vector would contain
+    //of snarls on the chain. Similarly, for a top-level snarl, at depth 1, the second vector would contain
     //the starts of chains at depth 2 
     //For the children of a chain, the value is the prefix sum in the chain (relative to the orientation 
     //of the top-level chain, not necessarily the chain itself)
