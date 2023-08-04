@@ -12,14 +12,17 @@ using namespace std;
 
 /**
 
-A ZipCodeTree takes a set of SnarlDistanceIndexCluserer::Seed's (seed alignments between a read and reference) 
-and provides an iterator that, given a seed and a distance limit, iterates through seeds that are
-reachable within the distance limit
-
-Generally, this will take a collection of seeds and build a tree structure representing the connectivity
-of the seeds, based on the snarl decomposition
+A ZipCodeTree represents of set of SnarlDistanceIndexCluserer::Seed's (seed alignments between a read and reference) 
+as a tree structure.
+The tree represents the connectivity of the seeds, based on the distance index.
 Edges are labelled with distance values.
 The tree can be traversed to find distances between seeds
+
+This provides an iterator that, given a seed and a distance limit, iterates through seeds that are
+reachable within the distance limit
+
+The ZipCodeTree is constructed by the ZipCodeForest, which represents a collection of trees
+
 */
 class ZipCodeTree {
 
@@ -27,30 +30,8 @@ class ZipCodeTree {
 
     public:
 
-    /**
-     * Constructor
-     * The constructor creates a tree of the input seeds that is used for calculating distances
-     */
-    ZipCodeTree(){};
-
-    ///Populate the zip tree
-    /// If a distance limit is given, then bucket the seeds at the same time
-    void fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
-                      size_t distance_limit = std::numeric_limits<size_t>::max());
-
-    ///During zip tree construction, the seeds are partitioned into buckets, where seeds that are close
-    /// to each other in the top-level chain are placed in the same bucket
-    /// Each bucket is a vector if indices into the vector of seeds
-    vector<vector<size_t>> buckets;
-
-
-    private:
-
-    //The seeds that are taken as input
-    //The order of the seeds will never change, but the vector is not const because the zipcodes
-    //decoders may change
-    vector<Seed>* seeds;
-
+    /// Constructor
+    ZipCodeTree(vector<Seed>* all_seeds) : seeds(all_seeds){};
 
     /*
       The tree will represent the seeds' placement in the snarl tree.
@@ -129,23 +110,22 @@ class ZipCodeTree {
         bool is_reversed;
     };
 
-    private:
+private:
+    /*************
+     The actual data being stored
+     ************/
+
+    //The seeds that are taken as input
+    //The order of the seeds will never change, but the vector is not const because the zipcodes
+    //decoders may change
+    vector<Seed>* seeds;
+
+protected:
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
 
 
 public:
-
-
-    /// Return the sort order of the seeds
-    /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
-    /// Uses radix_sort_zipcodes and default_sort_zipcodes
-    vector<size_t> sort_seeds_by_zipcode(const SnarlDistanceIndex& distance_index) const;
-
-    /// Count the number of snarls involved in the tree
-    /// Returns a pair of <dag count, non-dag count>
-    /// Assumes that the tree has already been filled in
-    std::pair<size_t, size_t> dag_and_non_dag_snarl_count(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index) const;
 
     ///Print the zip code tree to stderr
     /// ( and ) are used for the starts and ends of snarls
@@ -153,15 +133,21 @@ public:
     /// seeds are printed as their positions
     void print_self() const;
 
-    ///Helper function that returns the number of items in the zip_code_tree
-    size_t get_tree_size() const {return zip_code_tree.size();};
-
     ///Check that the tree is correct
     void validate_zip_tree(const SnarlDistanceIndex& distance_index) const;
 
+    ///Get the number of items in the tree
+    size_t get_tree_size() const {return zip_code_tree.size();};
+
     ///Helper function to access the values in the zip_code_tree
     tree_item_t get_item_at_index(size_t index) const {return zip_code_tree[index];};
-private:
+
+    /// Count the number of snarls involved in the tree
+    /// Returns a pair of <dag count, non-dag count>
+    /// Assumes that the tree has already been filled in
+    std::pair<size_t, size_t> dag_and_non_dag_snarl_count(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index) const;
+
+protected:
 
     //Helper function to get the orientation of a snarl tree node at a given depth
     //does the same thing as the zipcode decoder's get_is_reversed_in_parent, except
@@ -171,38 +157,30 @@ private:
     //of a snarl, each node will only be traversable start-to-end or end-to-start.
     //If it is traversable end-to-start, then it is considered to be oriented
     //backwards in its parent
-    bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) const;
-
-    /// This gets used for sorting
-    /// It represents one interval along zipcode_sort_order to be sorted
-    /// At the relevant depth, everything in the interval will be on the same
-    /// snarl tree node, and is_reversed is true if that snarl tree node
-    /// is reversed relative to the top-level chain
-    struct interval_and_orientation_t {
-        size_t interval_start : 32; //inclusive
-        size_t interval_end : 31;   //exclusive
-        bool is_reversed : 1;
-
-        interval_and_orientation_t (size_t start, size_t end, size_t rev) :
-            interval_start(start), interval_end(end), is_reversed(rev) {}
-    };
-
-    /// Helper function to sort the seeds using radix sort
-    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
-    /// into seeds
-    /// reverse_order is true if the order should be reversed. The interval also has an is_reversed field,
-    /// which refers to the orientation in the snarl tree
-    /// This should run in linear time, but it is dependent on the values being sorted on to have a small range
-    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
-                             const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
-
-    /// Helper function to sort the seeds using std::sort
-    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
-    /// into seeds
-    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
-                             const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
+    //TODO: Move this into the cpp file but I can't figure out how to make it const static
+    const static bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index){
+        if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {
+            return true;
+        } else if (depth > 0 && seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL) {
+            //If the parent is an irregular snarl, then check the orientation of the child in the snarl
+            net_handle_t snarl_handle = seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
+            size_t rank = seed.zipcode_decoder->get_rank_in_snarl(depth);
+            if (distance_index.distance_in_snarl(snarl_handle, 0, false, rank, false)
+                        == std::numeric_limits<size_t>::max()
+                &&
+                distance_index.distance_in_snarl(snarl_handle, 1, false, rank, true)
+                        == std::numeric_limits<size_t>::max()) {
+                //If the distance from the start of the snarl to the start of the child is infinite
+                //and the distance from the end of the snarl to the end of the child is infinite
+                //then we assume that this child is "reversed" in the parent snarl
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
 
 
 
@@ -380,6 +358,93 @@ public:
     reverse_iterator look_back(const iterator& from, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
     /// Get the reverse end iterator for looking back from seeds.
     reverse_iterator rend() const;
+
+    friend class ZipCodeForest;
+
+}; 
+/**
+    A collection of ZipCodeTrees
+    The ZipCodeForest takes a set of seeds and makes ZipCodeTrees
+    There will be a separate tree for each connected component or slice of a chain that is
+    too far from anything else on both sides, using the given distance limit
+*/
+class ZipCodeForest {
+
+    typedef SnarlDistanceIndexClusterer::Seed Seed;
+    typedef ZipCodeTree::tree_item_type_t tree_item_type_t;
+    typedef ZipCodeTree::tree_item_t tree_item_t;
+
+    public:
+
+    ///The actual data, a collection of ZipCodeTrees
+    vector<ZipCodeTree> trees;
+
+    ///Constructor
+    ZipCodeForest() {};
+
+    ///Populate the zip forest
+    /// If a distance limit is given, then also partition the tree into subtrees that are
+    /// farther than the distance_limit from each other
+    /// Otherwise, the forest will just be connected components
+    void fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
+                      size_t distance_limit = std::numeric_limits<size_t>::max());
+    private:
+    //The seeds that are taken as input
+    //The order of the seeds will never change, but the vector is not const because the zipcodes
+    //decoders may change
+    vector<Seed>* seeds;
+
+    public:
+
+    size_t tree_count() const { return trees.size(); }
+
+    /// Return the sort order of the seeds
+    /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
+    /// Uses radix_sort_zipcodes and default_sort_zipcodes
+    vector<size_t> sort_seeds_by_zipcode(const SnarlDistanceIndex& distance_index) const;
+
+    void print_self() const {
+        for (const auto& tree : trees) {
+            tree.print_self();
+        }
+    }
+
+
+    /************************
+      Helper functions for construction
+     ***********************/
+    private:
+
+    /// This gets used for sorting
+    /// It represents one interval along zipcode_sort_order to be sorted
+    /// At the relevant depth, everything in the interval will be on the same
+    /// snarl tree node, and is_reversed is true if that snarl tree node
+    /// is reversed relative to the top-level chain
+    struct interval_and_orientation_t {
+        size_t interval_start : 32; //inclusive
+        size_t interval_end : 31;   //exclusive
+        bool is_reversed : 1;
+
+        interval_and_orientation_t (size_t start, size_t end, size_t rev) :
+            interval_start(start), interval_end(end), is_reversed(rev) {}
+    };
+
+    /// Helper function to sort the seeds using radix sort
+    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
+    /// into seeds
+    /// reverse_order is true if the order should be reversed. The interval also has an is_reversed field,
+    /// which refers to the orientation in the snarl tree
+    /// This should run in linear time, but it is dependent on the values being sorted on to have a small range
+    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
+                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
+                             const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
+
+    /// Helper function to sort the seeds using std::sort
+    /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
+    /// into seeds
+    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
+                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
+                             const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
 
 };
 
