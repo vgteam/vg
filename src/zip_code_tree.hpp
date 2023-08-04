@@ -405,6 +405,7 @@ class ZipCodeForest {
 
     void print_self() const {
         for (const auto& tree : trees) {
+            cerr << "NEW TREE" << endl;
             tree.print_self();
         }
     }

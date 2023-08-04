@@ -71,8 +71,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
     // In the second case, the entire subtree is found before determining that it should be a subtree,
     // and then it is copied into a new zip_tree_t in the forest.
     // So only one tree is actively being added to at a time. This keeps track of which is the active tree
-    vector<tree_item_t> empty; //Just so that active_zip_tree can point to something. It will get filled in later
-    vector<tree_item_t>& active_zip_tree = empty;
+    vector<tree_item_t>* active_zip_tree = nullptr;
 
 
     /* The tree will hold all seeds and the bounds of snarls and chains
@@ -179,7 +178,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
 #endif
 
                 //Add the end of the chain to the zip code tree
-                active_zip_tree.push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
+                active_zip_tree->push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
 
 
                 //The distance from the last thing in the chain to the end of the chain
@@ -212,20 +211,20 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                 //If this is the end of the snarl, then we need to save the distances to 
                 //all previous children of the snarl
 
-                active_zip_tree.resize(active_zip_tree.size() + sibling_indices_at_depth[depth].size());
+                active_zip_tree->resize(active_zip_tree->size() + sibling_indices_at_depth[depth].size());
 
                 for (size_t sibling_i = 0 ; sibling_i < sibling_indices_at_depth[depth].size() ; sibling_i++) {
                     const auto& sibling = sibling_indices_at_depth[depth][sibling_i];
                     if (sibling.type == ZipCodeTree::SNARL_START) {
                         //First, the distance between ends of the snarl, which is the length
-                        active_zip_tree[active_zip_tree.size() - 1 - sibling_i] = {ZipCodeTree::EDGE,
+                        active_zip_tree->at(active_zip_tree->size() - 1 - sibling_i) = {ZipCodeTree::EDGE,
                             previous_seed.zipcode_decoder->get_length(depth), false};
                     } else {
                         //For the rest of the children, find the distance from the child to
                         //the end
                         //If the child is reversed relative to the top-level chain, then get the distance to start
                         //Also include the distance to the end of the child, sibling.distances.second
-                        active_zip_tree[active_zip_tree.size() - 1 - sibling_i] = {ZipCodeTree::EDGE,
+                        active_zip_tree->at(active_zip_tree->size() - 1 - sibling_i) = {ZipCodeTree::EDGE,
                             SnarlDistanceIndex::sum(
                                 sibling.distances.second,
                                 previous_is_reversed 
@@ -236,8 +235,8 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                     }
                 }
                 //Note the count of children and the end of the snarl
-                active_zip_tree.push_back({ZipCodeTree::NODE_COUNT, sibling_indices_at_depth[depth].size()-1, false});
-                active_zip_tree.push_back({ZipCodeTree::SNARL_END, std::numeric_limits<size_t>::max(), false});
+                active_zip_tree->push_back({ZipCodeTree::NODE_COUNT, sibling_indices_at_depth[depth].size()-1, false});
+                active_zip_tree->push_back({ZipCodeTree::SNARL_END, std::numeric_limits<size_t>::max(), false});
             }
             //Update previous_is_reversed to the one before this
             if (ZipCodeTree::seed_is_reversed_at_depth(previous_seed, depth, distance_index)) {
@@ -266,12 +265,15 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                 if (current_type == ZipCode::ROOT_NODE && sibling_indices_at_depth[depth].empty()) {
                     //If this is a root-level node and the first time we've seen it,
                     //then open the node
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << "Add new root node as new tree" << endl;
+#endif
 
                     //First, add this as a new connected component
                     trees.emplace_back(seeds);
-                    active_zip_tree = trees.back().zip_code_tree;
+                    active_zip_tree = &(trees.back().zip_code_tree);
 
-                    active_zip_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
+                    active_zip_tree->push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
                     sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 0});
                 }
 
@@ -351,21 +353,21 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                         cerr << "Start a new tree in the forest" << endl;
 #endif
                         //Add the end of the first chain
-                        active_zip_tree.push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
+                        active_zip_tree->push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
 
                         //Add a new tree and make sure it is the new active tree
                         trees.emplace_back(seeds);
-                        active_zip_tree = trees.back().zip_code_tree;
+                        active_zip_tree = &(trees.back().zip_code_tree);
 
                         //Add the start of the new chain
-                        active_zip_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
+                        active_zip_tree->push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
 
                         //The first sibling in the chain is now the chain start, not the previous seed, so replace it
                         sibling_indices_at_depth[depth == 0 ? depth : depth-1].pop_back();
                         sibling_indices_at_depth[depth == 0 ? depth : depth-1].push_back({ZipCodeTree::CHAIN_START, 0}); 
                     } else {
                         //If we didn't start a new tree, then remember the edge
-                        active_zip_tree.push_back({ZipCodeTree::EDGE, distance_between, false});
+                        active_zip_tree->push_back({ZipCodeTree::EDGE, distance_between, false});
                     }
                 }
 
@@ -375,13 +377,13 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                     cerr << "\t\tContinue node/chain with seed " << seeds->at(seed_indices[i]).pos << " at depth " << depth << endl;
 #endif
                     //If this was a node, just remember the seed
-                    active_zip_tree.push_back({ZipCodeTree::SEED, seed_indices[i], current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)});
+                    active_zip_tree->push_back({ZipCodeTree::SEED, seed_indices[i], current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)});
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
                     cerr << "\t\tOpen new snarl at depth " << depth << endl;
 #endif
                     //If this was a snarl, record the start of the snarl
-                    active_zip_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
+                    active_zip_tree->push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
 
                     //Remember the start of the snarl
                     sibling_indices_at_depth[depth].push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max()});
@@ -414,9 +416,9 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
 #endif
 
                     trees.emplace_back(seeds);
-                    active_zip_tree = trees.back().zip_code_tree;
+                    active_zip_tree = &(trees.back().zip_code_tree);
                     //Now record the start of this snarl
-                    active_zip_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
+                    active_zip_tree->push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
 
                 }
             } else {
@@ -436,7 +438,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                         //we need to find the distances to the previous things in the snarl
 
                         //The distances will be added in reverse order that they were found in
-                        active_zip_tree.resize(active_zip_tree.size() + sibling_indices_at_depth[depth-1].size());
+                        active_zip_tree->resize(active_zip_tree->size() + sibling_indices_at_depth[depth-1].size());
 
                         //If the parent snarl is reversed
                         bool current_parent_is_reversed = ZipCodeTree::seed_is_reversed_at_depth(current_seed, depth, distance_index) 
@@ -476,7 +478,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                                                                      : sibling.distances.second;
                             if (sibling.type == ZipCodeTree::SNARL_START) {
                                 //Get the distance to the start (or end if it's reversed) of the snarl
-                                active_zip_tree[active_zip_tree.size() - 1 - sibling_i] = 
+                                active_zip_tree->at(active_zip_tree->size() - 1 - sibling_i) = 
                                  {ZipCodeTree::EDGE, 
                                   SnarlDistanceIndex::sum(distance_to_start_of_current_child,
                                     current_parent_is_reversed
@@ -508,7 +510,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                                         distance_to_start_of_current_child),
                                         distance_to_end_of_previous_child);
                                 }
-                                active_zip_tree[active_zip_tree.size() - 1 - sibling_i] = {ZipCodeTree::EDGE, distance, false};
+                                active_zip_tree->at(active_zip_tree->size() - 1 - sibling_i) = {ZipCodeTree::EDGE, distance, false};
                             }
 
                         }
@@ -516,12 +518,15 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
 
                     if (depth == 0 || depth == 1) {
                         //First, add this as a new connected component
+#ifdef DEBUG_ZIP_CODE_TREE
+                        cerr << "Add a new tree" << endl;
+#endif
                         trees.emplace_back(seeds);
-                        active_zip_tree = trees.back().zip_code_tree;
+                        active_zip_tree = &(trees.back().zip_code_tree);
                     }
 
                     //Now record the start of this chain
-                    active_zip_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
+                    active_zip_tree->push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
 
                     //Remember the start of the chain, with the prefix sum value
                     sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 0});
@@ -546,11 +551,11 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                         //but remember it to add to snarl distances later
                         sibling_indices_at_depth[depth].back().distances.first = current_offset;
                     } else {
-                        active_zip_tree.push_back({ZipCodeTree::EDGE, 
+                        active_zip_tree->push_back({ZipCodeTree::EDGE, 
                                                  current_offset - sibling_indices_at_depth[depth].back().value, 
                                                  false}); 
                     }
-                    active_zip_tree.push_back({ZipCodeTree::SEED, 
+                    active_zip_tree->push_back({ZipCodeTree::SEED, 
                                                seed_indices[i], 
                                                current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)}); 
 
@@ -593,7 +598,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
 #endif
                 //Add the end of the chain to the zip code tree
                 // TODO: When we get C++20, change this to emplace_back aggregate initialization
-                active_zip_tree.push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
+                active_zip_tree->push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
 
 
                 //The distance from the last thing in the chain to the end of the chain
@@ -623,20 +628,20 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                 //If this is the end of the snarl, then we need to save the distances to 
                 //all previous children of the snarl
 
-                active_zip_tree.resize(active_zip_tree.size() + sibling_indices_at_depth[depth].size());
+                active_zip_tree->resize(active_zip_tree->size() + sibling_indices_at_depth[depth].size());
 
                 for (size_t sibling_i = 0 ; sibling_i < sibling_indices_at_depth[depth].size() ; sibling_i++) {
                     const auto& sibling = sibling_indices_at_depth[depth][sibling_i];
                     if (sibling.type == ZipCodeTree::SNARL_START) {
                         //First, the distance between ends of the snarl, which is the length
-                        active_zip_tree[active_zip_tree.size() - 1 - sibling_i] = {ZipCodeTree::EDGE,
+                        active_zip_tree->at(active_zip_tree->size() - 1 - sibling_i) = {ZipCodeTree::EDGE,
                             last_seed.zipcode_decoder->get_length(depth), false};
                     } else {
                         //For the rest of the children, find the distance from the child to
                         //the end
                         //If the child is reversed relative to the top-level chain, then get the distance to start
                         //Remember to add the distance to the end of the child
-                        active_zip_tree[active_zip_tree.size() - 1 - sibling_i] = {ZipCodeTree::EDGE,
+                        active_zip_tree->at(active_zip_tree->size() - 1 - sibling_i) = {ZipCodeTree::EDGE,
                             SnarlDistanceIndex::sum(
                                 last_is_reversed 
                                     ? seeds->at(sibling.value).zipcode_decoder->get_distance_to_snarl_start(depth+1)
@@ -646,15 +651,15 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                     }
                 }
                 //Note the count of children and the end of the snarl
-                active_zip_tree.push_back({ZipCodeTree::NODE_COUNT, sibling_indices_at_depth[depth].size()-1, false});
-                active_zip_tree.push_back({ZipCodeTree::SNARL_END, std::numeric_limits<size_t>::max(), false});
+                active_zip_tree->push_back({ZipCodeTree::NODE_COUNT, sibling_indices_at_depth[depth].size()-1, false});
+                active_zip_tree->push_back({ZipCodeTree::SNARL_END, std::numeric_limits<size_t>::max(), false});
             } else if (last_type == ZipCode::ROOT_SNARL) {
 
 #ifdef DEBUG_ZIP_CODE_TREE
                 cerr << "\t\tclose a root snarl at depth " << depth << endl;
 #endif
                 //Add the end of the root snarl to the zip code tree. Don't need distances to the ends of the snarl
-                active_zip_tree.push_back({ZipCodeTree::SNARL_END, std::numeric_limits<size_t>::max(), false});
+                active_zip_tree->push_back({ZipCodeTree::SNARL_END, std::numeric_limits<size_t>::max(), false});
 
 
             }
