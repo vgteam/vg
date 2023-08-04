@@ -427,6 +427,7 @@ int main_minimizer(int argc, char** argv) {
     if (!zipcode_name.empty()) { 
         ofstream zip_out (zipcode_name);
         oversized_zipcodes.serialize(zip_out);
+        zip_out.close();
 
     }
 

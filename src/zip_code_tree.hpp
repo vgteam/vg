@@ -32,7 +32,16 @@ class ZipCodeTree {
      * The constructor creates a tree of the input seeds that is used for calculating distances
      */
     ZipCodeTree(){};
-    void fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index);
+
+    ///Populate the zip tree
+    /// If a distance limit is given, then bucket the seeds at the same time
+    void fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
+                      size_t distance_limit = std::numeric_limits<size_t>::max());
+
+    ///During zip tree construction, the seeds are partitioned into buckets, where seeds that are close
+    /// to each other in the top-level chain are placed in the same bucket
+    /// Each bucket is a vector if indices into the vector of seeds
+    vector<vector<size_t>> buckets;
 
 
     private:
@@ -124,7 +133,9 @@ class ZipCodeTree {
     //The actual tree structure
     vector<tree_item_t> zip_code_tree;
 
+
 public:
+
 
     /// Return the sort order of the seeds
     /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls

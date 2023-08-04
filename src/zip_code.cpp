@@ -1564,6 +1564,13 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
     //The first varint_vector_t will have one value, which will be the length of the
     //zipcode that follows it
 
+    //First serialize the header, which is the magic number and version
+    uint32_t magic = magic_number;
+    uint32_t vers = version;
+    out.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+    out.write(reinterpret_cast<const char*>(&vers), sizeof(vers));
+
+
     for (const ZipCode& zip : zipcodes) {
     
         //How many bytes are going to be saved for the zipcode? 
@@ -1593,6 +1600,19 @@ void ZipCodeCollection::serialize(std::ostream& out) const {
 
 }
 void ZipCodeCollection::deserialize(std::istream& in) {
+
+    //Check the magic number and version
+    uint32_t saved_magic_number, saved_version;
+    in.read(reinterpret_cast<char*>(&saved_magic_number), sizeof(saved_magic_number));
+    if (saved_magic_number != magic_number) {
+        throw std::runtime_error("error: Loading the wrong type of file when looking for zipcodes");
+    }
+
+    in.read(reinterpret_cast<char*>(&saved_version), sizeof(saved_version));
+    if (saved_version != version) {
+        throw std::runtime_error("error: Loading the wrong zipcode version");
+    }
+
     while (in.peek() != EOF) {
 
         //First, get the number of bytes used by the zipcode

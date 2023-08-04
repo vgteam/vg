@@ -376,6 +376,7 @@ int main_cluster(int argc, char** argv) {
 
         ifstream zip_in (zipcode_name);
         oversized_zipcodes.deserialize(zip_in);
+        zip_in.close();
     }
 
     // Grab the GBZ

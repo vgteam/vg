@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -10,7 +10,8 @@
 using namespace std;
 namespace vg {
 
-void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index) {
+void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
+                               size_t distance_limit) {
     if (all_seeds.size() == 0) {
         return;
     }
@@ -434,6 +435,14 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     //This distance will be added to distances in the parent snarl
                     sibling_indices_at_depth[depth-2][0].distances.first = current_offset;
 
+                    //The next thing in the zip tree will be the first seed (or snarl), so add a new bucket
+                    if (depth == 0 || depth == 1) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                        cerr << "Add new bucket" << endl;
+#endif
+                        buckets.emplace_back();
+                    }
+
                 } else if (!(depth == 0 && sibling_indices_at_depth[depth][0].type == CHAIN_START) &&
                     !(depth > 0 && sibling_indices_at_depth[depth-1][0].type == CHAIN_START)) {
                     //for everything except the first thing in a node/chain
@@ -447,6 +456,20 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                     }
 
                     zip_code_tree.push_back({EDGE, distance_between, false});
+
+                    if ((depth == 0 || depth == 1) && distance_between > distance_limit) {
+                        //If this edge is big enough, then start a new bucket
+#ifdef DEBUG_ZIP_CODE_TREE
+                        cerr << "Add new bucket" << endl;
+#endif
+                        buckets.emplace_back();
+                    }
+                } else if (depth == 0 || depth == 1){
+                    //For the first thing in a node/chain at the root
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << "Add new bucket" << endl;
+#endif
+                    buckets.emplace_back();
                 }
 
                 /////////////////////////////Record this thing in the chain
@@ -456,6 +479,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #endif
                     //If this was a node, just remember the seed
                     zip_code_tree.push_back({SEED, seed_indices[i], current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)});
+                    buckets.back().emplace_back(seed_indices[i]);
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
                     cerr << "\t\tOpen new snarl at depth " << depth << endl;
@@ -494,6 +518,9 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
 #endif
                     //Now record the start of this snarl
                     zip_code_tree.push_back({SNARL_START, std::numeric_limits<size_t>::max(), false});
+
+                    //Add a new bucket for the root snarl
+                    buckets.emplace_back();
                 }
             } else {
                 //Otherwise, this is a chain or root chain
@@ -621,6 +648,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
                                                  false}); 
                     }
                     zip_code_tree.push_back({SEED, seed_indices[i], current_is_reversed != is_rev(seeds->at(seed_indices[i]).pos)}); 
+                    buckets.back().emplace_back(seed_indices[i]);
 
                     //And update sibling_indices_at_depth to remember this child
                     sibling_indices_at_depth[depth].pop_back();
@@ -733,6 +761,7 @@ void ZipCodeTree::fill_in_tree(vector<Seed>& all_seeds, const SnarlDistanceIndex
         }
     }
 }
+
 
 bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index) const {
     if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {

@@ -1409,7 +1409,7 @@ using namespace std;
             };
         }
     }
-    TEST_CASE("Top-level chain zipcode", "[zipcode]") {
+    TEST_CASE("Top-level chain zipcode", "[zipcode][bug]") {
  
         VG graph;
  
@@ -1572,6 +1572,28 @@ using namespace std;
                 decoded.fill_in_zipcode_from_payload(payload);
                 REQUIRE(zipcode == decoded);
             };
+        }
+        SECTION("serialization") {
+            ZipCodeCollection zipcodes;
+            for (size_t i = 1 ; i <= 7 ; i++) {
+                ZipCode zip;
+                zip.fill_in_zipcode(distance_index, make_pos_t(i, 0, false));
+                zipcodes.emplace_back(zip);
+            }
+            ofstream out ("zipcodes");
+            zipcodes.serialize(out);
+            out.close();
+
+            ifstream in("zipcodes");
+            ZipCodeCollection new_zipcodes;
+            new_zipcodes.deserialize(in);
+            in.close();
+
+            REQUIRE(zipcodes.size() == new_zipcodes.size());
+            for (size_t i = 0 ; i < zipcodes.size() ; i++) {
+                REQUIRE(zipcodes.at(i).zipcode == new_zipcodes.at(i).zipcode);
+            }
+            
         }
     }
 }
