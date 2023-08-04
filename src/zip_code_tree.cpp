@@ -266,6 +266,11 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                 if (current_type == ZipCode::ROOT_NODE && sibling_indices_at_depth[depth].empty()) {
                     //If this is a root-level node and the first time we've seen it,
                     //then open the node
+
+                    //First, add this as a new connected component
+                    trees.emplace_back(seeds);
+                    active_zip_tree = trees.back().zip_code_tree;
+
                     active_zip_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
                     sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 0});
                 }
@@ -362,27 +367,6 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                         //If we didn't start a new tree, then remember the edge
                         active_zip_tree.push_back({ZipCodeTree::EDGE, distance_between, false});
                     }
-                } else if (depth == 0 || depth == 1){
-                    //For the first thing in a new node/chain at the root
-                    //The next thing in the zip tree will be the first seed (or snarl) in a top-level chain, 
-                    // so start a new tree
-#ifdef DEBUG_ZIP_CODE_TREE
-                    cerr << "Start a new tree in the forest" << endl;
-#endif
-                    //Add the end of the first chain
-                    active_zip_tree.push_back({ZipCodeTree::CHAIN_END, std::numeric_limits<size_t>::max(), false});
-
-                    //Add a new tree and make sure it is the new active tree
-                    trees.emplace_back(seeds);
-                    active_zip_tree = trees.back().zip_code_tree;
-
-                    //Add the start of the new chain
-                    active_zip_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
-
-                    //The first sibling in the chain is now the chain start, not the previous seed, so replace it
-                    sibling_indices_at_depth[depth].pop_back();
-                    sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 0}); 
-
                 }
 
                 /////////////////////////////Record this thing in the chain
@@ -528,6 +512,12 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                             }
 
                         }
+                    }
+
+                    if (depth == 0 || depth == 1) {
+                        //First, add this as a new connected component
+                        trees.emplace_back(seeds);
+                        active_zip_tree = trees.back().zip_code_tree;
                     }
 
                     //Now record the start of this chain
