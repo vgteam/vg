@@ -516,7 +516,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                         }
                     }
 
-                    if (depth == 0 || depth == 1) {
+                    if (depth == 0) {
                         //First, add this as a new connected component
 #ifdef DEBUG_ZIP_CODE_TREE
                         cerr << "Add a new tree" << endl;

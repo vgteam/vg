@@ -515,7 +515,7 @@ protected:
     SnarlDistanceIndexClusterer clusterer;
 
     /// We have a zip code tree for finding distances between seeds 
-    ZipCodeTree zip_tree;
+    ZipCodeForest zip_forest;
 
 
     /// We have a distribution for read fragment lengths that takes care of
@@ -628,7 +628,7 @@ protected:
     /**
      * Run chaining on some clusters. Returns the chains and the context needed to interpret them.
      */
-    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeTree& zip_code_tree, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
+    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeForest& zip_code_forest, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
