@@ -56,7 +56,7 @@ using namespace std;
             ZipCodeDecoder decoder(&zipcode);
 
             REQUIRE(decoder.get_length(0) == distance_index.minimum_length(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_NODE);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_NODE);
         }
         SECTION("n1 as payload") {
             ZipCode zipcode;
@@ -150,11 +150,11 @@ using namespace std;
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_CHAIN);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_CHAIN);
 
 
             //Next is the node code
-            REQUIRE(decoder.get_code_type( 1) == NODE);
+            REQUIRE(decoder.get_code_type( 1) == ZipCode::NODE);
             REQUIRE(decoder.get_length( 1) == distance_index.minimum_length(node1));
             REQUIRE(decoder.get_offset_in_chain(1) == distance_index.get_prefix_sum_value(node1));
             REQUIRE(decoder.get_is_reversed_in_parent(1) == distance_index.is_reversed_in_parent(node1));
@@ -228,19 +228,19 @@ using namespace std;
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_CHAIN);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_CHAIN);
 
             //values for the snarl
             REQUIRE(decoder.get_length(1) == distance_index.minimum_length(snarl36));
             REQUIRE(decoder.get_offset_in_chain(1) == (chain_is_reversed ? 5 : 6));
-            REQUIRE(decoder.get_code_type(1) == REGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::REGULAR_SNARL);
             bool is_rev = distance_index.distance_in_parent(snarl36, distance_index.get_bound(snarl36, false, true),
                                                                    distance_index.flip(chain4)) != 0;
 
             //values for the chain
             REQUIRE(decoder.get_length(2) == distance_index.minimum_length(chain4));
             REQUIRE(decoder.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain4));
-            REQUIRE(decoder.get_code_type(2) == CHAIN);
+            REQUIRE(decoder.get_code_type(2) == ZipCode::CHAIN);
             REQUIRE(decoder.get_is_reversed_in_parent(2) == is_rev);
         }
         SECTION("Distances") {
@@ -436,12 +436,12 @@ using namespace std;
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_CHAIN);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_CHAIN);
 
 
             REQUIRE(decoder.get_length(1) == distance_index.minimum_length(node1));
             REQUIRE(decoder.get_offset_in_chain(1) == distance_index.get_prefix_sum_value(node1));
-            REQUIRE(decoder.get_code_type(1) == NODE);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::NODE);
             REQUIRE(decoder.get_is_reversed_in_parent(1) == distance_index.is_reversed_in_parent(node1));
 
         }
@@ -526,25 +526,25 @@ using namespace std;
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_CHAIN);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_CHAIN);
 
             //Snarl at depth 1
             REQUIRE(decoder.get_length(1) == 0);
             REQUIRE(decoder.get_offset_in_chain(1) == (chain_is_reversed ? 4 : 3));
-            REQUIRE(decoder.get_code_type(1) == REGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::REGULAR_SNARL);
             bool is_rev = distance_index.distance_in_parent(snarl1, distance_index.get_bound(snarl1, false, true),
                                                                    distance_index.flip(distance_index.canonical(chain2))) != 0;
 
             //Chain at depth 2
             REQUIRE(decoder.get_length(2) == 3);
             REQUIRE(decoder.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain2));
-            REQUIRE(decoder.get_code_type(2) == CHAIN);
+            REQUIRE(decoder.get_code_type(2) == ZipCode::CHAIN);
             REQUIRE(decoder.get_is_reversed_in_parent(2) == is_rev);
 
             //Node at depth 3
             REQUIRE(decoder.get_length(3) == 1);
             REQUIRE(decoder.get_offset_in_chain(3) == distance_index.get_prefix_sum_value(node2));
-            REQUIRE(decoder.get_code_type(3) == NODE);
+            REQUIRE(decoder.get_code_type(3) == ZipCode::NODE);
             REQUIRE(decoder.get_is_reversed_in_parent(3) == distance_index.is_reversed_in_parent(node2));
 
         }
@@ -683,12 +683,12 @@ using namespace std;
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                         distance_index.canonical(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_CHAIN);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_CHAIN);
 
             //Snarl at depth 1
             REQUIRE(decoder.get_length(1) == 0);
             REQUIRE(decoder.get_offset_in_chain(1) == (chain_is_reversed ? 4 : 3));
-            REQUIRE(decoder.get_code_type(1) == REGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::REGULAR_SNARL);
             net_handle_t snarl = distance_index.get_parent(chain2);
             bool is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
                                                                    distance_index.flip(distance_index.canonical(chain2))) != 0;
@@ -698,13 +698,13 @@ using namespace std;
             REQUIRE(decoder.get_is_reversed_in_parent(2) == is_rev);
             REQUIRE(decoder.get_length(2) == 3);
             REQUIRE(decoder.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain2));
-            REQUIRE(decoder.get_code_type(2) == CHAIN);
+            REQUIRE(decoder.get_code_type(2) == ZipCode::CHAIN);
 
 
             //Snarl at depth 3
             REQUIRE(decoder.get_length(3) == 1);
             REQUIRE(decoder.get_offset_in_chain(3) == 1);
-            REQUIRE(decoder.get_code_type(3) == REGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(3) == ZipCode::REGULAR_SNARL);
             snarl = distance_index.get_parent(chain3);
             is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
                                                                    distance_index.flip(distance_index.canonical(chain3))) != 0;
@@ -713,13 +713,13 @@ using namespace std;
             REQUIRE(decoder.get_is_reversed_in_parent(4) == is_rev);
             REQUIRE(decoder.get_length(4) == distance_index.minimum_length(chain3));
             REQUIRE(decoder.get_rank_in_snarl(4) == distance_index.get_rank_in_parent(chain3));
-            REQUIRE(decoder.get_code_type(4) == CHAIN);
+            REQUIRE(decoder.get_code_type(4) == ZipCode::CHAIN);
 
 
             //Snarl3 at depth 5
             REQUIRE(decoder.get_length(5) == 0);
             REQUIRE(decoder.get_offset_in_chain(5) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 3 : 1));
-            REQUIRE(decoder.get_code_type(5) == REGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(5) == ZipCode::REGULAR_SNARL);
             snarl = distance_index.get_parent(chain4);
             is_rev = distance_index.distance_in_parent(snarl, distance_index.get_bound(snarl, false, true),
                                                                    distance_index.flip(distance_index.canonical(chain4))) != 0;
@@ -728,7 +728,7 @@ using namespace std;
             REQUIRE(decoder.get_is_reversed_in_parent(6) == is_rev);
             REQUIRE(decoder.get_length(6) == 4);
             REQUIRE(decoder.get_rank_in_snarl(6) == distance_index.get_rank_in_parent(chain4));
-            REQUIRE(decoder.get_code_type(6) == CHAIN);
+            REQUIRE(decoder.get_code_type(6) == ZipCode::CHAIN);
 
         }
         SECTION("Distances") {
@@ -1002,16 +1002,16 @@ using namespace std;
 
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(chain1));
-            REQUIRE(decoder.get_code_type(0) == ROOT_CHAIN);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_CHAIN);
 
             //Snarl1 at depth 1
             REQUIRE(decoder.get_offset_in_chain(1, &distance_index) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 6 : 3));
-            REQUIRE(decoder.get_code_type(1) == IRREGULAR_SNARL);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::IRREGULAR_SNARL);
 
             //chain3 at depth 3
             REQUIRE(decoder.get_length(2) == 1);
             REQUIRE(decoder.get_rank_in_snarl(2) == distance_index.get_rank_in_parent(chain3));
-            REQUIRE(decoder.get_code_type(2) == CHAIN);
+            REQUIRE(decoder.get_code_type(2) == ZipCode::CHAIN);
             REQUIRE(decoder.get_distance_to_snarl_end(2) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 1 : 0));
             REQUIRE(decoder.get_distance_to_snarl_start(2) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n1->id())) ? 0 : 1));
         }
@@ -1224,12 +1224,12 @@ using namespace std;
             //Root snarl
             REQUIRE(distance_index.canonical(decoder.get_net_handle(0, &distance_index)) == 
                     distance_index.canonical(distance_index.get_parent(chain1)));
-            REQUIRE(decoder.get_code_type(0) == ROOT_SNARL);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_SNARL);
 
             //Chain1 at depth 1
             REQUIRE(decoder.get_length(1) == 3);
             REQUIRE(decoder.get_rank_in_snarl(1) == distance_index.get_rank_in_parent(chain1));
-            REQUIRE(decoder.get_code_type(1) == CHAIN);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::CHAIN);
         }
         SECTION ("zip code for node in chain in top-level snarl") { 
             net_handle_t node1 = distance_index.get_node_net_handle(n3->id());
@@ -1279,17 +1279,17 @@ using namespace std;
 
             //Root snarl
             REQUIRE(decoder.get_distance_index_address(0) == distance_index.get_connected_component_number(node3));
-            REQUIRE(decoder.get_code_type(0) == ROOT_SNARL);
+            REQUIRE(decoder.get_code_type(0) == ZipCode::ROOT_SNARL);
 
             //chain2 at depth 1
             REQUIRE(decoder.get_length(1) == 2);
             REQUIRE(decoder.get_rank_in_snarl(1) == distance_index.get_rank_in_parent(chain2));
-            REQUIRE(decoder.get_code_type(1) == CHAIN);
+            REQUIRE(decoder.get_code_type(1) == ZipCode::CHAIN);
 
             //node3 at depth 2
             REQUIRE(decoder.get_length(2) == 1);
             REQUIRE(decoder.get_offset_in_chain(2) == (distance_index.is_reversed_in_parent(distance_index.get_node_net_handle(n3->id())) ? 0 : 1));
-            REQUIRE(decoder.get_code_type(2) == NODE);
+            REQUIRE(decoder.get_code_type(2) == ZipCode::NODE);
             REQUIRE(decoder.get_is_reversed_in_parent(2) == distance_index.is_reversed_in_parent(node3));
         }
         SECTION("Distances") {

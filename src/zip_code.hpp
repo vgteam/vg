@@ -33,11 +33,6 @@ using namespace std;
 class ZipCodeDecoder;
 
 
-///The type of codes that can be stored in the zipcode
-///Trivial chains that are children of snarls get saved as a chain with no child node
-///EMPTY doesn't actually mean anything, it's used to catch errors
-enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
-
 ///A struct to interpret the minimizer payload
 ///I want to use zipcodes as the payload but at the moment clustering still expects the old payload
 ///This can interpret zipcodes to format them as the old payload
@@ -49,6 +44,12 @@ struct MIPayload;
  */
 class ZipCode {
 
+
+    ///The type of codes that can be stored in the zipcode
+    ///Trivial chains that are children of snarls get saved as a chain with no child node
+    ///EMPTY doesn't actually mean anything, it's used to catch errors
+    public:
+    enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
     public:
 
         //Fill in an empty zipcode given a position
@@ -251,7 +252,7 @@ class ZipCodeDecoder {
     size_t decoder_length() {return decoder.size();}
 
     ///What type of snarl tree node is at the given depth (index into the zipcode)
-    code_type_t get_code_type(const size_t& depth) ;
+    ZipCode::code_type_t get_code_type(const size_t& depth) ;
 
     ///Get the length of a snarl tree node given the depth in the snarl tree
     ///This requires the distance index for irregular snarls (except for a top-level snarl)

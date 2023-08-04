@@ -325,7 +325,7 @@ size_t ZipCodeDecoder::max_depth() {
 
 }
 
-code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
+ZipCode::code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
     //First, make sure that the decoder has enough in it
     if (depth >= decoder_length()) {
         for (size_t i = decoder_length() ; i <= depth ; i++) {
@@ -350,22 +350,22 @@ code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
 
             //If there is still only one thing in the decoder, then it's a node
             if (decoder_length() == 1) {
-                return ROOT_NODE;
+                return ZipCode::ROOT_NODE;
             } else {
-                return ROOT_CHAIN;
+                return ZipCode::ROOT_CHAIN;
             }
         } else {
-            return ROOT_SNARL;
+            return ZipCode::ROOT_SNARL;
         }
     } else {
         if (decoder[depth].first) {
             //is_chain so could be a chain or a node
             if (decoder[depth-1].first) {
                 //If the thing before this was also a chain, then it is a node
-                return NODE;
+                return ZipCode::NODE;
             } else {
                 //Otherwise it's a chain
-                return CHAIN;
+                return ZipCode::CHAIN;
             }
         } else {
             //Definitely a snarl
@@ -374,8 +374,8 @@ code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
             for (size_t i = 0 ; i <= ZipCode::SNARL_IS_REGULAR_OFFSET; i++) {
                 std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
             }
-            return zip_value ? REGULAR_SNARL 
-                             : IRREGULAR_SNARL;
+            return zip_value ? ZipCode::REGULAR_SNARL 
+                             : ZipCode::IRREGULAR_SNARL;
         }
     }
 }
@@ -677,10 +677,10 @@ size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
     }
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
-    assert((get_code_type(depth-1) == IRREGULAR_SNARL || get_code_type(depth-1) == REGULAR_SNARL)); 
+    assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL)); 
 #endif
     
-    if (get_code_type(depth-1) == IRREGULAR_SNARL){
+    if (get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL){
         //If the parent is an irregular snarl, get the saved value
         size_t zip_value; 
         size_t zip_index = decoder[depth-1].second;
@@ -708,11 +708,11 @@ size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
     }
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
-    assert((get_code_type(depth-1) == IRREGULAR_SNARL || get_code_type(depth-1) == REGULAR_SNARL)); 
+    assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL)); 
 #endif
     
 
-    if (get_code_type(depth-1) == IRREGULAR_SNARL ) {
+    if (get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL ) {
         //If the parent is an irregular snarl, then get the saved value
         size_t zip_value; 
         size_t zip_index = decoder[depth-1].second;
@@ -751,22 +751,22 @@ const bool ZipCodeDecoder::is_equal(ZipCodeDecoder& decoder1, ZipCodeDecoder& de
     }
 
     //First, check if the code types are the same
-    code_type_t type1 = decoder1.get_code_type(depth);
-    code_type_t type2 = decoder2.get_code_type(depth);
+    ZipCode::code_type_t type1 = decoder1.get_code_type(depth);
+    ZipCode::code_type_t type2 = decoder2.get_code_type(depth);
     if (type1 != type2) {
         return false;
     }
 
-    if (type1 == ROOT_NODE || type1 == ROOT_CHAIN || type1 == ROOT_SNARL || type1 == IRREGULAR_SNARL ) {
+    if (type1 == ZipCode::ROOT_NODE || type1 == ZipCode::ROOT_CHAIN || type1 == ZipCode::ROOT_SNARL || type1 == ZipCode::IRREGULAR_SNARL ) {
         //If the codes are for root-structures or irregular snarls, just check if the 
         //connected component numbers are the same
         return decoder1.get_distance_index_address(depth) == decoder2.get_distance_index_address(depth);
     } else {
         //Check the parent type. If the parent is a snarl, then check rank. If it's a chain,
         //then check the prefix sum
-        if (decoder1.get_code_type(depth-1) == REGULAR_SNARL ||
-            decoder1.get_code_type(depth-1) == IRREGULAR_SNARL ||
-            decoder1.get_code_type(depth-1) == ROOT_SNARL) {
+        if (decoder1.get_code_type(depth-1) == ZipCode::REGULAR_SNARL ||
+            decoder1.get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL ||
+            decoder1.get_code_type(depth-1) == ZipCode::ROOT_SNARL) {
             //If the parent is a snarl, then check the rank
             return decoder1.get_rank_in_snarl(depth) == decoder2.get_rank_in_snarl(depth);
         } else {
@@ -1666,7 +1666,7 @@ size_t MIPayload::parent_record_offset(const ZipCode& zip, const SnarlDistanceIn
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
 
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
@@ -1694,7 +1694,7 @@ size_t MIPayload::parent_record_offset(const ZipCode& zip, const SnarlDistanceIn
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == ZipCode::IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             return decoder.get_distance_index_address(node_depth-1);
 
@@ -1749,7 +1749,7 @@ bool MIPayload::is_reversed(const ZipCode& zip, const SnarlDistanceIndex& distan
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
 
@@ -1768,11 +1768,11 @@ bool MIPayload::is_reversed(const ZipCode& zip, const SnarlDistanceIndex& distan
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == ZipCode::IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             return false;
 
-        } else if (decoder.get_code_type(node_depth-1) == REGULAR_SNARL) {
+        } else if (decoder.get_code_type(node_depth-1) == ZipCode::REGULAR_SNARL) {
             //If the parent is a regular snarl
 
             //Because I'm storing "regular" and not "simple", need to check this
@@ -1793,7 +1793,7 @@ bool MIPayload::is_trivial_chain(const ZipCode& zip) {
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
 
@@ -1812,11 +1812,11 @@ bool MIPayload::is_trivial_chain(const ZipCode& zip) {
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == ZipCode::IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
             return true;
 
-        } else if (decoder.get_code_type(node_depth-1) == REGULAR_SNARL) {
+        } else if (decoder.get_code_type(node_depth-1) == ZipCode::REGULAR_SNARL) {
             //If the parent is a regular snarl
             return true;
 
@@ -1832,7 +1832,7 @@ bool MIPayload::parent_is_chain(const ZipCode& zip, const SnarlDistanceIndex& di
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
 
@@ -1852,12 +1852,12 @@ bool MIPayload::parent_is_chain(const ZipCode& zip, const SnarlDistanceIndex& di
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == ZipCode::IRREGULAR_SNARL) {
             //If the parent is an irregular snarl
 
             return false;
 
-        } else if (decoder.get_code_type(node_depth-1) == REGULAR_SNARL) {
+        } else if (decoder.get_code_type(node_depth-1) == ZipCode::REGULAR_SNARL) {
 
             net_handle_t node_handle = distance_index.get_node_net_handle(id);
             net_handle_t parent = distance_index.get_parent(node_handle);
@@ -1885,7 +1885,7 @@ bool MIPayload::parent_is_root(const ZipCode& zip) {
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
 
@@ -1912,7 +1912,7 @@ size_t MIPayload::prefix_sum(const ZipCode& zip, const SnarlDistanceIndex& dista
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
         return  0;
@@ -1929,9 +1929,9 @@ size_t MIPayload::prefix_sum(const ZipCode& zip, const SnarlDistanceIndex& dista
         //Otherwise, check the last thing in the zipcode to get the node values
         size_t node_depth = decoder.decoder_length()-1;
 
-        if (decoder.get_code_type(node_depth-1) == IRREGULAR_SNARL) {
+        if (decoder.get_code_type(node_depth-1) == ZipCode::IRREGULAR_SNARL) {
             return 0;
-        } else if (decoder.get_code_type(node_depth-1) == REGULAR_SNARL) {
+        } else if (decoder.get_code_type(node_depth-1) == ZipCode::REGULAR_SNARL) {
             //If the parent is a snarl
             //Because I'm storing "regular" and not "simple", need to check this
             if (distance_index.is_simple_snarl(distance_index.get_parent(distance_index.get_parent(distance_index.get_node_net_handle(id))))) {
@@ -1951,7 +1951,7 @@ size_t MIPayload::chain_component(const ZipCode& zip, const SnarlDistanceIndex& 
  
     ZipCodeDecoder decoder (&zip);
 
-    bool root_is_chain = decoder.get_code_type(0) != ROOT_SNARL;
+    bool root_is_chain = decoder.get_code_type(0) != ZipCode::ROOT_SNARL;
 
     if (decoder.decoder_length() == 1) {
         //If the root-level structure is a node
