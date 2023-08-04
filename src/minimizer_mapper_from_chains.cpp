@@ -565,8 +565,19 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Bucket the hits coarsely into sets that might be able to interact.
+
+#ifdef cluster_bucketing
     std::vector<Cluster> buckets = clusterer.cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
-    //std::vector<Cluster> buckets = zip_clusterer.coarse_cluster_seeds(seeds, aln.sequence().size() * bucket_scale);
+#else
+    // The zip code tree does this already
+    std::vector<Cluster> buckets;
+    buckets.reserve(zip_code_tree.buckets.size());
+    for (auto& bucket : zip_code_tree.buckets) {
+        buckets.emplace_back();
+        buckets.back().seeds = bucket;
+        // Scores will be computed later.
+    }
+#endif
     
     // Score all the buckets
     if (track_provenance) {
