@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -344,9 +344,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                         distance_between = current_offset - previous_offset;
                     }
 
-                    if (false) {
-                        //TODO: DOn't do this yet because I want to make sure it works for the simple case first
-                        //(depth == 0 || depth == 1) && distance_between > distance_limit) {
+                    if ((depth == 0 || depth == 1) && distance_between > distance_limit) {
                         //The next thing in the zip tree will be the first seed (or snarl) in a top-level chain, 
                         // so start a new tree
 #ifdef DEBUG_ZIP_CODE_TREE

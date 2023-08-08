@@ -18,7 +18,7 @@ namespace vg {
 namespace unittest {
 
     TEST_CASE( "zip tree one node",
-                   "[zip_tree][bug]" ) {
+                   "[zip_tree]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -365,6 +365,32 @@ namespace unittest {
             REQUIRE(reverse_views[{2, false}][1].distance == 5);
             REQUIRE(reverse_views[{2, false}][1].is_reverse == false);
         }
+
+        SECTION( "Two buckets" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(2, false, 6);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 4);
+            REQUIRE(zip_forest.tree_count() == 2);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+
+
     }
     TEST_CASE( "zip tree two two node chains", "[zip_tree]" ) {
         VG graph;
@@ -522,6 +548,27 @@ namespace unittest {
             //REQUIRE(reverse_views[{3, false}][0].seed == 2);
             //REQUIRE(reverse_views[{3, false}][0].distance == 5);
             //REQUIRE(reverse_views[{3, false}][0].is_reverse == false);
+        }
+        SECTION( "Four buckets" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 5);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 5);
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 3);
+            REQUIRE(zip_forest.tree_count() == 4);
+
+            zip_forest.print_self();
         }
     }
     TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree]" ) {
@@ -855,7 +902,7 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
         }
-        SECTION( "Only snarls in a snarl" ) {
+        SECTION( "Only snarls in a chain" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(2, false, 0);
@@ -889,6 +936,77 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
         }
+        SECTION( "Seeds on chain nodes bucket" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(6, false, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 4);
+            REQUIRE(zip_forest.tree_count() == 2);
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+        SECTION( "Only snarls in two buckets" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 1);
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            REQUIRE(zip_forest.tree_count() == 2);
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+        SECTION( "Snarls and nodes in three buckets" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 1);
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 1);
+            REQUIRE(zip_forest.tree_count() == 3);
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+
+
     }
     TEST_CASE( "zip tree non-simple DAG", "[zip_tree]" ) {
 
@@ -959,6 +1077,35 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
         }
+        SECTION( "Three buckets" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+            positions.emplace_back(7, false, 1);
+            positions.emplace_back(8, false, 0);
+            positions.emplace_back(8, true, 0);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 3);
+            REQUIRE(zip_forest.tree_count() == 3);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            zip_forest.print_self();
+            zip_tree.validate_zip_tree(distance_index);
+        }
+
+
     }
 
     TEST_CASE( "zip tree deeply nested bubbles", "[zip_tree]" ) {
@@ -1009,8 +1156,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-
-
         
         //graph.to_dot(cerr);
 
@@ -1084,9 +1229,32 @@ namespace unittest {
                 REQUIRE(dag_non_dag_count.second == 0);
             }
         }
+        SECTION( "3 buckets" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(10, false, 0);
+            positions.emplace_back(13, false, 2);
+            positions.emplace_back(16, false, 5);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 4);
+            REQUIRE(zip_forest.tree_count() == 3);
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
     }
 
-    TEST_CASE( "zip tree non-dag", "[zip_tree]" ) {
+    TEST_CASE( "zip tree non-dag", "[zip_tree][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1109,6 +1277,10 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
 
         
         //graph.to_dot(cerr);
@@ -1157,11 +1329,7 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
- 
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
- 
+  
 
         // I observed:
         // 63004421+0 2 ( 4 [63004426+1] 19  2  1) 2 63004430+1 
@@ -1187,7 +1355,7 @@ namespace unittest {
         zip_tree.validate_zip_tree(distance_index);
     }
 
-    TEST_CASE("Root snarl", "[zip_tree][bug]") {
+    TEST_CASE("Root snarl", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGCACA");//8
@@ -1204,9 +1372,6 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
 
         vector<pos_t> positions;
         positions.emplace_back(1, false, 0);
