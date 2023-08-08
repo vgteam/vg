@@ -3,6 +3,7 @@
 #include "annotation.hpp"
 
 #include <sstream>
+#include <chrono>
 
 using namespace vg::io;
 
@@ -1867,13 +1868,19 @@ void parse_bed_regions(istream& bedstream,
 
     // in case we need to look for subpaths, keep the info store for reuse
     unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
-
+    // to warn about slow annotation // TODO remove after testing?
+    std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
+    std::chrono::duration<double> elapsed_seconds;
+    
     for (int line = 1; getline(bedstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
             continue;
         }
         istringstream ss(row);
 
+        // to warn about slow annotation // TODO remove after testing?
+        t_start = std::chrono::system_clock::now();
+            
         ss >> seq;
         ss >> sbuf;
         ss >> ebuf;
@@ -1888,10 +1895,12 @@ void parse_bed_regions(istream& bedstream,
             // This path doesn't exist, and we'll get a segfault or worse if
             // we go look for positions in it.
             // but maybe it's chopped in subranges?
+            bool subpath_found = false;
             // first look in our cached subpaths
-            bool subpath_found = base_path_to_subpaths.count(seq) > 0;
             // if not there, look in the graph
-            if(!subpath_found){
+            if(!base_path_to_subpaths.count(seq)){
+                // TODO remove if it doesn't significantly help with memory
+                base_path_to_subpaths.clear();
                 PathSense sense;
                 string sample;
                 string locus;
@@ -1918,12 +1927,11 @@ void parse_bed_regions(istream& bedstream,
                         }
                         // we've found a subpath for that base name. save the handle
                         base_path_to_subpaths[seq].push_back(match);
-                        subpath_found = true;
                         return true;
                     });
                 }
             }
-            if(!subpath_found){
+            if(!base_path_to_subpaths.count(seq)){
                 // we've looked for subpaths and couldn't found anything
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
                 continue;
@@ -1932,6 +1940,9 @@ void parse_bed_regions(istream& bedstream,
                 // look for the subpath containing the range [sbuf-ebuf]
                 for (auto& path : base_path_to_subpaths[seq]) {
                     subrange_t subrange = graph->get_subrange(path);
+                    if (subrange.second == PathMetadata::NO_END_POSITION){
+                        subrange.second = subrange.first + graph->get_path_length(path);
+                    }
                     // TODO: one of these should be <=/>=, but which one...
                     if(sbuf > subrange.first && sbuf < subrange.second){
                         if(ebuf > subrange.first && ebuf < subrange.second){
@@ -1939,12 +1950,18 @@ void parse_bed_regions(istream& bedstream,
                             seq = graph->get_path_name(path);
                             sbuf = sbuf - subrange.first;
                             ebuf = ebuf - subrange.first;
+                            subpath_found = true;
+                            break;
                         } else {
                             cerr << "warning: path " << seq << " is chopped and the queried range "
-                                 << ebuf << "-" << sbuf << "overlaps two different subpaths "
+                                 << sbuf << "-" << ebuf << " overlaps two different subpaths "
                                  << " in bed line " << line << ", skipping: " << row << endl;
+                            break;
                         }
                     }
+                }
+                if (!subpath_found){
+                    continue;
                 }
             }
         }
@@ -1966,6 +1983,8 @@ void parse_bed_regions(istream& bedstream,
             // if we find one and the range match the queried range, use that
             bool subpath_found = false;
             if(!base_path_to_subpaths.count(seq)){
+                // TODO remove if it doesn't significantly help with memory
+                base_path_to_subpaths.clear();
                 // not in our subpath cache, so let's look for subpaths
                 PathSense sense;
                 string sample;
@@ -2002,6 +2021,9 @@ void parse_bed_regions(istream& bedstream,
                 // there are subpaths, let's look for the one containing [sbuf-ebuf]
                 for (auto& path : base_path_to_subpaths[seq]) {
                     subrange_t subrange = graph->get_subrange(path);
+                    if (subrange.second == PathMetadata::NO_END_POSITION){
+                        subrange.second = subrange.first + graph->get_path_length(path);
+                    }
                     // TODO: one of these should be <=/>=, but which one...
                     if(sbuf > subrange.first && sbuf < subrange.second){
                         if(ebuf > subrange.first && ebuf < subrange.second){
@@ -2010,16 +2032,19 @@ void parse_bed_regions(istream& bedstream,
                             path_handle = path;
                             sbuf = sbuf - subrange.first;
                             ebuf = ebuf - subrange.first;
+                            break;
                         } else {
-                            cerr << "warning: path " << seq << " is chopped and the queried range " << ebuf << "-" << sbuf << "overlaps two different subpaths " << " in bed line " << line << ", skipping: " << row << endl;
+                            cerr << "warning: path " << seq << " is chopped and the queried range " << sbuf << "-" << ebuf << " overlaps two different subpaths " << " in bed line " << line << ", skipping: " << row << endl;
+                            break;
                         }
                     }
                 }
-            }
-            if(!subpath_found){
+            } else {
                 // Skip ends that are too late
                 cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
                      << " in bed line " << line << ", skipping: " << row << endl;
+            }
+            if(!subpath_found){
                 continue;
             }
         }
@@ -2046,6 +2071,13 @@ void parse_bed_regions(istream& bedstream,
         alignment.set_score(score);
 
         out_alignments->push_back(alignment);
+
+        // to warn about slow annotation // TODO remove after testing?
+        t_end = std::chrono::system_clock::now();
+        elapsed_seconds = t_end - t_start;
+        if(elapsed_seconds.count() > 120){
+            cerr << "warning: bed line " << line << " took " << elapsed_seconds.count() << " seconds: " << row << endl;
+        }
     }
 }
 
