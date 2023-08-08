@@ -204,55 +204,24 @@ public:
     static constexpr bool default_align_from_chains = false;
     bool align_from_chains = default_align_from_chains;
     
-    /// What multiple of the read length should we use for bucketing (coarse clustering/preclustering)?
-    static constexpr double default_bucket_scale = 2.0;
-    double bucket_scale = default_bucket_scale;
-    
-    /// How many fragments should we try and make in every bucket?
-    static constexpr size_t default_max_fragments_per_bucket = std::numeric_limits<size_t>::max();
-    size_t max_fragments_per_bucket = default_max_fragments_per_bucket;
-    
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
     size_t fragment_max_lookback_bases = default_fragment_max_lookback_bases;
-    /// In fragments, how many sources should we make sure to consider regardless of distance?
-    static constexpr size_t default_fragment_min_lookback_items = 0;
-    size_t fragment_min_lookback_items = default_fragment_min_lookback_items;
-    /// In fragments, how many sources should we allow ourselves to consider ever?
-    static constexpr size_t default_fragment_lookback_item_hard_cap = 3;
-    size_t fragment_lookback_item_hard_cap = default_fragment_lookback_item_hard_cap;
+    /// How many fragments should we try and make when fragmenting something?
+    static constexpr size_t default_max_fragments = std::numeric_limits<size_t>::max();
+    size_t max_fragments = default_max_fragments;
+    
     /// How many bases of indel should we allow in fragments?
     static constexpr size_t default_fragment_max_indel_bases = 2000;
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
-    /// If the read coverage of a fragment connection is less than the best of any
-    /// by more than this much, don't extend it
-    static constexpr double default_fragment_connection_coverage_threshold = 0.3;
-    double fragment_connection_coverage_threshold = default_fragment_connection_coverage_threshold;
-    
-    /// How many connections between fragments should we reseed over, minimum?
-    static constexpr size_t default_min_fragment_connections = 10;
-    size_t min_fragment_connections = default_min_fragment_connections;
-    
-    /// How many connections between fragments should we reseed over, maximum?
-    static constexpr size_t default_max_fragment_connections = 50;
-    size_t max_fragment_connections = default_max_fragment_connections;
-    
-    /// When connecting subclusters for reseeding, how far should we search?
-    static constexpr size_t default_reseed_search_distance = 10000;
-    size_t reseed_search_distance = default_reseed_search_distance;
-    
-    /// What read-length-independent distance threshold do we want to use for final clustering?
-    static constexpr size_t default_chaining_cluster_distance = 100;
-    size_t chaining_cluster_distance = default_chaining_cluster_distance;
-    
-    /// How many buckets should we produce fragments for, min?
-    static constexpr size_t default_min_buckets_to_fragment = 2;
-    size_t min_buckets_to_fragment = default_min_buckets_to_fragment;
+    /// How many things should we produce fragments for, min?
+    static constexpr size_t default_min_to_fragment = 2;
+    size_t min_to_fragment = default_min_to_fragment;
 
-    /// How many buckets should we produce fragments for, max?
-    static constexpr size_t default_max_buckets_to_fragment = 10;
-    size_t max_buckets_to_fragment = default_max_buckets_to_fragment;
+    /// How many things should we produce fragments for, max?
+    static constexpr size_t default_max_to_fragment = 10;
+    size_t max_to_fragment = default_max_to_fragment;
 
     /// When converting chains to alignments, what's the longest gap between
     /// items we will actually try to align? Passing strings longer than ~100bp
@@ -265,33 +234,21 @@ public:
     size_t max_tail_length = default_max_tail_length;
     
     /// How good should a fragment be in order to keep it? Fragments with
-    /// scores less than this fraction of the best fragment's score int he
-    /// bucket will not be used in chaining.
+    /// scores less than this fraction of the best sibling fragment's score
+    /// will not be used.
     static constexpr double default_fragment_score_fraction = 0.1;
     double fragment_score_fraction = default_fragment_score_fraction;
     
     /// How many bases should we look back when chaining?
     static constexpr size_t default_max_lookback_bases = 3000;
     size_t max_lookback_bases = default_max_lookback_bases;
-    /// How many chaining sources should we make sure to consider regardless of distance?
-    static constexpr size_t default_min_lookback_items = 1;
-    size_t min_lookback_items = default_min_lookback_items;
-    /// How many chaining sources should we allow ourselves to consider ever?
-    static constexpr size_t default_lookback_item_hard_cap = 15;
-    size_t lookback_item_hard_cap = default_lookback_item_hard_cap;
-    /// How many bases should we try to look back initially when chaining?
-    static constexpr size_t default_initial_lookback_threshold = 10;
-    size_t initial_lookback_threshold = default_initial_lookback_threshold;
-    /// How much chould we increase lookback when we can't find anything good?
-    static constexpr double default_lookback_scale_factor = 2.0;
-    double lookback_scale_factor = default_lookback_scale_factor;
-    /// How bad can a transition be per base before lookback accepts it?
-    static constexpr double default_min_good_transition_score_per_base = -0.1;
-    double min_good_transition_score_per_base = default_min_good_transition_score_per_base;
-    /// How much of a bonus should we give to each item in chaining?
+
+    /// How much of a bonus should we give to each item in
+    /// fragmenting/chaining?
     static constexpr int default_item_bonus = 0;
     int item_bonus = default_item_bonus;
-    /// How much of a multiple should we apply to each item's non-bonus score in chaining?
+    /// How much of a multiple should we apply to each item's non-bonus score
+    /// in fragmenting/chaining?
     static constexpr int default_item_scale = 0;
     int item_scale = default_item_scale;
     /// How many bases of indel should we allow in chaining?
@@ -570,73 +527,6 @@ protected:
      * Puts the cluster in the funnel as coming from its seeds.
      */
     void score_cluster(Cluster& cluster, size_t i, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length) const;
-    
-    /**
-     * Reseed between the given graph and read positions. Produces new seeds by asking the given callback for minimizers' occurrence positions.
-     *  Up to one end of the graph region can be a read end, with a pos_t matching is_empty().
-     * The read region always needs to be fully defined.
-     */
-    std::vector<Seed> reseed_between(
-        size_t read_region_start,
-        size_t read_region_end,
-        pos_t left_graph_pos,
-        pos_t right_graph_pos,
-        const HandleGraph& graph,
-        const VectorView<Minimizer>& minimizers,
-        const std::function<void(const Minimizer&, const std::vector<nid_t>&, const std::function<void(const pos_t&)>&)>& for_each_pos_for_source_in_subgraph) const;
-    
-    /// Represents configuration for chaining. May need to be derived from
-    /// different class parameters depending on the chaining pass.
-    struct chain_config_t {
-        // Lookback config
-        size_t max_lookback_bases;
-        size_t min_lookback_items;
-        size_t lookback_item_hard_cap;
-        size_t initial_lookback_threshold;
-        double lookback_scale_factor;
-        double min_good_transition_score_per_base;
-        
-        // Item and gap scoring
-        int item_bonus;
-        int item_scale;
-        size_t max_indel_bases;
-        
-        // Limits on clusters to keep
-        double cluster_score_cutoff;
-        bool cluster_score_cutoff_enabled;
-        double cluster_coverage_threshold;
-        size_t min_clusters_to_chain;
-        size_t max_clusters_to_chain;
-        
-        // Limits on chains to compute
-        size_t max_chains_per_cluster;
-    };
-    
-    /// Represents a chaining result.
-    struct chain_set_t {
-        /// These are the numbers of the clusters in the order explored/the
-        /// order the lists of chains appear in.
-        vector<size_t> cluster_nums;
-        /// These are all the chains for all the clusters, as score and sequence of visited seeds.
-        /// Organized by cluster, and then best chain first.
-        vector<vector<pair<int, vector<size_t>>>> cluster_chains;
-        /// What cluster seeds define the space for clusters' chosen chains?
-        vector<vector<size_t>> cluster_chain_seeds;
-        /// Chainable anchors in the same order as seeds
-        vector<algorithms::Anchor> seed_anchors;
-        /// To compute the windows for explored minimizers, we need to get
-        /// all the minimizers that are explored.
-        SmallBitset minimizer_explored;
-        /// How many hits of each minimizer ended up in each cluster we kept?
-        vector<vector<size_t>> minimizer_kept_cluster_count;
-        /// How many clusters were kept?
-        size_t kept_cluster_count;
-    };
-    
-    /**
-     * Run chaining on some clusters. Returns the chains and the context needed to interpret them.
-     */
-    chain_set_t chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeForest& zip_code_forest, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const;
     
     /**
      * Extends the seeds in a cluster into a collection of GaplessExtension objects.
