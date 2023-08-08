@@ -273,6 +273,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                     trees.emplace_back(seeds);
                     active_zip_tree = &(trees.back().zip_code_tree);
 
+                    //Start the new tree
                     active_zip_tree->push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
                     sibling_indices_at_depth[depth].push_back({ZipCodeTree::CHAIN_START, 0});
                 }
@@ -904,6 +905,22 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
             }
             previous_seed_index = current_item.value;
             previous_is_valid = current_is_valid;
+        }
+    }
+
+    //Make sure that all snarls/chains are opened and closed in a valid order
+    vector<tree_item_type_t> snarl_stack; 
+    for (const tree_item_t& item : zip_code_tree) {
+        if (item.type == SNARL_START) {
+            snarl_stack.push_back(SNARL_START);
+        } else if (item.type == CHAIN_START) {
+            snarl_stack.push_back(CHAIN_START);
+        } else if (item.type == SNARL_END) {
+            assert(snarl_stack.back() == SNARL_START);
+            snarl_stack.pop_back();
+        } else if (item.type == CHAIN_END) {
+            assert(snarl_stack.back() == CHAIN_START);
+            snarl_stack.pop_back();
         }
     }
 
