@@ -396,8 +396,6 @@ class ZipCodeForest {
 
     public:
 
-    size_t tree_count() const { return trees.size(); }
-
     /// Return the sort order of the seeds
     /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
     /// Uses radix_sort_zipcodes and default_sort_zipcodes

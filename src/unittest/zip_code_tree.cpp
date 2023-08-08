@@ -45,7 +45,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -87,7 +87,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -155,7 +155,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -263,7 +263,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -382,7 +382,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 4);
-            REQUIRE(zip_forest.tree_count() == 2);
+            REQUIRE(zip_forest.trees.size() == 2);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             for (auto& zip_tree : zip_forest.trees) {
@@ -426,7 +426,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 2);
+            REQUIRE(zip_forest.trees.size() == 2);
             zip_forest.print_self();
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index);
@@ -484,7 +484,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 2);
+            REQUIRE(zip_forest.trees.size() == 2);
 
             zip_forest.print_self();
 
@@ -566,7 +566,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 3);
-            REQUIRE(zip_forest.tree_count() == 4);
+            REQUIRE(zip_forest.trees.size() == 4);
 
             zip_forest.print_self();
         }
@@ -613,7 +613,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -744,7 +744,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -816,7 +816,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -851,7 +851,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -886,7 +886,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -920,7 +920,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -952,7 +952,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 4);
-            REQUIRE(zip_forest.tree_count() == 2);
+            REQUIRE(zip_forest.trees.size() == 2);
             zip_forest.print_self();
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index);
@@ -975,7 +975,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 2);
-            REQUIRE(zip_forest.tree_count() == 2);
+            REQUIRE(zip_forest.trees.size() == 2);
             zip_forest.print_self();
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index);
@@ -999,7 +999,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 1);
-            REQUIRE(zip_forest.tree_count() == 3);
+            REQUIRE(zip_forest.trees.size() == 3);
             zip_forest.print_self();
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index);
@@ -1066,7 +1066,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -1099,7 +1099,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 3);
-            REQUIRE(zip_forest.tree_count() == 3);
+            REQUIRE(zip_forest.trees.size() == 3);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -1188,7 +1188,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -1218,7 +1218,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -1246,7 +1246,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 4);
-            REQUIRE(zip_forest.tree_count() == 3);
+            REQUIRE(zip_forest.trees.size() == 3);
             zip_forest.print_self();
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index);
@@ -1304,7 +1304,7 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index);
-            REQUIRE(zip_forest.tree_count() == 1);
+            REQUIRE(zip_forest.trees.size() == 1);
             ZipCodeTree zip_tree = zip_forest.trees[0];
             zip_forest.print_self();
             zip_tree.validate_zip_tree(distance_index);
@@ -1349,7 +1349,7 @@ namespace unittest {
 
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, distance_index);
-        REQUIRE(zip_forest.tree_count() == 1);
+        REQUIRE(zip_forest.trees.size() == 1);
         ZipCodeTree zip_tree = zip_forest.trees[0];
         zip_forest.print_self();
         zip_tree.validate_zip_tree(distance_index);
@@ -1388,7 +1388,7 @@ namespace unittest {
 
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, distance_index);
-        REQUIRE(zip_forest.tree_count() == 1);
+        REQUIRE(zip_forest.trees.size() == 1);
         ZipCodeTree zip_tree = zip_forest.trees[0];
         zip_forest.print_self();
         //TODO: This doesn't actually have the right distances yet, I just want to make sure it won't crash
