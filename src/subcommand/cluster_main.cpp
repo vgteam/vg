@@ -493,14 +493,19 @@ int main_cluster(int argc, char** argv) {
             if (make_zip_tree) {
                 //Time making the zipcode tree
 
-                ZipCodeTree zip_tree;
+                ZipCodeForest zip_forest;
 
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                zip_tree.fill_in_tree(seeds, *distance_index);
+                zip_forest.fill_in_forest(seeds, *distance_index);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
 
-                std::pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
+                std::pair<size_t, size_t> dag_non_dag_count (0, 0);
+                for (const auto& zip_tree : zip_forest.trees) {
+                    pair<size_t, size_t> tree_count = zip_tree.dag_and_non_dag_snarl_count(seeds, *distance_index);
+                    dag_non_dag_count.first += tree_count.first;
+                    dag_non_dag_count.second += tree_count.second;
+                }
 
                 // And with hit count clustered
                 set_annotation(aln, "seed_count", (double)seeds.size());

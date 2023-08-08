@@ -251,7 +251,10 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::reseed_between(
                                         
 }
 
-MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeTree& zip_code_tree, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
+MinimizerMapper::chain_set_t MinimizerMapper::chain_clusters(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const ZipCodeForest& zip_code_forest, const std::vector<Cluster>& clusters, const chain_config_t& cfg, size_t old_seed_count, size_t new_seed_start, Funnel& funnel, size_t seed_stage_offset, size_t reseed_stage_offset, LazyRNG& rng) const {
+
+    //TODO: I don't know what to do with a zip code forest so this just uses the first tree
+    ZipCodeTree zip_code_tree = zip_code_forest.trees.front();
 
     // Convert the seeds into chainable anchors in the same order
     vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
@@ -546,15 +549,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
     // Make them into a zip code tree
-    ZipCodeTree zip_code_tree;
+    ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
-    zip_code_tree.fill_in_tree(seeds, *distance_index);
+    zip_code_forest.fill_in_forest(seeds, *distance_index);
+    //TODO: This just takes the first tree in the forest
+    ZipCodeTree zip_code_tree = zip_code_forest.trees.front();
     
     if (show_work) {
         #pragma omp critical (cerr)
         {
             std::cerr << log_name() << "Zip code tree:";
-            zip_code_tree.print_self();
+            zip_code_forest.print_self();
         }
     }
 
@@ -669,7 +674,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Go get fragments from the buckets. Note that this doesn't process all buckets! It will really only do the best ones!
-    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, zip_code_tree, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
+    auto fragment_results = this->chain_clusters(aln, minimizers, seeds, zip_code_forest, buckets, fragment_cfg, seeds.size(), seeds.size(), funnel, 2, std::numeric_limits<size_t>::max(), rng);
     
     if (track_provenance) {
         funnel.substage("translate-fragments");
