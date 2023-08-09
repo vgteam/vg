@@ -1875,6 +1875,8 @@ void parse_bed_regions(istream& bedstream,
 
     // in case we need to look for subpaths, keep the info store for reuse
     unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
+    // to remember which path we've looked for and didn't find (and avoid relooking over and over again)
+    unordered_map<string, bool> absent_paths;
     // to warn about slow annotation // TODO remove after testing?
     std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
     std::chrono::duration<double> elapsed_seconds;
@@ -1915,7 +1917,7 @@ void parse_bed_regions(istream& bedstream,
             bool subpath_found = false;
             // first look in our cached subpaths
             // if not there, look in the graph
-            if(!base_path_to_subpaths.count(seq)){
+            if(!base_path_to_subpaths.count(seq) && !absent_paths.count(seq)){
                 PathSense sense;
                 string sample;
                 string locus;
@@ -1949,6 +1951,8 @@ void parse_bed_regions(istream& bedstream,
             if(!base_path_to_subpaths.count(seq)){
                 // we've looked for subpaths and couldn't found anything
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+                // remember that this path is not in the graph (no need to look it up again)
+                absent_paths[seq] = true;
                 more_regions = !bedstream.eof();
                 getline(bedstream, row);
                 line++;
