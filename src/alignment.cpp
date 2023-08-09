@@ -1862,12 +1862,6 @@ void parse_bed_regions(istream& bedstream,
     size_t sbuf;
     // Record end position
     size_t ebuf;
-    // if region must be chopped, save the remaining piece to annotate
-    // (empty seq means no trimmed region to process)
-    string seq_trim = "";
-    size_t sbuf_trim;
-    size_t ebuf_trim;
-    string other_trim = "";
     // region information
     string name;
     size_t score = 0;
@@ -1877,9 +1871,12 @@ void parse_bed_regions(istream& bedstream,
     unordered_map<string, vector<path_handle_t>> base_path_to_subpaths;
     // to remember which path we've looked for and didn't find (and avoid relooking over and over again)
     unordered_map<string, bool> absent_paths;
-    // to warn about slow annotation // TODO remove after testing?
-    std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
-    std::chrono::duration<double> elapsed_seconds;
+    // if the region must be chopped to multiple subranges, use these vector to
+    // remember the other path names, start and end positions
+    vector<size_t> other_starts;
+    vector<size_t> other_ends;
+    vector<string> other_seqs;
+    string other_info = "";
 
     int line = 1;
     bool more_regions = !bedstream.eof();
@@ -1893,9 +1890,6 @@ void parse_bed_regions(istream& bedstream,
             continue;
         }
         istringstream ss(row);
-
-        // to warn about slow annotation // TODO remove after testing?
-        t_start = std::chrono::system_clock::now();
             
         ss >> seq;
         ss >> sbuf;
@@ -1954,7 +1948,6 @@ void parse_bed_regions(istream& bedstream,
             } else {
                 // update the path name to the subpaths and adjust sbuf/ebuf based on its offset
                 // look for the subpath containing the range [sbuf-ebuf]
-                bool cover_two_subpaths = false;
                 for (auto& path : base_path_to_subpaths[seq]) {
                     subrange_t subrange = graph->get_subrange(path);
                     // the two subrange formats are using different indexing
@@ -1969,24 +1962,29 @@ void parse_bed_regions(istream& bedstream,
                         }
                         subrange.second = subrange.first + graph->get_path_length(path);
                     }
-                    if(sbuf >= subrange.first && sbuf < subrange.second){
-                        if(ebuf > subrange.second){
-                            // region span multiple subranges so we annonate the beginning now
-                            // and the trimmed region that remains later
-                            seq_trim = seq;
-                            sbuf_trim = subrange.second;
-                            ebuf_trim = ebuf;
-                            ebuf = subrange.second;
+                    // if the subpath overlap with the queried range, save it
+                    if(ebuf >= subrange.first && sbuf < subrange.second ){
+                        if(sbuf < subrange.first){
+                            other_starts.push_back(0);
+                        } else {
+                            other_starts.push_back(sbuf - subrange.first);
                         }
-                        // we found the matching subpath, update handle and positions
-                        seq = graph->get_path_name(path);
-                        sbuf = sbuf - subrange.first;
-                        ebuf = ebuf - subrange.first;
-                        subpath_found = true;
-                        break;
+                        if(ebuf >= subrange.second){
+                            other_ends.push_back(subrange.second - subrange.first);
+                        } else {
+                            other_ends.push_back(ebuf - subrange.first);
+                        }
+                        other_seqs.push_back(graph->get_path_name(path));
                     }
                 }
-                if (!subpath_found){
+                if (!other_seqs.empty()){
+                    seq = other_seqs.back();
+                    other_seqs.pop_back();
+                    sbuf = other_starts.back();
+                    other_starts.pop_back();
+                    ebuf = other_ends.back();
+                    other_ends.pop_back();
+                } else {
                     // we've looked for overlapping subpaths and couldn't found one
                     cerr << "warning: no overlap found between range " <<
                         sbuf << "-" << ebuf << " and subpaths of \"" <<
@@ -1994,12 +1992,6 @@ void parse_bed_regions(istream& bedstream,
                     more_regions = !bedstream.eof();
                     getline(bedstream, row);
                     line++;
-                    continue;
-                }
-                if(cover_two_subpaths){
-                    cerr << "warning: path " << seq << " is chopped and the queried range "
-                         << sbuf << "-" << ebuf << " overlaps two different subpaths in bed line "
-                         << line << ", skipping: " << row << endl;
                     continue;
                 }
             }
@@ -2075,24 +2067,30 @@ void parse_bed_regions(istream& bedstream,
                         }
                         subrange.second = subrange.first + graph->get_path_length(path);
                     }
-                    if(sbuf >= subrange.first && sbuf < subrange.second){
-                        if(ebuf > subrange.second){
-                            // region span multiple subranges so we annonate the beginning now
-                            // and the trimmed region that remains later
-                            seq_trim = seq;
-                            sbuf_trim = subrange.second;
-                            ebuf_trim = ebuf;
-                            ebuf = subrange.second;
+                    // if the subpath overlap with the queried range, save it
+                    if(ebuf >= subrange.first && sbuf < subrange.second ){
+                        if(sbuf < subrange.first){
+                            other_starts.push_back(0);
+                        } else {
+                            other_starts.push_back(sbuf - subrange.first);
                         }
-                        // we found the matching subpath, update handle and positions
-                        subpath_found = true;
-                        path_handle = path;
-                        sbuf = sbuf - subrange.first;
-                        ebuf = ebuf - subrange.first;
-                        break;
+                        if(ebuf >= subrange.second){
+                            other_ends.push_back(subrange.second - subrange.first);
+                        } else {
+                            other_ends.push_back(ebuf - subrange.first);
+                        }
+                        other_seqs.push_back(graph->get_path_name(path));
                     }
                 }
-                if(!subpath_found){
+                if (!other_seqs.empty()){
+                    seq = other_seqs.back();
+                    other_seqs.pop_back();
+                    path_handle = graph->get_path_handle(seq);
+                    sbuf = other_starts.back();
+                    other_starts.pop_back();
+                    ebuf = other_ends.back();
+                    other_ends.pop_back();
+                } else {
                     // we've looked for overlapping subpaths and couldn't found one
                     cerr << "warning: no overlap found between range " <<
                         sbuf << "-" << ebuf << " and subpaths of \"" <<
@@ -2118,17 +2116,17 @@ void parse_bed_regions(istream& bedstream,
         // Try parsing the optional fields. If they fail, ignore the problem, because they're optional.
         ss >> name;
         if(!ss.fail()){
-            other_trim += ("\t" + name);
+            other_info += ("\t" + name);
         }
         
         ss >> score;
         if(!ss.fail()){
-            other_trim += ("\t" + score);
+            other_info += ("\t" + score);
         }
 
         ss >> strand;
         if(!ss.fail()){
-            other_trim += ("\t" + strand);
+            other_info += ("\t" + strand);
         }
 
         bool is_reverse = false;
@@ -2142,19 +2140,17 @@ void parse_bed_regions(istream& bedstream,
 
         out_alignments->push_back(alignment);
 
-        // to warn about slow annotation // TODO remove after testing?
-        t_end = std::chrono::system_clock::now();
-        elapsed_seconds = t_end - t_start;
-        if(elapsed_seconds.count() > 120){
-            cerr << "warning: bed line " << line << " took " << elapsed_seconds.count() << " seconds: " << row << endl;
-        }
-
         // prepare next row
-        if (seq_trim.size() > 0){
+        if (!other_seqs.empty()){
+            seq = other_seqs.back();
+            other_seqs.pop_back();
+            sbuf = other_starts.back();
+            other_starts.pop_back();
+            ebuf = other_ends.back();
+            other_ends.pop_back();
             more_regions = true;
-            row = seq_trim + "\t" + std::to_string(sbuf_trim) + "\t" + std::to_string(ebuf_trim) + other_trim;
-            seq_trim = "";
-            other_trim = "";
+            row = seq + "\t" + std::to_string(sbuf) + "\t" + std::to_string(ebuf) + other_info;
+            other_info = "";
         } else {
             more_regions = !bedstream.eof();
             getline(bedstream, row);
