@@ -386,6 +386,8 @@ class ZipCodeForest {
     /// If a distance limit is given, then also partition the tree into subtrees that are
     /// farther than the distance_limit from each other
     /// Otherwise, the forest will just be connected components
+    /// If a distance limit is given, then distances larger than the distance limit are not
+    /// guaranteed to be accurate
     void fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
                       size_t distance_limit = std::numeric_limits<size_t>::max());
     private:
