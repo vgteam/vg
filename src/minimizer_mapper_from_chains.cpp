@@ -258,6 +258,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Which zip code tree did each fragment come from, so we know how to chain them?
     std::vector<size_t> fragment_source_tree;
     // How many of each minimizer ought to be considered explored by each fragment?
+    // TODO: This is a lot of counts and a lot of allocations and should maybe be a 2D array if we really need it?
     std::vector<std::vector<size_t>> minimizer_kept_fragment_count;
 
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
@@ -285,15 +286,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 funnel.processing_input(item_num);
             }
           
-            // Count how many of each minimizer is in each problem we do.
-            minimizer_kept_fragment_count.emplace_back(minimizers.size(), 0);
-
             // Also make a list of all the seeds in the problem.
             // This lets us select the single-seed anchors to use.
             vector<size_t> selected_seeds;
             for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
                 selected_seeds.push_back(found.seed);
-                minimizer_kept_fragment_count.back()[seeds[found.seed].source]++;
             }
             
             if (show_work) {
@@ -357,12 +354,17 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
             
             for (auto& scored_fragment : results) {
+                // Count how many of each minimizer is in each fragment produced
+                minimizer_kept_fragment_count.emplace_back(minimizers.size(), 0);
+
                 // Translate fragments into seed numbers and not local anchor numbers.
                 fragments.emplace_back();
                 fragments.back().reserve(scored_fragment.second.size());
                 for (auto& selected_number : scored_fragment.second) {
                     // Translate from selected seed/anchor space to global seed space.
                     fragments.back().push_back(selected_seeds[selected_number]);
+                    // And count the minimizer as being in the fragment
+                    minimizer_kept_fragment_count.back()[seeds[fragments.back().back()].source]++;
                 }
                 // Remember the score
                 fragment_scores.push_back(scored_fragment.first);
