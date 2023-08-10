@@ -8,7 +8,8 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor() : VCFOutputCaller("") {
+Deconstructor::Deconstructor() : VCFOutputCaller(""),
+                                 exhaustive_jaccard_warning(false){
 }
 Deconstructor::~Deconstructor(){
 }
@@ -654,7 +655,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             }
         }
     }
-
     
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
@@ -690,9 +690,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         cerr << "Skipping site because no reference traversal was found " << pb2json(*snarl) << endl;
 #endif
         return false;
-    }
+    }    
 
-    if (!path_restricted && gbwt_trav_finder.get() == nullptr) {
+    bool exhaustive = !path_restricted && gbwt_trav_finder.get() == nullptr;
+    if (exhaustive) {        
         // add in the exhaustive traversals
         vector<SnarlTraversal> additional_travs;
                         
@@ -740,7 +741,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     // map from each path_trav index to the ref_trav index it best maps to
     vector<int> path_trav_to_ref_trav;
-    if (ref_travs.size() > 1 && this->path_jaccard_window) {
+
+    if (ref_travs.size() > 1 && this->path_jaccard_window && exhaustive && !exhaustive_jaccard_warning) {
+#pragma omp critical (cerr)
+        cerr << "warning [vg deconstruct]: Conext Jaccard logic for multiple references disabled with exhaustive traversals. Use -e, -g or GBZ input to switch to path-based traversals only (recommended)." << endl;
+        exhaustive_jaccard_warning = true;
+    }
+    if (ref_travs.size() > 1 && this->path_jaccard_window && !exhaustive) {
         path_trav_to_ref_trav.resize(path_travs.first.size());
 #ifdef debug
 #pragma omp critical (cerr)
