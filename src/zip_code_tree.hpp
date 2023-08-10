@@ -497,15 +497,21 @@ class ZipCodeForest {
 
     };
 
+    // Open a chain that starts at the current_seed
     // If the chain is in a snarl, then add empty edges for the distances to everything before it in the snarl
-    // Open the chain, and record its presence in the parent snarl, if necessary
+    // Open the chain, and record its presence and distance-to-start in the parent snarl, if necessary
     void open_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, 
                       bool current_is_reversed);
+    // Close a chain that ends at last_seed
+    // If the chain was empty, remove it and anything relating to it in the parent snarl and sibling_indices
+    // If it can be spliced out, take out a subtree
+    // Otherwise, add the end of the chain and, if the chain was in a snarl, add the distances to everything
+    // before it in the snarl and remember the distance to the end of the chain
     void close_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
-                      bool current_is_reversed);
-    void extend_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, const Seed& last_seed,
+                      bool last_is_reversed);
+    void add_seed_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
                       bool current_is_reversed);
     void open_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
