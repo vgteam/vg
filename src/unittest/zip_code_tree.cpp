@@ -571,7 +571,7 @@ namespace unittest {
             zip_forest.print_self();
         }
     }
-    TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree]" ) {
+    TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1005,8 +1005,54 @@ namespace unittest {
                 zip_tree.validate_zip_tree(distance_index);
             }
         }
+        SECTION( "Chain in snarl in a separate bucket" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 3);
+            positions.emplace_back(2, false, 3);
+            positions.emplace_back(3, false, 0);
 
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
 
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            REQUIRE(zip_forest.trees.size() == 2);
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+        SECTION( "Chain in snarl in a separate bucket another connected to end (or maybe start)" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(2, false, 3);
+            positions.emplace_back(3, false, 0);
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 2);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
     }
     TEST_CASE( "zip tree non-simple DAG", "[zip_tree]" ) {
 
@@ -1254,7 +1300,7 @@ namespace unittest {
         }
     }
 
-    TEST_CASE( "zip tree non-dag", "[zip_tree][bug]" ) {
+    TEST_CASE( "zip tree non-dag", "[zip_tree]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
