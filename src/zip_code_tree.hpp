@@ -496,20 +496,27 @@ class ZipCodeForest {
         vector<pair<size_t, bool>> open_chains;
 
     };
-    // Helper functions to add to a growing forest
 
-    void open_chain(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
-    void close_chain(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
-    void extend_chain(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
-    void open_snarl(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
-    void close_snarl(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
-    void extend_snarl(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+    // If the chain is in a snarl, then add empty edges for the distances to everything before it in the snarl
+    // Open the chain, and record its presence in the parent snarl, if necessary
+    void open_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      bool current_is_reversed);
+    void close_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      bool current_is_reversed);
+    void extend_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      bool current_is_reversed);
+    void open_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      bool current_is_reversed);
+    void close_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      bool current_is_reversed);
+    void extend_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+                      bool current_is_reversed);
 
 };
 
