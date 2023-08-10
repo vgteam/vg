@@ -446,6 +446,71 @@ class ZipCodeForest {
                              bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
                              const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
 
+    //////////////////// data structures and helper functions for building the forest
+
+    //For children of snarls, we need to remember the siblings and start bound that came before them
+    //so we can record their distances
+    //This holds the indices (into zip_code_tree) of each seed or start of a chain,
+    // and each start and child chain start of a snarl
+    //The children are stored at the depth of their parents. For example, for a root chain,
+    //the vector at index 0 would have the chain start, seeds that are on the chain, and the start
+    //of snarls on the chain. Similarly, for a top-level snarl, at depth 1, the second vector would contain
+    //the starts of chains at depth 2 
+    //For the children of a chain, the value is the prefix sum in the chain (relative to the orientation 
+    //of the top-level chain, not necessarily the chain itself)
+    //For the children of a snarl, the value is the index of the CHAIN_START in zip_code_tree.
+    //  The first seed in the chain will need to be found by looping through zip_code_tree
+    struct child_info_t {
+        ZipCodeTree::tree_item_type_t type;  //the type of the item
+        size_t value;  //A value associated with the item, either the offset in a chain, index of the snarl child start
+    
+        //For the children of snarls, the distance to the left and right of the chain, that gets added to
+        //edges in the snarl
+        std::pair<size_t, size_t> distances;
+    };
+
+
+    /// This stores information about the state of the forest as we fill it in
+    struct forest_growing_state_t {
+
+        //Stores the previous things of the current structure at each depth
+        vector<vector<child_info_t>> sibling_indices_at_depth;
+
+        // We build a forest of trees. A new tree is formed either when a new top-level chain is found
+        // (or a slice of a top-level chain if it is far enough away from the previous thing in the chain),
+        // or when part of a chain in a snarl is too far from everything else in the snarl.
+        // In the second case, the entire subtree is found before determining that it should be a subtree,
+        // and then it is copied into a new zip_tree_t in the forest.
+        // So only one tree is actively being added to at a time.
+        //This keeps track of which is the active tree, as an index into trees
+        size_t active_zip_tree;
+
+        // Keep track of all open chains as an index into the current active_zip_tree of the start of the chain,
+        // and a boolean that is true if the start of the chain is farther than the distance_limit from anything
+        // else in the snarl tree
+        // If the index is pointing to a CHAIN_START, then it includes the whole chain. If it points to a SEED,
+        // then it is a slice
+        // Any time something gets added to a chain or the chain is closed, check if the distance to anything
+        // following is greater than the distance limit. If it is, copy everything from the start of the chain
+        // or slice into a new tree in the forest.
+        vector<pair<size_t, bool>> open_chains;
+
+    };
+    // Helper functions to add to a growing forest
+
+    void open_chain(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+    void close_chain(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+    void extend_chain(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+    void open_snarl(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+    void close_snarl(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+    void extend_snarl(forest_growing_state& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, cosnt size_t& depth, Seed& seed);
+
 };
 
 /// Print an item type to a stream
