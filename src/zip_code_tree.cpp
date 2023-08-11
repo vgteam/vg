@@ -587,7 +587,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
     ///////////////////// Record the distance from the previous thing in the chain/node
     //       Or add a new tree if the distance is too far
-    if (depth > 1 && forest_state.sibling_indices_at_depth[chain_depth][0].type == ZipCodeTree::CHAIN_START){
+    if (chain_depth > 0 && forest_state.sibling_indices_at_depth[chain_depth][0].type == ZipCodeTree::CHAIN_START){
         //If this is the first thing in a non-root chain or node, remember the distance to the 
         //start of the chain/node.
         //This distance will be added to distances in the parent snarl
