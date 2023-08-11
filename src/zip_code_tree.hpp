@@ -511,8 +511,14 @@ class ZipCodeForest {
     void close_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, const Seed& last_seed,
                       bool last_is_reversed);
-    void add_seed_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
+
+    // Add the current seed (or snarl starting at the seed) and its distance to the previous thing in a chain
+    // If the seed is far enough from the previous thing in the chain and it can be a new slice, split off 
+    // a subtree
+    // depth is the depth of the child of the chain (which may also be the chain depth if it is trivial)
+    // seed_index is the index of the current seed in the list of seeds
+    void add_child_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, const size_t& seed_index, Seed& current_seed, 
                       bool current_is_reversed);
     void open_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
