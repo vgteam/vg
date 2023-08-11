@@ -519,6 +519,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
         validate_haplotypes(haplotypes, gbz.graph, r_index, minimizer_index, expected_chains, config.verbosity);
     }
 }
+
 //----------------------------------------------------------------------------
 
 size_t threads_to_jobs(size_t threads) {
