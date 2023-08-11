@@ -4034,6 +4034,36 @@ static int32_t flank_penalty(size_t length, const std::vector<pareto_point>& fro
     return result;
 }
 
+/// A helper function that cna merge softclips in properly when joining up
+/// paths, but doesn't need expensive full passes over the paths later.
+static inline void add_to_path(Path* target, Path* to_append) {
+    for (auto& mapping : *to_append->mutable_mapping()) {
+        // For each mapping to append
+        if (target->mapping_size() > 0) {
+            // There is an existing mapping on the path.
+            // Find that previous mapping.
+            auto* prev_mapping = target->mutable_mapping(target->mapping_size() - 1);
+
+            if (mapping.position().node_id() == prev_mapping->position().node_id() && 
+                (mapping.position().offset() != 0 || mapping_is_total_insertion(*prev_mapping) || mapping_is_total_insertion(mapping))) {
+                // Previous mapping is to the same node, and either the new
+                // mapping doesn't start at 0, or one mapping takes up no
+                // space on the node (i.e. is a pure insert).
+                //
+                // So we want to combine the mappings.
+                for (auto& edit : *mapping.mutable_edit()) {
+                    // Move over all the edits in this mapping onto the end of that one.
+                    *prev_mapping->add_edit() = std::move(edit);
+                }
+
+                continue;
+            }
+        }
+        // If we don't combine the mappings, we need to just move the whole mapping
+        *target->add_mapping() = std::move(mapping);
+    }
+};
+
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const {
 
     // This assumes that full-length extensions have the highest scores.
@@ -4271,35 +4301,6 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     second_best.set_score(second_score);
 
     // Concatenate the paths.
-    // We need a helper function that cna merge softclips in propelry.
-    auto add_to_path = [](Path* target, Path* to_append) {
-        for (auto& mapping : *to_append->mutable_mapping()) {
-            // For each mapping to append
-            if (target->mapping_size() > 0) {
-                // There is an existing mapping on the path.
-                // Find that previous mapping.
-                auto* prev_mapping = target->mutable_mapping(target->mapping_size() - 1);
-
-                if (mapping.position().node_id() == prev_mapping->position().node_id() && 
-                    (mapping.position().offset() != 0 || mapping_is_total_insertion(*prev_mapping) || mapping_is_total_insertion(mapping))) {
-                    // Previous mapping is to the same node, and either the new
-                    // mapping doesn't start at 0, or one mapping takes up no
-                    // space on the node (i.e. is a pure insert).
-                    //
-                    // So we want to combine the mappings.
-                    for (auto& edit : *mapping.mutable_edit()) {
-                        // Move over all the edits in this mapping onto the end of that one.
-                        *prev_mapping->add_edit() = std::move(edit);
-                    }
-
-                    continue;
-                }
-            }
-            // If we don't combine the mappings, we need to just move the whole mapping
-            *target->add_mapping() = std::move(mapping);
-        }
-    };
-
 
     // We know there must be at least an edit boundary
     // between each part, because the maximal extension doesn't end in a
