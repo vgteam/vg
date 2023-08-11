@@ -4281,7 +4281,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 auto* prev_mapping = target->mutable_mapping(target->mapping_size() - 1);
 
                 if (mapping.position().node_id() == prev_mapping->position().node_id() && 
-                    (mapping.position().offset() != 0 || mapping_from_length(*prev_mapping) == 0 || mapping_from_length(mapping) == 0)) {
+                    (mapping.position().offset() != 0 || mapping_is_total_insertion(*prev_mapping) || mapping_is_total_insertion(mapping))) {
                     // Previous mapping is to the same node, and either the new
                     // mapping doesn't start at 0, or one mapping takes up no
                     // space on the node (i.e. is a pure insert).
