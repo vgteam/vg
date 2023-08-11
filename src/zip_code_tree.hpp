@@ -520,10 +520,16 @@ class ZipCodeForest {
     void add_child_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, const size_t& seed_index, Seed& current_seed, 
                       bool current_is_reversed);
+
+    // Start a new snarl
     void open_snarl(forest_growing_state_t& forest_state, const size_t& depth);
+
+    // Close a snarl
+    // depth is the depth of the snarl and last_seed is the last seed in the snarl
+    // If the snarl has no children, then delete the whole thing
+    // Otherwise, add all necessary distances and close it
     void close_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
-                      bool current_is_reversed);
+                      const size_t& depth, const Seed& last_seed, bool last_is_reversed);
     void extend_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
                       bool current_is_reversed);
