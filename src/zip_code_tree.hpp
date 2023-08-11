@@ -530,9 +530,12 @@ class ZipCodeForest {
     // Otherwise, add all necessary distances and close it
     void close_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& depth, const Seed& last_seed, bool last_is_reversed);
-    void extend_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, Seed& previous_seed,
-                      bool current_is_reversed);
+
+    // Add all the distances from everything in the snarl to either the last child of the snarl or,
+    // if to_snarl_end is true, to the end bound of the snarl
+    // depth is the depth of the snarl
+    void add_snarl_distances(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                             const size_t& depth, const Seed& seed, bool is_reversed, bool to_snarl_end);
 
 };
 

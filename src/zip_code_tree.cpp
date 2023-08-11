@@ -485,64 +485,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                 //remember the distance to the end to be used in snarl distances
                 forest_state.sibling_indices_at_depth[depth-1].back().distances.second = distance_to_chain_end;
 
-                size_t distance_to_chain_start = forest_state.sibling_indices_at_depth[depth-1].back().distances.first;
-
-                size_t chain_start_index = forest_state.sibling_indices_at_depth[depth-1].back().value;
-
-                //Now add the distances from the start of the chain to everything before it in the snarl
-
-
-                //If the parent snarl is reversed
-                bool last_parent_is_reversed = ZipCodeTree::seed_is_reversed_at_depth(last_seed, depth, distance_index) 
-                    ? !last_is_reversed : last_is_reversed;
-
-
-                for ( size_t sibling_i = 0 ; sibling_i < forest_state.sibling_indices_at_depth[depth-1].size()-1 ; sibling_i++) {
-                    const auto& sibling = forest_state.sibling_indices_at_depth[depth-1][sibling_i];
-                    size_t distance_to_end_of_last_child = sibling.type == ZipCodeTree::SNARL_START ? 0
-                                                             : sibling.distances.second;
-                    if (sibling.type == ZipCodeTree::SNARL_START) {
-                        //Get the distance to the start (or end if it's reversed) of the snarl
-                        trees[forest_state.active_zip_tree].zip_code_tree.at(chain_start_index - 1 - sibling_i) = 
-                         {ZipCodeTree::EDGE, 
-                          SnarlDistanceIndex::sum(distance_to_chain_start,
-                            last_parent_is_reversed
-                                ? last_seed.zipcode_decoder->get_distance_to_snarl_end(depth)
-                                : last_seed.zipcode_decoder->get_distance_to_snarl_start(depth)),
-                          false};
-                    } else {
-                        //Otherwise, the previous thing was another child of the snarl
-                        //and we need to record the distance between these two
-                        //TODO: This can be improved for simple snarls
-                        size_t distance;
-                        if (last_seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::REGULAR_SNARL) {
-                            //If this is the child of a regular snarl, then the distance between
-                            //any two chains is inf
-                            distance = std::numeric_limits<size_t>::max();
-                        } else {
-                            net_handle_t snarl_handle = last_seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
-                            size_t seed_i = sibling.value+1;
-                            while (trees[forest_state.active_zip_tree].zip_code_tree[seed_i].type != ZipCodeTree::SEED) {
-                                seed_i++;
-                            }
-                            auto& seed = seeds->at(trees[forest_state.active_zip_tree].zip_code_tree[seed_i].value);
-                            size_t rank2 = last_seed.zipcode_decoder->get_rank_in_snarl(depth);
-                            size_t rank1 = seed.zipcode_decoder->get_rank_in_snarl(depth);
-                            bool rev2 = last_is_reversed;
-                            bool rev1 = ZipCodeTree::seed_is_reversed_at_depth(seed, depth, distance_index);
-                            //TODO: idk about this distance- I think the orientations need to change
-                            //The bools for this are true if the distance is to/from the right side of the child
-                            //We want the right side of 1 (which comes first in the dag ordering) to the left side of 2
-                            //relative to the orientation of the snarl
-                            distance = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
-                                distance_index.distance_in_snarl(snarl_handle, rank1, !rev1, rank2, rev2),
-                                distance_to_chain_start),
-                                distance_to_end_of_last_child);
-                        }
-                        trees[forest_state.active_zip_tree].zip_code_tree.at(chain_start_index - 1 - sibling_i) = {ZipCodeTree::EDGE, distance, false};
-                    }
-
-                }
+                add_snarl_distances(forest_state, distance_index, depth-1, last_seed, last_is_reversed, false);
             }
             //We've closed a chain, so take out the latest open chain
             forest_state.open_chains.pop_back();
@@ -829,7 +772,6 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
             //This is the distance from the start of the chain to the end of the snarl
             size_t snarl_prefix_sum = forest_state.sibling_indices_at_depth[depth-1].back().value;
             forest_state.sibling_indices_at_depth[depth-1].pop_back();
-            cerr << "Snarl prefix sum " << snarl_prefix_sum << "  length " << last_seed.zipcode_decoder->get_length(depth) << endl; 
 
             //Snarl prefix sum is now the distance from the start of the chain to the start of the snarl
             snarl_prefix_sum = SnarlDistanceIndex::minus(snarl_prefix_sum, last_seed.zipcode_decoder->get_length(depth));
@@ -854,38 +796,9 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
         //all previous children of the snarl
         trees[forest_state.active_zip_tree].zip_code_tree.resize(trees[forest_state.active_zip_tree].zip_code_tree.size() 
                                                                     + forest_state.sibling_indices_at_depth[depth].size());
-        
-        for (size_t sibling_i = 0 ; sibling_i < forest_state.sibling_indices_at_depth[depth].size() ; sibling_i++) {
-            const auto& sibling = forest_state.sibling_indices_at_depth[depth][sibling_i];
-            if (sibling.type == ZipCodeTree::SNARL_START) {
-                //First, the distance between ends of the snarl, which is the length
-                trees[forest_state.active_zip_tree].zip_code_tree.at(
-                            trees[forest_state.active_zip_tree].zip_code_tree.size() - 1 - sibling_i) 
-                    = {ZipCodeTree::EDGE,
-                       last_seed.zipcode_decoder->get_length(depth), 
-                       false};
-            } else {
-                //For the rest of the children, find the distance from the child to
-                //the end
-                //If the child is reversed relative to the top-level chain, then get the distance to start
-                //Also include the distance to the end of the child, sibling.distances.second
-                size_t seed_i = sibling.value+1;
-                while (trees[forest_state.active_zip_tree].zip_code_tree[seed_i].type != ZipCodeTree::SEED) {
-                    seed_i++;
-                }
-                auto& sibling_seed = seeds->at(trees[forest_state.active_zip_tree].zip_code_tree[seed_i].value);
+       
+        add_snarl_distances(forest_state, distance_index, depth, last_seed, last_is_reversed, true);
 
-                trees[forest_state.active_zip_tree].zip_code_tree.at(
-                        trees[forest_state.active_zip_tree].zip_code_tree.size() - 1 - sibling_i) 
-                    = {ZipCodeTree::EDGE,
-                       SnarlDistanceIndex::sum( sibling.distances.second,
-                                                last_is_reversed 
-                                                    ? sibling_seed.zipcode_decoder->get_distance_to_snarl_start(depth+1)
-                                                    : sibling_seed.zipcode_decoder->get_distance_to_snarl_end(depth+1)),
-                       false};
-        
-            }
-        }
         //Note the count of children and the end of the snarl
         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::NODE_COUNT, 
                                                                      forest_state.sibling_indices_at_depth[depth].size()-1, 
@@ -894,6 +807,97 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
                                                                      std::numeric_limits<size_t>::max(), 
                                                                      false});
      }
+}
+
+void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index, 
+                                const size_t& depth, const Seed& seed, bool is_reversed, bool to_snarl_end) {
+
+    // This adds distances from everything in the snarl to the last thing in the snarl, which is either the snarl end
+    // or a chain child of the snarl
+
+    //Distances from this child to add 
+    size_t distance_to_chain_end = to_snarl_end ? 0 : forest_state.sibling_indices_at_depth[depth].back().distances.second;
+    size_t distance_to_chain_start = to_snarl_end ? 0 : forest_state.sibling_indices_at_depth[depth].back().distances.first;
+    
+    // This is the index of the thing in the snarl right before the distances start. Used to figure out
+    // where to put the distances
+    size_t last_child_index = to_snarl_end ? trees[forest_state.active_zip_tree].zip_code_tree.size()
+                                           : forest_state.sibling_indices_at_depth[depth].back().value;
+    
+    //Now add the distances from the start of the chain to everything before it in the snarl
+    
+    
+    //If the parent snarl is reversed
+    bool snarl_is_reversed = to_snarl_end ? is_reversed 
+                                          : (ZipCodeTree::seed_is_reversed_at_depth(seed, depth+1, distance_index) 
+                                                ? !is_reversed : is_reversed);
+    
+    
+    // If this is to the end bound, get the distance to all siblings. If it is to the last child, don't get
+    // the distance to itself
+    size_t sibling_count = to_snarl_end ? forest_state.sibling_indices_at_depth[depth].size() 
+                                        : forest_state.sibling_indices_at_depth[depth].size()-1;
+    for ( size_t sibling_i = 0 ; sibling_i < sibling_count ; sibling_i++) {
+        const auto& sibling = forest_state.sibling_indices_at_depth[depth][sibling_i];
+
+        if (sibling.type == ZipCodeTree::SNARL_START) {
+            //Get the distance to the start (or end if it's reversed) of the snarl
+
+            //If we're getting the distance to the end of the snarl, then this is the length of the snarl
+            // otherwise, it is the distance from the seed to the start (or end) of the snarl
+            size_t snarl_distance = to_snarl_end ? seed.zipcode_decoder->get_length(depth)
+                                                 : SnarlDistanceIndex::sum (distance_to_chain_start,
+                                                    snarl_is_reversed
+                                                        ? seed.zipcode_decoder->get_distance_to_snarl_end(depth+1)
+                                                        : seed.zipcode_decoder->get_distance_to_snarl_start(depth+1));
+
+            //Add the edge
+            trees[forest_state.active_zip_tree].zip_code_tree.at(last_child_index - 1 - sibling_i) = 
+                {ZipCodeTree::EDGE, snarl_distance, false};
+
+        } else {
+            //Otherwise, the previous thing was another child of the snarl
+            //and we need to record the distance between these two
+            //TODO: This can be improved for simple snarls
+            size_t distance;
+            if (seed.zipcode_decoder->get_code_type(depth) == ZipCode::REGULAR_SNARL) {
+                //If this is the child of a regular snarl, then the distance between
+                //any two chains is inf, and the distance to any bound is 0
+                distance = to_snarl_end ? sibling.distances.second : std::numeric_limits<size_t>::max();
+            } else {
+                size_t seed_i = sibling.value+1;
+                while (trees[forest_state.active_zip_tree].zip_code_tree[seed_i].type != ZipCodeTree::SEED) {
+                    seed_i++;
+                }
+                auto& sibling_seed = seeds->at(trees[forest_state.active_zip_tree].zip_code_tree[seed_i].value);
+
+                if (to_snarl_end) {
+                    distance = SnarlDistanceIndex::sum( sibling.distances.second,
+                                                        is_reversed ? sibling_seed.zipcode_decoder->get_distance_to_snarl_start(depth+1)
+                                                                    : sibling_seed.zipcode_decoder->get_distance_to_snarl_end(depth+1));
+                } else {
+                    size_t rank2 = seed.zipcode_decoder->get_rank_in_snarl(depth+1);
+                    size_t rank1 = sibling_seed.zipcode_decoder->get_rank_in_snarl(depth+1);
+                    bool rev2 = is_reversed;
+                    bool rev1 = ZipCodeTree::seed_is_reversed_at_depth(sibling_seed, depth+1, distance_index);
+
+                    size_t distance_to_end_of_last_child = sibling.type == ZipCodeTree::SNARL_START ? 0
+                                                     : sibling.distances.second;
+                    //TODO: idk about this distance- I think the orientations need to change
+                    //The bools for this are true if the distance is to/from the right side of the child
+                    //We want the right side of 1 (which comes first in the dag ordering) to the left side of 2
+                    //relative to the orientation of the snarl
+                    net_handle_t snarl_handle = seed.zipcode_decoder->get_net_handle(depth, &distance_index);
+                    distance = SnarlDistanceIndex::sum(SnarlDistanceIndex::sum(
+                        distance_index.distance_in_snarl(snarl_handle, rank1, !rev1, rank2, rev2),
+                        distance_to_chain_start),
+                        distance_to_end_of_last_child);
+                }
+            }
+            trees[forest_state.active_zip_tree].zip_code_tree.at(last_child_index - 1 - sibling_i) = {ZipCodeTree::EDGE, distance, false};
+        }
+    
+    }
 }
 
 std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index) const {
