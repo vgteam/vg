@@ -280,7 +280,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                     trees.emplace_back(seeds);
                     forest_state.active_zip_tree = trees.size()-1;
                     //Now record the start of this snarl
-                    trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
+                    open_snarl(forest_state, 0);
 
                 }
             } else {
@@ -843,14 +843,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         //If this was a node, just remember the seed
         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SEED, seed_index, current_is_reversed != is_rev(current_seed.pos)});
     } else {
-#ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\t\tOpen new snarl at depth " << depth << endl;
-#endif
-        //If this was a snarl, record the start of the snarl
-        trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
 
-        //Remember the start of the snarl
-        forest_state.sibling_indices_at_depth[depth].push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max()});
+        open_snarl(forest_state, depth); 
 
         //For finding the distance to the next thing in the chain, the offset
         //stored should be the offset of the end bound of the snarl, so add the 
@@ -870,6 +864,19 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
     cerr << "Add sibling with type " << current_type << endl;
 #endif
 
+}
+
+void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth) {
+#ifdef DEBUG_ZIP_CODE_TREE
+        cerr << "\t\tOpen new snarl at depth " << depth << endl;
+#endif
+    //If this was a snarl, record the start of the snarl
+    trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
+    
+    if (depth != 0) {
+        //Remember the start of the snarl
+        forest_state.sibling_indices_at_depth[depth].push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max()});
+    }
 }
 
 std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(vector<Seed>& seeds, const SnarlDistanceIndex& distance_index) const {
