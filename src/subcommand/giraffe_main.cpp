@@ -359,48 +359,65 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     cerr
-    << "usage: " << argv[0] << " giraffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
-    << "Fast haplotype-aware short read mapper." << endl
+    << "usage:" << endl
+    << "  " << argv[0] << " giraffe [options] -Z graph.gbz [-d graph.dist -m graph.min] <input options> > output.gam" << endl
     << endl
+    << "Fast haplotype-aware short read mapper." << endl
+    << endl;
+
+    cerr
     << "basic options:" << endl
-    << "  -Z, --gbz-name FILE           use this GBZ file (GBWT index + GBWTGraph)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+    << "  -Z, --gbz-name FILE           map to this GBZ graph" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -p, --progress                show progress" << endl
+    << "  -t, --threads INT             number of mapping threads to use" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
+    << "  -h, --help                    print full help with all available options" << endl;
+
+    cerr
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
-    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
-    << "alternate indexes:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph" << endl
-    << "  -g, --graph-name FILE         use this GBWTGraph" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT index" << endl
+    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl;
+
+    cerr
+    << "alternate graphs:" << endl
+    << "  -x, --xg-name FILE            map to this graph (if no -Z / -g), or use this graph for HTSLib output" << endl
+    << "  -g, --graph-name FILE         map to this GBWTGraph (if no -Z)" << endl
+    << "  -H, --gbwt-name FILE          use this GBWT index (when mapping to -x / -g)" << endl;
+
+    cerr
     << "output options:" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
-    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl
-    << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
-    << "  -n, --discard                 discard all output alignments (for profiling)" << endl
-    << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
-    << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
-    << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl
-    << "algorithm presets:" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl;
-    auto helps = parser.get_help();
-    print_table(helps, cerr);
-    cerr
-    << "Giraffe parameters:" << endl
-    << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
-    << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
-    << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
-    << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
-    << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
-    << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
-    << "  -t, --threads INT             number of mapping threads to use" << endl;
+    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl;
+    if (full_help) {
+        cerr
+        << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
+        << "  -n, --discard                 discard all output alignments (for profiling)" << endl
+        << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
+        << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
+        << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl;
+    }
+
+    if (full_help) {
+        cerr
+        << "Giraffe parameters:" << endl
+        << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
+        << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
+        << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
+        << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
+        << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+        << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl;
+
+        auto helps = parser.get_help();
+        print_table(helps, cerr);
+    }
 }
 
 int main_giraffe(int argc, char** argv) {
@@ -411,7 +428,7 @@ int main_giraffe(int argc, char** argv) {
     GroupedOptionGroup parser = get_options();
 
     if (argc == 2) {
-        help_giraffe(argv, parser);
+        help_giraffe(argv, parser, false);
         return 1;
     }
     
@@ -831,7 +848,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, parser);
+                help_giraffe(argv, parser, true);
                 exit(1);
                 break;
         }
