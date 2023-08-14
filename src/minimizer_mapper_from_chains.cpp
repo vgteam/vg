@@ -167,7 +167,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index);
-    
+
+#ifdef debug
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -175,6 +176,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             zip_code_forest.print_self();
         }
     }
+#endif
 
     // Now score all the zip code trees in the forest by summing the scores of their involved minimizers.
     vector<double> tree_scores;
@@ -214,7 +216,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             funnel.merge_group(tree_seeds.begin(), tree_seeds.end());
             funnel.score(funnel.latest(), score);
 
-            if (show_work) {
+            if (show_work && track_correctness) {
+                // We will have positions early, for all the seeds.
                 auto tree_positions = funnel.get_positions(funnel.latest());
                 #pragma omp critical (cerr)
                 {
@@ -337,23 +340,29 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             );
             if (show_work) {
                 #pragma omp critical (cerr)
-                cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num << std::endl;
-                for (auto& scored_fragment : results) {
-                    if (!scored_fragment.second.empty()) {
-                        #pragma omp critical (cerr)
-                        {
-                            
-                            cerr << log_name() << "Tree " << item_num << " running " << seed_anchors[selected_seeds.front()] << " to " << seed_anchors[selected_seeds.back()]
-                                << " has fragment with score " << scored_fragment.first
-                                << " and length " << scored_fragment.second.size()
-                                << " running R" << anchor_view[scored_fragment.second.front()].read_start()
-                                << " to R" << anchor_view[scored_fragment.second.back()].read_end() << std::endl;
+                cerr << log_name() << "Found " << results.size() << " fragments in zip code tree " << item_num
+                    << " running " << seed_anchors[selected_seeds.front()] << " to " << seed_anchors[selected_seeds.back()] << std::endl;
+            }
+            for (size_t result = 0; result < results.size(); result++) {
+                // For each result
+                auto& scored_fragment = results[result];
+                if (show_work) {
+                    if (result < MANY_LIMIT) {
+                        if (!scored_fragment.second.empty()) {
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << log_name() << "\tFragment with score " << scored_fragment.first
+                                    << " and length " << scored_fragment.second.size()
+                                    << " running " << anchor_view[scored_fragment.second.front()]
+                                    << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
+                            }
                         }
+                    } else if (result == MANY_LIMIT) {
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "\t<" << (results.size() - result) << " more fragments>" << std::endl;
                     }
                 }
-            }
-            
-            for (auto& scored_fragment : results) {
+
                 // Count how many of each minimizer is in each fragment produced
                 minimizer_kept_fragment_count.emplace_back(minimizers.size(), 0);
 
@@ -379,6 +388,37 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     funnel.also_merge_group(2, fragments.back().begin(), fragments.back().end());
                     // And are related to the problem
                     funnel.also_relevant(1, item_num);
+                }
+
+                if (track_position && result < MANY_LIMIT) {
+                    // Add position annotations for the good-looking fragments.
+                    // Should be much faster than full correctness tracking from every seed.
+                    crash_unless(this->path_graph);
+                    for (auto& boundary : {anchor_view[scored_fragment.second.front()].graph_start(), anchor_view[scored_fragment.second.back()].graph_end()}) {
+                        // For each end of the fragment
+                        auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100);
+                        for (auto& handle_and_positions : offsets) {
+                            for (auto& position : handle_and_positions.second) {
+                                // Tell the funnel all the effective positions, ignoring orientation
+                                funnel.position(funnel.latest(), handle_and_positions.first, position.first);
+                            }
+                        }
+
+                    }
+                }
+                if (track_provenance && show_work && result < MANY_LIMIT) {
+                    for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                        // Log each range on a path associated with the fragment.
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "\t\tAt linear reference "
+                            << this->path_graph->get_path_name(handle_and_range.first)
+                            << ":" << handle_and_range.second.first
+                            << "-" << handle_and_range.second.second << std::endl;
+                    }
+                    if (track_correctness && funnel.was_correct(funnel.latest())) {
+                        #pragma omp critical (cerr)
+                        cerr << log_name() << "\t\tCORRECT!" << endl;
+                    }
                 }
             }
 
@@ -530,7 +570,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             this->max_indel_bases
         );
         
-        for (auto& chain_result: chain_results) {
+        for (size_t result = 0; result < chain_results.size(); result++) {
+            auto& chain_result = chain_results[result];
             // Each chain of fragments becomes a chain of seeds
             chains.emplace_back();
             auto& chain = chains.back();
@@ -581,13 +622,30 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 funnel.score(funnel.latest(), score);
             }
             if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
-                    for (auto& f : chain_fragment_nums_overall) {
-                        std::cerr << " " << f;
-                    } 
-                    std::cerr << std::endl;
+                if (result < MANY_LIMIT) {
+                    #pragma omp critical (cerr)
+                    {
+                        std::cerr << log_name() << "Chain " << (chains.size() - 1) << " with score " << score << " is composed from fragments:";
+                        for (auto& f : chain_fragment_nums_overall) {
+                            std::cerr << " " << f;
+                        } 
+                        std::cerr << std::endl;
+                    }
+                    for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                        // Log each range on a path associated with the chain.
+                        #pragma omp critical (cerr)
+                        std::cerr << log_name() << "\tAt linear reference "
+                            << this->path_graph->get_path_name(handle_and_range.first)
+                            << ":" << handle_and_range.second.first
+                            << "-" << handle_and_range.second.second << std::endl;
+                    }
+                    if (track_correctness && funnel.was_correct(funnel.latest())) {
+                        #pragma omp critical (cerr)
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                } else if (result == MANY_LIMIT) {
+                    #pragma omp critical (cerr)
+                    std::cerr << log_name() << "<" << (chain_results.size() - result) << " more chains>" << std::endl;
                 }
             } 
         }
@@ -719,7 +777,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << ")" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
@@ -1091,7 +1149,6 @@ double MinimizerMapper::get_read_coverage(
     return get_fraction_covered(covered);
 }
 
-#define debug_chaining
 Alignment MinimizerMapper::find_chain_alignment(
     const Alignment& aln,
     const VectorView<algorithms::Anchor>& to_chain,
@@ -1596,7 +1653,6 @@ Alignment MinimizerMapper::find_chain_alignment(
     
     return result;
 }
-#undef debug_chaining
 
 void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const {
     *(alignment.mutable_path()) = wfa_alignment.to_path(this->gbwt_graph, alignment.sequence());
