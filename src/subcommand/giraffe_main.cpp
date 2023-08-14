@@ -395,7 +395,8 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     cerr
     << "haplotype sampling:" << endl
     << "  --haplotype-name FILE         sample from haplotype information in FILE" << endl
-    << "  --kff-name FILE               sample according to kmer counts in FILE" << endl;
+    << "  --kff-name FILE               sample according to kmer counts in FILE" << endl
+    << "  --index-basename STR          name prefix for generated graph/index files (default: from graph name)" << endl;
 
     cerr
     << "alternate graphs:" << endl
@@ -440,6 +441,9 @@ int main_giraffe(int argc, char** argv) {
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
+    // For haplotype sampling.
+    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+
     // Set up to parse options
     GroupedOptionGroup parser = get_options();
 
@@ -459,6 +463,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_NAMED_COORDINATES 1012
     constexpr int OPT_HAPLOTYPE_NAME = 1100;
     constexpr int OPT_KFF_NAME = 1101;
+    constexpr int OPT_INDEX_BASENAME = 1102;
 
     // initialize parameters with their default options
     
@@ -468,7 +473,7 @@ int main_giraffe(int argc, char** argv) {
     // Indexes provided to IndexRegistry in the arguments. We do not apply them
     // immediately, because we may want to do haplotype sampling.
     vector<pair<string, string>> provided_indexes;
-    string index_basename;
+    string index_basename, index_basename_override;
 
     // For haplotype sampling.
     string haplotype_name, kff_name;
@@ -583,6 +588,7 @@ int main_giraffe(int argc, char** argv) {
         {"progress", no_argument, 0, 'p'},
         {"haplotype-name", required_argument, 0, OPT_HAPLOTYPE_NAME},
         {"kff-name", required_argument, 0, OPT_KFF_NAME},
+        {"index-basename", required_argument, 0, OPT_INDEX_BASENAME},
         {"gam-in", required_argument, 0, 'G'},
         {"fastq-in", required_argument, 0, 'f'},
         {"interleaved", no_argument, 0, 'i'},
@@ -730,6 +736,9 @@ int main_giraffe(int argc, char** argv) {
                 break;
             case OPT_KFF_NAME:
                 kff_name = optarg;
+                break;
+            case OPT_INDEX_BASENAME:
+                index_basename_override = optarg;
                 break;
 
             case 'G':
@@ -983,6 +992,9 @@ int main_giraffe(int argc, char** argv) {
     }
 
     bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
+    if (!index_basename_override.empty()) {
+        index_basename = index_basename_override;
+    }
     if (haplotype_sampling) {
         // If we do haplotype sampling, we get a new GBZ and later build indexes for it.
         string gbz_name = sample_haplotypes(provided_indexes, index_basename, sample_name, haplotype_name, kff_name, show_progress);
@@ -1611,6 +1623,10 @@ int main_giraffe(int argc, char** argv) {
 //----------------------------------------------------------------------------
 
 string sample_haplotypes(const vector<pair<string, string>>& indexes, string& basename, string& sample_name, string& haplotype_file, string& kff_file, bool progress) {
+
+    if (progress) {
+        std::cerr << "Sampling haplotypes" << std::endl;
+    }
 
     // Sanity checks.
     if (haplotype_file.empty() || kff_file.empty()) {

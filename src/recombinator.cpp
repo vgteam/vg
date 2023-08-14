@@ -1034,7 +1034,7 @@ double get_or_estimate_coverage(
         }
     }
     auto statistics = summary_statistics(count_to_frequency);
-    double coverage = std::max(statistics.median, statistics.mode);
+    double coverage = statistics.mode;
     if (verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Coverage: median " << statistics.median
             << ", mean " << statistics.mean
