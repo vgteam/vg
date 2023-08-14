@@ -571,7 +571,7 @@ namespace unittest {
             zip_forest.print_self();
         }
     }
-    TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree][bug]" ) {
+    TEST_CASE( "zip tree simple bubbles in chains", "[zip_tree]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1154,7 +1154,7 @@ namespace unittest {
 
     }
 
-    TEST_CASE( "zip tree deeply nested bubbles", "[zip_tree]" ) {
+    TEST_CASE( "zip tree deeply nested bubbles", "[zip_tree][bug]" ) {
         //top-level chain 1-12-13-16
         //bubble 2-10 containing two bubbles 3-5 and 6-9
         VG graph;
@@ -1203,6 +1203,12 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+
+
         //graph.to_dot(cerr);
 
         SECTION( "Make the zip tree with a seed on each node" ) {
@@ -1298,6 +1304,28 @@ namespace unittest {
                 zip_tree.validate_zip_tree(distance_index);
             }
         }
+        SECTION( "Remove empty snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(7, false, 1);
+            positions.emplace_back(4, false, 1);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            REQUIRE(zip_forest.trees.size() == 3);
+            zip_forest.print_self();
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
     }
 
     TEST_CASE( "zip tree non-dag", "[zip_tree]" ) {
@@ -1323,11 +1351,6 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
-
         
         //graph.to_dot(cerr);
 

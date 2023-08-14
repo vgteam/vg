@@ -304,7 +304,6 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const Snarl
                   false});
         }
 
-        forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size(), false);
     }
 
     //Now record the start of this chain
@@ -688,6 +687,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size(), true);
 
         } else {
+            cerr << "Remember the edge with distances " << distance_between << endl;
             //If we didn't start a new tree, then remember the edge
             trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, distance_between, false});
         }
@@ -755,8 +755,15 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
 
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\t\tThe snarl is actually empty so remove it" << endl;
+#endif
+        //Take out the edges
+        while (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
+            trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
+        }
+#ifdef DEBUG_ZIP_CODE_TREE
         assert(trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::SNARL_START);
 #endif
+
         //Pop the snarl start out
         trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
 
