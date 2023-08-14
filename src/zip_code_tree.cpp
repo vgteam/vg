@@ -472,12 +472,19 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                             trees[forest_state.active_zip_tree].zip_code_tree.begin() + forest_state.open_chains.back().first,
                             trees[forest_state.active_zip_tree].zip_code_tree.end());
 
-                    //Close the chain in the original active tree
 
                     //Take out the last edge
+                    size_t last_edge = trees[forest_state.active_zip_tree].zip_code_tree.back().value;
                     trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
+
+                    //Close the chain in the original active tree
                     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_END, 
                                                 std::numeric_limits<size_t>::max(), false});
+
+                    //Update the distance to the end of the chain to be the distance from the previous child 
+                    distance_to_chain_end = SnarlDistanceIndex::sum(distance_to_chain_end, 
+                                            SnarlDistanceIndex::sum(last_edge,
+                                                                    last_seed.zipcode_decoder->get_length(depth+1)));
                 }
             }
             if (add_distances) {

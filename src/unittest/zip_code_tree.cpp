@@ -1154,7 +1154,7 @@ namespace unittest {
 
     }
 
-    TEST_CASE( "zip tree deeply nested bubbles", "[zip_tree][bug]" ) {
+    TEST_CASE( "zip tree deeply nested bubbles", "[zip_tree]" ) {
         //top-level chain 1-12-13-16
         //bubble 2-10 containing two bubbles 3-5 and 6-9
         VG graph;
@@ -1203,12 +1203,6 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
-
-
         //graph.to_dot(cerr);
 
         SECTION( "Make the zip tree with a seed on each node" ) {
@@ -1304,10 +1298,11 @@ namespace unittest {
                 zip_tree.validate_zip_tree(distance_index);
             }
         }
-        SECTION( "Remove empty snarl" ) {
+        SECTION( "Remove empty snarls" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(1, false, 2);
+            positions.emplace_back(6, false, 1);
             positions.emplace_back(7, false, 1);
             positions.emplace_back(4, false, 1);
             //all are in the same cluster
@@ -1320,11 +1315,276 @@ namespace unittest {
 
             ZipCodeForest zip_forest;
             zip_forest.fill_in_forest(seeds, distance_index, 2);
-            REQUIRE(zip_forest.trees.size() == 3);
             zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 3);
             for (auto& zip_tree : zip_forest.trees) {
                 zip_tree.validate_zip_tree(distance_index);
             }
+        }
+        SECTION( "Chain connected on one end" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(2, false, 2);
+            positions.emplace_back(6, false, 1);
+            positions.emplace_back(7, false, 1);
+            positions.emplace_back(4, false, 1);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 2);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+        SECTION( "Chain connected on the other end" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(10, false, 0);
+            positions.emplace_back(10, false, 2);
+            positions.emplace_back(9, false, 1);
+            positions.emplace_back(7, false, 1);
+            positions.emplace_back(4, false, 1);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 2);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+        SECTION( "One chain removed from a snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(8, false, 1);
+            positions.emplace_back(7, false, 1);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(11, false, 1);
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 3);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+        }
+    }
+    TEST_CASE( "zip tree long nested chain", "[zip_tree][bug]" ) {
+        //top-level chain 1-12-13-16
+        //bubble 2-10 containing two bubbles 3-5 and 6-9
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("GCA");
+        Node* n3 = graph.create_node("GCA");
+        Node* n4 = graph.create_node("GCA");
+        Node* n5 = graph.create_node("GAC");
+        Node* n6 = graph.create_node("GCA");
+        Node* n7 = graph.create_node("GCA");
+        Node* n8 = graph.create_node("GCA");
+        Node* n9 = graph.create_node("GCA");
+        Node* n10 = graph.create_node("GCA");
+        Node* n11 = graph.create_node("GCA");
+        Node* n12 = graph.create_node("GCA");
+        Node* n13 = graph.create_node("GCA");
+        Node* n14 = graph.create_node("GCA");
+        Node* n15 = graph.create_node("GCA");
+        Node* n16 = graph.create_node("GCG");
+        Node* n17 = graph.create_node("GCA");
+        Node* n18 = graph.create_node("GCA");
+        Node* n19 = graph.create_node("GCA");
+        Node* n20 = graph.create_node("GCA");
+        Node* n21 = graph.create_node("GCA");
+        Node* n22 = graph.create_node("GCA");
+        Node* n23 = graph.create_node("GCAAAAAAAAAAAAAAAAAAAAAAA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n2, n3);
+        Edge* e3 = graph.create_edge(n2, n14);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n7);
+        Edge* e9 = graph.create_edge(n6, n8);
+        Edge* e10 = graph.create_edge(n7, n8);
+        Edge* e11 = graph.create_edge(n7, n9);
+        Edge* e12 = graph.create_edge(n8, n10);
+        Edge* e13 = graph.create_edge(n9, n10);
+        Edge* e14 = graph.create_edge(n10, n11);
+        Edge* e15 = graph.create_edge(n10, n12);
+        Edge* e16 = graph.create_edge(n11, n12);
+        Edge* e17 = graph.create_edge(n12, n13);
+        Edge* e18 = graph.create_edge(n13, n21);
+        Edge* e19 = graph.create_edge(n14, n15);
+        Edge* e20 = graph.create_edge(n14, n16);
+        Edge* e21 = graph.create_edge(n15, n16);
+        Edge* e22 = graph.create_edge(n16, n17);
+        Edge* e23 = graph.create_edge(n16, n20);
+        Edge* e24 = graph.create_edge(n17, n18);
+        Edge* e25 = graph.create_edge(n17, n19);
+        Edge* e26 = graph.create_edge(n18, n19);
+        Edge* e27 = graph.create_edge(n19, n20);
+        Edge* e28 = graph.create_edge(n20, n21);
+        Edge* e29 = graph.create_edge(n21, n22);
+        Edge* e30 = graph.create_edge(n21, n23);
+        Edge* e31 = graph.create_edge(n22, n23);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
+        cerr << distance_index.net_handle_as_string(distance_index.get_parent(distance_index.get_node_net_handle(n1->id()))) << endl;
+        
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+
+        //graph.to_dot(cerr);
+
+        SECTION( "One slice from nodes in the middle of a nested chain" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(10, false, 0);
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(21, false, 0);
+            positions.emplace_back(14, false, 0);
+            positions.emplace_back(16, false, 0);
+            positions.emplace_back(20, false, 0);  
+
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 3);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 2);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+
+        }
+        SECTION( "Two slices from snarls in the middle of a nested chain" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(4, false, 0);
+            positions.emplace_back(6, false, 1);
+            positions.emplace_back(7, false, 0);
+            positions.emplace_back(11, false, 0);
+            positions.emplace_back(12, false, 0);
+            positions.emplace_back(21, false, 0);  
+
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 2);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 4);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+
+        }
+        SECTION( "One slice from the start of a chain, connected to the end" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(7, false, 0);
+            positions.emplace_back(12, false, 1);
+            positions.emplace_back(13, false, 0);
+            positions.emplace_back(21, false, 0);    
+
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 3);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 2);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+
+        }
+        SECTION( "One slice from the end of a chain, connected to the start" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 2);
+            positions.emplace_back(2, false, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(7, false, 0);
+            positions.emplace_back(14, false, 0);    
+            positions.emplace_back(16, false, 0);    
+            positions.emplace_back(20, false, 0);    
+            positions.emplace_back(21, false, 0);    
+
+
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (pos_t pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, 0, zipcode});
+            }
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 3);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 2);
+            for (auto& zip_tree : zip_forest.trees) {
+                zip_tree.validate_zip_tree(distance_index);
+            }
+
         }
     }
 
