@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <iomanip>
 
 #include "subcommand.hpp"
 
@@ -187,9 +188,11 @@ int main_gamcompare(int argc, char** argv) {
     // alignment or one position per node.
     vg::string_hash_map<string, map<string, vector<pair<size_t, bool> > > > true_path_positions;
     function<void(Alignment&)> record_path_positions = [&true_path_positions](Alignment& aln) {
-        auto val = alignment_refpos_to_path_offsets(aln);
+        if (aln.refpos_size() > 0) {
+            auto val = alignment_refpos_to_path_offsets(aln);
 #pragma omp critical (truth_table)
-        true_path_positions[aln.name()] = val;
+            true_path_positions[aln.name()] = val;
+        }
     };
 
     // True graph positions. For each alignment name, we find the maximal read intervals that correspond
@@ -234,6 +237,9 @@ int main_gamcompare(int argc, char** argv) {
         cerr << "error[vg gamcompare]: Score-alignment requires range" << endl;
         exit(1);
     }
+
+    // Count eligible reads that actually have positions that could be got.
+    size_t eligible_reads = distance_name.empty() ? true_path_positions.size() : true_graph_positions.size();
 
     // Load the distance index.
     unique_ptr<SnarlDistanceIndex> distance_index;
@@ -400,7 +406,14 @@ int main_gamcompare(int argc, char** argv) {
             total_correct += count;
         }
         
-        cerr << total_correct << " reads correct" << endl;
+        cerr << total_correct << " reads correct, " << eligible_reads << " reads eligible";
+        if (eligible_reads > 0 && eligible_reads >= total_correct) {
+            std::ios state(nullptr);
+            state.copyfmt(cerr);
+            cerr << ", " << std::fixed << std::setprecision(2) << (double)total_correct / eligible_reads * 100 << "% accuracy";
+            cerr.copyfmt(state);
+        }
+        cerr << endl;
     }
 
     if (score_alignment) {

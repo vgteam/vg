@@ -18,6 +18,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/chain_items.hpp"
 #include "algorithms/sample_minimal.hpp"
+#include "algorithms/pad_band.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -56,6 +57,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     clusterer(distance_index, &graph),
     gbwt_graph(graph),
     extender(new GaplessExtender(gbwt_graph, *(get_regular_aligner()))),
+    choose_band_padding(algorithms::pad_band_random_walk()),
     fragment_length_distr(1000,1000,0.95) {
     
     // The GBWTGraph needs a GBWT

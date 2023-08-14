@@ -42,11 +42,12 @@
 #include <signal.h>
 #include <typeinfo>
 
-#ifndef __APPLE__
-    // Pull in backward-cpp and use libdw from elfutils.
+#if !(defined(__APPLE__) && defined(__x86_64__))
+    #ifndef __APPLE__
+        // Use libdw from elfutils.
+        #define BACKWARD_HAS_DW 1
+    #endif
     // In theory backward-cpp can build and even backtrace on mac
-    // In practice the mac port doesn't work on my machine and breaks the build on Travis.
-    #define BACKWARD_HAS_DW 1
     #include <backward.hpp>
 #endif
 
@@ -241,39 +242,61 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
    
     // This holds the context that the signal came from, including registers and stuff
     ucontext_t* context = (ucontext_t*) signalContext;
+
+    // See
+    // <https://github.com/bombela/backward-cpp/blob/65a769ffe77cf9d759d801bc792ac56af8e911a3/backward.hpp#L4239>
+    // for how to decode this on different platforms.
+
+    
    
-    // TODO: This assumes x86_64
-    // Fetch out the registers
-    // We model IP as a pointer to void (i.e. into code)
-    void* ip;
-    // We model BP as an array of two things: previous BP, and previous IP.
-    void** bp;
-   
-    #ifdef __APPLE__
-        #if (defined(__arm64__) || defined(__aarch64__))
-            *out << "Stack traces are not supported on ARM Macs yet" << endl;
+    #if defined(__APPLE__) && defined(__x86_64__) 
+        // On x86-64 Mac we do a manual stack trace.
+        // We model IP as a pointer to void, into the code(?)
+        void* ip = (void*)context->uc_mcontext->__ss.__rip;
+        // We model BP as an array of two things: previous BP, and previous IP.
+        void** bp = (void**)context->uc_mcontext->__ss.__rbp;
+        *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
+        // Do our own tracing because backtrace doesn't really work on all platforms.
+        stacktrace_manually(*out, signalNumber, ip, bp);
+    #else
+        // Everywhere else we know of, we try backward-cpp.
+        // TODO: For some reason we don't need bp?
+        void* ip = nullptr;
+
+        #if defined(__APPLE__)
+            // Mac (not x86_64)
+            #if (defined(__arm64__) || defined(__aarch64__))
+                // Arm Mac does it this way
+                ip = (void*)context->uc_mcontext->__ss.__pc;
+            #endif
         #else
-            // macOS does it this way on x86-64
-            ip = (void*)context->uc_mcontext->__ss.__rip;
-            bp = (void**)context->uc_mcontext->__ss.__rbp;
-            *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
-            // Do our own tracing because backtrace doesn't really work on all platforms.
-            stacktrace_manually(*out, signalNumber, ip, bp);
+            // Linux
+            #if defined(__x86_64__)
+                // Linux x86-64 does it this way
+                ip = (void*)context->uc_mcontext.gregs[REG_RIP];
+            #elif defined(__aarch64__)
+                // Linux arm64 does it this way
+                ip = (void*)context->uc_mcontext.pc;
+            #endif
         #endif
-    #elif __x86_64__
-        // Linux 64 bit does it this way
-        ip = (void*)context->uc_mcontext.gregs[REG_RIP];
-        bp = (void**)context->uc_mcontext.gregs[REG_RBP];
-        
-        static backward::StackTrace stack_trace;
-        stack_trace.load_from(ip, 32);
-        static backward::Printer p;
-        p.color_mode = backward::ColorMode::automatic;
-        p.address = true;
-        p.object = true;
-        p.print(stack_trace, *out);
-        tempStream.close();
+
+        if (ip) {
+            // We are on a platform where we can get the instruction pointer.
+            *out << "Caught signal " << signalNumber << " raised at address " << ip << "; tracing with backward-cpp" << endl;
+            static backward::StackTrace stack_trace;
+            // With current backward-cpp we can pass the signal information and have it use the right stack.
+            stack_trace.load_from(ip, 32, (void*)context, signalInfo->si_addr);
+            static backward::Printer p;
+            p.color_mode = backward::ColorMode::automatic;
+            p.address = true;
+            p.object = true;
+            p.print(stack_trace, *out);
+        } else {
+            *out << "Caught signal " << signalNumber << " at unknown address" << endl;
+        }
     #endif
+
+    tempStream.close();
 
     // Use OSC-8 to link the user to their destination.
     cerr << "ERROR: Signal "<< signalNumber << " occurred. VG has crashed. ";

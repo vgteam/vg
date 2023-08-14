@@ -1191,6 +1191,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
     //Start from the end of the zip tree and walk left, checking each pair of seeds
     for (auto start_itr_left  = zip_code_tree.rbegin() ; 
          start_itr_left != zip_code_tree.rend() ; ++ start_itr_left ) {
+
         //Get a reverse iterator to the vector, starting from the end and going left
         if (start_itr_left->type != SEED) {
             continue;
@@ -1482,6 +1483,7 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
                 //
                 // Running distance along chain is on stack, and will need to
                 // be added to all the stored distances.
+                // Note that there may be 0 stored distances if we are below the top-level snarl.
                 state(S_STACK_SNARL);
             } else {
                 // We did enter the parent snarl already.
@@ -1556,14 +1558,23 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             break;
         case SNARL_START:
             // We didn't hit another chain in the snarl, we hit the start of
-            // the snarl. We should have stacked exactly one distance.
+            // the snarl. We should have stacked exactly one or zero distances.
+            
+            if (depth() == 1) {
+                // We have hit the start of a top-level snarl
+#ifdef debug_parse
+                std::cerr << "Hit start of top-level snarl" << std::endl;
+#endif
+                halt();
+                // When we halt we have to return true to show the halting position.
+                return true;
+            }
 
             // Throw out parent running distance
             pop();
 
-            // There should be a running distance on the stack still, and we
+            // There will be a running distance on the stack still, and we
             // will continue with that in the parent chain.
-            crash_unless(depth() > 0);
             state(S_SCAN_CHAIN);
             break;
         case NODE_COUNT:
@@ -1643,10 +1654,20 @@ auto ZipCodeTree::reverse_iterator::tick() -> bool {
             break;
         case CHAIN_START:
             if (top() == 0) {
+                // Parent snarl may be a top-level snarl.
+                if (depth() == 1) {
+                    // We have hit the start of a top-level snarl
+#ifdef debug_parse
+                    std::cerr << "Hit start of top-level snarl" << std::endl;
+#endif
+                    halt();
+                    // When we halt we have to return true to show the halting position.
+                    return true;
+                }
+
                 // This is the start of the chain we were wanting to skip.
                 pop();
-                // We definitely should have entered the parent snarl of the chain, or we would have halted instead of trying to skip the rest of the chain.
-                crash_unless(depth() > 1);
+                crash_unless(depth() >= 1);
                 // Discard the running distance along this chain, which no longer matters.
                 pop();
                 // Running distance for next chain, or running distance to cross the snarl, will be under it.

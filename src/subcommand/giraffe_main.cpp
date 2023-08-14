@@ -276,16 +276,16 @@ static GroupedOptionGroup get_options() {
         "chain up extensions to create alignments, instead of doing each separately"
     );
     chaining_opts.add_range(
-        "min-buckets",
-        &MinimizerMapper::min_buckets_to_fragment,
-        MinimizerMapper::default_min_buckets_to_fragment,
-        "minimum number of buckets to fragment"
+        "min-to-fragment",
+        &MinimizerMapper::min_to_fragment,
+        MinimizerMapper::default_min_to_fragment,
+        "minimum number of fragmentong problems to run"
     );
     chaining_opts.add_range(
-        "max-buckets",
-        &MinimizerMapper::max_buckets_to_fragment,
-        MinimizerMapper::default_max_buckets_to_fragment,
-        "maximum number of buckets to fragment"
+        "max-to-fragment",
+        &MinimizerMapper::max_to_fragment,
+        MinimizerMapper::default_max_to_fragment,
+        "maximum number of fragmenting problems to run"
     );
     chaining_opts.add_range(
         "fragment-max-lookback-bases",
@@ -294,46 +294,10 @@ static GroupedOptionGroup get_options() {
         "maximum distance to look back when makign fragments"
     );
     chaining_opts.add_range(
-        "fragment-min-lookback-items",
-        &MinimizerMapper::fragment_min_lookback_items,
-        MinimizerMapper::default_fragment_min_lookback_items,
-        "minimum items to consider coming from when making fragments"
-    );
-    chaining_opts.add_range(
-        "fragment-lookback-item-hard-cap",
-        &MinimizerMapper::fragment_lookback_item_hard_cap,
-        MinimizerMapper::default_fragment_lookback_item_hard_cap,
-        "maximum items to consider coming from when making fragments"
-    );
-    chaining_opts.add_range(
         "fragment-max-indel-bases",
         &MinimizerMapper::fragment_max_indel_bases,
         MinimizerMapper::default_fragment_max_indel_bases,
         "maximum indel length in a transition when making fragments"
-    );
-    chaining_opts.add_range(
-        "chaining-cluster-distance",
-        &MinimizerMapper::chaining_cluster_distance,
-        MinimizerMapper::default_chaining_cluster_distance,
-        "maximum distance to cluster over before chaining"
-    );
-    chaining_opts.add_range(
-        "fragment-connection-coverage-threshold",
-        &MinimizerMapper::fragment_connection_coverage_threshold,
-        MinimizerMapper::default_fragment_connection_coverage_threshold,
-        "threshold of fragment pair coverage below the base, after which to stop reseeding between fragments"
-    );
-    chaining_opts.add_range(
-        "min-fragment-connections",
-        &MinimizerMapper::min_fragment_connections,
-        MinimizerMapper::default_min_fragment_connections,
-        "minimum number of fragment connections to reseed over"
-    );
-    chaining_opts.add_range(
-        "max-fragment-connections",
-        &MinimizerMapper::max_fragment_connections,
-        MinimizerMapper::default_max_fragment_connections,
-        "maximum number of fragment connections to reseed over"
     );
     chaining_opts.add_range(
         "max-lookback-bases",
@@ -342,28 +306,22 @@ static GroupedOptionGroup get_options() {
         "maximum distance to look back when chaining"
     );
     chaining_opts.add_range(
-        "min-lookback-items",
-        &MinimizerMapper::min_lookback_items,
-        MinimizerMapper::default_min_lookback_items,
-        "minimum items to consider coming from when chaining"
-    );
-    chaining_opts.add_range(
         "max-indel-bases",
         &MinimizerMapper::max_indel_bases,
         MinimizerMapper::default_max_indel_bases,
         "maximum indel length in a transition when chaining"
     );
     chaining_opts.add_range(
-        "lookback-item-hard-cap",
-        &MinimizerMapper::lookback_item_hard_cap,
-        MinimizerMapper::default_lookback_item_hard_cap,
-        "maximum items to consider coming from when chaining"
-    );
-    chaining_opts.add_range(
         "item-bonus",
         &MinimizerMapper::item_bonus,
         MinimizerMapper::default_item_bonus,
         "bonus for taking each item when fragmenting or chaining"
+    );
+    chaining_opts.add_range(
+        "item-scale",
+        &MinimizerMapper::item_scale,
+        MinimizerMapper::default_item_scale,
+        "scale for items' scores when fragmenting or chaining"
     );
     
     chaining_opts.add_range(
@@ -593,10 +551,13 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
         .add_entry<size_t>("max-min", 0)
-        .add_entry<size_t>("downsample-min", 300)
+        .add_entry<size_t>("downsample-min", 100)
         // Don't use the hit-cap||score-fraction filter because it doesn't do anything after downsampling
         .add_entry<size_t>("hit-cap", 0)
-        .add_entry<double>("score-fraction", 1.0);
+        .add_entry<double>("score-fraction", 1.0)
+        // Use a high hard hit cap to allow centromeres
+        .add_entry<size_t>("hard-hit-cap", 16384);
+        
    
     std::vector<struct option> long_options =
     {

@@ -456,16 +456,18 @@ namespace unittest {
             //TODO: This doesn't work now that it is a forest
             
             // For each seed, what seeds and distances do we see in reverse from it?
-            //std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
-            //for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
-            //    std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
-            //}
-            //REQUIRE(reverse_views.size() == 2);
-            //// Neither seed can see any other seeds
-            //REQUIRE(reverse_views.count({0, false}));
-            //REQUIRE(reverse_views[{0, false}].size() == 0);
-            //REQUIRE(reverse_views.count({1, false}));
-            //REQUIRE(reverse_views[{1, false}].size() == 0);
+            std::unordered_map<ZipCodeTree::oriented_seed_t, std::vector<ZipCodeTree::seed_result_t>> reverse_views;
+            for (auto& zip_tree : zip_forest.trees) {
+                for (auto forward = zip_tree.begin(); forward != zip_tree.end(); ++forward) {
+                    std::copy(zip_tree.look_back(forward), zip_tree.rend(), std::back_inserter(reverse_views[*forward]));
+                }
+            }
+            REQUIRE(reverse_views.size() == 2);
+            // Neither seed can see any other seeds
+            REQUIRE(reverse_views.count({0, false}));
+            REQUIRE(reverse_views[{0, false}].size() == 0);
+            REQUIRE(reverse_views.count({1, false}));
+            REQUIRE(reverse_views[{1, false}].size() == 0);
         }
         SECTION( "Four seeds" ) {
  
