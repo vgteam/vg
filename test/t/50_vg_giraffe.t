@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 49
+plan tests 50
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -58,6 +58,16 @@ chmod 400 x.dist
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq >/dev/null 
 is "${?}" "0" "a read can be mapped when the distance index is not writable"
 
+echo "@read" >read.fq
+echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" >>read.fq
+echo "+" >>read.fq
+echo "GATTACATTAGGAGATAGCCATACGACGTAGCATCTAGCTCAGCCACA$(cat small/x.fa | head -n2 | tail -n1)" | tr 'ACGTN' '(((((' >>read.fq
+
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f read.fq > read.gam
+LOOP_LINES="$(vg view -aj read.gam | jq -c 'select(.path.mapping[0].position.node_id == .path.mapping[1].position.node_id)' | wc -l)"
+is "${LOOP_LINES}" "0" "a read which softclips does not appear to loop"
+
+rm -f read.fq read.gam
 rm -f x.vg x.xg x.gbwt x.min x.sync x.dist x.gg
 rm -f x.giraffe.gbz
 
