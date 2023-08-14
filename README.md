@@ -139,7 +139,12 @@ Whether or not that helps, please then [open an issue](https://github.com/vgteam
 
 ### Variation graph construction
 
-The simplest thing to do with `vg` is to build a graph and align to it. At present, you'll want to use a reference and VCF file to do so. If you're working in the `test/` directory:
+#### From VCF
+
+> **Note**
+> See the `vg autoindex` examples below for how to use that tool in place of `vg construct` to build and index graphs in a single step.
+
+One way to build a graph with `vg` is to `construct` it from variant calls using a reference FASTA file and VCF file. If you're working in vg's `test/` directory:
 
 <!-- !test check Construct the small graph -->
 ```sh
@@ -148,7 +153,43 @@ vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
 Note that to build a graph, an index of the VCF file is required. The VCF index file can be generated using the `tabix` command provided by SAMtools (e.g. `tabix -p vcf x.vcf.gz` on the command line).
 
-### Viewing, conversion
+#### From Assemblies
+
+You can also build a graph (and indexes for mapping with vg) from a set of genome assemblies (FASTA), as opposed to variant calls as described above, using [Minigraph-Cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md).
+
+### Importing and exporting different graph formats
+
+`vg` supports [many formats](https://github.com/vgteam/vg/wiki/File-Formats), the three most important are:
+
+* `PackedGraph (.vg)` : This is `vg's` native format. It supports edits of all kinds (to topology and paths), but can be inefficient at large scales, especially with many paths.
+* `GFA (.gfa)` : [GFA](https://github.com/GFA-spec/GFA-spec) is standard text-based format and usually the best way to exchange graphs between `vg` and other pangenome tools. `vg` can also operate on (**uncompressed**) GFA files directly, by way of using a `PackedGraph` representation in memory (and therefore shares that format's scaling concerns and edit-ability).
+* `GBZ (.gbz)` : [GBZ](https://github.com/jltsiren/gbwtgraph/blob/master/SERIALIZATION.md) is a highly-compressed format that uses much less space to store paths than the above formats, but at the cost of not allowing general edits to the graph.
+
+You can query the format of any graph using `vg stats -F`.
+
+#### Importing
+
+In general, you will build and index `vg` graphs using `vg autoindex` (from GFA or VCF) or `Minigraph-Cactus` (FASTAs). You can also import `GFA` files from other tools such as [ODGI](https://github.com/pangenome/odgi) and [PGGB](https://github.com/pangenome/pggb) using `vg convert -g`.
+
+#### Exporting
+
+You can convert any graph to `GFA` using `vg convert -f`.  By default, `vg` uses [GFA v1.1](https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md#w-walk-line-since-v11) where paths are represented as W-lines. To use P-lines instead (GFA v1.0), use `vg convert -fW`.
+
+#### Path Types
+
+The `GBZ` format makes the distinction between `REFERENCE` and `HAPLOTYPE` paths. `REFERENCE` paths can be used as coordinate systems but are more expensive to store. `HAPLOTYPE` paths are highly compressed but cannot be used for position lookups. In the [HPRC](https://github.com/human-pangenomics/hpp_pangenome_resources/) graphs for example, contigs from `GRCh38` and `CHM13(T2T)` are `REFERENCE` paths and all other samples `HAPLOTYPE` paths.
+
+The distinction between `REFERENCE` and `HAPLOTYPE` paths is carried over into the other formats such as `.vg` and `.gfa` to facilitate conversion and inter-operation. In `.gfa`, `REFERENCE` paths are P-Lines, or W-lines whose sample names are flagged in the header. W-lines whose names are not flagged in the header are `HAPLOTYPE` paths. In `.vg` they are denoted using a naming convention.  
+
+See the [Path Metadata WIKI](https://github.com/vgteam/vg/wiki/Path-Metadata-Model) for more details.
+
+> **Warning**
+> `GBZ` is the only format that supports efficient loading large numbers of `HAPLOTYPE` paths in `vg`.  You may run into issues trying to load whole-genome graphs with thousands of `HAPLOTYPE` from `.vg` or `.gfa` files.  `vg convert -H` can be used to drop `HAPLOTYPE` paths, allowing the graph to be more easily loaded in other formats. 
+
+### Viewing
+
+> **Note**
+> It is best to use the newer `vg convert` tool (described above) for GFA conversion
 
 `vg view` provides a way to convert the graph into various formats:
 
@@ -166,12 +207,6 @@ cp small/x-s1337-n1.gam x.gam
 # json version of binary alignments
 vg view -a x.gam >x.json
 ```
-
-`vg convert` provides further graph and alignment conversion options.
-
-Note that `vg` tools can generally read all supported graph formats (VG, uncompressed GFA, XG, PackedGraph, HashGraph) interchangeably, so conversion is not required.  One exception is tools that modify graphs (ex `vg mod`) will not accept the read-only XG format. Tools that ask for XG input specifically with `-x` (ex `vg map`, `vg find`) will run on any graph type, but will be faster on XG.
-
-The format of a given graph file can be retrieved with `vg stats -F`. 
 
 ### Mapping
 
@@ -232,7 +267,10 @@ vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 
 ### Augmentation
 
-Variation from alignments can be embedded back into the graph.  This process is called augmentation and is important for variant calling, for example (see below).
+Variation from alignments can be embedded back into the graph.  This process is called augmentation and can be used for *de novo* variant calling, for example (see below).
+
+> **Warning**
+> Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to `BAM` and running a linear variant caller such as DeepVariant. 
 
 <!-- !test check Augment a graph -->
 ```sh
@@ -247,18 +285,20 @@ vg augment x.vg aln.gam -i -S > aug_with_paths.vg
 
 ### Variant Calling
 
+> **Note**
+> More information can be found in the [WIKI](https://github.com/vgteam/vg/wiki/SV-Genotyping-and-variant-calling).
+
 #### Calling variants using read support
 
-The following examples show how to generate a VCF with vg using read support.  They depend on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  Currently, it is more accuracte for SVs.  
+The following examples show how to generate a VCF with vg using read support.  They depend on output from the Mapping and Augmentation examples above.  Small variants and SVs can be called using the same approach.  **Currently, it is more accuracte for SVs**.  
 
-Call only variants that are present in the graph (use `-g`):
+Call only variants that are present in the graph:
 
 <!-- !test check Pack and call -->
 ```sh
 # Compute the read support from the gam
 # -Q 5: ignore mapping and base qualitiy < 5
-# -s 5: ignore first and last 5bp from each read
-vg pack -x x.xg -g aln.gam -Q 5 -s 5 -o aln.pack
+vg pack -x x.xg -g aln.gam -Q 5  -o aln.pack
 
 # Generate a VCF from the support.  
 vg call x.xg -k aln.pack > graph_calls.vcf
@@ -272,6 +312,9 @@ vg call x.xg -k aln.pack -a > snarl_genotypes.vcf
 
 In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the "Augmentation" example using `vg augment -A`):
 
+> **Warning**
+> Using `vg augment` for variant calling remains very experimental. It is not at all recommended for structural variant calling, and even for small variants, you will often get much more accurate results (at least on human) by projecting your alignment to `BAM` and running a linear variant caller such as DeepVariant. 
+
 <!-- !test check Call from augmentation -->
 ```sh
 # Index our augmented graph
@@ -284,7 +327,7 @@ vg pack -x aug.xg -g aug.gam -Q 5 -s 5 -o aln_aug.pack
 vg call aug.xg -k aln_aug.pack > calls.vcf
 ```
 
-A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a`:
+A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a` (graphs from other sources such as `vg autoindex` and `Minigraph-Cactus` cannot be used):
 
 <!-- !test check Genotype -->
 ```sh
@@ -323,7 +366,7 @@ vg snarls x.xg > x.snarls
 vg call x.xg -k aln.pack -r x.snarls > calls.vcf
 ```
 
-Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
+Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on directly on any graph format (ex '.gbz', '.gfa', `.vg`, `.xg` (except `augment`) or anything output by `vg convert`).  Operating on `.vg` or '.gfa' uses the most memory and is not recommended for large graphs.  The output of `vg pack` can only be read in conjunction with the same graph used to create it, so `vg pack x.vg -g aln.gam -o x.pack` then `vg call x.xg -k x.pack` will not work.
 
 #### Calling variants from paths in the graph
 
@@ -348,6 +391,8 @@ Variants can also be inferred strictly from topology by not using `-e`, though u
 # using the same graph from the `map` example
 vg deconstruct x.xg -p x > x.vcf
 ```
+
+Haplotype paths from `.gbz` or `.gbwt` indexes input can be considered using `-z` and `-g', respectively.
 
 As with `vg call`, it is best to compute snarls separately and pass them in with `-r` when working with large graphs.
 

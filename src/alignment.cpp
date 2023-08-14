@@ -805,6 +805,12 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         }
     }
     
+    if (~core.flag & BAM_FUNMAP) {
+        // we've decided that it is aligned
+        int32_t score = alignment.score();
+        bam_aux_append(bam, "AS", 'i', sizeof(int32_t), (uint8_t*) &score);
+    }
+    
     if (!alignment.read_group().empty()) {
         bam_aux_append(bam, "RG", 'Z', alignment.read_group().size() + 1, (uint8_t*) alignment.read_group().c_str());
     }
