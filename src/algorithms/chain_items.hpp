@@ -46,10 +46,6 @@ using vg::operator<<;
  */
 class Anchor {
 public:
-    // Set up with accessors in case we want to stop copying stuff so much later.
-
-    // Base API:
-    
     /// Get the start position in the read of this anchor's match.
     inline size_t read_start() const {
         return start;
@@ -66,8 +62,6 @@ public:
     inline int score() const {
         return points;
     }
-    
-    // Other API implemented on top of this
     
     /// Get the end position in the read of this anchor's match
     inline size_t read_end() const {
@@ -319,7 +313,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
                            int item_bonus = 0,
                            int item_scale = 1,
-                           size_t max_indel_bases = 100);
+                           size_t max_indel_bases = 100,
+                           bool show_work = false);
 
 /**
  * Trace back through in the given DP table from the best chain score.
@@ -361,7 +356,8 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1), 
                                                    int item_bonus = 0,
                                                    int item_scale = 1,
-                                                   size_t max_indel_bases = 100);
+                                                   size_t max_indel_bases = 100,
+                                                   bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and

@@ -168,7 +168,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index);
 
-#ifdef debug
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -176,7 +175,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             zip_code_forest.print_self();
         }
     }
-#endif
 
     // Now score all the zip code trees in the forest by summing the scores of their involved minimizers.
     vector<double> tree_scores;
@@ -336,7 +334,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 for_each_transition,
                 this->item_bonus,
                 this->item_scale,
-                this->fragment_max_indel_bases
+                this->fragment_max_indel_bases,
+                false // Don't show work for fragmenting, there are too many seeds.
             );
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -563,11 +562,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             gbwt_graph,
             get_regular_aligner()->gap_open,
             get_regular_aligner()->gap_extension,
-            2,
+            this->max_alignments,
             for_each_transition,
             this->item_bonus,
             this->item_scale,
-            this->max_indel_bases
+            this->max_indel_bases,
+            this->show_work
         );
         
         for (size_t result = 0; result < chain_results.size(); result++) {
