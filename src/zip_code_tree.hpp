@@ -134,7 +134,7 @@ public:
     void print_self() const;
 
     ///Check that the tree is correct
-    void validate_zip_tree(const SnarlDistanceIndex& distance_index) const;
+    void validate_zip_tree(const SnarlDistanceIndex& distance_index, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
     ///Get the number of items in the tree
     size_t get_tree_size() const {return zip_code_tree.size();};
@@ -406,6 +406,11 @@ class ZipCodeForest {
     void print_self() const {
         for (const auto& tree : trees) {
             tree.print_self();
+        }
+    }
+    void validate_zip_forest(const SnarlDistanceIndex& distance_index, size_t distance_limit=std::numeric_limits<size_t>::max()) const {
+        for (const auto& tree : trees) {
+            tree.validate_zip_tree(distance_index, distance_limit);
         }
     }
 

@@ -1734,6 +1734,7 @@ namespace unittest {
             default_random_engine generator(time(NULL));
             uniform_int_distribution<int> variant_count(1, 70);
             uniform_int_distribution<int> chrom_len(10, 200);
+            uniform_int_distribution<int> distance_limit(5, 100);
     
             //Make a random graph with three chromosomes of random lengths
             HashGraph graph;
@@ -1778,14 +1779,13 @@ namespace unittest {
                     seeds.push_back({ pos, 0, zipcode});
 
                 }
+                size_t limit = distance_limit(generator);
 
                 ZipCodeForest zip_forest;
-                zip_forest.fill_in_forest(seeds, distance_index);
-                for (ZipCodeTree zip_tree : zip_forest.trees) {
-                    zip_forest.print_self();
-                    zip_tree.validate_zip_tree(distance_index);
-                    REQUIRE(true); //Just to count
-                }
+                zip_forest.fill_in_forest(seeds, distance_index, limit);
+                zip_forest.print_self();
+                zip_forest.validate_zip_forest(distance_index, limit);
+                REQUIRE(true); //Just to count
             }
         }
     }

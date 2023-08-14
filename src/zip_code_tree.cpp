@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -1019,7 +1019,7 @@ void ZipCodeTree::print_self() const {
     cerr << endl;
 }
 
-void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) const {
+void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, size_t distance_limit) const {
 
     //Make sure that everything is in a valid order
     size_t previous_seed_index = std::numeric_limits<size_t>::max();
@@ -1260,7 +1260,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
                 start_handle = distance_index.get_parent(start_handle);
             }
 
-            if (!in_non_dag_snarl) {
+            if (!in_non_dag_snarl && index_distance < distance_limit) {
                 if (start_pos == next_pos) {
                     if (tree_distance != 0 && tree_distance != index_distance) {
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
