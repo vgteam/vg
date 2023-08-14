@@ -699,7 +699,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
             }
 
         } else {
-            cerr << "Remember the edge with distances " << distance_between << endl;
             //If we didn't start a new tree, then remember the edge
             trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, distance_between, false});
         }
@@ -774,9 +773,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
         }
 #ifdef DEBUG_ZIP_CODE_TREE
         assert(trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::SNARL_START);
-#endif
-
-        //Pop the snarl start out
+#endif        //Pop the snarl start out
         trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
 
         //If this was the first thing in the chain, then we're done. Otherwise, there was an edge to remove
@@ -803,12 +800,14 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
 #ifdef DEBUG_ZIP_CODE_TREE
             assert(forest_state.sibling_indices_at_depth[depth-1].back().value >= 0);
 #endif
-        }
+        } else {
+            //If this was the first thing in the chain, update the previous sibling in the chain to be the start of the chain
 #ifdef DEBUG_ZIP_CODE_TREE
-        else {
             assert(trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::CHAIN_START);
-        }
 #endif
+            forest_state.sibling_indices_at_depth[depth-1].pop_back();
+            forest_state.sibling_indices_at_depth[depth-1].push_back({ ZipCodeTree::CHAIN_START, 0});
+        }
     } else {
 
         //If this is the end of the snarl that still has children, then we need to save the distances to 
@@ -1018,7 +1017,8 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
     //Make sure that everything is in a valid order
     size_t previous_seed_index = std::numeric_limits<size_t>::max();
     bool previous_is_valid = true;
-    for (const tree_item_t& current_item: zip_code_tree) {
+    for (size_t i = 0 ; i < zip_code_tree.size() ; i++) {
+        const tree_item_t& current_item = zip_code_tree[i];
         if (current_item.type == SEED) {
             bool current_is_valid = true;
             //Check if this is worth validating
@@ -1153,6 +1153,12 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index) co
             }
             previous_seed_index = current_item.value;
             previous_is_valid = current_is_valid;
+        } else if (current_item.type == CHAIN_START) {
+            //Chains can't start with edges
+            assert(zip_code_tree[i+1].type != EDGE);
+        } else if (current_item.type == CHAIN_END) {
+            //And can't end with edges
+            assert(zip_code_tree[i-1].type != EDGE);
         }
     }
 
