@@ -274,6 +274,9 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
             last_is_reversed = !last_is_reversed;
         }
     }
+#ifdef DEBUG_ZIP_CODE_TREE
+    assert(forest_state.open_chains.empty());
+#endif
 
 }
 
@@ -633,8 +636,13 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                     //The value should be the index of the last seed, which is the first seed in the new tree
                     assert(forest_state.sibling_indices_at_depth[chain_depth-1].back().value 
                                 == trees[forest_state.active_zip_tree].zip_code_tree.size()-1);
+                    assert(forest_state.open_chains.back().second);
+
 #endif
                     forest_state.sibling_indices_at_depth[chain_depth-1].back().distances.first = current_offset;
+
+                    //Don't need to update open_chains, since the next slice will also start at the chain start and be able to make 
+                    //a new thing
 
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -671,6 +679,10 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
                                                                                  std::numeric_limits<size_t>::max(),
                                                                                  false});
+
+                    //Remember the next seed or snarl that gets added as the start of a new chain slice
+                    forest_state.open_chains.pop_back();
+                    forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size(), true);
                 }
             } else {
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -680,11 +692,11 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 //add the edge anyway
 
                 trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, distance_between, false});
-            }
 
-            //Remember the next seed or snarl that gets added as the start of a new chain slice
-            forest_state.open_chains.pop_back();
-            forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size(), true);
+                //Remember the next seed or snarl that gets added as the start of a new chain slice
+                forest_state.open_chains.pop_back();
+                forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size(), true);
+            }
 
         } else {
             cerr << "Remember the edge with distances " << distance_between << endl;
