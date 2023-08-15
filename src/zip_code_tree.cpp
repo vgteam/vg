@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -446,7 +446,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                     while (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
                         trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
                     }
-#ifdef DEBUG_ZIP_COD
+#ifdef DEBUG_ZIP_CODE_TREE
                     assert((trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::CHAIN_END ||
                             trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::SNARL_START));
 #endif
@@ -1096,10 +1096,10 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                     //If they are equal, then they must be on the same node
 
                     size_t offset1 = is_rev(seeds->at(previous_seed_index).pos)
-                                   ? seeds->at(previous_seed_index).zipcode_decoder->get_length(depth) - offset(seeds->at(previous_seed_index).pos) - 1
+                                   ? seeds->at(previous_seed_index).zipcode_decoder->get_length(depth) - offset(seeds->at(previous_seed_index).pos)
                                    : offset(seeds->at(previous_seed_index).pos);
                     size_t offset2 = is_rev(seeds->at(current_item.value).pos)
-                                   ? seeds->at(current_item.value).zipcode_decoder->get_length(depth) - offset(seeds->at(current_item.value).pos) - 1
+                                   ? seeds->at(current_item.value).zipcode_decoder->get_length(depth) - offset(seeds->at(current_item.value).pos)
                                    : offset(seeds->at(current_item.value).pos);
                     if (!a_is_reversed) {
                         //If they are in previous_seed_index snarl or they are facing forward on a chain, then order by
@@ -1226,8 +1226,8 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                                                  : offset(next_seed.pos),
                     id(start_seed.pos), start_is_reversed,
                     start_itr_left->is_reversed ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
-                                                : offset(start_seed.pos)
-                    );
+                                                : offset(start_seed.pos),
+                    true);
             if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
@@ -1236,10 +1236,12 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                 //If the seed we ended at got reversed, then add 1
                 index_distance += 1;
             }
-            pos_t start_pos = is_rev(start_seed.pos) ? make_pos_t(id(start_seed.pos), false, distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1)
+            pos_t start_pos = is_rev(start_seed.pos) ? make_pos_t(id(start_seed.pos), false, distance_index.minimum_length(start_handle) - offset(start_seed.pos) )
                                                      : start_seed.pos;
-            pos_t next_pos = is_rev(next_seed.pos) ? make_pos_t(id(next_seed.pos), false, distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1)
+            pos_t next_pos = is_rev(next_seed.pos) ? make_pos_t(id(next_seed.pos), false, distance_index.minimum_length(next_handle) - offset(next_seed.pos) )
                                                      : next_seed.pos;
+            size_t start_length = distance_index.minimum_length(start_handle);
+            size_t next_length = distance_index.minimum_length(start_handle);
 
             bool in_non_dag_snarl = false;
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
@@ -1265,6 +1267,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                 if (start_pos == next_pos) {
                     if (tree_distance != 0 && tree_distance != index_distance) {
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
+                        cerr << "Forward positions: " << start_pos << " " << next_pos << " and length " << start_length << endl;
                         cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
                     }
                     //This could be off by one if one of the seeds is reversed, but I'm being lazy and just checking against the index
@@ -1272,6 +1275,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                 } else {
                     if (tree_distance != index_distance) {
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
+                        cerr << "Forward positions: " << start_pos << " " << next_pos << " and lengths " << start_length << " " << next_length << endl;
                         cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
                     }
                     assert(tree_distance == index_distance);
@@ -1737,30 +1741,41 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
         ZipCode::code_type_t code_type = seed.zipcode_decoder->get_code_type(depth);
         if (code_type == ZipCode::NODE || code_type == ZipCode::ROOT_NODE || seed.zipcode_decoder->max_depth() == depth) {
 #ifdef DEBUG_ZIP_CODE_TREE
-            cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos) - 1
+            cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos)
                                     : offset(seed.pos)) << endl;;
 #endif
-            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos) - 1
+            return is_rev(seed.pos) ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos)
                                     : offset(seed.pos);
         } else if (code_type == ZipCode::CHAIN || code_type == ZipCode::ROOT_CHAIN) {
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << "\t\t this is a chain: prefix sum value x2 (and -1 if snarl): ";
 #endif
             //Return the prefix sum in the chain
-            //In order to accommodate nodes and snarls that may have the same prefix sum value, actually uses
-            //the prefix sum value * 2, and subtracts 1 in this is a snarl, to ensure that it occurs 
-            //before the node with the same prefix sum value 
+            //Since the offset stored represents the space between nucleotides, two positions on different nodes
+            // could have the same offset. Similarly, a snarl could have the same prefix sum as a node.
+            // For example, in this graph:
+            //                2
+            //               [AA]  
+            //           1  /   \  3
+            //          [AA] --- [AA]
+            // The positions n1-0 and 3+0, and the snarl 1-3 all have the same offset of 2
+            // To solve this, the prefix sum of a chain will always be multiplied by 3, and 1 will be added to snarls,
+            // And 2 will be added to the node with an offset in the node of 0 (node 3 if the chain is traversed forward)
+
             size_t prefix_sum;
             if (seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::REGULAR_SNARL || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::IRREGULAR_SNARL) { 
-                //If this is a snarl, then get the prefix sum value*2 - 1
-                prefix_sum = (seed.zipcode_decoder->get_offset_in_chain(depth+1) * 2) - 1;
+                //If this is a snarl, then get the prefix sum value*3 + 1
+                prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1) * 3,  1);
             } else {
                 //If this is a node, then get the prefix sum value plus the offset in the position, and multiply by 2 
-                prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1),
-                                                 seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
-                                                     ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos) - 1
-                                                     : offset(seed.pos));
-                prefix_sum *= 2;
+                size_t node_offset = seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
+                                                     ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+                                                     : offset(seed.pos);
+                prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1), node_offset);
+                prefix_sum *= 3;
+                if (node_offset == 0) {
+                    prefix_sum = SnarlDistanceIndex::sum(prefix_sum, 2);
+                }
             }
 #ifdef DEBUG_ZIP_CODE_TREE
             cerr << prefix_sum << endl;
