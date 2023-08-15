@@ -1,4 +1,4 @@
-#!/use/bin/env bash
+#!/usr/bin/env bash
 
 # Script to run Giraffe in long read mose on a set of simulated reads and evaluate its speed and accuracy.
 
