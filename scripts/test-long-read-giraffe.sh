@@ -24,7 +24,6 @@ if which sbatch >/dev/null 2>&1 ; then
 
     # Run a command and wait on it with srun
     function do_srun() {
-        shift
         srun "${JOB_ARGS[@]}" "$@"
     }
 
@@ -46,20 +45,19 @@ if which sbatch >/dev/null 2>&1 ; then
 else
     # No Slurm. Run everything locally.
 
-    # Run a quoted command
+    # Run a quoted command in the backgorund
     function do_sbatch() {
-        bash -c "${1}"
+        bash -c "${1}" &
     }
 
-    # Run a command
+    # Run a command in the foreground
     function do_srun() {
-        shift
         "$@"
     }
 
-    # Do nothing
+    # Wait on all jobs
     function swait() {
-        sleep 0
+        wait
     }
 
 fi
