@@ -188,7 +188,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
 
                     //First, add this as a new connected component
                     trees.emplace_back(seeds);
-                    forest_state.active_zip_tree = 0;
+                    forest_state.active_zip_tree = trees.size()-1;
 
                     //Start the new tree
                     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
@@ -1020,6 +1020,8 @@ void ZipCodeTree::print_self() const {
 }
 
 void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, size_t distance_limit) const {
+
+    assert(zip_code_tree.size() != 0);
 
     //Make sure that everything is in a valid order
     size_t previous_seed_index = std::numeric_limits<size_t>::max();
