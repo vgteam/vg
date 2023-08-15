@@ -389,7 +389,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             {
                 std::string arg = optarg;
                 size_t offset = arg.find(':');
-                if (offset == 0 || offset + 1 >= arg.length()) {
+                if (offset == 0 || offset == std::string::npos || offset + 1 >= arg.length()) {
                     std::cerr << "error: [vg haplotypes] cannot parse chain:subchain from " << arg << std::endl;
                     std::exit(EXIT_FAILURE);
                 }
@@ -519,6 +519,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
         validate_haplotypes(haplotypes, gbz.graph, r_index, minimizer_index, expected_chains, config.verbosity);
     }
 }
+
 //----------------------------------------------------------------------------
 
 size_t threads_to_jobs(size_t threads) {

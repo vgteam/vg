@@ -30,6 +30,9 @@
 #include "../crash.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
+#include "../gbwtgraph_helper.hpp"
+#include "../recombinator.hpp"
+
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
 
@@ -359,59 +362,93 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
     return filename;
 }
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser) {
+// Returns the name of the sampled GBZ.
+string sample_haplotypes(const vector<pair<string, string>>& indexes, string& basename, string& sample_name, string& haplotype_file, string& kff_file, bool progress);
+
+//----------------------------------------------------------------------------
+
+void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     cerr
-    << "usage: " << argv[0] << " giraffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
-    << "Fast haplotype-aware short read mapper." << endl
+    << "usage:" << endl
+    << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist -m graph.min] <input options> [other options] > output.gam" << endl
+    << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
     << endl
+    << "Fast haplotype-aware short read mapper." << endl
+    << endl;
+
+    cerr
     << "basic options:" << endl
-    << "  -Z, --gbz-name FILE           use this GBZ file (GBWT index + GBWTGraph)" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
+    << "  -Z, --gbz-name FILE           map to this GBZ graph" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -p, --progress                show progress" << endl
+    << "  -t, --threads INT             number of mapping threads to use" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
+    << "  -h, --help                    print full help with all available options" << endl;
+
+    cerr
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
-    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
-    << "alternate indexes:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph" << endl
-    << "  -g, --graph-name FILE         use this GBWTGraph" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT index" << endl
+    << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl;
+
+    cerr
+    << "haplotype sampling:" << endl
+    << "  --haplotype-name FILE         sample from haplotype information in FILE" << endl
+    << "  --kff-name FILE               sample according to kmer counts in FILE" << endl
+    << "  --index-basename STR          name prefix for generated graph/index files (default: from graph name)" << endl;
+
+    cerr
+    << "alternate graphs:" << endl
+    << "  -x, --xg-name FILE            map to this graph (if no -Z / -g), or use this graph for HTSLib output" << endl
+    << "  -g, --graph-name FILE         map to this GBWTGraph (if no -Z)" << endl
+    << "  -H, --gbwt-name FILE          use this GBWT index (when mapping to -x / -g)" << endl;
+
+    cerr
     << "output options:" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
-    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl
-    << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
-    << "  -n, --discard                 discard all output alignments (for profiling)" << endl
-    << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
-    << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
-    << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl
-    << "algorithm presets:" << endl
-    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl;
-    auto helps = parser.get_help();
-    print_table(helps, cerr);
-    cerr
-    << "Giraffe parameters:" << endl
-    << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
-    << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
-    << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
-    << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
-    << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
-    << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
-    << "  -t, --threads INT             number of mapping threads to use" << endl;
+    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl;
+    if (full_help) {
+        cerr
+        << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
+        << "  -n, --discard                 discard all output alignments (for profiling)" << endl
+        << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
+        << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
+        << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl;
+    }
+
+    if (full_help) {
+        cerr
+        << "Giraffe parameters:" << endl
+        << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
+        << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
+        << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
+        << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
+        << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+        << "  -B, --batch-size INT          number of reads or pairs per batch to distribute to threads [" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl;
+
+        auto helps = parser.get_help();
+        print_table(helps, cerr);
+    }
 }
+
+//----------------------------------------------------------------------------
 
 int main_giraffe(int argc, char** argv) {
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
+    // For haplotype sampling.
+    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+
     // Set up to parse options
     GroupedOptionGroup parser = get_options();
 
     if (argc == 2) {
-        help_giraffe(argv, parser);
+        help_giraffe(argv, parser, false);
         return 1;
     }
     
@@ -424,11 +461,23 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
     #define OPT_NAMED_COORDINATES 1012
+    constexpr int OPT_HAPLOTYPE_NAME = 1100;
+    constexpr int OPT_KFF_NAME = 1101;
+    constexpr int OPT_INDEX_BASENAME = 1102;
 
     // initialize parameters with their default options
     
     // This holds and manages finding our indexes.
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
+
+    // Indexes provided to IndexRegistry in the arguments. We do not apply them
+    // immediately, because we may want to do haplotype sampling.
+    vector<pair<string, string>> provided_indexes;
+    string index_basename, index_basename_override;
+
+    // For haplotype sampling.
+    string haplotype_name, kff_name;
+
     string output_basename;
     string report_name;
     bool show_progress = false;
@@ -504,7 +553,6 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_dozeu, "dozeu" },
         { MinimizerMapper::rescue_gssw, "gssw" },
     };
-    //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
     
     // Map preset names to presets
     std::map<std::string, Preset> presets;
@@ -538,6 +586,9 @@ int main_giraffe(int argc, char** argv) {
         {"minimizer-name", required_argument, 0, 'm'},
         {"dist-name", required_argument, 0, 'd'},
         {"progress", no_argument, 0, 'p'},
+        {"haplotype-name", required_argument, 0, OPT_HAPLOTYPE_NAME},
+        {"kff-name", required_argument, 0, OPT_KFF_NAME},
+        {"index-basename", required_argument, 0, OPT_INDEX_BASENAME},
         {"gam-in", required_argument, 0, 'G'},
         {"fastq-in", required_argument, 0, 'f'},
         {"interleaved", no_argument, 0, 'i'},
@@ -598,11 +649,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open GBZ file " << optarg << endl;
                     exit(1);
                 }
-                registry.provide("Giraffe GBZ", optarg);
+                provided_indexes.emplace_back("Giraffe GBZ", optarg);
 
                 // If we have a GBZ we probably want to use its name as the base name.
                 // But see -g.
-                registry.set_prefix(strip_suffixes(std::string(optarg), { ".gbz", ".giraffe" }));
+                index_basename = strip_suffixes(std::string(optarg), { ".gbz", ".giraffe" });
 
                 break;
 
@@ -615,11 +666,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open graph file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("XG", optarg);
+                provided_indexes.emplace_back("XG", optarg);
                 
                 // If we have an xg we probably want to use its name as the base name.
                 // But see -g.
-                registry.set_prefix(split_ext(optarg).first);
+                index_basename = split_ext(optarg).first;
                 
                 break;
 
@@ -632,11 +683,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open GBWTGraph file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("GBWTGraph", optarg);
+                provided_indexes.emplace_back("GBWTGraph", optarg);
                 
                 // But if we have a GBWTGraph we probably want to use *its* name as the base name.
                 // Whichever is specified last will win, unless we also have a FASTA input name.
-                registry.set_prefix(split_ext(optarg).first);
+                index_basename = split_ext(optarg).first;
                 
                 break;
 
@@ -649,7 +700,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open GBWT file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("Giraffe GBWT", optarg);
+                provided_indexes.emplace_back("Giraffe GBWT", optarg);
                 break;
                 
             case 'm':
@@ -661,7 +712,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open minimizer file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("Minimizers", optarg);
+                provided_indexes.emplace_back("Minimizers", optarg);
                 break;
                 
             case 'd':
@@ -673,13 +724,23 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open distance index file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("Giraffe Distance Index", optarg);
+                provided_indexes.emplace_back("Giraffe Distance Index", optarg);
                 break;
 
             case 'p':
                 show_progress = true;
                 break;
-                
+
+            case OPT_HAPLOTYPE_NAME:
+                haplotype_name = optarg;
+                break;
+            case OPT_KFF_NAME:
+                kff_name = optarg;
+                break;
+            case OPT_INDEX_BASENAME:
+                index_basename_override = optarg;
+                break;
+
             case 'G':
                 gam_filename = optarg;
                 if (gam_filename.empty()) {
@@ -831,7 +892,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, parser);
+                help_giraffe(argv, parser, true);
                 exit(1);
                 break;
         }
@@ -853,9 +914,9 @@ int main_giraffe(int argc, char** argv) {
             exit(1);
         }
         
-        registry.provide("Reference FASTA", fasta_filename);
+        provided_indexes.emplace_back("Reference FASTA", fasta_filename);
         // Everything else should be named like the FASTA by default
-        registry.set_prefix(fasta_parts.first);
+        index_basename = fasta_parts.first;
         
         if (have_input_file(optind, argc, argv)) {
             // Next one must be VCF, but check.
@@ -876,7 +937,7 @@ int main_giraffe(int argc, char** argv) {
             string file_type = IndexRegistry::vcf_is_phased(vcf_filename) ? "VCF w/ Phasing" : "VCF";
             
             // Feed it to the index registry to maybe use
-            registry.provide(file_type, vcf_filename);
+            provided_indexes.emplace_back(file_type, vcf_filename);
         }
     }
 
@@ -929,7 +990,24 @@ int main_giraffe(int argc, char** argv) {
     if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
         cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
     }
-    
+
+    bool haplotype_sampling = !haplotype_name.empty() & !kff_name.empty();
+    if (!index_basename_override.empty()) {
+        index_basename = index_basename_override;
+    }
+    if (haplotype_sampling) {
+        // If we do haplotype sampling, we get a new GBZ and later build indexes for it.
+        string gbz_name = sample_haplotypes(provided_indexes, index_basename, sample_name, haplotype_name, kff_name, show_progress);
+        registry.provide("Giraffe GBZ", gbz_name);
+        index_basename = split_ext(gbz_name).first;
+    } else {
+        // Otherwise we use the provided indexes.
+        for (auto& index : provided_indexes) {
+            registry.provide(index.first, index.second);
+        }
+    }
+    registry.set_prefix(index_basename);
+
     // The IndexRegistry doesn't try to infer index files based on the
     // basename, so do that here. We can have multiple extension options that
     // we try in order of priority.
@@ -951,10 +1029,15 @@ int main_giraffe(int argc, char** argv) {
             // For each extension in priority order
             string inferred_filename = registry.get_prefix() + "." + extension;
             if (ifstream(inferred_filename).is_open()) {
-                // A file with the appropriate name exists and we can read it
-                registry.provide(index_and_extensions.first, inferred_filename);
-                // Report it because this may not be desired behavior
-                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                // A file with the appropriate name exists and we can read it.
+                if (haplotype_sampling) {
+                    // If we did haplotype sampling, we are going to overwrite existing indexes.
+                    cerr << "warning:[vg giraffe] " << inferred_filename << " exists and will be overwritten" << endl;
+                } else {
+                    // Report it because this may not be desired behavior.
+                    cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                    registry.provide(index_and_extensions.first, inferred_filename);
+                }
                 // Skip other extension options for the index
                 break;
             }
@@ -1536,6 +1619,78 @@ int main_giraffe(int argc, char** argv) {
         
     return 0;
 }
+
+//----------------------------------------------------------------------------
+
+string sample_haplotypes(const vector<pair<string, string>>& indexes, string& basename, string& sample_name, string& haplotype_file, string& kff_file, bool progress) {
+
+    if (progress) {
+        std::cerr << "Sampling haplotypes" << std::endl;
+    }
+
+    // Sanity checks.
+    if (haplotype_file.empty() || kff_file.empty()) {
+        std::cerr << "error:[vg giraffe] Haplotype sampling requires --haplotype-name and --kff-name." << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Determine output name.
+    std::string sample = sample_name;
+    if (sample.empty()) {
+        sample = file_base_name(kff_file);
+        if (progress) {
+            std::cerr << "Guessing from " << kff_file << " that sample name is " << sample << std::endl;
+        }
+    }
+    if (sample == "giraffe") {
+        std::cerr << "warning:[vg giraffe] Using \"giraffe\" as a sample name may lead to filename collisions." << std::endl;
+    }
+    std::string output_name = basename + "." + sample + ".gbz";
+
+    // Load GBZ.
+    gbwtgraph::GBZ gbz;
+    if (indexes.size() == 1 && indexes[0].first == "Giraffe GBZ") {
+        load_gbz(gbz, indexes[0].second, progress);
+    } else if (indexes.size() == 2 && indexes[0].first == "Giraffe GBWT" && indexes[1].first == "GBWTGraph") {
+        load_gbz(gbz, indexes[0].second, indexes[1].second, progress);
+    } else if (indexes.size() == 2 && indexes[0].first == "GBWTGraph" && indexes[1].first == "Giraffe GBWT") {
+        load_gbz(gbz, indexes[1].second, indexes[0].second, progress);
+    } else {
+        std::cerr << "error:[vg giraffe] Haplotype sampling requires either -Z or -g and -H with no other indexes." << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Load haplotype information.
+    if (progress) {
+        std::cerr << "Loading haplotype information from " << haplotype_file << std::endl;
+    }
+    Haplotypes haplotypes;
+    sdsl::simple_sds::load_from(haplotypes, haplotype_file);
+
+    // Sample haplotypes.
+    Haplotypes::Verbosity verbosity = (progress ? Haplotypes::verbosity_basic : Haplotypes::verbosity_silent);
+    Recombinator recombinator(gbz, verbosity);
+    Recombinator::Parameters parameters;
+    parameters.include_reference = true;
+    gbwt::GBWT sampled_gbwt;
+    try {
+        sampled_gbwt = recombinator.generate_haplotypes(haplotypes, kff_file, parameters);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error:[vg giraffe] Haplotype sampling failed: " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Create GBWTGraph and save GBZ.
+    if (progress) {
+        std::cerr << "Building GBWTGraph" << std::endl;
+    }
+    gbwtgraph::GBWTGraph sampled_graph = gbz.graph.subgraph(sampled_gbwt);
+    save_gbz(sampled_gbwt, sampled_graph, output_name, progress);
+
+    return output_name;
+}
+
+//----------------------------------------------------------------------------
 
 // Register subcommand
 static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 6, main_giraffe);

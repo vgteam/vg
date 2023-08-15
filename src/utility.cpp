@@ -648,6 +648,15 @@ pair<string, string> split_ext(const string& filename) {
     return parts;
 }
 
+string file_base_name(const string& filename) {
+    size_t slash = filename.rfind('/');
+    if (slash == string::npos) {
+        return split_ext(filename).first;
+    } else {
+        return split_ext(filename.substr(slash + 1)).first;
+    }
+}
+
 bool file_exists(const string& filename) {
     // TODO: use C++17 features to actually poll existence.
     // For now we see if we can open it.
