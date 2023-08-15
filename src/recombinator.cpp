@@ -1033,15 +1033,46 @@ double get_or_estimate_coverage(
             count_to_frequency[iter->second]++;
         }
     }
+
+    // Use mode as the initial estimate for coverage.
     auto statistics = summary_statistics(count_to_frequency);
     double coverage = statistics.mode;
+    bool reliable = true;
     if (verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Coverage: median " << statistics.median
             << ", mean " << statistics.mean
             << ", stdev " << statistics.stdev
-            << ", mode " << statistics.mode
-            << "; using " << coverage << std::endl;
+            << ", mode " << statistics.mode;
     }
+
+    // If mode < median, try to find a secondary peak at ~2x mode and use
+    // it if it is good enough.
+    if (statistics.mode < statistics.median) {
+        size_t low = 1.7 * statistics.mode, high = 2.3 * statistics.mode;
+        size_t peak = count_to_frequency[coverage];
+        size_t best = low, secondary = count_to_frequency[low];
+        for (size_t i = low + 1; i <= high; i++) {
+            if (count_to_frequency[i] > secondary) {
+                best = i; secondary = count_to_frequency[i];
+            }
+        }
+        if (verbosity >= Haplotypes::verbosity_detailed) {
+            std::cerr << "; secondary peak at " << best;
+        }
+        if (best >= size_t(statistics.median) && secondary >= peak / 2) {
+            coverage = best;
+        } else {
+            reliable = false;
+        }
+    }
+
+    if (verbosity >= Haplotypes::verbosity_detailed) {
+        std::cerr << "; using " << coverage << std::endl;
+    }
+    if (!reliable) {
+        std::cerr << "warning: Kmer coverage estimate is unreliable" << std::endl;
+    }
+
     if (verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Estimated kmer coverage in " << seconds << " seconds" << std::endl;
