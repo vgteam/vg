@@ -9,8 +9,8 @@ set -ex
 : "${MINPARAMS:="k31.w50.W"}"
 : "${CONDITION:="zip-bugfix"}"
 # Our GAM file for writing our mapped reads to
-: "${GAM_FILE="trash/mapped-${CONDITION}.gam"}"
-: "${INPUT_READS="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.pansn.gam"}"
+: "${GAM_FILE:="trash/mapped-${CONDITION}.gam"}"
+: "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.pansn.gam"}"
 
 # Wait for Slurm jobs to be done and their changes to be visible on disk
 function swait() {
