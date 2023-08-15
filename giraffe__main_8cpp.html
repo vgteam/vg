@@ -99,6 +99,8 @@ $(function() {
 <code>#include &quot;<a class="el" href="watchdog_8hpp.html">../watchdog.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="crash_8hpp.html">../crash.hpp</a>&quot;</code><br />
 <code>#include &lt;bdsg/overlays/overlay_helper.hpp&gt;</code><br />
+<code>#include &quot;<a class="el" href="gbwtgraph__helper_8hpp.html">../gbwtgraph_helper.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="recombinator_8hpp.html">../recombinator.hpp</a>&quot;</code><br />
 <code>#include &lt;gbwtgraph/gbz.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/minimizer.h&gt;</code><br />
 <code>#include &lt;sys/ioctl.h&gt;</code><br />
@@ -137,8 +139,10 @@ Macros</h2></td></tr>
 Functions</h2></td></tr>
 <tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
 <tr class="separator:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8a930e32de3c44bc2dffc12684bfbce8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a8a930e32de3c44bc2dffc12684bfbce8">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser)</td></tr>
-<tr class="separator:a8a930e32de3c44bc2dffc12684bfbce8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6343c45d56779ead6309ffefbf066fdc"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a6343c45d56779ead6309ffefbf066fdc">sample_haplotypes</a> (const vector&lt; pair&lt; string, string &gt;&gt; &amp;indexes, string &amp;basename, string &amp;sample_name, string &amp;haplotype_file, string &amp;kff_file, bool progress)</td></tr>
+<tr class="separator:a6343c45d56779ead6309ffefbf066fdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3ecb3fc7f15a611b66605f1b116aa70"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ab3ecb3fc7f15a611b66605f1b116aa70">help_giraffe</a> (char **argv, const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;parser, bool full_help)</td></tr>
+<tr class="separator:ab3ecb3fc7f15a611b66605f1b116aa70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a03a19bdd804f12c23f77bb885e91df4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -272,8 +276,8 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="a8a930e32de3c44bc2dffc12684bfbce8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8a930e32de3c44bc2dffc12684bfbce8">&#9670;&nbsp;</a></span>help_giraffe()</h2>
+<a id="ab3ecb3fc7f15a611b66605f1b116aa70"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3ecb3fc7f15a611b66605f1b116aa70">&#9670;&nbsp;</a></span>help_giraffe()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -288,7 +292,13 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="structvg_1_1subcommand_1_1BaseOptionGroup.html">BaseOptionGroup</a> &amp;&#160;</td>
-          <td class="paramname"><em>parser</em>&#160;</td>
+          <td class="paramname"><em>parser</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>full_help</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -317,6 +327,58 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">char **&#160;</td>
           <td class="paramname"><em>argv</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6343c45d56779ead6309ffefbf066fdc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6343c45d56779ead6309ffefbf066fdc">&#9670;&nbsp;</a></span>sample_haplotypes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string sample_haplotypes </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; pair&lt; string, string &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>indexes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>basename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>sample_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>haplotype_file</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string &amp;&#160;</td>
+          <td class="paramname"><em>kff_file</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>progress</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
