@@ -12,27 +12,67 @@ set -ex
 : "${GAM_FILE:="trash/mapped-${CONDITION}.gam"}"
 : "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.pansn.gam"}"
 
-# Wait for Slurm jobs to be done and their changes to be visible on disk
-function swait() {
-    QUEUE_LINES=0
-    while [[ "${QUEUE_LINES}" != "1" ]] ; do
-        # On the first loop, or on subsequent loops when running or pending jobs are visible
+if which sbatch >/dev/null 2>&1 ; then
+    # Slurm is available.
+    # Put your Slurm command arguments in a JOB_ARGS array and run do_sbatch or
+    # do_srun with your command.
 
-        # Wait
-        sleep 2
-        # Check again
-        QUEUE_LINES="$(squeue -u $USER | wc -l)"
-    done
-    # Hope filesystem is no more than this many seconds behind Slurm
-    sleep 10
-}
+    # Run a command wrapped with sbatch
+    function do_sbatch() {
+        sbatch "${JOB_ARGS[@]}" --wrap "${1}"
+    }
+
+    # Run a command and wait on it with srun
+    function do_srun() {
+        shift
+        srun "${JOB_ARGS[@]}" "$@"
+    }
+
+    # Wait for Slurm jobs to be done and their changes to be visible on disk
+    function swait() {
+        QUEUE_LINES=0
+        while [[ "${QUEUE_LINES}" != "1" ]] ; do
+            # On the first loop, or on subsequent loops when running or pending jobs are visible
+
+            # Wait
+            sleep 2
+            # Check again
+            QUEUE_LINES="$(squeue -u $USER | wc -l)"
+        done
+        # Hope filesystem is no more than this many seconds behind Slurm
+        sleep 10
+    }
+
+else
+    # No Slurm. Run everything locally.
+
+    # Run a quoted command
+    function do_sbatch() {
+        bash -c "${1}"
+    }
+
+    # Run a command
+    function do_srun() {
+        shift
+        "$@"
+    }
+
+    # Do nothing
+    function swait() {
+        sleep 0
+    }
+
+fi
+
+
 
 # Go to the main vg directory
 cd "$(dirname -- "$0")"
 cd ..
 
 rm -f *.out
-sbatch -c16 --mem 400G --job-name zipcode-run --wrap "time vg giraffe --parameter-preset lr --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} -t16 >${GAM_FILE}"
+JOB_ARGS=(-c16 --mem 400G --job-name zipcode-run)
+do_sbatch "time vg giraffe --parameter-preset lr --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} -t16 >${GAM_FILE}"
 
 swait
 
@@ -42,35 +82,36 @@ rm -Rf "${OUT_DIR}"
 rm -Rf "${EXP_DIR}"
 mkdir -p "${OUT_DIR}"
 
-for STAGE in minimizer seed tree fragment chain align winner ; do   
-    [[ -e "${OUT_DIR}/read-time-${STAGE}.tsv" ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj "${GAM_FILE}" | jq -r '.annotation.stage_'${STAGE}'_time' >${OUT_DIR}/read-time-${STAGE}.tsv"
+JOB_ARGS=(-c 3 --mem 10G)
+for STAGE in minimizer seed tree fragment chain align winner ; do
+    [[ -e "${OUT_DIR}/read-time-${STAGE}.tsv" ]] || do_sbatch "set -e; vg view -aj "${GAM_FILE}" | jq -r '.annotation.stage_'${STAGE}'_time' >${OUT_DIR}/read-time-${STAGE}.tsv"
 done
-[[ -e "${OUT_DIR}/read-time-to-chain.tsv" ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.stage_minimizer_time + .annotation.stage_seed_time + .annotation.stage_bucket_time + .annotation.stage_fragment_time + .annotation.stage_chain_time' >${OUT_DIR}/read-time-to-chain.tsv"
+[[ -e "${OUT_DIR}/read-time-to-chain.tsv" ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.stage_minimizer_time + .annotation.stage_seed_time + .annotation.stage_bucket_time + .annotation.stage_fragment_time + .annotation.stage_chain_time' >${OUT_DIR}/read-time-to-chain.tsv"
 
     
 
-[[ -e "${OUT_DIR}"/read-best-chain-coverage.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_coverage' > ${OUT_DIR}/read-best-chain-coverage.tsv"
-[[ -e "${OUT_DIR}"/read-best-chain-longest-jump.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_longest_jump' > ${OUT_DIR}/read-best-chain-longest-jump.tsv"
-[[ -e "${OUT_DIR}"/read-best-chain-average-jump.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_average_jump' > ${OUT_DIR}/read-best-chain-average-jump.tsv"
-[[ -e "${OUT_DIR}"/read-best-chain-anchors.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_anchors' > ${OUT_DIR}/read-best-chain-anchors.tsv"
-[[ -e "${OUT_DIR}"/read-best-chain-anchor-length.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_anchor_length' > ${OUT_DIR}/read-best-chain-anchor-length.tsv"
-[[ -e "${OUT_DIR}"/read-score.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '.score // 0' > ${OUT_DIR}/read-score.tsv"
-[[ -e "${OUT_DIR}"/read-unclipped.tsv ]] || sbatch -c 3 --mem 10G --wrap "set -e; vg view -aj ${GAM_FILE} | jq -r '1.0 - (([[.path.mapping[0].edit[0], .path.mapping[-1].edit[-1]][] | select(.from_length // 0 == 0) | select(.sequence) | .to_length] + [0] | add) / (.sequence | length))' > ${OUT_DIR}/read-unclipped.tsv"
+[[ -e "${OUT_DIR}"/read-best-chain-coverage.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_coverage' > ${OUT_DIR}/read-best-chain-coverage.tsv"
+[[ -e "${OUT_DIR}"/read-best-chain-longest-jump.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_longest_jump' > ${OUT_DIR}/read-best-chain-longest-jump.tsv"
+[[ -e "${OUT_DIR}"/read-best-chain-average-jump.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_average_jump' > ${OUT_DIR}/read-best-chain-average-jump.tsv"
+[[ -e "${OUT_DIR}"/read-best-chain-anchors.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_anchors' > ${OUT_DIR}/read-best-chain-anchors.tsv"
+[[ -e "${OUT_DIR}"/read-best-chain-anchor-length.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.annotation.best_chain_anchor_length' > ${OUT_DIR}/read-best-chain-anchor-length.tsv"
+[[ -e "${OUT_DIR}"/read-score.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '.score // 0' > ${OUT_DIR}/read-score.tsv"
+[[ -e "${OUT_DIR}"/read-unclipped.tsv ]] || do_sbatch "set -e; vg view -aj ${GAM_FILE} | jq -r '1.0 - (([[.path.mapping[0].edit[0], .path.mapping[-1].edit[-1]][] | select(.from_length // 0 == 0) | select(.sequence) | .to_length] + [0] | add) / (.sequence | length))' > ${OUT_DIR}/read-unclipped.tsv"
 
 swait
 
 PLOT_DIR="${EXP_DIR}/plots"
 mkdir -p "${PLOT_DIR}"
 
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-best-chain-coverage.tsv --bins 100 --title '${CONDITION} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save ${PLOT_DIR}/read-best-chain-coverage-${CONDITION}.png"
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-best-chain-longest-jump.tsv --bins 100 --title '${CONDITION} Longest Jump' --y_label 'Items' --x_label 'Jump (bp)' --no_n --save ${PLOT_DIR}/read-best-chain-longest-jump-${CONDITION}.png"
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-best-chain-average-jump.tsv --bins 100 --title '${CONDITION} Average Jump' --y_label 'Items' --x_label 'Jump (bp)' --no_n --save ${PLOT_DIR}/read-best-chain-average-jump-${CONDITION}.png"
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-best-chain-anchors.tsv --bins 100 --title '${CONDITION} Chained Anchors' --y_max 60 --y_label 'Items' --x_label 'Anchors (count)' --no_n --save ${PLOT_DIR}/read-best-chain-anchors-${CONDITION}.png"
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-best-chain-anchor-length.tsv --bins 100 --title '${CONDITION} Chained Anchor Length' --y_max 60 --y_label 'Items' --x_label 'Anchor Length (bp)' --no_n --save ${PLOT_DIR}/read-best-chain-anchor-length-${CONDITION}.png"
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-score.tsv --bins 100 --title '${CONDITION} Score' --y_label 'Items' --x_label 'Score' --no_n --save ${PLOT_DIR}/read-score-${CONDITION}.png"
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-unclipped.tsv --bins 100 --title '${CONDITION} Portion Unclipped' --y_label 'Items' --x_label 'Portion Unclipped' --no_n --save ${PLOT_DIR}/read-unclipped-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-best-chain-coverage.tsv --bins 100 --title '${CONDITION} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save ${PLOT_DIR}/read-best-chain-coverage-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-best-chain-longest-jump.tsv --bins 100 --title '${CONDITION} Longest Jump' --y_label 'Items' --x_label 'Jump (bp)' --no_n --save ${PLOT_DIR}/read-best-chain-longest-jump-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-best-chain-average-jump.tsv --bins 100 --title '${CONDITION} Average Jump' --y_label 'Items' --x_label 'Jump (bp)' --no_n --save ${PLOT_DIR}/read-best-chain-average-jump-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-best-chain-anchors.tsv --bins 100 --title '${CONDITION} Chained Anchors' --y_max 60 --y_label 'Items' --x_label 'Anchors (count)' --no_n --save ${PLOT_DIR}/read-best-chain-anchors-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-best-chain-anchor-length.tsv --bins 100 --title '${CONDITION} Chained Anchor Length' --y_max 60 --y_label 'Items' --x_label 'Anchor Length (bp)' --no_n --save ${PLOT_DIR}/read-best-chain-anchor-length-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-score.tsv --bins 100 --title '${CONDITION} Score' --y_label 'Items' --x_label 'Score' --no_n --save ${PLOT_DIR}/read-score-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-unclipped.tsv --bins 100 --title '${CONDITION} Portion Unclipped' --y_label 'Items' --x_label 'Portion Unclipped' --no_n --save ${PLOT_DIR}/read-unclipped-${CONDITION}.png"
 
-sbatch -c 3 --mem 10G --wrap "set -e; histogram.py ${OUT_DIR}/read-time-to-chain.tsv --bins 100 --title '${CONDITION} Time To Chain' --x_max 5 --y_label 'Items' --x_label 'Time (s)' --no_n --save ${PLOT_DIR}/read-time-to-chain-${CONDITION}.png"
+do_sbatch "set -e; histogram.py ${OUT_DIR}/read-time-to-chain.tsv --bins 100 --title '${CONDITION} Time To Chain' --x_max 5 --y_label 'Items' --x_label 'Time (s)' --no_n --save ${PLOT_DIR}/read-time-to-chain-${CONDITION}.png"
 
 swait
 
@@ -85,8 +126,9 @@ done
 
 cat "${PLOT_DIR}/stats.tsv"
 
-srun -c16 --mem 20G vg annotate -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m >${GAM_FILE%.gam}.annotated.gam
-srun -c16 --mem 20G vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} >${GAM_FILE%.gam}.compared.gam
+JOB_ARGS=(-c16 --mem 20G)
+do_srun vg annotate -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m >${GAM_FILE%.gam}.annotated.gam
+do_srun vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} >${GAM_FILE%.gam}.compared.gam
     
 
 
