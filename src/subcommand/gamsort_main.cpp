@@ -155,8 +155,7 @@ int main_gamsort(int argc, char **argv)
         kstring_t s_buffer = KS_INITIALIZE;
         gafkluge::GafRecord gaf;
 
-        // TODO manage temporary files better
-        std::string chunk_outf = "temp_gafsort_" + std::to_string(chunk_id) + ".gaf";
+        string chunk_outf = temp_file::create();
         if(show_progress){
             cerr << "Preparing temporary chunk " << chunk_outf << "..." << endl;
         }
@@ -192,7 +191,7 @@ int main_gamsort(int argc, char **argv)
                     cerr << "   Sorting chunk..." << endl;
                 }
                 std::stable_sort(current_gaf_chunk.begin(), current_gaf_chunk.end(), compare_gaf());
-                // write to temp_gafsort_<chunkid>.gaf
+                // write to temporary file
                 if(show_progress){
                     cerr << "   Writing chunk..." << endl;
                 }
@@ -206,7 +205,7 @@ int main_gamsort(int argc, char **argv)
                 current_gaf_chunk.clear();
                 count = 0;
                 chunk_id++;
-                chunk_outf = "temp_gafsort_" + std::to_string(chunk_id) + ".gaf";
+                chunk_outf = temp_file::create();
                 if(show_progress){
                     cerr << "Preparing temporary chunk " << chunk_outf << "..." << endl;
                 }
@@ -221,7 +220,7 @@ int main_gamsort(int argc, char **argv)
                 cerr << "   Sorting chunk..." << endl;
             }
             std::stable_sort(current_gaf_chunk.begin(), current_gaf_chunk.end(), compare_gaf());
-            // write to temp_gafsort_<chunkid>.gaf
+            // write to temporary file
             if(show_progress){
                 cerr << "   Writing chunk..." << endl;
             }
