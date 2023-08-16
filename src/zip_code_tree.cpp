@@ -1,4 +1,4 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 
 #include "zip_code_tree.hpp"
@@ -284,11 +284,10 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
         trees.erase(trees.begin() + forest_state.active_zip_tree);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "DONE" << endl;
     print_self();
     validate_zip_forest(distance_index);
-    assert(forest_state.open_chains.empty());
 #endif
+    assert(forest_state.open_chains.empty());
 
 }
 
@@ -370,9 +369,9 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const Snarl
 
         //Remember the opening of this chain, and if its first child was far enough from the start to 
         //start a new subtree
+        cerr << "Open chain at depth " << depth << endl;
         forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size()-1, 
-                                              depth == 0 ? false : forest_state.sibling_indices_at_depth[depth-1].back().distances.first 
-                                                                   > distance_limit);
+                                               forest_state.sibling_indices_at_depth[depth-1].back().distances.first > distance_limit);
     }
 }
 
@@ -400,7 +399,10 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
         }
 
         //Forget about the chain
-        forest_state.open_chains.pop_back();
+        cerr << "Remove chain at depth " << depth << endl;
+        if (depth != 0) {
+            forest_state.open_chains.pop_back();
+        }
 
     } else {
         //Add the end of the chain to the zip code tree
@@ -517,6 +519,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                 add_snarl_distances(forest_state, distance_index, depth-1, last_seed, last_is_reversed, false);
             }
             //We've closed a chain, so take out the latest open chain
+            cerr << "Remove chain at depth " << depth << endl;
             forest_state.open_chains.pop_back();
         }
     }
@@ -1279,6 +1282,9 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                 }
                 next_handle = distance_index.get_parent(next_handle);
             }
+            if (distance_index.is_root_snarl(next_handle)) {
+                in_non_dag_snarl = true;
+            }
             while (!in_non_dag_snarl && !distance_index.is_root(start_handle)) {
                 if ((distance_index.is_snarl(start_handle) && !distance_index.is_dag(start_handle)) 
                     || distance_index.is_root_snarl(start_handle)
@@ -1287,6 +1293,9 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                     in_non_dag_snarl = true;
                 }
                 start_handle = distance_index.get_parent(start_handle);
+            }
+            if (distance_index.is_root_snarl(start_handle)) {
+                in_non_dag_snarl = true;
             }
 
             if (!in_non_dag_snarl && index_distance < distance_limit) {
