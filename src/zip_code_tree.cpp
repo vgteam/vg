@@ -843,10 +843,22 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
 #ifdef DEBUG_ZIP_CODE_TREE
                 assert(forest_state.open_chains.back().second);
 #endif
+                //Find the start of the previous child
                 size_t previous_index = trees[forest_state.active_zip_tree].zip_code_tree.size() - 1;
-                while (trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type != ZipCodeTree::SEED && 
-                       trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type != ZipCodeTree::SNARL_START) {
-                    previous_index--;
+                bool found_sibling = false;
+                bool opened_snarl = false;
+                while (!found_sibling) {
+                    cerr << trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type << endl;
+                    if (!opened_snarl && trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type == ZipCodeTree::SEED) {
+                        found_sibling = true;
+                    } else if (trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type == ZipCodeTree::SNARL_END) {
+                        opened_snarl = true;
+                        previous_index--;
+                    } else if ((trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type == ZipCodeTree::SNARL_START)) {
+                        found_sibling = true;
+                    } else {
+                        previous_index--;
+                    }
                 }
                 if (trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index-1).type == ZipCodeTree::CHAIN_START) {
                     previous_index--;
@@ -855,6 +867,7 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
                 assert(( trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type == ZipCodeTree::SEED ||
                          trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type == ZipCodeTree::SNARL_START ||
                          trees[forest_state.active_zip_tree].zip_code_tree.at(previous_index).type == ZipCodeTree::CHAIN_START));
+                cerr << "New start of previous open chain: " << previous_index << endl;;
 #endif
                 forest_state.open_chains.back().first = previous_index;
                 
