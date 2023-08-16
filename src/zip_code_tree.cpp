@@ -482,9 +482,11 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                                                 std::numeric_limits<size_t>::max(), false});
 
                     //Update the distance to the end of the chain to be the distance from the previous child 
+                    size_t last_length = depth == last_seed.zipcode_decoder->max_depth() ? 0 
+                                                                                         : last_seed.zipcode_decoder->get_length(depth+1);
                     distance_to_chain_end = SnarlDistanceIndex::sum(distance_to_chain_end, 
                                             SnarlDistanceIndex::sum(last_edge,
-                                                                    last_seed.zipcode_decoder->get_length(depth+1)));
+                                                                    last_length));
                 }
             }
             if (add_distances) {
