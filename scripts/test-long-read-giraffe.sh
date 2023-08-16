@@ -10,7 +10,7 @@ set -ex
 : "${CONDITION:="zip-bugfix"}"
 # Our GAM file for writing our mapped reads to
 : "${GAM_FILE:="trash/mapped-${CONDITION}.gam"}"
-: "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.pansn.gam"}"
+: "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.gam"}"
 
 if which sbatch >/dev/null 2>&1 ; then
     # Slurm is available.

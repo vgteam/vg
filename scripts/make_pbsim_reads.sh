@@ -21,7 +21,7 @@ set -ex
 # Technology name to use in output filenames
 : "${TECH_NAME:=hifi}"
 # FASTQ to use as a template, or "/dev/null"
-: "${SAMPLE_FASTQ:=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads/real/hifi/HiFi_reads_100k_real.fq}"
+: "${SAMPLE_FASTQ:=/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads/real/hifi/HiFi_reads_100k.fq}"
 # HMM model to use instead of a FASTQ, or "/dev/null"
 : "${PBSIM_HMM:=/dev/null}"
 # This needs to be the pbsim2 binary, which might not be in $PATH.
