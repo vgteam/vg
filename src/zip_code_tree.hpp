@@ -404,7 +404,9 @@ class ZipCodeForest {
     vector<size_t> sort_seeds_by_zipcode(const SnarlDistanceIndex& distance_index) const;
 
     void print_self() const {
-        for (const auto& tree : trees) {
+        for (size_t i = 0 ; i < trees.size() ; i++) {
+            const auto& tree = trees[i];
+            cerr << i << ": ";
             tree.print_self();
         }
     }

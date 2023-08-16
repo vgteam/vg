@@ -12,6 +12,9 @@ namespace vg {
 
 void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
                                size_t distance_limit) {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Make a new forest with " << all_seeds.size() << " seeds with distance limit " << distance_limit << endl;
+#endif
     if (all_seeds.size() == 0) {
         return;
     }
@@ -57,6 +60,8 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
     for (size_t i = 0 ; i < seed_indices.size() ; i++) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "At " << i << "st/nd/th seed: " << seeds->at(seed_indices[i]).pos << endl;
+        cerr << "Current active tree: " << forest_state.active_zip_tree << endl;
+        print_self();
 #endif
 
         //1. First, find the lowest common ancestor with the previous seed.
@@ -285,9 +290,9 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
     }
 #ifdef DEBUG_ZIP_CODE_TREE
     print_self();
-    validate_zip_forest(distance_index);
-#endif
+    validate_zip_forest(distance_index, distance_limit);
     assert(forest_state.open_chains.empty());
+#endif
 
 }
 
@@ -369,7 +374,6 @@ void ZipCodeForest::open_chain(forest_growing_state_t& forest_state, const Snarl
 
         //Remember the opening of this chain, and if its first child was far enough from the start to 
         //start a new subtree
-        cerr << "Open chain at depth " << depth << endl;
         forest_state.open_chains.emplace_back(trees[forest_state.active_zip_tree].zip_code_tree.size()-1, 
                                                forest_state.sibling_indices_at_depth[depth-1].back().distances.first > distance_limit);
     }
@@ -380,6 +384,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
 
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\tclose a chain at depth " << depth << endl;
+    cerr << "Active zip tree: " << forest_state.active_zip_tree << endl;
+    cerr << "Tree count: " << trees.size() << endl;
 #endif
     if (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::CHAIN_START) {
         //If the chain was empty.
@@ -394,12 +400,12 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
         }
 
         //If the chain was part of a snarl, then take out the edges
-        while (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
+        while (trees[forest_state.active_zip_tree].zip_code_tree.size() > 0 &&
+               trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
             trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
         }
 
         //Forget about the chain
-        cerr << "Remove chain at depth " << depth << endl;
         if (depth != 0) {
             forest_state.open_chains.pop_back();
         }
@@ -462,7 +468,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                         forest_state.sibling_indices_at_depth[depth-1].pop_back();
 
                         //And remove all the edges
-                        while (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
+                        while (trees[forest_state.active_zip_tree].zip_code_tree.size() > 0
+                                && trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
                             trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
                         }
                     }
@@ -519,7 +526,6 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
                 add_snarl_distances(forest_state, distance_index, depth-1, last_seed, last_is_reversed, false);
             }
             //We've closed a chain, so take out the latest open chain
-            cerr << "Remove chain at depth " << depth << endl;
             forest_state.open_chains.pop_back();
         }
     }
@@ -615,7 +621,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
             if (forest_state.active_zip_tree == std::numeric_limits<size_t>::max() 
                 || trees[forest_state.active_zip_tree].zip_code_tree.size() != 0) {
-                cerr << "Actually start a new tree from size " << trees[forest_state.active_zip_tree].zip_code_tree.size() << endl;
                 //Add a new tree and make sure it is the new active tree
                 trees.emplace_back(seeds);
                 forest_state.active_zip_tree = trees.size()-1;
@@ -802,7 +807,8 @@ void ZipCodeForest::close_snarl(forest_growing_state_t& forest_state, const Snar
         cerr << "\t\t\tThe snarl is actually empty so remove it" << endl;
 #endif
         //Take out the edges
-        while (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
+        while (trees[forest_state.active_zip_tree].zip_code_tree.size() > 0
+                && trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::EDGE) {
             trees[forest_state.active_zip_tree].zip_code_tree.pop_back();
         }
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1250,13 +1256,8 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                                             id(next_seed.pos),
                                             is_rev(next_seed.pos) != next_is_reversed);
 
-            size_t index_distance = distance_index.minimum_distance(id(next_seed.pos), next_is_reversed,
-                    next_seed_result.is_reverse ? distance_index.minimum_length(next_handle) - offset(next_seed.pos) - 1 
-                                                 : offset(next_seed.pos),
-                    id(start_seed.pos), start_is_reversed,
-                    start_itr_left->is_reversed ? distance_index.minimum_length(start_handle) - offset(start_seed.pos) - 1 
-                                                : offset(start_seed.pos),
-                    true);
+            size_t index_distance = distance_index.minimum_distance(id(next_seed.pos), is_rev(next_seed.pos), offset(next_seed.pos),
+                    id(start_seed.pos), is_rev(start_seed.pos), offset(start_seed.pos), true);
             if (index_distance != std::numeric_limits<size_t>::max() && is_rev(next_seed.pos) != next_is_reversed) {
                 //If the seed we're starting from got reversed, then subtract 1
                 index_distance -= 1;
@@ -1270,7 +1271,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
             pos_t next_pos = is_rev(next_seed.pos) ? make_pos_t(id(next_seed.pos), false, distance_index.minimum_length(next_handle) - offset(next_seed.pos) )
                                                      : next_seed.pos;
             size_t start_length = distance_index.minimum_length(start_handle);
-            size_t next_length = distance_index.minimum_length(start_handle);
+            size_t next_length = distance_index.minimum_length(next_handle);
 
             bool in_non_dag_snarl = false;
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
@@ -1304,6 +1305,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
                         cerr << "Forward positions: " << start_pos << " " << next_pos << " and length " << start_length << endl;
                         cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
+                        cerr << "With distance limit: " << distance_limit << endl;
                     }
                     //This could be off by one if one of the seeds is reversed, but I'm being lazy and just checking against the index
                     assert((tree_distance == 0 || tree_distance == index_distance));
@@ -1312,6 +1314,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
                         cerr << "Forward positions: " << start_pos << " " << next_pos << " and lengths " << start_length << " " << next_length << endl;
                         cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
+                        cerr << "With distance limit: " << distance_limit << endl;
                     }
                     assert(tree_distance == index_distance);
                 }
