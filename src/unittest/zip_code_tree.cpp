@@ -1398,7 +1398,7 @@ namespace unittest {
             }
         }
     }
-    TEST_CASE( "zip tree long nested chain", "[zip_tree][bug]" ) {
+    TEST_CASE( "zip tree long nested chain", "[zip_tree]" ) {
         //top-level chain 1-12-13-16
         //bubble 2-10 containing two bubbles 3-5 and 6-9
         VG graph;
@@ -1466,11 +1466,6 @@ namespace unittest {
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
         cerr << distance_index.net_handle_as_string(distance_index.get_parent(distance_index.get_node_net_handle(n1->id()))) << endl;
         
-
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
-
         //graph.to_dot(cerr);
 
         SECTION( "One slice from nodes in the middle of a nested chain" ) {
@@ -1725,16 +1720,144 @@ namespace unittest {
         //TODO: This doesn't actually have the right distances yet, I just want to make sure it won't crash
         //zip_tree.validate_zip_tree(distance_index);
     }
+    TEST_CASE("One nested dag snarl", "[zip_tree][bug]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("TGTTTAAGGCTCGATCATCCGCTCACAGTCCGTCGTAGACGCATCAGACTTGGTTTCCCAAGC");
+        Node* n2 = graph.create_node("G");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("CTCGCGG");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("ACCAGGCAGAATCGAGGGATGTTC");
+        Node* n7 = graph.create_node("AACAGTGTCCAACACTGG");
+
+        //Inversion
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n7);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n4, n6);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n6, n7);
+        
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        vector<pos_t> positions;
+        positions.emplace_back(5, false, 0);
+        positions.emplace_back(7, false, 17);
+        
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (pos_t pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            seeds.push_back({ pos, 0, zipcode});
+        }
+
+        ZipCodeForest zip_forest;
+        zip_forest.fill_in_forest(seeds, distance_index, 61);
+        zip_forest.print_self();
+        zip_forest.validate_zip_forest(distance_index, 61);
+    }
+    TEST_CASE("Components of root", "[zip_tree]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GTGCACA");//8
+        Node* n2 = graph.create_node("GTGAAAAAAAAAAAAAAACACA");
+        Node* n3 = graph.create_node("AAAAAAAAAAAAGT");
+        Node* n4 = graph.create_node("GATTCTTATAG");//11
+        Node* n5 = graph.create_node("GATTCTTATAG");//11
+
+        //Inversion
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n2, false, true);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n3, true, false);
+        
+
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        vector<pos_t> positions;
+        positions.emplace_back(1, false, 0);
+        positions.emplace_back(1, false, 3);
+        positions.emplace_back(1, false, 5);
+        positions.emplace_back(2, false, 0);
+        positions.emplace_back(2, false, 7);
+        positions.emplace_back(2, false, 9);
+        positions.emplace_back(2, false, 10);
+        positions.emplace_back(3, true, 3);
+        positions.emplace_back(4, false, 0);
+        positions.emplace_back(5, false, 0);
+        
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (pos_t pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            seeds.push_back({ pos, 0, zipcode});
+        }
+
+        ZipCodeForest zip_forest;
+        zip_forest.fill_in_forest(seeds, distance_index, 5);
+        zip_forest.print_self();
+        REQUIRE(zip_forest.trees.size() == 5);
+        for (auto& tree : zip_forest.trees) {
+            tree.validate_zip_tree(distance_index);
+        }
+        //TODO: This doesn't actually have the right distances yet, I just want to make sure it won't crash
+        //zip_tree.validate_zip_tree(distance_index);
+    }
+
+    TEST_CASE("Failed unit test", "[failed]") {
+        //Load failed random graph
+        HashGraph graph;
+        graph.deserialize("testGraph.hg");
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        vector<pos_t> positions;
+
+        positions.emplace_back(2, false, 0);
+        positions.emplace_back(5, false, 17);
+
+
+        vector<SnarlDistanceIndexClusterer::Seed> seeds;
+        for (pos_t pos : positions) {
+            ZipCode zipcode;
+            zipcode.fill_in_zipcode(distance_index, pos);
+            seeds.push_back({ pos, 0, zipcode});
+        }
+        ZipCodeForest zip_forest;
+        zip_forest.fill_in_forest(seeds, distance_index, 61);
+        zip_forest.print_self();
+        zip_forest.validate_zip_forest(distance_index);
+    }
+
 
 
     TEST_CASE("Random graphs zip tree", "[zip_tree][zip_tree_random]"){
     
     
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
     
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(1, 70);
+            uniform_int_distribution<int> variant_count(1, 20);
             uniform_int_distribution<int> chrom_len(10, 200);
             uniform_int_distribution<int> distance_limit(5, 100);
     
@@ -1792,11 +1915,5 @@ namespace unittest {
         }
     }
 
-
-
-
-
-
- 
 }
 }

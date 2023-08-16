@@ -281,7 +281,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
             }
         }
         //Update last_is_reversed to the one before this
-        if (depth > 0 && ZipCodeTree::seed_is_reversed_at_depth(last_seed, depth-1, distance_index)) {
+        if (depth > 0 && ZipCodeTree::seed_is_reversed_at_depth(last_seed, depth, distance_index)) {
             last_is_reversed = !last_is_reversed;
         }
     }
@@ -384,8 +384,6 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
 
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "\t\tclose a chain at depth " << depth << endl;
-    cerr << "Active zip tree: " << forest_state.active_zip_tree << endl;
-    cerr << "Tree count: " << trees.size() << endl;
 #endif
     if (trees[forest_state.active_zip_tree].zip_code_tree.back().type == ZipCodeTree::CHAIN_START) {
         //If the chain was empty.
@@ -885,12 +883,6 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
     //Now add the distances from the start of the chain to everything before it in the snarl
     
     
-    //If the parent snarl is reversed
-    bool snarl_is_reversed = to_snarl_end ? is_reversed 
-                                          : (ZipCodeTree::seed_is_reversed_at_depth(seed, depth+1, distance_index) 
-                                                ? !is_reversed : is_reversed);
-    
-    
     // If this is to the end bound, get the distance to all siblings. If it is to the last child, don't get
     // the distance to itself
     size_t sibling_count = to_snarl_end ? forest_state.sibling_indices_at_depth[depth].size() 
@@ -900,6 +892,15 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
 
         if (sibling.type == ZipCodeTree::SNARL_START) {
             //Get the distance to the start (or end if it's reversed) of the snarl
+
+    
+            //If to_snarl_end is true, then is_reversed is for the snarl
+            //Otherwise, it is for the child, which is at depth+1
+            bool snarl_is_reversed = to_snarl_end ? is_reversed 
+                                                  : (ZipCodeTree::seed_is_reversed_at_depth(seed, depth+1, distance_index) 
+                                                        ? !is_reversed : is_reversed);
+
+            
 
             //If we're getting the distance to the end of the snarl, then this is the length of the snarl
             // otherwise, it is the distance from the seed to the start (or end) of the snarl
