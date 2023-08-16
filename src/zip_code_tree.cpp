@@ -1274,12 +1274,25 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
             size_t next_length = distance_index.minimum_length(next_handle);
 
             bool in_non_dag_snarl = false;
+
+            //The index distance may take loops in chains, which the zip codes can't
+            bool chain_loops = false;
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
                 if ((distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) 
                     || distance_index.is_root_snarl(next_handle)
                     || distance_index.is_looping_chain(next_handle)
                     || distance_index.is_multicomponent_chain(next_handle)) {
                     in_non_dag_snarl = true;
+                }
+                if (distance_index.is_chain(distance_index.get_parent(next_handle)) && ! distance_index.is_trivial_chain(distance_index.get_parent(next_handle))) {
+                    size_t forward_loop = distance_index.is_node(next_handle) ? distance_index.get_forward_loop_value(next_handle)
+                                        : distance_index.get_forward_loop_value(distance_index.get_node_from_sentinel(distance_index.get_bound(next_handle, true, false)));
+                    size_t reverse_loop = distance_index.is_node(next_handle) ? distance_index.get_reverse_loop_value(next_handle)
+                                        : distance_index.get_reverse_loop_value(distance_index.get_node_from_sentinel(distance_index.get_bound(next_handle, false, false)));
+                    if (forward_loop < distance_limit ||
+                        reverse_loop < distance_limit) {
+                        chain_loops = true;
+                    }
                 }
                 next_handle = distance_index.get_parent(next_handle);
             }
@@ -1292,6 +1305,16 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                     || distance_index.is_looping_chain(start_handle)
                     || distance_index.is_multicomponent_chain(start_handle)) {
                     in_non_dag_snarl = true;
+                }
+                if (distance_index.is_chain(distance_index.get_parent(start_handle)) && ! distance_index.is_trivial_chain(distance_index.get_parent(start_handle))) {
+                    size_t forward_loop = distance_index.is_node(start_handle) ? distance_index.get_forward_loop_value(start_handle)
+                                        : distance_index.get_forward_loop_value(distance_index.get_node_from_sentinel(distance_index.get_bound(start_handle, true, false)));
+                    size_t reverse_loop = distance_index.is_node(start_handle) ? distance_index.get_reverse_loop_value(start_handle)
+                                        : distance_index.get_reverse_loop_value(distance_index.get_node_from_sentinel(distance_index.get_bound(start_handle, false, false)));
+                    if (forward_loop < distance_limit ||
+                        reverse_loop < distance_limit) {
+                        chain_loops = true;
+                    }
                 }
                 start_handle = distance_index.get_parent(start_handle);
             }
@@ -1308,7 +1331,11 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                         cerr << "With distance limit: " << distance_limit << endl;
                     }
                     //This could be off by one if one of the seeds is reversed, but I'm being lazy and just checking against the index
-                    assert((tree_distance == 0 || tree_distance == index_distance));
+                    if (chain_loops) {
+                        assert((tree_distance == 0 || tree_distance >= index_distance));
+                    } else {
+                        assert((tree_distance == 0 || tree_distance == index_distance));
+                    }
                 } else {
                     if (tree_distance != index_distance) {
                         cerr << "Distance between " << next_seed.pos << (next_is_reversed ? "rev" : "") << " and " << start_seed.pos << (start_is_reversed ? "rev" : "") << endl;
@@ -1316,7 +1343,11 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                         cerr << "Tree distance: " << tree_distance << " index distance: " << index_distance << endl;
                         cerr << "With distance limit: " << distance_limit << endl;
                     }
-                    assert(tree_distance == index_distance);
+                    if (chain_loops) {
+                        assert(tree_distance >= index_distance);
+                    } else {
+                        assert(tree_distance == index_distance);
+                    }
                 }
             }
 
