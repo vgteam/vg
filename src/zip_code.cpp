@@ -99,19 +99,9 @@ void ZipCode::from_vector(const std::vector<size_t>& values) {
     zipcode.from_vector(values);
 }
 
-ZipCodeDecoder::ZipCodeDecoder(const ZipCode* zipcode, const size_t& depth) :
+ZipCodeDecoder::ZipCodeDecoder(const ZipCode* zipcode) :
     zipcode(zipcode), decoder(0) {
-    if (depth == std::numeric_limits<size_t>::max()) {
-        fill_in_full_decoder();
-    } else {
-        for (size_t i = 0 ; i < depth ; i++) {
-            //Fill in up to depth values one at a time
-            //Check whether it's done just in case an invalid depth was given
-            if (fill_in_next_decoder()) {
-                return;
-            }
-        }
-    }
+    fill_in_full_decoder();
 }
 
 void ZipCodeDecoder::fill_in_full_decoder() {
@@ -320,21 +310,11 @@ cerr << "\tThe last thing was a root-level node, so nothing else" << endl;
 }
 
 size_t ZipCodeDecoder::max_depth() {
-    fill_in_full_decoder();
     return decoder_length()-1;
 
 }
 
 ZipCode::code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
 
     //Now get the code type
     //A snarl is always a snarl. A chain could actually be a node
@@ -381,15 +361,6 @@ ZipCode::code_type_t ZipCodeDecoder::get_code_type(const size_t& depth) {
 }
 
 size_t ZipCodeDecoder::get_length(const size_t& depth, const SnarlDistanceIndex* distance_index) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -438,15 +409,7 @@ size_t ZipCodeDecoder::get_length(const size_t& depth, const SnarlDistanceIndex*
 }
 
 size_t ZipCodeDecoder::get_rank_in_snarl(const size_t& depth) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -472,15 +435,7 @@ size_t ZipCodeDecoder::get_rank_in_snarl(const size_t& depth) {
 }
 
 size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -512,15 +467,7 @@ size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDista
     }
 }
 bool ZipCodeDecoder::get_is_reversed_in_parent(const size_t& depth) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -566,15 +513,7 @@ bool ZipCodeDecoder::get_is_reversed_in_parent(const size_t& depth) {
 }
 
 net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDistanceIndex* distance_index) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -617,15 +556,7 @@ net_handle_t ZipCodeDecoder::get_net_handle(const size_t& depth, const SnarlDist
 }
 
 size_t ZipCodeDecoder::get_distance_index_address(const size_t& depth) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 
     if (depth == 0) {
         //If this is the root chain/snarl/node
@@ -666,15 +597,7 @@ size_t ZipCodeDecoder::get_distance_index_address(const size_t& depth) {
     }
 }
 size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
     assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL)); 
@@ -697,15 +620,7 @@ size_t ZipCodeDecoder::get_distance_to_snarl_start(const size_t& depth) {
 }
 
 size_t ZipCodeDecoder::get_distance_to_snarl_end(const size_t& depth) {
-    //First, make sure that the decoder has enough in it
-    if (depth >= decoder_length()) {
-        for (size_t i = decoder_length() ; i <= depth ; i++) {
-            bool done = fill_in_next_decoder();
-            if (i < depth && done) {
-                throw std::runtime_error("zipcode decoder looking for value outside range");
-            }
-        }
-    }
+
 #ifdef DEBUG_ZIPCODE
     assert(depth > 0);
     assert((get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL || get_code_type(depth-1) == ZipCode::REGULAR_SNARL)); 
