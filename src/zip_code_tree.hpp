@@ -116,8 +116,7 @@ private:
      ************/
 
     //The seeds that are taken as input
-    //The order of the seeds will never change, but the vector is not const because the zipcodes
-    //decoders may change
+    //The order of the seeds will never change, but the vector is not const//TODO: coudl change this
     vector<Seed>* seeds;
 
 protected:
@@ -150,7 +149,7 @@ public:
 protected:
 
     //Helper function to get the orientation of a snarl tree node at a given depth
-    //does the same thing as the zipcode decoder's get_is_reversed_in_parent, except
+    //does the same thing as the zipcode's get_is_reversed_in_parent, except
     //that is also considers chains that are children of irregular snarls.
     //We assume that all snarls are DAGs, so all children of snarls must only be
     //traversable in one orientation through the snarl. In a start-to-end traversal
@@ -159,12 +158,12 @@ protected:
     //backwards in its parent
     //TODO: Move this into the cpp file but I can't figure out how to make it const static
     const static bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index){
-        if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {
+        if (seed.zipcode.get_is_reversed_in_parent(depth)) {
             return true;
-        } else if (depth > 0 && seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL) {
+        } else if (depth > 0 && seed.zipcode.get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL) {
             //If the parent is an irregular snarl, then check the orientation of the child in the snarl
-            net_handle_t snarl_handle = seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
-            size_t rank = seed.zipcode_decoder->get_rank_in_snarl(depth);
+            net_handle_t snarl_handle = seed.zipcode.get_net_handle(depth-1, &distance_index);
+            size_t rank = seed.zipcode.get_rank_in_snarl(depth);
             if (distance_index.distance_in_snarl(snarl_handle, 0, false, rank, false)
                         == std::numeric_limits<size_t>::max()
                 &&
@@ -392,8 +391,7 @@ class ZipCodeForest {
                       size_t distance_limit = std::numeric_limits<size_t>::max());
     private:
     //The seeds that are taken as input
-    //The order of the seeds will never change, but the vector is not const because the zipcodes
-    //decoders may change
+    //The order of the seeds will never change, but the vector is not const TODO: could be const
     vector<Seed>* seeds;
 
     public:
