@@ -94,7 +94,7 @@ public:
     /// Get the distance-finding hint information (i.e. "zip code") for
     /// accelerating distance queries to the start of this anchor, or null if
     /// none is set.
-    inline const ZipCode* start_hint() const {
+    inline const ZipCodeDecoder* start_hint() const {
         return start_zipcode;
     }
 
@@ -107,7 +107,7 @@ public:
     /// Get the distance-finding hint information (i.e. "zip code") for
     /// accelerating distance queries from the end of this anchor, or null if
     /// none is set.
-    inline const ZipCode* end_hint() const {
+    inline const ZipCodeDecoder* end_hint() const {
         return end_zipcode;
     }
 
@@ -121,7 +121,7 @@ public:
     
     /// Compose a read start position, graph start position, and match length into an Anchor.
     /// Can also bring along a distance hint and a seed number.
-    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, size_t seed_number = std::numeric_limits<size_t>::max(), const ZipCode* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_zipcode(hint), end_zipcode(hint), start_offset(hint_start), end_offset(length - hint_start) {
+    inline Anchor(size_t read_start, const pos_t& graph_start, size_t length, int score, size_t seed_number = std::numeric_limits<size_t>::max(), const ZipCodeDecoder* hint = nullptr, size_t hint_start = 0) : start(read_start), size(length), start_pos(graph_start), end_pos(advance(graph_start, length)), points(score), start_seed(seed_number), end_seed(seed_number), start_zipcode(hint), end_zipcode(hint), start_offset(hint_start), end_offset(length - hint_start) {
         // Nothing to do!
     }
     
@@ -147,8 +147,8 @@ protected:
     int points;
     size_t start_seed;
     size_t end_seed;
-    const ZipCode* start_zipcode;
-    const ZipCode* end_zipcode;
+    const ZipCodeDecoder* start_zipcode;
+    const ZipCodeDecoder* end_zipcode;
     size_t start_offset;
     size_t end_offset;
 };
