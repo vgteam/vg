@@ -157,13 +157,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
-
-    // Get a decoder for each seed's zipcode
-    vector<ZipCodeDecoder> decoders;
-    decoders.reserve(seeds.size());
-    for (auto& seed : seeds) {
-        decoders.emplace_back(&seed.zipcode);
-    }
     
     if (this->track_provenance) {
         funnel.stage("tree");
@@ -172,7 +165,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Make them into a zip code tree
     ZipCodeForest zip_code_forest;
     crash_unless(distance_index);
-    zip_code_forest.fill_in_forest(seeds, decoders, *distance_index);
+    zip_code_forest.fill_in_forest(seeds, *distance_index);
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -254,7 +247,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
 
     // Convert the seeds into chainable anchors in the same order
-    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds, decoders);
+    vector<algorithms::Anchor> seed_anchors = this->to_anchors(aln, minimizers, seeds);
 
     // Now compute fragments into these variables.
     // What seeds are visited in what order in the fragment?
@@ -1946,21 +1939,20 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
     });
 }
 
-std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<ZipCodeDecoder>& decoders) const {
+std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const {
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
     for (size_t i = 0; i < seeds.size(); i++) {
-        to_return.push_back(this->to_anchor(aln, minimizers, seeds, decoders, i));
+        to_return.push_back(this->to_anchor(aln, minimizers, seeds, i));
     }
     return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, const std::vector<ZipCodeDecoder>& decoders, size_t seed_number) const {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, end for
     // reverse-strand minimizers) falls.
     auto& seed = seeds[seed_number];
-    auto& decoder = decoders[seed_number];
     auto& source = minimizers[seed.source];
     size_t length;
     pos_t graph_start;
@@ -1996,7 +1988,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, &decoder, hint_start); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, &seed.zipcode, hint_start); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {

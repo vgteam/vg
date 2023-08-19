@@ -495,17 +495,8 @@ int main_cluster(int argc, char** argv) {
 
                 ZipCodeForest zip_forest;
 
-                //TODO: Time making the zipcodes too
-                vector<ZipCodeDecoder> decoders;
-                decoders.reserve(seeds.size());
-                for (auto& seed : seeds) {
-                    decoders.emplace_back(&seed.zipcode);
-                }
-
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-
-
-                zip_forest.fill_in_forest(seeds, decoders, *distance_index);
+                zip_forest.fill_in_forest(seeds, *distance_index);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
 
