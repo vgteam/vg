@@ -1,6 +1,7 @@
 #include "alignment.hpp"
 #include "vg/io/gafkluge.hpp"
 #include "annotation.hpp"
+#include <vg/io/stream.hpp>
 
 #include <sstream>
 #include <chrono>
@@ -2101,7 +2102,7 @@ void parse_bed_regions(istream& bedstream,
         out_alignments->push_back(alignment);
 
         // if more subpaths need to be written, write them now
-        if (!other_seqs.empty()){
+        while (!other_seqs.empty()){
             // extract subpath information
             seq = other_seqs.back();
             other_seqs.pop_back();
@@ -2115,6 +2116,8 @@ void parse_bed_regions(istream& bedstream,
             alignment.set_score(score);
             out_alignments->push_back(alignment);
         }
+
+        vg::io::write_buffered(cout, *out_alignments, 1000); 
     }
 }
 
@@ -2383,7 +2386,7 @@ void parse_gff_regions(istream& gffstream,
         out_alignments->push_back(alignment);
 
         // if more subpaths need to be written, write them now
-        if (!other_seqs.empty()){
+        while (!other_seqs.empty()){
             // extract subpath information
             seq = other_seqs.back();
             other_seqs.pop_back();
@@ -2395,6 +2398,8 @@ void parse_gff_regions(istream& gffstream,
             alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
             out_alignments->push_back(alignment);
         }
+
+        vg::io::write_buffered(cout, *out_alignments, 1000); 
     }
 }
 
