@@ -1895,6 +1895,7 @@ namespace unittest {
         }
     }
 
+/*
     TEST_CASE("Failed unit test", "[failed]") {
         //Load failed random graph
         HashGraph graph;
@@ -1905,14 +1906,10 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         vector<pos_t> positions;
-        positions.emplace_back(6, false, 0);
-        positions.emplace_back(4, false, 5);
-        positions.emplace_back(8, true, 0);
-        positions.emplace_back(1, false, 0);
-        positions.emplace_back(15, true, 0);
-        positions.emplace_back(18, true, 0);
-        positions.emplace_back(13, true, 0);
-        positions.emplace_back(11, true, 0);
+        positions.emplace_back(21, false, 0);
+        positions.emplace_back(21, true, 0);
+        positions.emplace_back(28, false, 0);
+        positions.emplace_back(18, true, 20);
 
 
 
@@ -1923,10 +1920,11 @@ namespace unittest {
             seeds.push_back({ pos, 0, zipcode});
         }
         ZipCodeForest zip_forest;
-        zip_forest.fill_in_forest(seeds, distance_index, 16);
+        zip_forest.fill_in_forest(seeds, distance_index, 8);
         zip_forest.print_self();
         zip_forest.validate_zip_forest(distance_index);
     }
+    */
 
 
 

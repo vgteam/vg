@@ -59,23 +59,42 @@ class SnarlDistanceIndexClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
             ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
+            //TODO: unique_ptr?
+            std::unique_ptr<ZipCodeDecoder> zipcode_decoder; //The decoder for the zipcode
 
             Seed() = default;
             Seed(pos_t pos, size_t source) : pos(pos), source(source) {}
-            Seed(pos_t pos, size_t source, ZipCode zipcode) 
-                : pos(pos), source(source), zipcode(zipcode) {}
+            Seed(pos_t pos, size_t source, ZipCode zipcode) : pos(pos), source(source), zipcode(zipcode) {
+                ZipCodeDecoder* decoder = new ZipCodeDecoder(&this->zipcode);
+                zipcode_decoder.reset(decoder);
+            }
+            Seed(pos_t pos, size_t source, ZipCode zipcode, std::unique_ptr<ZipCodeDecoder> zipcode_decoder) :
+                pos(pos), source(source), zipcode(zipcode), zipcode_decoder(std::move(zipcode_decoder)){
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
+            }
 
             //Move constructor
             Seed (Seed&& other) :
                 pos(std::move(other.pos)),
                 source(std::move(other.source)),
-                zipcode(std::move(other.zipcode)) {}
+                zipcode(std::move(other.zipcode)),
+                zipcode_decoder(std::move(other.zipcode_decoder)) {
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
+            }
 
             //Move assignment operator
             Seed& operator=(Seed&& other) {
                 pos = std::move(other.pos);
                 source = std::move(other.source);
                 zipcode = std::move(other.zipcode);
+                zipcode_decoder = std::move(other.zipcode_decoder);
+                if (zipcode_decoder) {
+                    zipcode_decoder->zipcode = &zipcode;
+                }
                 return *this;
             }
         };
@@ -92,6 +111,9 @@ class SnarlDistanceIndexClusterer {
             //TODO: This gets copied because it needs to be mutable
             //Cached values (zip codes) from the minimizer
             ZipCode zipcode;
+
+            //TODO: This doesn't actually get used but I'll use it if I use the zipcodes properly 
+            //std::unique_ptr<ZipCodeDecoder> zipcode_decoder;
 
             //The distances to the left and right of whichever cluster this seed represents
             //This gets updated as clustering proceeds

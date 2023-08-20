@@ -442,8 +442,8 @@ protected:
     
     /// How do we convert chain info to an actual seed of the type we are using?
     /// Also needs to know the hit position, and the minimizer number.
-    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& zip) {
-        return { hit, minimizer, zip};
+    inline static Seed chain_info_to_seed(const pos_t& hit, size_t minimizer, const ZipCode& zip, ZipCodeDecoder* decoder) {
+        return { hit, minimizer, zip, std::unique_ptr<ZipCodeDecoder>(decoder)};
     }
     
     /// Convert a collection of seeds to a collection of chaining anchors.

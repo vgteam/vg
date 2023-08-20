@@ -154,6 +154,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Minimizers sorted by best score first
     VectorView<Minimizer> minimizers{minimizers_in_read, minimizer_score_order};
 
+    vector<ZipCodeDecoder> decoders;
     
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
@@ -1988,7 +1989,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
     int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
-    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, &seed.zipcode, hint_start); 
+    return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
 WFAAlignment MinimizerMapper::to_wfa_alignment(const algorithms::Anchor& anchor) const {
