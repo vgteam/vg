@@ -2017,8 +2017,8 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                 use_radix = false;
             } else if (current_type == ZipCode::NODE || current_type == ZipCode::CHAIN) {
                 //If we're sorting a node or chain, then the range of values is the minimum length of the node/chain
-                // times 2 because it gets multiplied by 2 to differentiate nodes and snarls
-                size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(depth) * 2;
+                // times 3 because it gets multiplied by 3 to differentiate nodes and snarls
+                size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(depth) * 3;
                 size_t default_cost = (current_interval.interval_end - current_interval.interval_start) * std::log2(current_interval.interval_end - current_interval.interval_start);
 
                 use_radix = radix_cost < default_cost;
