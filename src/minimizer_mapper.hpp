@@ -302,6 +302,10 @@ public:
     /// algorithm. Only works if track_provenance is true.
     static constexpr bool default_track_correctness = false;
     bool track_correctness = default_track_correctness;
+
+    /// Track linear reference position for placements in log output.
+    static constexpr bool default_track_position = false;
+    bool track_position = default_track_position;
     
     /// If set, log what the mapper is thinking in its mapping of each read.
     static constexpr bool default_show_work = false;
@@ -1017,7 +1021,7 @@ protected:
     const static size_t LONG_LIMIT = 256;
     
     /// Count at which we cut over to summary logging.
-    const static size_t MANY_LIMIT = 20;
+    const static size_t MANY_LIMIT = 10;
 
 
     friend class TestMinimizerMapper;

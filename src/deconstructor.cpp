@@ -8,7 +8,8 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor() : VCFOutputCaller("") {
+Deconstructor::Deconstructor() : VCFOutputCaller(""),
+                                 exhaustive_jaccard_warning(false){
 }
 Deconstructor::~Deconstructor(){
 }
@@ -654,7 +655,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             }
         }
     }
-
     
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
@@ -690,9 +690,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         cerr << "Skipping site because no reference traversal was found " << pb2json(*snarl) << endl;
 #endif
         return false;
-    }
+    }    
 
-    if (!path_restricted && gbwt_trav_finder.get() == nullptr) {
+    bool exhaustive = !path_restricted && gbwt_trav_finder.get() == nullptr;
+    if (exhaustive) {        
         // add in the exhaustive traversals
         vector<SnarlTraversal> additional_travs;
                         
@@ -740,7 +741,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     // map from each path_trav index to the ref_trav index it best maps to
     vector<int> path_trav_to_ref_trav;
-    if (ref_travs.size() > 1 && this->path_jaccard_window) {
+
+    if (ref_travs.size() > 1 && this->path_jaccard_window && exhaustive && !exhaustive_jaccard_warning) {
+#pragma omp critical (cerr)
+        cerr << "warning [vg deconstruct]: Conext Jaccard logic for multiple references disabled with exhaustive traversals. Use -e, -g or GBZ input to switch to path-based traversals only (recommended)." << endl;
+        exhaustive_jaccard_warning = true;
+    }
+    if (ref_travs.size() > 1 && this->path_jaccard_window && !exhaustive) {
         path_trav_to_ref_trav.resize(path_travs.first.size());
 #ifdef debug
 #pragma omp critical (cerr)
@@ -794,12 +801,16 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 contig_name = ref_trav_name;
             } else if (long_ref_contig) {
                 // the sample name isn't unique enough, so put a full ugly name in the vcf
-                contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                             PathMetadata::parse_sample_name(ref_trav_name),
-                                                             contig_name,
-                                                             PathMetadata::parse_haplotype(ref_trav_name),
-                                                             PathMetadata::NO_PHASE_BLOCK,
-                                                             PathMetadata::NO_SUBRANGE);
+                if (PathMetadata::parse_sense(ref_trav_name) == PathSense::GENERIC) {
+                    contig_name = ref_trav_name;
+                } else {
+                    contig_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                                 PathMetadata::parse_sample_name(ref_trav_name),
+                                                                 contig_name,
+                                                                 PathMetadata::parse_haplotype(ref_trav_name),
+                                                                 PathMetadata::NO_PHASE_BLOCK,
+                                                                 PathMetadata::NO_SUBRANGE);
+                }
             }
             
             // write variant's sequenceName (VCF contig)
@@ -888,6 +899,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool untangle_traversals,
                                 bool keep_conflicted,
                                 bool strict_conflicts,
+                                bool long_ref_contig,
                                 gbwt::GBWT* gbwt) {
 
     this->graph = graph;
@@ -916,7 +928,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         ref_samples.insert(PathMetadata::parse_sample_name(ref_path_name));
         ref_haplotypes.insert(PathMetadata::parse_haplotype(ref_path_name));
     }
-    long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
+    if (!long_ref_contig) {
+        long_ref_contig = ref_samples.size() > 1 || ref_haplotypes.size() > 1;
+    }
+    this->long_ref_contig = long_ref_contig;
     sample_names.clear();
     unordered_map<string, set<int>> sample_to_haps;
 
@@ -1022,12 +1037,16 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 locus_name = refpath;
             } else if (long_ref_contig) {
                 // the sample name isn't unique enough, so put a full ugly name in the vcf
-                locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
-                                                            graph->get_sample_name(path_handle),
-                                                            locus_name,
-                                                            graph->get_haplotype(path_handle),
-                                                            PathMetadata::NO_PHASE_BLOCK,
-                                                            PathMetadata::NO_SUBRANGE);                
+                if (graph->get_sense(path_handle) == PathSense::GENERIC) {
+                    locus_name = graph->get_path_name(path_handle);
+                } else {
+                    locus_name = PathMetadata::create_path_name(PathSense::REFERENCE,
+                                                                graph->get_sample_name(path_handle),
+                                                                locus_name,
+                                                                graph->get_haplotype(path_handle),
+                                                                PathMetadata::NO_PHASE_BLOCK,
+                                                                PathMetadata::NO_SUBRANGE);
+                }
             }            
 
             subrange_t subrange = graph->get_subrange(path_handle);

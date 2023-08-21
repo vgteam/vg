@@ -262,6 +262,7 @@ int from_length(const Mapping& m);
 bool mappings_equivalent(const Mapping& m1, const Mapping& m2);
 bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
+bool mapping_is_total_insertion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
 bool mapping_is_simple_match(const Mapping& m);
 bool path_is_simple_match(const Path& p);

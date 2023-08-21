@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 100
+plan tests 102
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -411,8 +411,13 @@ vg convert -a graphs/components_paths_rgfa.gfa > components_paths_rgfa.hg
 is "${?}" "0" "GFA -> HashGraph conversion works with redundant paths"
 is "$(vg paths --list -x components_paths_rgfa.hg | wc -l)" "1" "GFA -> HashGraph conversion with redundant paths keeps one copy of the redundant path"
 
+# We should be able to handle pseudo-PanSN paths where there is no haplotype
+vg convert -a graphs/gfa_two_part_reference.gfa > gfa_two_part_reference.hg
+is "${?}" "0" "GFA -> HashGraph conversion works with two-part reference path names"
+is "$(vg paths -M -x gfa_two_part_reference.hg | grep REFERENCE | wc -l)" "2" "GFA -> HashGraph conversion with with two-part reference path names gets the right paths"
+
 rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt paths.hg.txt
-rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg components_paths_rgfa.hg rgfa_with_reference.hg extracted.gfa 
+rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg components_paths_rgfa.hg gfa_two_part_reference.hg rgfa_with_reference.hg extracted.gfa 
 
 #####
 # GFA Streaming

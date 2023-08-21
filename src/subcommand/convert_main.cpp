@@ -187,7 +187,7 @@ int main_convert(int argc, char** argv) {
             {
                 num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
-                    cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    cerr << "error:[vg convert] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
                 }
                 omp_set_num_threads(num_threads);

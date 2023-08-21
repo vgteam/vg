@@ -388,7 +388,7 @@ static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> 
 
 // execute a function in another process and return true if successful
 // REMEMBER TO SAVE ANY INDEXES CONSTRUCTED TO DISK WHILE STILL INSIDE THE LAMBDA!!
-bool execute_in_fork(const function<void(void)>& exec) {
+int execute_in_fork(const function<void(void)>& exec) {
     
     // we have to clear out the pool of waiting OMP threads (if any) so that they won't
     // be copied with the fork and create deadlocks/races
@@ -408,7 +408,7 @@ bool execute_in_fork(const function<void(void)>& exec) {
         
         exec();
                 
-        // end the child process successfully
+        // end the child process successfullycode
         exit(0);
     } else {
         // This is the parent
@@ -436,12 +436,7 @@ bool execute_in_fork(const function<void(void)>& exec) {
     
     assert(WIFEXITED(child_stat));
     
-    if (WEXITSTATUS(child_stat) != 0) {
-        cerr << "warning:[IndexRegistry] Child process " << pid << " failed with status " << child_stat << " representing exit code " << WEXITSTATUS(child_stat) << endl;
-        return false;
-    }
-    
-    return true;
+    return WEXITSTATUS(child_stat);
 }
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
@@ -1805,13 +1800,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // make the graph from GFA, and save segment info to the translation file if there is nontrivial segment info.
         try {
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name);
+            // TODO: this could be fragile if we repurpose this lambda for Reference GFA w/ Haplotypes
+            // if we're constructing from a reference GFA, we don't need anything from W lines
+            unordered_set<PathSense> ignore{PathSense::HAPLOTYPE};
+            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name, &ignore);
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
             cerr << e.what() << endl;
             exit(1);
         }
+        
         
         // Now we need to append some splits to the output file.
         ofstream translation_outfile;
@@ -1822,10 +1821,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, size_t rev_offset, handle_t new_node) {
+            stringstream strm;
+            strm << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
 #pragma omp critical (translation_outfile)
             {
                 // Write each cut to a line in the translation file, after the segment names are defined.
-                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
+                translation_outfile << strm.str();
             }
         });
         
@@ -2682,7 +2683,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         bool downsample = (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold);
 
 
-        bool success;
+        int code;
         if (downsample) {
             // Downsample the haplotypes and generate a path cover of components without haplotypes.
             
@@ -2704,7 +2705,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                                IndexingParameters::verbosity >= IndexingParameters::Debug);
                 save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             };
-            success = execute_in_fork(exec);
+            code = execute_in_fork(exec);
         }
         else {
             // Augment the GBWT with a path cover of components without haplotypes.
@@ -2712,7 +2713,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
             }
             
-            success = execute_in_fork([&]() {
+            code = execute_in_fork([&]() {
                 gbwt::DynamicGBWT dynamic_index(*gbwt_index);
                 gbwt_index.reset();
                 gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
@@ -2726,7 +2727,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             });
         }
         
-        if (!success) {
+        if (code != 0) {
             IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
             throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.", {"Giraffe GBWT"});
         }
@@ -2775,7 +2776,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         };
         
         // make a GBWT from a greedy path cover
-        bool success = execute_in_fork([&]() {
+        int code = execute_in_fork([&]() {
             gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
                                                           IndexingParameters::path_cover_depth,
                                                           IndexingParameters::downsample_context_length,
@@ -2787,8 +2788,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         });
-        
-        if (!success) {
+                
+        if (code != 0) {
             IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
             throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.", {"Giraffe GBWT"});
         }
@@ -2938,7 +2939,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 // init the haplotype transcript GBWT
                 size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
-                bool success = execute_in_fork([&]() {
+                int code = execute_in_fork([&]() {
                     gbwt::GBWTBuilder gbwt_builder(node_width,
                                                    IndexingParameters::gbwt_insert_batch_size,
                                                    IndexingParameters::gbwt_sampling_interval);
@@ -2949,7 +2950,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     gbwt_builder.finish();
                     save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
                 });
-                if (!success) {
+
+                if (code != 0) {
                     IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
                     throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
                                               {"Haplotype-Transcript GBWT"});
@@ -3145,7 +3147,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // init the haplotype transcript GBWT
             size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
-            bool success = execute_in_fork([&]() {
+            int code = execute_in_fork([&]() {
                 gbwt::GBWTBuilder gbwt_builder(node_width,
                                                IndexingParameters::gbwt_insert_batch_size,
                                                IndexingParameters::gbwt_sampling_interval);
@@ -3156,7 +3158,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 gbwt_builder.finish();
                 save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             });
-            if (!success) {
+
+            if (code != 0) {
                 IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
                 throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
                                           {"Haplotype-Transcript GBWT"});
@@ -3599,7 +3602,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             throw RewindPlanException(msg, pruned_graphs);
         }
         
-        bool success = execute_in_fork([&]() {
+        // it seems to only keep the lowest 8 bits of the exit code? this is hack-y, but it gives us the correct
+        // code to compare to...
+        int size_code = execute_in_fork([](){ exit(gcsa::EXIT_SIZE_LIMIT_EXCEEDED); });
+        
+        int code = execute_in_fork([&]() {
 #ifdef debug_index_registry_recipes
             cerr << "making GCSA2 at " << gcsa_output_name << " and " << lcp_output_name << " after writing de Bruijn graph files to:" << endl;
             for (auto dbg_name : dbg_names) {
@@ -3627,7 +3634,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             temp_file::remove(dbg_name);
         }
         
-        if (!success) {
+        if (code == size_code) {
             // the indexing was not successful, presumably because of exponential disk explosion
             
             // update pruning params
@@ -3636,6 +3643,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             string msg = "[IndexRegistry]: Exceeded disk use limit while performing k-mer doubling steps. "
                          "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
             throw RewindPlanException(msg, pruned_graphs);
+        }
+        else if (code != 0) {
+            cerr << "[IndexRegistry]: Unrecoverable error in GCSA2 indexing." << endl;
+            exit(code);
         }
         
         gcsa_names.push_back(gcsa_output_name);
@@ -3876,7 +3887,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         params.max_node_length = IndexingParameters::max_node_size;
         params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
         
-        bool success = execute_in_fork([&]() {
+        int code = execute_in_fork([&]() {
             
             // jointly generate the GBWT and record sequences
             unique_ptr<gbwt::GBWT> gbwt_index;
@@ -3889,7 +3900,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // save together as a GBZ
             save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         });
-        if (!success) {
+        if (code != 0) {
             IndexingParameters::gbwt_insert_batch_size *= IndexingParameters::gbwt_insert_batch_size_increase_factor;
             throw RewindPlanException("[IndexRegistry]: Exceeded GBWT insert buffer size, expanding and reattempting.",
                                       {"Giraffe GBZ"});

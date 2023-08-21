@@ -5,6 +5,7 @@
 #include <ostream>
 #include <sstream>
 #include <algorithm>
+#include <atomic>
 #include "genotypekit.hpp"
 #include "Variant.h"
 #include "handle.hpp"
@@ -45,6 +46,7 @@ public:
                      bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
+                     bool long_ref_contig,
                      gbwt::GBWT* gbwt = nullptr);
     
 private:
@@ -158,6 +160,9 @@ private:
 
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
+
+    // warn about context jaccard not working with exhaustive traversals
+    mutable atomic<bool> exhaustive_jaccard_warning;
 };
 
 // helpel for measuring set intersectiond and union size

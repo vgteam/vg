@@ -78,19 +78,22 @@ void gfa_to_handle_graph(istream& in,
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
-                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                              unordered_set<PathSense>* ignore_sense = nullptr);
 
 /// Overload which serializes its translation to a file internally.
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               int64_t max_rgfa_rank,
-                              const string& translation_filename);
+                              const string& translation_filename,
+                              unordered_set<PathSense>* ignore_sense = nullptr);
                               
 /// Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.
 void gfa_to_path_handle_graph(istream& in,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
-                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
+                              unordered_set<PathSense>* ignore_sense = nullptr);
 
 /**
  * Lower-level tools for parsing GFA elements.

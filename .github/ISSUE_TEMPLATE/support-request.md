@@ -11,4 +11,4 @@ assignees: ''
 
 Please the Biostars forum instead:
 
-https://www.biostars.org/p/new/post/?tag_val=vg
+https://www.biostars.org/new/post/?tag_val=vg
