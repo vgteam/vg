@@ -15,6 +15,7 @@
 #include "bdsg/hash_graph.hpp"
 
 #include <handlegraph/util.hpp>
+#include <handlegraph/path_metadata.hpp>
 
 #include <iostream>
 #include <limits>
@@ -2540,6 +2541,33 @@ TEST_CASE("handlegraph PathMetadata name format preserves ranges on generic path
     auto subrange = PathMetadata::parse_subrange(path_name);
     REQUIRE(subrange.first == 10);
     REQUIRE(subrange.second == PathMetadata::NO_END_POSITION);
+}
+
+TEST_CASE("handlegraph PathMetadata name format can parse two-part names", "[handle]") {
+    std::string path_name = "GRCh38#chr1";
+
+    PathSense sense;
+    string sample;
+    string locus;
+    size_t haplotype;
+    size_t phase_block;
+    subrange_t subrange;
+    PathMetadata::parse_path_name(path_name,
+                                  sense,
+                                  sample,
+                                  locus,
+                                  haplotype,
+                                  phase_block,
+                                  subrange);
+
+    REQUIRE(PathMetadata::parse_sample_name(path_name) == sample);
+    REQUIRE(PathMetadata::parse_locus_name(path_name) == locus);
+
+    REQUIRE(sense == PathSense::REFERENCE); 
+    REQUIRE(sample == "GRCh38");
+    REQUIRE(locus == "chr1");
+    REQUIRE(phase_block == PathMetadata::NO_PHASE_BLOCK);
+    REQUIRE(subrange == PathMetadata::NO_SUBRANGE);
 }
 
 }

@@ -56,7 +56,8 @@ void help_call(char** argv) {
        << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
        << "    -z, --gbz               Only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
        << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl     
-       << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
+       << "    -p, --ref-path NAME     Reference path to call on (multipile allowed. defaults to all paths)" << endl
+       << "    -S, --ref-sample NAME   Call on all paths with given sample name (cannot be used with -p)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
@@ -81,6 +82,7 @@ int main_call(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
+    string ref_sample;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
     string min_support_string;
@@ -141,6 +143,7 @@ int main_call(int argc, char** argv) {
             {"translation", required_argument, 0, 'N'},
             {"gbz-translation", no_argument, 0, 'O'},
             {"ref-path", required_argument, 0, 'p'},
+            {"ref-sample", required_argument, 0, 'S'},            
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
@@ -158,7 +161,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:S:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -224,6 +227,9 @@ int main_call(int argc, char** argv) {
         case 'p':
             ref_paths.push_back(optarg);
             break;
+        case 'S':
+            ref_sample = optarg;
+            break;            
         case 'o':
             ref_path_offsets.push_back(parse<int>(optarg));
             break;
@@ -355,6 +361,10 @@ int main_call(int argc, char** argv) {
     if ((min_ref_allele_len > 0 || max_ref_allele_len < numeric_limits<int64_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
         cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
         return 1;        
+    }
+    if (!ref_paths.empty() && !ref_sample.empty()) {
+        cerr << "error [vg call]: -S cannot be used with -p" << endl;
+        return 1;
     }
 
     // Read the graph
@@ -490,18 +500,43 @@ int main_call(int argc, char** argv) {
     
     // No paths specified: use them all
     if (ref_paths.empty()) {
+        set<string> ref_sample_names;
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
-                if (!Paths::is_alt(name) && PathMetadata::parse_sense(name) != PathSense::HAPLOTYPE) {
-                    ref_paths.push_back(name);
-                    // keep track of length best we can using maximum coordinate in event of subpaths
-                    subrange_t subrange;
-                    string base_name = Paths::strip_subrange(name, &subrange);
-                    size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-                    size_t& cur_len = basepath_length_map[base_name];
-                    cur_len = max(cur_len, compute_path_length(path_handle) + offset);
+                PathSense path_sense = PathMetadata::parse_sense(name);
+                if (!Paths::is_alt(name) && path_sense != PathSense::HAPLOTYPE) {
+                    string sample_name = PathMetadata::parse_sample_name(name);
+                    if (ref_sample.empty() || sample_name == ref_sample) {                        
+                        ref_paths.push_back(name);
+                        // keep track of length best we can using maximum coordinate in event of subpaths
+                        subrange_t subrange;
+                        string base_name = Paths::strip_subrange(name, &subrange);
+                        size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+                        size_t& cur_len = basepath_length_map[base_name];
+                        cur_len = max(cur_len, compute_path_length(path_handle) + offset);
+                        if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
+                            ref_sample_names.insert(sample_name);
+                        }
+                    }
                 }
             });
+        if (ref_sample_names.size() > 1 && ref_sample.empty()) {
+            cerr << "error [vg call]: Multiple reference samples detected: [";
+            size_t count = 0;
+            for (const string& n : ref_sample_names) {                
+                cerr << n;
+                if (++count >= std::min(ref_sample_names.size(), (size_t)5)) {
+                    if (ref_sample_names.size() > 5) {
+                        cerr << ", ...";
+                    }
+                    break;
+                } else {
+                    cerr << ", ";
+                }
+            }
+            cerr << "]. Please use -S to specify a single reference sample or use -p to specify reference paths";
+            return 1;
+        }                
     } else {
         // if paths are given, we convert them to subpaths so that ref paths list corresponds
         // to path names in graph.  subpath handling will only be handled when writing the vcf

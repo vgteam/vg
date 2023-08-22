@@ -399,18 +399,19 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const transition_iterator& for_each_transition,
                            int item_bonus,
                            int item_scale,
-                           size_t max_indel_bases) {
+                           size_t max_indel_bases,
+                           bool show_work) {
     
 #ifdef debug_chaining
-    DiagramExplainer diagram(true);
+    DiagramExplainer diagram(show_work);
 #else
     DiagramExplainer diagram(false);
 #endif
     diagram.add_globals({{"rankdir", "LR"}});
     
-#ifdef debug_chaining
-    cerr << "Chaining group of " << to_chain.size() << " items" << endl;
-#endif
+    if (show_work) {
+        cerr << "Chaining group of " << to_chain.size() << " items" << endl;
+    }
 
     // Compute an average anchor length
     size_t average_anchor_length = 0;
@@ -445,10 +446,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // For each source we could come from
         auto& source = to_chain[from_anchor];
             
-#ifdef debug_chaining
-        cerr << "\t\tCome from score " << chain_scores[from_anchor]
-            << " across " << source << " to " << here << endl;
-#endif
+        if (show_work) {
+            cerr << "\t\tCome from score " << chain_scores[from_anchor]
+                << " across " << source << " to " << here << endl;
+        }
             
         // How much does it pay (+) or cost (-) to make the jump from there
         // to here?
@@ -460,9 +461,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
         size_t min_distance = std::min(read_distance, graph_distance);
         
-#ifdef debug_chaining
-        cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
-#endif
+        if (show_work) {
+            cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
+        }
 
         if (indel_length > max_indel_bases) {
             // Don't allow an indel this long
@@ -485,9 +486,10 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // Remember that we could make this jump
             chain_scores[to_anchor] = std::max(chain_scores[to_anchor], from_source_score);
                                            
-#ifdef debug_chaining
-            cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
-#endif
+            if (show_work) {
+                cerr << "\t\tWe can reach #" << to_anchor << " with " << source_score << " + " << jump_points << " from transition + " << item_points << " from item = " << from_source_score << endl;
+            }
+                    
             if (from_source_score.score > 0) {
                 // Only explain edges that were actual candidates since we
                 // won't let local score go negative
@@ -502,9 +504,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
             achieved_score = from_source_score.score;
         } else {
-#ifdef debug_chaining
-            cerr << "\t\tTransition is impossible." << endl;
-#endif
+            if (show_work) {
+                cerr << "\t\tTransition is impossible." << endl;
+            }
             achieved_score = std::numeric_limits<size_t>::min();
         }
             
@@ -526,9 +528,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         auto& here = to_chain[to_anchor];
         auto item_points = here.score() * item_scale + item_bonus;
 
-#ifdef debug_chaining
-        cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
-#endif
+        if (show_work) {
+            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor] << " is " << chain_scores[to_anchor] << endl;
+        }
         
         // Draw the item in the diagram
         std::string here_gvnode = "i" + std::to_string(to_anchor);
@@ -557,9 +559,9 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
         // See if this is the best overall
         best_score.max_in(chain_scores, to_anchor);
         
-#ifdef debug_chaining
-        cerr << "\tBest chain end so far: " << best_score << endl;
-#endif
+        if (show_work) {
+            cerr << "\tBest chain end so far: " << best_score << endl;
+        }
         
     }
     
@@ -652,7 +654,8 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    const transition_iterator& for_each_transition, 
                                                    int item_bonus,
                                                    int item_scale,
-                                                   size_t max_indel_bases) {
+                                                   size_t max_indel_bases,
+                                                   bool show_work) {
                                                                          
     if (to_chain.empty()) {
         return {{0, vector<size_t>()}};
@@ -669,7 +672,8 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                              for_each_transition,
                                                              item_bonus,
                                                              item_scale,
-                                                             max_indel_bases);
+                                                             max_indel_bases,
+                                                             show_work);
     // Then do the tracebacks
     vector<pair<vector<size_t>, int>> tracebacks = chain_items_traceback(chain_scores, to_chain, best_past_ending_score_ever, item_bonus, item_scale, max_chains);
     

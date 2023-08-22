@@ -52,6 +52,7 @@ void help_deconstruct(char** argv){
          << "    -u, --untangle-travs     Use context mapping to determine the reference-relative positions of each step in allele traversals (AP INFO field)." << endl
          << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
          << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
+         << "    -C, --contig-only-ref    Only use the CONTIG name (and not SAMPLE#CONTIG#HAPLOTYPE etc) for the reference if possible (ie there is only one reference sample)." << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
          << endl;
@@ -79,6 +80,7 @@ int main_deconstruct(int argc, char** argv){
     bool strict_conflicts = false;
     int context_jaccard_window = 10000;
     bool untangle_traversals = false;
+    bool contig_only_ref = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -100,13 +102,14 @@ int main_deconstruct(int argc, char** argv){
                 {"all-snarls", no_argument, 0, 'a'},
                 {"keep-conflicted", no_argument, 0, 'K'},
                 {"strict-conflicts", no_argument, 0, 'S'},
+                {"contig-only-ref", no_argument, 0, 'C'},                
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSd:c:uat:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:OeKSCd:c:uat:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -158,6 +161,9 @@ int main_deconstruct(int argc, char** argv){
         case 'S':
             strict_conflicts = true;
             break;
+        case 'C':
+            contig_only_ref = true;
+            break;            
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -352,6 +358,7 @@ int main_deconstruct(int argc, char** argv){
                    untangle_traversals,
                    keep_conflicted,
                    strict_conflicts,
+                   !contig_only_ref,
                    gbwt_index);
     return 0;
 }

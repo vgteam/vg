@@ -59,13 +59,14 @@ int get_default_threads() {
 size_t estimate_hash_table_size(const gbwtgraph::GBZ& gbz, bool progress);
 
 void help_minimizer(char** argv) {
-    std::cerr << "usage: " << argv[0] << " minimizer [options] graph" << std::endl;
+    std::cerr << "usage: " << argv[0] << " minimizer [options] -d graph.dist -o graph.min graph" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Builds a (w, k)-minimizer index or a (k, s)-syncmer index of the threads in the GBWT" << std::endl;
     std::cerr << "index. The graph can be any HandleGraph, which will be transformed into a GBWTGraph." << std::endl;
     std::cerr << "The transformation can be avoided by providing a GBWTGraph or a GBZ graph." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
+    std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
     std::cerr << "    -o, --output-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
@@ -83,7 +84,6 @@ void help_minimizer(char** argv) {
     std::cerr << "        --hash-table N      use 2^N-cell hash tables for kmer counting (default: guess)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
     std::cerr << "    -z, --zipcode-name X    store the distances that are too big to file X" << std::endl;
     std::cerr << "                            if -z is not specified, some distances may be discarded" << std::endl;
     std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
@@ -92,6 +92,7 @@ void help_minimizer(char** argv) {
     std::cerr << "    -p, --progress          show progress information" << std::endl;
     std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
     std::cerr << "                            (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
+    std::cerr << "        --no-dist           build the index without distance index annotations (not recommended)" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -109,12 +110,14 @@ int main_minimizer(int argc, char** argv) {
     size_t threshold = DEFAULT_THRESHOLD, iterations = DEFAULT_ITERATIONS, hash_table_size = 0;
     bool progress = false;
     int threads = get_default_threads();
+    bool require_distance_index = true;
 
     constexpr int OPT_THRESHOLD = 1001;
     constexpr int OPT_ITERATIONS = 1002;
     constexpr int OPT_FAST_COUNTING = 1003;
     constexpr int OPT_SAVE_MEMORY = 1004;
     constexpr int OPT_HASH_TABLE = 1005;
+    constexpr int OPT_NO_DIST = 1100;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -122,6 +125,7 @@ int main_minimizer(int argc, char** argv) {
         static struct option long_options[] =
         {
             { "gbwt-name", required_argument, 0, 'g' },
+            { "distance-index", required_argument, 0, 'd' },
             { "output-name", required_argument, 0, 'o' },
             { "index-name", required_argument, 0, 'i' }, // deprecated
             { "kmer-length", required_argument, 0, 'k' },
@@ -135,23 +139,26 @@ int main_minimizer(int argc, char** argv) {
             { "fast-counting", no_argument, 0, OPT_FAST_COUNTING },
             { "save-memory", no_argument, 0, OPT_SAVE_MEMORY },
             { "hash-table", required_argument, 0, OPT_HASH_TABLE },
-            { "distance-index", required_argument, 0, 'd' },
             { "zipcode-index", required_argument, 0, 'z' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-graph", no_argument, 0, 'G' }, // deprecated
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
+            { "no-dist", no_argument, 0, OPT_NO_DIST },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:o:i:k:w:bcs:Wd:z:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:d:o:i:k:w:bcs:Wz:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
         {
         case 'g':
             gbwt_name = optarg;
+            break;
+        case 'd':
+            distance_name = optarg;
             break;
         case 'o':
             output_name = optarg;
@@ -204,9 +211,6 @@ int main_minimizer(int argc, char** argv) {
             }
             break;
 
-        case 'd':
-            distance_name = optarg;
-            break;
         case 'z':
             zipcode_name = optarg;
             break;
@@ -223,6 +227,9 @@ int main_minimizer(int argc, char** argv) {
             threads = parse<int>(optarg);
             threads = std::min(threads, omp_get_max_threads());
             threads = std::max(threads, 1);
+            break;
+        case OPT_NO_DIST:
+            require_distance_index = false;
             break;
 
         case 'h':
@@ -242,6 +249,10 @@ int main_minimizer(int argc, char** argv) {
         return 1;
     }
     graph_name = argv[optind];
+    if (require_distance_index && distance_name.empty()) {
+        std::cerr << "[vg minimizer] error: one of options --distance-index and --no-dist is required" << std::endl;
+        return 1;
+    }
     if (!load_index.empty() || use_syncmers) {
         weighted = false;
     }

@@ -420,6 +420,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser) {
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+    << "  --track-position              coarsely track linear reference positions of good intermediate alignment candidates (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
 }
 
@@ -439,11 +440,12 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REPORT_NAME 1002
     #define OPT_TRACK_PROVENANCE 1003
     #define OPT_TRACK_CORRECTNESS 1004
-    #define OPT_FRAGMENT_MEAN 1005
-    #define OPT_FRAGMENT_STDEV 1006
-    #define OPT_REF_PATHS 1010
-    #define OPT_SHOW_WORK 1011
-    #define OPT_NAMED_COORDINATES 1012
+    #define OPT_TRACK_POSITION 1005
+    #define OPT_FRAGMENT_MEAN 1006
+    #define OPT_FRAGMENT_STDEV 1007
+    #define OPT_REF_PATHS 1008
+    #define OPT_SHOW_WORK 1009
+    #define OPT_NAMED_COORDINATES 1010
 
     // initialize parameters with their default options
     
@@ -489,6 +491,8 @@ int main_giraffe(int argc, char** argv) {
     bool track_provenance = MinimizerMapper::default_track_provenance;
     // Should we track candidate correctness?
     bool track_correctness = MinimizerMapper::default_track_correctness;
+    // Should we track candidate position?
+    bool track_position = MinimizerMapper::default_track_position;
     // Should we log our mapping decision making?
     bool show_work = MinimizerMapper::default_show_work;
     
@@ -589,6 +593,7 @@ int main_giraffe(int argc, char** argv) {
         {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
         {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
         {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
+        {"track-position", no_argument, 0, OPT_TRACK_POSITION},
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
         {"threads", required_argument, 0, 't'},
     };
@@ -848,6 +853,11 @@ int main_giraffe(int argc, char** argv) {
                 track_provenance = true;
                 track_correctness = true;
                 break;
+
+            case OPT_TRACK_POSITION:
+                track_provenance = true;
+                track_position = true;
+                break;
                 
             case OPT_SHOW_WORK:
                 show_work = true;
@@ -1083,7 +1093,7 @@ int main_giraffe(int argc, char** argv) {
     bdsg::ReferencePathOverlayHelper overlay_helper;
     // And we might load an XG
     unique_ptr<PathHandleGraph> xg_graph;
-    if (track_correctness || hts_output) {
+    if (track_correctness || track_position || hts_output) {
         // Usually we will get our paths from the GBZ
         PathHandleGraph* base_graph = &gbz->graph;
         // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
@@ -1180,6 +1190,11 @@ int main_giraffe(int argc, char** argv) {
         }
         minimizer_mapper.track_provenance = track_provenance;
         
+        if (show_progress && track_position) {
+            cerr << "--track-position " << endl;
+        }
+        minimizer_mapper.track_position = track_position;
+
         if (show_progress && track_correctness) {
             cerr << "--track-correctness " << endl;
         }
