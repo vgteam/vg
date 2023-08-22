@@ -117,7 +117,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<sequence_type> sequences;
 
-        // TODO: This could be compressed by removing duplicate haplotypes.
+        // TODO: This needs to be compressed for larger datasets.
         sdsl::bit_vector kmers_present;
 
         /// Returns the start node as a GBWTGraph handle.
@@ -440,6 +440,10 @@ public:
         /// the wrong variants out.
         double absent_score = ABSENT_SCORE;
 
+        /// After selecting the initial `num_haplotypes` haplotypes, choose the
+        /// highest-scoring pair out of them.
+        bool diploid_sampling = false;
+
         /// Include named and reference paths.
         bool include_reference = false;
     };
@@ -475,6 +479,9 @@ public:
         /// participates in.
         std::vector<std::pair<size_t, double>> scores;
     };
+
+    /// Kmer classification.
+    enum kmer_presence { absent, heterozygous, present, frequent };
 
     /**
      * Extracts the local haplotypes in the given subchain. In addition to the

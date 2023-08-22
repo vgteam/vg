@@ -999,6 +999,10 @@ void recombinator_sanity_checks(const Recombinator::Parameters& parameters) {
         std::string msg = "recombinator_sanity_checks(): number of haplotypes cannot be 0";
         throw std::runtime_error(msg);
     }
+    if (parameters.diploid_sampling && parameters.num_haplotypes < 2) {
+        std::string msg = "recombinator_sanity_checks(): diploid sampling requires at least 2 haplotypes";
+        throw std::runtime_error(msg);
+    }
     if (parameters.present_discount < 0.0 || parameters.present_discount > 1.0) {
         std::string msg = "recombinator_sanity_checks(): present discount must be between 0.0 and 1.0";
         throw std::runtime_error(msg);
@@ -1183,6 +1187,93 @@ gbwt::GBWT Recombinator::generate_haplotypes(const Haplotypes& haplotypes, const
 
 //------------------------------------------------------------------------------
 
+// Classify the kmers in the subchain according to the kmer counts and the
+// coverage. Return a vector of kmer types and their initial scores. Update the
+// statistics with the number of non-frequent kmers if necessary.
+std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
+    const Haplotypes::Subchain& subchain,
+    const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
+    double coverage,
+    Recombinator::Statistics* statistics,
+    const Recombinator::Parameters& parameters
+) {
+    // TODO: What are the proper thresholds?
+    double absent_threshold = coverage * 0.1;
+    double heterozygous_threshold = coverage / std::log(4.0);
+    double homozygous_threshold = coverage * 2.5;
+
+    // TODO: -log prob may be the right score once we have enough haplotypes, but
+    // right now +1 works better, because we don't have haplotypes with the right
+    // combination of rare kmers.
+    // Determine the type of each kmer in the sample and the score for the kmer.
+    // A haplotype with the kmer gets +1.0 * score, while a haplotype without it
+    // gets -1.0 * score.
+    std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types;
+    size_t selected_kmers = 0;
+    for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
+        double count = kmer_counts.at(subchain.kmers[kmer_id].first);
+        if (count < absent_threshold) {
+            kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+            selected_kmers++;
+        } else if (count < heterozygous_threshold) {
+            kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
+            selected_kmers++;
+        } else if (count < homozygous_threshold) {
+            kmer_types.push_back({ Recombinator::present, 1.0 });
+            selected_kmers++;
+        } else {
+            kmer_types.push_back({ Recombinator::frequent, 0.0 });
+        }
+    }
+    if (statistics != nullptr) {
+        statistics->kmers += selected_kmers;
+    }
+
+    return kmer_types;
+}
+
+// Select the best pair of haplotypes from the candidates. Each haplotype gets
+// +1 for getting a kmer right and -1 for getting it wrong.
+std::vector<std::pair<size_t, double>> select_diploid(
+    const Haplotypes::Subchain& subchain,
+    const std::vector<std::pair<size_t, double>>& candidates,
+    const std::vector<std::pair<Recombinator::kmer_presence, double>>& kmer_types
+) {
+    std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
+    size_t best_left = 0, best_right = 1;
+
+    for (size_t left = 0; left < candidates.size(); left++) {
+        size_t left_offset = candidates[left].first * subchain.kmers.size();
+        for (size_t right = left + 1; right < candidates.size(); right++) {
+            std::int64_t score = 0;
+            size_t right_offset = candidates[right].first * subchain.kmers.size();
+            for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
+                int64_t found = subchain.kmers_present[left_offset + kmer_id] + subchain.kmers_present[right_offset + kmer_id];
+                switch (kmer_types[kmer_id].first) {
+                case Recombinator::absent:
+                    score += 2 * (1 - found); // +2 for 0, 0 for 1, -2 for 2
+                    break;
+                case Recombinator::heterozygous:
+                    score += (found == 1 ? 2 : 0);
+                    break;
+                case Recombinator::present:
+                    score += 2 * (found - 1); // -2 for 0, 0 for 1, +2 for 2
+                    break;
+                default:
+                    break;
+                }
+            }
+            if (score > best_score) {
+                best_score = score;
+                best_left = left;
+                best_right = right;
+            }
+        }
+    }
+
+    return { candidates[best_left], candidates[best_right] };
+}
+
 // Returns (sequence offset in the subchain, score).
 // Updates statistics with the number of kmers used if provided.
 // Updates the local haplotypes with scores and ranks in each round of selection
@@ -1195,38 +1286,8 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     std::vector<Recombinator::LocalHaplotype>* local_haplotypes,
     const Recombinator::Parameters& parameters
 ) {
-    // TODO: What are the proper thresholds?
-    enum kmer_presence { absent, heterozygous, present, ignore };
-    double absent_threshold = coverage * 0.1;
-    double heterozygous_threshold = coverage / std::log(4.0);
-    double homozygous_threshold = coverage * 2.5;
-
-    // TODO: -log prob may be the right score once we have enough haplotypes, but
-    // right now +1 works better, because we don't have haplotypes with the right
-    // combination of rare kmers.
-    // Determine the type of each kmer in the sample and the score for the kmer.
-    // A haplotype with the kmer gets +1.0 * score, while a haplotype without it
-    // gets -1.0 * score.
-    std::vector<std::pair<kmer_presence, double>> kmer_types;
-    size_t selected_kmers = 0;
-    for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
-        double count = kmer_counts.at(subchain.kmers[kmer_id].first);
-        if (count < absent_threshold) {
-            kmer_types.push_back({ absent, -1.0 * parameters.absent_score });
-            selected_kmers++;
-        } else if (count < heterozygous_threshold) {
-            kmer_types.push_back({ heterozygous, 0.0 });
-            selected_kmers++;
-        } else if (count < homozygous_threshold) {
-            kmer_types.push_back({ present, 1.0 });
-            selected_kmers++;
-        } else {
-            kmer_types.push_back({ ignore, 0.0 });
-        }
-    }
-    if (statistics != nullptr) {
-        statistics->kmers += selected_kmers;
-    }
+    // Classify the kmers.
+    std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
 
     // Select the haplotypes greedily.
     std::vector<std::pair<size_t, double>> selected_haplotypes;
@@ -1276,10 +1337,10 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         size_t offset = selected_haplotypes.back().first * subchain.kmers.size();
         for (size_t kmer_id = 0; kmer_id < subchain.kmers.size(); kmer_id++) {
             switch (kmer_types[kmer_id].first) {
-            case heterozygous:
+            case Recombinator::heterozygous:
                 kmer_types[kmer_id].second += (subchain.kmers_present[offset + kmer_id] ? -1.0 : 1.0) * parameters.het_adjustment;
                 break;
-            case present:
+            case Recombinator::present:
                 if (subchain.kmers_present[offset + kmer_id]) {
                     kmer_types[kmer_id].second *= parameters.present_discount;
                 }
@@ -1293,7 +1354,13 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     // If we did not have enough haplotypes in the subchain, repeat them as necessary.
     size_t original_selected = selected_haplotypes.size();
     for (size_t i = original_selected; i < parameters.num_haplotypes; i++) {
-        selected_haplotypes.push_back(selected_haplotypes[i % original_selected]);
+        auto next = selected_haplotypes[i % original_selected];
+        selected_haplotypes.push_back(next);
+    }
+
+    // Do diploid sampling if necessary.
+    if (parameters.diploid_sampling) {
+        return select_diploid(subchain, selected_haplotypes, kmer_types);
     }
 
     return selected_haplotypes;
@@ -1305,13 +1372,14 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     const Parameters& parameters,
     double coverage
 ) const {
+    size_t final_haplotypes = (parameters.diploid_sampling ? 2 : parameters.num_haplotypes);
     std::vector<RecombinatorHaplotype> haplotypes;
-    for (size_t i = 0; i < parameters.num_haplotypes; i++) {
+    for (size_t i = 0; i < final_haplotypes; i++) {
         haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
     }
 
     Statistics statistics;
-    statistics.chains = 1; statistics.haplotypes = parameters.num_haplotypes;
+    statistics.chains = 1; statistics.haplotypes = haplotypes.size();
     if (chain.subchains.size() == 1 && chain.subchains.front().type == Haplotypes::Subchain::full_haplotype) {
         // Full haplotypes should all be identical, because there are no snarls.
         // Therefore we do not need kmers.
