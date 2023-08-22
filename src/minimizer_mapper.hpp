@@ -203,6 +203,13 @@ public:
     /// extensions.
     static constexpr bool default_align_from_chains = false;
     bool align_from_chains = default_align_from_chains;
+
+    /// When making zipcode trees, at what multiple of the read length should the trees
+    /// be split?
+    static constexpr double default_zipcode_tree_scale = 2.0;
+    double zipcode_tree_scale = default_zipcode_tree_scale;
+
+
     
     /// How many bases should we look back when making fragments?
     static constexpr size_t default_fragment_max_lookback_bases = 300;
