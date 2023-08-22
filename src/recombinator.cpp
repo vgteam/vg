@@ -920,6 +920,7 @@ void RecombinatorHaplotype::insert(gbwt::GBWTBuilder& builder) {
         builder.index.metadata.addSamples({ sample_name });
     }
 
+    // FIXME: Get the contig name from the graph if possible.
     std::string contig_name = "chain_" + std::to_string(this->chain);
     gbwt::size_type contig_id = builder.index.metadata.contig(contig_name);
     if (contig_id >= builder.index.metadata.contigs()) {
@@ -1251,13 +1252,13 @@ std::vector<std::pair<size_t, double>> select_diploid(
                 int64_t found = subchain.kmers_present[left_offset + kmer_id] + subchain.kmers_present[right_offset + kmer_id];
                 switch (kmer_types[kmer_id].first) {
                 case Recombinator::absent:
-                    score += 2 * (1 - found); // +2 for 0, 0 for 1, -2 for 2
+                    score += 1 - found; // +1 for 0, 0 for 1, -1 for 2
                     break;
                 case Recombinator::heterozygous:
-                    score += (found == 1 ? 2 : 0);
+                    score += (found == 1 ? 1 : 0);
                     break;
                 case Recombinator::present:
-                    score += 2 * (found - 1); // -2 for 0, 0 for 1, +2 for 2
+                    score += found - 1; // -1 for 0, 0 for 1, +1 for 2
                     break;
                 default:
                     break;
@@ -1375,7 +1376,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     size_t final_haplotypes = (parameters.diploid_sampling ? 2 : parameters.num_haplotypes);
     std::vector<RecombinatorHaplotype> haplotypes;
     for (size_t i = 0; i < final_haplotypes; i++) {
-        haplotypes.push_back({ chain.offset, i, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
+        haplotypes.push_back({ chain.offset, i + 1, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
     }
 
     Statistics statistics;
