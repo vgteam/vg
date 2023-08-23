@@ -157,7 +157,8 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                 close_chain(forest_state, distance_index, distance_limit, depth, 
                             previous_seed, previous_is_reversed );
 
-            } else if (previous_type == ZipCode::REGULAR_SNARL || previous_type == ZipCode::IRREGULAR_SNARL) { 
+            } else if (previous_type == ZipCode::REGULAR_SNARL || previous_type == ZipCode::IRREGULAR_SNARL 
+                        || previous_type == ZipCode::CYCLIC_SNARL) { 
 
                 close_snarl(forest_state, distance_index, depth, previous_seed, previous_is_reversed);
      
@@ -183,7 +184,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
             ZipCode::code_type_t current_type = current_seed.zipcode_decoder->get_code_type(depth);
 
             if (current_type == ZipCode::NODE || current_type == ZipCode::REGULAR_SNARL || current_type == ZipCode::IRREGULAR_SNARL
-                || current_type == ZipCode::ROOT_NODE) {
+                       || current_type == ZipCode::CYCLIC_SNARL|| current_type == ZipCode::ROOT_NODE) {
 
                 if (current_type == ZipCode::ROOT_NODE && forest_state.sibling_indices_at_depth[depth].empty()) {
                     //If this is a root-level node and the first time we've seen it,
@@ -275,7 +276,7 @@ void ZipCodeForest::fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceI
                             last_seed, last_is_reversed );
 
             } else if (last_type == ZipCode::REGULAR_SNARL || last_type == ZipCode::IRREGULAR_SNARL 
-                        || last_type == ZipCode::ROOT_SNARL) { 
+                       || last_type == ZipCode::CYCLIC_SNARL || last_type == ZipCode::ROOT_SNARL) { 
 
                 close_snarl(forest_state, distance_index, depth, last_seed, last_is_reversed);
 
@@ -1038,6 +1039,7 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(vector<Seed>&
                     net_handle_t snarl_handle = seeds[current_item.value].zipcode_decoder->get_net_handle(snarl_depth, &distance_index);
 #ifdef DEBUG_ZIP_CODE_TREE
                     assert(seeds[current_item.value].zipcode_decoder->get_code_type(snarl_depth) == ZipCode::IRREGULAR_SNARL ||
+                           seeds[current_item.value].zipcode_decoder->get_code_type(snarl_depth) == ZipCode::CYCLIC_SNARL ||
                            seeds[current_item.value].zipcode_decoder->get_code_type(snarl_depth) == ZipCode::ROOT_SNARL);
                     assert(distance_index.is_snarl(snarl_handle));
 #endif
@@ -1876,7 +1878,9 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
             // And 2 will be added to the node with an offset in the node of 0 (node 3 if the chain is traversed forward)
 
             size_t prefix_sum;
-            if (seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::REGULAR_SNARL || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::IRREGULAR_SNARL) { 
+            if (seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::REGULAR_SNARL 
+                || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::IRREGULAR_SNARL
+                || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::CYCLIC_SNARL) { 
                 //If this is a snarl, then get the prefix sum value*3 + 1
                 prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1) * 3,  1);
             } else {
@@ -2029,7 +2033,8 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                 use_radix = true;
             }
 
-            bool reverse_order = (current_type == ZipCode::REGULAR_SNARL || current_type == ZipCode::IRREGULAR_SNARL) 
+            bool reverse_order = (current_type == ZipCode::REGULAR_SNARL || current_type == ZipCode::IRREGULAR_SNARL
+                                    || current_type == ZipCode::CYCLIC_SNARL) 
                                  ? false
                                  : current_interval.is_reversed; 
 
