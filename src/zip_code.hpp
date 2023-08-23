@@ -45,11 +45,14 @@ struct MIPayload;
 class ZipCode {
 
 
-    ///The type of codes that can be stored in the zipcode
-    ///Trivial chains that are children of snarls get saved as a chain with no child node
-    ///EMPTY doesn't actually mean anything, it's used to catch errors
+    /// The type of codes that can be stored in the zipcode
+    /// Trivial chains that are children of snarls get saved as a chain with no child node
+    /// EMPTY doesn't actually mean anything, it's used to catch errors
+    /// Snarls can be regular, irregular, or cyclic. 
+    /// Regular snarls are bubbles. Irregular snarls are snarls that aren't bubbles but are dags
+    /// Cyclic snarls are non-dags. They are stored the same as irregular snarls. Only the type is different
     public:
-    enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
+    enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, CYCLIC_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
     public:
 
         //Fill in an empty zipcode given a position
@@ -148,7 +151,10 @@ class ZipCode {
         const static size_t IRREGULAR_SNARL_SIZE = 6;
 
         //Both regular and irregular snarls have these
-        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+
+        // This will be 0 for irregular snarl, 1 for regular, and 2 for non-dag irregular snarls
+        // cyclic snarls will be identical to irregular snarls except for SNARL_IS_REGULAR
+        const static size_t SNARL_IS_REGULAR_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
 
