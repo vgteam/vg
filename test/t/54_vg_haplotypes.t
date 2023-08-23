@@ -22,7 +22,7 @@ is $? 0 "generating haplotype information"
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference -g indirect.gbz full.gbz
 is $? 0 "sampling from existing haplotype information"
 is $(vg gbwt -S -Z indirect.gbz) 3 "1 generated + 2 reference samples"
-is $(vg gbwt -C -Z indirect.gbz) 4 "2 generated + 2 reference contigs"
+is $(vg gbwt -C -Z indirect.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z indirect.gbz) 6 "4 generated + 2 reference haplotypes"
 
 # Sample the haplotypes directly
@@ -57,7 +57,7 @@ is $? 0 "the sampled graphs are identical"
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling --num-haplotypes 8 -g diploid.gbz full.gbz
 is $? 0 "diploid sampling"
 is $(vg gbwt -S -Z diploid.gbz) 3 "1 generated + 2 reference samples"
-is $(vg gbwt -C -Z diploid.gbz) 4 "2 generated + 2 reference contigs"
+is $(vg gbwt -C -Z diploid.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z diploid.gbz) 4 "2 generated + 2 reference haplotypes"
 
 # Cleanup

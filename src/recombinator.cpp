@@ -15,6 +15,7 @@ namespace vg {
 
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
+constexpr std::uint32_t Haplotypes::Header::MIN_VERSION;
 constexpr std::uint64_t Haplotypes::Header::DEFAULT_K;
 
 constexpr size_t HaplotypePartitioner::SUBCHAIN_LENGTH;
@@ -196,6 +197,7 @@ size_t Haplotypes::Subchain::simple_sds_size() const {
 void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<size_t>(this->offset, out);
     sdsl::simple_sds::serialize_value<size_t>(this->job_id, out);
+    sdsl::simple_sds::serialize_string(this->contig_name, out);
     sdsl::simple_sds::serialize_value<size_t>(this->subchains.size(), out);
     for (auto& subchain : this->subchains) {
         subchain.simple_sds_serialize(out);
@@ -205,6 +207,18 @@ void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out) const {
 void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
     this->offset = sdsl::simple_sds::load_value<size_t>(in);
     this->job_id = sdsl::simple_sds::load_value<size_t>(in);
+    this->contig_name = sdsl::simple_sds::load_string(in);
+    size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
+    this->subchains.resize(subchain_count);
+    for (size_t i = 0; i < subchain_count; i++) {
+        this->subchains[i].simple_sds_load(in);
+    }
+}
+
+void Haplotypes::TopLevelChain::load_old(std::istream& in) {
+    this->offset = sdsl::simple_sds::load_value<size_t>(in);
+    this->job_id = sdsl::simple_sds::load_value<size_t>(in);
+    this->contig_name = "chain_" + std::to_string(this->offset);
     size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
     this->subchains.resize(subchain_count);
     for (size_t i = 0; i < subchain_count; i++) {
@@ -214,6 +228,7 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
 
 size_t Haplotypes::TopLevelChain::simple_sds_size() const {
     size_t result = 3 * sdsl::simple_sds::value_size<size_t>();
+    result += sdsl::simple_sds::string_size(this->contig_name);
     for (auto& subchain : this->subchains) {
         result += subchain.simple_sds_size();
     }
@@ -234,17 +249,25 @@ void Haplotypes::simple_sds_load(std::istream& in) {
         throw sdsl::simple_sds::InvalidData("Haplotypes::simple_sds_load(): Expected magic number " + std::to_string(Header::MAGIC_NUMBER) +
             ", got " + std::to_string(this->header.magic_number));
     }
-    if (this->header.version != Header::VERSION) {
-        throw sdsl::simple_sds::InvalidData("Haplotypes::simple_sds_load(): Expected version " + std::to_string(Header::VERSION) +
-            ", got " + std::to_string(this->header.version));
+    if (this->header.version < Header::MIN_VERSION || this->header.version > Header::VERSION) {
+        std::string msg = "Haplotypes::simple_sds_load(): Expected version " + std::to_string(Header::MIN_VERSION)
+            + " to " + std::to_string(Header::VERSION) + ", got version " + std::to_string(this->header.version);
+        throw sdsl::simple_sds::InvalidData(msg);
     }
 
     this->jobs_for_cached_paths = sdsl::simple_sds::load_vector<size_t>(in);
 
     this->chains.resize(this->header.top_level_chains);
     for (auto& chain : this->chains) {
-        chain.simple_sds_load(in);
+        if (this->header.version == Header::VERSION) {
+            chain.simple_sds_load(in);
+        } else {
+            chain.load_old(in);
+        }
     }
+
+    // Update to the current version.
+    this->header.version = Header::VERSION;
 }
 
 size_t Haplotypes::simple_sds_size() const {
@@ -285,24 +308,41 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     Haplotypes result;
     result.header.k = this->minimizer_index.k();
 
-    // Determine top-level chains and assign them to jobs.
+    // Determine top-level chains.
     double start = gbwt::readTimer();
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Determining construction jobs" << std::endl;
     }
     size_t size_bound = this->gbz.graph.get_node_count() / parameters.approximate_jobs;
     gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
-    auto chains_by_job = gbwtgraph::partition_chains(this->distance_index, this->gbz.graph, jobs);
     result.header.top_level_chains = jobs.components;
     result.header.construction_jobs = jobs.size();
     result.chains.resize(result.components());
     for (size_t chain_id = 0; chain_id < result.components(); chain_id++) {
         result.chains[chain_id].offset = chain_id;
-        result.chains[chain_id].job_id = result.jobs(); // Not assigned to any job.
+        result.chains[chain_id].job_id = result.jobs(); // Not assigned to any job yet.
+        result.chains[chain_id].contig_name = "chain_" + std::to_string(chain_id); // Placeholder name.
     }
+
+    // Assign chains to jobs and determine contig names.
+    auto chains_by_job = gbwtgraph::partition_chains(this->distance_index, this->gbz.graph, jobs);
     for (size_t job_id = 0; job_id < result.jobs(); job_id++) {
         for (auto& chain : chains_by_job[job_id]) {
             result.chains[chain.offset].job_id = job_id;
+            auto da = this->r_index.decompressDA(gbwtgraph::GBWTGraph::handle_to_node(chain.handle));
+            for (gbwt::size_type seq_id : da) {
+                gbwt::size_type path_id = gbwt::Path::id(seq_id);
+                auto iter = this->gbz.graph.id_to_path.find(path_id);
+                if (iter != this->gbz.graph.id_to_path.end()) {
+                    // This is a generic / reference path. Use its contig name for the chain.
+                    gbwt::PathName path_name = this->gbz.index.metadata.path(path_id);
+                    result.chains[chain.offset].contig_name = this->gbz.index.metadata.contig(path_name.contig);
+                    if (this->verbosity >= Haplotypes::verbosity_debug) {
+                        std::cerr << "Using contig name " << result.chains[chain.offset].contig_name << " for chain " << chain.offset << std::endl;
+                    }
+                    break;
+                }
+            }
         }
     }
 
@@ -732,9 +772,8 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
 struct RecombinatorHaplotype {
     typedef Recombinator::sequence_type sequence_type;
 
-    // Contig identifier in GBWT metadata.
-    // Offset of the top-level chain in the children of the root snarl.
-    size_t chain;
+    // Contig name in GBWT metadata.
+    const std::string& contig_name;
 
     // Haplotype identifier in GBWT metadata.
     size_t id;
@@ -920,11 +959,9 @@ void RecombinatorHaplotype::insert(gbwt::GBWTBuilder& builder) {
         builder.index.metadata.addSamples({ sample_name });
     }
 
-    // FIXME: Get the contig name from the graph if possible.
-    std::string contig_name = "chain_" + std::to_string(this->chain);
-    gbwt::size_type contig_id = builder.index.metadata.contig(contig_name);
+    gbwt::size_type contig_id = builder.index.metadata.contig(this->contig_name);
     if (contig_id >= builder.index.metadata.contigs()) {
-        builder.index.metadata.addContigs({ contig_name });
+        builder.index.metadata.addContigs({ this->contig_name });
     }
 
     builder.index.metadata.addPath(sample_id, contig_id, this->id, this->fragment);
@@ -1376,7 +1413,7 @@ Recombinator::Statistics Recombinator::generate_haplotypes(const Haplotypes::Top
     size_t final_haplotypes = (parameters.diploid_sampling ? 2 : parameters.num_haplotypes);
     std::vector<RecombinatorHaplotype> haplotypes;
     for (size_t i = 0; i < final_haplotypes; i++) {
-        haplotypes.push_back({ chain.offset, i + 1, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
+        haplotypes.push_back({ chain.contig_name, i + 1, 0, gbwt::invalid_sequence(), gbwt::invalid_edge(), {} });
     }
 
     Statistics statistics;
