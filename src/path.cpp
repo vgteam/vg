@@ -1665,6 +1665,10 @@ bool mapping_is_total_deletion(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
 }
 
+bool mapping_is_total_insertion(const Mapping& m) {
+    return m.edit_size() == 1 && edit_is_insertion(m.edit(0));
+}
+
 bool mapping_is_simple_match(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_match(m.edit(0));
 }

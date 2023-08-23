@@ -4034,6 +4034,36 @@ static int32_t flank_penalty(size_t length, const std::vector<pareto_point>& fro
     return result;
 }
 
+/// A helper function that cna merge softclips in properly when joining up
+/// paths, but doesn't need expensive full passes over the paths later.
+static inline void add_to_path(Path* target, Path* to_append) {
+    for (auto& mapping : *to_append->mutable_mapping()) {
+        // For each mapping to append
+        if (target->mapping_size() > 0) {
+            // There is an existing mapping on the path.
+            // Find that previous mapping.
+            auto* prev_mapping = target->mutable_mapping(target->mapping_size() - 1);
+
+            if (mapping.position().node_id() == prev_mapping->position().node_id() && 
+                (mapping.position().offset() != 0 || mapping_is_total_insertion(*prev_mapping) || mapping_is_total_insertion(mapping))) {
+                // Previous mapping is to the same node, and either the new
+                // mapping doesn't start at 0, or one mapping takes up no
+                // space on the node (i.e. is a pure insert).
+                //
+                // So we want to combine the mappings.
+                for (auto& edit : *mapping.mutable_edit()) {
+                    // Move over all the edits in this mapping onto the end of that one.
+                    *prev_mapping->add_edit() = std::move(edit);
+                }
+
+                continue;
+            }
+        }
+        // If we don't combine the mappings, we need to just move the whole mapping
+        *target->add_mapping() = std::move(mapping);
+    }
+};
+
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const {
 
     // This assumes that full-length extensions have the highest scores.
@@ -4270,64 +4300,22 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     best.set_score(winning_score);
     second_best.set_score(second_score);
 
-    // Concatenate the paths. We know there must be at least an edit boundary
+    // Concatenate the paths.
+
+    // We know there must be at least an edit boundary
     // between each part, because the maximal extension doesn't end in a
     // mismatch or indel and eats all matches.
     // We also don't need to worry about jumps that skip intervening sequence.
     *best.mutable_path() = std::move(winning_left);
-
-    for (auto* to_append : {&winning_middle, &winning_right}) {
-        // For each path to append
-        for (auto& mapping : *to_append->mutable_mapping()) {
-            // For each mapping to append
-            
-            if (mapping.position().offset() != 0 && best.path().mapping_size() > 0) {
-                // If we have a nonzero offset in our mapping, and we follow
-                // something, we must be continuing on from a previous mapping to
-                // the node.
-                crash_unless(mapping.position().node_id() == best.path().mapping(best.path().mapping_size() - 1).position().node_id());
-
-                // Find that previous mapping
-                auto* prev_mapping = best.mutable_path()->mutable_mapping(best.path().mapping_size() - 1);
-                for (auto& edit : *mapping.mutable_edit()) {
-                    // Move over all the edits in this mapping onto the end of that one.
-                    *prev_mapping->add_edit() = std::move(edit);
-                }
-            } else {
-                // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
-                *best.mutable_path()->add_mapping() = std::move(mapping);
-            }
-        }
-    }
+    add_to_path(best.mutable_path(), &winning_middle);
+    add_to_path(best.mutable_path(), &winning_right);
+    // Compute the identity from the path.
     best.set_identity(identity(best.path()));
+    
     //Do the same for the second best
     *second_best.mutable_path() = std::move(second_left);
-
-    for (auto* to_append : {&second_middle, &second_right}) {
-        // For each path to append
-        for (auto& mapping : *to_append->mutable_mapping()) {
-            // For each mapping to append
-            
-            if (mapping.position().offset() != 0 && second_best.path().mapping_size() > 0) {
-                // If we have a nonzero offset in our mapping, and we follow
-                // something, we must be continuing on from a previous mapping to
-                // the node.
-                crash_unless(mapping.position().node_id() == second_best.path().mapping(second_best.path().mapping_size() - 1).position().node_id());
-
-                // Find that previous mapping
-                auto* prev_mapping = second_best.mutable_path()->mutable_mapping(second_best.path().mapping_size() - 1);
-                for (auto& edit : *mapping.mutable_edit()) {
-                    // Move over all the edits in this mapping onto the end of that one.
-                    *prev_mapping->add_edit() = std::move(edit);
-                }
-            } else {
-                // If we start at offset 0 or there's nothing before us, we need to just move the whole mapping
-                *second_best.mutable_path()->add_mapping() = std::move(mapping);
-            }
-        }
-    }
-
-    // Compute the identity from the path.
+    add_to_path(second_best.mutable_path(), &second_middle);
+    add_to_path(second_best.mutable_path(), &second_right);
     second_best.set_identity(identity(second_best.path()));
 }
 
