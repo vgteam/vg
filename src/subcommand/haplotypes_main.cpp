@@ -514,7 +514,13 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
 
     // Partition the haplotypes.
     HaplotypePartitioner partitioner(gbz, r_index, distance_index, minimizer_index, config.verbosity);
-    haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
+    try {
+        haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
+    }
+    catch (const std::runtime_error& e) {
+        std::cerr << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Generated haplotype information in " << seconds << " seconds" << std::endl;

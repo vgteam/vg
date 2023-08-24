@@ -2,6 +2,7 @@
 
 #include "kff.hpp"
 #include "statistics.hpp"
+#include "algorithms/component.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -313,8 +314,20 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     if (this->verbosity >= Haplotypes::verbosity_basic) {
         std::cerr << "Determining construction jobs" << std::endl;
     }
+    size_t total_chains = 0;
+    this->distance_index.for_each_child(this->distance_index.get_root(), [&](const handlegraph::net_handle_t&) {
+        total_chains++;
+    });
     size_t size_bound = this->gbz.graph.get_node_count() / parameters.approximate_jobs;
     gbwtgraph::ConstructionJobs jobs = gbwtgraph::gbwt_construction_jobs(this->gbz.graph, size_bound);
+    if (jobs.components != total_chains) {
+        // TODO: Could we instead identify the components with multiple top-level chains
+        // and skip them?
+        std::string msg = "HaplotypePartitioner::partition_haplotypes(): there are "
+            + std::to_string(total_chains) + " top-level chains and " + std::to_string(jobs.components)
+            + " weakly connected components; haplotype sampling cannot be used with this graph";
+        throw std::runtime_error(msg);
+    }
     result.header.top_level_chains = jobs.components;
     result.header.construction_jobs = jobs.size();
     result.chains.resize(result.components());
