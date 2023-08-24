@@ -40,6 +40,22 @@ struct compare_gaf {
         return rk11 < rk12 || (rk11 == rk12 && rk21 < rk22);
     }
 };
+// defines a pair of a GAF record and the ID of the file it came from (used when merging sorted GAF files)
+struct GafFile {
+    gafkluge::GafRecord gaf;
+    int file_i;
+};
+// comparator used by the min-heap when merging sorted GAF files
+struct greater_gaffile {
+    bool operator()(const GafFile& gf1, const GafFile& gf2) {
+        // TODO find a way to not have to convert the node ids to string before and then back to int here?
+        long long rk11 = std::stoll(gf1.gaf.opt_fields.find("rk1")->second.second);
+        long long rk12 = std::stoll(gf2.gaf.opt_fields.find("rk1")->second.second);
+        long long rk21 = std::stoll(gf1.gaf.opt_fields.find("rk2")->second.second);
+        long long rk22 = std::stoll(gf2.gaf.opt_fields.find("rk2")->second.second);
+        return rk11 > rk12 || (rk11 == rk12 && rk21 > rk22);
+    }
+};
 
 int main_gamsort(int argc, char **argv)
 {
@@ -237,15 +253,17 @@ int main_gamsort(int argc, char **argv)
         if(show_progress){
             cerr << "Merging " << chunk_files.size() << " files..." << endl;
         }
-
+        
         std::vector<htsFile*> opened_files;
         std::vector<bool> more_in_file;
         std::vector<kstring_t> opened_file_buffers;
-        std::vector<gafkluge::GafRecord> opened_records;
+        // heap with the current GAF record of each file
+        std::priority_queue<GafFile, std::vector<GafFile>, greater_gaffile > opened_records;
 
         std::string line;
 
         // open the temp GAF files and read the first record
+        GafFile gf;
         for(int ii=0; ii < chunk_files.size(); ii++){
             htsFile* in = hts_open(chunk_files[ii].c_str(), "r");
             if (in == NULL) {
@@ -253,46 +271,24 @@ int main_gamsort(int argc, char **argv)
             }
             opened_file_buffers.push_back(KS_INITIALIZE);
             opened_files.push_back(in);
-            more_in_file.push_back(vg::io::get_next_record_from_gaf(nullptr, nullptr, opened_files.back(), opened_file_buffers.back(), gaf));
-            opened_records.push_back(gaf);
+            if(vg::io::get_next_record_from_gaf(nullptr, nullptr, opened_files.back(), opened_file_buffers.back(), gaf)){
+                gf.gaf = gaf;
+                gf.file_i = ii;
+                opened_records.push(gf);
+            }
         }
 
-        // merge one by one until no more to read for all files
-        bool more_to_merge = true;
-        while(more_to_merge){
+        while(opened_records.size() > 0){
             // which file will have the smallest record (i.e. to output first)
-            int smallest_file = -1;
-            // compare current gaf records
-            for(int ii = 0; ii<opened_records.size(); ii++){
-                // if file had more to merge...
-                if(more_in_file[ii]){
-                    // ... init smallest record if first one, ...
-                    if(smallest_file < 0){
-                        smallest_file = ii;
-                    } else if(compare_gaf()(opened_records[ii], opened_records[smallest_file])){
-                        // ... or compare to current smallest record
-                        smallest_file = ii;      
-                    }
-                }
-            }
+            gf = opened_records.top();
             // output smallest record
-            cout << opened_records[smallest_file] << endl;
-            more_in_file[smallest_file] = vg::io::get_next_record_from_gaf(nullptr, nullptr, opened_files[smallest_file], opened_file_buffers[smallest_file], gaf);
-            opened_records[smallest_file] = gaf;            
-            // check if any opened file has more to merge
-            more_to_merge = false;
-            for(auto mif : more_in_file){
-                more_to_merge = more_to_merge or mif;
+            cout << gf.gaf << endl;
+            opened_records.pop();
+            if(vg::io::get_next_record_from_gaf(nullptr, nullptr, opened_files[gf.file_i], opened_file_buffers[gf.file_i], gf.gaf)){
+                opened_records.push(gf);
             }
         }
-        
-        // remove temporary files
-        for(int ii=0; ii < chunk_files.size(); ii++){
-            if(show_progress){
-                cerr << "removing " << chunk_files[ii] << endl;
-            }
-            std::remove(chunk_files[ii].c_str());
-        }
+
     }
     return 0;
 }
