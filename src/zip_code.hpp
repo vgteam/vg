@@ -271,7 +271,7 @@ class ZipCodeDecoder {
     size_t get_rank_in_snarl(const size_t& depth) ;
 
     ///Get the number of children in a snarl. Throw an exception if it isn't a snarl
-    size_t get_snarl_child_count(const size_t& depth) ;
+    size_t get_snarl_child_count(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) ;
 
     ///Get the prefix sum of a child of a chain
     ///This requires the distance index for irregular snarls (except for a top-level snarl)

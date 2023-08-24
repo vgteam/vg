@@ -429,15 +429,20 @@ size_t ZipCodeDecoder::get_rank_in_snarl(const size_t& depth) {
     }
 }
 
-size_t ZipCodeDecoder::get_snarl_child_count(const size_t& depth) {
+size_t ZipCodeDecoder::get_snarl_child_count(const size_t& depth, const SnarlDistanceIndex* distance_index) {
 
 
-    if (!decoder[depth].first) {
+    if (depth == 0) {
+        //TODO: This could be actually saved in the zipcode but I'll have to go to the distance index anyway
+        assert(distance_index != nullptr);
+        size_t child_count = 0;
+        distance_index->for_each_child(get_net_handle(depth, distance_index), [&] (const net_handle_t& child) {
+            child_count++;
+        });
+        return child_count;
+
+    } else if (!decoder[depth].first) {
         //If this is a snarl
-
-        if (decoder[depth-1].first) {
-            throw std::runtime_error("zipcodes trying to find the rank in snarl of a node in a chain");
-        }
 
         size_t zip_value;
         size_t zip_index = decoder[depth].second;

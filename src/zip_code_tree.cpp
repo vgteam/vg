@@ -2028,9 +2028,11 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                 use_radix = radix_cost < default_cost;
             } else {
                 //Otherwise, this is a snarl and the range of values is the number of children in the snarl
-                //TODO: Since the zipcodes don't store this, and I'm pretty sure it will be small, for now default to radix
 
-                use_radix = true;
+                size_t radix_cost = seed_to_sort.zipcode_decoder->get_snarl_child_count(depth, &distance_index);
+                size_t default_cost = (current_interval.interval_end - current_interval.interval_start) * std::log2(current_interval.interval_end - current_interval.interval_start);
+
+                use_radix = radix_cost < default_cost;
             }
 
             bool reverse_order = (current_type == ZipCode::REGULAR_SNARL || current_type == ZipCode::IRREGULAR_SNARL
@@ -2038,12 +2040,21 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                                  ? false
                                  : current_interval.is_reversed; 
 
-            if (use_radix) {
-                //Sort the given interval using the value-getter and orientation
-                radix_sort_zipcodes(zipcode_sort_order, current_interval, reverse_order, depth, distance_index, get_sort_value);
+
+            if (false) {//current_type == ZipCode::CYCLIC_SNARL) {
+                // If this is a cyclic snarl, then the children should be sorted by both their position on the graph
+                // and their offset on the read
+                sort_zipcodes_on_cyclic_snarl(zipcode_sort_order, current_interval, current_interval.is_reversed,
+                                              depth, distance_index);
             } else {
-                //Sort the given interval using the value-getter and orientation
-                default_sort_zipcodes(zipcode_sort_order, current_interval, reverse_order, depth, distance_index, get_sort_value);
+                //For everything except a cyclic snarl, sort normally
+                if (use_radix) {
+                    //Sort the given interval using the value-getter and orientation
+                    radix_sort_zipcodes(zipcode_sort_order, current_interval, reverse_order, depth, distance_index, get_sort_value);
+                } else {
+                    //Sort the given interval using the value-getter and orientation
+                    default_sort_zipcodes(zipcode_sort_order, current_interval, reverse_order, depth, distance_index, get_sort_value);
+                }
             }
 
             find_next_intervals(current_interval, depth, zipcode_sort_order, new_intervals_to_sort, get_sort_value);
@@ -2127,6 +2138,117 @@ void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, co
         return reverse_order ? get_sort_value(seeds->at(a), depth) > get_sort_value(seeds->at(b), depth)
                              : get_sort_value(seeds->at(a), depth) < get_sort_value(seeds->at(b), depth);
     });
+}
+
+void ZipCodeForest::sort_zipcodes_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
+                             bool snarl_is_reversed, size_t depth, const SnarlDistanceIndex& distance_index) const {
+                                 //TODO: IDK about snarl_is_reversed
+    /**** First, sort by the child that the seeds are on, duplicating for seeds that are reversed on the child ****/
+    
+    bool use_radix = false; 
+    radix_sort_zipcodes(zipcode_sort_order, interval, snarl_is_reversed, depth, distance_index, [&] (Seed& seed, size_t depth) {
+        return ZipCodeTree::seed_is_reversed_at_depth(seed, depth, distance_index)
+                     ? seed.zipcode_decoder->get_snarl_child_count(depth, &distance_index) + seed.zipcode_decoder->get_rank_in_snarl(depth+1)
+                     : seed.zipcode_decoder->get_rank_in_snarl(depth+1);
+    });
+
+    /****Find the intervals of the children ****/
+
+    vector<interval_and_orientation_t> child_intervals;
+
+    //Remember the largest and smallest read offsets, so we can determine if its faster to do radix or nlogn sort
+    size_t min_read_offset = seeds->at(zipcode_sort_order[interval.interval_start]).source;
+    size_t max_read_offset = min_read_offset; 
+
+    size_t start_of_current_run = interval.interval_start;
+    for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
+        min_read_offset = std::min(min_read_offset, seeds->at(zipcode_sort_order[i]).source); 
+        max_read_offset = std::max(max_read_offset, seeds->at(zipcode_sort_order[i]).source);
+           
+        //Are the seeds on different children of the snarl? 
+        bool is_different_from_previous = !ZipCodeDecoder::is_equal(*seeds->at(zipcode_sort_order[i]).zipcode_decoder, 
+                                                                   *seeds->at(zipcode_sort_order[i-1]).zipcode_decoder, depth+1);
+        bool is_last = i == interval.interval_end-1;
+        if (is_different_from_previous && i-1 != start_of_current_run) {
+            //If this is the end of a run of more than one thing
+            //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
+            //it won't reach here
+
+            child_intervals.emplace_back(start_of_current_run,  i, false);
+            
+            start_of_current_run = i;
+        } else if (is_last && !is_different_from_previous) {
+            //If this is the last thing in the sorted list, and the previous thing was in the same run
+
+            child_intervals.emplace_back(start_of_current_run, i+1, false);
+
+        } else if (is_different_from_previous) {
+            start_of_current_run = i;
+        }
+    }
+
+    /**** For each child interval, sort the seeds by their offset in the read ****/
+
+    for (const interval_and_orientation_t& child_interval : child_intervals) {
+
+        //First, which sort should we use?
+        size_t radix_cost = max_read_offset - min_read_offset;
+        size_t default_cost = (child_interval.interval_end - child_interval.interval_start) * 
+                              std::log2(child_interval.interval_end - child_interval.interval_start);
+
+        bool use_radix = radix_cost < default_cost;
+
+        //TODO: What should the orientation be?
+        if (use_radix) {
+            radix_sort_zipcodes(zipcode_sort_order, child_interval, 
+                        snarl_is_reversed, std::numeric_limits<size_t>::max(), distance_index,
+                        [&](Seed& seed, size_t depth) {
+                            //Sort on the offset in the read
+                            return seed.source;
+                        });
+        } else {
+            default_sort_zipcodes(zipcode_sort_order, child_interval, 
+                        snarl_is_reversed, std::numeric_limits<size_t>::max(), distance_index,
+                        [&](Seed& seed, size_t depth) {
+                            //Sort on the offset in the read
+                            return seed.source;
+                        });
+        }
+    }
+
+    /****** Find intervals along each child where the order of the read and the order in the chain disagree  *******/
+
+    vector<interval_and_orientation_t> read_intervals;
+    for (const interval_and_orientation_t& child_interval : child_intervals) {
+        //For each child interval, split into new intervals if the order in the read differs from the order in the graph
+
+        start_of_current_run = interval.interval_start;
+        for (size_t i = child_interval.interval_start ; i < child_interval.interval_end ; i++) {
+
+            //Is the read going in the wrong direction? 
+            bool is_different_from_previous = false;
+
+            bool is_last = i == interval.interval_end-1;
+            if (is_different_from_previous && i-1 != start_of_current_run) {
+                //If this is the end of a run of more than one thing
+                //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
+                //it won't reach here
+
+                read_intervals.emplace_back(start_of_current_run,  i, false);
+                
+                start_of_current_run = i;
+            } else if (is_last && !is_different_from_previous) {
+                //If this is the last thing in the sorted list, and the previous thing was in the same run
+
+                read_intervals.emplace_back(start_of_current_run, i+1, false);
+
+            } else if (is_different_from_previous) {
+                start_of_current_run = i;
+            }
+        }
+    }
+
+    return;
 }
 
 }
