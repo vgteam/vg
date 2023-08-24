@@ -147,8 +147,8 @@ class ZipCode {
         const static size_t CHAIN_LENGTH_OFFSET = 1;
 
         ///Offsets for snarl codes
-        const static size_t REGULAR_SNARL_SIZE = 4;
-        const static size_t IRREGULAR_SNARL_SIZE = 6;
+        const static size_t REGULAR_SNARL_SIZE = 5;
+        const static size_t IRREGULAR_SNARL_SIZE = 7;
 
         //Both regular and irregular snarls have these
 
@@ -157,14 +157,15 @@ class ZipCode {
         const static size_t SNARL_IS_REGULAR_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
+        const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
 
         //Only for regular snarls
-        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
+        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 4;
 
         //Only for irregular snarls
-        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 3;
-        const static size_t IRREGULAR_SNARL_DISTANCE_START_OFFSET = 4;
-        const static size_t IRREGULAR_SNARL_DISTANCE_END_OFFSET = 5;
+        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 4;
+        const static size_t IRREGULAR_SNARL_DISTANCE_START_OFFSET = 5;
+        const static size_t IRREGULAR_SNARL_DISTANCE_END_OFFSET = 6;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -268,6 +269,9 @@ class ZipCodeDecoder {
 
     ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
     size_t get_rank_in_snarl(const size_t& depth) ;
+
+    ///Get the number of children in a snarl. Throw an exception if it isn't a snarl
+    size_t get_snarl_child_count(const size_t& depth) ;
 
     ///Get the prefix sum of a child of a chain
     ///This requires the distance index for irregular snarls (except for a top-level snarl)

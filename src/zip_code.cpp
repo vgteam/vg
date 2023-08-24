@@ -429,6 +429,28 @@ size_t ZipCodeDecoder::get_rank_in_snarl(const size_t& depth) {
     }
 }
 
+size_t ZipCodeDecoder::get_snarl_child_count(const size_t& depth) {
+
+
+    if (!decoder[depth].first) {
+        //If this is a snarl
+
+        if (decoder[depth-1].first) {
+            throw std::runtime_error("zipcodes trying to find the rank in snarl of a node in a chain");
+        }
+
+        size_t zip_value;
+        size_t zip_index = decoder[depth].second;
+        for (size_t i = 0 ; i <= ZipCode::SNARL_CHILD_COUNT_OFFSET ; i++) {
+            std::tie(zip_value, zip_index) = zipcode->zipcode.get_value_and_next_index(zip_index);
+        }
+        return zip_value;
+    } else {
+        //If this is not a snarl
+        throw std::runtime_error("trying to get the snarl child count of a non-snarl zipcode");
+    }
+}
+
 size_t ZipCodeDecoder::get_offset_in_chain(const size_t& depth, const SnarlDistanceIndex* distance_index) {
 
 
@@ -727,6 +749,13 @@ vector<size_t> ZipCode::get_regular_snarl_code(const net_handle_t& snarl, const 
     //Tag to say that it's a regular snarl
     snarl_code[SNARL_IS_REGULAR_OFFSET] = 1;
 
+    //The number of children
+    size_t child_count = 0;
+    distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
+        child_count++;
+    });
+    snarl_code[SNARL_CHILD_COUNT_OFFSET] = child_count;
+
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
     size_t prefix_sum = SnarlDistanceIndex::sum(distance_index.get_prefix_sum_value(start_node), distance_index.minimum_length(start_node));
@@ -753,6 +782,13 @@ vector<size_t> ZipCode::get_irregular_snarl_code(const net_handle_t& snarl, cons
 
     //Tag to say that it's an irregular snarl
     snarl_code[SNARL_IS_REGULAR_OFFSET] = distance_index.is_dag(snarl) ? 0 : 2;
+
+    //The number of children
+    size_t child_count = 0;
+    distance_index.for_each_child(snarl, [&] (const net_handle_t& child) {
+        child_count++;
+    });
+    snarl_code[SNARL_CHILD_COUNT_OFFSET] = child_count;
 
     //Chain prefix sum value for the start of the snarl, which is the prefix sum of the start node + length of the start node
     net_handle_t start_node = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl, false, false));
