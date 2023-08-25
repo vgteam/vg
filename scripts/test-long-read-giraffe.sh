@@ -121,6 +121,7 @@ for STAGE in minimizer seed tree fragment chain align winner ; do
     echo ${OUT_DIR}/read-time-${STAGE}.tsv
     printf "$(cat "${OUT_DIR}/read-time-${STAGE}.tsv" | mean.sh)\t" >>"${PLOT_DIR}/stats.tsv"
 done
+ printf "\n" >>"${PLOT_DIR}/stats.tsv"
 
 cat "${PLOT_DIR}/stats.tsv"
 

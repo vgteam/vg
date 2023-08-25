@@ -269,7 +269,7 @@ public:
     
     /// Disregard the chain score thresholds when they would give us
     /// fewer than this many chains.
-    static constexpr int default_min_chains = 1;
+    static constexpr int default_min_chains = 2;
     int min_chains = default_min_chains;
     
     /// Even if we would have fewer than min_chains results, don't
