@@ -1157,5 +1157,55 @@ void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHand
     
 }
 
+void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose) {
+    unordered_set<edge_t> edges_to_delete;
+    int64_t stubbified_path_count = 0; // just for logging
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+        string path_name = graph->get_path_name(path_handle);
+        for (const string& ref_prefix : ref_prefixes) {
+            bool was_stubbified = false;
+            if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                step_handle_t first_step = graph->path_begin(path_handle);
+                handle_t first_handle = graph->get_handle_of_step(first_step);
+                graph->follow_edges(first_handle, !graph->get_is_reverse(first_handle), [&](handle_t next_handle) {
+                    edge_t edge = graph->get_is_reverse(first_handle) ? graph->edge_handle(first_handle, next_handle) :
+                        graph->edge_handle(next_handle, first_handle);
+                    edges_to_delete.insert(edge);
+                    was_stubbified = true;
+                });
+
+                step_handle_t last_step = graph->path_back(path_handle);
+                handle_t last_handle = graph->get_handle_of_step(last_step);
+                graph->follow_edges(last_handle, graph->get_is_reverse(last_handle), [&](handle_t next_handle) {
+                    edge_t edge = graph->get_is_reverse(last_handle) ? graph->edge_handle(next_handle, last_handle) :
+                        graph->edge_handle(last_handle, next_handle);
+                    edges_to_delete.insert(edge);
+                    was_stubbified = true;
+                });
+            }
+            if (was_stubbified) {
+                ++stubbified_path_count;
+            }
+        }
+    });
+
+    // just for logging
+    unordered_map<string, size_t> clip_counts;
+
+    if (verbose) {
+        cerr << "[vg-clip]: Clipping " << edges_to_delete.size() << " edges to stubbify " << stubbified_path_count
+             << " reference paths" << endl;
+    }
+
+    // delete the edges
+    delete_nodes_and_chop_paths(graph, {}, edges_to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
+
+    if (verbose) {
+        for (const auto& kv : clip_counts) {
+            cerr << "[vg-clip]: Ref path stubbification creating " << kv.second << " fragments from path " << kv.first << endl;
+        }
+        clip_counts.clear();
+    }    
+}
 
 }

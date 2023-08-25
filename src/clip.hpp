@@ -93,6 +93,11 @@ void clip_contained_stubs(MutablePathMutableHandleGraph* graph, PathPositionHand
                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose);
 
 
+/**
+ * stubbify reference
+ */
+void stubbify_ref_paths(MutablePathMutableHandleGraph* graph, const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose);
+
 }
 
 
