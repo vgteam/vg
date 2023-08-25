@@ -235,7 +235,7 @@ class ZipCodeDecoder {
     ///Constructor that goes through the zipcode and decodes it to fill in decoder
     ///If a depth is given, then only fill in up to depth snarl tree nodes
     ///Otherwise, fill in the whole zipcode
-    ZipCodeDecoder(const ZipCode* zipcode, const size_t& depth=std::numeric_limits<size_t>::max());
+    ZipCodeDecoder(const ZipCode* zipcode);
 
     ///Go through the entire zipcode and fill in the decoder
     void fill_in_full_decoder();

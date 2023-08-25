@@ -134,7 +134,7 @@ public:
     void print_self() const;
 
     ///Check that the tree is correct
-    void validate_zip_tree(const SnarlDistanceIndex& distance_index) const;
+    void validate_zip_tree(const SnarlDistanceIndex& distance_index, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
     ///Get the number of items in the tree
     size_t get_tree_size() const {return zip_code_tree.size();};
@@ -386,6 +386,8 @@ class ZipCodeForest {
     /// If a distance limit is given, then also partition the tree into subtrees that are
     /// farther than the distance_limit from each other
     /// Otherwise, the forest will just be connected components
+    /// If a distance limit is given, then distances larger than the distance limit are not
+    /// guaranteed to be accurate
     void fill_in_forest(vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
                       size_t distance_limit = std::numeric_limits<size_t>::max());
     private:
@@ -396,16 +398,21 @@ class ZipCodeForest {
 
     public:
 
-    size_t tree_count() const { return trees.size(); }
-
     /// Return the sort order of the seeds
     /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
     /// Uses radix_sort_zipcodes and default_sort_zipcodes
     vector<size_t> sort_seeds_by_zipcode(const SnarlDistanceIndex& distance_index) const;
 
     void print_self() const {
-        for (const auto& tree : trees) {
+        for (size_t i = 0 ; i < trees.size() ; i++) {
+            const auto& tree = trees[i];
+            cerr << i << ": ";
             tree.print_self();
+        }
+    }
+    void validate_zip_forest(const SnarlDistanceIndex& distance_index, size_t distance_limit=std::numeric_limits<size_t>::max()) const {
+        for (const auto& tree : trees) {
+            tree.validate_zip_tree(distance_index, distance_limit);
         }
     }
 
@@ -445,6 +452,97 @@ class ZipCodeForest {
     void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
                              bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
                              const std::function<size_t(Seed& seed, size_t depth)>& get_sort_value) const; 
+
+    //////////////////// data structures and helper functions for building the forest
+
+    //For children of snarls, we need to remember the siblings and start bound that came before them
+    //so we can record their distances
+    //This holds the indices (into zip_code_tree) of each seed or start of a chain,
+    // and each start and child chain start of a snarl
+    //The children are stored at the depth of their parents. For example, for a root chain,
+    //the vector at index 0 would have the chain start, seeds that are on the chain, and the start
+    //of snarls on the chain. Similarly, for a top-level snarl, at depth 1, the second vector would contain
+    //the starts of chains at depth 2 
+    //For the children of a chain, the value is the prefix sum in the chain (relative to the orientation 
+    //of the top-level chain, not necessarily the chain itself)
+    //For the children of a snarl, the value is the index of the CHAIN_START in zip_code_tree.
+    //  The first seed in the chain will need to be found by looping through zip_code_tree
+    struct child_info_t {
+        ZipCodeTree::tree_item_type_t type;  //the type of the item
+        size_t value;  //A value associated with the item, either the offset in a chain, index of the snarl child start
+    
+        //For the children of snarls, the distance to the left and right of the chain, that gets added to
+        //edges in the snarl
+        std::pair<size_t, size_t> distances;
+    };
+
+
+    /// This stores information about the state of the forest as we fill it in
+    struct forest_growing_state_t {
+
+        //Stores the previous things of the current structure at each depth
+        vector<vector<child_info_t>> sibling_indices_at_depth;
+
+        // We build a forest of trees. A new tree is formed either when a new top-level chain is found
+        // (or a slice of a top-level chain if it is far enough away from the previous thing in the chain),
+        // or when part of a chain in a snarl is too far from everything else in the snarl.
+        // In the second case, the entire subtree is found before determining that it should be a subtree,
+        // and then it is copied into a new zip_tree_t in the forest.
+        // So only one tree is actively being added to at a time.
+        //This keeps track of which is the active tree, as an index into trees
+        size_t active_zip_tree;
+
+        // Keep track of all open chains as an index into the current active_zip_tree of the start of the chain,
+        // and a boolean that is true if the start of the chain is farther than the distance_limit from anything
+        // else in the snarl tree
+        // If the index is pointing to a CHAIN_START, then it includes the whole chain. If it points to a SEED,
+        // then it is a slice
+        // Any time something gets added to a chain or the chain is closed, check if the distance to anything
+        // following is greater than the distance limit. If it is, copy everything from the start of the chain
+        // or slice into a new tree in the forest.
+        vector<pair<size_t, bool>> open_chains;
+
+    };
+
+    // Open a chain that starts at the current_seed
+    // If the chain is in a snarl, then add empty edges for the distances to everything before it in the snarl
+    // Open the chain, and record its presence and distance-to-start in the parent snarl, if necessary
+    void open_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, Seed& current_seed, 
+                      bool current_is_reversed);
+    // Close a chain that ends at last_seed
+    // If the chain was empty, remove it and anything relating to it in the parent snarl and sibling_indices
+    // If it can be spliced out, take out a subtree
+    // Otherwise, add the end of the chain and, if the chain was in a snarl, add the distances to everything
+    // before it in the snarl and remember the distance to the end of the chain
+    void close_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, const Seed& last_seed,
+                      bool last_is_reversed);
+
+    // Add the current seed (or snarl starting at the seed) and its distance to the previous thing in a chain
+    // If the seed is far enough from the previous thing in the chain and it can be a new slice, split off 
+    // a subtree
+    // depth is the depth of the child of the chain (which may also be the chain depth if it is trivial)
+    // seed_index is the index of the current seed in the list of seeds
+    void add_child_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& distance_limit, const size_t& depth, const size_t& seed_index, Seed& current_seed, 
+                      bool current_is_reversed);
+
+    // Start a new snarl
+    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth);
+
+    // Close a snarl
+    // depth is the depth of the snarl and last_seed is the last seed in the snarl
+    // If the snarl has no children, then delete the whole thing
+    // Otherwise, add all necessary distances and close it
+    void close_snarl(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                      const size_t& depth, const Seed& last_seed, bool last_is_reversed);
+
+    // Add all the distances from everything in the snarl to either the last child of the snarl or,
+    // if to_snarl_end is true, to the end bound of the snarl
+    // depth is the depth of the snarl
+    void add_snarl_distances(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
+                             const size_t& depth, const Seed& seed, bool is_reversed, bool to_snarl_end);
 
 };
 
