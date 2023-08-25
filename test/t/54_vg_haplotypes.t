@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 15
+plan tests 19
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -22,7 +22,7 @@ is $? 0 "generating haplotype information"
 vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference -g indirect.gbz full.gbz
 is $? 0 "sampling from existing haplotype information"
 is $(vg gbwt -S -Z indirect.gbz) 3 "1 generated + 2 reference samples"
-is $(vg gbwt -C -Z indirect.gbz) 4 "2 generated + 2 reference contigs"
+is $(vg gbwt -C -Z indirect.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z indirect.gbz) 6 "4 generated + 2 reference haplotypes"
 
 # Sample the haplotypes directly
@@ -32,7 +32,7 @@ cmp indirect.gbz direct.gbz
 is $? 0 "the outputs are identical"
 
 # Sample without reference
-vg haplotypes --validate --subchain-length 300 -k haplotype-sampling/HG003.kff -g no_ref.gbz full.gbz
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff -g no_ref.gbz full.gbz
 is $? 0 "sampling without adding reference"
 is $(vg gbwt -S -Z no_ref.gbz) 1 "1 sample"
 is $(vg gbwt -C -Z no_ref.gbz) 2 "2 contigs"
@@ -53,8 +53,16 @@ is $? 0 "Giraffe integration with a specified output name"
 cmp full.HG003.gbz sampled.003HG.gbz
 is $? 0 "the sampled graphs are identical"
 
+# Diploid sampling
+vg haplotypes --validate -i full.hapl -k haplotype-sampling/HG003.kff --include-reference --diploid-sampling --num-haplotypes 8 -g diploid.gbz full.gbz
+is $? 0 "diploid sampling"
+is $(vg gbwt -S -Z diploid.gbz) 3 "1 generated + 2 reference samples"
+is $(vg gbwt -C -Z diploid.gbz) 2 "2 contigs"
+is $(vg gbwt -H -Z diploid.gbz) 4 "2 generated + 2 reference haplotypes"
+
 # Cleanup
 rm -r full.gbz full.ri full.dist full.hapl
 rm -f indirect.gbz direct.gbz no_ref.gbz
 rm -f full.HG003.gbz full.HG003.dist full.HG003.min default.gam
 rm -f sampled.003HG.gbz sampled.003HG.dist sampled.003HG.min specified.gam
+rm -f diploid.gbz

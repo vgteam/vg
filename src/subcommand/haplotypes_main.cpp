@@ -209,6 +209,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "        --present-discount F  discount scores for present kmers by factor F (default: " << haplotypes_default_discount() << ")" << std::endl;
     std::cerr << "        --het-adjustment F    adjust scores for heterozygous kmers by F (default: " << haplotypes_default_adjustment() << ")" << std::endl;
     std::cerr << "        --absent-score F      score absent kmers -F/+F (default: " << haplotypes_default_absent()  << ")" << std::endl;
+    std::cerr << "        --diploid-sampling    choose the best pair from the greedily selected haplotypes" << std::endl;
     std::cerr << "        --include-reference   include named and reference paths in the output" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
@@ -237,6 +238,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_PRESENT_DISCOUNT = 1302;
     constexpr int OPT_HET_ADJUSTMENT = 1303;
     constexpr int OPT_ABSENT_SCORE = 1304;
+    constexpr int OPT_DIPLOID_SAMPLING = 1305;
     constexpr int OPT_INCLUDE_REFERENCE = 1306;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_VCF_INPUT = 1500;
@@ -260,6 +262,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "present-discount", required_argument, 0, OPT_PRESENT_DISCOUNT },
         { "het-adjustment", required_argument, 0, OPT_HET_ADJUSTMENT },
         { "absent-score", required_argument, 0, OPT_ABSENT_SCORE },
+        { "diploid-sampling", no_argument, 0, OPT_DIPLOID_SAMPLING },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
@@ -352,6 +355,9 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
                 std::cerr << "error: [vg haplotypes] absent score must be non-negative" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
+            break;
+        case OPT_DIPLOID_SAMPLING:
+            this->recombinator_parameters.diploid_sampling = true;
             break;
         case OPT_INCLUDE_REFERENCE:
             this->recombinator_parameters.include_reference = true;
@@ -508,7 +514,13 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
 
     // Partition the haplotypes.
     HaplotypePartitioner partitioner(gbz, r_index, distance_index, minimizer_index, config.verbosity);
-    haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
+    try {
+        haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
+    }
+    catch (const std::runtime_error& e) {
+        std::cerr << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (config.verbosity >= Haplotypes::verbosity_basic) {
         double seconds = gbwt::readTimer() - start;
         std::cerr << "Generated haplotype information in " << seconds << " seconds" << std::endl;
