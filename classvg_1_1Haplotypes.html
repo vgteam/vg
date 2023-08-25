@@ -140,7 +140,12 @@ Public Attributes</h2></td></tr>
 <div class="textblock"><p>A representation of the haplotypes in a graph.</p>
 <p>The graph is partitioned into top-level chains, which are further partitioned into subchains. Each subchain contains a set of kmers and a collection of sequences. Each sequence is defined by a bitvector marking the kmers that are present.</p>
 <p>At the moment, the kmers are minimizers with a single occurrence in the graph. The requirement is that each kmer is specific to a single subchain and does not occur anywhere else in either orientation. (If no haplotype crosses a snarl, that snarl is broken into a suffix and a prefix, and those subchains may share kmers.)</p>
-<p>NOTE: This assumes that the top-level chains are linear, not cyclical. </p>
+<p>NOTE: This assumes that the top-level chains are linear, not cyclical.</p>
+<p>Versions:</p>
+<ul>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 2: Top-level chains include a contig name. Compatible with version 1.</li>
+<li><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information.">Version</a> 1: Initial version. </li>
+</ul>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="aebc70f387d48bd0e5c8f0c607c496535"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aebc70f387d48bd0e5c8f0c607c496535">&#9670;&nbsp;</a></span>sequence_type</h2>

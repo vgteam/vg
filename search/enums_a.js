@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['path_5fcover_5fmode_12812',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
-  ['pathsense_12813',['PathSense',['../namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c',1,'handlegraph']]],
-  ['problem_12814',['Problem',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9',1,'vg::AlignmentValidity']]],
-  ['pruningmode_12815',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
+  ['operatingmode_12825',['OperatingMode',['../structHaplotypesConfig.html#aa7a2de45a48b792a0d045bd13e203667',1,'HaplotypesConfig']]],
+  ['order_12826',['order',['../structReferenceInterval.html#a3c371a05bdf7a0977a0bec01cff2894a',1,'ReferenceInterval']]],
+  ['output_5fformat_5ft_12827',['output_format_t',['../classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0b',1,'vg::MultipathAlignmentEmitter']]]
 ];

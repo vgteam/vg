@@ -88,6 +88,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a34163c2bf756a469dd6bba7880836f82"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a34163c2bf756a469dd6bba7880836f82">simple_sds_load</a> (std::istream &amp;in)</td></tr>
 <tr class="memdesc:a34163c2bf756a469dd6bba7880836f82"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the object from a stream in the simple-sds format.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a34163c2bf756a469dd6bba7880836f82">More...</a><br /></td></tr>
 <tr class="separator:a34163c2bf756a469dd6bba7880836f82"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a55f4f0774122514d42f72f912318694c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a55f4f0774122514d42f72f912318694c">load_old</a> (std::istream &amp;in)</td></tr>
+<tr class="memdesc:a55f4f0774122514d42f72f912318694c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads the old version without a contig name.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a55f4f0774122514d42f72f912318694c">More...</a><br /></td></tr>
+<tr class="separator:a55f4f0774122514d42f72f912318694c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb004505c7fcc83e89b15c229da33a03"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#afb004505c7fcc83e89b15c229da33a03">simple_sds_size</a> () const</td></tr>
 <tr class="memdesc:afb004505c7fcc83e89b15c229da33a03"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size of the object in elements.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#afb004505c7fcc83e89b15c229da33a03">More...</a><br /></td></tr>
 <tr class="separator:afb004505c7fcc83e89b15c229da33a03"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -100,6 +103,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a0f28a2f70f5f09a423d0f97a8e4343c4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a0f28a2f70f5f09a423d0f97a8e4343c4">job_id</a></td></tr>
 <tr class="memdesc:a0f28a2f70f5f09a423d0f97a8e4343c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">GBWT construction job for this chain.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a0f28a2f70f5f09a423d0f97a8e4343c4">More...</a><br /></td></tr>
 <tr class="separator:a0f28a2f70f5f09a423d0f97a8e4343c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9478eb5ec8559cfcfcb57677e718e256"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a9478eb5ec8559cfcfcb57677e718e256">contig_name</a></td></tr>
+<tr class="memdesc:a9478eb5ec8559cfcfcb57677e718e256"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contig name corresponding to the chain.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#a9478eb5ec8559cfcfcb57677e718e256">More...</a><br /></td></tr>
+<tr class="separator:a9478eb5ec8559cfcfcb57677e718e256"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae31e41720bb3a859e4762aa9e2c5318b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1Haplotypes_1_1Subchain.html">Subchain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Haplotypes_1_1TopLevelChain.html#ae31e41720bb3a859e4762aa9e2c5318b">subchains</a></td></tr>
 <tr class="memdesc:ae31e41720bb3a859e4762aa9e2c5318b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subchains in the order they appear in.  <a href="structvg_1_1Haplotypes_1_1TopLevelChain.html#ae31e41720bb3a859e4762aa9e2c5318b">More...</a><br /></td></tr>
 <tr class="separator:ae31e41720bb3a859e4762aa9e2c5318b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -107,6 +113,26 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Representation of a top-level chain. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="a55f4f0774122514d42f72f912318694c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a55f4f0774122514d42f72f912318694c">&#9670;&nbsp;</a></span>load_old()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Haplotypes::TopLevelChain::load_old </td>
+          <td>(</td>
+          <td class="paramtype">std::istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Loads the old version without a contig name. </p>
+
+</div>
+</div>
 <a id="a34163c2bf756a469dd6bba7880836f82"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a34163c2bf756a469dd6bba7880836f82">&#9670;&nbsp;</a></span>simple_sds_load()</h2>
 
@@ -167,6 +193,22 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a9478eb5ec8559cfcfcb57677e718e256"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9478eb5ec8559cfcfcb57677e718e256">&#9670;&nbsp;</a></span>contig_name</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::Haplotypes::TopLevelChain::contig_name</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Contig name corresponding to the chain. </p>
+
+</div>
+</div>
 <a id="a0f28a2f70f5f09a423d0f97a8e4343c4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0f28a2f70f5f09a423d0f97a8e4343c4">&#9670;&nbsp;</a></span>job_id</h2>
 
