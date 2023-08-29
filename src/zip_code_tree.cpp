@@ -1069,7 +1069,7 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(vector<Seed>&
 void ZipCodeTree::print_self() const {
     for (const tree_item_t item : zip_code_tree) {
         if (item.type == SEED) {
-            cerr << seeds->at(item.value).pos;
+            cerr << seeds->at(item.value).pos << "/" << seeds->at(item.value).source;
             if (item.is_reversed) {
                 cerr << "rev";
             }
@@ -1107,8 +1107,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
             //TODO: For now, ignore anything with non-dag snarls, multicomponent or looping chains
             net_handle_t net = distance_index.get_node_net_handle(id(seeds->at(current_item.value).pos));
             while (!distance_index.is_root(net)) {
-                if ((distance_index.is_snarl(net) && !distance_index.is_dag(net)) ||
-                    distance_index.is_multicomponent_chain(net) || distance_index.is_looping_chain(net)) {
+                if (distance_index.is_multicomponent_chain(net) || distance_index.is_looping_chain(net)) {
                     //If this is something that we haven't handled
                     current_is_valid = false;
                     cerr << "warning: validating a zip tree with a non-dag snarl, multicomponent chain, or looping chain" << endl;
@@ -1318,8 +1317,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
             //The index distance may take loops in chains, which the zip codes can't
             bool chain_loops = false;
             while (!in_non_dag_snarl && !distance_index.is_root(next_handle)) {
-                if ((distance_index.is_snarl(next_handle) && !distance_index.is_dag(next_handle)) 
-                    || distance_index.is_root_snarl(next_handle)
+                if (distance_index.is_root_snarl(next_handle)
                     || distance_index.is_looping_chain(next_handle)
                     || distance_index.is_multicomponent_chain(next_handle)) {
                     in_non_dag_snarl = true;
@@ -1340,8 +1338,7 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
                 in_non_dag_snarl = true;
             }
             while (!in_non_dag_snarl && !distance_index.is_root(start_handle)) {
-                if ((distance_index.is_snarl(start_handle) && !distance_index.is_dag(start_handle)) 
-                    || distance_index.is_root_snarl(start_handle)
+                if (distance_index.is_root_snarl(start_handle)
                     || distance_index.is_looping_chain(start_handle)
                     || distance_index.is_multicomponent_chain(start_handle)) {
                     in_non_dag_snarl = true;
@@ -1946,7 +1943,11 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                     if (start_of_current_run == interval.interval_start) {
                         //If this is the first interval of the chain, then just take stuff from the snarl
                         for (int check_i = start_of_current_run ; check_i < i && check_i - start_of_current_run < 3; check_i++) {
+                            cerr << check_i << endl;
                             preceding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
+
+                            for (auto& x : preceding_offsets) {cerr << x << " ";}
+                            cerr << endl;
                         }
                     } else {
                         //Otherwise, take seeds from before the snarl in the chain
@@ -1960,7 +1961,7 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                     if (is_last_interval) {
                         //If there is nothing after, take from the snarl
                         for (int check_i = start_of_current_run ; check_i < i && check_i - start_of_current_run < 3; check_i++) {
-                            preceding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
+                            succeeding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
                         }
                     } else {
                         //Otherwise, take from whatever comes next in the chain
@@ -1968,13 +1969,14 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                             succeeding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
                         }
                     }
-
+#ifdef DEBUG_ZIP_CODE_SORTING
                     if (preceding_offsets.size() == 0 || succeeding_offsets.size() == 0) {
                         //If there is nothing to judge by, just say it isn't reversed
                         current_is_reversed = false;
                         //TODO: I don't think this will happen. If there is nothing before or after, it will fill both in with the snarl
                         assert(false);
                     }
+#endif
                     //Take the median of each vector and see which is greater
                     std::sort(preceding_offsets.begin(), preceding_offsets.end());
                     size_t median_preceding = preceding_offsets[ preceding_offsets.size() / 2];
@@ -2088,7 +2090,7 @@ vector<size_t> ZipCodeForest::sort_seeds_by_zipcode(const SnarlDistanceIndex& di
                                  : current_interval.is_reversed; 
 
 
-            if (false) {//current_type == ZipCode::CYCLIC_SNARL) {
+            if (current_type == ZipCode::CYCLIC_SNARL) {
                 // If this is a cyclic snarl, then the children should be sorted by both their position on the graph
                 // and their offset on the read
 
@@ -2279,13 +2281,22 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                         });
         }
     }
+    cerr << "AFTER SORTING BY READ: " << endl;
+    print_self();
 
     /****** Find intervals along each child where the order of the read and the order in the chain disagree  *******/
 
     //Helper function to get the prefix sum of the child on the chain. Used for ordering the children
     auto get_prefix_sum = [&] (const Seed& seed) {
         size_t prefix_sum;
-        if (seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::REGULAR_SNARL 
+        if (seed.zipcode_decoder->max_depth() == depth+1) {
+            //If this is a node pretending to be a chain
+
+            //Just use the offset in the node
+            prefix_sum = seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
+                            ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+                            : offset(seed.pos);
+        } else if (seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::REGULAR_SNARL 
             || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::IRREGULAR_SNARL
             || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::CYCLIC_SNARL) { 
             //If this is a snarl, then get the prefix sum value*3 + 1
@@ -2293,8 +2304,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
         } else {
             //If this is a node, then get the prefix sum value plus the offset in the position, and multiply by 2 
             size_t node_offset = seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
-                                                 ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
-                                                 : offset(seed.pos);
+                             ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+                             : offset(seed.pos);
             prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1), node_offset);
             prefix_sum *= 3;
             if (node_offset == 0) {
@@ -2358,10 +2369,10 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
     }
 
     /*****  Find the sort order of the intervals, ordered by the first seed in the read *****/
-    vector<size_t> interval_sort_order;
-    for (size_t i = 0 ; i < read_intervals.size() ; i++) {
+    vector<size_t> interval_sort_order(read_intervals.size(), 0);
+    for (size_t i = 0 ; i < interval_sort_order.size() ; i++) {
         interval_sort_order[i] = i;
-    }
+    } 
     std::sort(interval_sort_order.begin(), interval_sort_order.end(), [&] (const size_t& a, const size_t& b) {
         // Sort by the first seed in the read in the interval. Since the intervals are sorted by read position, 
         // the first seed in the read will be the first seed
