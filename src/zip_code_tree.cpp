@@ -144,6 +144,14 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                                                      child_intervals.rbegin(),
                                                      child_intervals.rend());
         }
+        if (current_interval.code_type == ZipCode::CYCLIC_SNARL) {
+            // For cyclic snarls, the orientation is set after sorting the parent chain. 
+            // The orientation of a cyclic snarl is the direction that the read takes in a start-to-end traversal of
+            // the snarl, but this is only necessary for sorting the snarl and finding its children. After that,
+            // the snarl should have the orientation of its parent chain so that the distances will be found properly
+
+            current_interval.is_reversed = forest_state.open_intervals.back().is_reversed;
+        }
     
         
         /**********
@@ -2035,6 +2043,16 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
                                  ? !interval.is_reversed
                                  : interval.is_reversed;
         }
+#ifdef DEBUG_ZIP_CODE_SORTING
+        cerr << "New sort order " << endl;
+        for (auto& interval : new_intervals) {
+            for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+                cerr << seeds->at(i).pos << ", ";
+            }
+            cerr << "|";
+        }
+        cerr << endl;
+#endif
         return new_intervals;
     };
 
@@ -2123,13 +2141,6 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             }
             return find_next_intervals(interval, interval_depth, zipcode_sort_order, get_sort_value);
         }
-#ifdef DEBUG_ZIP_CODE_SORTING
-        cerr << "New sort order " << endl;
-        for (size_t i : zipcode_sort_order) {
-            cerr << i << ":" << seeds->at(i).pos << ", ";
-        }
-        cerr << endl;
-#endif
     }
 
 }
@@ -2201,6 +2212,10 @@ void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, co
 vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
                              bool read_traversed_backward, size_t depth, const SnarlDistanceIndex& distance_index) const {
                                  //TODO: IDK about read_traversed_backward
+#ifdef DEBUG_ZIP_CODE_SORTING
+    cerr << "Sort seeds on a cyclic snarl" << endl;
+#endif
+
     /**** First, sort by the child that the seeds are on ****/
     
     size_t radix_cost = seeds->at(zipcode_sort_order[interval.interval_start]).zipcode_decoder->get_snarl_child_count(depth, &distance_index);
@@ -2216,19 +2231,21 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
             return  seed.zipcode_decoder->get_rank_in_snarl(depth+1);
         });
     }
+#ifdef DEBUG_ZIP_CODE_SORTING
+    cerr << "Sorted order: ";
+    for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+        cerr << seeds->at(zipcode_sort_order[i]).pos << " ";
+    }
+    cerr << endl;
+#endif
 
     /****Find the intervals of the children ****/
 
     vector<interval_and_orientation_t> child_intervals;
 
-    //Remember the largest and smallest read offsets, so we can determine if its faster to do radix or nlogn sort
-    size_t min_read_offset = seeds->at(zipcode_sort_order[interval.interval_start]).source;
-    size_t max_read_offset = min_read_offset; 
 
-    size_t start_of_current_run = interval.interval_start;
+    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN);
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
-        min_read_offset = std::min(min_read_offset, seeds->at(zipcode_sort_order[i]).source); 
-        max_read_offset = std::max(max_read_offset, seeds->at(zipcode_sort_order[i]).source);
            
         const Seed& current_seed = seeds->at(zipcode_sort_order[i]);
         const Seed& previous_seed = seeds->at(zipcode_sort_order[i-1]);
@@ -2236,26 +2253,31 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
         bool is_different_from_previous = !ZipCodeDecoder::is_equal(*current_seed.zipcode_decoder, 
                                                                     *previous_seed.zipcode_decoder, depth+1);
 
-        bool is_last = i == interval.interval_end-1;
-        if (is_different_from_previous && i-1 != start_of_current_run) {
-            //If this is the end of a run of more than one thing
-            //If the previous thing was a node, then start_of_current_run would have been set to i-1, so
-            //it won't reach here
+        if (is_different_from_previous) {
 
-            child_intervals.emplace_back(start_of_current_run,  i, false, ZipCode::CHAIN);
-            
-            start_of_current_run = i;
-        } else if (is_last && !is_different_from_previous) {
-            //If this is the last thing in the sorted list, and the previous thing was in the same run
+            child_intervals.back().interval_end = i;
 
-            child_intervals.emplace_back(start_of_current_run, i+1, false, ZipCode::CHAIN);
-
-        } else if (is_different_from_previous) {
-            start_of_current_run = i;
+            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN);
         }
     }
+    child_intervals.back().interval_end = interval.interval_end;
+
+#ifdef DEBUG_ZIP_CODE_SORTING
+    cerr << "Intervals of children" << endl;
+    for (auto& interval : child_intervals) {
+        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+            cerr << seeds->at(i).pos << ", ";
+        }
+        cerr << "|";
+    }
+    cerr << endl;
+#endif
 
     /**** For each child interval, sort the seeds by their offset in the read ****/
+
+    //Remember the largest and smallest read offsets, so we can determine if its faster to do radix or nlogn sort
+    size_t min_read_offset = seeds->at(zipcode_sort_order[interval.interval_start]).source;
+    size_t max_read_offset = min_read_offset; 
 
     for (const interval_and_orientation_t& child_interval : child_intervals) {
 
@@ -2283,6 +2305,17 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                         });
         }
     }
+
+#ifdef DEBUG_ZIP_CODE_SORTING
+    cerr << "After sorting children" << endl;
+    for (auto& interval : child_intervals) {
+        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+            cerr << seeds->at(i).pos << ", ";
+        }
+        cerr << "|";
+    }
+    cerr << endl;
+#endif
 
     /****** Find intervals along each child where the order of the read and the order in the chain disagree  *******/
 
@@ -2368,6 +2401,17 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
         }
     }
 
+#ifdef DEBUG_ZIP_CODE_SORTING
+    cerr << "After splitting/duplicating chains " << endl;
+    for (auto& interval : read_intervals) {
+        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+            cerr << seeds->at(i).pos << ", ";
+        }
+        cerr << "|";
+    }
+    cerr << endl;
+#endif
+
     /*****  Find the sort order of the intervals, ordered by the first seed in the read *****/
     vector<size_t> interval_sort_order(read_intervals.size(), 0);
     for (size_t i = 0 ; i < interval_sort_order.size() ; i++) {
@@ -2412,6 +2456,16 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
     for (size_t i = 0 ; i < new_sort_order.size() ; i++) {
         zipcode_sort_order[interval.interval_start + i] = new_sort_order[i];
     }
+#ifdef DEBUG_ZIP_CODE_SORTING
+    cerr << "New sort order for cyclic snarl" << endl;
+    for (auto& interval : new_intervals) {
+        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+            cerr << seeds->at(i).pos << ", ";
+        }
+        cerr << "|";
+    }
+    cerr << endl;
+#endif
 
     return new_intervals;
 }
