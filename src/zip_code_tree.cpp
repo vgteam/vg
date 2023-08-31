@@ -247,7 +247,8 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 #ifdef DEBUG_ZIP_CODE_TREE
             assert(forest_state.open_intervals.back().code_type == ZipCode::REGULAR_SNARL ||
                    forest_state.open_intervals.back().code_type == ZipCode::IRREGULAR_SNARL ||
-                   forest_state.open_intervals.back().code_type == ZipCode::CYCLIC_SNARL);
+                   forest_state.open_intervals.back().code_type == ZipCode::CYCLIC_SNARL ||
+                   forest_state.open_intervals.back().code_type == ZipCode::ROOT_SNARL);
 #endif
             //Open the child chain
             open_chain(forest_state, distance_index, distance_limit, forest_state.open_intervals.size(), 
