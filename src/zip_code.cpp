@@ -1,6 +1,6 @@
 #include "zip_code.hpp"
 
-#define DEBUG_ZIPCODE
+//#define DEBUG_ZIPCODE
 
 namespace vg{
 using namespace std;

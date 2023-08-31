@@ -398,11 +398,6 @@ class ZipCodeForest {
 
     public:
 
-    /// Return the sort order of the seeds
-    /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
-    /// Uses radix_sort_zipcodes and default_sort_zipcodes
-    vector<size_t> sort_seeds_by_zipcode(const SnarlDistanceIndex& distance_index) const;
-
     void print_self() const {
         for (size_t i = 0 ; i < trees.size() ; i++) {
             const auto& tree = trees[i];
@@ -428,13 +423,22 @@ class ZipCodeForest {
     /// snarl tree node, and is_reversed is true if that snarl tree node
     /// is reversed relative to the top-level chain
     struct interval_and_orientation_t {
-        size_t interval_start : 32; //inclusive
-        size_t interval_end : 31;   //exclusive
+        size_t interval_start : 29; //inclusive
+        size_t interval_end : 29;   //exclusive
         bool is_reversed : 1;
+        ZipCode::code_type_t code_type : 5;
 
-        interval_and_orientation_t (size_t start, size_t end, size_t rev) :
-            interval_start(start), interval_end(end), is_reversed(rev) {}
+        interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type) :
+            interval_start(start), interval_end(end), is_reversed(rev), code_type(type) {}
     };
+
+    /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given depth)
+    /// and return the intervals of the children, in the order of traversal
+    /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
+    /// Uses radix_sort_zipcodes and default_sort_zipcodes
+    /// sort_root is true if sorting the root into connected components
+    vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval, 
+            size_t interval_depth, const SnarlDistanceIndex& distance_index) const;
 
     /// Helper function to sort the seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
@@ -491,6 +495,8 @@ class ZipCodeForest {
     /// This stores information about the state of the forest as we fill it in
     struct forest_growing_state_t {
 
+        vector<size_t> seed_sort_order;
+
         //Stores the previous things of the current structure at each depth
         vector<vector<child_info_t>> sibling_indices_at_depth;
 
@@ -513,6 +519,15 @@ class ZipCodeForest {
         // or slice into a new tree in the forest.
         vector<pair<size_t, bool>> open_chains;
 
+        //A stack of intervals representing snarl tree nodes. These are yet to be sorted and processed
+        vector<interval_and_orientation_t> intervals_to_process;
+    
+        //Intervals that are currently open. These represent ancestors of whatever is currently being worked on
+        //So the size is the depth of the snarl tree
+        vector<interval_and_orientation_t> open_intervals;
+    
+
+
     };
 
     // Open a chain that starts at the current_seed
@@ -520,7 +535,7 @@ class ZipCodeForest {
     // Open the chain, and record its presence and distance-to-start in the parent snarl, if necessary
     void open_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, Seed& current_seed, 
-                      bool current_is_reversed);
+                      bool chain_is_reversed);
     // Close a chain that ends at last_seed
     // If the chain was empty, remove it and anything relating to it in the parent snarl and sibling_indices
     // If it can be spliced out, take out a subtree
@@ -528,7 +543,7 @@ class ZipCodeForest {
     // before it in the snarl and remember the distance to the end of the chain
     void close_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, const Seed& last_seed,
-                      bool last_is_reversed);
+                      bool chain_is_reversed);
 
     // Add the current seed (or snarl starting at the seed) and its distance to the previous thing in a chain
     // If the seed is far enough from the previous thing in the chain and it can be a new slice, split off 
@@ -536,8 +551,8 @@ class ZipCodeForest {
     // depth is the depth of the child of the chain (which may also be the chain depth if it is trivial)
     // seed_index is the index of the current seed in the list of seeds
     void add_child_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, const size_t& seed_index, Seed& current_seed, 
-                      bool current_is_reversed);
+                      const size_t& distance_limit, const size_t& depth, const size_t& seed_index, 
+                      bool child_is_reversed);
 
     // Start a new snarl
     void open_snarl(forest_growing_state_t& forest_state, const size_t& depth);
@@ -551,6 +566,7 @@ class ZipCodeForest {
 
     // Add all the distances from everything in the snarl to either the last child of the snarl or,
     // if to_snarl_end is true, to the end bound of the snarl
+    // is_reversed refers to the child of the snarl at depth+1, or to the snarl itself if to_snarl_end is true 
     // depth is the depth of the snarl
     void add_snarl_distances(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                              const size_t& depth, const Seed& seed, bool is_reversed, bool to_snarl_end);
