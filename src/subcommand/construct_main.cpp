@@ -25,7 +25,8 @@ void help_construct(char** argv) {
          << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
          << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
-         << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
+         << "    -a, --alt-paths        save paths for alts of variants by SHA1 hash" << endl
+         << "    -A, --alt-paths-plain  save paths for alts of variants by variant ID (if possible, otherwise SHA1)" << endl
          << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region (may repeat, if on different contigs)" << endl
          << "    -C, --region-is-chrom  don't attempt to parse the regions (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
@@ -87,6 +88,7 @@ int main_construct(int argc, char** argv) {
                 {"drop-msa-paths", no_argument, 0, 'd'},
                 {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
+                {"alt-paths-plain", no_argument, 0, 'A'},
                 {"handle-sv", no_argument, 0, 'S'},
                 {"insertions", required_argument, 0, 'I'},
                 {"progress",  no_argument, 0, 'p'},
@@ -103,7 +105,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aCfl:SI:M:dF:iN",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aACfl:SI:M:dF:iN",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -168,6 +170,11 @@ int main_construct(int argc, char** argv) {
 
         case 'a':
             constructor.alt_paths = true;
+            break;
+
+        case 'A':
+            constructor.alt_paths = true;
+            constructor.sha1_variant_name = false;
             break;
 
         case 'p':
