@@ -459,14 +459,14 @@ class ZipCodeForest {
 
     /// Helper function to sort the seeds on a cyclic (non-dag) snarl
     /// depth is the depth of the snarl
-    /// read_traversed_backward is true if the zipcodes should be sorted with the end of the read first
+    /// interval.is_reversed is true if the zipcodes should be sorted with the end of the read first
     /// The seeds in the interval are first ordered by the child of the chain that they are on.
     /// Sort the seeds again within each child of the chain, this time by their offset in the read
     /// Then, get new intervals whenever the order of the read disagrees with the order of the graph
     /// Re-order the new intervals by the first seed's offset in the read
     /// Returns the intervals on zipcode_sort_order
     vector<interval_and_orientation_t> sort_zipcodes_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             bool read_traversed_backward, size_t depth, const SnarlDistanceIndex& distance_index) const; 
+                             size_t depth, const SnarlDistanceIndex& distance_index) const; 
 
     //////////////////// data structures and helper functions for building the forest
 
@@ -489,6 +489,10 @@ class ZipCodeForest {
         //For the children of snarls, the distance to the left and right of the chain, that gets added to
         //edges in the snarl
         std::pair<size_t, size_t> distances;
+
+        //Is the sibling reversed. 
+        //This is only used for children of snarls, to indicate that the child is traversed backwards 
+        bool is_reversed = false;
     };
 
 
@@ -566,10 +570,10 @@ class ZipCodeForest {
 
     // Add all the distances from everything in the snarl to either the last child of the snarl or,
     // if to_snarl_end is true, to the end bound of the snarl
-    // is_reversed refers to the child of the snarl at depth+1, or to the snarl itself if to_snarl_end is true 
     // depth is the depth of the snarl
     void add_snarl_distances(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                             const size_t& depth, const Seed& seed, bool is_reversed, bool to_snarl_end);
+                             const size_t& depth, const Seed& seed, bool child_is_reversed, bool snarl_is_reversed, 
+                             bool to_snarl_end);
 
 };
 
