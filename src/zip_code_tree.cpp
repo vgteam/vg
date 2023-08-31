@@ -2311,7 +2311,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
     cerr << "After sorting children" << endl;
     for (auto& interval : child_intervals) {
         for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(i).pos << ", ";
+            cerr << seeds->at(i).pos << "/" << seeds->at(i).source << ", ";
         }
         cerr << "|";
     }
@@ -2320,7 +2320,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
 
     /****** Find intervals along each child where the order of the read and the order in the chain disagree  *******/
 
-    //Helper function to get the prefix sum of the child on the chain. Used for ordering the children
+    //Helper function to get the prefix sum of the child on the chain (child of the cyclic snarl). 
+    //Used for ordering the children
     auto get_prefix_sum = [&] (const Seed& seed) {
         size_t prefix_sum;
         if (seed.zipcode_decoder->max_depth() == depth+1) {
@@ -2330,17 +2331,17 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
             prefix_sum = seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
                             ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
                             : offset(seed.pos);
-        } else if (seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::REGULAR_SNARL 
-            || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::IRREGULAR_SNARL
-            || seed.zipcode_decoder->get_code_type(depth+1) == ZipCode::CYCLIC_SNARL) { 
+        } else if (seed.zipcode_decoder->get_code_type(depth+2) == ZipCode::REGULAR_SNARL 
+            || seed.zipcode_decoder->get_code_type(depth+2) == ZipCode::IRREGULAR_SNARL
+            || seed.zipcode_decoder->get_code_type(depth+2) == ZipCode::CYCLIC_SNARL) { 
             //If this is a snarl, then get the prefix sum value*3 + 1
-            prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1) * 3,  1);
+            prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+2) * 3,  1);
         } else {
             //If this is a node, then get the prefix sum value plus the offset in the position, and multiply by 2 
-            size_t node_offset = seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
-                             ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
+            size_t node_offset = seed.zipcode_decoder->get_is_reversed_in_parent(depth+2) != is_rev(seed.pos)
+                             ? seed.zipcode_decoder->get_length(depth+2) - offset(seed.pos)
                              : offset(seed.pos);
-            prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+1), node_offset);
+            prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+2), node_offset);
             prefix_sum *= 3;
             if (node_offset == 0) {
                 prefix_sum = SnarlDistanceIndex::sum(prefix_sum, 2);
