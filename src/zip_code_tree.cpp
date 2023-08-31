@@ -1988,7 +1988,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         ZipCode::code_type_t first_type = seeds->at(sort_order[interval.interval_start]).zipcode_decoder->get_code_type(depth+1);
 
         //This is only for nodes in chains, since anything on nodes in chains are considered just children of the chain
-        bool previous_is_node = first_type == ZipCode::NODE || first_type == ZipCode::ROOT_NODE;
+        bool previous_is_node = first_type == ZipCode::NODE;
 
         //This only matters if it isn't a node
         size_t previous_sort_value = previous_is_node 
@@ -2002,7 +2002,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             
             //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
             ZipCode::code_type_t current_type = seeds->at(sort_order[i]).zipcode_decoder->get_code_type(depth+1);
-            bool is_node = current_type == ZipCode::NODE || current_type == ZipCode::ROOT_NODE;
+            bool is_node = current_type == ZipCode::NODE;
             size_t sort_value = is_node 
                               ? (ZipCodeTree::seed_is_reversed_at_depth(seeds->at(sort_order[i]), depth+1, distance_index) ? 1 : 0)
                               : get_partitioning_value(seeds->at(sort_order[i]), depth);
