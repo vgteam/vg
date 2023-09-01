@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 15
+plan tests 17
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 
@@ -87,5 +87,11 @@ is "$?" 0 "stub clipping removed all stubs"
 
 printf "x\t5\t25\n" > region.bed
 is $(vg clip tiny-stubs.gfa -s -b region.bed | vg stats -N -) "17" "region clipping filtered out only 2 / 4 stub nodes"
+
+printf "L\t100\t+\t2\t-\t0M\n" >> tiny-stubs.gfa
+printf "L\t15\t+\t13\t-\t0M\n" >> tiny-stubs.gfa
+is $(vg clip tiny-stubs.gfa -sS -P x | vg stats -HT - | sort -nk 2 | awk '{print $2}' | head -1) "1" "Correct head after path stubbification"
+is $(vg clip tiny-stubs.gfa -sS -P x | vg stats -HT - | sort -nk 2 | awk '{print $2}' | tail -1) "15" "Correct tail after path stubbification"
+
 
 rm -f tiny.gfa tiny-stubs.gfa region.bed tiny-nostubs.gfa
