@@ -7,8 +7,9 @@
  */
 
 #include "vg.hpp"
-#include "xg.hpp"
+#include "handle.hpp"
 #include "hash_map.hpp"
+#include "gbwt_helper.hpp"
 
 #include <algorithm>
 #include <list>
@@ -16,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-#include <gbwt/gbwt.h>
 #include <gcsa/support.h>
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 
@@ -41,7 +42,7 @@ public:
      * These indexes must represent the same original graph. 'next_node' should
      * usually be max_node_id() + 1 in the original graph.
      */
-    PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
+    PhaseUnfolder(const PathHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
 
     /**
      * Unfold the pruned regions in the input graph:
@@ -56,21 +57,21 @@ public:
      *
      * - Extend the input graph with the unfolded components.
      */
-    void unfold(VG& graph, bool show_progress = false);
+    void unfold(MutableHandleGraph& graph, bool show_progress = false);
 
     /**
      * Restore the edges on XG paths. This is effectively the same as
      * unfolding with an empty GBWT index, except that the inserted nodes will
      * have their original identifiers.
      */
-    void restore_paths(VG& graph, bool show_progress = false) const;
+    void restore_paths(MutableHandleGraph& graph, bool show_progress = false) const;
 
     /**
      * Verify that the graph contains the XG paths and the GBWT threads in the
      * backing indexes. Returns the number of paths for which the verification
      * failed. Uses OMP threads.
      */
-    size_t verify_paths(VG& unfolded, bool show_progress = false) const;
+    size_t verify_paths(MutableHandleGraph& unfolded, bool show_progress = false) const;
 
     /**
      * Write the mapping to the specified file with a header. The file will
@@ -94,9 +95,9 @@ public:
     /**
      * Create an edge between two node orientations.
      */
-    static Edge make_edge(gbwt::node_type from, gbwt::node_type to) {
-        return xg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
-                             gbwt::Node::id(to), gbwt::Node::is_reverse(to));
+    static edge_t make_edge(const HandleGraph& graph, gbwt::node_type from, gbwt::node_type to) {
+        return make_pair(graph.get_handle(gbwt::Node::id(from), gbwt::Node::is_reverse(from)),
+                         graph.get_handle(gbwt::Node::id(to), gbwt::Node::is_reverse(to)));
     }
 
 private:
@@ -105,14 +106,14 @@ private:
      * GBWT index but not in the input graph. Split the complement into
      * disjoint components and return the components.
      */
-    std::list<VG> complement_components(VG& graph, bool show_progress);
+    std::list<bdsg::HashGraph> complement_components(MutableHandleGraph& graph, bool show_progress);
 
     /**
      * Generate all border-to-border paths in the component supported by the
      * indexes. Unfold the paths by duplicating the inner nodes so that the
      * paths become disjoint, except for their shared prefixes/suffixes.
      */
-    size_t unfold_component(VG& component, VG& graph, VG& unfolded);
+    size_t unfold_component(MutableHandleGraph& component, MutableHandleGraph& graph, MutableHandleGraph& unfolded);
 
     /**
      * Generate all paths supported by the XG index passing through the given
@@ -120,7 +121,7 @@ private:
      * paths into the set in the canonical orientation, and use them as
      * reference paths for extending threads.
      */
-    void generate_paths(VG& component, vg::id_t from);
+    void generate_paths(MutableHandleGraph& component, vg::id_t from);
 
    /**
     * Generate all paths supported by the GBWT index from the given node until
@@ -129,7 +130,7 @@ private:
     * passing through it. Otherwise consider only the threads starting from
     * it, and do not output threads reaching a border.
     */
-    void generate_threads(VG& component, vg::id_t from);
+    void generate_threads(MutableHandleGraph& component, vg::id_t from);
 
     /**
      * Create or extend the state with the given node orientation, and insert
@@ -157,7 +158,7 @@ private:
     gbwt::node_type get_suffix(gbwt::node_type node, gbwt::node_type to);
 
     /// XG and GBWT indexes for the original graph.
-    const xg::XG&     xg_index;
+    const PathHandleGraph& path_graph;
     const gbwt::GBWT& gbwt_index;
 
     /// Mapping from duplicated nodes to original ids.

@@ -8,7 +8,9 @@
 
 #include "vcf_buffer.hpp"
 #include "path_index.hpp"
+#include "handle.hpp"
 #include "vg.hpp"
+#include "xg.hpp"
 #include "progressive.hpp"
 #include "name_mapper.hpp"
 #include "graph_synchronizer.hpp"
@@ -42,7 +44,7 @@ public:
     void add_variants(vcflib::VariantCallFile* vcf);
     
     /**
-     * Align the given string to the given graph, wetween the given endpoints,
+     * Align the given string to the given graph, between the given endpoints,
      * using the most appropriate alignment method, depending on the relative
      * sizes involved and whether a good alignment exists. max_span gives the
      * maximum length in the graph that we expect our string to possibly align
@@ -67,6 +69,12 @@ public:
      */
     void align_ns(vg::VG& graph, Alignment& aln);
     
+    /// What's the maximum node size we should produce, and the size we should
+    /// chop the input graph to? Since alt sequences are forced out to node
+    /// boundaries, it makes sense for this to be small relative to
+    /// whole_alignment_cutoff.
+    size_t max_node_size = 32;
+    
     /// How wide of a range in bases should we look for nearby variants in?
     size_t variant_range = 50;
     
@@ -85,11 +93,11 @@ public:
     /// which we can just use permissive banding and large band padding? If
     /// either is larger than this, we use the pinned-alignment-based do-each-
     /// end-and-splice mode.
-    size_t whole_alignment_cutoff = 1000;
+    size_t whole_alignment_cutoff = 4096;
     
     /// When we're above that cutoff, what amount of band padding can we use
     /// looking for an existing version of our sequence?
-    size_t large_alignment_band_padding = 20;
+    size_t large_alignment_band_padding = 30;
     
     /// When we're doing a restricted band padding alignment, how good does it
     /// have to be, as a fraction of the perfect match score for the whole
@@ -134,6 +142,8 @@ public:
     /// Should we print out periodic updates about the variants we have
     /// processed?
     bool print_updates = false;
+    
+    const VG& get_graph() const;
     
 protected:
     /// The graph we are modifying

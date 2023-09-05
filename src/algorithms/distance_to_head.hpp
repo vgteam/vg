@@ -3,9 +3,9 @@
 
 #include <unordered_map>
 
+#include <vg/vg.pb.h>
+
 #include "../position.hpp"
-#include "../cached_position.hpp"
-#include "../vg.pb.h"
 #include "../hash_map.hpp"
 #include "../handle.hpp"
 
@@ -14,8 +14,6 @@ namespace algorithms {
 
 using namespace std;
 
-/// Find all of the nodes with no edges on their left sides.
-vector<handle_t> head_nodes(const HandleGraph* g);
 int32_t distance_to_head(handle_t h, int32_t limit, const HandleGraph* graph);
 /// Get the distance in bases from start of node to start of closest head node of graph, or -1 if that distance exceeds the limit.
 /// dist increases by the number of bases of each previous node until you reach the head node

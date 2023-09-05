@@ -149,8 +149,8 @@ PathIndex::PathIndex(const list<mapping_t>& mappings, VG& vg) {
     
 }
 
-PathIndex::PathIndex(const Path& path, const xg::XG& index) {
-    // Trace the given path in the given XG graph, collecting sequence
+PathIndex::PathIndex(const Path& path, const HandleGraph& graph) {
+    // Trace the given path in the given graph, collecting sequence
     
     // We're going to build the sequence string
     std::stringstream seq_stream;
@@ -174,7 +174,7 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
             #pragma omp critical (cerr)
             std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
                 << " starts at base " << path_base << " with "
-                << index.node_sequence(mapping.position().node_id()) << std::endl;
+                << graph.get_sequence(graph.get_handle(mapping.position().node_id())) << std::endl;
 #endif
             
             // Make sure ranks are monotonically increasing along the path, or
@@ -191,7 +191,7 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
         node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
     
         // Find the node's sequence
-        std::string node_sequence = index.node_sequence(mapping.position().node_id());
+        std::string node_sequence = graph.get_sequence(graph.get_handle(mapping.position().node_id()));
     
         while(path_base == 0 && node_sequence.size() > 0 &&
             (node_sequence[0] != 'A' && node_sequence[0] != 'T' && node_sequence[0] != 'C' &&
@@ -230,7 +230,7 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
     
     // Record the length of the last mapping's node, since there's no next mapping to work it out from
     last_node_length = path.mapping_size() > 0 ?
-        index.node_length(path.mapping(path.mapping_size() - 1).position().node_id()) :
+        graph.get_length(graph.get_handle(path.mapping(path.mapping_size() - 1).position().node_id())) :
         0;
     
     // Create the actual reference sequence we will use
@@ -262,15 +262,18 @@ PathIndex::PathIndex(VG& vg, const string& path_name, bool extract_sequence) {
     }
 }
 
-PathIndex::PathIndex(const xg::XG& index, const string& path_name, bool extract_sequence) {
+PathIndex::PathIndex(const PathHandleGraph& graph, const string& path_name, bool extract_sequence) {
     // Make sure the path is present
-    assert(index.path_rank(path_name) != 0);
+    assert(graph.has_path(path_name));
     
+    // Make a Protobuf path object
+    auto path = path_from_path_handle(graph, graph.get_path_handle(path_name));
+
     if (extract_sequence) {
         // Constructor dispatch hack
-        *this = PathIndex(index.path(path_name), index);
+        *this = PathIndex(path, graph);
     } else {
-        *this = PathIndex(index.path(path_name));
+        *this = PathIndex(path);
     }
 }
 
@@ -296,11 +299,40 @@ void PathIndex::update_mapping_positions(VG& vg, const string& path_name) {
     }
 }
 
-bool PathIndex::path_contains_node(int64_t node_id){
+bool PathIndex::path_contains_node(int64_t node_id) const {
     if (by_id.find(node_id) != by_id.end()){
         return true;
     }
     return false;
+}
+
+bool PathIndex::path_contains_node_in_orientation(int64_t node_id, bool is_reverse) const {
+    return find_in_orientation(node_id, is_reverse) != end();
+}
+
+PathIndex::iterator PathIndex::find_in_orientation(int64_t node_id, bool is_reverse) const {
+    auto found_occurrences = node_occurrences.find(node_id);
+    
+    if (found_occurrences == node_occurrences.end()) {
+        // There are no occurrences
+        return end();
+    }
+    
+    for (auto& occ : found_occurrences->second) {
+        // Do a linear scan for the correct orientation.
+        // TODO: index by orientation
+        if (occ->second.is_end == is_reverse) {
+            // We found an occurrence in the requested orientation.
+            return occ;
+        }
+    }
+    
+    return end();
+}
+
+pair<bool, bool> PathIndex::get_contained_orientations(int64_t node_id) const {
+    // TODO: Do scans manually to be twice as fast!
+    return make_pair(path_contains_node_in_orientation(node_id, false), path_contains_node_in_orientation(node_id, true));
 }
 
 NodeSide PathIndex::at_position(size_t position) const {

@@ -4,9 +4,10 @@
 #include <cmath>
 #include <vector>
 #include <iostream>
+#include <unordered_set>
 
-#include "vg.pb.h"
-#include "xg.hpp"
+#include <vg/vg.pb.h>
+#include "handle.hpp"
 
 #include <gbwt/gbwt.h>
 #include <gbwt/dynamic_gbwt.h>
@@ -23,12 +24,14 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 // 
 // A. Construct the following shared objects
-//    1. an index, either a
-//        i.   xg::XG index
-//        ii.  gbwt::GBWT
-//        iii. gbwt::DynamicGBWT
+//    1. An index, either a
+//        i.  gbwt::GBWT
+//        ii. gbwt::DynamicGBWT
 //    2. An appropriate ScoreProvider implementation that will use the index.
-//    3. a memo for shared values used in calculations; a
+//       It is also responsible for determining the population size from its index, if able.
+//       It can also implement incremental haplotype search, because we need that
+//       functionality in places where the haplotype index is abstracted as a ScoreProvider.
+//    3. A memo for shared values used in calculations; a
 //             haplo::haploMath::RRMemo, which takes the parameters
 //                    i.    double -log(recombination probability)
 //                    ii.   size_t population size
@@ -49,11 +52,9 @@ using namespace std;
 //    which takes in inputs
 //        i.   const vg::Path& Path
 //        ii.  indexType& index where indexType is one of
-//             a. xg::XG
-//             b. gbwt::GBWT
-//             c. gbwt::DynamicGBWT
+//             a. gbwt::GBWT
+//             b. gbwt::DynamicGBWT
 //        iii. haploMath::RRMemo
-
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -61,8 +62,6 @@ namespace haplo {
 
 // If this global is set, warn the user when scoring fails
 extern bool warn_on_score_fail;
- 
-using thread_t = vector<xg::XG::ThreadMapping>;
 
 namespace haploMath{
   double logsum(double a, double b);
@@ -116,55 +115,6 @@ struct int_itvl_t{
   // NB that the set of int_itvl_t's is closed under intersections but not under
   // unions or differences
   static int_itvl_t intersection(const int_itvl_t& A, const int_itvl_t& B);
-};
-
-// -----------------------------------------------------------------------------
-
-struct haplo_DP_edge_memo {
-private:  
-  vector<vg::Edge> in;
-  vector<vg::Edge> out;
-public:
-  haplo_DP_edge_memo();                      // for constructing null edge_memos
-  haplo_DP_edge_memo(xg::XG& graph, 
-                     xg::XG::ThreadMapping last_node, 
-                     xg::XG::ThreadMapping node);
-  const vector<vg::Edge>& edges_in() const;
-  const vector<vg::Edge>& edges_out() const;
-  bool is_null() const;
-  static bool has_edge(xg::XG& graph, xg::XG::ThreadMapping old_node, xg::XG::ThreadMapping new_node);
-};
-
-// -----------------------------------------------------------------------------
-
-class hDP_graph_accessor {
-public:
-  const xg::XG::ThreadMapping old_node;
-  const xg::XG::ThreadMapping new_node;
-  const haplo_DP_edge_memo edges;
-  const xg::XG& graph;
-  haploMath::RRMemo& memo;
-  
-  // accessor for noninitial nodes in a haplotype
-  hDP_graph_accessor(xg::XG& graph, 
-                     xg::XG::ThreadMapping old_node, 
-                     xg::XG::ThreadMapping new_node, 
-                     haploMath::RRMemo& memo);
-  // accessor for initial node in a haplotype                   
-  // old_node and edge-vectors are null; do not use to extend nonempty states
-  hDP_graph_accessor(xg::XG& graph, 
-                     xg::XG::ThreadMapping new_node,
-                     haploMath::RRMemo& memo);
-                     
-  int64_t new_side() const;
-  int64_t new_height() const;
-  int64_t old_height() const;
-  int64_t new_length() const;
-  
-  bool has_edge() const;
-  bool inclusive_interval() const { return false; }
-  
-  void print(ostream& output_stream) const;
 };
 
 // -----------------------------------------------------------------------------
@@ -235,7 +185,6 @@ public:
   haplo_DP_rectangle(bool inclusive_interval);
   double R;
   void set_offset(int offset);
-  void extend(hDP_graph_accessor& ga);
   template<class accessorType>
   void false_extend(accessorType& ga, int_itvl_t delta);
   template<class GBWTType>
@@ -281,8 +230,6 @@ public:
   bool is_empty() const;
 };
 
-thread_t path_to_thread_t(const vg::Path& path);
-
 //------------------------------------------------------------------------------
 // Outward-facing
 //------------------------------------------------------------------------------
@@ -299,7 +246,6 @@ private:
 public:
 //------------------------------------------------------------------------------
 // API functions
-  static haplo_score_type score(const vg::Path& path, xg::XG& graph, haploMath::RRMemo& memo);
   template<class GBWTType>
   static haplo_score_type score(const vg::Path& path, GBWTType& graph, haploMath::RRMemo& memo);
 //------------------------------------------------------------------------------
@@ -308,7 +254,6 @@ public:
   template<class accessorType>
   haplo_DP(accessorType& ga);
   haplo_DP_column* get_current_column();
-  static haplo_score_type score(const thread_t& thread, xg::XG& graph, haploMath::RRMemo& memo);
   template<class GBWTType>
   static haplo_score_type score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo);
 };
@@ -321,8 +266,8 @@ private:
   siteIndex* index = nullptr;
   haplotypeCohort* cohort = nullptr;
   penaltySet* penalties = nullptr;
-  xg::XG& xg_index;
-  size_t xg_ref_rank;
+  const vg::PathPositionHandleGraph& graph;
+  vg::path_handle_t ref_path_handle;
 public:
   typedef enum nodeType{
     ref_span,
@@ -347,9 +292,10 @@ public:
     size_t size() const;
   };
   
-  /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the XG.
+  /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the graph.
   /// Penalties *must* be negative, and ought to be something like -9*2.3 mutation and -6*2.3 recombination.
-  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
+  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty,
+                         const vg::PathPositionHandleGraph& graph, vg::path_handle_t ref_path_handle);
   ~linear_haplo_structure();
   haplo_score_type score(const vg::Path& path) const;
   
@@ -374,22 +320,46 @@ public:
 };
 
 
+/// Incremental haplotype search range type used for ScoreProvider's
+/// incremental search API. Default constructed, represents an empty or
+/// un-started search. Supports an empty() and a length(). Copyable.
+/// TODO: There's some overlap with the graph accessors here, but I don't
+/// understand them enough to work out exactly what it is and eliminate it.
+/// TODO: This should become a real type (base class and implementations
+/// wrapping implementation-specific data) when we get any other
+/// implementations.
+using IncrementalSearchState = gbwt::SearchState;
+
 /// Interface abstracting over the various ways of generating haplotype scores.
-/// You probably want the implementations: XGScoreProvider, GBWTScoreProvider, LinearScoreProvider
+/// You probably want the implementations: GBWTScoreProvider, LinearScoreProvider
 /// TODO: Const-ify the indexes used
 class ScoreProvider {
 public:
+  /// Score the given path usign the given memo
   virtual pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo) = 0;
+  /// Return the haplotype count (number of expected haplotypes that agree with
+  /// a path that is fixed in the population) that should be used to construct
+  /// the memo to pass to score, or -1 if the indexes backing the ScoreProvider
+  /// do not make this information available.
+  virtual int64_t get_haplotype_count() const;
+  
+  // We have optional support for incremental search. TODO: We need a search
+  // state abstraction that encompasses GBWT search state and other search
+  // state implementations.
+  
+  /// Return true if this ScoreProvider supports incremental search for
+  /// counting haplotypes.
+  virtual bool has_incremental_search() const;
+  
+  /// Start a new search state with the node visit described by the given
+  /// Position, if incremental search is supported.
+  virtual IncrementalSearchState incremental_find(const vg::Position& pos) const;
+  
+  /// Extend the given search state with the node visit described by the given
+  /// Position, if incremental search is supported.
+  virtual IncrementalSearchState incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const;
+  
   virtual ~ScoreProvider() = default;
-};
-
-/// Score haplotypes using the gPBWT haplotype data stored in an XG index
-class XGScoreProvider : public ScoreProvider {
-public:
-  XGScoreProvider(xg::XG& index);
-  pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
-private:
-  xg::XG& index;
 };
 
 /// Score haplotypes using a GBWT haplotype database (normal or dynamic)
@@ -398,6 +368,12 @@ class GBWTScoreProvider : public ScoreProvider {
 public:
   GBWTScoreProvider(GBWTType& index);
   pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+  
+  int64_t get_haplotype_count() const;
+  
+  bool has_incremental_search() const;
+  IncrementalSearchState incremental_find(const vg::Position& pos) const;
+  IncrementalSearchState incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const;
 private:
   GBWTType& index;
 };
@@ -498,6 +474,7 @@ void haplo_DP_rectangle::false_extend(accessorType& ga,
 template<class accessorType>
 haplo_DP_column::haplo_DP_column(accessorType& ga) {
   haplo_DP_rectangle* first_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
+  assert(first_rectangle != nullptr);
   entries.push_back(shared_ptr<haplo_DP_rectangle>(first_rectangle));
   first_rectangle->extend(ga);
   update_inner_values();
@@ -509,6 +486,7 @@ void haplo_DP_column::standard_extend(accessorType& ga) {
   previous_values = get_scores();
   previous_sizes = get_sizes();
   haplo_DP_rectangle* new_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
+  assert(new_rectangle != nullptr);
   new_rectangle->extend(ga);
   decltype(entries) new_entries;
   new_entries.push_back(shared_ptr<haplo_DP_rectangle>(new_rectangle));
@@ -548,7 +526,7 @@ void haplo_DP_column::extend(accessorType& ga) {
 //------------------------------------------------------------------------------
 
 template<class accessorType>
-haplo_DP::haplo_DP(accessorType& ga) : DP_column(haplo_DP_column(ga)) {
+haplo_DP::haplo_DP(accessorType& ga) : DP_column(ga) {
   
 }
 
@@ -559,6 +537,13 @@ haplo_score_type haplo_DP::score(const vg::Path& path, GBWTType& graph, haploMat
 
 template<class GBWTType>
 haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo) {
+  if (thread.size() == 0) {
+    if (warn_on_score_fail) {
+      cerr << "[WARNING] Path is empty and cannot be scored" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    }
+    return pair<double, bool>(nan(""), false);
+  }
   if (!graph.contains(thread[0])) {
     // We start on a node that has no haplotype index entry
     if (warn_on_score_fail) {
@@ -606,7 +591,7 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
       hdp.DP_column.extend(ga);
     }
 #ifdef debug
-    cerr << "After entry " << i << " (" << gbwt::Node::id(thread[i]) << ") height: " << ga.new_height() << " intervals: ";
+    cerr << "After entry " << i << "/" << thread.size() << " (" << gbwt::Node::id(thread[i]) << ") height: " << ga.new_height() << " intervals: ";
     for (auto& interval : hdp.DP_column.get_sizes()) {
       cerr << interval << " ";
     }
@@ -615,7 +600,6 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }
-
 
 //------------------------------------------------------------------------------
 
@@ -629,6 +613,33 @@ pair<double, bool> GBWTScoreProvider<GBWTType>::score(const vg::Path& path, hapl
   return haplo_DP::score(path, index, memo);
 }
 
+template<class GBWTType>
+int64_t GBWTScoreProvider<GBWTType>::get_haplotype_count() const {
+  if (!index.hasMetadata()) {
+    // No metadata available
+    return -1;
+  }
+  
+  // TODO: Does this haplotype count have the same expected-count-for-fixed-path semantics that we want?
+  // Or does it count fragments of haplotypes?
+  return index.metadata.haplotypes();
+}
+
+template<class GBWTType>
+bool GBWTScoreProvider<GBWTType>::has_incremental_search() const {
+  // We are going to implement incremental search.
+  return true;
+}
+
+template<class GBWTType>
+IncrementalSearchState GBWTScoreProvider<GBWTType>::incremental_find(const vg::Position& pos) const {
+  return index.find(gbwt::Node::encode(pos.node_id(), pos.is_reverse()));
+}
+
+template<class GBWTType>
+IncrementalSearchState GBWTScoreProvider<GBWTType>::incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const {
+  return index.extend(state, gbwt::Node::encode(pos.node_id(), pos.is_reverse()));
+}
 
 } // namespace haplo
 

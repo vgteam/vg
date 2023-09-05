@@ -16,6 +16,9 @@
 #include "../vg.hpp"
 #include "../variant_adder.hpp"
 
+#include <vg/io/vpkg.hpp>
+
+
 
 
 using namespace std;
@@ -138,9 +141,6 @@ int main_add(int argc, char** argv) {
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
-    // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);
     
@@ -161,22 +161,43 @@ int main_add(int argc, char** argv) {
     }
     
     // Load the graph
-    VG* graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new VG(in, show_progress);
-    });
+
+    unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(graph_filename);
     
-    if (graph == nullptr) {
+    VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
+    
+    // Call this to populate the vg_graph if it isn't populated.
+    auto ensure_vg = [&]() -> vg::VG* {
+        if (vg_graph == nullptr) {
+            // Copy instead.
+            vg_graph = new vg::VG();
+            handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
+            // Give the unique_ptr ownership and delete the graph we loaded.
+            graph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
+        }
+        return vg_graph;
+    };
+    
+    // TODO: We need to move VariantAdder away from vg::VG eventually.
+    // Right now we always need the vg format graph.
+    // TODO: deduplicate ensure_vg with other subcommands?
+    ensure_vg();
+    
+    if (vg_graph == nullptr) {
         cerr << "error:[vg add]: Could not load graph" << endl;
         exit(1);
     }
     
     {
         // Clear existing path ranks (since we invalidate them)
-        graph->paths.clear_mapping_ranks();
+        vg_graph->paths.clear_mapping_ranks();
     
         // Make a VariantAdder for the graph
-        VariantAdder adder(*graph);
+        VariantAdder adder(*vg_graph);
         // Report updates when running interactively
         adder.print_updates = true;
         
@@ -207,14 +228,12 @@ int main_add(int argc, char** argv) {
         // TODO: should we sort the graph?
         
         // Rebuild all the path ranks and stuff
-        graph->paths.rebuild_mapping_aux();
+        vg_graph->paths.rebuild_mapping_aux();
     }
         
     // Output the modified graph
-    graph->serialize_to_ostream(std::cout);
+    vg_graph->serialize_to_ostream(std::cout);
     
-    delete graph;
-
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
     //ShutdownProtobufLibrary();
@@ -223,5 +242,5 @@ int main_add(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_add("add", "add variants from a VCF to a graph", main_add);
+static Subcommand vg_add("add", "add variants from a VCF to a graph", DEPRECATED, main_add);
 

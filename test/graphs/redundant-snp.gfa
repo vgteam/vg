@@ -1,0 +1,12 @@
+H	VN:Z:1.1
+S	20	AAATTT
+S	22	T
+S	30	G
+S	31	G
+S	24	CTGGAGTTC
+L	20	+	22	+	0M
+L	30	-	20	-	0M
+L	20	+	31	+	0M
+L	22	+	24	+	0M
+L	24	-	30	-	0M
+L	31	+	24	+	0M

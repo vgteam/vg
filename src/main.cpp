@@ -14,6 +14,8 @@
 #include "utility.hpp"
 #include "crash.hpp"
 #include "preflight.hpp"
+#include "config/allocator_config.hpp"
+#include "io/register_libvg_io.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -40,23 +42,38 @@ void vg_help(char** argv) {
      });
      
      cerr << endl << "For more commands, type `vg help`." << endl;
+     cerr << "For technical support, please visit: https://www.biostars.org/tag/vg/" << endl << endl;
  }
 
 // We make sure to compile main for the lowest common denominator architecture.
-// This works on GCC and Clang. But we have to decalre main and then define it.
-int main(int argc, char *argv[]) __attribute__((__target__("arch=x86-64")));
+// This macro is defined in the preflight header on supported compiler setups.
+// But to use it we have to declare and then define main.
+int main(int argc, char *argv[]) VG_PREFLIGHT_EVERYWHERE;
 
 int main(int argc, char *argv[]) {
 
     // Make sure the system meets system requirements (i.e. has all the instructions we need)
     preflight_check();
-
+    
+    // Make sure we configure the memory allocator appropriately for our environment
+    configure_memory_allocator();
+    
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
-    
-    // set a higher value for tcmalloc warnings
-    setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
 
+    // Determine a sensible default number of threads and apply it.
+    choose_good_thread_count();
+
+    // Determine temp directory from environment variables.
+    temp_file::set_system_dir();
+
+    // Tell the IO library about libvg types.
+    // TODO: Make a more generic libvg startup function?
+    if (!vg::io::register_libvg_io()) {
+        cerr << "error[vg]: Could not register libvg types with libvgio" << endl;
+        return 1;
+    }
+    
     if (argc == 1) {
         vg_help(argv);
         return 1;
@@ -65,6 +82,9 @@ int main(int argc, char *argv[]) {
     auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
     if (subcommand != nullptr) {
         // We found a matching subcommand, so run it
+        if (subcommand->get_category() == vg::subcommand::CommandCategory::DEPRECATED) {
+            cerr << endl << "WARNING:[vg] Subcommand '" << argv[1] << "' is deprecated and is no longer being actively maintained. Future releases may eliminate it entirely." << endl << endl;
+        }
         return (*subcommand)(argc, argv);
     } else {
         // No subcommand found

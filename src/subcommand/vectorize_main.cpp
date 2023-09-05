@@ -16,7 +16,9 @@
 #include "../vg.hpp"
 #include "../vectorizer.hpp"
 #include "../mapper.hpp"
-#include "../stream.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -28,7 +30,7 @@ void help_vectorize(char** argv){
          << "Vectorize a set of alignments to a variety of vector formats." << endl
          << endl
          << "options: " << endl
-         << "  -x --xg FILE       An xg index for the graph of interest" << endl
+         << "  -x --xg FILE       An xg index or graph of interest" << endl
          << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
          << "  -l --aln-label LABEL   Rename every alignment to LABEL when outputting alignment name." << endl
          << "  -f --format        Tab-delimit output so it can be used in R." << endl
@@ -179,10 +181,12 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    xg::XG* xg_index;
+    PathPositionHandleGraph* xg_index = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
-        ifstream in(xg_name);
-        xg_index = new xg::XG(in);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xg_index = overlay_helper.apply(path_handle_graph.get());
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
@@ -191,19 +195,15 @@ int main_vectorize(int argc, char** argv){
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-    
-    // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
-    gcsa::GCSA gcsa_index;
-    gcsa::LCPArray lcp_index;
+    unique_ptr<gcsa::GCSA> gcsa_index;
+    unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
-        ifstream in_gcsa(gcsa_name.c_str());
-        gcsa_index.load(in_gcsa);
+        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        
         // default LCP is the gcsa base name +.lcp
-        string lcp_in = gcsa_name + ".lcp";
-        ifstream in_lcp(lcp_in.c_str());
-        lcp_index.load(in_lcp);
+        string lcp_name = gcsa_name + ".lcp";
+        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }
 
     Mapper* mapper = nullptr;
@@ -212,7 +212,7 @@ int main_vectorize(int argc, char** argv){
             cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
             return 1;
         } else {
-            mapper = new Mapper(xg_index, &gcsa_index, &lcp_index);
+            mapper = new Mapper(xg_index, gcsa_index.get(), lcp_index.get());
         }
         if (mem_hit_max) {
             mapper->hit_max = mem_hit_max;
@@ -224,9 +224,9 @@ int main_vectorize(int argc, char** argv){
     // write the header if needed
     if (format) {
         cout << "aln.name";
-        for (size_t i = 1; i <= xg_index->max_node_rank(); ++i) {
-            cout << "\tnode." << xg_index->rank_to_id(i);
-        }
+        xg_index->for_each_handle([&](handle_t handle) {
+                cout << "\tnode." << xg_index->get_id(handle);
+            });
         cout << endl;
     }
 
@@ -298,7 +298,7 @@ int main_vectorize(int argc, char** argv){
     };
     
     get_input_file(optind, argc, argv, [&](istream& in) {
-        stream::for_each(in, lambda);
+        vg::io::for_each(in, lambda);
     });
 
     string mapping_str = vz.output_wabbit_map();

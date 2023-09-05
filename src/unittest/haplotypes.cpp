@@ -4,46 +4,41 @@
 
 #include "catch.hpp"
 #include "haplotypes.hpp"
+#include "xg.hpp"
+#include "vg.hpp"
 
 #include <numeric>
 
 namespace unittest {
 using namespace std;
 
-xg::XG::ThreadMapping make_xg_mapping(int64_t node_id) {
-  xg::XG::ThreadMapping to_return;
-  to_return.node_id = node_id;
-  to_return.is_reverse = false;
-  return to_return;
-}
-
-using thread_t = vector<xg::XG::ThreadMapping>;
+using thread_t = vector<gbwt::node_type>;
 
 vg::Path path_from_thread_t(thread_t& t) {
-	vg::Path toReturn;
-	int rank = 1;
-	for(int i = 0; i < t.size(); i++) {
-		vg::Mapping* mapping = toReturn.add_mapping();
-
-    // Set up the position
-    mapping->mutable_position()->set_node_id(t[i].node_id);
-    mapping->mutable_position()->set_is_reverse(t[i].is_reverse);
-
-    // Set the rank
-    mapping->set_rank(rank++);
-  }
-  // We're done making the path
-  return toReturn;
+    vg::Path toReturn;
+    int rank = 1;
+    for (int i = 0; i < t.size(); i++) {
+        vg::Mapping* mapping = toReturn.add_mapping();
+        
+        // Set up the position
+        mapping->mutable_position()->set_node_id(gbwt::Node::id(t[i]));
+        mapping->mutable_position()->set_is_reverse(gbwt::Node::is_reverse(t[i]));
+        
+        // Set the rank
+        mapping->set_rank(rank++);
+    }
+    // We're done making the path
+    return toReturn;
 }
 
 TEST_CASE("We can represent appropriate graphs according to linear reference", "[slls][bubble-finding]") {
-  vector<xg::XG::ThreadMapping> tm = {
-    make_xg_mapping(1),
-    make_xg_mapping(1),
-    make_xg_mapping(2),
-    make_xg_mapping(3),
-    make_xg_mapping(4),
-    make_xg_mapping(5)
+  vector<gbwt::node_type> tm = {
+    gbwt::Node::encode(1, false),
+    gbwt::Node::encode(1, false),
+    gbwt::Node::encode(2, false),
+    gbwt::Node::encode(3, false),
+    gbwt::Node::encode(4, false),
+    gbwt::Node::encode(5, false)
   };
   
   // POSITIVE SNVs
@@ -101,12 +96,16 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   vg::Graph SNP_proto_graph;
   json2pb(SNP_proto_graph, SNP_graph_json.c_str(), SNP_graph_json.size());
   // Build the xg index
-  xg::XG SNP_xg_index(SNP_proto_graph);
+  xg::XG SNP_xg_index;
+  SNP_xg_index.from_path_handle_graph(vg::VG(SNP_proto_graph));
+  vg::path_handle_t SNP_ref_path_handle = SNP_xg_index.get_path_handle("reference");
   
   vg::Graph del_proto_graph;
   json2pb(del_proto_graph, del_graph_json.c_str(), del_graph_json.size());
   // Build the xg index
-  xg::XG del_xg_index(del_proto_graph);
+  xg::XG del_xg_index;
+  del_xg_index.from_path_handle_graph(vg::VG(del_proto_graph));
+  vg::path_handle_t del_ref_path_handle = del_xg_index.get_path_handle("reference");
   
   // NEGATIVE SNVs
   
@@ -163,12 +162,16 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   vg::Graph long_proto_graph;
   json2pb(long_proto_graph, long_graph_json.c_str(), long_graph_json.size());
   // Build the xg index
-  xg::XG long_xg_index(long_proto_graph);
+  xg::XG long_xg_index;
+  long_xg_index.from_path_handle_graph(vg::VG(long_proto_graph));
+  vg::path_handle_t long_ref_path_handle = long_xg_index.get_path_handle("reference");
   
   vg::Graph double_proto_graph;
   json2pb(double_proto_graph, double_graph_json.c_str(), double_graph_json.size());
   // Build the xg index
-  xg::XG double_xg_index(double_proto_graph);
+  xg::XG double_xg_index;
+  double_xg_index.from_path_handle_graph(vg::VG(double_proto_graph));
+  vg::path_handle_t double_ref_path_handle = double_xg_index.get_path_handle("reference");
 
   string matching_test_file = "matching_test.slls";
   ofstream slls_out;
@@ -177,19 +180,19 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   slls_out.close();  
   ifstream slls_in;
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure SNP_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure SNP_lin_DP(slls_in, -3, -2, SNP_xg_index, SNP_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure del_lin_DP(slls_in, -3, -2, del_xg_index, 1);
+  haplo::linear_haplo_structure del_lin_DP(slls_in, -3, -2, del_xg_index, del_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure long_lin_DP(slls_in, -3, -2, long_xg_index, 1);
+  haplo::linear_haplo_structure long_lin_DP(slls_in, -3, -2, long_xg_index, long_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure double_lin_DP(slls_in, -3, -2, double_xg_index, 1);
+  haplo::linear_haplo_structure double_lin_DP(slls_in, -3, -2, double_xg_index, double_ref_path_handle);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_structure match_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure match_lin_DP(slls_in, -3, -2, SNP_xg_index, SNP_ref_path_handle);
   slls_in.close();
   remove(matching_test_file.c_str());
   
@@ -200,7 +203,7 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   nslls_out.close();  
   ifstream nslls_in;
   nslls_in.open(nonmatching_test_file, ios::in);
-  haplo::linear_haplo_structure nonmatch_lin_DP(nslls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure nonmatch_lin_DP(nslls_in, -3, -2, SNP_xg_index, SNP_ref_path_handle);
   nslls_in.close();
   remove(nonmatching_test_file.c_str());
 
@@ -265,134 +268,6 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   }
 }
 //TODO test paths that aren't in the index
-
-TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
-  //     / [3] \   / [6] \         ###################
-  //  [1]       [4]-------[7]      # baby test graph #
-  //    \\ [2] /   \ [5] /         ###################
-  //    \__[8]
-  string graph_json = R"(
-  {"node":[{"id":1,"sequence":"GATT"},
-  {"id":2,"sequence":"ACA"},
-  {"id":3,"sequence":"TT"},
-  {"id":4,"sequence":"ACA"},
-  {"id":5,"sequence":"TTAG"},
-  {"id":6,"sequence":"GG"},
-  {"id":7,"sequence":"ATTACA"},
-  {"id":8,"sequence":"AAAA"}],
-  "edge":[{"to":2,"from":1},
-  {"to":3,"from":1},
-  {"to":4,"from":2},
-  {"to":4,"from":3},
-  {"to":5,"from":4},
-  {"to":6,"from":4},
-  {"to":7,"from":4},
-  {"to":7,"from":5},
-  {"to":7,"from":6}
-  ]}
-  )";
-  
-  vector<xg::XG::ThreadMapping> tm = {
-    make_xg_mapping(1), // dummy for 1-based indexing
-    make_xg_mapping(1),
-    make_xg_mapping(2),
-    make_xg_mapping(3),
-    make_xg_mapping(4),
-    make_xg_mapping(5),
-    make_xg_mapping(6),
-    make_xg_mapping(7),
-    make_xg_mapping(8)
-  };
-  
-  vector<xg::XG::ThreadMapping> t1_2_4_5_7 = {tm[1], tm[2], tm[4], tm[5], tm[7]};
-  vector<xg::XG::ThreadMapping> t1_3_4_5_7 = {tm[1], tm[3], tm[4], tm[5], tm[7]};
-  vector<xg::XG::ThreadMapping> t1_2_4_6_7 = {tm[1], tm[2], tm[4], tm[6], tm[7]};
-  vector<xg::XG::ThreadMapping> t1_3_4_6_7 = {tm[1], tm[3], tm[4], tm[6], tm[7]};
-  vector<xg::XG::ThreadMapping> t1_2_4_d_7 = {tm[1], tm[2], tm[4], tm[7]};
-  vector<xg::XG::ThreadMapping> t1_3_4_d_7 = {tm[1], tm[3], tm[4], tm[7]};
-  
-  vector<xg::XG::ThreadMapping> query = {tm[1], tm[2], tm[4]};
-  
-  vector<vector<xg::XG::ThreadMapping> > haplotypes_to_add = {
-    t1_2_4_5_7,
-    t1_2_4_5_7,
-    t1_2_4_5_7,
-    t1_2_4_5_7,
-    t1_2_4_5_7,
-    t1_3_4_5_7,
-    t1_3_4_5_7,
-    t1_2_4_5_7,
-    t1_2_4_d_7,
-    t1_2_4_d_7,
-    t1_3_4_6_7,
-    t1_3_4_6_7
-  };
-  
-  vector<string> haplotype_names = {
-    "t0",
-    "t1",
-    "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9",
-    "t10",
-    "t11"
-  };
-      
-  // Load the JSON
-  vg::Graph proto_graph;
-  json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-  // Build the xg index
-  xg::XG xg_index(proto_graph);
-  xg_index.insert_threads_into_dag(haplotypes_to_add, haplotype_names);
-  haplotypes_to_add.clear();
-  // build a score-penalty memo: recombination penalty 9, population size 12
-  haplo::haploMath::RRMemo memo(9, 12);
-  
-  // initial node
-  haplo::hDP_graph_accessor ga1(xg_index, tm[1], memo);
-  haplo::haplo_DP_column hdpc(ga1);
-  REQUIRE(hdpc.get_sizes()[0] == 12);
-  REQUIRE(hdpc.current_sum() <= 0);
-  double last_sum = hdpc.current_sum();
-  
-  // second node
-  haplo::hDP_graph_accessor ga12(xg_index, tm[1], tm[2], memo);
-  hdpc.extend(ga12);
-  REQUIRE(hdpc.get_sizes().size() == 1);
-  REQUIRE(hdpc.current_sum() < last_sum);
-  REQUIRE(hdpc.get_sizes()[0] == 8);
-  last_sum = hdpc.current_sum();
-  
-  // third node
-  haplo::hDP_graph_accessor ga24(xg_index, tm[2], tm[4], memo);
-  hdpc.extend(ga24);
-  REQUIRE(hdpc.get_sizes().size() == 2);
-  REQUIRE(hdpc.get_sizes()[0] == 4);
-  REQUIRE(hdpc.get_sizes()[1] == 8);
-  REQUIRE(hdpc.current_sum() > last_sum);
-  
-  last_sum = hdpc.current_sum();
-  
-  pair<double, bool> result_from_thread = haplo::haplo_DP::score(query, xg_index, memo);
-  REQUIRE(result_from_thread.second);
-  REQUIRE(fabs(result_from_thread.first - last_sum) < 0.000001);
-  
-  // recognize nonexistent edge
-  
-  haplo::hDP_graph_accessor ga14(xg_index, tm[1], tm[4], memo);
-  REQUIRE(!ga14.has_edge());
-  
-  vector<xg::XG::ThreadMapping> missing_edge = {tm[1], tm[4]};  
-  REQUIRE(haplo::haplo_DP::score(missing_edge, xg_index, memo).second);
-  
-  vector<xg::XG::ThreadMapping> empty_node = {tm[1], tm[8]};
-  REQUIRE(!(haplo::haplo_DP::score(empty_node, xg_index, memo).second));
-}
 
 TEST_CASE("We can score haplotypes using GBWT", "[haplo-score][gbwt]") {
 
@@ -512,7 +387,8 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   vg::Graph proto_graph;
   json2pb(proto_graph, graph_json.c_str(), graph_json.size());
   // Build the xg index
-  xg::XG xg_index(proto_graph);
+  xg::XG xg_index;
+  xg_index.from_path_handle_graph(vg::VG(proto_graph));
     
   gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
   gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;

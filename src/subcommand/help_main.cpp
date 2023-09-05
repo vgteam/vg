@@ -46,6 +46,8 @@ int main_help(int argc, char** argv){
          cerr << endl;
      }
      
+     cerr << "For technical support, please visit: https://www.biostars.org/tag/vg/" << endl << endl;
+     
     
     return 0;
 }

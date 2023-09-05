@@ -8,12 +8,14 @@
 
 #include "../utility.hpp"
 #include "../path.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 
 #include <vector>
 #include <sstream>
 #include <iostream>
 #include <unordered_map>
+
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -201,7 +203,7 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
 /**
  * Testing wrapper to build a graph chunk from a VCF string. Adds alt paths by default.
  */
-ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
+static ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
     
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
@@ -216,6 +218,8 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
     while (vcf.getNextVariant(var)) {
         // Make sure to correct each variant's position to 0-based
         //var.position -= 1;
+        // Initialize canonical flag which is uninitialized
+        var.canonical = false;
         variants.push_back(var);
     }
 
@@ -231,7 +235,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
 /**
  * Testing wrapper to build a whole graph from a VCF string. Adds alt paths by default.
  */
-Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
+static Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
     bool do_svs, bool use_flat_alts = false) {
     
     // Merge all the graphs we get into this graph
@@ -285,6 +289,77 @@ Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_s
     
     // Return the aggregated result
     return built;
+}
+
+/**
+ * Testing wrapper to build a whole graph from a VCF string into a HandleGraph
+ */
+static unique_ptr<PathHandleGraph> construct_test_handle_graph(string fasta_data, string vcf_data, 
+    size_t max_node_size, bool do_svs, bool use_flat_alts = false) {
+  
+    // Make an empty graph
+    auto build_to = new bdsg::HashGraph();
+    // Make a unique_ptr own our graph
+    unique_ptr<PathHandleGraph> graph(build_to);
+    
+    // Make a stream out of the VCF data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+    
+    // Put it in a vector
+    vector<vcflib::VariantCallFile*> vcf_pointers {&vcf};
+    
+    // We have to write the FASTA to a file
+    string fasta_filename = temp_file::create();
+    ofstream fasta_stream(fasta_filename);
+    fasta_stream << fasta_data;
+    fasta_stream.close(); 
+    
+    // Make a FastaReference out of it
+    FastaReference reference;
+    reference.open(fasta_filename);
+    
+    // Put it in a vector
+    vector<FastaReference*> fasta_pointers {&reference};
+    
+    // Make an empty vector of insertion files
+    vector<FastaReference*> ins_pointers;
+    
+    Constructor constructor;
+    constructor.alt_paths = true;
+    constructor.do_svs = do_svs;
+    constructor.flat = use_flat_alts;
+    // Make sure we can test the node splitting behavior at reasonable sizes
+    constructor.max_node_size = max_node_size;
+
+    // Construct the graph    
+    constructor.construct_graph(fasta_pointers, vcf_pointers, ins_pointers, build_to);
+    
+    // Delete our temporary file
+    temp_file::remove(fasta_filename);
+    
+    // Return the result
+    return std::move(graph);
+}
+
+// Find and copy path in the graph that ends with the given name suffix, or
+// produce an empty Path.
+static Path find_path_by_suffix(const Graph& g, const std::string& suffix) {
+    for (size_t i = 0; i < g.path_size(); i++) {
+        auto& path = g.path(i);
+        if (path.name().size() >= suffix.size()) {
+            // This could be it
+            if (std::equal(suffix.rbegin(), suffix.rend(), path.name().rbegin())) {
+                // Path does end with suffix
+                return path;
+            }
+        }
+    }
+    // If we get here no path matches
+    return Path();
 }
 
 TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
@@ -409,87 +484,71 @@ ref	5	rs1337	A	G	29	PASS	.	GT
         
     }
     
-    SECTION("the graph should have three named paths") {
-        REQUIRE(result.graph.path_size() == 3);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
+    SECTION("primary, ref allele, and alt allele paths should be named correctly") {
+        REQUIRE(primary.name() == "ref");
+        REQUIRE(allele0.name().substr(0, 5) == "_alt_");
+        REQUIRE(allele0.name().substr(allele0.name().size() - 2, 2) == "_0");
+        REQUIRE(allele1.name().substr(0, 5) == "_alt_");
+        REQUIRE(allele1.name().substr(allele1.name().size() - 2, 2) == "_1");
         
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
+        // And the two alleles have to be of the same variant
+        REQUIRE(allele0.name().substr(5, allele0.name().size() - (5 + 2)) == 
+            allele1.name().substr(5, allele1.name().size() - (5 + 2)));
             
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
+        SECTION("the primary path should trace the reference") {
+            REQUIRE(primary.mapping_size() == 3);
             
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
+            REQUIRE(primary.mapping(0).position().node_id() == before.id());
+            REQUIRE(primary.mapping(0).position().offset() == 0);
+            REQUIRE(primary.mapping(0).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(primary.mapping(0)));
+            REQUIRE(from_length(primary.mapping(0)) == before.sequence().size());
+            
+            REQUIRE(primary.mapping(1).position().node_id() == snp_ref.id());
+            REQUIRE(primary.mapping(1).position().offset() == 0);
+            REQUIRE(primary.mapping(1).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(primary.mapping(1)));
+            REQUIRE(from_length(primary.mapping(1)) == snp_ref.sequence().size());
+            
+            REQUIRE(primary.mapping(2).position().node_id() == after.id());
+            REQUIRE(primary.mapping(2).position().offset() == 0);
+            REQUIRE(primary.mapping(2).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(primary.mapping(2)));
+            REQUIRE(from_length(primary.mapping(2)) == after.sequence().size());
+            
         }
         
-        SECTION("primary, ref allele, and alt allele paths should be named correctly") {
-            REQUIRE(primary.name() == "ref");
-            REQUIRE(allele0.name().substr(0, 5) == "_alt_");
-            REQUIRE(allele0.name().substr(allele0.name().size() - 2, 2) == "_0");
-            REQUIRE(allele1.name().substr(0, 5) == "_alt_");
-            REQUIRE(allele1.name().substr(allele1.name().size() - 2, 2) == "_1");
+        SECTION("the ref allele path should visit the ref allele") {
+            REQUIRE(allele0.mapping_size() == 1);
             
-            // And the two alleles have to be of the same variant
-            REQUIRE(allele0.name().substr(5, allele0.name().size() - (5 + 2)) == 
-                allele1.name().substr(5, allele1.name().size() - (5 + 2)));
-                
-            SECTION("the primary path should trace the reference") {
-                REQUIRE(primary.mapping_size() == 3);
-                
-                REQUIRE(primary.mapping(0).position().node_id() == before.id());
-                REQUIRE(primary.mapping(0).position().offset() == 0);
-                REQUIRE(primary.mapping(0).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(primary.mapping(0)));
-                REQUIRE(from_length(primary.mapping(0)) == before.sequence().size());
-                
-                REQUIRE(primary.mapping(1).position().node_id() == snp_ref.id());
-                REQUIRE(primary.mapping(1).position().offset() == 0);
-                REQUIRE(primary.mapping(1).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(primary.mapping(1)));
-                REQUIRE(from_length(primary.mapping(1)) == snp_ref.sequence().size());
-                
-                REQUIRE(primary.mapping(2).position().node_id() == after.id());
-                REQUIRE(primary.mapping(2).position().offset() == 0);
-                REQUIRE(primary.mapping(2).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(primary.mapping(2)));
-                REQUIRE(from_length(primary.mapping(2)) == after.sequence().size());
-                
-            }
-            
-            SECTION("the ref allele path should visit the ref allele") {
-                REQUIRE(allele0.mapping_size() == 1);
-                
-                REQUIRE(allele0.mapping(0).position().node_id() == snp_ref.id());
-                REQUIRE(allele0.mapping(0).position().offset() == 0);
-                REQUIRE(allele0.mapping(0).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(allele0.mapping(0)));
-                REQUIRE(from_length(allele0.mapping(0)) == snp_ref.sequence().size());
-            }
-            
-            SECTION("the alt allele path should visit the alt allele") {
-                REQUIRE(allele1.mapping_size() == 1);
-                
-                REQUIRE(allele1.mapping(0).position().node_id() == snp_alt.id());
-                REQUIRE(allele1.mapping(0).position().offset() == 0);
-                REQUIRE(allele1.mapping(0).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(allele0.mapping(0)));
-                REQUIRE(from_length(allele0.mapping(0)) == snp_alt.sequence().size());
-            }
-                
+            REQUIRE(allele0.mapping(0).position().node_id() == snp_ref.id());
+            REQUIRE(allele0.mapping(0).position().offset() == 0);
+            REQUIRE(allele0.mapping(0).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(allele0.mapping(0)));
+            REQUIRE(from_length(allele0.mapping(0)) == snp_ref.sequence().size());
         }
         
+        SECTION("the alt allele path should visit the alt allele") {
+            REQUIRE(allele1.mapping_size() == 1);
+            
+            REQUIRE(allele1.mapping(0).position().node_id() == snp_alt.id());
+            REQUIRE(allele1.mapping(0).position().offset() == 0);
+            REQUIRE(allele1.mapping(0).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(allele0.mapping(0)));
+            REQUIRE(from_length(allele0.mapping(0)) == snp_alt.sequence().size());
+        }
+                
         SECTION("the reference path should be path 0") {
             REQUIRE(result.graph.path(0).name() == primary.name());
         }
@@ -532,46 +591,31 @@ ref	5	rs1337	AC	A	29	PASS	.	GT
         REQUIRE(result.graph.edge_size() == result.graph.node_size());
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
-        
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the alt should not include the deleted sequence") {
-            if (allele1.mapping_size() == 0) {
-                // This definitely lacks the C
-                REQUIRE(true);
-            } else {
-                for (size_t i = 0; i < allele1.mapping_size(); i++) {
-                    // Look at all the nodes along the path
-                    id_t node_id = allele1.mapping(i).position().node_id();
-                    
-                    for (size_t j = 0; j < result.graph.node_size(); j++) {
-                        // Brute force the whole graph to find the node
-                        if(node_id == result.graph.node(j).id()) {
-                            // In the node we actually visit, there can't be a "C", since we deleted them all
-                            REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
-                        }
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
+    
+    SECTION("the path for the alt should not include the deleted sequence") {
+        if (allele1.mapping_size() == 0) {
+            // This definitely lacks the C
+            REQUIRE(true);
+        } else {
+            for (size_t i = 0; i < allele1.mapping_size(); i++) {
+                // Look at all the nodes along the path
+                id_t node_id = allele1.mapping(i).position().node_id();
+                
+                for (size_t j = 0; j < result.graph.node_size(); j++) {
+                    // Brute force the whole graph to find the node
+                    if(node_id == result.graph.node(j).id()) {
+                        // In the node we actually visit, there can't be a "C", since we deleted them all
+                        REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
                     }
                 }
             }
@@ -615,46 +659,31 @@ ref	5	rs1337	A	AC	29	PASS	.	GT
         REQUIRE(result.graph.edge_size() == result.graph.node_size());
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the ref should not include the inserted sequence") {
-            if (allele0.mapping_size() == 0) {
-                // This definitely lacks the C
-                REQUIRE(true);
-            } else {
-                for (size_t i = 0; i < allele0.mapping_size(); i++) {
-                    // Look at all the nodes along the path
-                    id_t node_id = allele0.mapping(i).position().node_id();
-                    
-                    for (size_t j = 0; j < result.graph.node_size(); j++) {
-                        // Brute force the whole graph to find the node
-                        if(node_id == result.graph.node(j).id()) {
-                            // In the node we actually visit, there can't be a "C", since we inserted the only one
-                            REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
-                        }
+    SECTION("the path for the ref should not include the inserted sequence") {
+        if (allele0.mapping_size() == 0) {
+            // This definitely lacks the C
+            REQUIRE(true);
+        } else {
+            for (size_t i = 0; i < allele0.mapping_size(); i++) {
+                // Look at all the nodes along the path
+                id_t node_id = allele0.mapping(i).position().node_id();
+                
+                for (size_t j = 0; j < result.graph.node_size(); j++) {
+                    // Brute force the whole graph to find the node
+                    if(node_id == result.graph.node(j).id()) {
+                        // In the node we actually visit, there can't be a "C", since we inserted the only one
+                        REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
                     }
                 }
             }
@@ -807,6 +836,8 @@ ref	5	rs1337	A	G	29	PASS	.	GT
     while (vcf.getNextVariant(var)) {
         // Make sure to correct each variant's position to 0-based
         //var.position -= 1;
+        // Initialize canonical flag which is uninitialized
+        var.canonical = false;
         variants.push_back(var);
     }
 
@@ -880,38 +911,23 @@ ref	3	rs1337	TTC	TTAC	29	PASS	.	GT
         REQUIRE(result.graph.edge_size() == 3);
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
-        
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the ref allele should be completely empty") {
-            CHECK(allele0.mapping_size() == 0);
-        }
-        
-        SECTION("the path for the alt allele should have just one node") {
-            CHECK(allele1.mapping_size() == 1);
-        }
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
+    
+    SECTION("the path for the ref allele should be completely empty") {
+        CHECK(allele0.mapping_size() == 0);
+    }
+    
+    SECTION("the path for the alt allele should have just one node") {
+        CHECK(allele1.mapping_size() == 1);
     }
 
 }
@@ -963,38 +979,23 @@ ref	2	rs1337	CATTTAATTATTAATTAAATAATTTAATTTATTTATTATTATAAATTTATTAATATAAATTAAATA	
         REQUIRE(result.graph.edge_size() == 4);
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the ref allele should have 2 nodes") {
-            CHECK(allele0.mapping_size() == 2);
-        }
-        
-        SECTION("the path for the alt allele should be completely empty") {
-            CHECK(allele1.mapping_size() == 0);
-        }
+    SECTION("the path for the ref allele should have 2 nodes") {
+        CHECK(allele0.mapping_size() == 2);
+    }
+    
+    SECTION("the path for the alt allele should be completely empty") {
+        CHECK(allele1.mapping_size() == 0);
     }
 
 }
@@ -1096,49 +1097,33 @@ ref	2	rs554978012;rs201121256	GTA	GTATA,G	.	GT
         REQUIRE(result.graph.edge_size() == 5);
     }
 
-    SECTION("the graph should have 4 paths") {
-        REQUIRE(result.graph.path_size() == 4);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    Path allele2 = find_path_by_suffix(result.graph, "2");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+        REQUIRE(allele1.mapping_size() + allele2.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele2.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        Path allele2;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the long alt allele path
-                allele1 = path;
-            } else if (path.name()[path.name().size() - 1] == '2') {
-                // The name ends with 2, so it ought to be the short alt allele path
-                allele2 = path;
-            }
-        }
-        
-        SECTION("the path for the reference alt should visit the second TA node") {
-            REQUIRE(allele0.mapping_size() == 1);
-            REQUIRE(allele0.mapping(0).position().node_id() == 3);
-        }
-        
-        SECTION("the path for the insert alt should visit the second first and second TA nodes") {
-            REQUIRE(allele1.mapping_size() == 2);
-            REQUIRE(allele1.mapping(0).position().node_id() == 2);
-            REQUIRE(allele1.mapping(1).position().node_id() == 3);
-        }
-        
-        SECTION("the path for the delete alt should be empty") {
-            REQUIRE(allele2.mapping_size() == 0);
-        }
+    SECTION("the path for the reference alt should visit the second TA node") {
+        REQUIRE(allele0.mapping_size() == 1);
+        REQUIRE(allele0.mapping(0).position().node_id() == 3);
+    }
+    
+    SECTION("the path for the insert alt should visit the second first and second TA nodes") {
+        REQUIRE(allele1.mapping_size() == 2);
+        REQUIRE(allele1.mapping(0).position().node_id() == 2);
+        REQUIRE(allele1.mapping(1).position().node_id() == 3);
+    }
+    
+    SECTION("the path for the delete alt should be empty") {
+        REQUIRE(allele2.mapping_size() == 0);
     }
 
 }
@@ -1222,6 +1207,38 @@ ref	11	.	TAG	T	29	PASS	.	GT
 
 }
 
+TEST_CASE( "A graph can be constructed to a HandleGraph", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	.	A	T	29	PASS	.	GT
+)";
+
+    auto fasta_data = R"(>ref
+GATTACACATTAG
+)";
+
+    // Build the graph
+    unique_ptr<PathHandleGraph> result = construct_test_handle_graph(fasta_data, vcf_data, 50, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("graph is the correct size") {
+        REQUIRE(result->get_node_count() == 4);
+    }
+
+}
+
+
 TEST_CASE( "A VCF and FASTA on two contigs make a graph with a consistent ID space", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
@@ -1268,6 +1285,63 @@ GATTACACATTAG
 
 }
 
+TEST_CASE( "Non-left-shifted variants can be used to construct valid graphs", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	.	AAA	AAG,A	50	PASS	.	GT
+)";
+
+    auto fasta_data = R"(>ref
+AAAAAAAAAAAAA
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 50, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Find all the edges
+    unordered_set<pair<id_t, id_t>> edges;
+    
+    for (auto& edge : result.edge()) {
+        // All the edges should be end to start
+        REQUIRE(!edge.from_start());
+        REQUIRE(!edge.to_end());
+        
+        pair<id_t, id_t> key = make_pair(edge.from(), edge.to());
+    
+        // Each edge must be unique
+        REQUIRE(!edges.count(key));
+        
+        edges.insert(key);
+    }
+
+    SECTION("Paths follow edges") {
+        for (auto& path : result.path()) {
+            // For each path
+            for (size_t i = 1; i < path.mapping_size(); i++) {
+                // Scan alogn adjacent pairs of nodes
+                id_t prev = path.mapping(i - 1).position().node_id();
+                id_t here = path.mapping(i).position().node_id();
+                
+                // The edge must have been created.
+                REQUIRE(edges.count(make_pair(prev, here)));
+            }
+        }
+    }
+
+}
+
 TEST_CASE( "VG handles structural variants as expected"){
     auto vcf_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1278,9 +1352,9 @@ TEST_CASE( "VG handles structural variants as expected"){
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
-auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
+    auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
 ##source=myImputationProgramV3.1
 ##reference=1000GenomesPilot-NCBI36
@@ -1289,7 +1363,7 @@ auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
@@ -1334,7 +1408,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 
 
-TEST_CASE( "A deletion is represented properly" , "[constructor]") {
+TEST_CASE( "An SV deletion is represented properly" , "[constructor]") {
 
     auto vcf_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1345,7 +1419,7 @@ TEST_CASE( "A deletion is represented properly" , "[constructor]") {
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
@@ -1374,11 +1448,355 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
             REQUIRE(node.sequence()==expected[node.id()]);
         }
     }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with matching SVLEN is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;SVLEN=-20;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with only SVLEN is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with only SPAN is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SPAN=20;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with mismatching SVLEN is rejected" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;SVLEN=-19;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "CAACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "A non-SV deletion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
 
 }
 
 
-TEST_CASE("VG handles insertions", "[constructor"){
+TEST_CASE("VG handles SV insertions", "[constructor]"){
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
@@ -1392,26 +1810,624 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;CIPOS=0,3	GT)";
 
     auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
 
-    unordered_map<size_t, string> expected;
-    expected.insert({1, "CAAATAAGG"});
-    expected.insert({2, "ACTG"});
-    expected.insert({3, "CTTGGAAATT"});
-    expected.insert({4, "TTCTGGAGTT"});
-    expected.insert({5, "CTATTATATT"});
-    expected.insert({6, "CCAACTCTCT"});
-    expected.insert({7, "G"});
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
 
 
-    for (size_t i = 0; i < result.node_size(); i++){
-        auto& node = result.node(i);
-        REQUIRE(node.sequence() == expected[node.id()]);
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
     }
 
 }
+
+TEST_CASE("VG handles SV insertions with both SVLEN and END", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=9;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+
+
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE("VG handles SV insertions with no SVLEN or END", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+
+
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE("VG rejects SV insertions with bad ENDs", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=18;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+   SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "CAACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE("VG handles SV insertions with misunderstood ENDs set to POS + SVLEN", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+
+
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV inversion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 3, true);
+        edges_wanted.emplace(2, true, 4, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV inversion that ends 1 base after something else is constructable" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT
+x	11	sv2	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=40;CIPOS=0,3;CIEND=-3,0	GT
+x	28	sv2	T	GATTACA	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SVLEN=7;CIPOS=0,3;CIEND=-3,0	GT
+)";
+
+
+    //          v    inverted      v
+    // CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+    //            ^      deleted              ^
+    //                            X Replaced and inserted after
+
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 100, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        // Order is a bit weird. First part before insertion.
+        expected.insert({1, "CAAATAAGG"});
+        // Replacing inserted base. Because we aren't using flat alts, vcflib
+        // parses this as a substitution and then an insertion and we allow one
+        // but not the other in the graph.
+        expected.insert({2, "G"});
+        // Rest of inserted bases
+        expected.insert({3, "ATTACA"});
+        // Inversion before deletion
+        expected.insert({4, "CT"});
+        // Deleted sequence before insertion
+        expected.insert({5, "TGGAAATTTTCTGGAG"});
+        // Insertion base replaced
+        expected.insert({6, "T"});
+        // Base in inversion after insertion
+        expected.insert({7, "T"});
+        // Non-inverted deleted part
+        expected.insert({8, "CTATTATATTC"});
+        // Part after inversion
+        expected.insert({9, "CAACTCTCTG"});
+        
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+}
+
+TEST_CASE( "SV inversions with smart quotes and a lower-case reference parse correctly" , "[constructor]") {
+
+    // Note the smart quotes
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##INFO=<ID=END,Number=1,Type=Integer,Description=“End position of the variant described in this record”>
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description=“Type of structural variant”>
+##ALT=<ID=IV,Description=“Inversion”>
+#CHROM  POS     ID      REF ALT QUAL    FILTER  INFO
+x	10	SRR026655.22810753-B	N	<INV>	.	.	END=41;SVTYPE=INV)";
+
+    auto fasta_data = R"(>x
+caaataaggcttggaaattttctggagttctattatattccaactctctg
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "C"});
+        expected.insert({6, "AACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 5, true);
+        edges_wanted.emplace(2, true, 6, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
+
+TEST_CASE( "A shorter SV inversion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	10	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 3, true);
+        edges_wanted.emplace(2, true, 4, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
+TEST_CASE( "SVs that are fully base specified are constructed correctly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	11	sv1	T	TTTCTTTCTTTCTTTCTTTCTTTCTTTCTTTCTTTC	11	PASS	END=10;SVLEN=35;SVTYPE=INS	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+	SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+		expected.insert({2, "T"});
+        expected.insert({3, "TTCTTTCTTT"});
+        expected.insert({4, "CTTTCTTTCT"});
+        expected.insert({5, "TTCTTTCTTT"});
+        expected.insert({6, "CTTTC"});
+        expected.insert({7, "TGGAAATTTT"});
+        expected.insert({8, "CTGGAGTTCT"});
+        expected.insert({9, "ATTATATTCC"});
+        expected.insert({10, "AACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(6, false, 7, false);
+        edges_wanted.emplace(7, false, 8, false);
+        edges_wanted.emplace(8, false, 9, false);
+        edges_wanted.emplace(9, false, 10, false);
+        edges_wanted.emplace(2, false, 7, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
 
 
 

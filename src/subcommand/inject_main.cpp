@@ -10,9 +10,13 @@
 
 #include <subcommand.hpp>
 
+#include "../utility.hpp"
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../xg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -22,7 +26,7 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use the graph in this xg index" << endl
+         << "    -x, --xg-name FILE       use this graph or xg index (required, non-XG formats also accepted)" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 
@@ -33,7 +37,7 @@ int main_inject(int argc, char** argv) {
     }
 
     string xg_name;
-    int threads = 1;
+    int threads = get_thread_count();
 
     int c;
     optind = 2;
@@ -62,7 +66,6 @@ int main_inject(int argc, char** argv) {
 
         case 't':
           threads = parse<int>(optarg);
-          omp_set_num_threads(threads);
           break;
 
         case 'h':
@@ -75,28 +78,25 @@ int main_inject(int argc, char** argv) {
           abort ();
         }
     }
+    
+    omp_set_num_threads(threads);
 
     string file_name = get_input_file_name(optind, argc, argv);
 
-    xg::XG* xgidx = nullptr;
-    ifstream xg_stream(xg_name);
-    if(xg_stream) {
-      xgidx = new xg::XG(xg_stream);
+    // We require an XG index
+    if (xg_name.empty()) {
+        cerr << "error[vg inject]: XG index (-x) is required" << endl;
+        exit(1);
     }
-    if (!xg_stream || xgidx == nullptr) {
-      cerr << "[vg inject] error: could not open xg index" << endl;
-      return 1;
-    }
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = overlay_helper.apply(path_handle_graph.get());    
 
-    vector<Alignment> buf;
+    vg::io::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
 #pragma omp critical (buf)
         {
-            buf.push_back(aln);
-            if (buf.size() > 1000) {
-                write_alignments(cout, buf);
-                buf.clear();
-            }
+            buf.write(std::move(aln));
         }
     };
     if (threads > 1) {
@@ -104,11 +104,6 @@ int main_inject(int argc, char** argv) {
     } else {
         hts_for_each(file_name, lambda, xgidx);
     }
-    write_alignments(cout, buf);
-    buf.clear();
-    // Finish the stream with an EOF marker
-    stream::finish(cout);
-    cout.flush();
     return 0;
 }
 

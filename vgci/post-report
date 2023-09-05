@@ -1,0 +1,235 @@
+#!/bin/bash
+set -e
+
+# Upload the generated report HTML directory and summary.
+
+usage() {
+    # Print usage to stderr
+    exec 1>&2
+    printf "Usage: $0 HTML_DIR_IN MD_IN \n"
+    exit 1
+}
+
+if [[ "$#" -ne 2 ]]; then
+    # We need all the arguments
+    usage
+fi
+
+# Gather all the arguments
+HTML_DIR_IN="${1}"; shift
+MD_IN="${1}"; shift
+
+# Define mutex functions so that only one upload can happen at a time
+
+init_mutex() {
+    # Set up the mutex system. Takes no arguments.
+    aws configure set preview.sdb true
+    aws sdb create-domain --region us-west-2 --domain-name vgci 2>/dev/null || true
+}
+
+read_mutex() {
+    # Given the name of a mutex, read the mutex state.
+    # Sets global MUTEX_HOLDER to the mutex holder ID
+    
+    local MUTEX_NAME="${1}"; shift
+    
+    # Make the mutex if it doesn't exist
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=free,Replace=true" --expected "Name=mutexholder,Exists=false" 2>/dev/null || true
+    
+    # Download the mutex data
+    local RESULT="$(aws sdb get-attributes --region us-west-2 --domain-name vgci --item-name ${MUTEX_NAME} --consistent-read)"
+    # Pull out the holder
+    MUTEX_HOLDER="$(echo "${RESULT}" | grep -A 1 "mutexholder" | tail -n1 | cut -f2 -d':' | tr -d " \"")"
+
+}
+
+unlock_mutex() {
+    # Unlock the mutex with the given name, if it is still held by the current
+    # value of MUTEX_HOLDER.
+    
+    local MUTEX_NAME="${1}"; shift
+
+    echo "Unlocking ${MUTEX_NAME} for ${MUTEX_HOLDER}"
+    
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=free,Replace=true" --expected "Name=mutexholder,Value=${MUTEX_HOLDER}" 2>/dev/null || true
+}
+
+lock_mutex() {
+    # Given a mutex name, a wait period, and a max number of loops per previous
+    # lock, lock the mutex. If someone else holds the mutex, we poll again after
+    # the wait period. If we loop for the max number of loops on the same
+    # previous lock holder, we time them out.
+    
+    local MUTEX_NAME="${1}"; shift
+    local POLL_SECONDS="${1}"; shift
+    local TIMEOUT_LOOPS="${1}"; shift
+    
+    # Make a unique value for our mutex sentinel
+    local MUTEX_SENTINEL=$(uuidgen)
+    
+    # Get the mutex state
+    read_mutex "${MUTEX_NAME}"
+    
+    while [ "${MUTEX_HOLDER}" != "${MUTEX_SENTINEL}" ]; do
+        # Until we hold the mutex
+    
+        local LAST_HOLDER="nobody"
+        local WAIT_COUNT=0
+        
+        while [ "${MUTEX_HOLDER}" != "free" ]; do
+            # Someone has the mutex. Wait for them to go away or time them out.
+            
+            echo "Mutex is ${MUTEX_HOLDER}"
+            
+            if [ "${LAST_HOLDER}" != "${MUTEX_HOLDER}" ]; then
+                # It's someone new, so reset the count
+                local LAST_HOLDER="${MUTEX_HOLDER}"
+                local WAIT_COUNT=0
+            fi
+            
+            local WAIT_COUNT=$((WAIT_COUNT+1))
+            if [ "${WAIT_COUNT}" -gt "${TIMEOUT_LOOPS}" ]; then
+                # We need to bump this person
+                echo "Time out ${MUTEX_HOLDER}"
+                unlock_mutex "${MUTEX_NAME}"
+            fi
+            
+            # Wait for things to happen
+            sleep "${POLL_SECONDS}"
+            
+            # See if anyone else has the mutex or if it is free
+            read_mutex "${MUTEX_NAME}"
+            
+        done
+        
+        echo "Mutex is ${MUTEX_HOLDER}"
+        
+        # If we get here we saw it as free
+        # Try to take it
+        aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=${MUTEX_SENTINEL},Replace=true" --expected "Name=mutexholder,Value=free" || true
+        
+        # See if it worked
+        read_mutex "${MUTEX_NAME}"
+    
+    done
+    
+    # Now we hold the mutex
+    echo "Locked ${MUTEX_NAME} for ${MUTEX_HOLDER}"
+    
+}
+
+
+read_job_id() {
+    # Given the name of a SimpleDB item, read the buildnumber key and set
+    # OLD_JOB_ID. Defaults it to 0.
+    # We use the "buildnumber" key because that's what Jenkins called the concept.
+    
+    local ITEM_NAME="${1}"; shift
+    
+    # Make the attribute if it doesn't exist
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=0,Replace=true" --expected "Name=buildnumber,Exists=false" 2>/dev/null || true
+    
+    # Download the data
+    local RESULT="$(aws sdb get-attributes --region us-west-2 --domain-name vgci --item-name ${ITEM_NAME} --consistent-read)"
+    # Pull out the build number
+    OLD_JOB_ID="$(echo "${RESULT}" | grep -A 1 "buildnumber" | tail -n1 | cut -f2 -d':' | tr -d " \"")"
+}
+
+write_job_id() {
+    # Given the name of a SimpleDB item, and a build number, save the build number over whatever is there.
+    
+    local ITEM_NAME="${1}"; shift
+    local NEW_JOB_ID="${1}"; shift
+    
+    # Overwrite the attribute
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=${NEW_BUILD_NUMBER},Replace=true"
+
+}
+
+# Figure out where we are. In the real version this will affect our behavior.
+if [ ! -z "${CI}" ]; then
+    echo "On Cloud CI"
+    
+    # Where we should put the report depends on what build we're doing
+    if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
+        echo "Running on master"
+        
+        # On master we need to hold the mutex.
+        # Give anyone before us up to 5 1-minute increments to finish up before we boot them from the mutex.
+        init_mutex
+        lock_mutex "master_sync" 60 5
+        
+        # Load the last build number
+        read_job_id "master_sync"
+        
+        # We assume CI_JOB_ID is a monotonically increasing number.
+        echo "Our job: ${CI_JOB_ID}"
+        echo "Old job: ${OLD_JOB_ID}"
+        
+        if [ -z "${OLD_JOB_ID}" ] || [ "${CI_JOB_ID}" -gt "${OLD_JOB_ID}" ]; then
+            # Upload to the path for master, overwriting whatever was there.
+            
+            HTML_PATH="vg_ci/vgci_reports/branch/master"
+            
+            # Save the new higher build number
+            write_job_id "master_sync" "${CI_JOB_ID}"
+            
+        else
+            # Just work on the commit, since a newer master build has already finished.
+            HTML_PATH="vg_ci/vgci_reports/commit/${CI_COMMIT_SHA}"
+        fi
+        
+    else
+        echo "Running on a branch or pull request"
+        
+        # Upload to a path specific to this commit.
+        HTML_PATH="vg_ci/vgci_reports/commit/${CI_COMMIT_SHA}"
+        
+        # Say we had 0 as the last build number
+        OLD_BUILD_NUMBER=0
+    fi
+    
+    # Upload the HTML to S3 as the current master report
+    aws s3 sync --quiet "${HTML_DIR_IN}" "s3://vg-data/${HTML_PATH}"
+    
+    # Make the URL for the report HTML
+    # TODO: Set this back to https:// when we set up a bucket we can make public again.
+    # For now people will have to download the reports with auth to read them.
+    REPORT_URL="s3://vg-data/${HTML_PATH}/index.html"
+    
+else
+    echo "Running locally"
+    
+    # Report just stays in place
+    REPORT_URL="file://${HTML_DIR_IN}/index.html"
+fi
+
+echo "Uploaded HTML as ${REPORT_URL}"
+
+# TODO: upload Markdown
+# In the Markdown, "{{REPORT_URL}}" will be replaced with the URL to the uploaded HTML report.
+echo "Markdown to post:"
+cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
+
+if [ ! -z "${CI}" ]; then
+    # On cloud CI, so actually post a comment
+	 
+    pip3 install pygithub
+	 
+    # Comment on the commit we built.
+    # We don't have a good way to know if there is an open PR for it, and there might be more than one maybe.
+    python3 vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true 
+    
+    if [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
+        # Normal master build
+        
+        # We grabbed the mutex, so we need to release it
+        unlock_mutex "master_sync"    
+    fi
+fi
+
+
+
+
+
+

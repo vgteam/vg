@@ -8,6 +8,9 @@
 #include <vector>
 #include <string>
 #include <type_traits>
+#include <functional>
+#include <limits>
+#include <cmath>
 
 #include <google/protobuf/struct.pb.h>
 
@@ -18,6 +21,10 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////
 // API
 ////////////////////////////////////////////////////////////////////////
+
+/// Returns true if the Protobuf object has an annotation with this name
+template<typename Annotated>
+bool has_annotation(const Annotated& annotated, const string& name);
 
 /// Get the annotation with the given name and return it.
 /// If not present, returns the Protobuf default value for the annotation type.
@@ -54,6 +61,15 @@ void clear_annotation(Annotated* annotated, const string& name);
 /// Clear the annotation with the given name
 template<typename Annotated>
 void clear_annotation(Annotated& annotated, const string& name);
+
+/// Apply a lambda to all annotations, except for Struct and ListValue annotations (which cannot
+/// be easily typed without exposing ugly Protobuf internals
+template<typename Annotated>
+void for_each_basic_annotation(const Annotated& annotated,
+                               const function<void(const string&)> null_lambda,
+                               const function<void(const string&,double)> double_lambda,
+                               const function<void(const string&,bool)> bool_lambda,
+                               const function<void(const string&,const string&)> string_lambda);
 
 ////////////////////////////////////////////////////////////////////////
 // Internal Definitions
@@ -111,6 +127,20 @@ inline bool value_cast<bool>(const google::protobuf::Value& value) {
 
 template<>
 inline double value_cast<double>(const google::protobuf::Value& value) {
+    if (value.kind_case() == google::protobuf::Value::KindCase::kStringValue) {
+        // If someone puts in an infinite or NAN double, Protobuf refuses to
+        // stringify those, so we do it ourselves. But now they want the double
+        // back so we need to undo that.
+        if (value.string_value() == "Infinity") {
+            return std::numeric_limits<double>::infinity();
+        } else if (value.string_value() == "-Infinity") {
+            return -std::numeric_limits<double>::infinity();
+        } else if (value.string_value() == "NaN") {
+            return nan("");
+        } else {
+            throw std::runtime_error("Cannot understand " + value.string_value() + " as a double.");
+        }
+    }
     assert(value.kind_case() == google::protobuf::Value::KindCase::kNumberValue);
     return value.number_value();
 }
@@ -131,7 +161,15 @@ inline google::protobuf::Value value_cast<bool>(const bool& wrap) {
 template<>
 inline google::protobuf::Value value_cast<double>(const double& wrap) {
     google::protobuf::Value to_return;
-    to_return.set_number_value(wrap);
+    // We need to represent inf and nan values as something else, since Protobuf now refuses to serialize them as anything.
+    // Previously it made them "Infinity", "-Infinity" and "NaN", so we do that too.
+    if (isinf(wrap)) {
+        to_return.set_string_value(wrap > 0 ? "Infinity" : "-Infinity");
+    } else if (isnan(wrap)) {
+        to_return.set_string_value("NaN");
+    } else {
+        to_return.set_number_value(wrap);
+    }
     return to_return;
 }
 
@@ -140,6 +178,19 @@ inline google::protobuf::Value value_cast<string>(const string& wrap) {
     google::protobuf::Value to_return;
     to_return.set_string_value(wrap);
     return to_return;
+}
+
+// Helpers for dumping integral types to double.
+// May lose precision for large numbers.
+
+template<>
+inline google::protobuf::Value value_cast<size_t>(const size_t& wrap) {
+    return value_cast<double>((double) wrap);
+}
+
+template<>
+inline google::protobuf::Value value_cast<int>(const int& wrap) {
+    return value_cast<double>((double) wrap);
 }
 
 // We also have implementations for vectors and other push_back-able containers.
@@ -167,6 +218,14 @@ inline google::protobuf::Value value_cast(const Container& wrap) {
     // Hand it off
     to_return.set_allocated_list_value(list);
     return to_return;
+}
+
+template<typename Annotated>
+inline bool has_annotation(const Annotated& annotated, const string& name) {
+    // Grab the whole annotation struct
+    auto annotation_struct = Annotation<Annotated>::get(annotated);
+    // Check for the annotation
+    return annotation_struct.fields().count(name);
 }
 
 // TODO: more value casts for e.g. ints and embedded messages.
@@ -219,6 +278,34 @@ inline void clear_annotation(Annotated* annotated, const string& name) {
 template<typename Annotated>
 inline void clear_annotation(Annotated& annotated, const string& name) {
     clear_annotation(&annotated, name);
+}
+
+template<typename Annotated>
+void for_each_basic_annotation(const Annotated& annotated,
+                               const function<void(const string&)> null_lambda,
+                               const function<void(const string&,double)> double_lambda,
+                               const function<void(const string&,bool)> bool_lambda,
+                               const function<void(const string&,const string&)> string_lambda) {
+    
+    for (auto it = annotated.annotation().fields().begin(), end = annotated.annotation().fields().end(); it != end; ++it) {
+        switch (it->second.kind_case()) {
+            case google::protobuf::Value::KindCase::kBoolValue:
+                bool_lambda(it->first, it->second.bool_value());
+                break;
+            case google::protobuf::Value::KindCase::kNumberValue:
+                double_lambda(it->first, it->second.number_value());
+                break;
+            case google::protobuf::Value::KindCase::kStringValue:
+                string_lambda(it->first, it->second.string_value());
+                break;
+            case google::protobuf::Value::KindCase::kNullValue:
+                null_lambda(it->first);
+                break;
+            default:
+                // TODO: skip ListValue and Struct, how to include?
+                break;
+        }
+    }
 }
 
 }

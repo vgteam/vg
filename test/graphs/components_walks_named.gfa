@@ -1,0 +1,30 @@
+H	VN:Z:1.1
+S	cats	G
+S	dogs	A
+S	wombats	T
+S	goldfish	T
+S	chinchillas	A
+S	cows	C
+S	sparrows	A
+S	oxen	G
+S	pigs	A
+S	squirrels	T
+S	rabbits	T
+S	tuna	A
+L	cats	+	dogs	+	0M
+L	cats	+	wombats	+	0M
+L	dogs	+	goldfish	+	0M
+L	wombats	+	goldfish	+	0M
+L	goldfish	+	chinchillas	+	0M
+L	goldfish	+	cows	+	0M
+L	chinchillas	+	sparrows	+	0M
+L	cows	+	sparrows	+	0M
+L	oxen	+	pigs	+	0M
+L	oxen	+	squirrels	+	0M
+L	pigs	+	rabbits	+	0M
+L	squirrels	+	rabbits	-	0M
+L	rabbits	+	tuna	+	0M
+W	sample	1	A	0	5	>cats>dogs>goldfish>chinchillas>sparrows
+W	sample	2	A	0	5	>cats>wombats>goldfish>cows>sparrows
+W	sample	1	B	0	5	>oxen>pigs>rabbits<squirrels<oxen
+W	sample	2	B	0	4	>oxen>pigs>rabbits>tuna

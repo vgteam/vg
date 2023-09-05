@@ -6,6 +6,8 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix spin: <http://spinrdf.org/spin#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix edam: <http://edamontology.org/> .
+@prefix faldo: <http://biohackathon.org/resource/faldo#> .
 
 <http://biohackathon.org/resource/vg>
   rdf:type owl:Ontology ;
@@ -13,7 +15,7 @@
   spin:imports <http://topbraid.org/spin/owlrl-all> ;
   spin:imports <http://topbraid.org/spin/rdfsplus> ;
   spin:imports <http://topbraid.org/spin/spinowl> ;
-  owl:versionInfo "Created at the DBCLS RDF Summit 2, Sendai Japan 20"^^xsd:string ;
+  owl:versionInfo "Created at the DBCLS RDF Summit 2, Sendai Japan and COVID-19 Virtual Biohackathon"^^xsd:string ;
 .
 :Node
   rdf:type owl:Class ;
@@ -23,7 +25,7 @@
 .
 :Path
   rdf:type owl:Class ;
-  rdfs:comment "A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant grap."^^xsd:string ;
+  rdfs:comment "A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant graph."^^xsd:string ;
   rdfs:label "Path"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
@@ -33,8 +35,16 @@
   rdfs:label "Step"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
+:links
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two nodes are linked and does not allow one to infer which side to side it goes"^^xsd:string ;
+  rdfs:domain :Node ;
+  rdfs:label "links"^^xsd:string ;
+  rdfs:range :Node ;
+.
 :linksForwardToForward
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the forward (5' to 3') strand on the subject node to the forward (5' to 3') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "++"^^xsd:string ;
@@ -43,6 +53,7 @@
 .
 :linksForwardToReverse
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the forward (5' to 3') strand on the subject node to the reverse (3' to 5') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "+-"^^xsd:string ;
@@ -51,6 +62,7 @@
 .
 :linksReverseToForward
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the reverse (3' to 5') strand on the subject node to the forward (5' to 3') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "-+"^^xsd:string ;
@@ -59,6 +71,7 @@
 .
 :linksReverseToReverse
   rdf:type owl:ObjectProperty ;
+  rdfs:subPropertyOf :links ;
   rdfs:comment "This links a node from the reverse (3' to 5') strand on the subject node to the reverse (3' to 5') strand on the predicate node."^^xsd:string ;
   rdfs:domain :Node ;
   rdfs:label "--"^^xsd:string ;
@@ -70,8 +83,23 @@
   rdfs:comment "This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."^^xsd:string ;
   rdfs:domain :Step ;
   rdfs:label "node"^^xsd:string ;
-  rdfs:range :Step ;
+  rdfs:range :Node ;
 .
+:path
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that this step occurs on the path that is the object of this statment"^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "path"^^xsd:string ;
+  rdfs:range :Path ;
+.
+
+:position
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This is the position on the reference path at which this step starts."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "position"^^xsd:string ;
+  rdfs:range xsd:positiveInteger .
+
 :rank
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The rank records the step place along its path."^^xsd:string ;
@@ -85,4 +113,231 @@
   rdfs:domain :Step ;
   rdfs:label "reverseOfNode"^^xsd:string ;
   rdfs:range :Node ;
+.
+:ZoomLevel
+  rdf:type owl:Class ;
+  rdfs:comment "A zoom level of Pangenome."^^xsd:string ;
+  rdfs:label "ZoomLevel"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:zoomFactor
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The zoom factor of pangenome, which is defined as bin width, generally."^^xsd:string ;
+  rdfs:domain :ZoomLevel ;
+  rdfs:label "zoomFactor"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:components
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A zoom level has one or more components."^^xsd:string ;
+  rdfs:domain :ZoomLevel ;
+  rdfs:label "components"^^xsd:string ;
+  rdfs:range :Component ;
+.
+:Component
+  rdf:type owl:Class ;
+  rdfs:comment "A region between Links structuring all bins and their present individuals into one component."^^xsd:string ;
+  rdfs:label "Component"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:forwardComponentEdge
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two components are linked in forward orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "forwardComponentEdge"^^xsd:string ;
+  rdfs:range :Component ;
+.
+:reverseComponentEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :forwardComponentEdge ;
+  rdfs:comment "The super property that says two components are linked in reverse orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "reverseComponentEdge"^^xsd:string ;
+  rdfs:domain :Component ;
+.
+:componentRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "componentRank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:bins
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A Component has one or more Bins."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "bins"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:Bin
+  rdf:type owl:Class ;
+  rdfs:comment "A bin in the output of odgi bin, representing a sequence section."^^xsd:string ;
+  rdfs:label "Bin"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:binRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "binRank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:forwardBinEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :reverseBinEdge ;
+  rdfs:comment "The super property that says two bins are linked in forward orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "forwardBinEdge"^^xsd:string ;
+  rdfs:domain :Bin ;
+.
+:reverseBinEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :forwardBinEdge ;
+  rdfs:comment "The super property that says two bins are linked in reverse orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "reverseBinEdge"^^xsd:string ;
+  rdfs:domain :Bin ;
+.
+:Link
+  rdf:type owl:Class ;
+  rdfs:comment "A link marks a graph traversal along a nonlinear connection."^^xsd:string ;
+  rdfs:label "Link"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:arrival
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "An end bin of nonlinear link. Incoming edge of the bin."^^xsd:string ;
+  owl:inverseOf :departure;
+  rdfs:domain :Link ;
+  rdfs:label "arrival"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:departure
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A start bin of nonlinear link. Outgoing edge of the bin."^^xsd:string ;
+  owl:inverseOf :arrival;
+  rdfs:domain :Link ;
+  rdfs:label "departure"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:linkPaths
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A list of paths that follow the same non-linear link between two bins."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "linkPaths"^^xsd:string ;
+  rdfs:range :Path ;
+.
+:forwardLinkEdge
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two links are linked in forward orientation on the link column."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "forwardLinkEdge"^^xsd:string ;
+  rdfs:range :Link ;
+.
+:reverseLinkEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :forwardLinkEdge ;
+  rdfs:comment "The super property that says two links are linked in reverse orientation on the link column."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "reverseLinkEdge"^^xsd:string ;
+  rdfs:domain :Link ;
+.
+:linkRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along a link column."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "linkRank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:linkZoomLevel
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A link is related to each zoom level."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "linkZoomLevel"^^xsd:string ;
+  rdfs:range :ZoomLevel ;
+.
+:cells
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A Bin has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "cells"^^xsd:string ;
+  rdfs:range :Cell ;
+.
+:Cell
+  rdf:type owl:Class ;
+  rdfs:comment "A cell along a path of a specific group (component) of a specific zoom. A cell to a :Component and a :Path with supplemental informations."^^xsd:string ;
+  rdfs:label "Cell"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:cellRegions
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A cell is composed of the specific subsequence of paths."^^xsd:string ;
+  rdfs:domain :Cell ;
+  rdfs:label "cellRegions"^^xsd:string ;
+  rdfs:range faldo:Region ;
+.
+:positionPercent
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The position coverage percent of the path in the component."^^xsd:string ;
+  rdfs:domain :Cell ;
+  rdfs:label "positionPercent"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:inversionPercent
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The inversion percent of the path in the component."^^xsd:string ;
+  rdfs:domain :Cell ;
+  rdfs:label "inversionPercent"^^xsd:string ;
+  rdfs:range xsd:float ;
+.
+:VG_Format
+  a owl:Class ;
+  rdfs:subClassOf edam:format_2921, edam:format_2055 ;
+  rdfs:label "Graph" ;
+  rdfs:comment "Consists of nodes, edges, and paths. Nodes each have a unique ID and a DNA sequence, edges consist of two node sides (so the graph is bidirected), and paths are a sequence of nodes and orientations. Paths also have names." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:GAM_Format
+  a owl:Class ;
+  rdfs:label "Alignment" ;
+  rdfs:subClassOf edam:format_2055 ;
+  rdfs:comment "Contains an alignment to a graph" ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:GAMP_Format
+  a owl:Class ;
+  rdfs:label "MultipathAlignment" ;
+  rdfs:comment "Contains a DAG of subalignments to different paths through the reference graph" ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:Snarl_Format
+  a owl:Class ;
+  rdfs:label "Snarl" ;
+  rdfs:comment " A series of Snarl objects, each of which contain: The boundaries of a snarl (a bubble-like motif in a graph), the snarl (if any) that contains this one, classifications of the snarl based on the reachability of the two boundary nodes from each other and the cyclic-ness of the subcomponent." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:Snarl_Traversal_Format
+  a owl:Class ;
+  rdfs:label "SnarlTraversal" ;
+  rdfs:comment " A series of SnarlTraversal objects, each of which contain: A walk in the graph through a Snarl, and optionally a name." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:XG_Format
+  a owl:Class ;
+  rdfs:label "XG" ;
+  rdfs:comment "An immutable, succinct representation of a graph. Contains the same info as the .vg." ;
+  rdfs:seeAlso :VG_Format ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:GCSA2_Format
+  a owl:Class ;
+  rdfs:label "GCSA2" ;
+  rdfs:comment "Generalized compressed suffix array 2, an exact match index published by Jouni Siren" ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
+.
+:GBWT_Format 
+  a owl:Class ;
+  rdfs:label "GBWT" ;
+  rdfs:comment "Graph Burrows-Wheeler Transform, a succinct collection of paths through a genome graph, published by Jouni Siren. Usually represents haplotypes." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto> ;
 .

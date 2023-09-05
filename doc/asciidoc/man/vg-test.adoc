@@ -1,0 +1,154 @@
+= vg-test(1)
+vgteam contributors
+v1.20.0
+:doctype: manpage
+:manmanual: vg
+:mansource: vg
+:man-linkstyle: pass:[blue R < >]
+
+== Name
+
+vg-test - run internal vg unit tests
+
+== Synopsis
+
+*vg test* [_TESTNAME_ | _PATTERN_ | _TAG_]... [_OPTION_]... 
+
+== Arguments
+
+_TESTNAME_::
+    Specify a test to run, by full name.
+    
+_PATTERN_::
+    Specify a collection of tests to run, via regular expression match.
+    
+_TAG_::
+    Specify a collection of tests to run, via []-enclosed tag. Tag may need to be quoted to avoid being interpreted as a shell wildcard character class.
+
+== Options
+
+*-?*::
+*-h*::
+*--help*::
+    display usage information
+  
+*-l*::
+*--list-tests*::
+    list all/matching test cases
+  
+*-t*::
+*--list-tags*::
+    list all/matching tags
+
+*-s*::
+*--success*::
+    include successful tests in output
+
+*-b*::
+*--break*::
+    break into debugger on failure
+    
+*-e*::
+*--nothrow*::
+    skip exception tests
+    
+*-i*::
+*--invisibles*::
+    show invisibles (tabs, newlines)
+    
+*-o*::
+*--out*=_FILENAME_::
+    output filename
+    
+*-r*::
+*--reporter*=_NAME_::
+    reporter to use (defaults to console)
+    
+*-n*::
+*--name*=_NAME_::
+    suite name
+    
+*-a*::
+*--abort*::
+    abort at first failure
+    
+*-x*::
+*--abortx*=_NUM_::
+    abort after _NUM_ failures
+    
+*-w*::
+*--warn*=_NAME_::
+    enable warnings
+    
+*-d*::
+*--durations*=[_yes_|_no_]::
+    show test durations
+    
+*-f*::
+*--input-file*=_FILE_::
+    load test names to run from a file
+    
+*-#*::
+*--filenames-as-tags*::
+       adds a tag for the filename
+       
+*-c*::
+*--section*=_NAME_::
+    specify section to run
+    
+*--list-test-names-only*::
+    list all/matching test cases names only
+  
+*--list-reporters*::
+    list all reporters
+  
+*--order*=[_decl_|_lex_|_rand_]::
+    test case order (defaults to _decl_)
+
+*--rng-seed*=[_time_|_NUM_]::
+    set a specific seed for random numbers
+    
+*--force-colour*::
+    force colourised output (deprecated)
+  
+*--use-colour*=[_yes_|_no_]::
+    should output be colourised
+
+== Description
+
+When run without options or arguments, *vg test* runs all unit tests compiled into the *vg* binary.
+
+Particular tests can be selected by name, by pattern match on name, or by tag (between _[_ and _]_), by specifying the selectors as arguments. If multiple selectors are specified, only tests matching all of the selectors will be run.
+
+The tool supports all options provided by the Catch 1.x testing framework.
+
+See https://github.com/catchorg/Catch2/blob/Catch1.x/docs/command-line.md for more information on Catch's available options.
+
+== Examples
+
+To run all tests:
+
+----
+vg test
+----
+
+To see all available test tags:
+
+----
+vg test --list-tags
+----
+
+To run only tests tagged with _[a-star]_:
+
+----
+vg test [a-star]
+----
+
+== See Also
+*vg*(1)
+
+== Copyright
+
+Copyright (C) 2020 {author}.
+
+Free use of this documentation is granted under the terms of the MIT License.

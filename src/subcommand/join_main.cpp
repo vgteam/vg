@@ -88,5 +88,5 @@ int main_join(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_join("join", "combine graphs via a new head", main_join);
+static Subcommand vg_join("join", "combine graphs via a new head", DEPRECATED, main_join);
 

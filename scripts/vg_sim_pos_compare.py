@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 ### positional comparison script useful for tagging alignments with their true position
 
@@ -13,7 +13,7 @@ for line in sys.stdin:
     # every input has a true position, and if it has less than the expected number of fields we assume alignment failed
     aln_name = fields[0]
     if len(fields) != 13:
-        print aln_name, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        print(aln_name, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         continue
     aln_chr = fields[1]
     aln_pos = int(fields[2])
@@ -30,4 +30,4 @@ for line in sys.stdin:
     novel_nodes = int(fields[11])
     novel_bp = int(fields[12])
     aln_correct = 1 if aln_chr == true_chr and abs(true_pos - aln_pos) < threshold else 0
-    print aln_name, aln_correct, aln_mapq, aln_score, length, unaligned, known_nodes, known_bp, novel_nodes, novel_bp
+    print(aln_name, aln_correct, aln_mapq, aln_score, length, unaligned, known_nodes, known_bp, novel_nodes, novel_bp)

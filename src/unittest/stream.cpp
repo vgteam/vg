@@ -1,10 +1,12 @@
 /// \file stream.cpp
 ///  
-/// Unit tests for stream functions
+/// Unit tests for stream file external interface
 
-#include "../stream.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/protobuf_iterator.hpp>
+#include <vg/io/protobuf_emitter.hpp>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "catch.hpp"
 
@@ -17,196 +19,111 @@ namespace unittest {
 using namespace std;
 
 TEST_CASE("Protobuf messages that are all default can be stored and retrieved", "[stream]") {
-    stringstream datastream;
     
-    // Write one empty message
-    REQUIRE(stream::write<Graph>(datastream, 1, [](size_t i) {
-       return Graph();
-    }));
-    stream::finish(datastream);
+    for (auto compress : {false, true}) {
     
-    // Look for it
-    int seen = 0;
-    stream::for_each<Graph>(datastream, [&](const Graph& item) {
-        seen++;
-    });
-    
-    // Make sure it comes back
-    REQUIRE(seen == 1);
+        stringstream datastream;
+        
+        // Write one empty message
+        REQUIRE(vg::io::write<Graph>(datastream, 1, [](size_t i) {
+           return Graph();
+        }, compress));
+        vg::io::finish(datastream, compress);
+        
+        // Look for it
+        int seen = 0;
+        vg::io::for_each<Graph>(datastream, [&](const Graph& item) {
+            seen++;
+        });
+        
+        // Make sure it comes back
+        REQUIRE(seen == 1);
+    }
 }
 
 TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
-    stringstream datastream;
+    for (auto compress : {false, true}) {
     
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Position;
-    
-    auto get_message = [&](size_t index) {
-        message_t item;
-        item.set_node_id(index);
+        stringstream datastream;
+        
+        // Define some functions to make and check fake Protobuf objects
+        using message_t = Position;
+        
+        auto get_message = [&](size_t index) {
+            message_t item;
+            item.set_node_id(index);
 #ifdef debug
-        cerr << "Made item " << index << endl;
+            cerr << "Made item " << index << endl;
 #endif
-        return item;
-    };
-    
-    size_t index_expected = 0;
-    auto check_message = [&](const message_t& item) {
+            return item;
+        };
+        
+        size_t index_expected = 0;
+        auto check_message = [&](const message_t& item) {
 #ifdef debug
-        cerr << "Read item " << item.node_id() << endl;
+            cerr << "Read item " << item.node_id() << endl;
 #endif
-        REQUIRE(item.node_id() == index_expected);
-        index_expected++;
-    };
-    
-    // Serialize some objects
-    REQUIRE(stream::write<message_t>(datastream, 10, get_message));
-    stream::finish(datastream);
-    
+            REQUIRE(item.node_id() == index_expected);
+            index_expected++;
+        };
+        
+        // Serialize some objects
+        REQUIRE(vg::io::write<message_t>(datastream, 10, get_message, compress));
+        vg::io::finish(datastream, compress);
+        
 #ifdef debug
-    // Dump the compressed data
-    auto data = datastream.str();
-    for (size_t i = 0; i < data.size(); i++) {
-        ios state(nullptr);
-        state.copyfmt(cerr);
-        cerr << setfill('0') << setw(2) << hex << (int)(uint8_t)data[i] << " ";
-        if (i % 8 == 7) {
-            cerr << endl;
+        // Dump the possibly compressed data
+        auto data = datastream.str();
+        for (size_t i = 0; i < data.size(); i++) {
+            ios state(nullptr);
+            state.copyfmt(cerr);
+            cerr << setfill('0') << setw(2) << hex << (int)(uint8_t)data[i] << " ";
+            if (i % 8 == 7) {
+                cerr << endl;
+            }
+            cerr.copyfmt(state);
         }
-        cerr.copyfmt(state);
-    }
-    cerr << endl;
+        cerr << endl;
 #endif
-   
-    // Read them back
-    stream::for_each<message_t>(datastream, check_message);
+       
+        // Read them back
+        vg::io::for_each<message_t>(datastream, check_message);
+    }
 
 }
 
 TEST_CASE("Multiple write calls work correctly on the same stream", "[stream]") {
-    stringstream datastream;
+    
+    for (auto compress : {false, true}) {
+    
+        stringstream datastream;
 
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Position;
-    
-    size_t index_to_make = 0;
-    auto get_message = [&](size_t index) {
-        message_t item;
-        item.set_node_id(index_to_make);
-        index_to_make++;
-        return item;
-    };
-    
-    size_t index_expected = 0;
-    auto check_message = [&](const message_t& item) {
-        REQUIRE(item.node_id() == index_expected);
-        index_expected++;
-    };
-    
-    for (size_t i = 0; i < 10; i++) {
-        // Serialize some objects
-        REQUIRE(stream::write<message_t>(datastream, 1, get_message));
+        // Define some functions to make and check fake Protobuf objects
+        using message_t = Position;
+        
+        size_t index_to_make = 0;
+        auto get_message = [&](size_t index) {
+            message_t item;
+            item.set_node_id(index_to_make);
+            index_to_make++;
+            return item;
+        };
+        
+        size_t index_expected = 0;
+        auto check_message = [&](const message_t& item) {
+            REQUIRE(item.node_id() == index_expected);
+            index_expected++;
+        };
+        
+        for (size_t i = 0; i < 10; i++) {
+            // Serialize some objects
+            REQUIRE(vg::io::write<message_t>(datastream, 1, get_message, compress));
+        }
+        vg::io::finish(datastream, compress);
+        
+        // Read them back
+        vg::io::for_each<message_t>(datastream, check_message);
     }
-    stream::finish(datastream);
-    
-    // Read them back
-    stream::for_each<message_t>(datastream, check_message);
-
-}
-
-TEST_CASE("Single auto-chunking write calls work correctly", "[stream]") {
-    stringstream datastream;
-
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Graph;
-    
-    id_t id_to_make = 0;
-    auto get_message = [&](size_t start, size_t count) {
-        message_t item;
-        
-        for(size_t i = 0; i < count; i++) {
-            // Put nodes with those IDs in
-            Node* added = item.add_node();
-            added->set_id(id_to_make);
-            id_to_make++;
-#ifdef debug
-            cerr << "Emit item " << added->id() << endl;
-#endif
-        }
-        
-        return item;
-    };
-    
-    id_t id_expected = 0;
-    auto check_message = [&](const message_t& item) {
-        for (size_t i = 0; i < item.node_size(); i++) {
-            // Make sure they come out in the same order
-#ifdef debug
-            cerr << "Found item " << item.node(i).id() << endl;
-#endif
-            REQUIRE(item.node(i).id() == id_expected);
-            id_expected++;
-        }
-    };
-    
-    // Serialize some objects with dynamic chunking
-    REQUIRE(stream::write<message_t>(datastream, 10, 1, get_message));
-    stream::finish(datastream);
-    
-    // Read them back
-    stream::for_each<message_t>(datastream, check_message);
-    
-    // Make sure we saw them all
-    REQUIRE(id_expected == 10);
-
-}
-
-TEST_CASE("Multiple auto-chunking write calls work correctly on the same stream", "[stream]") {
-    stringstream datastream;
-
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Graph;
-    
-    id_t id_to_make = 0;
-    auto get_message = [&](size_t start, size_t count) {
-        message_t item;
-        
-        for(size_t i = 0; i < count; i++) {
-            // Put nodes with those IDs in
-            Node* added = item.add_node();
-            added->set_id(id_to_make);
-            id_to_make++;
-#ifdef debug
-            cerr << "Emit item " << added->id() << endl;
-#endif
-        }
-        
-        return item;
-    };
-    
-    id_t id_expected = 0;
-    auto check_message = [&](const message_t& item) {
-        for (size_t i = 0; i < item.node_size(); i++) {
-            // Make sure they come out in the same order
-#ifdef debug
-            cerr << "Found item " << item.node(i).id() << endl;
-#endif
-            REQUIRE(item.node(i).id() == id_expected);
-            id_expected++;
-        }
-    };
-    
-    for (size_t i = 0; i < 3; i++) {
-        // Serialize some objects with dynamic chunking
-        REQUIRE(stream::write<message_t>(datastream, 10, 1, get_message));
-    }
-    stream::finish(datastream);
-    
-    // Read them back
-    stream::for_each<message_t>(datastream, check_message);
-    
-    // Make sure we saw them all
-    REQUIRE(id_expected == 30);
 
 }
 
@@ -220,89 +137,105 @@ static pair<size_t, size_t> unvo(int64_t virtual_offset) {
 }
 
 TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
-    stringstream datastream;
+    
+    for (auto compress : {false, true}) {
+    
+#ifdef debug
+        cerr << "Compress: " << compress << endl;
+#endif
+    
+        stringstream datastream;
 
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Position;
-    
-    // Keep a map so we can look up the group offset for saved items
-    unordered_map<size_t, int64_t> index_to_group;
-    
-    size_t index_to_make = 0;
-    auto get_message = [&](int64_t group_virtual_offset, size_t index) {
-        message_t item;
-        item.set_node_id(index_to_make);
-        auto vo_parts = unvo(group_virtual_offset);
-#ifdef debug
-        cerr << "Write item " << index_to_make << " at VO " << group_virtual_offset 
-            << " = " << vo_parts.first << ", " << vo_parts.second << endl;
-#endif
-        index_to_group[index_to_make] = group_virtual_offset;
-        index_to_make++;
-        return item;
-    };
-    
-    for (size_t i = 0; i < 10; i++) {
-        // Serialize some objects (20, in groups of 2)
-        REQUIRE(stream::write<message_t>(datastream, 2, get_message));
-    }
-    stream::finish(datastream);
-    
-    SECTION("Data can be found by seeking") {
-        stream::ProtobufIterator<message_t> it(datastream);
+        // Define some functions to make and check fake Protobuf objects
+        using message_t = Position;
         
-        it.seek_group(index_to_group.at(4));
-        REQUIRE((*it).node_id() == 4);
-    }
-    
-    SECTION("Individual items can be sought") {
-        stream::ProtobufIterator<message_t> it(datastream);
-        vector<int64_t> item_vos;
-        for (size_t i = 0; i < 5; i++) {
-            REQUIRE(it.has_next());
-            it.get_next();
-            // Load the VOs of a few items individually
-            item_vos.push_back(it.tell_item());
-            REQUIRE(item_vos.back() != -1);
+        // Keep a map so we can look up the group offset for saved items
+        unordered_map<size_t, int64_t> index_to_group;
+        
+        size_t index_to_make = 0;
+        auto get_message = [&](size_t index) {
+            message_t item;
+            item.set_node_id(index_to_make);
+            index_to_make++;
+            return item;
+        };
+        
+        for (size_t i = 0; i < 10; i++) {
+            // Serialize some objects (20, in groups of 2)
+            REQUIRE(vg::io::write<message_t>(datastream, 2, get_message, compress));
         }
+        vg::io::finish(datastream, compress);
         
-        for (size_t i = item_vos.size() - 1; i != (size_t) -1; i--) {
-            // Look them up in reverse order
-            int64_t vo = item_vos[i];
-            REQUIRE(it.seek_item_and_stop(vo));
-            REQUIRE(it.has_next());
+        {
+            // Scan and populate the table
+            vg::io::ProtobufIterator<message_t> it(datastream);
             
-            // They should be the right things
-            REQUIRE((*it).node_id() == i + 1);
+            size_t index_found = 0;
+            while (it.has_current()) {
+#ifdef debug
+            cerr << "We wrote " << index_found << " at VO " << it.tell_group() << endl;
+#endif
             
-            // We should stop iterating after finding them
-            it.get_next();
-            REQUIRE(!it.has_next());
+                index_to_group[index_found] = it.tell_group();
+                index_found++;
+                ++it;
+            }
+            
         }
         
-        // We should be able to pick up again after that
-        REQUIRE(it.seek_group(0));
-        REQUIRE(it.has_next());
-        it.get_next();
-        REQUIRE(it.has_next());
+        // Start over
+        datastream = stringstream(datastream.str());
+        
+        SECTION("Data can be found by seeking") {
+            vg::io::ProtobufIterator<message_t> it(datastream);
+            
+#ifdef debug
+            cerr << "Try and load from VO " << index_to_group.at(4) << endl;
+#endif
+            
+            // We know #4 should lead its group.
+            bool sought = it.seek_group(index_to_group.at(4));
+            REQUIRE(sought == true);
+            REQUIRE((*it).node_id() == 4);
+        }
+        
+        SECTION("Data can be iterated back all in a run") {
+            size_t index_expected = 0;
+            for (vg::io::ProtobufIterator<message_t> it(datastream); it.has_current(); it.advance()) {
+                auto vo_parts = unvo(it.tell_group());
+#ifdef debug
+                cerr << "Found item " << (*it).node_id() << " at VO " << it.tell_group()
+                    << " = " << vo_parts.first << ", " << vo_parts.second << endl;
+#endif
+            
+                // Each item should be the right item
+                REQUIRE((*it).node_id() == index_expected);
+                // And it should be in the right group at the right place
+                //REQUIRE(it.tell_group() == index_to_group.at(index_expected));
+                index_expected++;
+            }
+        }
+    }
+}
+
+TEST_CASE("We can read a tag-only GAM file with for_each_parallel", "[stream][gam][empty]") {
+
+    stringstream ss;
+    {
+        // Make an empty GAM by creating and destroying an Alignment ProtobufEmitter
+        vg::io::ProtobufEmitter<Alignment> empty_gam_maker(ss);
     }
     
-    SECTION("Data can be iterated back all in a run") {
-        size_t index_expected = 0;
-        for (stream::ProtobufIterator<message_t> it(datastream); it.has_next(); it.get_next()) {
-            auto vo_parts = unvo(it.tell_group());
-#ifdef debug
-            cerr << "Found item " << (*it).node_id() << " at VO " << it.tell_group()
-                << " = " << vo_parts.first << ", " << vo_parts.second << endl;
-#endif
-        
-            // Each item should be the right item
-            REQUIRE((*it).node_id() == index_expected);
-            // And it should be in the right group at the right place
-            //REQUIRE(it.tell_group() == index_to_group.at(index_expected));
-            index_expected++;
-        }
-    }
+    // Make sure it wrote something
+    REQUIRE(ss.str().size() != 0);
+    
+    vg::io::for_each_parallel<Alignment>(ss, [&](const Alignment& observed) {
+        // Should never be triggered
+        REQUIRE(false);
+    });
+    
+    // We should complete the test without any errors from the reader code.
+
 }
 
 }

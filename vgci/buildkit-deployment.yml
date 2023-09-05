@@ -1,0 +1,127 @@
+# This is the deployment we use on UCSC's Kubernetes to build Docker containers with inter-build caching, for CI.
+# It actually does builds started via `docker buildx build`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    buildx.docker.com/platform: linux/amd64
+  labels:
+    app: buildkit-amd64
+  name: buildkit-amd64
+  namespace: vg
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: buildkit-amd64
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        buildx.docker.com/platform: linux/amd64
+      labels:
+        app: buildkit-amd64
+    spec:
+      volumes:
+      - name: buildkitconf
+        emptyDir: {}
+      initContainers:
+      - name: configure
+        image: moby/buildkit:buildx-stable-1
+        imagePullPolicy: Always
+        # Set up to GC any container data over 80 GB.
+        # In the background? See https://github.com/moby/buildkit/issues/1962
+        command:
+          - /bin/sh
+          - -c
+          - |
+            cat >/etc/buildkit/buildkitd.toml <<END
+              [registry."docker.io"]
+              mirrors = ["${DOCKER_HUB_MIRROR#*://}"]
+              [registry."${DOCKER_HUB_MIRROR#*://}"]
+              http = true
+              insecure = true
+              [worker.oci]
+              enabled = true
+              gc = true
+              gckeepstorage = 85899345920
+              [[worker.oci.gcpolicy]]
+              all = true
+              keepBytes = 85899345920
+            END
+        volumeMounts:
+        - name: buildkitconf
+          mountPath: "/etc/buildkit"
+        env:
+        - name: DOCKER_HUB_MIRROR
+          value: "http://docker-registry.toil"
+        resources:
+          requests:
+            cpu: 500m
+            memory: "1Gi"
+            ephemeral-storage: "10Gi"
+          limits:
+            cpu: 500m
+            memory: "1Gi"
+            ephemeral-storage: "10Gi"
+      - name: binfmt
+        # We need this to set up the emulators in the host kernel for running
+        # ARM binaries. This image tells the kernel to go looking for qemu when
+        # it finds an ARM binary.
+        image: tonistiigi/binfmt
+        imagePullPolicy: IfNotPresent
+        args: ["--install", "arm64,arm"]
+        resources:
+          requests:
+            cpu: 500m
+            memory: "1Gi"
+            ephemeral-storage: "10Gi"
+          limits:
+            cpu: 500m
+            memory: "1Gi"
+            ephemeral-storage: "10Gi"
+        securityContext:
+          privileged: true
+      containers:
+      - image: moby/buildkit:buildx-stable-1
+        imagePullPolicy: Always
+        command: [buildkitd, '--debug']
+        name: buildkitd
+        readinessProbe:
+          exec:
+            command:
+            - buildctl
+            - debug
+            - workers
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - name: buildkitconf
+          mountPath: "/etc/buildkit"
+        resources:
+          requests:
+            cpu: 8000m
+            memory: "24Gi"
+            ephemeral-storage: "100Gi"
+          limits:
+            cpu: 8000m
+            memory: "24Gi"
+            ephemeral-storage: "100Gi"
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30

@@ -116,28 +116,78 @@
 <tr>
 <td><a href="#Classes">
                                     Classes (
-                                    3
+                                    16
                                     )
                             </a></td>
-<td><select onChange="window.location.hash = document.getElementById('naviClass').value" id="naviClass"><option value="Node">
+<td><select onChange="window.location.hash = document.getElementById('naviClass').value" id="naviClass"><option value="Bin">
+				vg:Bin</option>
+<option value="Cell">
+				vg:Cell</option>
+<option value="Component">
+				vg:Component</option>
+<option value="GAMP_Format">
+				vg:GAMP_Format</option>
+<option value="GAM_Format">
+				vg:GAM_Format</option>
+<option value="GBWT_Format">
+				vg:GBWT_Format</option>
+<option value="GCSA2_Format">
+				vg:GCSA2_Format</option>
+<option value="Link">
+				vg:Link</option>
+<option value="Node">
 				vg:Node</option>
 <option value="Path">
 				vg:Path</option>
+<option value="Snarl_Format">
+				vg:Snarl_Format</option>
+<option value="Snarl_Traversal_Format">
+				vg:Snarl_Traversal_Format</option>
 <option value="Step">
-				vg:Step</option></select></td>
+				vg:Step</option>
+<option value="VG_Format">
+				vg:VG_Format</option>
+<option value="XG_Format">
+				vg:XG_Format</option>
+<option value="ZoomLevel">
+				vg:ZoomLevel</option></select></td>
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
-                                    7
+                                    30
                                     )
                             </a></td></tr>
 <tr>
 <td><a style="objectPropertySearch" href="#ObjectProperties">
                                     Object properties (
-                                    6
+                                    23
                                     )
                             </a></td>
-<td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="linksForwardToForward">
+<td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="arrival">
+				vg:arrival</option>
+<option value="bins">
+				vg:bins</option>
+<option value="cellRegions">
+				vg:cellRegions</option>
+<option value="cells">
+				vg:cells</option>
+<option value="components">
+				vg:components</option>
+<option value="departure">
+				vg:departure</option>
+<option value="forwardBinEdge">
+				vg:forwardBinEdge</option>
+<option value="forwardComponentEdge">
+				vg:forwardComponentEdge</option>
+<option value="forwardLinkEdge">
+				vg:forwardLinkEdge</option>
+<option value="linkPaths">
+				vg:linkPaths</option>
+<option value="linkZoomLevel">
+				vg:linkZoomLevel</option>
+<option value="links">
+				vg:links</option>
+<option value="linksForwardToForward">
 				vg:linksForwardToForward</option>
 <option value="linksForwardToReverse">
 				vg:linksForwardToReverse</option>
@@ -147,17 +197,39 @@
 				vg:linksReverseToReverse</option>
 <option value="node">
 				vg:node</option>
+<option value="path">
+				vg:path</option>
+<option value="position">
+				vg:position</option>
+<option value="reverseBinEdge">
+				vg:reverseBinEdge</option>
+<option value="reverseComponentEdge">
+				vg:reverseComponentEdge</option>
+<option value="reverseLinkEdge">
+				vg:reverseLinkEdge</option>
 <option value="reverseOfNode">
 				vg:reverseOfNode</option></select></td>
 </tr>
 <tr>
 <td><a style="datatypePropertySearch" href="#DatatypeProperties">
                                     Datatype properties (
-                                    1
+                                    7
                                     )
                             </a></td>
-<td><select onChange="window.location.hash = window.location.hash = document.getElementById('navi4').value" id="navi4"><option value="rank">
-				vg:rank</option></select></td>
+<td><select onChange="window.location.hash = window.location.hash = document.getElementById('navi4').value" id="navi4"><option value="binRank">
+				vg:binRank</option>
+<option value="componentRank">
+				vg:componentRank</option>
+<option value="inversionPercent">
+				vg:inversionPercent</option>
+<option value="linkRank">
+				vg:linkRank</option>
+<option value="positionPercent">
+				vg:positionPercent</option>
+<option value="rank">
+				vg:rank</option>
+<option value="zoomFactor">
+				vg:zoomFactor</option></select></td>
 </tr>
 <tr>
 <td><a href="#InstanceData">
@@ -207,8 +279,8 @@
 <td><a href="http://www.w3.org/2002/07/owl#versionInfo">
 					owl:versionInfo</a></td>
 <td>
-						"Created at the DBCLS RDF Summit 2, Sendai Japan 20"
-						<sup><a href=".">
+						"Created at the DBCLS RDF Summit 2, Sendai Japan and COVID-19 Virtual Biohackathon"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -219,6 +291,263 @@
 						Classes
 					</h2>
 <div class="nice-content" id="Classes">
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Bin"></a><tbody>
+<tr><th id="Bin">
+				vg:Bin<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A bin in the output of odgi bin, representing a sequence section."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Bin"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Cell"></a><tbody>
+<tr><th id="Cell">
+				vg:Cell<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A cell along a path of a specific group (component) of a specific zoom. A cell to a :Component and a :Path with supplemental informations."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Cell"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Component"></a><tbody>
+<tr><th id="Component">
+				vg:Component<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A region between Links structuring all bins and their present individuals into one component."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Component"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GAMP_Format"></a><tbody>
+<tr><th id="GAMP_Format">
+				vg:GAMP_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Contains a DAG of subalignments to different paths through the reference graph</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>MultipathAlignment</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GAM_Format"></a><tbody>
+<tr><th id="GAM_Format">
+				vg:GAM_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Contains an alignment to a graph</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>Alignment</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://edamontology.org/format_2055">http://edamontology.org/format_2055</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GBWT_Format"></a><tbody>
+<tr><th id="GBWT_Format">
+				vg:GBWT_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Graph Burrows-Wheeler Transform, a succinct collection of paths through a genome graph, published by Jouni Siren. Usually represents haplotypes.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>GBWT</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GCSA2_Format"></a><tbody>
+<tr><th id="GCSA2_Format">
+				vg:GCSA2_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Generalized compressed suffix array 2, an exact match index published by Jouni Siren</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>GCSA2</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Link"></a><tbody>
+<tr><th id="Link">
+				vg:Link<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A link marks a graph traversal along a nonlinear connection."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Link"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
 <table class="subsection">
 <a name="http://biohackathon.org/resource/vg#Node"></a><tbody>
 <tr><th id="Node">
@@ -234,7 +563,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A node in the variant graph, representing a sequence section."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -243,7 +572,7 @@
 					rdfs:label</a></td>
 <td>
 						"Node"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -269,8 +598,8 @@
 <td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
 					rdfs:comment</a></td>
 <td>
-						"A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant grap."
-						<sup><a href=".">
+						"A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant graph."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -279,7 +608,7 @@
 					rdfs:label</a></td>
 <td>
 						"Path"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -288,6 +617,60 @@
 					rdfs:subClassOf</a></td>
 <td><a href="http://www.w3.org/2002/07/owl#Thing">
 				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Snarl_Format"></a><tbody>
+<tr><th id="Snarl_Format">
+				vg:Snarl_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td> A series of Snarl objects, each of which contain: The boundaries of a snarl (a bubble-like motif in a graph), the snarl (if any) that contains this one, classifications of the snarl based on the reachability of the two boundary nodes from each other and the cyclic-ness of the subcomponent.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>Snarl</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Snarl_Traversal_Format"></a><tbody>
+<tr><th id="Snarl_Traversal_Format">
+				vg:Snarl_Traversal_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td> A series of SnarlTraversal objects, each of which contain: A walk in the graph through a Snarl, and optionally a name.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>SnarlTraversal</td>
 </tr>
 </tbody>
 </table>
@@ -306,7 +689,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -315,7 +698,113 @@
 					rdfs:label</a></td>
 <td>
 						"Step"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#VG_Format"></a><tbody>
+<tr><th id="VG_Format">
+				vg:VG_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Consists of nodes, edges, and paths. Nodes each have a unique ID and a DNA sequence, edges consist of two node sides (so the graph is bidirected), and paths are a sequence of nodes and orientations. Paths also have names.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>Graph</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://edamontology.org/format_2055">http://edamontology.org/format_2055</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://edamontology.org/format_2921">http://edamontology.org/format_2921</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#XG_Format"></a><tbody>
+<tr><th id="XG_Format">
+				vg:XG_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>An immutable, succinct representation of a graph. Contains the same info as the .vg.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto">https://raw.githubusercontent.com/vgteam/libvgio/master/deps/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>XG</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#seeAlso">
+					rdfs:seeAlso</a></td>
+<td><a href="http://biohackathon.org/resource/vg#VG_Format">
+				vg:VG_Format</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#ZoomLevel"></a><tbody>
+<tr><th id="ZoomLevel">
+				vg:ZoomLevel<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A zoom level of Pangenome."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"ZoomLevel"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -336,6 +825,521 @@
 <div class="nice-content" id="Properties">
 <h3 id="ObjectProperties">Object properties</h3>
 <table class="subsection">
+<a name="http://biohackathon.org/resource/vg#arrival"></a><tbody>
+<tr><th id="arrival">
+				vg:arrival<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"An end bin of nonlinear link. Incoming edge of the bin."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"arrival"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#departure">
+				vg:departure</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#bins"></a><tbody>
+<tr><th id="bins">
+				vg:bins<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A Component has one or more Bins."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Component">
+				vg:Component</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"bins"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#cellRegions"></a><tbody>
+<tr><th id="cellRegions">
+				vg:cellRegions<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A cell is composed of the specific subsequence of paths."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Cell">
+				vg:Cell</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"cellRegions"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/faldo#Region">http://biohackathon.org/resource/faldo#Region</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#cells"></a><tbody>
+<tr><th id="cells">
+				vg:cells<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A Bin has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"cells"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Cell">
+				vg:Cell</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#components"></a><tbody>
+<tr><th id="components">
+				vg:components<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A zoom level has one or more components."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#ZoomLevel">
+				vg:ZoomLevel</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"components"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Component">
+				vg:Component</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#departure"></a><tbody>
+<tr><th id="departure">
+				vg:departure<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A start bin of nonlinear link. Outgoing edge of the bin."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"departure"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#arrival">
+				vg:arrival</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#forwardBinEdge"></a><tbody>
+<tr><th id="forwardBinEdge">
+				vg:forwardBinEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two bins are linked in forward orientation on the pangenome sequence."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"forwardBinEdge"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#reverseBinEdge">
+				vg:reverseBinEdge</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#forwardComponentEdge"></a><tbody>
+<tr><th id="forwardComponentEdge">
+				vg:forwardComponentEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two components are linked in forward orientation on the pangenome sequence."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Component">
+				vg:Component</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"forwardComponentEdge"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Component">
+				vg:Component</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#forwardLinkEdge"></a><tbody>
+<tr><th id="forwardLinkEdge">
+				vg:forwardLinkEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two links are linked in forward orientation on the link column."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"forwardLinkEdge"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linkPaths"></a><tbody>
+<tr><th id="linkPaths">
+				vg:linkPaths<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A list of paths that follow the same non-linear link between two bins."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linkPaths"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Path">
+				vg:Path</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linkZoomLevel"></a><tbody>
+<tr><th id="linkZoomLevel">
+				vg:linkZoomLevel<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A link is related to each zoom level."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linkZoomLevel"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#ZoomLevel">
+				vg:ZoomLevel</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#links"></a><tbody>
+<tr><th id="links">
+				vg:links<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two nodes are linked and does not allow one to infer which side to side it goes"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"links"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
 <a name="http://biohackathon.org/resource/vg#linksForwardToForward"></a><tbody>
 <tr><th id="linksForwardToForward">
 				vg:linksForwardToForward<span class="cp-type">
@@ -350,7 +1354,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the forward (5' to 3') strand on the subject node to the forward (5' to 3') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -365,7 +1369,7 @@
 					rdfs:label</a></td>
 <td>
 						"++"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -374,7 +1378,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksForwardToForward"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -383,6 +1387,12 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
 </tr>
 </tbody>
 </table>
@@ -401,7 +1411,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the forward (5' to 3') strand on the subject node to the reverse (3' to 5') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -416,7 +1426,7 @@
 					rdfs:label</a></td>
 <td>
 						"+-"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -425,7 +1435,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksForwardToReverse"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -434,6 +1444,12 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
 </tr>
 </tbody>
 </table>
@@ -452,7 +1468,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the reverse (3' to 5') strand on the subject node to the forward (5' to 3') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -467,7 +1483,7 @@
 					rdfs:label</a></td>
 <td>
 						"-+"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -476,7 +1492,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksReverseToForward"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -485,6 +1501,12 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
 </tr>
 </tbody>
 </table>
@@ -503,7 +1525,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the reverse (3' to 5') strand on the subject node to the reverse (3' to 5') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -518,7 +1540,7 @@
 					rdfs:label</a></td>
 <td>
 						"--"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -527,7 +1549,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksReverseToReverse"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -536,6 +1558,12 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subPropertyOf">
+					rdfs:subPropertyOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#links">
+				vg:links</a></td>
 </tr>
 </tbody>
 </table>
@@ -554,7 +1582,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -569,15 +1597,225 @@
 					rdfs:label</a></td>
 <td>
 						"node"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
 					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#path"></a><tbody>
+<tr><th id="path">
+				vg:path<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This means that this step occurs on the path that is the object of this statment"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Step">
 				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"path"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Path">
+				vg:Path</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#position"></a><tbody>
+<tr><th id="position">
+				vg:position<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This is the position on the reference path at which this step starts."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Step">
+				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"position"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#reverseBinEdge"></a><tbody>
+<tr><th id="reverseBinEdge">
+				vg:reverseBinEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two bins are linked in reverse orientation on the pangenome sequence."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"reverseBinEdge"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#forwardBinEdge">
+				vg:forwardBinEdge</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#reverseComponentEdge"></a><tbody>
+<tr><th id="reverseComponentEdge">
+				vg:reverseComponentEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two components are linked in reverse orientation on the pangenome sequence."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Component">
+				vg:Component</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"reverseComponentEdge"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#forwardComponentEdge">
+				vg:forwardComponentEdge</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#reverseLinkEdge"></a><tbody>
+<tr><th id="reverseLinkEdge">
+				vg:reverseLinkEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two links are linked in reverse orientation on the link column."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"reverseLinkEdge"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#forwardLinkEdge">
+				vg:forwardLinkEdge</a></td>
 </tr>
 </tbody>
 </table>
@@ -596,7 +1834,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This means this step occurs on the revese complement of the sequence attaced to the node (i.e. it is on the implicit reverse (3' to 5') strand) of the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -611,7 +1849,7 @@
 					rdfs:label</a></td>
 <td>
 						"reverseOfNode"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -624,6 +1862,216 @@
 </tbody>
 </table>
 <h3 id="DatatypeProperties">Datatype properties</h3>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#binRank"></a><tbody>
+<tr><th id="binRank">
+				vg:binRank<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The rank records that step place along its pangenome sequence."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Bin">
+				vg:Bin</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"binRank"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#componentRank"></a><tbody>
+<tr><th id="componentRank">
+				vg:componentRank<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The rank records that step place along its pangenome sequence."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Component">
+				vg:Component</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"componentRank"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#inversionPercent"></a><tbody>
+<tr><th id="inversionPercent">
+				vg:inversionPercent<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The inversion percent of the path in the component."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Cell">
+				vg:Cell</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"inversionPercent"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#float">
+				xsd:float</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linkRank"></a><tbody>
+<tr><th id="linkRank">
+				vg:linkRank<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The rank records that step place along a link column."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linkRank"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#positionPercent"></a><tbody>
+<tr><th id="positionPercent">
+				vg:positionPercent<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The position coverage percent of the path in the component."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Cell">
+				vg:Cell</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"positionPercent"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#float">
+				xsd:float</a></td>
+</tr>
+</tbody>
+</table>
 <table class="subsection">
 <a name="http://biohackathon.org/resource/vg#rank"></a><tbody>
 <tr><th id="rank">
@@ -639,7 +2087,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The rank records the step place along its path."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -654,7 +2102,49 @@
 					rdfs:label</a></td>
 <td>
 						"rank"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#zoomFactor"></a><tbody>
+<tr><th id="zoomFactor">
+				vg:zoomFactor<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The zoom factor of pangenome, which is defined as bin width, generally."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#ZoomLevel">
+				vg:ZoomLevel</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"zoomFactor"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -687,6 +2177,7 @@
 <li><a href="http://www.nih.gov/">NIH under R24OD011883</a></li>
 <li><a href="http://www.ddbj.nig.ac.jp">DNA Databank of Japan (DDBJ)</a></li>
 <li><a href="http://www.sanger.ac.jp">Sanger centre</a></li>
+<li><a href="https://www.u-tokyo.ac.jp/en/index.html">The University of Tokyo</a></li>
 <li><a href="https://genomics.soe.ucsc.edu/haussler">University of California, Santa Cruz, David Haussler lab</a></li>
 </ul>
 </div>

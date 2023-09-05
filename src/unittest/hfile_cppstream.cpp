@@ -3,7 +3,7 @@
 /// Unit tests for hFILE* C++ stream wrapper
 ///
 
-#include "../hfile_cppstream.hpp"
+#include <vg/io/hfile_cppstream.hpp>
 #include "catch.hpp"
 
 #include <htslib/hfile.h>
@@ -13,7 +13,7 @@
 namespace vg {
 namespace unittest {
 using namespace std;
-using namespace vg::stream;
+using namespace vg::io;
 
 TEST_CASE("input streams can be wrapped as hFILEs", "[bgzip][hfile]") {
     string data = "Candy";

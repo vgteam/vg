@@ -3,11 +3,14 @@
 /// unit tests for the mapper
 
 #include <iostream>
-#include "json2pb.h"
-#include "vg.pb.h"
+#include "vg/io/json2pb.h"
+#include <vg/vg.pb.h>
+#include <bdsg/hash_graph.hpp>
 #include "../mapper.hpp"
+#include "xg.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
+#include "../algorithms/alignment_path_offsets.hpp"
 
 namespace vg {
 namespace unittest {
@@ -31,9 +34,7 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -44,7 +45,8 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -252,9 +254,7 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -265,7 +265,8 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -297,6 +298,353 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     
 }
 
+TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][annotation]" ) {
+    
+    // This node is 73 bp long
+    string graph_json = R"(
+    {"node":[
+        {"id": 1, "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
+    ],
+    "path":[
+        {"name":"x","mapping":[
+            {"position":{"node_id":1},"rank":1}
+        ]}
+    ]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Make GCSA quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
+    
+    // Build the xg index
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
+    
+    // Make a multipath mapper to map against the graph.
+    Mapper mapper(&xg_index, gcsaidx, lcpidx);
+    
+    SECTION( "Mapper can annotate on the forward strand" ) {
+        
+        // Load up a forward-strand alignment
+        string aln_json = R"(
+            {"sequence": "A", "path": {"mapping": [
+                {"position": {"node_id": 1, "offset": 5}, "edit": [
+                    {"from_length": 1, "to_length": 1}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == false);
+    }
+    
+    SECTION( "Mapper can annotate on the reverse strand" ) {
+        
+        // Load up a reverse-strand alignment which is the reverse complement of the forward strand one
+        string aln_json = R"(
+            {"sequence": "T", "path": {"mapping": [
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 67}, "edit": [
+                    {"from_length": 1, "to_length": 1}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == true);
+    }
+    
+    
+    SECTION( "Mapper can annotate multi-base paths on the forward strand" ) {
+        
+        // Load up a forward-strand alignment
+        string aln_json = R"(
+            {"sequence": "AAAAA", "path": {"mapping": [
+                {"position": {"node_id": 1, "offset": 5}, "edit": [
+                    {"from_length": 5, "to_length": 5}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == false);
+    }
+    
+    SECTION( "Mapper can annotate multi-base paths on the reverse strand" ) {
+        
+        // Load up a reverse-strand alignment which is the reverse complement of the forward strand one
+        string aln_json = R"(
+            {"sequence": "TTTTT", "path": {"mapping": [
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 63}, "edit": [
+                    {"from_length": 5, "to_length": 5}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == true);
+    }
+    
+    SECTION( "Mapper can annotate multi-mapping paths on the forward strand" ) {
+        
+        // Load up a forward-strand alignment
+        string aln_json = R"(
+            {"sequence": "AAAA", "path": {"mapping": [
+                {"position": {"node_id": 1, "offset": 5}, "edit": [
+                    {"from_length": 2, "to_length": 2}
+                ]},
+                {"position": {"node_id": 1, "offset": 7}, "edit": [
+                    {"from_length": 1},
+                    {"from_length": 2, "to_length": 2}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == false);
+    }
+    
+    SECTION( "Mapper can annotate multi-mapping paths on the reverse strand" ) {
+        
+        // Load up a reverse-strand alignment which is not quite the reverse
+        // complement of the forward strand one. The deletion is different.
+        string aln_json = R"(
+            {"sequence": "TTTT", "path": {"mapping": [
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 63}, "edit": [
+                    {"from_length": 2, "to_length": 2}
+                ]},
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 65}, "edit": [
+                    {"from_length": 1},
+                    {"from_length": 2, "to_length": 2}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == true);
+    }
+    
+    // Clean up the GCSA/LCP index
+    delete gcsaidx;
+    delete lcpidx;
+    
 }
 
+TEST_CASE( "Mapper can walk paths from fan-out MEM algorithm", "[mapping][mapper][mem]" ) {
+    
+    
+    bdsg::HashGraph graph;
+    auto h1 = graph.create_handle("GATTGGACACCCATAGC");
+    auto h2 = graph.create_handle("TGGCCAC");
+    auto h3 = graph.create_handle("AGT");
+    auto h4 = graph.create_handle("AGT");
+    auto h5 = graph.create_handle("AGT");
+    auto h6 = graph.create_handle("AGT");
+    auto h7 = graph.create_handle("AGT");
+    auto h8 = graph.create_handle("AGTCA");
+    auto h9 = graph.create_handle("C");
+    auto h10 = graph.create_handle("C");
+    auto h11 = graph.create_handle("C");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h2, h4);
+    graph.create_edge(h2, h5);
+    graph.create_edge(h2, h6);
+    graph.create_edge(h2, h7);
+    graph.create_edge(h2, h8);
+    graph.create_edge(h3, h9);
+    graph.create_edge(h4, h10);
+    graph.create_edge(h5, h11);
+    
+    // Make GCSA quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
+    
+    // Build the xg index
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
+    
+    // Make a multipath mapper to map against the graph.
+    Mapper mapper(&xg_index, gcsaidx, lcpidx);
+    
+    SECTION("Path within a node") {
+        
+        //         GATTGGACACCCATAGC
+        //            ...X....
+        string seq = "TGGGCACC";
+        
+        deque<pair<string::const_iterator, char>> fanout_breaks;
+        fanout_breaks.emplace_back(seq.begin() + 3, 'A');
+        
+        gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h1), 3, false);
+        
+        auto path = mapper.walk_fanout_path(seq.begin(), seq.end(),
+                                            fanout_breaks, pos);
+        
+        REQUIRE(path.size() == 1);
+        REQUIRE(id(path[0]) == graph.get_id(h1));
+        REQUIRE(offset(path[0]) == 3);
+        REQUIRE(is_rev(path[0]) == false);
+    }
+    
+    SECTION("Path across two nodes") {
+        
+        //                 |
+        //GATTGGACACCCATAGCTGGCCAC
+        //              ..X.X....
+        string seq =   "AGTTTGCCA";
+        
+        deque<pair<string::const_iterator, char>> fanout_breaks;
+        fanout_breaks.emplace_back(seq.begin() + 2, 'C');
+        fanout_breaks.emplace_back(seq.begin() + 4, 'G');
+        
+        gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h1), 14, false);
+        
+        auto path = mapper.walk_fanout_path(seq.begin(), seq.end(),
+                                            fanout_breaks, pos);
+        
+        REQUIRE(path.size() == 2);
+        REQUIRE(id(path[0]) == graph.get_id(h1));
+        REQUIRE(offset(path[0]) == 14);
+        REQUIRE(is_rev(path[0]) == false);
+        REQUIRE(id(path[1]) == graph.get_id(h2));
+        REQUIRE(offset(path[1]) == 0);
+        REQUIRE(is_rev(path[1]) == false);
+    }
+    
+    SECTION("Path across two nodes that requires backtracking") {
+        
+        //                |
+        //         TGGCCACAGTCA
+        //            ..X.X..X.
+        string seq = "CCGCGGTTA";
+        
+        deque<pair<string::const_iterator, char>> fanout_breaks;
+        fanout_breaks.emplace_back(seq.begin() + 2, 'A');
+        fanout_breaks.emplace_back(seq.begin() + 4, 'A');
+        fanout_breaks.emplace_back(seq.begin() + 7, 'C');
+        
+        gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h2), 3, false);
+        
+        auto path = mapper.walk_fanout_path(seq.begin(), seq.end(),
+                                            fanout_breaks, pos);
+        
+        REQUIRE(path.size() == 2);
+        REQUIRE(id(path[0]) == graph.get_id(h2));
+        REQUIRE(offset(path[0]) == 3);
+        REQUIRE(is_rev(path[0]) == false);
+        REQUIRE(id(path[1]) == graph.get_id(h8));
+        REQUIRE(offset(path[1]) == 0);
+        REQUIRE(is_rev(path[1]) == false);
+    }
+    
+    delete gcsaidx;
+    delete lcpidx;
+}
+
+}
 }

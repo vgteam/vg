@@ -23,7 +23,7 @@ def make_fastq(record, name, fake_qual, seq="", anno=""):
     if record.name == "":
         record.name = name
     
-    record.qual = "".join([fake_qual for i in xrange(0, len(record.seq))])
+    record.qual = "".join([fake_qual for i in range(0, len(record.seq))])
 
     return record
 
@@ -49,5 +49,5 @@ if __name__ == "__main__":
             record.seq = line.strip()
             record.name = name_base + "_" + str(count)
             record = make_fastq(record, "", fake_qual)
-            print record.string()
+            print(record.string())
             count += 1

@@ -12,19 +12,12 @@
 #include <regex>
 #include <vector>
 #include <list>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
-#include "translator.hpp"
 #include "deconstructor.hpp"
-#include "srpe.hpp"
 #include "hash_map.hpp"
-#include "utility.hpp"
 #include "types.hpp"
 #include "genotypekit.hpp"
-#include "srpe.hpp"
-#include "path_index.hpp"
-#include "index.hpp"
-#include "distributions.hpp"
 
 namespace vg {
 
@@ -36,7 +29,7 @@ void variant_recall(VG* graph,
                     vcflib::VariantCallFile* vars,
                     FastaReference* ref_genome,
                     vector<FastaReference*> insertions,
-                    string gamfile, bool isIndex = false);
+                    string gamfile);
 // Genotype new SVs from a GAM
 void genotype_svs(VG* graph, 
                   string gamfile, string refpath);

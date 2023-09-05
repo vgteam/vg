@@ -1,7 +1,7 @@
 #include "vg.hpp"
-#include "stream.hpp"
-#include "gssw_aligner.hpp"
-#include "vg.pb.h"
+#include <vg/io/stream.hpp>
+#include "aligner.hpp"
+#include <vg/vg.pb.h>
 #include "flow_sort.hpp"
 #include <raptor2/raptor2.h>
 

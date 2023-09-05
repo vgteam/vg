@@ -6,17 +6,42 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <sstream>
 #include <set>
-#include "json2pb.h"
-#include "vg.pb.h"
+#include "vg/io/json2pb.h"
+#include <vg/vg.pb.h>
 #include "catch.hpp"
-#include "snarls.hpp"
-#include "genotypekit.hpp"
+#include "random_graph.hpp"
+#include "randomness.hpp"
+#include "../snarls.hpp"
+#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
+#include "../genotypekit.hpp"
+#include "../traversal_finder.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/vpkg.hpp>
 
 //#define debug
 
 namespace vg {
     namespace unittest {
+
+        static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
+          VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
+            pair<unordered_set<Node*>, unordered_set<Edge*> > ret;
+            for (id_t node_id : contents.first) {
+                ret.first.insert(graph.get_node(node_id));
+            }
+            for (const edge_t& edge_handle : contents.second) {
+                Edge* edge = graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
+                                                               graph.get_is_reverse(edge_handle.first)),
+                                                 NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
+                                                               graph.get_is_reverse(edge_handle.second)));
+                ret.second.insert(edge);
+            }
+            return ret;
+        }
+    
         TEST_CASE( "NetGraph can allow traversal of a simple net graph",
                   "[snarls][netgraph]" ) {
         
@@ -76,9 +101,12 @@ namespace vg {
             
             SECTION( "The top-level NetGraph has 3 nodes" ) {
                 unordered_set<handle_t> nodes;
+                size_t node_count = 0;
                 net_graph.for_each_handle([&](const handle_t& handle) {
                     nodes.insert(handle);
+                    node_count++;
                 });
+                REQUIRE(nodes.size() == node_count);
                 
                 REQUIRE(nodes.size() == 3);
                 
@@ -173,9 +201,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -212,9 +243,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -323,9 +357,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -362,9 +399,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -407,6 +447,107 @@ namespace vg {
             
             }
         
+        }
+        
+        TEST_CASE( "NetGraph can handle disconnected chain bounds",
+                  "[snarls][netgraph]" ) {
+        
+        
+            // We will have a snarl 1 to 2, and within it a chain of 3 to 4 and
+            // 4 to 5 (both trivial)
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n3, n4);
+            Edge* e3 = graph.create_edge(n4, n5);
+            
+            for (bool do_start : {false, true}) {
+            
+                // Attach only start or end of chain to parent snarl
+                Edge* e4 = do_start ? graph.create_edge(n1, n3) : graph.create_edge(n5, n2);
+                
+                // Define the snarls for the top level
+                Snarl top_snarl;
+                top_snarl.mutable_start()->set_node_id(n1->id());
+                top_snarl.mutable_end()->set_node_id(n2->id());
+                
+                // We have a chain with two snarls in it
+                vector<vector<pair<Snarl, bool>>> top_chains;
+                top_chains.emplace_back();
+                auto& top_chain1 = top_chains.back();
+                top_chain1.emplace_back();
+                top_chain1.emplace_back();
+                auto& nested_snarl1 = top_chain1[0].first;
+                auto& nested_snarl2 = top_chain1[1].first;
+                
+                // Which have these characteristics
+                nested_snarl1.mutable_start()->set_node_id(n3->id());
+                nested_snarl1.mutable_end()->set_node_id(n4->id());
+                nested_snarl1.set_type(ULTRABUBBLE);
+                *nested_snarl1.mutable_parent() = top_snarl;
+                nested_snarl1.set_directed_acyclic_net_graph(true);
+                nested_snarl1.set_start_self_reachable(false);
+                nested_snarl1.set_end_self_reachable(false);
+                nested_snarl1.set_start_end_reachable(true);
+                
+                nested_snarl2.mutable_start()->set_node_id(n4->id());
+                nested_snarl2.mutable_end()->set_node_id(n5->id());
+                nested_snarl2.set_type(ULTRABUBBLE);
+                *nested_snarl2.mutable_parent() = top_snarl;
+                nested_snarl2.set_directed_acyclic_net_graph(true);
+                nested_snarl2.set_start_self_reachable(false);
+                nested_snarl2.set_end_self_reachable(false);
+                nested_snarl2.set_start_end_reachable(true);
+                
+                // We have an empty vector of top-level unary snarls.
+                // TODO: These kind of won't exist anymore.
+                vector<Snarl> top_unary_snarls;
+                
+                // Make a net graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, false);
+                
+                SECTION( "The top-level NetGraph has 3 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                        node_count++;
+                    });
+                    REQUIRE(nodes.size() == node_count);
+                    
+                    REQUIRE(nodes.size() == 3);
+                    
+                    SECTION( "The nodes are numbered 1, 2, and 3" ) {
+                        REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(3, false)) == 1);
+                    }
+                }
+                
+                SECTION( "The top-level NetGraph has 2 edges" ) {
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    for (auto& id : {1, 2, 3}) {
+                        // Go through the nodes we should have manually.
+                        handle_t handle = net_graph.get_handle(id, false);
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+                    
+                    REQUIRE(edges.size() == 2);
+                }
+            }
         }
         
         TEST_CASE( "NetGraph can handle no connectivity",
@@ -472,9 +613,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -511,9 +655,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -769,9 +916,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 4 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 4);
                     
@@ -829,9 +979,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 4 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 4);
                     
@@ -996,9 +1149,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 5 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 5);
                     
@@ -1013,9 +1169,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 5 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 5);
                     
@@ -1153,7 +1312,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
                         (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = snarl_manager.shallow_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1210,7 +1369,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
                         (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = snarl_manager.deep_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1279,7 +1438,7 @@ namespace vg {
                 list<Snarl> snarls;
                 snarls.push_back(snarl1);
                 snarls.push_back(snarl2);
-                
+
                 SnarlManager snarl_manager(snarls.begin(), snarls.end());
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -1288,7 +1447,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
                         (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = snarl_manager.shallow_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1358,7 +1517,7 @@ namespace vg {
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
                         (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = snarl_manager.deep_contents(snarl, graph, false);
+                        contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, false));
                         break;
                     }
                 }
@@ -1562,14 +1721,14 @@ namespace vg {
                 const Snarl* snarl = snarl_manager.top_level_snarls()[0];
                 
                 // Get its contents
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.deep_contents(snarl, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, true));
                 
                 // We need the right snarl
                 REQUIRE(snarl->start().node_id() == 6462830);
                 REQUIRE(snarl->start().backward());
                 REQUIRE(snarl->end().node_id() == 8480141);
                 REQUIRE(!snarl->end().backward());
-                
+
                 // And it needs to contain just those two nodes and the edges connecting them.
                 REQUIRE(contents.first.size() == 2);
                 REQUIRE(contents.second.size() == 1);
@@ -1696,8 +1855,8 @@ namespace vg {
                 // Find the root snarl again
                 const Snarl* snarl = snarl_manager.manage(snarl1);
                 
-                // Get its contents
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                // Get its contents0
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
                 
                 // We need the right snarl
                 REQUIRE(snarl->start().node_id() == 178894);
@@ -3049,6 +3208,12 @@ namespace vg {
                 SECTION("The chain end orientations are correct") {
                     REQUIRE(start_backward(*chain) == false);
                     REQUIRE(end_backward(*chain) == true);
+                    REQUIRE(snarl_manager.chain_orientation_of(left_child) == false);
+                    REQUIRE(snarl_manager.chain_orientation_of(right_child) == true);
+                }
+                
+                SECTION("The chain ranks are correct") {
+                    REQUIRE(snarl_manager.chain_rank_of(left_child) < snarl_manager.chain_rank_of(right_child));
                 }
                     
                 SECTION("The chain ends are correct") {
@@ -3201,7 +3366,7 @@ namespace vg {
             
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 // Get the contents of each snarl
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
             
                 for (auto& node_ptr : contents.first) {
                     // And record all the nodes
@@ -3243,7 +3408,7 @@ namespace vg {
             
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 // Get the contents of each snarl
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
             
                 for (auto& node_ptr : contents.first) {
                     // And record all the nodes
@@ -3551,7 +3716,434 @@ namespace vg {
             
             
              
-        } 
+        }
         
+        TEST_CASE( "NetGraph can traverse all the snarls in random graphs",
+                  "[snarls][netgraph][integrated-snarl-finder]" ) {
+        
+            // Each actual graph takes a fairly long time to do so we randomize sizes...
+            
+            default_random_engine generator(test_seed_source());
+            
+            for (size_t repeat = 0; repeat < 100; repeat++) {
+            
+                uniform_int_distribution<size_t> bases_dist(100, 10000);
+                size_t bases = bases_dist(generator);
+                uniform_int_distribution<size_t> variant_bases_dist(1, bases/2);
+                size_t variant_bases = variant_bases_dist(generator);
+                uniform_int_distribution<size_t> variant_count_dist(1, bases/2);
+                size_t variant_count = variant_count_dist(generator);
+                        
+#ifdef debug
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
+#endif
+            
+                VG graph;
+                random_graph(bases, variant_bases, variant_count, &graph);
+                IntegratedSnarlFinder finder(graph); 
+                auto manager = finder.find_snarls_parallel();
+                
+                size_t snarls_seen = 0;
+                
+                manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                    snarls_seen++;
+                    // Make sure we don't follow internal-snarl edges
+                    NetGraph net_graph = manager.net_graph_of(snarl, &graph, false);
+                    
+                    // Make sure we like the nodes in this snarl
+                    unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                        node_count++;
+                    });
+                    if (nodes.size() != node_count) {
+                        cerr << "Problem with graph: " << pb2json(graph.graph) << endl;
+                    }
+                    REQUIRE(nodes.size() == node_count);
+                    
+                    // Track edges as followed from, followed to
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    // And in canonical order
+                    unordered_set<pair<handle_t, handle_t>> canonical_edges;
+                    for (auto& handle : nodes) {
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.emplace(handle, other);
+                            canonical_edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.emplace(net_graph.flip(handle), net_graph.flip(other));
+                            canonical_edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+                    if (canonical_edges.size() != net_graph.get_edge_count()) {
+                        cerr << "Problem with graph: " << pb2json(graph.graph) << endl;
+                        cerr << "In snarl: " << snarl->start().node_id() << " -> " << snarl->end().node_id() << endl;
+                        cerr << "Observed edges: " << endl;
+                        for (auto& edge : canonical_edges) {
+                            cerr << "\t" << net_graph.get_id(edge.first) << (net_graph.get_is_reverse(edge.first) ? "-" : "+")
+                                << " -> " << net_graph.get_id(edge.second) << (net_graph.get_is_reverse(edge.second) ? "-" : "+") << endl;
+                        }
+                    }
+                    REQUIRE(canonical_edges.size() == net_graph.get_edge_count());
+                    for (auto& edge : edges) {
+                        // Each edge should be seen from both directions
+                        REQUIRE(edges.count(make_pair(net_graph.flip(edge.second), net_graph.flip(edge.first))));
+                    }
+                });
+                    
+            }
+        
+            
+        }
+        
+        TEST_CASE( "SnarlManager IO works correctly",
+                  "[sites][snarls]" ) {
+            
+            SECTION( "SnarlManager can be loaded from an empty snarls file") {
+                
+                stringstream buff;
+                
+                {
+                    // Make an emitter
+                    vg::io::ProtobufEmitter<Snarl> emitter(buff);
+                    // Emit nothing
+                }
+                
+                // Now load it back
+                unique_ptr<SnarlManager> manager = vg::io::VPKG::try_load_one<SnarlManager>(buff);
+                
+                REQUIRE(manager.get() != nullptr);
+                
+            }
+            
+        }
+
+        TEST_CASE( "PathTraversalFinder works correctly",
+               "[sites][snarls]" ) {
+
+
+            // Build a toy graph
+            const string graph_json = R"(
+            
+                {
+                    "node": [
+                        {"id": 1, "sequence": "G"},
+                        {"id": 2, "sequence": "A"},
+                        {"id": 3, "sequence": "G"},
+                        {"id": 4, "sequence": "A"},
+                        {"id": 5, "sequence": "G"},
+                        {"id": 6, "sequence": "A"},
+                        {"id": 7, "sequence": "G"},
+                        {"id": 8, "sequence": "A"},
+                        {"id": 9, "sequence": "A"},
+                        {"id": 10, "sequence": "G"},
+                        {"id": 11, "sequence": "A"}
+                    ],
+                    "edge": [
+                        {"from": 1, "to": 2},
+                        {"from": 2, "to": 3},
+                        {"from": 2, "to": 4},
+                        {"from": 3, "to": 5},
+                        {"from": 3, "to": 6},
+                        {"from": 4, "to": 5},
+                        {"from": 4, "to": 6},
+                        {"from": 5, "to": 7},
+                        {"from": 6, "to": 7},
+                        {"from": 7, "to": 8},
+                        {"from": 8, "to": 9},
+                        {"from": 8, "to": 10, "to_end": "true"},
+                        {"from": 9, "to": 10},
+                        {"from": 9, "to": 10, "from_start": "true"},
+                        {"from": 9, "to": 11, "to_end": "true"},
+                        {"from": 9, "to": 11, "from_start": "true", "to_end": "true"},
+                        {"from": 10, "to": 11, "to_end": "true"}
+                    ],
+                    "path": [
+                        {"name": "ref", "mapping": [
+                            {"position": {"node_id": 1}, "rank" : 1 },
+                            {"position": {"node_id": 2}, "rank" : 2 },
+                            {"position": {"node_id": 4}, "rank" : 3 },
+                            {"position": {"node_id": 6}, "rank" : 4 },
+                            {"position": {"node_id": 7}, "rank" : 5 },
+                            {"position": {"node_id": 8}, "rank" : 6 },
+                            {"position": {"node_id": 9}, "rank" : 7 },
+                            {"position": {"node_id": 10}, "rank" : 8 },
+                            {"position": {"node_id": 11, "is_reverse" : "true"}, "rank" : 9 }
+                        ]},
+                        {"name": "alt1", "mapping": [
+                            {"position": {"node_id": 1}, "rank" : 1 },
+                            {"position": {"node_id": 2}, "rank" : 2 },
+                            {"position": {"node_id": 3}, "rank" : 3 },
+                            {"position": {"node_id": 5}, "rank" : 4 },
+                            {"position": {"node_id": 7}, "rank" : 5 },
+                            {"position": {"node_id": 8}, "rank" : 6 },
+                            {"position": {"node_id": 10, "is_reverse" : "true"}, "rank" : 7 },
+                            {"position": {"node_id": 9}, "rank" : 8 },
+                            {"position": {"node_id": 11, "is_reverse" : "true"}, "rank" : 9 }
+                        ]},
+                        {"name": "alt1a", "mapping": [
+                            {"position": {"node_id": 2}, "rank" : 2 },
+                            {"position": {"node_id": 3}, "rank" : 3 },
+                            {"position": {"node_id": 5}, "rank" : 4 },
+                            {"position": {"node_id": 7}, "rank" : 5 }
+                        ]},
+                        {"name": "alt2", "mapping": [
+                            {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 1 },
+                            {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 2 },
+                            {"position": {"node_id": 6, "is_reverse" : "true"}, "rank" : 3 },
+                            {"position": {"node_id": 3, "is_reverse" : "true"}, "rank" : 4 },
+                            {"position": {"node_id": 2, "is_reverse" : "true"}, "rank" : 5 },
+                            {"position": {"node_id": 1, "is_reverse" : "true"}, "rank" : 6 }
+                        ]},
+                        {"name": "shorty", "mapping": [
+                            {"position": {"node_id": 1}, "rank" : 1 },
+                            {"position": {"node_id": 2}, "rank" : 2 },
+                            {"position": {"node_id": 3}, "rank" : 3 },
+                            {"position": {"node_id": 6}, "rank" : 4 }
+                        ]},
+                        {"name": "alt3", "mapping": [
+                            {"position": {"node_id": 11}, "rank" : 1 },
+                            {"position": {"node_id": 9}, "rank" : 2 },
+                            {"position": {"node_id": 10}, "rank" : 3 },
+                            {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 4 },
+                            {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
+                        ]},
+                        {"name": "alt4", "mapping": [
+                            {"position": {"node_id": 11}, "rank" : 1 },
+                            {"position": {"node_id": 10, "is_reverse" : "true"}, "rank" : 2 },
+                            {"position": {"node_id": 9, "is_reverse" : "true"}, "rank" : 3 },
+                            {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 4 },
+                            {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
+                        ]}
+                    ]
+                }            
+                )";
+                
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            assert(graph.is_valid());
+            
+            SECTION( "PathTraversalFinder can find simple forward traversals") {
+
+                CactusSnarlFinder snarl_finder(graph);
+                SnarlManager snarl_manager = snarl_finder.find_snarls();
+                PathTraversalFinder trav_finder(graph, snarl_manager);
+
+                Snarl snarl;
+                snarl.mutable_start()->set_node_id(2);
+                snarl.mutable_end()->set_node_id(7);
+
+                auto trav_results = trav_finder.find_path_traversals(snarl);
+
+                // get a path for ref, atl1, alt1a and alt2
+                REQUIRE(trav_results.first.size() == 4);
+
+                set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
+                for (auto step_pair : trav_results.second) {
+                    string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                    string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                    REQUIRE(name1 == name2);
+                    REQUIRE(correct_names.count(name1));
+                }
+                
+                map<string, string> true_trav_strings = {
+                    {"ref", R"({"visit":[{"node_id":"2"},{"node_id":"4"},{"node_id":"6"},{"node_id":"7"}]})"},
+                    {"alt1", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
+                    {"alt1a", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
+                    {"alt2", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"6"},{"node_id":"7"}]})"}
+                };
+                for (int i = 0; i < trav_results.first.size(); ++i) {
+                    string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));
+                    REQUIRE(true_trav_strings.count(name));
+                    SnarlTraversal true_trav;
+                    json2pb(true_trav, true_trav_strings[name]);
+                    bool trav_is_correct = trav_results.first[i] == true_trav;
+                    REQUIRE(trav_is_correct);
+                }
+            }
+
+            SECTION( "PathTraversalFinder can find simple traversals when snarl is backward") {
+
+                CactusSnarlFinder snarl_finder(graph);
+                SnarlManager snarl_manager = snarl_finder.find_snarls();
+                PathTraversalFinder trav_finder(graph, snarl_manager);
+
+                Snarl snarl;
+                snarl.mutable_start()->set_node_id(7);
+                snarl.mutable_start()->set_backward(true);
+                snarl.mutable_end()->set_node_id(2);
+                snarl.mutable_end()->set_backward(true);
+                
+                auto trav_results = trav_finder.find_path_traversals(snarl);
+
+                // get a path for ref, atl1, alt1a and alt2
+                REQUIRE(trav_results.first.size() == 4);
+
+                set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
+                for (auto step_pair : trav_results.second) {
+                    string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                    string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                    REQUIRE(name1 == name2);
+                    REQUIRE(correct_names.count(name1));
+                }
+
+                map<string, string> true_trav_strings = {
+                    {"ref", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"4","backward":true},{"node_id":"2","backward":true}]})"},
+                    {"alt1", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"5","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"},
+                    {"alt1a", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"5","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"},
+                    {"alt2", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"}
+                };
+                for (int i = 0; i < trav_results.first.size(); ++i) {
+                    string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
+                    REQUIRE(true_trav_strings.count(name));
+                    SnarlTraversal true_trav;
+                    json2pb(true_trav, true_trav_strings[name]);
+                    bool trav_is_correct = trav_results.first[i] == true_trav;
+                    REQUIRE(trav_is_correct);
+                }
+            }
+
+            SECTION( "PathTraversalFinder can find forward traversals in snarl with inversion") {
+
+                CactusSnarlFinder snarl_finder(graph);
+                SnarlManager snarl_manager = snarl_finder.find_snarls();
+                PathTraversalFinder trav_finder(graph, snarl_manager);
+
+                Snarl snarl;
+                snarl.mutable_start()->set_node_id(8);
+                snarl.mutable_end()->set_node_id(11);
+                snarl.mutable_end()->set_backward(true);
+                
+                auto trav_results = trav_finder.find_path_traversals(snarl);
+
+                // get a path for ref, atl1, alt1a and alt2
+                REQUIRE(trav_results.first.size() == 4);
+
+                set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
+                for (auto step_pair : trav_results.second) {
+                    string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                    string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                    REQUIRE(name1 == name2);
+                    REQUIRE(correct_names.count(name1));
+                }
+
+                map<string, string> true_trav_strings = {
+                    {"ref", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"},
+                    {"alt1", R"({"visit":[{"node_id":"8"},{"node_id":"10","backward":true},{"node_id":"9"},{"node_id":"11","backward":true}]})"},
+                    {"alt3", R"({"visit":[{"node_id":"8"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"11","backward":true}]})"},
+                    {"alt4", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"}
+                };
+                for (int i = 0; i < trav_results.first.size(); ++i) {
+                    string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
+                    REQUIRE(true_trav_strings.count(name));
+                    SnarlTraversal true_trav;
+                    json2pb(true_trav, true_trav_strings[name]);
+                    bool trav_is_correct = trav_results.first[i] == true_trav;
+                    REQUIRE(trav_is_correct);
+                }
+            }
+
+            SECTION( "PathTraversalFinder can find traversals in backward snarl with inversion") {
+
+                CactusSnarlFinder snarl_finder(graph);
+                SnarlManager snarl_manager = snarl_finder.find_snarls();
+                PathTraversalFinder trav_finder(graph, snarl_manager);
+
+                Snarl snarl;
+                snarl.mutable_start()->set_node_id(11);
+                snarl.mutable_end()->set_node_id(8);
+                snarl.mutable_end()->set_backward(true);
+                
+                auto trav_results = trav_finder.find_path_traversals(snarl);
+
+                // get a path for ref, atl1, alt1a and alt2
+                REQUIRE(trav_results.first.size() == 4);
+
+                set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
+                for (auto step_pair : trav_results.second) {
+                    string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
+                    string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
+                    REQUIRE(name1 == name2);
+                    REQUIRE(correct_names.count(name1));
+                }
+                    
+                map<string, string> true_trav_strings = {
+                    {"ref", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"},
+                    {"alt1", R"({"visit":[{"node_id":"11"},{"node_id":"9","backward":true},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
+                    {"alt3", R"({"visit":[{"node_id":"11"},{"node_id":"9"},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
+                    {"alt4", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"}
+                };
+                for (int i = 0; i < trav_results.first.size(); ++i) {
+                    string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                                
+                    REQUIRE(true_trav_strings.count(name));
+                    SnarlTraversal true_trav;
+                    json2pb(true_trav, true_trav_strings[name]);
+                    bool trav_is_correct = trav_results.first[i] == true_trav;
+                    REQUIRE(trav_is_correct);
+                }
+            }
+                
+        }
+        
+        TEST_CASE("snarls and chains can be found in a graph with lots of root snarl connectivity", "[snarls]") {
+    
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+           
+            IntegratedSnarlFinder snarl_finder(graph);
+            
+            SECTION("Endpoints should only be seen once") {
+                unordered_set<pair<id_t, bool>> seen_chain_sides;
+                unordered_set<pair<id_t, bool>> seen_snarl_sides;
+                snarl_finder.traverse_decomposition(
+                [&](handle_t chain_start_handle){
+#ifdef debug
+                    cerr << "Start new chain at " << graph.get_id(chain_start_handle) << (graph.get_is_reverse(chain_start_handle) ? "rev" : "fd") << endl;
+#endif
+                    REQUIRE(seen_chain_sides.count(make_pair(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle)))==0);
+                    seen_chain_sides.emplace(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle));
+                },
+                [&](handle_t chain_end_handle) {
+#ifdef debug
+                    cerr << "End new chain at " << graph.get_id(chain_end_handle) << (graph.get_is_reverse(chain_end_handle) ? "rev" : "fd") << endl;
+#endif
+                    REQUIRE(seen_chain_sides.count(make_pair(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle)))==0);
+                    seen_chain_sides.emplace(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle));
+                },
+                [&](handle_t snarl_start_handle) {
+#ifdef debug
+                    cerr << "Start new snarl at " << graph.get_id(snarl_start_handle) << (graph.get_is_reverse(snarl_start_handle) ? "rev" : "fd") << endl;
+#endif
+                    REQUIRE(seen_snarl_sides.count(make_pair(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle)))==0);
+                    seen_snarl_sides.emplace(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle));
+                },
+                [&](handle_t snarl_end_handle) {
+#ifdef debug
+                    cerr << "End new snarl at " << graph.get_id(snarl_end_handle) << (graph.get_is_reverse(snarl_end_handle) ? "rev" : "fd") << endl;
+#endif
+                    REQUIRE(seen_snarl_sides.count(make_pair(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle)))==0);
+                    seen_snarl_sides.emplace(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle));
+                });
+            }
+        }
     }
 }

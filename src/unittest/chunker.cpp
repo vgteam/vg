@@ -4,7 +4,9 @@
 
 #include "catch.hpp"
 #include "chunker.hpp"
-#include "readfilter.hpp"
+#include "vg.hpp"
+#include "xg.hpp"
+#include "path.hpp"
 
 namespace vg {
 namespace unittest {
@@ -86,14 +88,15 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     
     // Pass it over to XG
-    xg::XG index(chunk);
+    xg::XG index;
+    index.from_path_handle_graph(VG(chunk));
 
     PathChunker chunker(&index);
 
     SECTION("Extract whole graph as chunk") {
 
         // Note: regions are 0-based inclusive
-        Region region = {"x", 1, 32};
+        Region region = {"x", 0, 31};
         VG subgraph;
         Region out_region;
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -105,7 +108,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph as chunk") {
         
-        Region region = {"x", 9, 16};
+        Region region = {"x", 8, 15};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -117,7 +120,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph as chunk via id range") {
         
-        Region region = {"x", 3, 6};
+        Region region = {"x", 2, 5};
         VG subgraph;
         Region out_region;        
         chunker.extract_id_range(region.start, region.end, 1, 0, false, subgraph, out_region);
@@ -129,7 +132,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph as chunk with exact node boundary") {
 
-        Region region = {"x", 8, 16};
+        Region region = {"x", 7, 15};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -141,7 +144,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract whole graph via harder path") {
 
-        Region region = {"y", 1, 37};
+        Region region = {"y", 0, 36};
         VG subgraph;
         Region out_region;
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -154,19 +157,19 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph via harder path") {
 
-        Region region = {"y", 15, 35};
+        Region region = {"y", 10, 30};
         VG subgraph;
         Region out_region;
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
 
-        REQUIRE(subgraph.node_count() == 7);
-        REQUIRE(subgraph.edge_count() == 9);
-        REQUIRE(out_region.start == 6);
+        REQUIRE(subgraph.node_count() == 9);
+        REQUIRE(subgraph.edge_count() == 12);
+        REQUIRE(out_region.start == 0);
     }
     
     SECTION("Extract whole graph via cyclic path") {
         
-        Region region = {"z", 1, 60};
+        Region region = {"z", 0, 59};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -179,17 +182,52 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     
     SECTION("Partial graph via cyclic path") {
         
-        Region region = {"z", 36, 59};
+        Region region = {"z", 35, 58};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
         
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);
-        REQUIRE(out_region.start == 6);
+        REQUIRE(out_region.start == 31);
         
     }
 
+    SECTION("Subpath naming") {
+
+        subrange_t subrange;
+        string name;
+        name = Paths::strip_subrange("path[23]", &subrange);
+        REQUIRE(subrange.first == 23);
+        REQUIRE(name == "path");
+
+        name = Paths::strip_subrange("pa]th[23]", &subrange);
+        REQUIRE(subrange.first == 23);
+        REQUIRE(name == "pa]th");
+
+        name = Paths::strip_subrange("path[]", &subrange);
+        REQUIRE(subrange == PathMetadata::NO_SUBRANGE);
+        REQUIRE(name == "path[]");
+
+        name = Paths::strip_subrange("path[", &subrange);
+        REQUIRE(subrange == PathMetadata::NO_SUBRANGE);
+        REQUIRE(name == "path[");
+
+        name = Paths::strip_subrange("path]", &subrange);
+        REQUIRE(subrange == PathMetadata::NO_SUBRANGE);
+        REQUIRE(name == "path]");
+    }
+
+    SECTION("Range extraction") {
+        string name;
+        int64_t start = -1;
+        int64_t end = -1;
+        parse_region("x:y:1-2", name, start, end);
+
+        REQUIRE(name == "x:y");
+        REQUIRE(start == 1);
+        REQUIRE(end == 2);
+    }
 }
 
 

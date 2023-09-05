@@ -7,15 +7,11 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 11
+plan tests 10
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | cut -f 1 | sort | uniq | wc -l) \
     4250 \
     "correct numbers of kmers in the graph"
-
-is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 -d - | sort | uniq | wc -l) \
-    $(vg construct -r small/x.fa -v small/x.vcf.gz -t 4 | vg kmers -k 11 -d - | wc -l) \
-    "only unique kmers are produced"
     
 is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "CAAATAAGTGTAATC" | wc -l) 1 "to_end edges are handled correctly"
 
@@ -45,5 +41,5 @@ rm -f j.vg
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 -H 1000 -T 1001 - | grep '1000\|1001' | wc -l) 76 "start/stop node IDs can be specified in GCSA2 output"
 
-vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view - |head -10 | vg view -v - | vg mod -o - | vg kmers -k 16 - >/dev/null
+vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view - | head -10 | vg view -vF - | vg mod -o - | vg kmers -k 16 - >/dev/null
 is $? 0 "attempting to generate kmers longer than the longest path in a graph correctly yields no kmers"

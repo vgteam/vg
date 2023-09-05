@@ -5,18 +5,18 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 52
+plan tests 55
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
 is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
 
 is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa --xdrop-alignment -j - | jq -r '.path.mapping[0].position.offset')" "3" "xdrop alignment obtains the expected result"
 
-is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
+is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa --xdrop-alignment -j - | jq -r '.path.mapping[0].position.offset')" "5" "xdrop alignment obtains the expected result for the reverse complement"
 
-isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "negative of score-matrix defaults should not produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
+is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
 is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
 
@@ -53,6 +53,9 @@ is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "mult
 
 is "$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -j -M 2 | jq -r -c 'select(.is_secondary | not)' | wc -l)" "1" "only a single primary alignment is returned"
 
+vg map -d x -f small/r.fa > /dev/null
+is $? 0 "vg can map multi-line FASTA sequences" 
+
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
 
@@ -88,7 +91,7 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp sorting.tmp*
 # I was having a problem when updating an edge due to a flipped end node made it
 # identical to an already existing edge that hadn't yet been updated. This makes
 # sure that that isn't happening.
-vg mod -D cyclic/orient_must_swap_edges.vg >e.vg
+vg paths -d -v cyclic/orient_must_swap_edges.vg > e.vg
 vg index -x e.xg -g e.gcsa -k 10 e.vg
 vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e >/dev/null
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"
@@ -121,6 +124,13 @@ is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f
 is $(vg map -T small/x-s1337-n1000.reads -x x.xg -g x.gcsa -k 22 -j | jq -r ".mapping_quality" | wc -l) 1000 "unpaired reads produce mapping quality scores"
 
 rm temp_paired_alignment.json temp_independent_alignment.json
+
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -j -t 1 --surject-to sam > temp_paired_alignment_xg.sam
+vg map -x graphs/refonly-lrc_kir.vg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -j -t 1 --surject-to sam > temp_paired_alignment_vg.sam
+diff temp_paired_alignment_xg.sam temp_paired_alignment_vg.sam
+is "$?" 0 "map returns same output on xg and vg (single threaded)"
+
+rm -f temp_paired_alignment_xg.sam temp_paired_alignment_vg.sam
 
 vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -r -c '.score' > temp_scores_full_qual.txt
 vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -r -c '.score' > temp_scores_reduced_qual.txt
@@ -158,7 +168,7 @@ is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n7
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces correct pair partner contigs"
-is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '131\n83')" "surjection of paired reads to SAM produces correct flags"
+is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '163\n83')" "surjection of paired reads to SAM produces correct flags"
 
 # And unpaired surjected mapping
 vg map -d x -G <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam
@@ -181,3 +191,9 @@ EOF
 is $(vg map -d tiny -F t.fa -j | jq -r .identity) 1 "mapper can read multiline FASTA input"
 
 rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp t.fa t.fa.fai
+
+vg view -Fv graphs/revdrop.gfa >x.vg
+vg index -x x.xg -g x.gcsa x.vg
+is $(vg map -s GGTAGGGAACATTAAGGGTATGGAATTGGCAGGACAAGGCACCTGACTGGATTGGGAGAGATAAAGAGGAAAAGCGTCGAGAATGAGCTTGGTGCACTTTGGGCACAGGTGAGTATGCAGAGCGCAACAGGAGGCCTTGGGAACTCATAA -d x -j --xdrop | jq .score) 130 "xdrop works on a reversed read"
+
+rm -f x.vg x.xg x.gcsa x.gcsa.lcp

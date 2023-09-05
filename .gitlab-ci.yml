@@ -1,0 +1,260 @@
+# The VG tests are going to use toil-vg.
+# toil-vg needs to be able to mount paths it can see into Docker containers.
+# There's no good way to do that when running Docker containers as siblings of a container containing toil-vg.
+# So we either have to genuinely nest Docker inside another Docker, or we have to run the build on the real host.
+
+# Pull in an image that has our apt packages pre-installed, to save time installing them for every test.
+# Make sure to use :latest so we re-check and re-pull if needed on every run.
+image: quay.io/vgteam/vg_ci_prebake:latest
+
+before_script:
+  - sudo apt-get -q -y update
+  # Make sure we have some curl stuff for pycurl which we need for some Python stuff
+  # And the CI report upload needs uuidgen from uuid-runtime
+  - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp uuid-runtime libgnutls28-dev doxygen libzstd-dev
+  - which junit-merge || sudo npm install -g junit-merge
+  # Configure Docker to use a mirror for Docker Hub and restart the daemon
+  - |
+    if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then
+      if [[ "${DOCKER_HUB_MIRROR}" == https* ]] ; then
+        # Set up a secure mirror
+        echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"]}" | sudo tee /etc/docker/daemon.json
+      else
+        # Set up an insecure mirror
+        echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
+      fi
+    fi
+  # Restart or start the Docker daemon
+  - stopdocker || true
+  - startdocker || true
+  # Get buildx
+  - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
+  # Connect to the Kubernetes-based builder "buildkit" if appropriate
+  # See vgci/buildkit-deployment.yml
+  - if [[ "${CI_BUILDKIT_DRIVER}" == "kubernetes" ]] ; then docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64" ; else docker buildx create --use --name=container-builder --driver=docker-container ; fi
+  # Report on the builders, and make sure they exist.
+  - docker buildx inspect --bootstrap || (echo "Docker builder deployment can't be found! Are we on the right Gitlab runner?" && exit 1)
+  # Prune down build cache to make space. This will hang if the builder isn't findable.
+  - (echo "y" | docker buildx prune --keep-storage 80G) || true
+  # Connect so we can upload our images
+  - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+  - docker info
+  - mkdir -p ~/.aws && cp "$GITLAB_SECRET_FILE_AWS_CREDENTIALS" ~/.aws/credentials
+
+after_script:
+  - stopdocker || true
+  
+# We have two pipeline stages: build to make a Docker, and test to run tests.
+# TODO: make test stage parallel
+stages:
+  - build
+  - test
+  - report
+  
+# We define one job to do the out-of-container (re)build, and run the Bash
+# tests. It uses a Gitlab-managed cache to prevent a full rebuild every time. It
+# still takes longer than the Docker build, so we put it in the test stage
+# alongside other longer jobs.
+local-build-test-job:
+  stage: test
+  cache:
+    # Gitlab isn't clever enough to fill PR caches from the main branch, so we
+    # just use one megacache and hope the Makefile is smart enough to recover
+    # from the future
+    key: local-build-test-cache
+    paths:
+      - deps/
+      - include/
+      - lib/
+      - bin/
+      - obj/
+  before_script:
+    - sudo apt-get -q -y update
+    # We need to make sure we get the right submodule files for this version
+    # and don't clobber sources with the cache. We want to have a dirty state
+    # with the correct source files.
+    - scripts/restore-deps.sh
+    # We need to make sure we have nvm for testing the tube map
+    - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+    - export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
+  script:
+    - nvm version
+    - python3 ./configure.py
+    - source ./source_me.sh
+    - make get-deps
+    - make -j8
+    - echo Testing
+    - bin/vg test "Target to alignment extraction"
+    - echo Full Testing
+    - make test
+    - make static -j8
+    # Also test as a backend for the tube map
+    - git clone https://github.com/vgteam/sequenceTubeMap.git
+    - cd sequenceTubeMap
+    # Tube map expects local IPv6 but Kubernetes won't let us have it
+    - 'sed -i "s/^}$/,\"serverBindAddress\": \"127.0.0.1\"}/" src/config.json'
+    # Tube map expects to have its specified version of Node
+    - nvm install
+    - nvm use
+    - npm ci
+    - CI=true npm run test
+  after_script:
+    - echo "Don't do anything"
+  variables:
+    VG_FULL_TRACEBACK: "1"
+    GIT_SUBMODULE_STRATEGY: none
+
+
+# We define one job to do the Docker container build
+build-job:
+  stage: build
+  script:
+    - CI_REPO=${CI_REGISTRY}/vgteam/vg
+    - CACHE_TAG="cache-$(echo ${CI_COMMIT_BRANCH}${CI_COMMIT_TAG} | tr '/' '-')"
+    - MAINLINE_CACHE_TAG="cache-master"
+    - PLATFORMS=linux/amd64
+    - DOCKER_TAG=ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}
+    - make include/vg_git_version.hpp
+    - cat include/vg_git_version.hpp
+    # Connect so we can upload our images
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    # Note that A LOCAL CACHE CAN ONLY HOLD ONE TAG/TARGET AT A TIME!
+    # And Quay can't use mode=max registry caching to cache the intermediate targets with the final image, just inline caching.
+    # So we have to do the Complicated Cache Shuffle.
+    # Build base image from branch and mainline base caches to local cache
+    - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-base --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-base --cache-to type=local,dest=${HOME}/docker-cache --platform="${PLATFORMS}" --build-arg THREADS=8 --target base -t ${CI_REPO}:${CACHE_TAG}-base -f Dockerfile .
+    # Push base image from local cache to registry cache for branch.
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target base -t ${CI_REPO}:${CACHE_TAG}-base -f Dockerfile --push .
+    # Build build image from local base cache and branch and mainline build caches to local cache
+    - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-build --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=local,dest=${HOME}/docker-cache --platform="${PLATFORMS}" --build-arg THREADS=8 --target build -t ${CI_REPO}:${CACHE_TAG}-build -f Dockerfile .
+    # Push build image to registry cache for branch
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target build -t ${CI_REPO}:${CACHE_TAG}-build -f Dockerfile --push .
+    # Build run image from local build cache and branch and mainline run caches to local cache
+    - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-run --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-run --cache-from type=local,src=${HOME}/docker-cache --cache-to type=local,dest=${HOME}/docker-cache --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:${CACHE_TAG}-run -f Dockerfile .
+    # Push run image to registry cache for branch
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:${CACHE_TAG}-run -f Dockerfile --push .
+    # Finally, push run image to where we actually want it.
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:${DOCKER_TAG} -f Dockerfile --push .
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+# The arm container build takes like 90 minutes, so we don't want to run it
+# before the main test phase where the other long tests live.
+# To ship a final production Docker tag, we need the ARM and x86 builds
+# happening in the same command so we can push one multiarch manifest.
+production-build-job:
+  stage: test
+  only:
+    - /^arm/
+    - master
+    - tags
+  script:
+    - CI_REPO=${CI_REGISTRY}/vgteam/vg
+    - CACHE_TAG="cache-$(echo ${CI_COMMIT_BRANCH}${CI_COMMIT_TAG} | tr '/' '-')"
+    - MAINLINE_CACHE_TAG="cache-master"
+    - PLATFORMS=linux/amd64,linux/arm64
+    # Determine what we should be tagging vg Dockers as. If we're running on a Git tag we want to use that. Otherwise push over the tag we made already.
+    - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then DOCKER_TAG="${CI_COMMIT_TAG}" ; else DOCKER_TAG="ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"; fi
+    - make include/vg_git_version.hpp
+    # Make sure ARM emulation is available.
+    - if [[ "${CI_BUILDKIT_DRIVER}" != "kubernetes" ]] ; then docker run --privileged --rm tonistiigi/binfmt --install all || true ; fi
+    # TODO: deduplicate this code with normal build above
+    # Note that A LOCAL CACHE CAN ONLY HOLD ONE TAG/TARGET AT A TIME!
+    # And Quay can't use mode=max registry caching to cache the intermediate targets with the final image, just inline caching.
+    # So we have to do the Complicated Cache Shuffle.
+    # Build base image from branch and mainline base caches to local cache
+    - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-base --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-base --cache-to type=local,dest=${HOME}/docker-cache --platform="${PLATFORMS}" --build-arg THREADS=8 --target base -t ${CI_REPO}:${CACHE_TAG}-base -f Dockerfile .
+    # Push base image from local cache to registry cache for branch.
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target base -t ${CI_REPO}:${CACHE_TAG}-base -f Dockerfile --push .
+    # Build build image from local base cache and branch and mainline build caches to local cache
+    - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-build --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=local,dest=${HOME}/docker-cache --platform="${PLATFORMS}" --build-arg THREADS=8 --target build -t ${CI_REPO}:${CACHE_TAG}-build -f Dockerfile .
+    # Push build image to registry cache for branch
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target build -t ${CI_REPO}:${CACHE_TAG}-build -f Dockerfile --push .
+    # Build run image from local build cache and branch and mainline run caches to local cache
+    - docker buildx build --cache-from type=registry,ref=${CI_REPO}:${MAINLINE_CACHE_TAG}-run --cache-from type=registry,ref=${CI_REPO}:${CACHE_TAG}-run --cache-from type=local,src=${HOME}/docker-cache --cache-to type=local,dest=${HOME}/docker-cache --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:${CACHE_TAG}-run -f Dockerfile .
+    # Push run image to registry cache for branch
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:${CACHE_TAG}-run -f Dockerfile --push .
+    # Finally, push run image to where we actually want it.
+    - docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:${DOCKER_TAG} -f Dockerfile --push .
+    # Tag it latest if we pushed a real release tag
+    - if [[ ! -z "${CI_COMMIT_TAG}" ]]; then docker buildx build --cache-from type=local,src=${HOME}/docker-cache --cache-to type=inline --platform="${PLATFORMS}" --build-arg THREADS=8 --target run -t ${CI_REPO}:latest -f Dockerfile --push .; fi
+    # If we wanted to run the tests under ARM emulation, we could do:
+    #   docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target test -f Dockerfile .
+    # But we don't, because they both don't actually pass yet on ARM and also
+    # manage to hit a 6 hour timeout on our extremely slow emulators.
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+# We also run the toil-vg/pytest-based tests
+# Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
+test-job:
+  stage: test
+  # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
+  # We will find our share of tests from vgci/test-list.txt and run them
+  # We ought to run one job per test, but we can wrap around.
+  parallel: 6
+  cache:
+    key: docker-pull-cache
+    paths:
+      - /var/lib/docker
+  script:
+    - docker images
+    - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
+    - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
+    - mkdir -p junit
+    # Drop secrets before we do any Toil; it might want to log the environment
+    - export GITLAB_SECRET_FILE_AWS_CREDENTIALS=""
+    - export GITLAB_SECRET_FILE_DOCS_SSH_KEY=""
+    - export CI_REGISTRY_PASSWORD=""
+    - export GH_TOKEN=""
+    # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
+    - vgci/blockify.py bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
+  after_script:
+    - stopdocker || true
+    - rm -f /var/run/docker.sock
+    - startdocker || true
+    # Don't leave containers in the cache
+    - docker ps -q -a | xargs docker rm -f || true
+    # Don't leave each run's CI image laying around in the cache
+    - docker rmi "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
+    # Show what we are caching
+    - docker images
+    - stopdocker || true
+
+  artifacts:
+    # Let Gitlab see the junit report
+    reports:
+      junit: junit/*.xml
+    paths:
+      - junit/*.xml
+      - test_output/*
+    # Make sure they get artifact'd even if (especially when) the tests fail
+    when: always
+    expire_in: 3 days
+
+# We have a final job in the last stage to compose an HTML report
+report-job:
+  stage: report
+  # Run this even when the tests fail, because otherwise we won't hear about it.
+  # Hopefully if the actual build failed we fail at the docker pull and we don't upload stuff for no version.
+  when: always
+  # All artifacts from previous stages are available
+  script:
+    # Get the Docker for version detection
+    - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
+    - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
+    # Collect all the junit files from all the test jobs into one
+    - junit-merge -o junit.all.xml junit/*.xml
+    # All the test output folder artifacts should automatically merge.
+    # Make the report and post it.
+    # We still need the Docker for version detection.
+    # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
+    - vgci/blockify.py bash vgci/vgci.sh -J junit.all.xml -T vgci-docker-vg-local -W test_output
+    
+# We need a separate job to build the Doxygen docs
+docs-job:
+    stage: build
+    script:
+      - doc/publish-docs.sh
+   
+  

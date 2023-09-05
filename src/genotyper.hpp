@@ -14,19 +14,12 @@
 #include <regex>
 #include <vector>
 #include <list>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
-#include "translator.hpp"
-#include "deconstructor.hpp"
-#include "srpe.hpp"
 #include "hash_map.hpp"
-#include "utility.hpp"
 #include "types.hpp"
 #include "genotypekit.hpp"
-#include "srpe.hpp"
-#include "path_index.hpp"
-#include "index.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 
 namespace vg {
 
@@ -145,6 +138,12 @@ public:
 
     // Toggle traversal finder for testing
     enum TraversalAlg { Reads, Exhaustive, Representative, Adaptive };
+    map<TraversalAlg, string> alg2name = {
+        {Reads, "Reads"},
+        {Exhaustive, "Exhaustive"},
+        {Representative, "Representative"},
+        {Adaptive, "Adaptive"}
+    };
     TraversalAlg traversal_alg = TraversalAlg::Reads;
 
     // Show progress
@@ -189,8 +188,9 @@ public:
     /**
      * Check if a snarl is small enough to be covered by reads (very conservative)
      */ 
-    static bool is_snarl_smaller_than_reads(const Snarl* snarl,
-                                            const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+    static bool is_snarl_smaller_than_reads(AugmentedGraph& augmented_graph,
+                                            const Snarl* snarl,
+                                            const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                                             map<string, const Alignment*>& reads_by_name);
         
     /**
@@ -199,7 +199,7 @@ public:
     vector<SnarlTraversal> get_snarl_traversals(AugmentedGraph& augmented_graph, SnarlManager& manager,
                                                 map<string, const Alignment*>& reads_by_name,
                                                 const Snarl* snarl,
-                                                const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                                                 PathIndex* reference_index,
                                                 TraversalAlg use_traversal_alg);
     
@@ -228,7 +228,7 @@ public:
     map<const Alignment*, vector<Affinity>> get_affinities(AugmentedGraph& aug,
                                                            const map<string, const Alignment*>& reads_by_name,
                                                            const Snarl* snarl,
-                                                           const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                           const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                                                            const SnarlManager& manager,
                                                            const vector<SnarlTraversal>& superbubble_paths);
         
@@ -239,7 +239,7 @@ public:
     map<const Alignment*, vector<Affinity>> get_affinities_fast(AugmentedGraph& aug,
                                                                 const map<string, const Alignment*>& reads_by_name,
                                                                 const Snarl* snarl,
-                                                                const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                                const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                                                                 const SnarlManager& manager,
                                                                 const vector<SnarlTraversal>& superbubble_paths,
                                                                 bool allow_internal_alignments = false);
@@ -285,7 +285,7 @@ public:
      * reference path, we'll emit 0 variants.
      */
     vector<vcflib::Variant> locus_to_variant(VG& graph, const Snarl* snarl,
-                                             const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                             const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                                              const SnarlManager& manager,
                                              const PathIndex& index, vcflib::VariantCallFile& vcf,
                                              const Locus& locus,

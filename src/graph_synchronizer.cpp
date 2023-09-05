@@ -8,7 +8,17 @@ namespace vg {
 using namespace std;
 
 GraphSynchronizer::GraphSynchronizer(VG& graph) : graph(graph) {
-    // Nothing to do!
+    // Because in general paths can overlap each other, and because we can't
+    // build a path index after a path has been modified (since we don't keep
+    // the ranks up to date internally), we need to build all the indexes up
+    // front, even if we're just working on a single path.
+    graph.for_each_path_handle([&](const path_handle_t& path) {
+        string name = graph.get_path_name(path);
+        if (!Paths::is_alt(name)) {
+            // We only care about reference paths.
+            get_path_index(name);
+        }
+    });
 }
 
 void GraphSynchronizer::with_path_index(const string& path_name, const function<void(const PathIndex&)>& to_run) {
@@ -29,7 +39,10 @@ const string& GraphSynchronizer::get_path_sequence(const string& path_name) {
     
 // We need a function to grab the index for a path
 PathIndex& GraphSynchronizer::get_path_index(const string& path_name) {
-
+    
+    // We don't work on alt paths; there could be too many to pre-index.
+    assert(!Paths::is_alt(path_name));
+    
     if (!indexes.count(path_name)) {
         // Not already made. Generate it.
         indexes.emplace(piecewise_construct,
@@ -115,7 +128,7 @@ void GraphSynchronizer::Lock::lock() {
                 cerr << endl;
             }
 #endif
-            
+
             // Make them into pos_ts that point left to right, the way Jordan thinks.
             pos_t left_pos = make_pos_t(start_left.node, start_left.is_end, 0);
             pos_t right_pos = make_pos_t(end_right.node, !end_right.is_end,
@@ -130,9 +143,7 @@ void GraphSynchronizer::Lock::lock() {
                 (past_end - start) * 2,
                 left_pos,
                 right_pos,
-                false, // Disallow terminal node cycles, so we don't duplicate nodes
-                true, // We don't want extraneous material that doesn't connect the positions
-                false); // But we don't care about being strictly less than the specified length
+                false); // We don't care about being strictly less than the specified length
                 
 #ifdef debug
             cerr << "Extracted " << context.graph.node_size() << " nodes and " << context.graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
@@ -301,12 +312,12 @@ set<NodeSide> GraphSynchronizer::Lock::get_peripheral_attachments(NodeSide graph
     }
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path) {
+vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, size_t max_node_size) {
     set<NodeSide> dangling;
-    return apply_edit(path, dangling);
+    return apply_edit(path, dangling, max_node_size);
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<NodeSide>& dangling) {
+vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<NodeSide>& dangling, size_t max_node_size) {
     // Make sure we have exclusive ownership of the graph itself since we're
     // going to be modifying its data structures.
     std::lock_guard<std::mutex> guard(synchronizer.whole_graph_lock);
@@ -320,7 +331,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<No
     }
     
     // Make all the edits, passing along the dangling node set.
-    vector<Translation> translations = synchronizer.graph.edit_fast(path, dangling);
+    vector<Translation> translations = synchronizer.graph.edit_fast(path, dangling, max_node_size);
     
     // Lock all the nodes that result from the translations. They're guaranteed
     // to either be nodes we already have or novel nodes with fresh IDs.
@@ -347,7 +358,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<No
     return translations;
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& path) {
+vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& path, size_t max_node_size) {
     // Find the left and right outer nodesides of the subgraph
     auto ends = get_endpoints();
     
@@ -357,7 +368,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& 
     // Apply the edit, attaching its left end to the stuff attached to the left
     // end of the graph. Get back in the dangling set where the right end of the
     // edit's material is.
-    auto translations = apply_edit(path, dangling);
+    auto translations = apply_edit(path, dangling, max_node_size);
     
     // Get the places that the right end of the graph attaches to
     auto right_periphery = get_peripheral_attachments(ends.second);

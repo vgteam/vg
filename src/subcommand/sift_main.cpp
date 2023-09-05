@@ -7,10 +7,10 @@
 #include <omp.h>
 #include "subcommand.hpp"
 #include <gcsa/gcsa.h>
-#include "../stream.hpp"
-#include "../json2pb.h"
+#include <vg/io/stream.hpp>
+#include "vg/io/json2pb.h"
 #include "../vg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../filter.hpp"
 #include "../alignment.hpp"
 
@@ -30,7 +30,6 @@ void help_sift(char** argv){
         << "General Options: " << endl
         << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
         //<< "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
-        << "    -x / --xg  <MYXG>   An XG index (for realignment of split reads)" << endl
         << "    -p / --paired       Input reads are paired-end" << endl
         << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
         << "    -o / --output <PREFIX>" << endl
@@ -117,7 +116,7 @@ int main_sift(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hut:vx:gG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
+        c = getopt_long (argc, argv, "hut:vgG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -489,15 +488,15 @@ int main_sift(int argc, char** argv){
         }
         
 
-        stream::write_buffered(unmapped_stream, unmapped_selected, 100);
-        stream::write_buffered(discordant_stream, discordant_selected, 100);
-        stream::write_buffered(oea_stream, one_end_anchored, 100);
-        stream::write_buffered(insert_stream, insert_selected, 100);
-        stream::write_buffered(split_stream, split_selected, 100);
-        stream::write_buffered(clipped_stream, clipped_selected, 100);
-        stream::write_buffered(clean_stream, clean, 100);
-        stream::write_buffered(reversing_stream, reversing_selected, 100);
-        stream::write_buffered(perfect_stream, perfect, 100);
+        vg::io::write_buffered(unmapped_stream, unmapped_selected, 100);
+        vg::io::write_buffered(discordant_stream, discordant_selected, 100);
+        vg::io::write_buffered(oea_stream, one_end_anchored, 100);
+        vg::io::write_buffered(insert_stream, insert_selected, 100);
+        vg::io::write_buffered(split_stream, split_selected, 100);
+        vg::io::write_buffered(clipped_stream, clipped_selected, 100);
+        vg::io::write_buffered(clean_stream, clean, 100);
+        vg::io::write_buffered(reversing_stream, reversing_selected, 100);
+        vg::io::write_buffered(perfect_stream, perfect, 100);
     };
 
     std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
@@ -511,7 +510,7 @@ int main_sift(int argc, char** argv){
            if (ff.soft_clip_filter(aln)){
                 clipped_selected.push_back(aln);
            }
-           //stream::write_buffered(clipped_stream, clipped_selected, 1000);
+           //vg::io::write_buffered(clipped_stream, clipped_selected, 1000);
 
         }
         if (do_quality){
@@ -542,7 +541,7 @@ int main_sift(int argc, char** argv){
 
 
 if (alignment_file == "-"){
-    stream::for_each_interleaved_pair_parallel(cin, pair_filters);
+    vg::io::for_each_interleaved_pair_parallel(cin, pair_filters);
 }
 else{
     ifstream in;
@@ -550,16 +549,16 @@ else{
     if (in.good()){
 
         // if (just_calc_insert){
-        //     stream::for_each_interleaved_pair_parallel(in, calc_insert);
+        //     vg::io::for_each_interleaved_pair_parallel(in, calc_insert);
         //     exit(0);
         // }
 
         if (is_paired){
             cerr << "Processing..." << endl;
-            stream::for_each_interleaved_pair_parallel(in, pair_filters);
+            vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{
-            stream::for_each_parallel(in, single_filters);
+            vg::io::for_each_parallel(in, single_filters);
 
         }
     }
@@ -568,15 +567,15 @@ else{
         help_sift(argv);
     }
 }
-    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
-    stream::write_buffered(discordant_stream, discordant_selected, 0);
-    stream::write_buffered(oea_stream, one_end_anchored, 0);
-    stream::write_buffered(insert_stream, insert_selected, 0);
-    stream::write_buffered(split_stream, split_selected, 0);
-    stream::write_buffered(clipped_stream, clipped_selected, 0);
-    stream::write_buffered(clean_stream, clean, 0);
-    stream::write_buffered(reversing_stream, reversing_selected, 0);
-    stream::write_buffered(perfect_stream, perfect, 0);
+    vg::io::write_buffered(unmapped_stream, unmapped_selected, 0);
+    vg::io::write_buffered(discordant_stream, discordant_selected, 0);
+    vg::io::write_buffered(oea_stream, one_end_anchored, 0);
+    vg::io::write_buffered(insert_stream, insert_selected, 0);
+    vg::io::write_buffered(split_stream, split_selected, 0);
+    vg::io::write_buffered(clipped_stream, clipped_selected, 0);
+    vg::io::write_buffered(clean_stream, clean, 0);
+    vg::io::write_buffered(reversing_stream, reversing_selected, 0);
+    vg::io::write_buffered(perfect_stream, perfect, 0);
 
     buffer.clear();
 
@@ -586,6 +585,6 @@ else{
     return 0;
 }
 
-static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", main_sift);
+static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", DEPRECATED, main_sift);
 
 

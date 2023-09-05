@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../translator.hpp"
-#include "../stream.hpp"
+#include <vg/io/stream.hpp>
 
 using namespace std;
 using namespace vg;
@@ -130,40 +130,40 @@ int main_translate(int argc, char** argv) {
         vector<Path> buffer;
         function<void(Path&)> lambda = [&](Path& path) {
             buffer.push_back(translator->translate(path));
-            stream::write_buffered(cout, buffer, 100);
+            vg::io::write_buffered(cout, buffer, 100);
         };
         ifstream path_in(path_file);
-        stream::for_each(path_in, lambda);
-        stream::write_buffered(cout, buffer, 0);
+        vg::io::for_each(path_in, lambda);
+        vg::io::write_buffered(cout, buffer, 0);
     } else if (!aln_file.empty()) {
         vector<Alignment> buffer;
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             buffer.push_back(translator->translate(aln));
-            stream::write_buffered(cout, buffer, 100);
+            vg::io::write_buffered(cout, buffer, 100);
         };
         ifstream aln_in(aln_file);
-        stream::for_each(aln_in, lambda);
-        stream::write_buffered(cout, buffer, 0);
+        vg::io::for_each(aln_in, lambda);
+        vg::io::write_buffered(cout, buffer, 0);
     } else if (!loci_file.empty()) {
         vector<Locus> buffer;
         function<void(Locus&)> lambda = [&](Locus& locus) {
             buffer.push_back(translator->translate(locus));
-            stream::write_buffered(cout, buffer, 100);
+            vg::io::write_buffered(cout, buffer, 100);
         };
         ifstream loci_in(loci_file);
-        stream::for_each(loci_in, lambda);
-        stream::write_buffered(cout, buffer, 0);
+        vg::io::for_each(loci_in, lambda);
+        vg::io::write_buffered(cout, buffer, 0);
     }
 
     if (!overlay_file.empty()) {
         vector<Translation> buffer;
         function<void(Translation&)> lambda = [&](Translation& trans) {
             buffer.push_back(translator->overlay(trans));
-            stream::write_buffered(cout, buffer, 100);
+            vg::io::write_buffered(cout, buffer, 100);
         };
         ifstream overlay_in(overlay_file);
-        stream::for_each(overlay_in, lambda);
-        stream::write_buffered(cout, buffer, 0);
+        vg::io::for_each(overlay_in, lambda);
+        vg::io::write_buffered(cout, buffer, 0);
     }
 
     return 0;
@@ -171,5 +171,5 @@ int main_translate(int argc, char** argv) {
 
 
 // Register subcommand
-static Subcommand vg_version("translate", "project alignments and paths through a graph translation", main_translate);
+static Subcommand vg_version("translate", "project alignments and paths through a graph translation", DEPRECATED, main_translate);
 

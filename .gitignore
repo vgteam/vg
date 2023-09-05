@@ -23,6 +23,7 @@ test/*/*.lcp
 test/**/*.index/
 trash
 src/*.gch
+.vscode
 # Ignore a bunch of files people might dump in the root when testing
 /*.vg
 /*.gcsa
@@ -42,3 +43,4 @@ src/*.gch
 /*.svg
 /*.fa
 /*.gfa
+.vscode/*

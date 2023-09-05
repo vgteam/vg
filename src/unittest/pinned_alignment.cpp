@@ -7,13 +7,15 @@
 #include <stdio.h>
 #include <unordered_set>
 #include "alignment.hpp"
-#include "gssw_aligner.hpp"
+#include "test_aligner.hpp"
 #include "vg.hpp"
 #include "path.hpp"
 #include "catch.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
+#include "bdsg/hash_graph.hpp"
 
 using namespace google::protobuf;
+using namespace vg::io;
 
 namespace vg {
     namespace unittest {
@@ -41,9 +43,10 @@ namespace vg {
                 
                 Node* pinned_node = n3;
                 bool pin_left = false;
-                
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                                
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -98,8 +101,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -153,9 +157,11 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner(1, 4, 6, 1, 0);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -214,8 +220,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -272,8 +279,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -331,8 +339,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -390,8 +399,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -444,8 +454,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -497,8 +508,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -556,8 +568,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -619,8 +632,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -682,8 +696,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -745,8 +760,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -796,8 +812,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -826,8 +843,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -868,8 +886,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -927,8 +946,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -986,8 +1006,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1035,8 +1056,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1095,8 +1117,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1144,8 +1167,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1204,8 +1228,9 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1272,8 +1297,9 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1338,8 +1364,9 @@ namespace vg {
                 Node* pinned_node = n2;
                 bool pin_left = false;
                 
-                Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1392,9 +1419,12 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 int8_t full_length_bonus = 3;
-                
-                Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                                
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1460,8 +1490,11 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 3;
                 
-                Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1527,8 +1560,11 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 5;
                 
-                Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                
+                aligner.align_pinned(aln, graph, pin_left);
                                 
                 const Path& path = aln.path();
                 
@@ -1590,8 +1626,11 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 2;
                 
-                Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
+                
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1661,8 +1700,11 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 5;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+                
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1725,8 +1767,11 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+                
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1788,72 +1833,11 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
                 
-                const Path& path = aln.path();
-                
-                // is a pinned alignment
-                if (pin_left) {
-                    REQUIRE(path.mapping(0).position().offset() == 0);
-                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
-                }
-                else {
-                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
-                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
-                }
-                
-                // follows correct path
-                REQUIRE(path.mapping(0).position().node_id() == 1);
-                REQUIRE(path.mapping(1).position().node_id() == 2);
-                REQUIRE(path.mapping(2).position().node_id() == 4);
-                
-                // has corrects edits
-                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
-                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
-                REQUIRE(path.mapping(0).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
-                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
-                REQUIRE(path.mapping(1).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
-                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
-                REQUIRE(path.mapping(2).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
-                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
-                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
-            }
-            
-            SECTION( "Quality adjusted pinned alignment runs with non-trivial quality scores and score scaling" ) {
-                
-                VG graph;
-                
-                Node* n0 = graph.create_node("AAACCCAGG");
-                Node* n1 = graph.create_node("C");
-                Node* n2 = graph.create_node("A");
-                Node* n3 = graph.create_node("TGAAGC");
-                
-                graph.create_edge(n0, n1);
-                graph.create_edge(n0, n2);
-                graph.create_edge(n1, n3);
-                graph.create_edge(n2, n3);
-                
-                string read = string("AAACCCAGGCTGAAGG");
-                string qual = string("HHHDDD<<<88800((");
-                Alignment aln;
-                aln.set_sequence(read);
-                aln.set_quality(qual);
-                alignment_quality_char_to_short(aln);
-                
-                Node* pinned_node = n3;
-                bool pin_left = false;
-                int8_t full_length_bonus = 5;
-                
-                
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1915,8 +1899,11 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 3;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, full_length_bonus);
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+                
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1983,9 +1970,10 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 20;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 int64_t prev_score = numeric_limits<int64_t>::max();
                 for (Alignment& alt_aln : multi_alns) {
@@ -2029,9 +2017,10 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 2;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 REQUIRE(aln.sequence() == multi_alns[0].sequence());
                 REQUIRE(aln.score() == multi_alns[0].score());
@@ -2071,9 +2060,10 @@ namespace vg {
                 bool pin_left = true;
                 int max_multi_alns = 2;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool found_first_opt = false;
                 bool found_second_opt = false;
@@ -2171,9 +2161,10 @@ namespace vg {
                 bool pin_left = true;
                 int max_multi_alns = 20;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool took_alternate_path = false;
                 for (Alignment& alt_aln : multi_alns) {
@@ -2212,9 +2203,10 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 100;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 REQUIRE(multi_alns.size() == 1);
             }
@@ -2248,9 +2240,10 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 3;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool found_first_opt = false;
                 bool found_second_opt = false;
@@ -2357,9 +2350,10 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 10;
                 
-                Aligner aligner;
+                TestAligner aligner_source;
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool found_first_opt = false;
                 bool found_second_opt = false;
@@ -2483,9 +2477,11 @@ namespace vg {
                 bool pin_left = true;
                 int max_multi_alns = 100;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                TestAligner aligner_source;
+                const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+                
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 for (Alignment& alt_aln : multi_alns) {
                     for (size_t i = 0; i < alt_aln.path().mapping_size(); i++) {
@@ -2500,7 +2496,9 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1, 0);
+                TestAligner aligner_source;
+                aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+                const Aligner& aligner = *aligner_source.get_regular_aligner();
                 
                 // low complexity sequences to ensure many alternate alignments
                 Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
@@ -2522,7 +2520,7 @@ namespace vg {
                 int max_multi_alns = 5000;
                 
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 unordered_set<string> alns_seen;
                 for (Alignment& alt_aln : multi_alns) {
@@ -2532,6 +2530,32 @@ namespace vg {
                     alns_seen.insert(aln_string);
                 }
             }
+        }
+        
+        TEST_CASE("Quality adjusted alignment scores full length bonuses correctly",
+                  "[alignment][pinned][mapping]" ) {
+            
+            bdsg::HashGraph graph;
+            
+            handle_t h = graph.create_handle("ACGTAGTCTGAA");
+            
+            Alignment aln1;
+            aln1.set_sequence("ACGT");
+            aln1.set_quality("HHH#");
+            alignment_quality_char_to_short(aln1);
+            
+            Alignment aln2;
+            aln2.set_sequence("TGAA");
+            aln2.set_quality("#HHH");
+            alignment_quality_char_to_short(aln2);
+            
+            TestAligner aligner_source;
+            const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+            aligner.align_pinned(aln1, graph, true, false);
+            aligner.align_pinned(aln2, graph, false, false);
+            
+            REQUIRE(aln1.score() == 3);
+            REQUIRE(aln2.score() == 3);
         }
     }
 }

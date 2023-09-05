@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 3
+plan tests 2
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -22,9 +22,5 @@ is "$(md5sum <min_ids.gamsorted.txt)" "$(md5sum <min_ids.sorted.txt)" "Sorting a
 vg gamsort x.gam -i x.sorted.gam.gai >x.sorted.gam
 is "$?" "0" "sorted GAMs can be indexed during the sort"
 
-vg gamsort -r rocks.db x.gam -i x.sorted.2.gam.gai >x.sorted.2.gam
-vg view -aj x.sorted.2.gam | jq -r '.path.mapping | ([.[] | .position.node_id | tonumber] | min)' >min_ids.gamsorted.txt
-is "$(md5sum <min_ids.gamsorted.txt)" "$(md5sum <min_ids.sorted.txt)" "Sorting a GAM with RocksDB orders the alignments by min node ID"
 
 rm -f x.vg x.xg x.gam x.sorted.gam x.sorted.2.gam min_ids.gamsorted.txt min_ids.sorted.txt x.sorted.gam.gai x.sorted.2.gam.gai
-rm -Rf rocks.db

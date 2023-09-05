@@ -6,8 +6,8 @@ pos_t make_pos_t(const Position& pos) {
     return make_tuple(pos.node_id(), pos.is_reverse(), pos.offset());
 }
 
-pos_t make_pos_t(id_t id, bool is_rev, off_t off) {
-    return make_tuple(id, is_rev, off);
+pos_t make_pos_t(const position_t& pos) {
+    return make_tuple(pos.node_id(), pos.is_reverse(), pos.offset());
 }
     
 pos_t make_pos_t(gcsa::node_type node) {
@@ -22,7 +22,7 @@ Position make_position(const pos_t& pos) {
     return p;
 }
 
-Position make_position(id_t id, bool is_rev, off_t off) {
+Position make_position(id_t id, bool is_rev, offset_t off) {
     Position p;
     p.set_node_id(id);
     p.set_is_reverse(is_rev);
@@ -38,43 +38,6 @@ Position make_position(gcsa::node_type node) {
     return p;
 }
 
-bool is_empty(const pos_t& pos) {
-    return id(pos) == 0;
-}
-
-id_t id(const pos_t& pos) {
-    return get<0>(pos);
-}
-
-bool is_rev(const pos_t& pos) {
-    return get<1>(pos);
-}
-
-off_t offset(const pos_t& pos) {
-    return get<2>(pos);
-}
-
-id_t& get_id(pos_t& pos) {
-    return get<0>(pos);
-}
-
-bool& get_is_rev(pos_t& pos) {
-    return get<1>(pos);
-}
-
-off_t& get_offset(pos_t& pos) {
-    return get<2>(pos);
-}
-
-pos_t reverse(const pos_t& pos, size_t node_length) {
-    pos_t rev = pos;
-    // swap the offset onto the other strand
-    get_offset(rev) = node_length - offset(rev);
-    // invert the position
-    get_is_rev(rev) = !is_rev(rev);
-    return rev;
-}
-
 Position reverse(const Position& pos, size_t node_length) {
     auto p = pos;
     p.set_offset(node_length - pos.offset());
@@ -82,12 +45,8 @@ Position reverse(const Position& pos, size_t node_length) {
     return p;
 }
 
-ostream& operator<<(ostream& out, const pos_t& pos) {
-    return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
-}
-
-pair<int64_t, int64_t> min_oriented_distances(const map<string, vector<pair<size_t, bool> > >& path_offsets1,
-                                              const map<string, vector<pair<size_t, bool> > >& path_offsets2) {
+pair<int64_t, int64_t> min_oriented_distances(const unordered_map<path_handle_t, vector<pair<size_t, bool> > >& path_offsets1,
+                                              const unordered_map<path_handle_t, vector<pair<size_t, bool> > >& path_offsets2) {
     int64_t distance_same = std::numeric_limits<int64_t>::max();
     int64_t distance_diff = std::numeric_limits<int64_t>::max();
     for (auto& path : path_offsets1) {
@@ -109,6 +68,17 @@ pair<int64_t, int64_t> min_oriented_distances(const map<string, vector<pair<size
         }
     }
     return make_pair(distance_same, distance_diff);
+}
+
+string debug_string(const position_t& pos) {
+    string to_return = "{id: " + to_string(pos.node_id()) + ", off: " + to_string(pos.offset()) + ", rev: " + (pos.is_reverse() ? "T" : "F") + "}";
+    return to_return;
+}
+
+void from_proto_position(const Position& from, position_t& to) {
+    to.set_node_id(from.node_id());
+    to.set_offset(from.offset());
+    to.set_is_reverse(from.is_reverse());
 }
 
 }

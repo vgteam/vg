@@ -12,7 +12,7 @@
 #include <functional>
 #include <regex>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "vg.hpp"
 

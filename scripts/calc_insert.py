@@ -26,5 +26,5 @@ if __name__ == "__main__":
         if len(vals) == 1000:
             mean = calc_mean(vals)
             sd = calc_sd(vals, mean)
-            print "Mean: ", mean, ",  SD: ", sd
+            print("Mean: ", mean, ",  SD: ", sd)
             del vals[:]

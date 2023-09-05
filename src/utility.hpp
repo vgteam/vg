@@ -16,7 +16,8 @@
 #include <regex>
 #include <signal.h>
 #include <unistd.h>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
+#include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
 
@@ -30,133 +31,48 @@ void reverse_complement_in_place(string& seq);
 /// Return True if the given string is entirely Ns of either case, and false
 /// otherwise.
 bool is_all_n(const string& seq);
+/// Return the number of Ns as a fraction of the total sequence length
+/// (or 0 if the sequence is empty)
+double get_fraction_of_ns(const string& seq);
 /// Return the number of threads that OMP will produce for a parallel section.
 /// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
+/// Decide on and apply a sensible OMP thread count. Pay attention to
+/// OMP_NUM_THREADS if set, the "hardware concurrency", and container limit
+/// information that may be available in /proc.
+void choose_good_thread_count();
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
 
 // split a string on any character found in the string of delimiters (delims)
-std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems);
-std::vector<std::string> split_delims(const std::string &s, const std::string& delims);
+// if max_cuts specified, only split at the first <max_cuts> delimiter occurrences
+std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems,
+                                       size_t max_cuts = numeric_limits<size_t>::max());
+std::vector<std::string> split_delims(const std::string &s, const std::string& delims,
+                                      size_t max_cuts = numeric_limits<size_t>::max());
+
+/// Check if a string starts with another string
+bool starts_with(const std::string& value, const std::string& prefix);
 
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
+/// Return true if a character is an uppercase A, C, G, or T, and false otherwise.
+bool isATGC(const char& b);
 bool allATGC(const string& s);
 bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);
+/// Convert known IUPAC ambiguity codes (which we don't support) to N (which we
+/// do), while leaving any other garbage to trigger validation checks later.
+string allAmbiguousToN(const string& s);
 // Convert ASCII-encoded DNA to upper case
 string toUppercase(const string& s);
-double median(std::vector<int> &v);
-double stdev(const std::vector<double>& v);
+void toUppercaseInPlace(string& s);
 
-template<typename T>
-double stdev(const T& v) {
-    double sum = std::accumulate(v.begin(), v.end(), 0.0);
-    double mean = sum / v.size();
-    std::vector<double> diff(v.size());
-    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) { return x - mean; });
-    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
-    return std::sqrt(sq_sum / v.size());
-}
+// write a fasta sqeuence
+void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width=80);
 
-// Φ is the normal cumulative distribution function
-// https://en.wikipedia.org/wiki/Cumulative_distribution_function
-double phi(double x1, double x2);
-    
-/// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
-double normal_inverse_cdf(double quantile);
 
-/*
- * Return the log of the sum of two log-transformed values without taking them
- * out of log space.
- */
-inline double add_log(double log_x, double log_y) {
-    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
-}
-    
-/*
- * Return the log of the difference of two log-transformed values without taking
- * them out of log space.
- */
-inline double subtract_log(double log_x, double log_y) {
-    return log_x + log(1.0 - exp(log_y - log_x));
-}
- 
-/**
- * Convert a number ln to the same number log 10.
- */   
-inline double ln_to_log10(double ln) {
-    return ln / log(10);
-}
-
-/**
- * Convert a number log 10 to the same number ln.
- */   
-inline double log10_to_ln(double l10) {
-    return l10 * log(10);
-}
-    
-// Convert a probability to a natural log probability.
-inline double prob_to_logprob(double prob) {
-    return log(prob);
-}
-// Convert natural log probability to a probability
-inline double logprob_to_prob(double logprob) {
-    return exp(logprob);
-}
-// Add two probabilities (expressed as logprobs) together and return the result
-// as a logprob.
-inline double logprob_add(double logprob1, double logprob2) {
-    // Pull out the larger one to avoid underflows
-    double pulled_out = max(logprob1, logprob2);
-    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
-}
-// Invert a logprob, and get the probability of its opposite.
-inline double logprob_invert(double logprob) {
-    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
-}
-
-// Convert integer Phred quality score to probability of wrongness.
-inline double phred_to_prob(int phred) {
-    return pow(10, -((double)phred) / 10);
-}
-
-// Convert probability of wrongness to integer Phred quality score.
-inline double prob_to_phred(double prob) {
-    return -10.0 * log10(prob);
-}
-
-// Convert a Phred quality score directly to a natural log probability of wrongness.
-inline double phred_to_logprob(int phred) {
-    return (-((double)phred) / 10) / log10(exp(1.0));
-}
-
-// Convert a natural log probability of wrongness directly to a Phred quality score.
-inline double logprob_to_phred(double logprob ) {
-    return -10.0 * logprob * log10(exp(1.0));
-}
-
-// Take the geometric mean of two logprobs
-inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
-    return log(sqrt(exp(lnprob1 + lnprob2)));
-}
-
-// Same thing in phred
-inline double phred_geometric_mean(double phred1, double phred2) {
-    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
-}
-
-// normal pdf, from http://stackoverflow.com/a/10848293/238609
-template <typename T>
-T normal_pdf(T x, T m, T s)
-{
-    static const T inv_sqrt_2pi = 0.3989422804014327;
-    T a = (x - m) / s;
-
-    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
-}
 
 template<typename T, typename V>
 set<T> map_keys_to_set(const map<T, V>& m) {
@@ -211,58 +127,16 @@ typename Collection::value_type sum(const Collection& collection) {
 
 }
 
-/**
- * Compute the sum of the values in a collection, where the values are log
- * probabilities and the result is the log of the total probability. Items must
- * be convertible to/from doubles for math.
- */
-template<typename Collection>
-typename Collection::value_type logprob_sum(const Collection& collection) {
-
-    // Set up an alias
-    using Item = typename Collection::value_type;
-
-    // Pull out the minimum value
-    auto min_iterator = min_element(begin(collection), end(collection));
-
-    if(min_iterator == end(collection)) {
-        // Nothing there, p = 0
-        return Item(prob_to_logprob(0));
-    }
-
-    auto check_iterator = begin(collection);
-    ++check_iterator;
-    if(check_iterator == end(collection)) {
-        // We only have a single element anyway. We don't want to subtract it
-        // out because we'll get 0s.
-        return *min_iterator;
-    }
-
-    // Pull this much out of every logprob.
-    Item pulled_out = *min_iterator;
-
-    if(logprob_to_prob(pulled_out) == 0) {
-        // Can't divide by 0!
-        // TODO: fix this in selection
-        pulled_out = prob_to_logprob(1);
-    }
-
-    Item total(0);
-    for(auto& to_add : collection) {
-        // Sum up all the scaled probabilities.
-        total += logprob_to_prob(to_add - pulled_out);
-    }
-
-    // Re-log and re-scale
-    return pulled_out + prob_to_logprob(total);
-}
 
 /**
- * Temporary files. Create with create() and remove with remove(). All
- * temporary files will be deleted when the program exits normally or with
- * std::exit(). The files will be created in a directory determined from
- * environment variables, though this can be overridden with set_dir().
+ * Temporary files and directories. Create with create() or create_directory()
+ * and remove with remove(). All temporary files and directories will be
+ * deleted when the program exits normally or with std::exit(). The files will
+ * be created in a directory determined from environment variables, though this
+ * can be overridden with set_dir().
  * The interface is thread-safe.
+ *
+ * The temporary directory will be propagated to submodules (gbwt, gcsa2, xg).
  */
 namespace temp_file {
 
@@ -271,14 +145,26 @@ namespace temp_file {
 
     /// Create a temporary file
     string create();
+    
+    /// Create a temporary directory
+    string create_directory();
 
-    /// Remove a temporary file
+    /// Remove a temporary file or directory. File or directory must have been
+    /// created by create() or create_directory() and not any other means.
     void remove(const string& filename);
 
-    /// Set a temp dir, overriding system defaults and environment variables.
+    /// Forget about all current temporary files and directories without deleting them.
+    void forget();
+
+    /// Set a directory for placing temporary files and directories in,
+    /// overriding system defaults and environment variables.
     void set_dir(const string& new_temp_dir);
 
-    /// Get the current temp dir
+    /// Reset the temporary directory back to the default based on environment
+    /// variables and system defaults.
+    void set_system_dir();
+
+    /// Get the current location for temporary files and directories.
     string get_dir();
 
 } // namespace temp_file
@@ -369,13 +255,336 @@ struct Tree {
 
 };
 
-// vector containing positive integer values in [begin, end)
+
+/**
+ * We want to be able to operate on reordered subset of things without moving
+ * the originals, so we use this view over things stored in a vector.
+ *
+ * Both the backing collection and the indexes must outlive the view.
+ *
+ * Copyable and assignable, and default-constructable to an empty state.
+ */
+template<typename Item>
+struct VectorView {
+    const vector<Item>* items;
+    const vector<size_t>* indexes;
+    
+    inline VectorView() : items(nullptr), indexes(nullptr) {
+        // Nothing to do!
+    };
+    
+    // Behave like a nice value.
+    ~VectorView() = default;
+    VectorView(const VectorView& other) = default;
+    VectorView(VectorView&& other) = default;
+    VectorView& operator=(const VectorView& other) = default;
+    VectorView& operator=(VectorView&& other) = default;
+    
+    /**
+     * Make a VectorView of a whole vector. Provides an implicit conversion.
+     */
+    inline VectorView(const vector<Item>& items) : items(&items), indexes(nullptr) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Make a VectorView of a reordered subset of a vector.
+     */
+    inline VectorView(const vector<Item>& items, const vector<size_t>& indexes) : items(&items), indexes(&indexes) {
+        // Nothing to do!
+    }
+    
+    /**
+     * Get an item by index.
+     */
+    inline const Item& operator[](size_t index) const {
+        if (indexes) {
+            return (*items)[(*indexes)[index]];
+        } else {
+            return (*items)[index];
+        }
+    }
+    
+    /**
+     * Get the backing index of an item by index.
+     */
+    inline size_t backing_index(size_t index) const {
+        if (indexes) {
+            return (*indexes)[index];
+        } else {
+            return index;
+        }
+    }
+    
+    /**
+     * Get the total number of items.
+     */
+    inline size_t size() const {
+        if (indexes) {
+            return indexes->size();
+        } else if (items) {
+            return items->size();
+        } else {
+            return 0;
+        }
+    }
+    
+    /**
+     * Determine if there are no items.
+     */
+    inline bool empty() const {
+        if (indexes) {
+            return indexes->empty();
+        } else if (items) {
+            return items->empty();
+        } else {
+            return true;
+        }
+    }
+    
+    /**
+     * Call the given callback with a dense and properly ordered vector of the items.
+     */
+    void with_vector(const std::function<void(const vector<Item>&)>& callback) const {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back((*items)[i]);
+            }
+            callback(reordered);
+        } else if (items) {
+            // We already have this
+            callback(*items);
+        } else {
+            // We have no items at all.
+            return callback({});
+        }
+    }
+    
+    /**
+     * Call the given callback with a dense and properly ordered vector of the
+     * items, which can be modified. Modification will not be visible in
+     * the backing storage.
+     *
+     * TODO: will this be called even when the const version could be more
+     * efficiently used?
+     */
+    void with_vector(const std::function<void(vector<Item>&)>& callback) {
+        if (indexes) {
+            // We need to reorder
+            vector<Item> reordered;
+            reordered.reserve(indexes->size());
+            for (auto& i : *indexes) {
+                reordered.emplace_back((*items)[i]);
+            }
+            callback(reordered);
+        } else if (items) {
+            // We need a copy
+            std::vector<Item> clone(*items);
+            callback(clone);
+        } else {
+            // We have no items at all.
+            vector<Item> empty;
+            return callback(empty);
+        }
+    }
+    
+    /// Random access iterator.
+    struct const_iterator {
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type = const Item;
+        using pointer = const Item*;
+        using reference = const Item&;
+        using difference_type = std::ptrdiff_t;
+        
+    
+        const VectorView<Item>& parent;
+        size_t offset = 0;
+        
+        /// Advance the iterator. Pre-increment.
+        const_iterator& operator++() {
+            ++offset;
+            return *this;
+        }
+        
+        /// De-advance the iterator. Pre-decrement.
+        const_iterator& operator--() {
+            --offset;
+            return *this;
+        }
+        
+        /// Advance the iterator by a distance, in place
+        const_iterator& operator+=(const difference_type& difference) {
+            offset += difference;
+            return *this;
+        }
+        
+        /// De-advance the iterator by a distance, in place
+        const_iterator& operator-=(const difference_type& difference) {
+            offset -= difference;
+            return *this;
+        }
+        
+        /// Advance the iterator. Post-increment.
+        const_iterator operator++(int) {
+            auto copy = *this;
+            ++(*this);
+            return copy;
+        }
+        
+        /// De-advance the iterator. Post-decrement.
+        const_iterator operator--(int) {
+            auto copy = *this;
+            --(*this);
+            return copy;
+        }
+        
+        /// Advance the iterator by a distance, copying
+        const_iterator operator+(const difference_type& difference) const {
+            auto copy = *this;
+            copy += difference;
+            return copy;
+        }
+        
+        /// De-advance the iterator by a distance, copying
+        const_iterator operator-(const difference_type& difference) const {
+            auto copy = *this;
+            copy -= difference;
+            return copy;
+        }
+        
+        /// Get a difference of iterators on the same container
+        difference_type operator-(const const_iterator& other) const {
+            return offset - other.offset;
+        }
+        
+        /// Check if two iterators on the same container are equal
+        bool operator==(const const_iterator& other) const {
+            return offset == other.offset;
+        }
+        
+        /// Check if two iterators on the same container are not equal
+        bool operator!=(const const_iterator& other) const {
+            return offset != other.offset;
+        }
+        
+        /// Get the item pointed to by the iterator.
+        const Item& operator*() const {
+            return parent[offset];
+        }
+        
+        /// Get a pointer to the item pointed to by the itarator.
+        const Item* operator->() const {
+            // Since the items really exist, this is easy.
+            return &parent[offset];
+        }
+    };
+    
+    /// Get iterator to first item.
+    const_iterator begin() const {
+        return {*this, 0};
+    };
+    
+    /// Get iterator to past-end item.
+    const_iterator end() const {
+        return {*this, size()};
+    };
+};
+
+/// Allow VectorView iterators to be added to numbers.
+template<typename Item>
+typename VectorView<Item>::const_iterator operator+(typename VectorView<Item>::const_iterator::difference_type a, const typename VectorView<Item>::const_iterator& b) {
+    return b + a;
+}
+
+/**
+ * Represents the reverse of the view transformation used in a VectorView.
+ *
+ * Assumes we have the memory for a dense inverse, and that nobody will ever
+ * ask about values that aren't actually in the view. If an item appears
+ * multiple times, one index will win.
+ *
+ * If the VectorView's backing vectors are modified, the inverse will need to
+ * be re-made.
+ *
+ * In keeping with VectorView's value semantics, the inverted VectorView does
+ * not need to outlivce this object.
+ */
+class VectorViewInverse {
+
+private:
+    /// Stores the index in the view at which each item in the backing storage appears.
+    vector<size_t> inverse;
+    
+public:
+    /// Default-construct an inverse of nothing
+    inline VectorViewInverse() : inverse() {
+        // Nothing to do!
+    };
+    
+    /// Invert the given VectorView.
+    template<typename Item>
+    inline VectorViewInverse(const VectorView<Item>& view) : inverse() {
+        if (view.indexes) {
+            // A transformation exists to invert.
+            // Make sure we have room for all the dense inverse values
+            inverse.resize(view.items->size());
+            for (size_t view_index = 0; view_index < view.indexes->size(); view_index++) {
+                // Save all the inverse references.
+                inverse[(*(view.indexes))[view_index]] = view_index;
+            }
+        }
+    };
+    
+    /**
+     * Get the view index from a backing index.
+     */
+    inline size_t operator[](size_t backing_index) {
+        if (inverse.empty()) {
+            // No transformation necessary.
+            return backing_index;
+        }
+        // Otherwise, look in the stored inverse and hope we asked for
+        // something actually in the view.
+        return inverse[backing_index];
+    }
+};
+
+/// Vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);
     
-// vector containing positive integer values in [0, end)
+/// Vector containing positive integer values in [0, end)
 inline vector<size_t> range_vector(size_t end) {
     return range_vector(0, end);
 }
+
+/// Get the index permutation that sorts the given items with the given comparator instead of <
+template<typename Iterator>
+std::vector<size_t> sort_permutation(const Iterator& begin,
+                                     const Iterator& end,
+                                     const std::function<bool(const typename Iterator::value_type&, const typename Iterator::value_type&)>& comparator) {
+    // Start with all numbers in number order.
+    std::vector<size_t> indexes = range_vector(end - begin);
+    // Then sort them using the comparator
+    std::sort(indexes.begin(), indexes.end(), [&](size_t a, size_t b) {
+        return comparator(*(begin + a), *(begin + b));
+    });
+    // And return
+    return indexes;
+}
+
+/// Get the index permutation that sorts the given items ascending using <
+template<typename Iterator>
+std::vector<size_t> sort_permutation(const Iterator& begin, const Iterator& end) {
+    return sort_permutation(begin, end, [](const typename Iterator::value_type& a, const typename Iterator::value_type& b) {
+        return a < b;
+    });
+}
+
+/// Apply one permutation on top of another. Retutn the combined permutation.
+std::vector<size_t> stack_permutations(const std::vector<size_t>& bottom, const std::vector<size_t>& top);
 
 struct IncrementIter {
 public:
@@ -417,9 +626,6 @@ private:
     
 size_t integer_power(size_t x, size_t power);
 
-double slope(const std::vector<double>& x, const std::vector<double>& y);
-double fit_zipf(const vector<double>& y);
-
 /// Computes base^exponent in log(exponent) time
 size_t integer_power(uint64_t base, uint64_t exponent);
 /// Computes base^exponent mod modulus in log(exponent) time without requiring more
@@ -429,17 +635,40 @@ size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus);
 /// Returns a uniformly random DNA sequence of the given length
 string random_sequence(size_t length);
 
+/// Returns a uniformly random DNA sequence sequence deterministically from a seed
+string pseudo_random_sequence(size_t length, uint64_t seed);
+
 /// Escape "%" to "%25"
 string percent_url_encode(const string& seq);
 string replace_in_string(string subject, const string& search, const string& replace);
 
-/// Given a pair of random access iterators defining a range, deterministically
-/// shuffle the contents of the range based on the given integer seed.
-template<class RandomIt>
-void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
-    // Make an RNG from the string
-    minstd_rand rng(seed);
+/// AN RNG that can skip initialization and any hashing of the seed until it is
+/// needed. Not thread safe, not even a little bit.
+class LazyRNG {
+public:
+    /// Make a new LazyRNG. Seed-generating closure will not be used after
+    /// object is destroyed.
+    LazyRNG(const std::function<string(void)>& get_seed);
     
+    /// Get a random number, computing the seed and initilaizing the RNG if
+    /// that has not yet happened.
+    minstd_rand::result_type operator()();
+private:
+    /// Closure used to generate the seed. Makes sure to copy and not store a
+    /// reference to a temporary closure.
+    std::function<string(void)> get_seed;
+    /// Backing RNG, or empty.
+    unique_ptr<minstd_rand> rng;
+};
+
+/// Flip a coin with 50% probability against the given RNG.
+bool deterministic_flip(LazyRNG& rng);
+
+/// Given a pair of random access iterators defining a range, deterministically
+/// shuffle the contents of the range based on the given RNG. Allows one RNG
+/// from deterministic_start() to be used for multiple shuffles.
+template<class RandomIt>
+void deterministic_shuffle(RandomIt begin, RandomIt end, LazyRNG& rng) {
     // Perform Knuth shuffle algorithm using RNG
     int64_t width = end - begin;
     for (int64_t i = 1; i < width; i++) {
@@ -447,49 +676,48 @@ void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
     }
 }
 
-/// Given a pair of random access iterators defining a range, deterministically
-/// shuffle the contents of the range based on the given string seed.
-template<class RandomIt>
-void deterministic_shuffle(RandomIt begin, RandomIt end, const string& seed) {
-    // Turn the string into a 32-bit number.
-    uint32_t seedNumber = 0;
-    for (uint8_t byte : seed) {
-        // Sum up with primes and overflow.
-        // TODO: this is a bit of a bad hash function but it should be good enough.
-        seedNumber = seedNumber * 13 + byte;
-    }
-
-    // Shuffle with the derived integer seed
-    deterministic_shuffle(begin, end, seedNumber);
+/// Return true if a is larger than b, or else equal to b and wins a coin flip.
+template<typename Number>
+bool deterministic_beats(const Number& a, const Number& b, LazyRNG& rng) {
+    return (a > b || (a == b && deterministic_flip(rng)));
 }
+
+// For seed generation, we aren't just using our normal hash functions, because
+// we want it to be more semantic and not dependent on memory addresses.
 
 /// Make seeds for Alignments based on their sequences.
 inline string make_shuffle_seed(const Alignment& aln) {
     return aln.sequence();
 }
 
-/// Make seeds for Alignments based on their sequences.
-inline string make_shuffle_seed(const Alignment* aln) {
-    return aln->sequence();
+/// Make seeds for pointers to things we can make seeds for.
+template<typename T>
+inline string make_shuffle_seed(const T* ptr) {
+    return make_shuffle_seed(*ptr);
 }
 
-/// Make seeds for pairs of Alignments based on their concatenated sequences
-inline string make_shuffle_seed(const pair<Alignment, Alignment>* alns) {
-    return alns->first.sequence() + alns->second.sequence();
+/// Make seeds for pairs of things we can make seeds for.
+template<typename T1, typename T2>
+inline string make_shuffle_seed(const pair<T1, T2>& p) {
+    return make_shuffle_seed(p.first) + make_shuffle_seed(p.second);
 }
 
 /// Do a deterministic shuffle with automatic seed determination.
 template<class RandomIt>
 void deterministic_shuffle(RandomIt begin, RandomIt end) {
-    deterministic_shuffle(begin, end, make_shuffle_seed(*begin));
+    LazyRNG rng([&]() {
+        return make_shuffle_seed(*begin);
+    });
+
+    deterministic_shuffle(begin, end, rng);
 }
 
 /**
- * Sort the items between the two given random-access iterators, as with std::sort.
- * Deterministically shuffle the ties, if any, at the top end, using the given seed generator function.
+ * Sort the items between the two given random-access iterators, as with
+ * std::sort. Deterministically shuffle the ties, if any, at the top end.
  */
-template<class RandomIt, class Compare, class MakeSeed>
-void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed seed) {
+template<class RandomIt, class Compare>
+void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, LazyRNG& rng) {
     
     // Sort everything
     std::stable_sort(begin, end, comp);
@@ -509,35 +737,64 @@ void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed se
     
     if (begin != ties_end) {
         // Shuffle the ties.
-        deterministic_shuffle(begin, ties_end, seed(*begin));
+        deterministic_shuffle(begin, ties_end, rng);
     }
 
 }
 
 /**
- * Sort the items between the two given random-access iterators, as with std::sort.
- * Deterministically shuffle the ties, if any, at the top end, using automatic seed determination.
+ * Sort the items between the two given random-access iterators, as with
+ * std::sort. Deterministically shuffle the ties, if any, at the top end, using
+ * automatic seed determination as defined by a make_shuffle_seed() overload
+ * for the collection's item type.
  */
 template<class RandomIt, class Compare>
 void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
-    
-    // Make the seed using the pre-defined seed making approaches
-    sort_shuffling_ties(begin, end, comp, [](decltype (*begin)& item) {
-        return make_shuffle_seed(item);
+
+    LazyRNG rng([&]() {
+        return make_shuffle_seed(*begin);
     });
+    
+    // Make the seed and start the RNG using the pre-defined seed making
+    // approaches
+    sort_shuffling_ties(begin, end, comp, rng);
 
 }
+
+/// Compose the translations from two graph operations, both of which involved oriented transformations.
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under);
+
+/// Compose the translations from two graph operations, the first of which involved oriented transformations.
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under);
+
+/// Compose the translations from two graph operations, the second of which involved oriented transformations.
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, id_t>& under);
+
+/// Compose the translations from two graph operations, neither of which involved oriented transformations.
+unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                    const unordered_map<id_t, id_t>& under);
+    
+
+/// Return true if there's a command line argument (i.e. input file name) waiting to be processed. 
+bool have_input_file(int& optind, int argc, char** argv);
 
 /// Get a callback with an istream& to an open file if a file name argument is
 /// present after the parsed options, or print an error message and exit if one
 /// is not. Handles "-" as a filename as indicating standard input. The reference
 /// passed is guaranteed to be valid only until the callback returns. Bumps up
 /// optind to the next argument if a filename is found.
+///
+/// Warning: If you're reading a HandleGraph via VPKG::load_one (as is the pattern in vg)
+///          it is best to use get_input_file_name() below instead, and run load_one on that.
+///          This allows better GFA support because it allows memmapping the file directly
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback);
 
 /// Parse out the name of an input file (i.e. the next positional argument), or
 /// throw an error. File name must be nonempty, but may be "-" or may not exist.
-string get_input_file_name(int& optind, int argc, char** argv);
+string get_input_file_name(int& optind, int argc, char** argv, bool test_open = true);
 
 /// Parse out the name of an output file (i.e. the next positional argument), or
 /// throw an error. File name must be nonempty.
@@ -548,13 +805,23 @@ string get_output_file_name(int& optind, int argc, char** argv);
 /// only until the callback returns.
 void get_input_file(const string& file_name, function<void(istream&)> callback);
 
+/// Split off the extension from a filename and return both parts. 
+pair<string, string> split_ext(const string& filename);
+
+/// Get the base name of a filename (without the directory and the extension).
+string file_base_name(const string& filename);
+
+/// Determine if a file exists.
+/// Only works for files readable by the current user.
+bool file_exists(const string& filename);
+
 /// Parse a command-line argument string. Exits with an error if the string
-/// does not contain exactly an item fo the appropriate type.
+/// does not contain exactly an item of the appropriate type.
 template<typename Result>
 Result parse(const string& arg);
 
 /// Parse a command-line argument C string. Exits with an error if the string
-/// does not contain exactly an item fo the appropriate type.
+/// does not contain exactly an item of the appropriate type.
 template<typename Result>
 Result parse(const char* arg);
 
@@ -566,7 +833,7 @@ bool parse(const string& arg, Result& dest);
 // Do one generic implementation for signed integers that fit in a long long.
 // Cram the constraint into the type of the output parameter.
 template<typename Result>
-inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(long long) &&
+bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(long long) &&
     is_integral<Result>::value &&
     is_signed<Result>::value, Result>::type& dest) {
     
@@ -583,7 +850,7 @@ inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof
 
 // Do another generic implementation for unsigned integers
 template<typename Result>
-inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsigned long long) &&
+bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsigned long long) &&
     is_integral<Result>::value &&
     !is_signed<Result>::value, Result>::type& dest) {
     
@@ -598,22 +865,17 @@ inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof
     return(after == arg.size());    
 }              
 
-// We also have an implementation for doubles
+// We also have an implementation for doubles (defined in the cpp)
 template<>
-inline bool parse(const string& arg, double& dest) {
-    size_t after;
-    dest = std::stod(arg, &after);
-    return(after == arg.size());
-}
+bool parse(const string& arg, double& dest);
 
 // And one for regular expressions
 template<>
-inline bool parse(const string& arg, std::regex& dest) {
-    // This throsw std::regex_error if it can't parse.
-    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
-    dest = std::regex(arg);
-    return true;
-}
+bool parse(const string& arg, std::regex& dest);
+
+// And one for positions. Parses ID{+/-}Offset.
+template<>
+bool parse(const string& arg, pos_t& dest);
 
 // Implement the first version in terms of the second, for any type
 template<typename Result>

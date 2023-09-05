@@ -1,0 +1,6 @@
+vgci/vgci.py::VGCITest::test_sim_chr21_snp1kg
+vgci/vgci.py::VGCITest::test_full_brca2_cactus vgci/vgci.py::VGCITest::test_full_brca2_primary vgci/vgci.py::VGCITest::test_full_brca2_snp1kg vgci/vgci.py::VGCITest::test_map_brca1_cactus vgci/vgci.py::VGCITest::test_map_brca1_primary vgci/vgci.py::VGCITest::test_map_brca1_snp1kg vgci/vgci.py::VGCITest::test_map_brca1_snp1kg_mpmap vgci/vgci.py::VGCITest::test_map_mhc_primary vgci/vgci.py::VGCITest::test_map_mhc_snp1kg vgci/vgci.py::VGCITest::test_sim_mhc_cactus
+vgci/vgci.py::VGCITest::test_sim_mhc_snp1kg vgci/vgci.py::VGCITest::test_sim_mhc_snp1kg_mpmap
+vgci/vgci.py::VGCITest::test_call_chr21_snp1kg
+vgci/vgci.py::VGCITest::test_sim_chr21_snp1kg_trained
+vgci/vgci.py::VGCITest::test_sim_yeast_cactus

@@ -1,4 +1,4 @@
-#ifndef VG_PATH_HPP_INCLUDED
+    #ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -7,10 +7,9 @@
 #include <set>
 #include <list>
 #include <sstream>
-#include <regex>
-#include "json2pb.h"
-#include "vg.pb.h"
-#include "edit.hpp"
+#include "vg/io/json2pb.h"
+#include <vg/vg.pb.h>
+#include "vg/io/edit.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
@@ -37,11 +36,19 @@ public:
     void set_is_reverse(bool is_rev);
 };
 
+/// Allow a mapping_t to be printed, for debugging purposes
+ostream& operator<<(ostream& out, mapping_t mapping);
+
 class Paths {
 public:
 
-    // This regex matches the names of alt paths.
-    const static std::regex is_alt;
+    // This predicate matches the names of alt paths.
+    // We used to use a regex but that's a very slow way to check a prefix.
+    const static function<bool(const string&)> is_alt;
+
+    // Use the path metadata api to strip a subrange from a path name.
+    // If desired, the subrange can be stored in start and end
+    static string strip_subrange(const string& path_name, subrange_t* subrange = nullptr);
 
     Paths(void);
 
@@ -75,11 +82,19 @@ public:
 
     // This maps from path name to the list of Mappings for that path.
     map<string, list<mapping_t> > _paths;
-    int64_t max_path_id;
-    map<string, int64_t> name_to_id;
-    int64_t get_path_id(const string& name);
-    map<int64_t, string> id_to_name;
-    const string& get_path_name(int64_t id);
+
+private:
+    // These need to be private because path names are lazily assigned IDs by the accessors
+    // They also need to be mutable because we want our accessors to treat our object as logical const
+    mutable int64_t max_path_id;
+    mutable map<string, int64_t> name_to_id;
+    mutable map<int64_t, string> id_to_name;
+public:
+    /// Get the lazily assigned numeric ID for a path, by name.
+    int64_t get_path_id(const string& name) const;
+    /// Get the name of a path, by numeric ID.
+    const string& get_path_name(int64_t id) const;
+    
     // This maps from mapping_t* pointer to its iterator in its list of Mappings
     // for its path and the id of the path.
     // The list in question is stored above in _paths.
@@ -93,7 +108,7 @@ public:
     // We need this in order to make sure we aren't adding duplicate mappings
     // with the same rank in the same path. Maps from path name and rank to
     // Mapping pointer.
-    map<string, hash_map<size_t, mapping_t*>> mappings_by_rank;
+    map<string, hash_map<int32_t, mapping_t*>> mappings_by_rank;
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
     hash_map<id_t, map<int64_t, set<mapping_t*>>> node_mapping;
@@ -133,7 +148,7 @@ public:
     void remove_path(const string& name);
     void keep_paths(const set<string>& name);
     void remove_node(id_t id);
-    bool has_path(const string& name);
+    bool has_path(const string& name) const;
     void to_json(ostream& out);
     list<mapping_t>& get_path(const string& name);
     list<mapping_t>& get_create_path(const string& name);
@@ -141,14 +156,15 @@ public:
     // Does the given path have a mapping meeting the given criteria?
     // Is there a mapping in the given path with the given assigned rank? Note
     // that the rank passed may not be 0.
-    bool has_mapping(const string& name, size_t rank);
+    bool has_mapping(const string& name, int32_t rank);
     // We used to be able to search for a Mapping by value, but that's not
     // efficient if the Mappings don't have ranks, and it never checked the
     // edits for equality anyway.
-    bool has_node_mapping(id_t id);
-    bool has_node_mapping(Node* n);
+    bool has_node_mapping(id_t id) const;
+    bool has_node_mapping(Node* n) const;
     map<int64_t, set<mapping_t*> >& get_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id);
+    const map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id) const;
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(Node* n);
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(id_t id);
     map<string, map<int, mapping_t*> > get_node_mappings_by_rank(id_t id);
@@ -203,19 +219,24 @@ public:
     void append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0, bool warn_on_duplicates = false);
     // TODO: Adapt this to use mapping_t instead.
     void prepend_mapping(const string& name, const Mapping& m, bool warn_on_duplicates = false);
-    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates = false);
+    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0, bool warn_on_duplicates = false);
     size_t get_next_rank(const string& name);
-    void append(const Paths& p, bool warn_on_duplicates = false);
-    void append(const Graph& g, bool warn_on_duplicates = false);
-    void extend(const Paths& p, bool warn_on_duplicates = false);
-    void extend(const Path& p, bool warn_on_duplicates = false);
+    void append(const Paths& paths, bool warn_on_duplicates = false, bool rebuild_indexes = true);
+    void append(const Graph& g, bool warn_on_duplicates = false, bool rebuild_indexes = true);
+    void extend(const Paths& paths, bool warn_on_duplicates = false, bool rebuild_indexes = true);
+    void extend(const Path& p, bool warn_on_duplicates = false, bool rebuild_indexes = true);
+    void extend(const vector<Path> & paths, bool warn_on_duplicates = false, bool rebuild_indexes = true);
     void for_each(const function<void(const Path&)>& lambda);
     // Loop over the names of paths without actually extracting the Path objects.
-    void for_each_name(const function<void(const string&)>& lambda);
+    void for_each_name(const function<void(const string&)>& lambda) const;
+    // Like for_each_name but allows stopping early.
+    // TODO: Use the libhandlegraph unified iteratee pattern here.
+    bool for_each_name_stoppable(const function<bool(const string&)>& lambda) const;
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
-    // Replace the node IDs used as keys with those used as values.
+    // Replace the node IDs according to a mapping from old ID to new ID.
     // This is only efficient to do in a batch.
+    void swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
     void swap_node_ids(hash_map<id_t, id_t>& id_mapping);
     // sets the mapping to the new id
     // erases current (old index information)
@@ -225,6 +246,9 @@ public:
 
 string  path_to_string(Path p);
 Path& increment_node_mapping_ids(Path& p, id_t inc);
+/// Append the second path onto the end of the first, without combining
+/// mappings or simplifying. Modifies and returns a reference to the first
+/// path.
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
 int path_to_length(const Path& path);
@@ -235,14 +259,18 @@ Position first_path_position(const Path& path);
 Position last_path_position(const Path& path);
 int to_length(const Mapping& m);
 int from_length(const Mapping& m);
+bool mappings_equivalent(const Mapping& m1, const Mapping& m2);
 bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
+bool mapping_is_total_insertion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
 bool mapping_is_simple_match(const Mapping& m);
 bool path_is_simple_match(const Path& p);
 // convert the mapping to the particular node into the sequence implied by the mapping
 const string mapping_sequence(const Mapping& m, const string& node_seq);
 const string mapping_sequence(const Mapping& m, const Node& n);
+// convert the path to a sequence
+string path_sequence(const HandleGraph& graph, const Path& path);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.
@@ -268,6 +296,11 @@ Path simplify(const Path& p, bool trim_internal_deletions = true);
 /// edits (while updating positions if necessary), and makes sure position is
 /// actually set.
 Mapping simplify(const Mapping& m, bool trim_internal_deletions = true);
+
+/// Return true if two edits could be combined into one (assuming adjacency).
+bool edits_are_compatible(const Edit& e, const Edit& f);
+/// Glom the second edit into the first, assuming adjacency.
+void merge_edits_in_place(Edit& e, const Edit& f);
 
 /// Merge adjacent edits of the same type
 Path merge_adjacent_edits(const Path& m);
@@ -296,8 +329,8 @@ pair<Path, Path> cut_path(const Path& path, const Position& pos);
 pair<Path, Path> cut_path(const Path& path, size_t offset);
 bool maps_to_node(const Path& p, id_t id);
 // the position that starts just after the path ends
-Position path_start(const Path& path);
-Position path_end(const Path& path);
+Position path_start_position(const Path& path);
+Position path_end_position(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);
@@ -310,23 +343,250 @@ double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
 void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
-// switches the node ids in the path to the ones indicated by the translator
+/// Switches the node ids in the path to the ones indicated by the translator
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator);
-// switches the node ids and orientations in the path to the ones indicated by the translator
+/// Replaces the node IDs in the path with the ones indicated by the
+/// translator. Supports a single cut node in the source graph, where the given
+/// number of bases of the given node were removed from its left or right side
+/// when making the source graph from the destination graph.
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right);
+/// Switches the node ids and orientations in the path to the ones indicated by the translator
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
+/// Switches node ids and orientations in the path to the ones indicated by the translator
+void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_t)>& translator);
     
 // the first position on the path
 pos_t initial_position(const Path& path);
 // the last position on the path
 pos_t final_position(const Path& path);
-    
+
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
-// Remove the paths with names matching the regex from the graph.
+// Remove the paths with names matching the predicate from the graph.
 // Store them in the list unless it is nullptr.
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching);
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching);
 
+// Get a Path from a handle graph
+Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_handle);
+
+// Wrap a Path in an Alignment
+Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
+
+
+/*
+ * STL implementations of the protobuf object for use in in-memory operations
+ */
+class edit_t {
+public:
+    edit_t() = default;
+    edit_t(const edit_t&) = default;
+    edit_t(edit_t&&) = default;
+    ~edit_t() = default;
+    edit_t& operator=(const edit_t&) = default;
+    edit_t& operator=(edit_t&&) = default;
+    inline int32_t from_length() const;
+    inline void set_from_length(int32_t l);
+    inline int32_t to_length() const;
+    inline void set_to_length(int32_t l);
+    inline const string& sequence() const;
+    inline void set_sequence(const string& s);
+    inline string* mutable_sequence();
+    inline bool operator==(const edit_t& other) const;
+    inline bool operator!=(const edit_t& other) const;
+private:
+    int32_t _from_length;
+    int32_t _to_length;
+    string _sequence;
+};
+
+// the mapping_t name is already taken
+class path_mapping_t {
+public:
+    path_mapping_t() = default;
+    path_mapping_t(const path_mapping_t&) = default;
+    path_mapping_t(path_mapping_t&&) = default;
+    ~path_mapping_t() = default;
+    path_mapping_t& operator=(const path_mapping_t&) = default;
+    path_mapping_t& operator=(path_mapping_t&&) = default;
+    inline const position_t& position() const;
+    inline position_t* mutable_position();
+    inline const vector<edit_t>& edit() const;
+    inline const edit_t& edit(size_t i) const;
+    inline vector<edit_t>* mutable_edit();
+    inline edit_t* mutable_edit(size_t i);
+    inline edit_t* add_edit();
+    inline size_t edit_size() const;
+    inline bool operator==(const path_mapping_t& other) const;
+    inline bool operator!=(const path_mapping_t& other) const;
+private:
+    position_t _position;
+    vector<edit_t> _edit;
+};
+
+class path_t {
+public:
+    path_t() = default;
+    path_t(const path_t&) = default;
+    path_t(path_t&&) = default;
+    ~path_t() = default;
+    path_t& operator=(const path_t&) = default;
+    path_t& operator=(path_t&&) = default;
+    inline const vector<path_mapping_t>& mapping() const;
+    inline const path_mapping_t& mapping(size_t i) const;
+    inline vector<path_mapping_t>* mutable_mapping();
+    inline path_mapping_t* mutable_mapping(size_t i);
+    inline path_mapping_t* add_mapping();
+    inline void clear_mapping();
+    inline size_t mapping_size() const;
+    inline bool operator==(const path_t& other) const;
+    inline bool operator!=(const path_t& other) const;
+private:
+    vector<path_mapping_t> _mapping;
+};
+
+void from_proto_edit(const Edit& proto_edit, edit_t& edit);
+void to_proto_edit(const edit_t& edit, Edit& proto_edit);
+void from_proto_mapping(const Mapping& proto_mapping, path_mapping_t& mapping);
+void to_proto_mapping(const path_mapping_t& mapping, Mapping& proto_mapping);
+void from_proto_path(const Path& proto_path, path_t& path);
+void to_proto_path(const path_t& path, Path& proto_path);
+
+
+// repeated functions for the new path_t class
+void translate_node_ids(path_t& path, const unordered_map<id_t, id_t>& translator);
+void translate_oriented_node_ids(path_t& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
+void translate_oriented_node_ids(path_t& path, const function<pair<id_t, bool>(id_t)>& translator);
+
+int mapping_from_length(const path_mapping_t& mapping);
+int path_from_length(const path_t& path);
+int mapping_to_length(const path_mapping_t& mapping);
+int path_to_length(const path_t& path);
+
+path_mapping_t reverse_complement_mapping(const path_mapping_t& m,
+                                          const function<int64_t(id_t)>& node_length);
+path_t reverse_complement_path(const path_t& path,
+                               const function<int64_t(id_t)>& node_length);
+void reverse_complement_mapping_in_place(path_mapping_t* m,
+                                         const function<int64_t(id_t)>& node_length);
+void reverse_complement_path_in_place(path_t* path,
+                                      const function<int64_t(id_t)>& node_length);
+
+// the first position on the path
+pos_t initial_position(const path_t& path);
+// the last position on the path
+pos_t final_position(const path_t& path);
+
+int corresponding_to_length(const path_t& path, int from_length, bool from_end);
+int corresponding_from_length(const path_t& path, int to_length, bool from_end);
+
+string debug_string(const path_t& path);
+string debug_string(const path_mapping_t& mapping);
+string debug_string(const edit_t& edit);
+
+/*
+ * Implementations of inline methods
+ */
+
+/*
+ * edit_t
+ */
+inline int32_t edit_t::from_length() const {
+    return _from_length;
+}
+inline void edit_t::set_from_length(int32_t l) {
+    _from_length = l;
+}
+inline int32_t edit_t::to_length() const {
+    return _to_length;
+}
+inline void edit_t::set_to_length(int32_t l) {
+    _to_length = l;
+}
+inline const string& edit_t::sequence() const {
+    return _sequence;
+}
+inline void edit_t::set_sequence(const string& s) {
+    _sequence = s;
+}
+inline string* edit_t::mutable_sequence() {
+    return &_sequence;
+}
+inline bool edit_t::operator==(const edit_t& other) const {
+    return (_to_length == other._to_length
+            && _from_length == other._from_length
+            && _sequence == other._sequence);
+}
+inline bool edit_t::operator!=(const edit_t& other) const {
+    return !(*this == other);
+}
+
+/*
+ * path_mapping_t
+ */
+inline const position_t& path_mapping_t::position() const {
+    return _position;
+}
+inline position_t* path_mapping_t::mutable_position() {
+    return &_position;
+}
+inline const vector<edit_t>& path_mapping_t::edit() const {
+    return _edit;
+}
+inline const edit_t& path_mapping_t::edit(size_t i) const {
+    return _edit[i];
+}
+inline vector<edit_t>* path_mapping_t::mutable_edit() {
+    return &_edit;
+}
+inline edit_t* path_mapping_t::add_edit() {
+    _edit.emplace_back();
+    return &_edit.back();
+}
+inline edit_t* path_mapping_t::mutable_edit(size_t i) {
+    return &_edit[i];
+}
+inline size_t path_mapping_t::edit_size() const {
+    return _edit.size();
+}
+inline bool path_mapping_t::operator==(const path_mapping_t& other) const {
+    return (_position == other._position && _edit == other._edit);
+}
+inline bool path_mapping_t::operator!=(const path_mapping_t& other) const {
+    return !(*this == other);
+}
+
+/*
+ * path_t
+ */
+inline const vector<path_mapping_t>& path_t::mapping() const {
+    return _mapping;
+}
+inline const path_mapping_t& path_t::mapping(size_t i) const {
+    return _mapping[i];
+}
+inline vector<path_mapping_t>* path_t::mutable_mapping() {
+    return &_mapping;
+}
+inline path_mapping_t* path_t::mutable_mapping(size_t i) {
+    return &_mapping[i];
+}
+inline path_mapping_t* path_t::add_mapping() {
+    _mapping.emplace_back();
+    return &_mapping.back();
+}
+inline void path_t::clear_mapping() {
+    _mapping.clear();
+}
+inline size_t path_t::mapping_size() const {
+    return _mapping.size();
+}
+inline bool path_t::operator==(const path_t& other) const {
+    return _mapping == other._mapping;
+}
+inline bool path_t::operator!=(const path_t& other) const {
+    return !(*this == other);
+}
 }
 
 #endif

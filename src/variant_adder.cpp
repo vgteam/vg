@@ -1,14 +1,23 @@
 #include "variant_adder.hpp"
+#include "banded_global_aligner.hpp"
 #include "mapper.hpp"
+#include "algorithms/prune.hpp"
 
 //#define debug
 
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
-
-VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
+VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
+        // Dice nodes in the graph for GCSA indexing *before* constructing the synchronizer.
+        handlealgs::chop(g, max_node_size);
+        g.paths.compact_ranks();
+        return g;
+    }(this->graph)) {
+    
+    
     graph.paths.for_each_name([&](const string& name) {
         // Save the names of all the graph paths, so we don't need to lock the
         // graph to check them.
@@ -18,12 +27,12 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     // Show progress if the graph does.
     show_progress = graph.show_progress;
     
-    // Make sure to dice nodes to 1024 or smaller, the max size that GCSA2
-    // supports, in case we need to GCSA-index part of the graph.
-    graph.dice_nodes(1024);
-    
     // Configure the aligner to use a full length bonus
     aligner.full_length_bonus = 5;
+}
+
+const VG& VariantAdder::get_graph() const {
+    return graph;
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
@@ -348,7 +357,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                     
                     // Make this path's edits to the original graph. We don't need to do
                     // anything with the translations.
-                    lock.apply_full_length_edit(aln.path());
+                    lock.apply_full_length_edit(aln.path(), max_node_size);
                     
                     // Count all the bases in the haplotype
                     total_haplotype_bases += to_align.str().size();
@@ -638,9 +647,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Turn N/N subs into matches and score the alignments without end bonuses.
         align_ns(left_subgraph, aln_left);
-        aln_left.set_score(aligner.score_ungapped_alignment(aln_left, true));
+        aln_left.set_score(aligner.score_contiguous_alignment(aln_left, true));
         align_ns(right_subgraph, aln_right);
-        aln_right.set_score(aligner.score_ungapped_alignment(aln_right, true));
+        aln_right.set_score(aligner.score_contiguous_alignment(aln_right, true));
         
         
 #ifdef debug
@@ -689,7 +698,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_ungapped_alignment(aln, true));
+                aln.set_score(aligner.score_contiguous_alignment(aln, true));
 
 #ifdef debug                
                 if (aligned_in_band) {
@@ -714,11 +723,12 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             
                 // Otherwise, it's unsafe to try the tight banded alignment
                 // (because our bands might get too big). Try a Mapper-based
-                // fake-banded alignment, and trturn its alignment if it finds a
+                // fake-banded alignment, and return its alignment if it finds a
                 // good one.
                 
                 // Generate an XG index
-                xg::XG xg_index(graph.graph);
+                xg::XG xg_index;
+                xg_index.from_path_handle_graph(graph);
 
                 // Generate a GCSA2 index
                 gcsa::GCSA* gcsa_index = nullptr;
@@ -727,8 +737,11 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 if (edge_max) {
                     VG gcsa_graph = graph; // copy the graph
                     // remove complex components
-                    gcsa_graph.prune_complex_with_head_tail(kmer_size, edge_max);
-                    if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
+                    algorithms::prune_complex_with_head_tail(gcsa_graph, kmer_size, edge_max);
+                    if (subgraph_prune) {
+                        algorithms::prune_short_subgraphs(gcsa_graph, subgraph_prune);
+                    }
+                        
                     // then index
 #ifdef debug
                     cerr << "\tGCSA index size: " << gcsa_graph.length() << " bp" << endl;
@@ -744,10 +757,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                         
                 // Make the Mapper
                 Mapper mapper(&xg_index, gcsa_index, lcp_index);
-                // Set up the threads
-                mapper.set_alignment_threads(omp_get_num_threads());
                 // Copy over alignment scores
-                mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension, aligner.full_length_bonus);
+                mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension,
+                                            aligner.full_length_bonus);
                 
                 // Map. Will invoke the banded aligner if the read is long, and
                 // the normal index-based aligner otherwise.
@@ -800,7 +812,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_ungapped_alignment(aln, true));
+                aln.set_score(aligner.score_contiguous_alignment(aln, true));
                 
 #ifdef debug
                 cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)

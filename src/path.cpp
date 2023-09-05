@@ -1,10 +1,59 @@
 #include "path.hpp"
-#include "stream.hpp"
+#include <vg/io/stream.hpp>
 #include "region.hpp"
+#include <sstream>
+
+using namespace vg::io;
 
 namespace vg {
 
-const std::regex Paths::is_alt("_alt_.+_[0-9]+");
+const std::function<bool(const string&)> Paths::is_alt = [](const string& path_name) {
+    // Really we want things that match the regex "_alt_.+_[0-9]+"
+    // But std::regex was taking loads and loads of time (probably matching .+) so we're replacing it with special-purpose code.
+    
+    string prefix("_alt_");
+    
+    if (path_name.length() < prefix.length() || !std::equal(prefix.begin(), prefix.end(), path_name.begin())) {
+        // We lack the prefix
+        return false;
+    }
+    
+    // Otherwise it's almost certainly an alt, but make sure it ends with numbers after '_' to be sure.
+    
+    size_t found_digits = 0;
+    for (auto it = path_name.rbegin(); it != path_name.rend() && *it != '_'; ++it) {
+        // Scan in reverse until '_' (which we know exists)
+        if (*it < '0' || *it > '9') {
+            // Out of range character
+            return false;
+        }
+        found_digits++;
+    }
+    
+    // If there were any digits, and ony digits, it matches.
+    return (found_digits > 0);
+    
+};
+
+string Paths::strip_subrange(const string& path_name, subrange_t* out_subrange) {
+    subrange_t subrange = PathMetadata::parse_subrange(path_name);
+    string base_name;
+    if (subrange == PathMetadata::NO_SUBRANGE) {
+        base_name = path_name;
+    } else {
+        PathSense sense;
+        string sample;
+        string locus;
+        size_t haplotype;
+        size_t phase_block;
+        PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, phase_block, subrange);
+        base_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, phase_block, PathMetadata::NO_SUBRANGE);        
+    }
+    if (out_subrange) {
+        *out_subrange = subrange;
+    }
+    return base_name;
+}
 
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
@@ -50,6 +99,10 @@ void mapping_t::set_is_reverse(bool is_rev) {
     traversal = abs(traversal) * (is_rev ? -1 : 1);
 }
 
+ostream& operator<<(ostream& out, mapping_t mapping) {
+    return out << mapping.node_id() << " " << (mapping.is_reverse() ? "rev" : "fwd");
+}
+
 Paths::Paths(void) {
     max_path_id = 0;
     // noop
@@ -59,7 +112,7 @@ void Paths::load(istream& in) {
     function<void(Path&)> lambda = [this](Path& p) {
         this->extend(p);
     };
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Paths::write(ostream& out) {
@@ -81,8 +134,8 @@ void Paths::write(ostream& out) {
         }
         return path;
     };
-    stream::write(out, _paths.size(), lambda);
-    stream::finish(out);
+    vg::io::write(out, _paths.size(), lambda);
+    vg::io::finish(out);
 }
 
 void Paths::to_graph(Graph& g) {
@@ -124,11 +177,21 @@ void Paths::for_each(const function<void(const Path&)>& lambda) {
     }
 }
 
-void Paths::for_each_name(const function<void(const string&)>& lambda) {
+void Paths::for_each_name(const function<void(const string&)>& lambda) const {
     for (auto& p : _paths) {
         const string& name = p.first;
         lambda(name);
     }
+}
+
+bool Paths::for_each_name_stoppable(const function<bool(const string&)>& lambda) const {
+    for (auto& p : _paths) {
+        const string& name = p.first;
+        if (!lambda(name)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
@@ -141,7 +204,7 @@ void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
 }
 
 void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Paths::make_circular(const string& name) {
@@ -152,9 +215,10 @@ void Paths::make_linear(const string& name) {
     circular.erase(name);
 }
 
-void Paths::extend(const Path& p, bool warn_on_duplicates) {
+void Paths::extend(const Path& p, bool warn_on_duplicates, bool rebuild_indexes) {
     const string& name = p.name();
-    auto& path = get_create_path(name);
+    // Make sure we preserve empty paths
+    get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m, warn_on_duplicates);
@@ -162,30 +226,15 @@ void Paths::extend(const Path& p, bool warn_on_duplicates) {
     if (p.is_circular()) {
         make_circular(name);
     }
-    // re-sort?
-    sort_by_mapping_rank();
-    rebuild_mapping_aux();
+    if (rebuild_indexes) {
+        // re-sort?
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
+    }
 }
 
 // one of these should go away
-void Paths::extend(const Paths& p, bool warn_on_duplicates) {
-    for (auto& l : p._paths) {
-        const string& name = l.first;
-        auto& path = l.second;
-        // Make sure we preserve empty paths
-        get_create_path(name);
-        for (auto& m : path) {
-            append_mapping(name, m.to_mapping(), warn_on_duplicates);
-        }
-        if (p.circular.count(name)) {
-            make_circular(name);
-        }
-    }
-    sort_by_mapping_rank();
-    rebuild_mapping_aux();
-}
-
-void Paths::append(const Paths& paths, bool warn_on_duplicates) {
+void Paths::extend(const Paths& paths, bool warn_on_duplicates, bool rebuild_indexes) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
         auto& path = p.second;
@@ -198,22 +247,34 @@ void Paths::append(const Paths& paths, bool warn_on_duplicates) {
             make_circular(name);
         }
     }
-    sort_by_mapping_rank();
-    rebuild_mapping_aux();
+    if (rebuild_indexes) {
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
+    }
 }
 
-void Paths::append(const Graph& g, bool warn_on_duplicates) {
+void Paths::extend(const vector<Path> & paths, bool warn_on_duplicates, bool rebuild_indexes) {
+    for (auto& p : paths) {
+        extend(p, warn_on_duplicates, false);
+    }
+    if (rebuild_indexes) {
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
+    }
+}
+
+void Paths::append(const Paths& paths, bool warn_on_duplicates, bool rebuild_indexes) {
+    extend(paths, warn_on_duplicates, rebuild_indexes);
+}
+
+void Paths::append(const Graph& g, bool warn_on_duplicates, bool rebuild_indexes) {
     for (int i = 0; i < g.path_size(); ++i) {
-        const Path& p = g.path(i);
         // Make sure we preserve empty paths
-        get_create_path(p.name());
-        for (int j = 0; j < p.mapping_size(); ++j) {
-            const Mapping& m = p.mapping(j);
-            append_mapping(p.name(), m, warn_on_duplicates);
-            if (p.is_circular()) {
-                make_circular(p.name());
-            }
-        }
+        extend(g.path(i), warn_on_duplicates, false);
+    }
+    if (rebuild_indexes) {
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
     }
 }
 
@@ -222,8 +283,12 @@ Path& append_path(Path& a, const Path& b) {
     return a;
 }
 
-bool Paths::has_mapping(const string& name, size_t rank) {
-    return mappings_by_rank.count(name) && mappings_by_rank[name].count(rank);
+bool Paths::has_mapping(const string& name, int32_t rank) {
+    auto iter = mappings_by_rank.find(name);
+    if (iter != mappings_by_rank.end()) {
+        return iter->second.count(rank);
+    }
+    return false;
 }
 
 void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_duplicates) {
@@ -296,18 +361,31 @@ void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_
     }
 }
 
-int64_t Paths::get_path_id(const string& name) {
-    auto f = name_to_id.find(name);
-    if (f == name_to_id.end()) {
-        ++max_path_id;
-        name_to_id[name] = max_path_id;
-        id_to_name[max_path_id] = name;
+int64_t Paths::get_path_id(const string& name) const {
+    int64_t path_id;
+#pragma omp critical (path_id_map)
+    {
+        // in order to keep the critical section inside above if (so it's only touched when initializing)
+        // we need the second check here
+        if (!name_to_id.count(name)) {
+            // Assign an ID.
+            // These members are mutable.
+            ++max_path_id;
+            id_to_name[max_path_id] = name;
+            name_to_id[name] = max_path_id;
+        }
+        path_id = name_to_id[name];
     }
-    return name_to_id[name];
+    return path_id;
 }
 
-const string& Paths::get_path_name(int64_t id) {
-    return id_to_name[id];
+const string& Paths::get_path_name(int64_t id) const {
+    const string* name;
+#pragma omp critical (path_id_map)
+    {
+        name = &id_to_name[id];
+    }
+    return *name;
 }
 
 void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates) {
@@ -327,16 +405,29 @@ void Paths::prepend_mapping(const string& name, const Mapping& m, bool warn_on_d
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
    
-    // TODO: Implement dealing with no rank.
-    // We can't prepend a mapping that doesn't have a rank set. We would like to
-    // generate ranks, but we can't keep decrementing the first rank
-    // indefinitely, and that might not be correct. Also, what rank would we use
-    // for the only mapping in a path?
-    assert(m.rank());
+    // TODO: I'm not sure if this is the best way for handling ranks, but the ranks
+    // are really a chunked serialization thing, not an in-memory construct. Moreover,
+    // we're ideally going to move away from using the VG graph in the future, so I don't
+    // expect this will even come up. Mostly just trying to meet the HandleGraph interface
+    // in the interim.
+    int32_t rank = m.rank();
+    if (rank == 0) {
+        // no given rank, decrement the first rank, skipping over 0 to preserve it as
+        // a sentinel
+        if (pt.empty()) {
+            rank = 1;
+        }
+        else if (pt.front().rank != 1) {
+            rank = pt.front().rank - 1;
+        }
+        else {
+            rank = -1;
+        }
+    }
     
     // now if we haven't already supplied a mapping
     // add it
-    if (!has_mapping(name, m.rank())) {
+    if (!has_mapping(name, rank)) {
         // If we don't have a rank set or we don't have a mapping in this path
         // with that rank, we need to add the mapping.
         
@@ -354,7 +445,7 @@ void Paths::prepend_mapping(const string& name, const Mapping& m, bool warn_on_d
     } else if (warn_on_duplicates) {
         // This mapping duplicates the rank of an existing mapping.
         // We're not going to keep it, so we should complain.
-        cerr << "[vg] warning: path " << name << " rank " << m.rank() << " appears multiple times. Skipping." << endl;
+        cerr << "[vg] warning: path " << name << " rank " << rank << " appears multiple times. Skipping." << endl;
     }
 }
 
@@ -423,7 +514,7 @@ pair<mapping_t*, mapping_t*> Paths::replace_mapping(mapping_t* m, pair<mapping_t
     }
 }
 
-bool Paths::has_path(const string& name) {
+bool Paths::has_path(const string& name) const {
     return _paths.find(name) != _paths.end();
 }
 
@@ -438,20 +529,33 @@ void Paths::increment_node_ids(id_t inc) {
     rebuild_node_mapping();
 }
 
-void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
+void Paths::swap_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<mapping_t>& path = p.second;
         for (auto& m : path) {
             // Look up the replacement ID
-            auto replacement = id_mapping.find(m.node_id());
-            if(replacement != id_mapping.end()) {
-                // If there is a replacement, use it.
-                m.set_node_id((*replacement).second);
+            auto replacement = get_new_id(m.node_id());
+            if(replacement != 0) {
+                // If there is a nonzero replacement, use it.
+                m.set_node_id(replacement);
             }
         }
     }
     rebuild_node_mapping();
+}
+
+void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
+    swap_node_ids([&](const nid_t& id) -> nid_t {
+        auto it = id_mapping.find(id);
+        if (it == id_mapping.end()) {
+            // Not found
+            return 0;
+        } else {
+            // Use the result
+            return it->second;
+        }
+    });
 }
 
 void Paths::reassign_node(id_t new_id, mapping_t* m) {
@@ -672,16 +776,20 @@ list<mapping_t>& Paths::get_create_path(const string& name) {
     }
 }
 
-bool Paths::has_node_mapping(id_t id) {
+bool Paths::has_node_mapping(id_t id) const {
     return node_mapping.find(id) != node_mapping.end();
 }
 
-bool Paths::has_node_mapping(Node* n) {
+bool Paths::has_node_mapping(Node* n) const {
     return node_mapping.find(n->id()) != node_mapping.end();
 }
 
 map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) {
     return node_mapping[id];
+}
+    
+const map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) const {
+    return node_mapping.at(id);
 }
 
 map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(Node* n) {
@@ -1112,6 +1220,15 @@ Path& extend_path(Path& path1, const Path& path2) {
 
 // concatenates paths
 Path concat_paths(const Path& path1, const Path& path2) {
+    
+    if (path1.mapping_size() == 0) {
+        return path2;
+    } else if (path2.mapping_size() == 0) {
+        return path1;
+    }
+    
+    // Otherwise there are mappings in both and we have real work to do
+
     Path res = path1;
     //cerr << "-------------------- concat thing ------------------" << endl;
     //cerr << pb2json(path1) << endl << pb2json(path2) << endl;
@@ -1265,7 +1382,7 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
         auto& m = r.mapping(i);
         int curr_to_length = mapping_to_length(m);
         // skip bits at the beginning and end
-        if (!seen_to_length && !curr_to_length
+        if ((!seen_to_length && !curr_to_length)
             || seen_to_length == total_to_length) continue;
         Mapping n;
         *n.mutable_position() = m.position();
@@ -1384,16 +1501,8 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
             // if the edit types are the same, merge them
             if (edit_is_empty(f)) {
                 continue;
-            } else if ((edit_is_match(e) && edit_is_match(f))
-                || (edit_is_sub(e) && edit_is_sub(f))
-                || (edit_is_deletion(e) && edit_is_deletion(f))
-                || (edit_is_insertion(e) && edit_is_insertion(f))) {
-                // will be 0 for insertions, and + for the rest
-                e.set_from_length(e.from_length()+f.from_length());
-                // will be 0 for deletions, and + for the rest
-                e.set_to_length(e.to_length()+f.to_length());
-                // will be empty for both or have sequence for both
-                e.set_sequence(e.sequence() + f.sequence());
+            } else if (edits_are_compatible(e, f)) {
+                merge_edits_in_place(e, f);
             } else {
                 // mismatched types are just put on
                 *n.add_edit() = e;
@@ -1407,6 +1516,22 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
         }
     }
     return n;
+}
+
+bool edits_are_compatible(const Edit& e, const Edit& f) {
+    return (edit_is_match(e) && edit_is_match(f))
+            || (edit_is_sub(e) && edit_is_sub(f))
+            || (edit_is_deletion(e) && edit_is_deletion(f))
+            || (edit_is_insertion(e) && edit_is_insertion(f));
+}
+
+void merge_edits_in_place(Edit& e, const Edit& f) {
+    // will be 0 for insertions, and + for the rest
+    e.set_from_length(e.from_length() + f.from_length());
+    // will be 0 for deletions, and + for the rest
+    e.set_to_length(e.to_length() + f.to_length());
+    // will be empty for both or have sequence for both
+    e.set_sequence(e.sequence() + f.sequence());
 }
 
 Mapping merge_adjacent_edits(const Mapping& m) {
@@ -1513,6 +1638,21 @@ Path trim_hanging_ends(const Path& p) {
     return r;
 }
 
+bool mappings_equivalent(const Mapping& m1, const Mapping& m2) {
+    bool equivalent = (m1.position().node_id() == m2.position().node_id()
+                       && m1.position().is_reverse() == m2.position().is_reverse()
+                       && m1.position().offset() == m2.position().offset()
+                       && m1.edit_size() == m2.edit_size());
+    for (size_t i = 0; i < m1.edit_size() && equivalent; ++i) {
+        const auto& e1 = m1.edit(i);
+        const auto& e2 = m2.edit(i);
+        equivalent = (e1.from_length() == e2.from_length()
+                      && e1.to_length() == e2.to_length()
+                      && e1.sequence() == e2.sequence());
+    }
+    return equivalent;
+}
+
 bool mapping_ends_in_deletion(const Mapping& m){
     return m.edit_size() >= 1 && edit_is_deletion(m.edit(m.edit_size()-1));
 }
@@ -1523,6 +1663,10 @@ bool mapping_starts_in_deletion(const Mapping& m) {
 
 bool mapping_is_total_deletion(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
+}
+
+bool mapping_is_total_insertion(const Mapping& m) {
+    return m.edit_size() == 1 && edit_is_insertion(m.edit(0));
 }
 
 bool mapping_is_simple_match(const Mapping& m) {
@@ -1572,12 +1716,31 @@ const string mapping_sequence(const Mapping& mp, const string& node_seq) {
 
 const string mapping_sequence(const Mapping& mp, const Node& n) {
     if (!mp.has_position() || !mp.position().node_id()) {
-        assert(mp.edit_size()==1);
-        return mp.edit(0).sequence();
+        // With no grap position we must be a pure insert.
+        // n is undefined.
+        // But we might have multiple edits.
+        std::stringstream s;
+        for (auto& e : mp.edit()) {
+            // We can't have any from bases if we have no graph position.
+            assert(e.from_length() == 0);
+            s << e.sequence();
+        }
+        return s.str();
     }
     assert(mp.position().node_id() == n.id());
     auto& node_seq = n.sequence();
     return mapping_sequence(mp, node_seq);
+}
+
+// convert the path to a sequence
+string path_sequence(const HandleGraph& graph, const Path& path) {
+    string seq;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        handle_t h = graph.get_handle(m.position().node_id(), m.position().is_reverse());
+        seq.append(graph.get_sequence(h));
+    }
+    return seq;
 }
 
 Mapping reverse_complement_mapping(const Mapping& m,
@@ -2033,7 +2196,7 @@ bool maps_to_node(const Path& p, id_t id) {
 }
 
 // returns the start position, or an empty position if the path has no mappings with positions
-Position path_start(const Path& path) {
+Position path_start_position(const Path& path) {
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
@@ -2055,7 +2218,7 @@ string path_to_string(Path p){
 }
 
 // determine the path end
-Position path_end(const Path& path) {
+Position path_end_position(const Path& path) {
     Position pos;
     if (!path.mapping_size()) return pos;
     auto& last = path.mapping(path.mapping_size()-1);
@@ -2182,6 +2345,31 @@ void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator)
     }
 }
 
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right) {
+    // First just translate the IDs
+    translate_node_ids(path, translator);
+    
+    
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        // Scan the whole path again. We can't count on the cut node only being in the first and last mappings.
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        if (position->node_id() == cut_node) {
+            // Then adjust offsets to account for the cut on the original node
+            
+            // If the position in the path is counting from the same end of the
+            // node that we didn't keep after the cut, we have to bump up its
+            // offset.
+            if ((!position->is_reverse() && !from_right) || // We cut off the left of the node, and we're counting from the left
+                (position->is_reverse() && from_right)) { // We cut off the right of the node, and we're counting from the right
+                // Update the offset to reflect the removed bases
+                position->set_offset(position->offset() + bases_removed);
+            }
+        }
+    }
+    
+    
+}
+
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();
@@ -2190,22 +2378,62 @@ void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t
         position->set_is_reverse(translation.second != position->is_reverse());
     }
 }
+
+void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_t)>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
+
+
+void translate_node_ids(path_t& path, const unordered_map<id_t, id_t>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        position_t* position = path.mutable_mapping(i)->mutable_position();
+        position->set_node_id(translator.at(position->node_id()));
+    }
+}
+void translate_oriented_node_ids(path_t& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        position_t* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator.at(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
+
+void translate_oriented_node_ids(path_t& path, const function<pair<id_t, bool>(id_t)>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        position_t* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
     
 pos_t initial_position(const Path& path) {
-    if (!path.mapping_size()) {
-        return pos_t();
+    pos_t pos;
+    if (path.mapping_size()) {
+        const Position& position = path.mapping(0).position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset();
     }
-    return path.mapping_size() ? make_pos_t(path.mapping(0).position()) : pos_t();
+    return pos;
 }
 
 pos_t final_position(const Path& path) {
-    if (!path.mapping_size()) {
-        return pos_t();
+    pos_t pos;
+    if (path.mapping_size()) {
+        const Mapping& mapping = path.mapping(path.mapping_size() - 1);
+        const Position& position = mapping.position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset() + mapping_from_length(mapping);
     }
-    const Mapping& mapping = path.mapping(path.mapping_size() - 1);
-    return make_pos_t(mapping.position().node_id(),
-                      mapping.position().is_reverse(),
-                      mapping.position().offset() + mapping_from_length(mapping) - 1);
+    return pos;
 }
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
@@ -2237,11 +2465,11 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     return toReturn;
 }
 
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching) {
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching) {
 
     std::list<Path> non_matching;
     for (size_t i = 0; i < graph.path_size(); i++) {
-        if (std::regex_match(graph.path(i).name(), paths_to_take)) {
+        if (paths_to_take(graph.path(i).name())) {
             if (matching != nullptr) {
                 matching->push_back(graph.path(i));
             }
@@ -2254,6 +2482,311 @@ void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>
     for (Path& path : non_matching) {
         *(graph.add_path()) = path;
     }
+}
+
+Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_handle) {
+    Path path;
+    path.set_name(graph.get_path_name(path_handle));
+    size_t rank = 1;
+    for (handle_t handle : graph.scan_path(path_handle)) {
+        Mapping* mapping = path.add_mapping();
+        mapping->mutable_position()->set_node_id(graph.get_id(handle));
+        mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(handle));
+        mapping->set_rank(rank++);
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(graph.get_length(handle));
+        edit->set_to_length(graph.get_length(handle));
+    }
+    return path;
+}
+
+// Wrap a Path in an Alignment
+Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
+    Alignment aln;
+    *aln.mutable_path() = path;
+    aln.set_name(aln.path().name());
+    aln.set_sequence(path_sequence(graph, path));
+    return aln;
+}
+
+void from_proto_edit(const Edit& proto_edit, edit_t& edit) {
+    edit.set_from_length(proto_edit.from_length());
+    edit.set_to_length(proto_edit.to_length());
+    edit.set_sequence(proto_edit.sequence());
+}
+
+void to_proto_edit(const edit_t& edit, Edit& proto_edit) {
+    proto_edit.set_from_length(edit.from_length());
+    proto_edit.set_to_length(edit.to_length());
+    proto_edit.set_sequence(edit.sequence());
+}
+
+void from_proto_mapping(const Mapping& proto_mapping, path_mapping_t& mapping) {
+    const auto& position = proto_mapping.position();
+    auto position_copy = mapping.mutable_position();
+    position_copy->set_node_id(position.node_id());
+    position_copy->set_offset(position.offset());
+    position_copy->set_is_reverse(position.is_reverse());
+    for (const auto& edit : proto_mapping.edit()) {
+        from_proto_edit(edit, *mapping.add_edit());
+    }
+}
+
+void to_proto_mapping(const path_mapping_t& mapping, Mapping& proto_mapping) {
+    const auto& position = mapping.position();
+    auto position_copy = proto_mapping.mutable_position();
+    position_copy->set_node_id(position.node_id());
+    position_copy->set_offset(position.offset());
+    position_copy->set_is_reverse(position.is_reverse());
+    for (const auto& edit : mapping.edit()) {
+        to_proto_edit(edit, *proto_mapping.add_edit());
+    }
+}
+
+void from_proto_path(const Path& proto_path, path_t& path) {
+    for (const auto& mapping : proto_path.mapping()) {
+        from_proto_mapping(mapping, *path.add_mapping());
+    }
+}
+void to_proto_path(const path_t& path, Path& proto_path) {
+    for (const auto& mapping : path.mapping()) {
+        auto mapping_copy = proto_path.add_mapping();
+        to_proto_mapping(mapping, *mapping_copy);
+        mapping_copy->set_rank(proto_path.mapping_size());
+    }
+}
+
+int mapping_from_length(const path_mapping_t& mapping) {
+    int length = 0;
+    for (const auto& edit : mapping.edit()) {
+        length += edit.from_length();
+    }
+    return length;
+}
+
+int path_from_length(const path_t& path) {
+    int length = 0;
+    for (const auto& mapping : path.mapping()) {
+        length += mapping_from_length(mapping);
+    }
+    return length;
+}
+
+int mapping_to_length(const path_mapping_t& mapping) {
+    int length = 0;
+    for (const auto& edit : mapping.edit()) {
+        length += edit.to_length();
+    }
+    return length;
+}
+
+int path_to_length(const path_t& path) {
+    int length = 0;
+    for (const auto& mapping : path.mapping()) {
+        length += mapping_to_length(mapping);
+    }
+    return length;
+}
+
+
+void reverse_complement_mapping_in_place(path_mapping_t* m,
+                                         const function<int64_t(id_t)>& node_length) {
+    
+    position_t* pos = m->mutable_position();
+    pos->set_is_reverse(!pos->is_reverse());
+    pos->set_offset(node_length(pos->node_id()) - pos->offset() - mapping_from_length(*m));
+    
+    size_t swap_size = m->edit_size() / 2;
+    for (size_t i = 0, j = m->edit_size() - 1; i < swap_size; i++, j--) {
+        edit_t* e1 = m->mutable_edit(i);
+        edit_t* e2 = m->mutable_edit(j);
+        
+        int64_t from_length_tmp = e1->from_length();
+        int64_t to_length_tmp = e1->to_length();
+        string sequence_tmp = e1->sequence();
+        
+        e1->set_from_length(e2->from_length());
+        e1->set_to_length(e2->to_length());
+        e1->set_sequence(reverse_complement(e2->sequence()));
+        
+        e2->set_from_length(from_length_tmp);
+        e2->set_to_length(to_length_tmp);
+        e2->set_sequence(reverse_complement(sequence_tmp));
+    }
+    
+    
+    if (m->edit_size() % 2) {
+        edit_t* e = m->mutable_edit(swap_size);
+        reverse_complement_in_place(*e->mutable_sequence());
+    }
+}
+
+path_mapping_t reverse_complement_mapping(const path_mapping_t& m,
+                                          const function<int64_t(id_t)>& node_length) {
+    
+    path_mapping_t reversed;
+    position_t* rev_pos = reversed.mutable_position();
+    rev_pos->set_node_id(m.position().node_id());
+    rev_pos->set_is_reverse(!m.position().is_reverse());
+    rev_pos->set_offset(node_length(m.position().node_id()) - m.position().offset() - mapping_from_length(m));
+    
+    for (int64_t i = m.edit_size() - 1; i >= 0; i--) {
+        const edit_t& e = m.edit(i);
+        edit_t* rev_edit = reversed.add_edit();
+        rev_edit->set_from_length(e.from_length());
+        rev_edit->set_to_length(e.to_length());
+        rev_edit->set_sequence(reverse_complement(e.sequence()));
+    }
+    
+    return reversed;
+}
+
+path_t reverse_complement_path(const path_t& path,
+                               const function<int64_t(id_t)>& node_length) {
+    
+    // Make a new reversed path
+    path_t reversed;
+    
+    for (int64_t i = path.mapping_size() - 1; i >= 0; i--) {
+        // For each mapping in reverse order, put it in reverse complemented and
+        // measured from the other end of the node.
+        *reversed.add_mapping() = reverse_complement_mapping(path.mapping(i), node_length);
+    }
+    
+    return reversed;
+}
+
+void reverse_complement_path_in_place(path_t* path,
+                                      const function<int64_t(id_t)>& node_length) {
+    
+    size_t swap_size = path->mapping_size() / 2;
+    for (size_t i = 0, j = path->mapping_size() - 1; i < swap_size; i++, j--) {
+        path_mapping_t* m1 = path->mutable_mapping(i);
+        path_mapping_t* m2 = path->mutable_mapping(j);
+        
+        reverse_complement_mapping_in_place(m1, node_length);
+        reverse_complement_mapping_in_place(m2, node_length);
+        
+        std::swap(*m1, *m2);
+    }
+    
+    if (path->mapping_size() % 2) {
+        reverse_complement_mapping_in_place(path->mutable_mapping(swap_size), node_length);
+    }
+}
+
+pos_t initial_position(const path_t& path) {
+    pos_t pos;
+    if (path.mapping_size()) {
+        const position_t& position = path.mapping(0).position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset();
+    }
+    return pos;
+}
+
+pos_t final_position(const path_t& path) {
+    pos_t pos;
+    if (path.mapping_size()) {
+        const path_mapping_t& mapping = path.mapping(path.mapping_size() - 1);
+        const position_t& position = mapping.position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset() + mapping_from_length(mapping);
+    }
+    return pos;
+}
+
+string debug_string(const path_t& path) {
+    string to_return = "{";
+    if (!path.mapping().empty()) {
+        to_return += "mapping: [";
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            if (i > 0) {
+                to_return += ", ";
+            }
+            to_return += debug_string(path.mapping(i));
+        }
+        to_return += "]";
+    }
+    to_return += "}";
+    return to_return;
+}
+
+string debug_string(const path_mapping_t& mapping) {
+    string to_return = "{pos: " + debug_string(mapping.position());
+    if (!mapping.edit().empty()) {
+        to_return += ", edit: [";
+        for (size_t i = 0; i < mapping.edit_size(); ++i) {
+            if (i > 0) {
+                to_return += ", ";
+            }
+            to_return += debug_string(mapping.edit(i));
+        }
+        to_return += "]";
+    }
+    to_return += "}";
+    return to_return;
+}
+
+string debug_string(const edit_t& edit) {
+    string to_return = "{fl: " + to_string(edit.from_length()) + ", tl: " + to_string(edit.to_length());
+    if (!edit.sequence().empty()) {
+        to_return += ", seq: " + edit.sequence();
+    }
+    to_return += "}";
+    return to_return;
+}
+
+int corresponding_length_internal(const path_t& path, int given_length, bool is_from_length, bool from_end) {
+    int from_length = 0;
+    if (path.mapping().empty()) {
+        return from_length;
+    }
+    int incr, i_begin;
+    if (from_end) {
+        i_begin = path.mapping_size() - 1;
+        incr = -1;
+    }
+    else {
+        incr = 1;
+        i_begin = 0;
+    }
+    int remaining = given_length;
+    int other_length_total = 0;
+    for (int i = i_begin; i >= 0 && i < path.mapping_size() && remaining != 0; i += incr) {
+        const auto& mapping = path.mapping(i);
+        int j_begin = from_end ? mapping.edit_size() - 1 : 0;
+        for (int j = j_begin; j >= 0 && j < mapping.edit_size() && remaining != 0; j += incr) {
+            const edit_t& edit = mapping.edit(j);
+            int walking_length, other_length;
+            if (is_from_length) {
+                walking_length = edit.from_length();
+                other_length = edit.to_length();
+            }
+            else {
+                walking_length = edit.to_length();
+                other_length = edit.from_length();
+            }
+            if (remaining >= walking_length) {
+                remaining -= walking_length;
+                other_length_total += other_length;
+            }
+            else {
+                other_length_total += (remaining * other_length) / walking_length;
+                remaining = 0;
+            }
+        }
+    }
+    return other_length_total;
+}
+int corresponding_to_length(const path_t& path, int from_length, bool from_end) {
+    return corresponding_length_internal(path, from_length, true, from_end);
+}
+
+int corresponding_from_length(const path_t& path, int to_length, bool from_end) {
+    return corresponding_length_internal(path, to_length, false, from_end);
 }
 
 }

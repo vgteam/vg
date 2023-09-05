@@ -3,16 +3,19 @@
  */
 
 #include "catch.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 
 namespace vg {
 namespace unittest {
 
 TEST_CASE( "Factorials are computed", "[distributions][factorial]" ) {
     REQUIRE(factorial_ln(0) == Approx(log(1)).epsilon(1E-10));
-    REQUIRE(factorial_ln(1) == Approx(log(1)).epsilon(1E-10));
-    REQUIRE(factorial_ln(2) == Approx(log(2)).epsilon(1E-10));
-    REQUIRE(factorial_ln(3) == Approx(log(6)).epsilon(1E-10));
+    // factorial_ln(1) is nonzero, and epsilon() works correctly with the new catch.hpp.
+    // We have to set scale to 1.0 to have the error margin relative to abs(value) + 1.
+    REQUIRE(factorial_ln(1) == Approx(log(1)).epsilon(1E-10).scale(1.0));
+    // Similar issues here, because our approximations are not that accurate.
+    REQUIRE(factorial_ln(2) == Approx(log(2)).epsilon(1E-10).scale(1.0));
+    REQUIRE(factorial_ln(3) == Approx(log(6)).epsilon(1E-10).scale(1.0));
     REQUIRE(factorial_ln(10) == Approx(log(3628800)).epsilon(1E-10));
 }
 

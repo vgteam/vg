@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 13
+plan tests 14
 
 #is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
@@ -28,10 +28,11 @@ vg msga -f msgas/s.fa -w 16 | vg mod -U 10 - | vg mod -c - | vg view -j -
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 is $(vg msga -g t.vg -s CAAATTTTCTGGAGTTCTAT -k 8 -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (start) are included correctly"
 is $(vg msga -g t.vg -s TTCTATAATATG -k 8 -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (end) are included correctly"
+is $(vg msga -g t.vg -f msgas/t.fa -k 8 -N | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -g t.vg -f msgas/t.fa -R msgas/t.bed -T 1 -k 8 -N | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "region hints (-p) produce same graph" 
 rm t.vg
 
-vg msga -f msgas/s.fa -b s1 -w 20 | vg mod -U 10 - | vg mod -c - >s.vg
-vg msga -g s.vg -f msgas/s-rev.fa -w 20 | vg mod -U 10 - | vg mod -c - >s+rev.vg
+vg msga -f msgas/s.fa -b s1 -w 20 -O 10 | vg mod -U 10 - | vg mod -c - >s.vg
+vg msga -g s.vg -f msgas/s-rev.fa -w 20 -O 10 | vg mod -U 10 - | vg mod -c - >s+rev.vg
 is $(vg view s.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg view s+rev.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "adding in existing sequences in reverse doesn't change graph"
 rm -f s.vg s+rev.vg
 
@@ -46,7 +47,7 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
 
-is $(vg msga -f msgas/inv.fa -w 20 | vg mod -U 10 - | vg view -j - | jq -c '.path[] | select(.name == "inv") | .mapping[] | select(.position.is_reverse)'  | wc -l) 2 "a reference sequence set representing an inversion in it may be msga'd and detected" 
+is $(vg msga -f msgas/inv.fa -w 20 -O 10 | vg mod -U 10 - | vg view -j - | jq -c '.path[] | select(.name == "inv") | .mapping[] | select(.position.is_reverse)'  | wc -l) 1 "a reference sequence set representing an inversion in it may be msga'd and detected" 
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"

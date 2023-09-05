@@ -3,11 +3,11 @@
 
 namespace vg {
 
-Viz::Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+Viz::Viz(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     init(x, p, n, o, w, h, c, d, t);
 }
 
-void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+void Viz::init(PathHandleGraph* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     xgidx = x;
     packs = p;
     pack_names = n;
@@ -15,6 +15,11 @@ void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const stri
     show_cnv = c;
     show_dna = d;
     show_paths = t;
+    uint64_t rank = 0;
+    xgidx->for_each_handle([&](const handle_t& handle) {
+            id_rank_map[xgidx->get_id(handle)] = rank++;
+            seq_length += xgidx->get_length(handle);
+        });
     compute_borders_and_dimensions();
     /*
     left_border = 8;
@@ -27,8 +32,18 @@ void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const stri
     if (std::regex_search(outfile, svgbase)) {
         output_svg = true;
         surface = cairo_svg_surface_create(outfile.c_str(), image_width, image_height);
+        check_status(cairo_surface_status(surface), "creating " + std::to_string(image_width) + "x" + std::to_string(image_height) + " vector surface");
     } else {
+        // Cairo can only handle a maximum size of 32,767 px on a side for a raster image.
+        // See https://stackoverflow.com/a/24600155/402891
+        if (image_width > 32767 || image_height > 32767) {
+            // Complain to the user and stop.
+            // TODO: Work out how to draw bigger images than Cairo will allow.
+            std::cerr << "[Viz::init] error: Image would be " << image_width << "x" << image_height << " which is larger than the maximum 32,767 px on a side canvas that Cairo supports for raster images. Use an SVG output, try `odgi viz`, or reduce your input size!" << std::endl;
+            exit(1);
+        }
         surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, image_width, image_height);
+        check_status(cairo_surface_status(surface), "creating " + std::to_string(image_width) + "x" + std::to_string(image_height) + " image surface");
     }
     if (std::regex_search(outfile, pngbase)) {
         output_png = true;
@@ -41,7 +56,7 @@ void Viz::compute_borders_and_dimensions(void) {
     xgidx->for_each_handle([&](const handle_t& h) {
             id_t id = xgidx->get_id(h);
             double s = node_offset(id);
-            size_t l = xgidx->node_length(id);
+            size_t l = xgidx->get_length(xgidx->get_handle(id));
             xgidx->follow_edges(h, false, [&](const handle_t& o) {
                     id_t id2 = xgidx->get_id(o);
                     double s2 = node_offset(id2);
@@ -56,15 +71,18 @@ void Viz::compute_borders_and_dimensions(void) {
         });
     int height = top_border + 4;
     surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+    check_status(cairo_surface_status(surface), "creating zero-sized scratch surface");
     cr = cairo_create(surface);
-    for (size_t i = 1; show_paths && i <= xgidx->path_count; ++i) {
-        string path_name = xgidx->path_name(i);
-        cairo_text_extents_t te;
-        cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-        cairo_set_font_size(cr, 1);
-        cairo_text_extents(cr, path_name.c_str(), &te);
-        left_border = max(left_border, (int)round(te.width+2));
-        height += 2;
+    if (show_paths) {
+        xgidx->for_each_path_handle([&](const path_handle_t& path) {
+                string path_name = xgidx->get_path_name(path);
+                cairo_text_extents_t te;
+                cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                cairo_set_font_size(cr, 1);
+                cairo_text_extents(cr, path_name.c_str(), &te);
+                left_border = max(left_border, (int)round(te.width+2));
+                height += 2;
+            });
     }
     for (int i = 0; i < packs->size(); ++i) {
         auto& pack_name = pack_names[i];
@@ -80,18 +98,22 @@ void Viz::compute_borders_and_dimensions(void) {
     cr = nullptr;
     surface = nullptr;
     height += 2;
-    image_width = xgidx->seq_length + xgidx->node_count + left_border * 2;
+    image_width = seq_length + xgidx->get_node_count() + left_border * 2;
     image_height = height;
 }
 
 double Viz::node_offset(id_t id) {
     // provides 1 extra pixel of space per node plus border
-    return xgidx->node_start(id) + xgidx->id_to_rank(id) + left_border;
+    return dynamic_cast<VectorizableHandleGraph*>(xgidx)->node_vector_offset(id) + id_to_rank(id) + left_border;
 }
 
 double Viz::nodes_before_offset(size_t pos) {
     // how many nodes have there been before the current position in the seq vector
-    return xgidx->id_to_rank(xgidx->node_at_seq_pos(pos+1));
+    return id_to_rank(dynamic_cast<VectorizableHandleGraph*>(xgidx)->node_at_vector_offset(pos+1));
+}
+
+uint64_t Viz::id_to_rank(nid_t id) {
+    return id_rank_map[id];
 }
 
 tuple<double, double, double> hash_to_rgb(const string& str, double min_sum) {
@@ -128,7 +150,7 @@ void Viz::draw_graph(void) {
             // get the start and end position of the node relative to the image
             id_t id = xgidx->get_id(h);
             double s = node_offset(id);
-            size_t l = xgidx->node_length(id);
+            size_t l = xgidx->get_length(xgidx->get_handle(id));
             cairo_move_to(cr, s, y_pos);
             cairo_set_line_width(cr, 1);
             cairo_line_to(cr, s+l, y_pos);
@@ -139,7 +161,7 @@ void Viz::draw_graph(void) {
                 cairo_select_font_face(cr, "Arial",
                                        CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
                 cairo_set_font_size(cr, 1);
-                string seq = xgidx->node_sequence(id);
+                string seq = xgidx->get_sequence(xgidx->get_handle(id));
                 for (int i = 0; i < seq.size(); ++i) {
                     string c = string(1, seq[i]);
                     cairo_text_extents(cr, c.c_str(), &te);
@@ -168,59 +190,61 @@ void Viz::draw_graph(void) {
                 });
         });
     y_pos += 4;
-    for (size_t i = 1; show_paths && i <= xgidx->path_count; ++i) {
-        string path_name = xgidx->path_name(i);
-        Path p = xgidx->path(path_name);
-        // write the path name
-        {
-            set_hash_color(path_name);
-            cairo_text_extents_t te;
-            cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-            cairo_set_font_size(cr, 1);
-            cairo_text_extents(cr, path_name.c_str(), &te);
-            cairo_move_to(cr, left_border-(te.width+1), y_pos+0.35);
-            cairo_show_text(cr, path_name.c_str());
-        }
-        // determine counts
-        map<id_t, int> counts;
-        int max_count = 0;
-        for (auto& m : p.mapping()) {
-            auto& c = counts[m.position().node_id()];
-            ++c;
-            max_count = max(c, max_count);
-        }
-        for (auto& c : counts) {
-            //set_hash_color(path_name);
-            //for (auto& m : p.mapping()) {
-            // get the start and end position of the node relative to the image
+    if (show_paths) {
+        xgidx->for_each_path_handle([&](const path_handle_t& path) {
+                string path_name = xgidx->get_path_name(path);
+                // write the path name
+                {
+                    set_hash_color(path_name);
+                    cairo_text_extents_t te;
+                    cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                    cairo_set_font_size(cr, 1);
+                    cairo_text_extents(cr, path_name.c_str(), &te);
+                    cairo_move_to(cr, left_border-(te.width+1), y_pos+0.35);
+                    cairo_show_text(cr, path_name.c_str());
+                }
+                // determine counts
+                map<id_t, int> counts;
+                int max_count = 0;
+                xgidx->for_each_step_in_path(path, [&](const step_handle_t& step) {
+                        handle_t handle = xgidx->get_handle_of_step(step);
+                        auto& c = counts[xgidx->get_id(handle)];
+                        ++c;
+                        max_count = max(c, max_count);
+                    });
+                for (auto& c : counts) {
+                    //set_hash_color(path_name);
+                    //for (auto& m : p.mapping()) {
+                    // get the start and end position of the node relative to the image
 
-            id_t id = c.first;
-            double s = node_offset(id);
-            size_t l = xgidx->node_length(id);
-            for (int j = 0; j < (!show_cnv ? 1 : c.second); ++j) {
-                cairo_move_to(cr, s, y_pos+(j*2));
-                cairo_set_line_width(cr, 1);
-                cairo_line_to(cr, s+l, y_pos+(j*2));
-                cairo_stroke(cr);
-            }
-            if (!show_cnv && c.second > 1) {
-                cairo_text_extents_t te;
-                auto q = hash_to_rgb(path_name, 0.5);
-                cairo_set_source_rgb(cr, 1.0-get<0>(q), 1.0-get<1>(q), 1.0-get<2>(q));
-                cairo_select_font_face(cr, "Arial",
-                                       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-                cairo_set_font_size(cr, 1);
-                stringstream ss;
-                ss << c.second << "X";
-                string label = ss.str();
-                cairo_text_extents(cr, label.c_str(), &te);
-                cairo_move_to(cr, s, y_pos+0.25);
-                cairo_show_text(cr, label.c_str());
-                set_hash_color(path_name); // undo color change
-            }
-        }
-        max_count = (!show_cnv ? 1 : max_count);
-        y_pos += 2*max_count;
+                    id_t id = c.first;
+                    double s = node_offset(id);
+                    size_t l = xgidx->get_length(xgidx->get_handle(id));
+                    for (int j = 0; j < (!show_cnv ? 1 : c.second); ++j) {
+                        cairo_move_to(cr, s, y_pos+(j*2));
+                        cairo_set_line_width(cr, 1);
+                        cairo_line_to(cr, s+l, y_pos+(j*2));
+                        cairo_stroke(cr);
+                    }
+                    if (!show_cnv && c.second > 1) {
+                        cairo_text_extents_t te;
+                        auto q = hash_to_rgb(path_name, 0.5);
+                        cairo_set_source_rgb(cr, 1.0-get<0>(q), 1.0-get<1>(q), 1.0-get<2>(q));
+                        cairo_select_font_face(cr, "Arial",
+                                               CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                        cairo_set_font_size(cr, 1);
+                        stringstream ss;
+                        ss << c.second << "X";
+                        string label = ss.str();
+                        cairo_text_extents(cr, label.c_str(), &te);
+                        cairo_move_to(cr, s, y_pos+0.25);
+                        cairo_show_text(cr, label.c_str());
+                        set_hash_color(path_name); // undo color change
+                    }
+                }
+                max_count = (!show_cnv ? 1 : max_count);
+                y_pos += 2*max_count;
+            });
     }
     y_pos += 2;
     // coverage maps
@@ -266,12 +290,43 @@ void Viz::draw(void) {
 void Viz::close(void) {
     if (cr != nullptr && surface != nullptr) {
         if (output_png) {
-            cairo_surface_write_to_png(surface, outfile.c_str());
+            cairo_status_t status = cairo_surface_write_to_png(surface, outfile.c_str());
+            check_status(status, "saving " + std::to_string(image_width) + "x" + std::to_string(image_height) + " PNG");
         }
         cairo_destroy(cr);
         cairo_surface_destroy(surface);
         cr = nullptr;
         surface = nullptr;
+    } else {
+        // We should already be closed out
+        assert(cr == nullptr);
+        assert(surface == nullptr);
+    }
+}
+
+void Viz::check_status(const cairo_status_t& status, const std::string& task) {
+    switch (status) {
+    case CAIRO_STATUS_SUCCESS:
+        // No problem
+        break;
+    case CAIRO_STATUS_NO_MEMORY:
+        throw std::runtime_error("Ran out of memory while " + task);
+        break;
+    case CAIRO_STATUS_INVALID_SIZE:
+        throw std::runtime_error("The input was too big when " + task);
+        break;
+    case CAIRO_STATUS_SURFACE_TYPE_MISMATCH:
+        throw std::runtime_error("The surface does not have pixel contents! We cannot attempt " + task);
+        break;
+    case CAIRO_STATUS_WRITE_ERROR:
+        throw std::runtime_error("Encountered an I/O error while " + task);
+        break;
+    case CAIRO_STATUS_PNG_ERROR:
+        throw std::runtime_error("libpng returned an error while " + task);
+        break;
+    default:
+        throw std::runtime_error("Encountered an unrecognized Cairo error (" + std::string(cairo_status_to_string(status)) + ") while " + task);
+        break;
     }
 }
 

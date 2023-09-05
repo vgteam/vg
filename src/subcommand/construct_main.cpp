@@ -7,10 +7,12 @@
 
 #include "subcommand.hpp"
 
-#include "../stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../constructor.hpp"
 #include "../msa_converter.hpp"
 #include "../region.hpp"
+
+#include <bdsg/hash_graph.hpp>
 
 using namespace std;
 using namespace vg;
@@ -22,10 +24,10 @@ void help_construct(char** argv) {
          << "construct from a reference and variant calls:" << endl
          << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
-         << "    -n, --rename V=F       rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
+         << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION    specify a particular chromosome or 1-based inclusive region" << endl
-         << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
+         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region (may repeat, if on different contigs)" << endl
+         << "    -C, --region-is-chrom  don't attempt to parse the regions (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
@@ -33,12 +35,15 @@ void help_construct(char** argv) {
          << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                           (referred to in VCF) to add to graph." << endl
          << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
+         << "    -l, --parse-max N      don't chop up alternate alleles from input VCF longer than N (default: 100)" << endl
+         << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
+         << "    -N, --in-memory        construct the entire graph in memory before outputting it." <<endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
-         << "    -F, --msa-format       format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
+         << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
-         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 1000)" << endl
+         << "    -m, --node-max N       limit the maximum allowable node sequence size (default: 32)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
          << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
@@ -59,11 +64,12 @@ int main_construct(int argc, char** argv) {
     vector<string> fasta_filenames;
     vector<string> vcf_filenames;
     vector<string> insertion_filenames;
-    string region;
+    vector<string> regions;
     bool region_is_chrom = false;
     string msa_filename;
-    int max_node_size = 1000;
+    int max_node_size = 32;
     bool keep_paths = true;
+    bool construct_in_memory = false;
     string msa_format = "fasta";
     bool show_progress = false;
 
@@ -88,13 +94,16 @@ int main_construct(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
                 {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},\
+                {"node-max", required_argument, 0, 'm'},
                 {"flat-alts", no_argument, 0, 'f'},
+                {"parse-max", required_argument, 0, 'l'},
+                {"no-trim-indels", no_argument, 0, 'i'},
+                {"in-memory", no_argument, 0, 'N'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aCfl:SI:M:dF:iN",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -117,6 +126,14 @@ int main_construct(int argc, char** argv) {
             
         case 'd':
             keep_paths = false;
+            break;
+
+        case 'i':
+            constructor.trim_indels = false;
+            break;
+
+        case 'N':
+            construct_in_memory = true;
             break;
 
         case 'r':
@@ -162,7 +179,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'R':
-            region = optarg;
+            regions.push_back(optarg);
             break;
 
         case 'C':
@@ -180,6 +197,10 @@ int main_construct(int argc, char** argv) {
         case 'f':
             constructor.flat = true;
             break;
+            
+        case 'l':
+            constructor.max_parsed_variant_size = parse<size_t>(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -189,8 +210,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         default:
-            abort ();
-
+            throw runtime_error("Not implemented: " + to_string(c));
         }
     }
     
@@ -209,22 +229,13 @@ int main_construct(int argc, char** argv) {
         // Actually use the Constructor.
         // TODO: If we aren't always going to use the Constructor, refactor the subcommand to not always create and configure it.
 
-        // We need a callback to handle pieces of graph as they are produced.
-        auto callback = [&](Graph& big_chunk) {
-            // Wrap the chunk in a vg object that can properly divide it into
-            // reasonably sized serialized chunks.
-            VG* g = new VG(big_chunk, false, true);
-#pragma omp critical (cout)
-            g->serialize_to_ostream_as_part(cout);
-        };
-        
         // Copy shared parameters into the constructor
         constructor.max_node_size = max_node_size;
         constructor.show_progress = show_progress;
 
-        
-        if (!region.empty()) {
-            // We want to limit to a certain region
+        unordered_set<string> used_region_contigs; 
+        for (auto& region : regions) {
+            // We want to limit to one or more region
             if (!region_is_chrom) {
                 // We are allowed to parse the region.
                 // Break out sequence name and region bounds
@@ -234,6 +245,12 @@ int main_construct(int argc, char** argv) {
                              seq_name,
                              start_pos,
                              stop_pos);
+                             
+                if (used_region_contigs.count(seq_name)) {
+                    cerr << "error:[vg construct] cannot construct multiple regions of " << seq_name << endl;
+                    exit(1);
+                }
+                used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
@@ -259,79 +276,57 @@ int main_construct(int argc, char** argv) {
             }
         }
         
-        // This will own all the VCF files
-        vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
-        for (auto& vcf_filename : vcf_filenames) {
-            // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
-            // helpful message.
-            
-            // We can't invoke stat woithout a place for it to write. But all we
-            // really want is its return value.
-            struct stat temp;
-            if(stat(vcf_filename.c_str(), &temp)) {
-                cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
-                return 1;
-            }
-            vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
-            variant_file->parseSamples = false; // Major speedup if there are many samples.
-            variant_files.emplace_back(variant_file);
-            variant_file->open(vcf_filename);
-            if (!variant_file->is_open()) {
-                cerr << "error:[vg construct] could not open" << vcf_filename << endl;
-                return 1;
-            }
-        }
         
         if (fasta_filenames.empty()) {
             cerr << "error:[vg construct] a reference is required for graph construction" << endl;
             return 1;
         }
-        vector<unique_ptr<FastaReference>> references;
-        for (auto& fasta_filename : fasta_filenames) {
-            // Open each FASTA file
-            FastaReference* reference = new FastaReference();
-            references.emplace_back(reference);
-            reference->open(fasta_filename);
-        }
-        
-        vector<unique_ptr<FastaReference> > insertions;
-        for (auto& insertion_filename : insertion_filenames){
-            // Open up those insertion files
-            FastaReference* insertion = new FastaReference();
-            insertions.emplace_back(insertion);
-            insertion->open(insertion_filename);
-        }
-        
-        // Make vectors of just bare pointers
-        vector<vcflib::VariantCallFile*> vcf_pointers;
-        for(auto& vcf : variant_files) {
-            vcf_pointers.push_back(vcf.get());
-        }
-        vector<FastaReference*> fasta_pointers;
-        for(auto& fasta : references) {
-            fasta_pointers.push_back(fasta.get());
-        }
-        vector<FastaReference*> ins_pointers;
-        for (auto& ins : insertions){
-            ins_pointers.push_back(ins.get());
-        }
-        
-        if (ins_pointers.size() > 1){
+        if (insertion_filenames.size() > 1){
             cerr << "Error: only one insertion file may be provided." << endl;
             exit(1);
         }
         
-        // Construct the graph.
-        constructor.construct_graph(fasta_pointers, vcf_pointers,
-                                    ins_pointers, callback);
-                                    
-        // Now all the graph chunks are written out.
-        // Add an EOF marker
-        stream::finish(cout);
-        
-        // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
-        // this would free all the memory used by protobuf:
-        //ShutdownProtobufLibrary();
+        if (construct_in_memory) {
+            // Build the whole thing into memory
+            bdsg::HashGraph constructed;
+            constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, &constructed);
+            constructed.serialize(cout);
+        } else {
+            // Make an emitter that serializes the actual Graph objects, with buffering.
+            // But just serialize one graph at a time in each group.
+            // Make sure to compress the output.
+            vg::io::ProtobufEmitter<Graph> emitter(cout, true, 1);
+
+            // We need a callback to handle pieces of graph as they are produced.
+            auto callback = [&](Graph& big_chunk) {
+                // Sort the nodes by ID so that the serialized chunks come out in sorted order
+                // TODO: We still interleave chunks from different threads working on different contigs
+                std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
+                    // Return true if a comes before b
+                    return a.id() < b.id();
+                });
+            
+                // We don't validate the chunk because its end node may be held
+                // back for the next chunk, while edges and path mappings for it
+                // still live in this chunk. Also, we no longer create a VG to
+                // re-chunk the chunk (because we can now handle chunks up to about
+                // 1 GB serialized), and the VG class has the validator.
+                
+                // One thread at a time can write to the emitter and the output stream
+    #pragma omp critical (emitter)
+                emitter.write_copy(big_chunk); 
+            };
+            
+            // Construct the graph.
+            constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, callback);
+
+            // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
+            // Don't add an extra EOF marker or anything.
+            
+            // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
+            // this would free all the memory used by protobuf:
+            //ShutdownProtobufLibrary();
+        }
     }
     else if (!msa_filename.empty()) {
         
@@ -358,5 +353,5 @@ int main_construct(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("construct", "graph construction", PIPELINE, 1, main_construct);
+static Subcommand vg_construct("construct", "graph construction", PIPELINE, 2, main_construct);
 

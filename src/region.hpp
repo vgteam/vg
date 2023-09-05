@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include "xg.hpp"
 
 namespace vg {
 
@@ -15,8 +14,8 @@ using namespace std;
 // Generally regions parsed form user input will be 1-based.
 struct Region {
     string seq;
-    int64_t start;
-    int64_t end;
+    int64_t start = -1;
+    int64_t end = -1;
 };
 
 // Parse a genomic contig[:start-end] region. Outputs -1 for missing start or end.
@@ -37,7 +36,8 @@ inline void parse_region(string& region,
 // So bedline "chr1   5   10" will return start=5 stop=9
 void parse_bed_regions(
     const string& bed_path,
-    vector<Region>& out_regions);
+    vector<Region>& out_regions,
+    vector<string>* out_names = nullptr);
     
 }    
 

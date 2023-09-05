@@ -1,0 +1,94 @@
+
+WORKDIR ?= .
+
+# Directory for Toil's temporary files
+TOIL_JS="$(WORKDIR)/my-jobstore"
+
+# All output will be written here
+#TOIL_OS="$(WORKDIR)/my-output"
+TOIL_OS="$(WORKDIR)/my-output-small"
+
+
+MCMC_ITERATIONS = 1000
+BURN_IN = 500
+GAMMA_FREQUENCY = 100
+READS= 300
+
+#FASTA = CHR21.fa
+#TBI = 1kg_hg19-CHR21.vcf.gz.tbi
+#VCF = 1kg_hg19-CHR21.vcf.gz
+#BASENAME = CHR21
+#READS= 7050000
+
+
+FASTA = test/small/x.fa
+TBI = test/small/x.vcf.gz.tbi
+VCF = test/small/x.vcf.gz
+BASENAME = x_small
+
+
+
+SAMP=1
+HAPLO_0 = 0
+HAPLO_1 = 1
+
+all: $(TOIL_OS)/$(BASENAME).svg
+
+$(TOIL_OS)/$(BASENAME).vg: $(FASTA) $(VCF) $(TBI)
+	toil-vg construct $(TOIL_JS) $(TOIL_OS) --container None --pangenome --gcsa_opts '-k 16' --gbwt_prune --vcf_phasing $(VCF) --fasta_regions --max_node_size 1000 --alt_paths --fasta $(FASTA) --all_index --vcf $(VCF) --out_name $(BASENAME)
+
+$(TOIL_OS)/$(BASENAME).xg:     $(TOIL_OS)/$(BASENAME).vg
+$(TOIL_OS)/$(BASENAME).gbwt :  $(TOIL_OS)/$(BASENAME).xg
+$(TOIL_OS)/$(BASENAME).gcsa:   $(TOIL_OS)/$(BASENAME).gbwt
+$(TOIL_OS)/$(BASENAME).snarls: $(TOIL_OS)/$(BASENAME).vg
+
+$(TOIL_OS)/$(BASENAME)_$(HAPLO_0)_thread.merge.vg: $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).gbwt $(TOIL_OS)/$(BASENAME).xg
+	vg paths -d -v $(TOIL_OS)/$(BASENAME).vg > $(TOIL_OS)/$(BASENAME)_$(HAPLO_0)_thread.merge.vg
+	vg paths --gbwt $(TOIL_OS)/$(BASENAME).gbwt --extract-vg -x $(TOIL_OS)/$(BASENAME).xg -Q _thread_$(SAMP)_x_$(HAPLO_0) >> $(TOIL_OS)/$(BASENAME)_$(HAPLO_0)_thread.merge.vg
+
+$(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg: $(TOIL_OS)/$(BASENAME)_$(HAPLO_0)_thread.merge.vg
+	vg mod -N $(TOIL_OS)/$(BASENAME)_$(HAPLO_0)_thread.merge.vg > $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg
+
+$(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg
+	vg index -x $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg	
+
+$(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gbwt
+	vg sim -x $(TOIL_OS)/$(BASENAME).xg -g $(TOIL_OS)/$(BASENAME).gbwt -m $(SAMP) -n 300 --sub-rate 0.05 --indel-rate 0.05 --read-length 100 -a > $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam
+	
+$(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg: $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).gbwt $(TOIL_OS)/$(BASENAME).xg
+	vg paths -d -v $(TOIL_OS)/$(BASENAME).vg > $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg
+	vg paths --gbwt $(TOIL_OS)/$(BASENAME).gbwt --extract-vg -x $(TOIL_OS)/$(BASENAME).xg -Q _thread_$(SAMP)_x_$(HAPLO_1) >> $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg
+
+$(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg: $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg
+	vg mod -N $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg > $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg
+
+$(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg
+	vg index -x $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg	
+
+$(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gbwt
+	vg sim -x $(TOIL_OS)/$(BASENAME).xg -g $(TOIL_OS)/$(BASENAME).gbwt -m $(SAMP) -n 300 --sub-rate 0.05 --indel-rate 0.05 --read-length 100 -a > $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam
+	
+$(TOIL_OS)/$(BASENAME)_merged.gam: $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam
+	cat $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam > $(TOIL_OS)/$(BASENAME)_merged.gam
+		
+$(TOIL_OS)/$(BASENAME).mgam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gcsa $(TOIL_OS)/$(BASENAME)_merged.gam
+	vg mpmap -A -x $(TOIL_OS)/$(BASENAME).xg -g $(TOIL_OS)/$(BASENAME).gcsa -t 1 -G $(TOIL_OS)/$(BASENAME)_merged.gam > $(TOIL_OS)/$(BASENAME).mgam
+	
+    
+$(TOIL_OS)/$(BASENAME)_paths.vg: $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).snarls $(TOIL_OS)/$(BASENAME).vg
+	vg mcmc -i $(MCMC_ITERATIONS) -b $(BURN_IN) -g $(GAMMA_FREQUENCY) --vcf-out $(TOIL_OS)/$(BASENAME).vcf $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).snarls > $(TOIL_OS)/$(BASENAME)_paths.vg
+
+$(TOIL_OS)/$(BASENAME).svg: $(TOIL_OS)/$(BASENAME)_paths.vg
+	vg view -d -n $(TOIL_OS)/$(BASENAME)_paths.vg | dot -Tsvg -o $(TOIL_OS)/$(BASENAME).svg
+
+clean: 
+	rm -r $(TOIL_OS) 
+
+CHR21.fa:
+	wget https://courtyard.gi.ucsc.edu/~anovak/vg-data/bakeoff/CHR21.fa
+
+1kg_hg19-CHR21.vcf.gz:
+	wget https://courtyard.gi.ucsc.edu/~anovak/vg-data/bakeoff/1kg_hg19-CHR21.vcf.gz
+
+1kg_hg19-CHR21.vcf.gz.tbi:
+	wget https://courtyard.gi.ucsc.edu/~anovak/vg-data/bakeoff/1kg_hg19-CHR21.vcf.gz.tbi

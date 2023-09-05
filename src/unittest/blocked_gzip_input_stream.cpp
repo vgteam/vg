@@ -2,9 +2,9 @@
 ///  
 /// Unit tests for BlockedGzipInputStream
 
-#include "../blocked_gzip_input_stream.hpp"
-#include "../blocked_gzip_output_stream.hpp"
-#include "../hfile_cppstream.hpp"
+#include <vg/io/blocked_gzip_input_stream.hpp>
+#include <vg/io/blocked_gzip_output_stream.hpp>
+#include <vg/io/hfile_cppstream.hpp>
 #include "catch.hpp"
 
 #include <google/protobuf/io/coded_stream.h>
@@ -23,7 +23,7 @@
 namespace vg {
 namespace unittest {
 using namespace std;
-using namespace vg::stream;
+using namespace vg::io;
 
 // We have a tiny function to get virtual offsets, based on the block's start
 // offset in the file, and the offset in the block

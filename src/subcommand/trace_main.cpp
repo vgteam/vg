@@ -6,21 +6,22 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "../haplotype_extracter.hpp"
+#include "../algorithms/find_gbwt.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
-
-using thread_t = vector<xg::XG::ThreadMapping>;
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
          << "Trace and extract haplotypes from an index" << endl
          << endl
          << "options:" << endl
-         << "    -x, --index FILE           use this xg index" << endl
-         << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of the xg's embedded gPBWT" << endl
+         << "    -x, --index FILE           use this xg index or graph" << endl
+         << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of any in the graph" << endl
          << "    -n, --start-node INT       start at this node" << endl
         //TODO: implement backwards iteration over graph
         // << "    -b, --backwards            iterate backwards over graph" << endl
@@ -117,31 +118,24 @@ int main_trace(int argc, char** argv) {
     cerr << "error:[vg trace] start node must be specified with -n" << endl;
     return 1;
   }
-  xg::XG xindex;  
-  ifstream in(xg_name.c_str());
-  xindex.load(in);
+  unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+  bdsg::PathPositionOverlayHelper overlay_helper;
+  PathPositionHandleGraph* xindex = overlay_helper.apply(path_handle_graph.get());    
 
   // Now load the haplotype data
-  unique_ptr<gbwt::GBWT> gbwt_index;
-  if (!gbwt_name.empty()) {
-    // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
-    gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-    
-    // Open up the index
-    ifstream in(gbwt_name.c_str());
-    if (!in) {
-      cerr << "error:[vg trace] unable to load gbwt index file" << endl;
-      return 1;
-    }
+  unique_ptr<gbwt::GBWT> gbwt_index_holder;
+  const gbwt::GBWT* gbwt_index = vg::algorithms::find_gbwt(path_handle_graph.get(), gbwt_index_holder, gbwt_name);
 
-    // And load it
-    gbwt_index->load(in);
+  if (gbwt_index == nullptr) {
+    // Complain if we couldn't.
+    cerr << "error:[vg trace] unable to find gbwt index in graph or separate file" << endl;
+    exit(1);
   }
-
+  
   // trace out our graph and paths from the start node
   Graph trace_graph;
   map<string, int> haplotype_frequences;
-  trace_haplotypes_and_paths(xindex, gbwt_index.get(), start_node, extend_distance,
+  trace_haplotypes_and_paths(*xindex, *gbwt_index, start_node, extend_distance,
                              trace_graph, haplotype_frequences);
 
   // dump our graph to stdout

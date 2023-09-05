@@ -4,7 +4,11 @@
 
 #include "catch.hpp"
 #include "../vg.hpp"
+#include "../augment.hpp"
 #include "../utility.hpp"
+#include "../algorithms/normalize.hpp"
+#include "../algorithms/disjoint_components.hpp"
+#include "handle.hpp"
 
 namespace vg {
 namespace unittest {
@@ -21,9 +25,11 @@ VG string_to_graph(const string& json) {
     return graph;
 }
 
-TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycles]") {
-    
-    SECTION("a tiny DAG should be acyclic") {
+TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
+   
+    unordered_map<nid_t, pair<nid_t, bool> > node_translation;
+   
+    SECTION("a tiny DAG should remain unmodified") {
         const string graph_json = R"(
         
         {
@@ -40,10 +46,14 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
         
         VG graph = string_to_graph(graph_json);
         
-        REQUIRE(graph.is_acyclic() == true);
+        VG dag = graph.dagify(5, node_translation, 5, 0);
+        
+        REQUIRE(handlealgs::is_acyclic(&dag));
+        REQUIRE(dag.get_node_count() == 2);
+        REQUIRE(dag.edge_count() == 1);
     }
     
-    SECTION("a tiny cyclic graph should be cyclic") {
+    SECTION("a tiny cyclic graph should become acyclic") {
         const string graph_json = R"(
         
         {
@@ -61,10 +71,13 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
         
         VG graph = string_to_graph(graph_json);
         
-        REQUIRE(graph.is_acyclic() == false);
+        VG dag = graph.dagify(5, node_translation, 5, 0);
+        
+        REQUIRE(handlealgs::is_acyclic(&dag));
+        REQUIRE(dag.get_node_count() >= 2);
     }
     
-    SECTION("a tiny cyclic graph using from_start and to_end should be cyclic") {
+    SECTION("a tiny cyclic graph with doubly reversing edges should become acyclic") {
         const string graph_json = R"(
         
         {
@@ -74,7 +87,7 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
             ],
             "edge": [
                 {"from": 1, "to": 2},
-                {"from": 1, "to": 2, "from_start": true, "to_end": true}
+                {"from": 1, "from_start": true, "to": 2, "to_end": true}
             ]
         }
     
@@ -82,67 +95,12 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
         
         VG graph = string_to_graph(graph_json);
         
-        REQUIRE(graph.is_acyclic() == false);
+        VG dag = graph.dagify(5, node_translation, 5, 0);
+        
+        REQUIRE(handlealgs::is_acyclic(&dag));
+        REQUIRE(dag.get_node_count() >= 2);
     }
     
-    SECTION("a tiny cyclic graph using from_start and to_end the other way should be cyclic") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "G"},
-                {"id": 2, "sequence": "A"}
-            ],
-            "edge": [
-                {"from": 2, "to": 1},
-                {"from": 2, "to": 1, "from_start": true, "to_end": true}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        
-        REQUIRE(graph.is_acyclic() == false);
-    }
-    
-    SECTION("a nontrivial DAG should be acyclic") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "G"},
-                {"id": 2, "sequence": "A"},
-                {"id": 3, "sequence": "T"},
-                {"id": 4, "sequence": "GGG"},
-                {"id": 5, "sequence": "T"},
-                {"id": 6, "sequence": "A"},
-                {"id": 7, "sequence": "C"},
-                {"id": 8, "sequence": "A"},
-                {"id": 9, "sequence": "A"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2},
-                {"from": 1, "to": 6},
-                {"from": 2, "to": 3},
-                {"from": 2, "to": 4},
-                {"from": 3, "to": 5},
-                {"from": 4, "to": 5},
-                {"from": 5, "to": 6},
-                {"from": 6, "to": 7},
-                {"from": 6, "to": 8},
-                {"from": 7, "to": 9},
-                {"from": 8, "to": 9}
-                
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        
-        REQUIRE(graph.is_acyclic() == true);
-    }
 }
 
 TEST_CASE("unfold() should properly unfold a graph out to the requested length", "[vg][unfold]") {
@@ -167,7 +125,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -182,7 +140,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             if (orig_id == 1) {
                 found_node_1 = true;
             }
@@ -209,8 +167,8 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         for (int i = 0; i < g.edge_size(); i++) {
             const Edge& e = g.edge(i);
-            int64_t from = node_translation[e.from()].first;
-            int64_t to = node_translation[e.to()].first;
+            nid_t from = node_translation[e.from()].first;
+            nid_t to = node_translation[e.to()].first;
             Node& orig_from_node = *graph.get_node(from);
             Node& orig_to_node = *graph.get_node(to);
             Node& unfold_from_node = *unfolded.get_node(e.from());
@@ -296,7 +254,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -371,7 +329,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -379,14 +337,14 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 4);
         REQUIRE(g.edge_size() == 4);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -461,7 +419,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -469,20 +427,20 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 10);
         REQUIRE(g.edge_size() == 10);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        int64_t node_7 = 0;
-        int64_t node_8 = 0;
-        int64_t node_9 = 0;
-        int64_t node_10 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
+        nid_t node_5 = 0;
+        nid_t node_6 = 0;
+        nid_t node_7 = 0;
+        nid_t node_8 = 0;
+        nid_t node_9 = 0;
+        nid_t node_10 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -618,7 +576,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -626,20 +584,20 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 10);
         REQUIRE(g.edge_size() == 12);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        int64_t node_7 = 0;
-        int64_t node_8 = 0;
-        int64_t node_9 = 0;
-        int64_t node_10 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
+        nid_t node_5 = 0;
+        nid_t node_6 = 0;
+        nid_t node_7 = 0;
+        nid_t node_8 = 0;
+        nid_t node_9 = 0;
+        nid_t node_10 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -786,7 +744,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(2, node_translation);
         
         Graph& g = unfolded.graph;
@@ -794,18 +752,18 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 8);
         REQUIRE(g.edge_size() == 8);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        int64_t node_7 = 0;
-        int64_t node_8 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
+        nid_t node_5 = 0;
+        nid_t node_6 = 0;
+        nid_t node_7 = 0;
+        nid_t node_8 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -981,443 +939,6 @@ TEST_CASE("expand_context_by_length() should respect barriers", "[vg][context]")
 
 }
 
-TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
-    
-    SECTION("an overlap across a normal edge should be resolved") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "GAA"},
-                {"id": 2, "sequence": "AAT"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 2}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        
-        SECTION("the bluntified graph should have 3 nodes") {
-            REQUIRE(graph.node_count() == 3);
-            
-            SECTION("their sequences should be G, AA, and T") {
-                Node* g_node = nullptr;
-                Node* aa_node = nullptr;
-                Node* t_node = nullptr;
-                
-                graph.for_each_node([&](Node* n) {
-                    if (n->sequence() == "G") {
-                        g_node = n;
-                    } else if (n->sequence() == "AA") {
-                        aa_node = n;
-                    } else if (n->sequence() == "T") {
-                        t_node = n;
-                    }
-                });
-                
-                REQUIRE(g_node != nullptr);
-                REQUIRE(aa_node != nullptr);
-                REQUIRE(t_node != nullptr);
-                
-                SECTION("the right side of the G node should be connected to the left side of the AA node") {
-                    REQUIRE(graph.has_edge(NodeSide(g_node->id(), true), NodeSide(aa_node->id(), false)));
-                }
-                
-                SECTION("the right side of the AA node should be connected to the left side of the T node") {
-                    REQUIRE(graph.has_edge(NodeSide(aa_node->id(), true), NodeSide(t_node->id(), false)));
-                }
-            }
-        }
-        
-        SECTION("the bluntified graph should have 2 edges") {
-            REQUIRE(graph.edge_count() == 2);
-            
-            SECTION("no edge should have overlap") {
-                graph.for_each_edge([&](Edge* e) {
-                    REQUIRE(e->overlap() == 0);
-                });
-            }
-        }
-        
-    }
-    
-    SECTION("an overlap across a doubly-reversing edge should be resolved") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "TTC"},
-                {"id": 2, "sequence": "ATT"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 2, "from_start": true, "to_end": true}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        
-        SECTION("the bluntified graph should have 3 nodes") {
-            REQUIRE(graph.node_count() == 3);
-            
-            SECTION("their sequences should be C, TT, and A") {
-                Node* c_node = nullptr;
-                Node* tt_node = nullptr;
-                Node* a_node = nullptr;
-                
-                graph.for_each_node([&](Node* n) {
-                    if (n->sequence() == "C") {
-                        c_node = n;
-                    } else if (n->sequence() == "TT") {
-                        tt_node = n;
-                    } else if (n->sequence() == "A") {
-                        a_node = n;
-                    }
-                });
-                
-                REQUIRE(c_node != nullptr);
-                REQUIRE(tt_node != nullptr);
-                REQUIRE(a_node != nullptr);
-                
-                SECTION("the right side of the TT node should be connected to the left side of the C node") {
-                    REQUIRE(graph.has_edge(NodeSide(c_node->id(), false), NodeSide(tt_node->id(), true)));
-                }
-                
-                SECTION("the right side of the A node should be connected to the left side of the TT node") {
-                    REQUIRE(graph.has_edge(NodeSide(tt_node->id(), false), NodeSide(a_node->id(), true)));
-                }
-            }
-        }
-        
-        SECTION("the bluntified graph should have 2 edges") {
-            REQUIRE(graph.edge_count() == 2);
-            
-            SECTION("no edge should have overlap") {
-                graph.for_each_edge([&](Edge* e) {
-                    REQUIRE(e->overlap() == 0);
-                });
-            }
-        }
-        
-    }
-    
-    SECTION("an overlap across a reversing edge should be resolved") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "TTC"},
-                {"id": 2, "sequence": "AAT"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 2, "from_start": true}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        
-        SECTION("the bluntified graph should have 3 nodes") {
-            REQUIRE(graph.node_count() == 3);
-            
-            SECTION("their sequences should be C, TT or AA, and T") {
-                Node* c_node = nullptr;
-                Node* middle_node = nullptr;
-                bool is_tt;
-                Node* t_node = nullptr;
-                
-                graph.for_each_node([&](Node* n) {
-                    if (n->sequence() == "C") {
-                        c_node = n;
-                    } else if (n->sequence() == "TT") {
-                        middle_node = n;
-                        is_tt = true;
-                    } else if (n->sequence() == "AA") {
-                        middle_node = n;
-                        is_tt = false;
-                    } else if (n->sequence() == "T") {
-                        t_node = n;
-                    }
-                });
-                
-                REQUIRE(c_node != nullptr);
-                REQUIRE(middle_node != nullptr);
-                REQUIRE(t_node != nullptr);
-                
-                SECTION("the left side of the C node should be connected to the right/left side of the TT/AA node") {
-                    REQUIRE(graph.has_edge(NodeSide(c_node->id(), false), NodeSide(middle_node->id(), is_tt)));
-                }
-                
-                SECTION("the left/right side of the TT/AA node should be connected to the left side of the T node") {
-                    REQUIRE(graph.has_edge(NodeSide(middle_node->id(), !is_tt), NodeSide(t_node->id(), false)));
-                }
-            }
-        }
-        
-        SECTION("the bluntified graph should have 2 edges") {
-            REQUIRE(graph.edge_count() == 2);
-            
-            SECTION("no edge should have overlap") {
-                graph.for_each_edge([&](Edge* e) {
-                    REQUIRE(e->overlap() == 0);
-                });
-            }
-        }
-        
-    }
-
-    // TODO un-disable overlap resolution
-    // This may require us updating to GFA2's E(dge) model
-    /*
-    SECTION("extraneous overlap should be pruned back") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "GAA"},
-                {"id": 2, "sequence": "AAT"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 3}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        
-        
-        SECTION("the bluntified graph should have 3 nodes") {
-            REQUIRE(graph.node_count() == 3);
-            
-            SECTION("their sequences should be G, AA, and T") {
-                Node* g_node = nullptr;
-                Node* aa_node = nullptr;
-                Node* t_node = nullptr;
-                
-                graph.for_each_node([&](Node* n) {
-                    if (n->sequence() == "G") {
-                        g_node = n;
-                    } else if (n->sequence() == "AA") {
-                        aa_node = n;
-                    } else if (n->sequence() == "T") {
-                        t_node = n;
-                    }
-                });
-                
-                REQUIRE(g_node != nullptr);
-                REQUIRE(aa_node != nullptr);
-                REQUIRE(t_node != nullptr);
-                
-                SECTION("the right side of the G node should be connected to the left side of the AA node") {
-                    REQUIRE(graph.has_edge(NodeSide(g_node->id(), true), NodeSide(aa_node->id(), false)));
-                }
-                
-                SECTION("the right side of the AA node should be connected to the left side of the T node") {
-                    REQUIRE(graph.has_edge(NodeSide(aa_node->id(), true), NodeSide(t_node->id(), false)));
-                }
-            }
-        }
-        
-        SECTION("the bluntified graph should have 2 edges") {
-            REQUIRE(graph.edge_count() == 2);
-            
-            SECTION("no edge should have overlap") {
-                graph.for_each_edge([&](Edge* e) {
-                    REQUIRE(e->overlap() == 0);
-                });
-            }
-        }
-        
-    }
-    */
-    
-    SECTION("overlaps should be able to overlap in the middle") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "GAA"},
-                {"id": 2, "sequence": "AA"},
-                {"id": 3, "sequence": "AAT"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 2},
-                {"from": 2, "to": 3, "overlap": 2}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        
-        SECTION("the bluntified graph should have 3 nodes") {
-            REQUIRE(graph.node_count() == 3);
-            
-            SECTION("their sequences should be G, AA, and T") {
-                Node* g_node = nullptr;
-                Node* aa_node = nullptr;
-                Node* t_node = nullptr;
-                
-                graph.for_each_node([&](Node* n) {
-                    if (n->sequence() == "G") {
-                        g_node = n;
-                    } else if (n->sequence() == "AA") {
-                        aa_node = n;
-                    } else if (n->sequence() == "T") {
-                        t_node = n;
-                    }
-                });
-                
-                REQUIRE(g_node != nullptr);
-                REQUIRE(aa_node != nullptr);
-                REQUIRE(t_node != nullptr);
-                
-                SECTION("the right side of the G node should be connected to the left side of the AA node") {
-                    REQUIRE(graph.has_edge(NodeSide(g_node->id(), true), NodeSide(aa_node->id(), false)));
-                }
-                
-                SECTION("the right side of the AA node should be connected to the left side of the T node") {
-                    REQUIRE(graph.has_edge(NodeSide(aa_node->id(), true), NodeSide(t_node->id(), false)));
-                }
-            }
-        }
-        
-        SECTION("the bluntified graph should have 2 edges") {
-            REQUIRE(graph.edge_count() == 2);
-            
-            SECTION("no edge should have overlap") {
-                graph.for_each_edge([&](Edge* e) {
-                    REQUIRE(e->overlap() == 0);
-                });
-            }
-        }
-        
-    }
-    
-    SECTION("overlaps should be able to overlap in the middle across reversing edges") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "TTC"},
-                {"id": 2, "sequence": "AA"},
-                {"id": 3, "sequence": "AAT"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 2, "from_start": true},
-                {"from": 2, "to": 3, "overlap": 2}
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        
-        SECTION("the bluntified graph should have 3 nodes") {
-            REQUIRE(graph.node_count() == 3);
-            
-            SECTION("their sequences should be C, TT or AA, and T") {
-                Node* c_node = nullptr;
-                Node* middle_node = nullptr;
-                bool is_tt;
-                Node* t_node = nullptr;
-                
-                graph.for_each_node([&](Node* n) {
-                    if (n->sequence() == "C") {
-                        c_node = n;
-                    } else if (n->sequence() == "TT") {
-                        middle_node = n;
-                        is_tt = true;
-                    } else if (n->sequence() == "AA") {
-                        middle_node = n;
-                        is_tt = false;
-                    } else if (n->sequence() == "T") {
-                        t_node = n;
-                    }
-                });
-                
-                REQUIRE(c_node != nullptr);
-                REQUIRE(middle_node != nullptr);
-                REQUIRE(t_node != nullptr);
-                
-                SECTION("the left side of the C node should be connected to the right/left side of the TT/AA node") {
-                    REQUIRE(graph.has_edge(NodeSide(c_node->id(), false), NodeSide(middle_node->id(), is_tt)));
-                }
-                
-                SECTION("the left/right side of the TT/AA node should be connected to the left side of the T node") {
-                    REQUIRE(graph.has_edge(NodeSide(middle_node->id(), !is_tt), NodeSide(t_node->id(), false)));
-                }
-            }
-        }
-        
-        SECTION("the bluntified graph should have 2 edges") {
-            REQUIRE(graph.edge_count() == 2);
-            
-            SECTION("no edge should have overlap") {
-                graph.for_each_edge([&](Edge* e) {
-                    REQUIRE(e->overlap() == 0);
-                });
-            }
-        }
-        
-    }
-    
-    SECTION("non-overlapping edges should be preserved") {
-        const string graph_json = R"(
-        
-        {
-            "node": [
-                {"id": 1, "sequence": "CAAAA"},
-                {"id": 2, "sequence": "AAAT"},
-                {"id": 3, "sequence": "GGG"},
-                {"id": 4, "sequence": "CC"}
-            ],
-            "edge": [
-                {"from": 1, "to": 2, "overlap": 3},
-                {"from": 3, "to": 1},
-                {"from": 2, "to": 4} 
-            ]
-        }
-    
-        )";
-        
-        VG graph = string_to_graph(graph_json);
-        graph.bluntify();
-        graph.unchop();
-        
-        SECTION("the unchopped bluntified graph should have one node") {
-            REQUIRE(graph.node_count() == 1);
-            
-            Node* the_node = nullptr;
-            graph.for_each_node([&](Node* n) {
-                the_node = n;
-            });
-            
-            REQUIRE(the_node != nullptr);
-            
-            SECTION("that node should be GGGCAAAATCC") {
-                REQUIRE(the_node->sequence() == "GGGCAAAATCC");
-            }
-        }
-        
-        SECTION("the unchopped bluntified graph has no edges") {
-            REQUIRE(graph.edge_count() == 0);
-        }
-        
-    }
-}
 
 TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     
@@ -1484,14 +1005,14 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     // First prepare the various state things we need to pass
     
     // This can be empty if no changes have been made yet
-    map<pos_t, Node*> node_translation;
+    map<pos_t, nid_t> node_translation;
     // As can this
-    map<pair<pos_t, string>, vector<Node*>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<nid_t>> added_seqs;
     // And this
-    map<Node*, Path> added_nodes;
+    unordered_map<nid_t, Path> added_nodes;
     
     // This actually needs to be filled in
-    map<id_t, size_t> orig_node_sizes;
+    unordered_map<nid_t, size_t> orig_node_sizes;
     graph.for_each_node([&](Node* node) {
         orig_node_sizes[node->id()] = node->sequence().size();
     });
@@ -1500,11 +1021,10 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     set<NodeSide> dangling;
     
     // Do the addition, but limit node size.
-    graph.add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
+    add_nodes_and_edges(&graph, path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
     
     // Make sure it's still connected
-    list<VG> subgraphs;
-    graph.disjoint_subgraphs(subgraphs);
+    list<bdsg::HashGraph> subgraphs = algorithms::disjoint_components(graph);
     REQUIRE(subgraphs.size() == 1);
     
 }
@@ -1603,7 +1123,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     vector<Path> paths{path};
        
     SECTION("edit() can add the path without modifying it") {
-        graph.edit(paths, false, false, false);
+        graph.edit(paths, nullptr, false, false, false);
         
         REQUIRE(pb2json(paths.front()) == pb2json(path));
         
@@ -1613,7 +1133,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     }
     
     SECTION("edit() can add the path with modification only") {
-        graph.edit(paths, false, true, false);
+        graph.edit(paths, nullptr, false, true, false);
         
         for (const auto& mapping : paths.front().mapping()) {
             // Make sure all the mappings are perfect matches
@@ -1626,7 +1146,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     }
     
     SECTION("edit() can add the path with end breaking only") {
-        graph.edit(paths, false, false, true);
+        graph.edit(paths, nullptr, false, false, true);
         
         REQUIRE(pb2json(paths.front()) == pb2json(path));
         
@@ -1663,7 +1183,7 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
       
-        unordered_map<int64_t, pair<int64_t, bool>> trans;
+        unordered_map<nid_t, pair<nid_t, bool>> trans;
         VG rev = vg.reverse_complement_graph(trans);
         
         REQUIRE(trans.size() == rev.graph.node_size());
@@ -1674,11 +1194,11 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
             Node* orig_node = vg.get_node(trans[node.id()].first);
             REQUIRE(reverse_complement(node.sequence()) == orig_node->sequence());
             
-            vector<pair<int64_t, bool>> start_edges = vg.edges_start(orig_node);
-            vector<pair<int64_t, bool>> end_edges = vg.edges_end(orig_node);
+            vector<pair<nid_t, bool>> start_edges = vg.edges_start(orig_node);
+            vector<pair<nid_t, bool>> end_edges = vg.edges_end(orig_node);
             
-            vector<pair<int64_t, bool>> rev_start_edges = rev.edges_start(node.id());
-            vector<pair<int64_t, bool>> rev_end_edges = rev.edges_end(node.id());
+            vector<pair<nid_t, bool>> rev_start_edges = rev.edges_start(node.id());
+            vector<pair<nid_t, bool>> rev_end_edges = rev.edges_end(node.id());
             
             REQUIRE(start_edges.size() == rev_end_edges.size());
             REQUIRE(end_edges.size() == rev_start_edges.size());
@@ -1718,7 +1238,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
     // We will find breakpoints for a path
     Path path;
     // And store them here.
-    map<id_t, set<pos_t>> breakpoints;
+    unordered_map<nid_t, set<pos_t>> breakpoints;
     
     SECTION("find_breakpoints() works on a single edit perfect match") {
         
@@ -1729,7 +1249,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
         json2pb(path, path_string.c_str(), path_string.size());
         
         SECTION("asking for breakpoints at the end gets us the two end breakpoints") {
-            vg.find_breakpoints(path, breakpoints);
+            find_breakpoints(path, breakpoints);
             
             REQUIRE(breakpoints.size() == 1);
             REQUIRE(breakpoints.count(n1->id()) == 1);
@@ -1741,7 +1261,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
         }
         
         SECTION("asking for no breakpoints at the end gets us no breakpoints") {
-            vg.find_breakpoints(path, breakpoints, false);
+            find_breakpoints(path, breakpoints, false);
             
             REQUIRE(breakpoints.empty());
         }
@@ -1764,6 +1284,227 @@ TEST_CASE("create_handle() correctly creates handles using given sequence and id
     REQUIRE(vg.get_sequence(h3) == "CA");
     
 }
+
+TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
+
+    SECTION("Two redundant SNP values should be merged") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "T"},
+                {"id": 3, "sequence": "T"},
+                {"id": 4, "sequence": "G"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        algorithms::normalize(&graph);
+        
+        // One of the two alternative Ts should have been eliminated
+        REQUIRE(graph.get_node_count() == 4);
+        
+    }
+    
+    SECTION("Leading identical sequences should be condensed") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "TTA"},
+                {"id": 3, "sequence": "TTC"},
+                {"id": 4, "sequence": "GGG"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        algorithms::normalize(&graph);
+        
+        // Those duplicate Ts should be eliminated
+        REQUIRE(graph.length() == 13);
+        
+    }
+    
+    SECTION("Multiple families of leading identical sequences should be condensed") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "TTA"},
+                {"id": 3, "sequence": "TTC"},
+                {"id": 4, "sequence": "GGG"},
+                {"id": 6, "sequence": "GGT"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 1, "to": 6},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5},
+                {"from": 6, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        algorithms::normalize(&graph);
+        
+        // Those duplicate Ts and Gs should be eliminated
+        REQUIRE(graph.length() == 14);
+        
+    }
+    
+    SECTION("Multiple families of trailing identical sequences should be condensed") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "ATT"},
+                {"id": 3, "sequence": "CTT"},
+                {"id": 4, "sequence": "GGG"},
+                {"id": 6, "sequence": "TGG"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 1, "to": 6},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5},
+                {"from": 6, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        algorithms::normalize(&graph);
+        
+        // Those duplicate Ts and Gs should be eliminated
+        REQUIRE(graph.length() == 14);
+        
+    }
+}
+
+// TODO: This test case won't pass because VG::simplify_siblings() still thinks
+// about "from" and "to" siblings, and doesn't really understand reversing
+// edges. It doesn't see any siblings in these cases right now.
+#ifdef test_reversing_siblings
+TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward", "[vg][normalize]") {
+
+    SECTION("Leading identical sequences should be condensed even when nodes are backward") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "TAA"},
+                {"id": 3, "sequence": "GAA"},
+                {"id": 4, "sequence": "CCC"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2, "to_end": true},
+                {"from": 1, "to": 3, "to_end": true},
+                {"from": 1, "to": 4, "to_end": true},
+                {"from": 2, "to": 5, "from_start": true},
+                {"from": 3, "to": 5, "from_start": true},
+                {"from": 4, "to": 5, "from_start": true}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        algorithms::normalize(&graph);
+        
+        // Those duplicate Ts (actually As) should be eliminated
+        REQUIRE(graph.length() == 13);
+        
+        bool found = false;
+        graph.for_each_node([&](const Node* n) {
+            if (n->sequence() == "AA") {
+                found = true;
+            }
+        });
+        // They ought to have been combined into an AA node.
+        REQUIRE(found);
+        
+    }
+
+    SECTION("Leading and trailing identical sequences should be condensed correctly when nodes are backward and all siblings match") {
+        // TODO: We don't support mixed orientations. But we should support all-backward.
+    
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "CTAA"},
+                {"id": 3, "sequence": "CGAA"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2, "to_end": true},
+                {"from": 1, "to": 3, "to_end": true},
+                {"from": 2, "to": 5, "from_start": true},
+                {"from": 3, "to": 5, "from_start": true},
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        algorithms::normalize(&graph);
+        
+        // Those duplicate Ts (actually As) and Gs (actually Cs) should be eliminated
+        REQUIRE(graph.length() == 11);
+        
+        bool found = false;
+        graph.for_each_node([&](const Node* n) {
+            if (n->sequence() == "AA") {
+                found = true;
+            }
+        });
+        // The Ts ought to have been combined into an AA node.
+        REQUIRE(found);
+        
+    }
+
+}
+#endif
 
 }
 }

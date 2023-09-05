@@ -14,11 +14,8 @@
 #include "../benchmark.hpp"
 #include "../version.hpp"
 
-#include "../vg.hpp"
-#include "../xg.hpp"
-#include "../algorithms/extract_connecting_graph.hpp"
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
+#include "../gbwt_extender.hpp"
+#include "../gbwt_helper.hpp"
 
 
 
@@ -35,6 +32,10 @@ void help_benchmark(char** argv) {
 int main_benchmark(int argc, char** argv) {
 
     bool show_progress = false;
+    
+    // Which experiments should we run?
+    bool sort_and_order_experiment = false;
+    bool get_sequence_experiment = true;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -86,96 +87,102 @@ int main_benchmark(int argc, char** argv) {
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);
     
-    // Generate a test graph
-    VG vg_mut;
-    for (size_t i = 1; i < 101; i++) {
-        // It will have 100 nodes
-        vg_mut.create_node("ACGTACGT", i);
-    }
-    size_t bits = 1;
-    for (size_t i = 1; i < 101; i++) {
-        for (size_t j = 1; j < 101; j++) {
-            if ((bits ^ (i + (j << 3))) % 50 == 0) {
-                // Make some arbitrary edges
-                vg_mut.create_edge(i, j, false, false);
-            }
-            // Shifts and xors make good PRNGs right?
-            bits = bits ^ (bits << 13) ^ j;            
-        }
-    }
-    
-    const VG vg(vg_mut);
-    
-    // And a test XG of it
-    const xg::XG xg_index(vg_mut.graph);
-    
     vector<BenchmarkResult> results;
     
-    results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
-        vector<handle_t> order = algorithms::topological_order(&vg);
-        assert(order.size() == vg.node_size());
-    }));
+    // We're doing long alignments so we need to raise the WFA score caps
+    WFAExtender::ErrorModel error_model = WFAExtender::default_error_model;
+    error_model.mismatches.max = std::numeric_limits<int32_t>::max();
+    error_model.gaps.max = std::numeric_limits<int32_t>::max();
+    error_model.gap_length.max = std::numeric_limits<int32_t>::max();
     
-    results.push_back(run_benchmark("vg::algorithms sort", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        algorithms::sort(&vg_mut);
-    }));
+    size_t node_length = 32;
     
-    results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        algorithms::orient_nodes_forward(&vg_mut);
-    }));
+    for (size_t node_count = 10; node_count <= 320; node_count *= 2) {
     
-    
-    results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
-        auto components = algorithms::weakly_connected_components(&vg);
-        assert(components.size() == 1);
-        assert(components.front().size() == vg.node_size());
-    }));
-    
-    results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
-        for (size_t rep = 0; rep < 100; rep++) {
-            for (size_t i = 1; i < 101; i++) {
-                vg_mut.get_node(i);
-            }
+        // Prepare a GBWT of one long path
+        std::vector<gbwt::vector_type> paths;
+        paths.emplace_back();
+        for (size_t i = 0; i < node_count; i++) {
+            paths.back().push_back(gbwt::Node::encode(i + 1, false));
         }
-    }));
-    
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph on xg", 1000, [&]() {
-        pos_t pos_1 = make_pos_t(55, false, 0);
-        pos_t pos_2 = make_pos_t(32, false, 0);
+        gbwt::GBWT index = get_gbwt(paths);
         
-        int64_t max_len = 500;
+        // Turn it into a GBWTGraph.
+        // Make a SequenceSource we will consult later for getting sequence.
+        gbwtgraph::SequenceSource source;
+        uint32_t bits = 0xcafebebe;
+        auto step_rng = [&bits]() {
+            // Try out <https://stackoverflow.com/a/69142783>
+            bits = (bits * 73 + 1375) % 477218579;
+        };
+        for (size_t i = 0; i < node_count; i++) {
+            std::stringstream ss;
+            for (size_t j = 0; j < node_length; j++) {
+                // Pick a deterministic character
+                ss << "ACGT"[bits & 0x3];
+                step_rng();
+            }
+            source.add_node(i + 1, ss.str());
+        }
+        // And then make the graph
+        gbwtgraph::GBWTGraph graph(index, source);
         
-        VG extractor;
+        // Decide what we are going to align
+        pos_t from_pos = make_pos_t(1, false, 3);
+        pos_t to_pos = make_pos_t(node_count, false, 11);
         
-        auto trans = algorithms::extract_connecting_graph(&xg_index, &extractor, max_len, pos_1, pos_2, true, true);
-    
-    }));
-    
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph on vg", 1000, [&]() {
-        pos_t pos_1 = make_pos_t(55, false, 0);
-        pos_t pos_2 = make_pos_t(32, false, 0);
+        // Synthesize a sequence
+        std::stringstream seq_stream;
+        seq_stream << source.get_sequence(get_id(from_pos)).substr(get_offset(from_pos) + 1);
+        for (nid_t i = get_id(from_pos) + 1; i < get_id(to_pos); i++) {
+            std::string seq = source.get_sequence(i);
+            // Add some errors
+            if (bits & 0x1) {
+                int offset = bits % seq.size();
+                step_rng();
+                char replacement = "ACGT"[bits & 0x3];
+                step_rng();
+                if (bits & 0x1) {
+                    seq[offset] = replacement;
+                } else {
+                    step_rng();
+                    if (bits & 0x1) {
+                        seq.insert(offset, 1, replacement);
+                    } else {
+                        seq.erase(offset);
+                    }
+                }
+            }
+            step_rng();
+            // And keep the sequence
+            seq_stream << seq;
+        }
+        seq_stream << source.get_sequence(get_id(to_pos)).substr(0, get_offset(to_pos)); 
         
-        int64_t max_len = 500;
+        std::string to_connect = seq_stream.str();
         
-        VG extractor;
+        // Make the Aligner and Extender
+        Aligner aligner;
+        WFAExtender extender(graph, aligner, error_model);
         
-        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, true);
-    
-    }));
-    
+        results.push_back(run_benchmark("connect() on " + std::to_string(node_count) + " node sequence", 1, [&]() {
+            // Do the alignment
+            WFAAlignment aligned = extender.connect(to_connect, from_pos, to_pos);
+            // Make sure it succeeded
+            assert(aligned);
+        }));
+    }
+        
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
+    
 
     cout << "# Benchmark results for vg " << Version::get_short() << endl;
     cout << "# runs\ttest(us)\tstddev(us)\tcontrol(us)\tstddev(us)\tscore\terr\tname" << endl;
     for (auto& result : results) {
         cout << result << endl;
     }
-
+    
     return 0;
 }
 

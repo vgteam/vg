@@ -14,10 +14,10 @@ namespace algorithms {
 
 using namespace structures;
 
-unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, MutableHandleGraph* into, int64_t max_dist, pos_t pos,
+unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, DeletableHandleGraph* into, int64_t max_dist, pos_t pos,
                                                   bool backward, bool preserve_cycles_on_src_node) {
     
-    if (into->node_size()) {
+    if (into->get_node_count()) {
         cerr << "error:[extract_extending_graph] must extract into an empty graph" << endl;
         assert(false);
     }
@@ -38,7 +38,8 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Mut
         }
     };
     
-    // a map from node ids in the extracted graph to the node ids in the original graph
+    // A map from node ids in the extracted graph to the node ids in the original graph.
+    // The IDs are always the same except for when we cut/duplicate the source node.
     unordered_map<id_t, id_t> id_trans;
     
     // a graph index that we will maintain as we extract the subgraph
@@ -159,7 +160,7 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Mut
         }
         
         if (add_edge) {
-            into->create_edge(edge.first, edge.second);
+            into->create_edge(into->get_handle(source->get_id(edge.first), source->get_is_reverse(edge.first)), into->get_handle(source->get_id(edge.second), source->get_is_reverse(edge.second)));
         }
     }
     

@@ -309,8 +309,8 @@ namespace vg{
         my_vg = vg;
     }
 
-    void Filter::set_my_xg_idx(xg::XG* idx){
-        my_xg_index = idx;
+    void Filter::set_my_path_position_graph(PathPositionHandleGraph* graph){
+        my_path_position_graph = graph;
     }
 
     void Filter::set_inverse(bool do_inv){
@@ -318,12 +318,12 @@ namespace vg{
     }
 
     void Filter::init_mapper(){
-        if (my_xg_index == NULL || gcsa_ind == NULL || lcp_ind == NULL){
+        if (my_path_position_graph == NULL || gcsa_ind == NULL || lcp_ind == NULL){
             cerr << "Must provide an xg and gcsa to inititiate mapper for split read mapping."
             << endl;
             exit(1);
         }
-        my_mapper = new Mapper(my_xg_index, gcsa_ind, lcp_ind);
+        my_mapper = new Mapper(my_path_position_graph, gcsa_ind, lcp_ind);
     }
 
     bool Filter::perfect_filter(Alignment& aln){
@@ -678,24 +678,38 @@ namespace vg{
      * Inverse behavior: if the Alignment is path divergent, return aln, else return an empty Alignment
      */
     Alignment Filter::path_divergence_filter(Alignment& aln){
-        Path path = aln.path();
-        for (int i = 1; i < path.mapping_size(); i++){
-            Mapping mapping = path.mapping(i);
-            Position pos = mapping.position();
-            id_t current_node = pos.node_id();
-            id_t prev_node = path.mapping(i - 1).position().node_id();
-            bool paths_match = false;
-            vector<size_t> paths_of_prev = my_xg_index->paths_of_node(prev_node);
-            for (int i = 0; i < paths_of_prev.size(); i++){
-                string p_name = my_xg_index->path_name(paths_of_prev[i]);
-                if (my_xg_index->path_contains_node(p_name, current_node)){
-                    paths_match = true;
+        const Path& path = aln.path();
+        if (path.mapping_size() > 0) {
+            
+            handle_t first_handle = my_path_position_graph->get_handle(path.mapping(0).position().node_id());
+            unordered_set<path_handle_t> prev_node_paths;
+            my_path_position_graph->for_each_step_on_handle(first_handle, [&](const step_handle_t& step) {
+                prev_node_paths.insert(my_path_position_graph->get_path_handle_of_step(step));
+            });
+            
+            for (int i = 1; i < path.mapping_size(); i++){
+                
+                handle_t handle = my_path_position_graph->get_handle(path.mapping(i).position().node_id());
+                unordered_set<path_handle_t> curr_node_paths;
+                my_path_position_graph->for_each_step_on_handle(handle, [&](const step_handle_t& step) {
+                    curr_node_paths.insert(my_path_position_graph->get_path_handle_of_step(step));
+                });
+                
+                bool paths_match = false;
+                
+                for (const path_handle_t& path : curr_node_paths) {
+                    if (prev_node_paths.count(path)) {
+                        paths_match = true;
+                        break;
+                    }
                 }
+                
+                if (!paths_match){
+                    return inverse ? aln : Alignment();
+                }
+                
+                prev_node_paths = move(curr_node_paths);
             }
-            if (!paths_match){
-                return inverse ? aln : Alignment();
-            }
-
         }
         return inverse ? Alignment() : aln;
     }
@@ -856,7 +870,7 @@ namespace vg{
     
 
     vector<Alignment> Filter::remap(Alignment& aln){
-        if (this->my_xg_index == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
+        if (this->my_path_position_graph == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
             cerr << "An XG and GCSA are required for remapping." << endl;
             exit(1337);
         }
@@ -866,7 +880,7 @@ namespace vg{
     }
 
     vector<Alignment> Filter::remap(string seq){
-        if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
+        if (this->my_path_position_graph == NULL || this->gcsa_ind == NULL){
             cerr << "An XG and GCSA are required for remapping." << endl;
             exit(1337);
         }
@@ -890,7 +904,7 @@ namespace vg{
      */
     bool Filter::split_read_filter(Alignment& aln){
 
-        if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
+        if (this->my_path_position_graph == NULL || this->gcsa_ind == NULL){
             cerr << "An XG and GCSA are required for split read processing." << endl;
             exit(1337);
         }

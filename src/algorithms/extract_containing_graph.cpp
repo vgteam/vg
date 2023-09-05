@@ -5,7 +5,6 @@
  */
  
 #include "extract_containing_graph.hpp"
-#include <structures/updateable_priority_queue.hpp>
 
 //#define debug_vg_algorithms
 
@@ -18,17 +17,18 @@ void extract_containing_graph(const HandleGraph* source,
                               MutableHandleGraph* into,
                               const vector<pos_t>& positions,
                               const vector<size_t>& forward_search_lengths,
-                              const vector<size_t>& backward_search_lengths) {
+                              const vector<size_t>& backward_search_lengths,
+                              size_t reversing_walk_length) {
     
     if (forward_search_lengths.size() != backward_search_lengths.size()
         || forward_search_lengths.size() != positions.size()) {
         cerr << "error:[extract_containing_graph] subgraph extraction search lengths do not match seed positions" << endl;
-        assert(false);
+        exit(1);
     }
     
-    if (into->node_size()) {
+    if (into->get_node_count()) {
         cerr << "error:[extract_containing_graph] must extract into an empty graph" << endl;
-        assert(false);
+        exit(1);
     }
     
 #ifdef debug_vg_algorithms
@@ -38,28 +38,27 @@ void extract_containing_graph(const HandleGraph* source,
     }
 #endif
     
-    // TODO: struct is duplicative with extract_connecting_graph
     
-    // a local struct that packages a handle with its distance from the first position
-    struct Traversal {
-        Traversal(handle_t handle, int64_t dist) : handle(handle), dist(dist) {}
-        int64_t dist; // distance from pos to the right side of this node
-        handle_t handle; // Oriented node traversal
-        inline bool operator<(const Traversal& other) const {
-            return dist > other.dist; // opposite order so priority queue selects minimum
-        }
-    };
+    // computing search distances relative to this maximum allows us to keep the searches
+    // from all of the seed nodes in the same priority queue so that we only need to do
+    // one Dijkstra traversal
+    int64_t max_search_length = max(*std::max_element(forward_search_lengths.begin(), forward_search_lengths.end()),
+                                    *std::max_element(backward_search_lengths.begin(), backward_search_lengths.end()));
     
-    size_t max_search_length = max(*std::max_element(forward_search_lengths.begin(), forward_search_lengths.end()),
-                                   *std::max_element(backward_search_lengths.begin(), backward_search_lengths.end()));
     
-    unordered_set<id_t> observed_ids;
-    unordered_set<edge_t> observed_edges;
+#ifdef debug_vg_algorithms
+    cerr << "[extract_containing_graph] artificial offset calculated to be " << max_search_length << endl;
+#endif
+    // for keeping track of all the edges we cross to add later
+    //
+    // we use spp because the order of the edges affects some tie-breaking behavior
+    // later on that we want to remain system independent (i.e. no dependence on the
+    // system stdlib)
+    spp::sparse_hash_set<edge_t> observed_edges;
     
-    // initialize the queue
-    UpdateablePriorityQueue<Traversal, handle_t> queue([](const Traversal& item) {
-        return item.handle;
-    });
+    // initialize the queue, opposite order so priority queue selects minimum
+    // priority represent distance from starting pos to the left side of this node
+    RankPairingHeap<handle_t, int64_t, greater<int64_t>> queue;
     
     for (size_t i = 0; i < positions.size(); i++) {
         
@@ -67,71 +66,102 @@ void extract_containing_graph(const HandleGraph* source,
         handle_t source_handle = source->get_handle(id(pos), false);
         
         // add all of the initial nodes to the graph
-        if (!observed_ids.count(id(pos))) {
+        if (!into->has_node(id(pos))) {
             into->create_handle(source->get_sequence(source_handle), id(pos));
-            observed_ids.insert(id(pos));
         }
         
-        // adding this extra distance allows us to keep the searches from all of the seed nodes in
-        // the same priority queue so that we only need to do one Dijkstra traversal
+        // compute the modified search lengths
+        int64_t dist_forward = -offset(pos) + max_search_length - forward_search_lengths[i];
+        int64_t dist_backward = offset(pos) - source->get_length(source_handle) + max_search_length - backward_search_lengths[i];
         
         // add a traversal for each direction
-        size_t dist_forward = source->get_length(source_handle) - offset(pos) + max_search_length - forward_search_lengths[i];
-        size_t dist_backward = offset(pos) + max_search_length - backward_search_lengths[i];
-        if (dist_forward < max_search_length) {
-            queue.emplace(is_rev(pos) ? source->flip(source_handle) : source_handle, dist_forward);
-        }
-        if (dist_backward < max_search_length) {
-            queue.emplace(is_rev(pos) ? source_handle : source->flip(source_handle), dist_backward);
-        }
+        queue.push_or_reprioritize(is_rev(pos) ? source->flip(source_handle) : source_handle, dist_forward);
+        queue.push_or_reprioritize(is_rev(pos) ? source_handle : source->flip(source_handle), dist_backward);
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] init enqueue " << id(pos) << " " << is_rev(pos) << ": " << dist_forward << endl;
+        cerr << "[extract_containing_graph] init enqueue " << id(pos) << " " << !is_rev(pos) << ": " << dist_backward << endl;
+#endif
     }
     
     while (!queue.empty()) {
         // get the next shortest distance traversal from either the init
-        Traversal trav = queue.top();
+        pair<handle_t, int64_t> trav = queue.top();
         queue.pop();
         
-        source->follow_edges(trav.handle, false, [&](const handle_t& next) {
-            // Look locally right from this position
+        
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] dequeue " << source->get_id(trav.first) << " " << source->get_is_reverse(trav.first) << ": " << trav.second << endl;
+#endif
+        
+        // make sure the node is in the graph
+        if (!into->has_node(source->get_id(trav.first))) {
+#ifdef debug_vg_algorithms
+            cerr << "[extract_containing_graph] adding node to subgraph" << endl;
+#endif
+            into->create_handle(source->get_sequence(source->forward(trav.first)), source->get_id(trav.first));
+        }
+        
+        int64_t dist_thru = trav.second + source->get_length(trav.first);
+        
+        if (dist_thru < max_search_length) {
+            // we can add more nodes along same path without going over the max length
             
-            // Get the ID of where we're going.
-            id_t next_id = source->get_id(next);
+            // look locally right from this position
+            source->follow_edges(trav.first, false, [&](const handle_t& next) {
+                // record the edge
+                observed_edges.insert(source->edge_handle(trav.first, next));
+                // add it to the queue
+                queue.push_or_reprioritize(next, dist_thru);
+#ifdef debug_vg_algorithms
+                cerr << "[extract_containing_graph] traverse and (possibly) enqueue " << source->get_id(next) << " " << source->get_is_reverse(next) << ": " << dist_thru << endl;
+#endif
+            });
+        }
+        
+        // if we're allowing reversing walks and this isn't one of the starting positions...
+        if (reversing_walk_length > 0 && trav.second > 0) {
             
-            // record the edge
-            observed_edges.insert(source->edge_handle(trav.handle, next));
+            // choose a distance that will let the reversing walk only as far as the minimum of the max
+            // search length or the reverse length
+            int64_t synthetic_dist = max_search_length > reversing_walk_length ? max_search_length - reversing_walk_length : 0;
             
-            // make sure the node is in the graph
-            if (!observed_ids.count(next_id)) {
-                into->create_handle(source->get_sequence(source->forward(next)), next_id);
-                observed_ids.insert(next_id);
-            }
-            
-            // distance to the end of this node
-            int64_t dist_thru = trav.dist + source->get_length(next);
-            if (dist_thru < max_search_length) {
-                // we can add more nodes along same path without going over the max length
-                queue.emplace(next, dist_thru);
-            }
-        });
+            handle_t flipped = source->flip(trav.first);
+            // look locally right from this position
+            source->follow_edges(flipped, false, [&](const handle_t& next) {
+                // record the edge
+                observed_edges.insert(source->edge_handle(flipped, next));
+                
+                // add it to the queue
+                queue.push_or_reprioritize(next, max_search_length - reversing_walk_length);
+#ifdef debug_vg_algorithms
+                cerr << "[extract_containing_graph] reverse walk and (possibly) enqueue " << source->get_id(next) << " " << source->get_is_reverse(next) << ": " << max_search_length - reversing_walk_length << endl;
+#endif
+            });
+        }
     }
     
     // add the edges to the graph
     for (const edge_t& edge : observed_edges) {
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] adding edge " << source->get_id(edge.first) << " " << source->get_is_reverse(edge.first) << " -> " << source->get_id(edge.second) << " " << source->get_is_reverse(edge.second) << endl;
+#endif
         into->create_edge(into->get_handle(source->get_id(edge.first), source->get_is_reverse(edge.first)),
                           into->get_handle(source->get_id(edge.second), source->get_is_reverse(edge.second)));
     }
 }
 
 void extract_containing_graph(const HandleGraph* source, MutableHandleGraph* into, const vector<pos_t>& positions,
-                              size_t max_dist) {
+                              size_t max_dist, size_t reversing_walk_length) {
     
-    return extract_containing_graph(source, into, positions, vector<size_t>(positions.size(), max_dist));
+    extract_containing_graph(source, into, positions, vector<size_t>(positions.size(), max_dist),
+                             reversing_walk_length);
 }
 
 void extract_containing_graph(const HandleGraph* source, MutableHandleGraph* into, const vector<pos_t>& positions,
-                              const vector<size_t>& position_max_dist) {
+                              const vector<size_t>& position_max_dist, size_t reversing_walk_length) {
     
-    return extract_containing_graph(source, into, positions, position_max_dist, position_max_dist);
+    extract_containing_graph(source, into, positions, position_max_dist, position_max_dist,
+                             reversing_walk_length);
 }
 
 }

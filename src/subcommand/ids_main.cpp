@@ -14,8 +14,13 @@
 
 #include "../vg.hpp"
 #include "../vg_set.hpp"
-#include "../algorithms/topological_sort.hpp"
-
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <handlegraph/mutable_path_mutable_handle_graph.hpp>
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
+#include "../io/save_handle_graph.hpp"
 #include <gcsa/support.h>
 
 using namespace std;
@@ -110,19 +115,50 @@ int main_ids(int argc, char** argv) {
     }
 
     if (!join && mapping_name.empty()) {
-        VG* graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = new VG(in);
-        });
-
-        if (sort) {
-            // Set up the nodes so we go through them in topological order
-            algorithms::sort(graph);
-        }
-
-        if (compact || sort) {
-            // Compact only, or compact to re-assign IDs after sort
-            graph->compact_ids();
+        unique_ptr<MutablePathMutableHandleGraph> graph;
+        string graph_filename = get_input_file_name(optind, argc, argv);
+        graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_filename);            
+            
+        if (sort || compact) {
+            // We need to reassign IDs
+            hash_map<nid_t, nid_t> new_ids;
+            
+            if (compact && !sort) {
+                // We are compacting, but do not need to topologically sort
+                
+                // Loop over all the nodes in the graph's order and assign them new IDs in ID order.
+                // This is slower than it needs to be, but gets us nice results even on graphs that don't preserve node order.
+                // TODO: counting all the nodes may be an O(1) scan of the graph to save some vector copies.
+                vector<nid_t> all_ids;
+                all_ids.reserve(graph->get_node_count());
+                graph->for_each_handle([&](const handle_t& h) {
+                    all_ids.emplace_back(graph->get_id(h));
+                });
+                std::sort(all_ids.begin(), all_ids.end());
+                
+                // Now invert the vector's mapping
+                new_ids.reserve(all_ids.size());
+                for (nid_t i = 1; i < all_ids.size() + 1; i++) {
+                    new_ids[all_ids[i - 1]] = i;
+                }
+            } else {
+                // We are sorting to assign IDs, which inherently compacts.
+                
+                // We only need to sort the ID numbers, not the graph's iteration order (if any).
+                auto handle_order = handlealgs::topological_order(graph.get());
+                
+                // Now invert the order's mapping
+                new_ids.reserve(handle_order.size());
+                for (nid_t i = 1; i < handle_order.size() + 1; i++) {
+                    new_ids[graph->get_id(handle_order[i - 1])] = i;
+                }
+            }
+            
+            // Now assign the IDs. If we find any e.g. dangling paths or
+            // edges with no nodes we will crash.
+            graph->reassign_node_ids([&](const nid_t& old_id) {
+                return new_ids.at(old_id);
+            });
         }
 
         if (increment != 0) {
@@ -130,11 +166,10 @@ int main_ids(int argc, char** argv) {
         }
 
         if (decrement != 0) {
-            graph->decrement_node_ids(decrement);
+            graph->increment_node_ids(-increment);
         }
 
-        graph->serialize_to_ostream(std::cout);
-        delete graph;
+        vg::io::save_handle_graph(graph.get(), cout);
     } else {
 
         vector<string> graph_file_names;
@@ -144,7 +179,7 @@ int main_ids(int argc, char** argv) {
         }
 
         VGset graphs(graph_file_names);
-        vg::id_t max_node_id = (join ? graphs.merge_id_space() : graphs.get_max_id());
+        vg::id_t max_node_id = (join ? graphs.merge_id_space() : graphs.max_node_id());
         if (!mapping_name.empty()) {
             gcsa::NodeMapping mapping(max_node_id + 1);
             std::ofstream out(mapping_name, std::ios_base::binary);

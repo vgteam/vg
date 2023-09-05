@@ -36,38 +36,7 @@ using namespace std;
             return tokens;
         };
         
-        if (format == "maf") {
-            
-            auto get_next_sequence_line = [&](istream& in) {
-                string next;
-                bool got_data = true;
-                while (got_data && (next.empty() ? true : next[0] != 's')) {
-                    // are we starting a new alignment block?
-                    if (next.empty() ? false : next[0] == 'a') {
-                        alignments.emplace_back();
-                    }
-                    got_data = getline(in, next).good();
-                }
-                return next;
-            };
-            
-            for (string line = get_next_sequence_line(in); !line.empty(); line = get_next_sequence_line(in)) {
-                vector<string> tokens = tokenize(line);
-                
-                if (tokens.size() != 7) {
-                    cerr << "error:[MSAConverter] malformed MAF file, expecting 7 tokens on each sequence ('s') line" << endl;
-                    exit(1);
-                }
-                
-                auto& alignment = alignments.back();
-                if (alignment.count(tokens[1])) {
-                    cerr << "error:[MSAConverter] repeated sequence name '" << tokens[1] << "' within an alignment, names must be unique" << endl;
-                    exit(1);
-                }
-                alignment[tokens[1]] = tokens[6];
-            }
-        }
-        else if (format == "clustal") {
+        if (format == "clustal") {
             
             unordered_set<char> conservation_chars{'.', ':', '*'};
             
@@ -388,9 +357,11 @@ using namespace std;
                     edit->set_from_length(node_length);
                     edit->set_to_length(node_length);
                 }
+                graph.paths.extend(*path);
             }
             
             graph.destroy_node(dummy_node);
+            graph.sync_paths();
         }
         
         destroy_progress();

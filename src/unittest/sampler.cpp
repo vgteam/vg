@@ -6,9 +6,11 @@
 #include <unordered_set>
 #include <utility>
 
-#include "json2pb.h"
-#include "vg.pb.h"
+#include "vg/io/json2pb.h"
+#include <vg/vg.pb.h>
 #include "../sampler.hpp"
+#include "../xg.hpp"
+#include "../vg.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -34,7 +36,8 @@ TEST_CASE( "Sampler can sample from a 1-node graph", "[sampler]" ) {
     graph.extend(proto_graph);
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Define a sampler    
     Sampler sampler(&xg_index, 1337);
@@ -65,7 +68,7 @@ TEST_CASE( "Sampler can sample from a 1-node graph", "[sampler]" ) {
     SECTION( "Can sample all bases in both directions from a path" ) {
         
         // Same as above except we do this
-        sampler.set_source_paths({"ref"});
+        sampler.set_source_paths({"ref"}, {}, {}, {});
         
         unordered_set<pair<size_t, bool>> seen;
         
@@ -123,7 +126,8 @@ TEST_CASE( "position_at works", "[sampler]" ) {
     graph.extend(proto_graph);
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     SECTION( "position_at works on the forward strand of a forward node" ) {
         REQUIRE(position_at(&xg_index, "ref", 0, false) == make_pos_t(1, false, 0));
@@ -199,7 +203,8 @@ TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
     graph.extend(proto_graph);
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Define a sampler    
     Sampler sampler(&xg_index, 1337);
@@ -207,7 +212,7 @@ TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
     SECTION( "Can sample entire path" ) {
         
         // Same as above except we do this
-        sampler.set_source_paths({"ref"});
+        sampler.set_source_paths({"ref"}, {}, {}, {});
         
         unordered_set<string> found;
         
@@ -262,7 +267,8 @@ TEST_CASE( "Sampler can across reversing edges", "[sampler]" ) {
     graph.extend(proto_graph);
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
     
     // Define a sampler    
     Sampler sampler(&xg_index, 1337);
@@ -270,7 +276,7 @@ TEST_CASE( "Sampler can across reversing edges", "[sampler]" ) {
     SECTION( "Can sample entire path" ) {
         
         // Same as above except we do this
-        sampler.set_source_paths({"ref"});
+        sampler.set_source_paths({"ref"}, {}, {}, {});
         
         unordered_set<string> found;
         

@@ -9,7 +9,7 @@
 
 #include "../utility.hpp"
 #include "../path.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 
 #include <vector>
 #include <sstream>

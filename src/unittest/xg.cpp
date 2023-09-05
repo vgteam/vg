@@ -8,6 +8,7 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "graph.hpp"
+#include "algorithms/subgraph.hpp"
 #include <stdio.h>
 
 namespace vg {
@@ -27,9 +28,12 @@ TEST_CASE("We can build an xg index on a nice graph", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(1, false, 0), 100);
+    VG vg_graph;
+    algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
+    Graph& graph = vg_graph.graph;
     sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
@@ -51,9 +55,12 @@ TEST_CASE("We can build an xg index on a nasty graph", "[xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(1, false, 0), 100);
+    VG vg_graph;
+    algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(1), 0, 100);
+    Graph& graph = vg_graph.graph;
     sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
@@ -161,53 +168,127 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
 
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
     SECTION("Context extraction gets something") {
-        Graph graph = xg_index.graph_context_id(make_pos_t(1420, false, 0), 30);
-        REQUIRE(graph.node_size() > 0);
+        VG graph;
+        algorithms::extract_context(xg_index, graph, xg_index.get_handle(1420), 0, 30);
+        REQUIRE(graph.get_node_count() > 0);
     }
     
     SECTION("Extracting path ranges works as expected") {
-        Graph graph;
+        VG graph;
         
         SECTION("We can extract within a single node") {
-            xg_index.get_path_range("17", 5, 15, graph, false);
+            algorithms::extract_path_range(xg_index, xg_index.get_path_handle("17"), 5, 15, graph);
             
             // We should just get node 1416
-            REQUIRE(graph.node_size() == 1);
-            REQUIRE(graph.node(0).id() == 1416);
-            // And the one dangling edge
-            REQUIRE(graph.edge_size() == 1);
-            for (size_t i = 0; i < graph.edge_size(); i++) {
+            REQUIRE(graph.graph.node_size() == 1);
+            REQUIRE(graph.graph.node(0).id() == 1416);
+            // And no dangling edges
+            REQUIRE(graph.graph.edge_size() == 0);
+            for (size_t i = 0; i < graph.graph.edge_size(); i++) {
                 // All the edges should be normal
-                REQUIRE(graph.edge(i).from_start() == false);
-                REQUIRE(graph.edge(i).to_end() == false);
+                REQUIRE(graph.graph.edge(i).from_start() == false);
+                REQUIRE(graph.graph.edge(i).to_end() == false);
             }
         }
         
         SECTION("We can extract across two nodes") {
-            xg_index.get_path_range("17", 5, 40, graph, false);
+            algorithms::extract_path_range(xg_index, xg_index.get_path_handle("17"), 5, 40, graph);
             
             // We should just get node 1416 and 1417
-            REQUIRE(graph.node_size() == 2);
-            REQUIRE(graph.node(0).id() >= 1416);
-            REQUIRE(graph.node(0).id() <= 1417);
-            REQUIRE(graph.node(1).id() >= 1416);
-            REQUIRE(graph.node(1).id() <= 1417);
-            REQUIRE(graph.node(0).id() != graph.node(1).id());
-            // And the one real and 2 dangling edges
-            REQUIRE(graph.edge_size() == 3);
-            for (size_t i = 0; i < graph.edge_size(); i++) {
+            REQUIRE(graph.graph.node_size() == 2);
+            REQUIRE(graph.graph.node(0).id() >= 1416);
+            REQUIRE(graph.graph.node(0).id() <= 1417);
+            REQUIRE(graph.graph.node(1).id() >= 1416);
+            REQUIRE(graph.graph.node(1).id() <= 1417);
+            REQUIRE(graph.graph.node(0).id() != graph.graph.node(1).id());
+            // And the one real and 0 dangling edges
+            REQUIRE(graph.graph.edge_size() == 1);
+            for (size_t i = 0; i < graph.graph.edge_size(); i++) {
                 // All the edges should be normal
-                REQUIRE(graph.edge(i).from_start() == false);
-                REQUIRE(graph.edge(i).to_end() == false);
+                REQUIRE(graph.graph.edge(i).from_start() == false);
+                REQUIRE(graph.graph.edge(i).to_end() == false);
             }
         }
+    }
+    
+    SECTION("Looking up steps by positions works") {
+        auto path = xg_index.get_path_handle("17");
         
+        step_handle_t found;
+        size_t first_found = 0;
         
+        for (size_t i = 0; i < 150; i++) {
+            // Scan a bunch of the path
+            step_handle_t found_here = xg_index.get_step_at_position(path, i);
+            if (i == 0 || found_here != found) {
+                if (i > 0) {
+                    // How long was the last thing we saw?
+                    size_t length = i - first_found;
+                    // Make sure it is right
+                    REQUIRE(length == xg_index.get_length(xg_index.get_handle_of_step(found)));
+                }
+                
+                // Remember what we saw here
+                found = found_here;
+                first_found = i;
+            }
+        }
     }
 
+}
+
+TEST_CASE("We can build and scan an XG index for a problematic graph", "[xg]") {
+    string graph_json = R"(
+    {"node":[
+      {"id":1,"sequence":"AAA"},
+      {"id":2,"sequence":"C"},
+      {"id":3,"sequence":"G"},
+      {"id":5,"sequence":"T"},
+      {"id":4,"sequence":"AAA"}
+    ],
+    "edge":[
+      {"to":2,"from":1},
+      {"to":3,"from":1},
+      {"to":4,"from":2},
+      {"to":5,"from":3},
+      {"to":4,"from":5}
+    ],
+    "path":[
+      {"name":"reference","mapping":[
+        {"position":{"node_id":1},"rank":1},
+        {"position":{"node_id":2},"rank":2},
+        {"position":{"node_id":4},"rank":3}
+      ]}
+    ]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+
+    // Build the xg index (without any sorting)
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    REQUIRE(xg_index.get_node_count() == 5);
+    
+    // We will cross every edge from every node, so this should come to 2 * edge count.
+    size_t edge_obs_count = 0;
+    
+    xg_index.for_each_handle([&](const handle_t& here) {
+        xg_index.follow_edges(here, false, [&](const handle_t& there) {
+            edge_obs_count++;
+        });
+        xg_index.follow_edges(here, true, [&](const handle_t& there) {
+            edge_obs_count++;
+        });
+    });
+    
+    REQUIRE(edge_obs_count == 10);
 }
 
 TEST_CASE("We can build the xg index on a small graph with discontinuous node ids that don't start at 1", "[xg]") {
@@ -224,9 +305,12 @@ TEST_CASE("We can build the xg index on a small graph with discontinuous node id
 
     sort_by_id_dedup_and_clean(proto_graph);
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(10, false, 0), 100);
+    VG vg_graph;
+    algorithms::extract_context(xg_index, vg_graph, xg_index.get_handle(10), 0, 100);
+    Graph& graph = vg_graph.graph;
     sort_by_id_dedup_and_clean(graph);
 
     REQUIRE(graph.node_size() == 2);
@@ -235,448 +319,203 @@ TEST_CASE("We can build the xg index on a small graph with discontinuous node id
 
 }
 
-TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
+TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
 
-    VG vg;
-            
-    Node* n0 = vg.create_node("CGA");
-    Node* n1 = vg.create_node("TTGG");
-    Node* n2 = vg.create_node("CCGT");
-    Node* n3 = vg.create_node("C");
-    Node* n4 = vg.create_node("GT");
-    Node* n5 = vg.create_node("GATAA");
-    Node* n6 = vg.create_node("CGG");
-    Node* n7 = vg.create_node("ACA");
-    Node* n8 = vg.create_node("GCCG");
-    Node* n9 = vg.create_node("A");
-    Node* n10 = vg.create_node("C");
-    Node* n11 = vg.create_node("G");
-    Node* n12 = vg.create_node("T");
-    Node* n13 = vg.create_node("A");
-    Node* n14 = vg.create_node("C");
-    Node* n15 = vg.create_node("C");
-            
-    vg.create_edge(n0, n1);
-    vg.create_edge(n2, n0, true, true);
-    vg.create_edge(n1, n3);
-    vg.create_edge(n2, n3);
-    vg.create_edge(n3, n4, false, true);
-    vg.create_edge(n4, n5, true, false);
-    vg.create_edge(n5, n6);
-    vg.create_edge(n8, n6, false, true);
-    vg.create_edge(n6, n7, false, true);
-    vg.create_edge(n7, n9, true, true);
-    vg.create_edge(n9, n10, true, false);
-    vg.create_edge(n10, n11, false, false);
-    vg.create_edge(n12, n11, false, true);
-    vg.create_edge(n13, n12, false, false);
-    vg.create_edge(n14, n13, true, false);
-    vg.create_edge(n15, n14, true, true);
-            
-    Graph graph = vg.graph;
-            
-    Path* path = graph.add_path();
-    path->set_name("path");
-    Mapping* mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n0->id());
-    mapping->set_rank(1);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n2->id());
-    mapping->set_rank(2);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n3->id());
-    mapping->set_rank(3);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n4->id());
-    mapping->mutable_position()->set_is_reverse(true);
-    mapping->set_rank(4);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n5->id());
-    mapping->set_rank(5);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n6->id());
-    mapping->set_rank(6);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n8->id());
-    mapping->mutable_position()->set_is_reverse(true);
-    mapping->set_rank(7);
-            
-    xg::XG xg_index(graph);
-
-    SECTION("Subpath getting gives us the expected 1bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 1, 2, "feature", false);
-        REQUIRE(alignment_from_length(target) == 2 - 1);
-    }
-
-    SECTION("Subpath getting gives us the expected 10bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 10, 20, "feature", false);
-        REQUIRE(alignment_from_length(target) == 20 - 10);
-    }
-
-    SECTION("Subpath getting gives us the expected 14bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 14, "feature", false);
-        REQUIRE(alignment_from_length(target) == 14);
-    }
-
-    SECTION("Subpath getting gives us the expected 21bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 21, "feature", false);
-        REQUIRE(alignment_from_length(target) == 21);
-    }
-
-    SECTION("Subpath getting gives us the expected inverted 7bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 7, "feature", true);
-        REQUIRE(alignment_from_length(target) == 7);
-        REQUIRE(target.path().mapping(0).position().node_id() == n2->id());
-        REQUIRE(target.path().mapping(1).position().node_id() == n0->id());
-        REQUIRE(target.path().mapping(0).position().is_reverse() == true);
-        REQUIRE(target.path().mapping(1).position().is_reverse() == true);
-    }
-
-}
-
-TEST_CASE("Path-based distance approximation in XG produces expected results", "[xg][mapping]") {
-    
-    VG vg;
-    
-    Node* n0 = vg.create_node("CGA");
-    Node* n1 = vg.create_node("TTGG");
-    Node* n2 = vg.create_node("CCGT");
-    Node* n3 = vg.create_node("C");
-    Node* n4 = vg.create_node("GT");
-    Node* n5 = vg.create_node("GATAA");
-    Node* n6 = vg.create_node("CGG");
-    Node* n7 = vg.create_node("ACA");
-    Node* n8 = vg.create_node("GCCG");
-    Node* n9 = vg.create_node("A");
-    Node* n10 = vg.create_node("C");
-    Node* n11 = vg.create_node("G");
-    Node* n12 = vg.create_node("T");
-    Node* n13 = vg.create_node("A");
-    Node* n14 = vg.create_node("C");
-    Node* n15 = vg.create_node("C");
-    
-    vg.create_edge(n0, n1);
-    vg.create_edge(n2, n0, true, true);
-    vg.create_edge(n1, n3);
-    vg.create_edge(n2, n3);
-    vg.create_edge(n3, n4, false, true);
-    vg.create_edge(n4, n5, true, false);
-    vg.create_edge(n5, n6);
-    vg.create_edge(n8, n6, false, true);
-    vg.create_edge(n6, n7, false, true);
-    vg.create_edge(n7, n9, true, true);
-    vg.create_edge(n9, n10, true, false);
-    vg.create_edge(n10, n11, false, false);
-    vg.create_edge(n12, n11, false, true);
-    vg.create_edge(n13, n12, false, false);
-    vg.create_edge(n14, n13, true, false);
-    vg.create_edge(n15, n14, true, true);
-    
-    Graph graph = vg.graph;
-    
-    Path* path = graph.add_path();
-    path->set_name("path");
-    Mapping* mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n0->id());
-    mapping->set_rank(1);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n2->id());
-    mapping->set_rank(2);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n3->id());
-    mapping->set_rank(3);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n4->id());
-    mapping->mutable_position()->set_is_reverse(true);
-    mapping->set_rank(4);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n5->id());
-    mapping->set_rank(5);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n6->id());
-    mapping->set_rank(6);
-    mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(n8->id());
-    mapping->mutable_position()->set_is_reverse(true);
-    mapping->set_rank(7);
-    
-    xg::XG xg_index(graph);
-
-    
-    SECTION("Distance approxmation produces exactly correct path distances when positions are on path") {
-        
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n2->id(), 0, false,
-                                                                      n5->id(), 0, false, false, 10);
-        REQUIRE(dist == 7);
-    }
-    
-    SECTION("Distance approxmation produces negative distance when order is reversed when positions are on path") {
-        
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n5->id(), 0, false,
-                                                                      n2->id(), 0, false, false, 10);
-        REQUIRE(dist == -7);
-        
-    }
-    
-    SECTION("Distance approxmation produces correctly signed distances on reverse strand when positions are on path") {
-        
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n5->id(),
-                                                                      n5->sequence().size(),
-                                                                      true,
-                                                                      n2->id(),
-                                                                      n2->sequence().size(),
-                                                                      true,
-                                                                      false,
-                                                                      10);
-        REQUIRE(dist == 7);
-        
-        dist = xg_index.closest_shared_path_oriented_distance(n2->id(),
-                                                              n2->sequence().size(),
-                                                              true,
-                                                              n5->id(),
-                                                              n5->sequence().size(),
-                                                              true,
-                                                              false,
-                                                              10);
-        REQUIRE(dist == -7);
-        
-    }
-    
-    SECTION("Distance approxmation produces expected distances when positions are not on path") {
-        
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n1->id(),
-                                                                      3,
-                                                                      false,
-                                                                      n7->id(),
-                                                                      3,
-                                                                      true,
-                                                                      false,
-                                                                      10);
-        REQUIRE(dist == 15);
-        
-        dist = xg_index.closest_shared_path_oriented_distance(n7->id(),
-                                                              3,
-                                                              true,
-                                                              n1->id(),
-                                                              3,
-                                                              false ,
-                                                              false,
-                                                              10);
-        REQUIRE(dist == -15);
-        
-    }
-    
-    SECTION("Distance approxmation produces expected output when search to path must traverse every type of edge") {
-        
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n1->id(),
-                                                                      3,
-                                                                      false,
-                                                                      n15->id(),
-                                                                      1,
-                                                                      false,
-                                                                      false,
-                                                                      20);
-        REQUIRE(dist == 22);
-        
-    }
-    
-    SECTION("Distance approxmation produces expected output when positions are on opposite strands") {
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n1->id(),
-                                                                      3,
-                                                                      true,
-                                                                      n7->id(),
-                                                                      3,
-                                                                      true,
-                                                                      false,
-                                                                      10);
-        REQUIRE(dist == std::numeric_limits<int64_t>::max());
-    }
-    
-    SECTION("Distance approxmation produces expected output when cannot reach each other within the maximum distance") {
-        int64_t dist = xg_index.closest_shared_path_oriented_distance(n1->id(),
-                                                                      3,
-                                                                      false,
-                                                                      n7->id(),
-                                                                      3,
-                                                                      true,
-                                                                      false,
-                                                                      0);
-        REQUIRE(dist == std::numeric_limits<int64_t>::max());
-    }
-    
-    SECTION("Distance jumping produces expected result when start position and jump position are on path") {
-        vector<tuple<int64_t, bool, size_t>> jump_pos = xg_index.jump_along_closest_path(n0->id(),
-                                                                                         false,
-                                                                                         1,
-                                                                                         8,
-                                                                                         10);
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n4->id());
-        REQUIRE(get<1>(jump_pos[0]) == true);
-        REQUIRE(get<2>(jump_pos[0]) == 1);
-        
-        jump_pos = xg_index.jump_along_closest_path(n0->id(),
-                                                    true,
-                                                    2,
-                                                    -8,
-                                                    10);
-        
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n4->id());
-        REQUIRE(get<1>(jump_pos[0]) == false);
-        REQUIRE(get<2>(jump_pos[0]) == 1);
-        
-        jump_pos = xg_index.jump_along_closest_path(n4->id(),
-                                                    true,
-                                                    1,
-                                                    -8,
-                                                    10);
-        
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n0->id());
-        REQUIRE(get<1>(jump_pos[0]) == false);
-        REQUIRE(get<2>(jump_pos[0]) == 1);
-        
-        jump_pos = xg_index.jump_along_closest_path(n4->id(),
-                                                    false,
-                                                    1,
-                                                    8,
-                                                    10);
-        
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n0->id());
-        REQUIRE(get<1>(jump_pos[0]) == true);
-        REQUIRE(get<2>(jump_pos[0]) == 2);
-    }
-    
-    SECTION("Distance jumping doesn't go past the end of a path") {
-        vector<tuple<int64_t, bool, size_t>> jump_pos = xg_index.jump_along_closest_path(n0->id(),
-                                                                                         false,
-                                                                                         1,
-                                                                                         200,
-                                                                                         10);
-        
-        REQUIRE(jump_pos.empty());
-    }
-    
-    SECTION("Distance jumping produces expected results when it needs to traverse an edge to the path") {
-        vector<tuple<int64_t, bool, size_t>> jump_pos = xg_index.jump_along_closest_path(n1->id(),
-                                                                                         false,
-                                                                                         1,
-                                                                                         9,
-                                                                                         10);
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n5->id());
-        REQUIRE(get<1>(jump_pos[0]) == false);
-        REQUIRE(get<2>(jump_pos[0]) == 3);
-        
-        jump_pos = xg_index.jump_along_closest_path(n1->id(),
-                                                    false,
-                                                    3,
-                                                    7,
-                                                    10);
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n5->id());
-        REQUIRE(get<1>(jump_pos[0]) == false);
-        REQUIRE(get<2>(jump_pos[0]) == 3);
-        
-        jump_pos = xg_index.jump_along_closest_path(n1->id(),
-                                                    true,
-                                                    3,
-                                                    -9,
-                                                    10);
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n5->id());
-        REQUIRE(get<1>(jump_pos[0]) == true);
-        REQUIRE(get<2>(jump_pos[0]) == 2);
-        
-        jump_pos = xg_index.jump_along_closest_path(n1->id(),
-                                                    true,
-                                                    1,
-                                                    -7,
-                                                    10);
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n5->id());
-        REQUIRE(get<1>(jump_pos[0]) == true);
-        REQUIRE(get<2>(jump_pos[0]) == 2);
-    }
-    
-    SECTION("Distance jumping doesn't search past the maximum search length") {
-        vector<tuple<int64_t, bool, size_t>> jump_pos = xg_index.jump_along_closest_path(n1->id(),
-                                                                                         true,
-                                                                                         2,
-                                                                                         9,
-                                                                                         1);
-        
-        REQUIRE(jump_pos.empty());
-    }
-    
-    
-    SECTION("Distance jumping can traverse every edge type") {
-        vector<tuple<int64_t, bool, size_t>> jump_pos = xg_index.jump_along_closest_path(n15->id(),
-                                                                                         false,
-                                                                                         1,
-                                                                                         -12,
-                                                                                         15);
-        
-        REQUIRE(jump_pos.size() == 1);
-        REQUIRE(get<0>(jump_pos[0]) == n6->id());
-        REQUIRE(get<1>(jump_pos[0]) == false);
-        REQUIRE(get<2>(jump_pos[0]) == 1);
-    }
-}
-        
-TEST_CASE("Path component memoization produces expected results", "[xg]") {
-    
-    string graph_json = R"({"node": [{"sequence": "AAACCC", "id": 1}, {"sequence": "CACACA", "id": 2}, {"sequence": "CACACA", "id": 3}, {"sequence": "TTTTGG", "id": 4}, {"sequence": "ACGTAC", "id": 5}], "path": [{"name": "one", "mapping": [{"position": {"node_id": 1}, "rank": 1}, {"position": {"node_id": 2}, "rank": 2}]}, {"name": "three", "mapping": [{"position": {"node_id": 2}, "rank": 1}, {"position": {"node_id": 3}, "rank": 2}]}, {"name": "two", "mapping": [{"position": {"node_id": 4}, "rank": 1}, {"position": {"node_id": 5}, "rank": 2}]}], "edge": [{"from": 1, "to": 2}, {"from": 2, "to": 3}, {"from": 4, "to": 5}]})";
+    string graph_json = R"(
+    {"node":[{"id":1,"sequence":"GATT"},
+    {"id":2,"sequence":"ACA"}],
+    "edge":[{"to":2,"from":1}]}
+    )";
     
     // Load the JSON
     Graph proto_graph;
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    xg::XG xg_index(proto_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    size_t count = 0;
+
+    xg_index.for_each_handle([&](const handle_t& got) {
+        #pragma omp critical
+        count++;
+    }, true);
     
-    for (int node_id : {1, 2, 3}) {
-        for (size_t path_rank : xg_index.paths_of_node(node_id)){
-            for (int other_node_id : {1, 2, 3}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-            
-            for (int other_node_id : {4, 5}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(!xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-        }
+    REQUIRE(count == 2);
+
+}
+
+
+TEST_CASE("Vectorization of xg works correctly", "[xg]") {
+    string graph_json = R"(
+    {"edge": [
+        {"from": "5", "to": "6"},
+        {"from": "7", "to": "9"},
+        {"from": "12", "to": "13"},
+        {"from": "12", "to": "14"},
+        {"from": "8", "to": "9"},
+        {"from": "1", "to": "2"},
+        {"from": "1", "to": "3"},
+        {"from": "4", "to": "6"},
+        {"from": "6", "to": "7"},
+        {"from": "6", "to": "8"},
+        {"from": "2", "to": "4"},
+        {"from": "2", "to": "5"},
+        {"from": "10", "to": "12"},
+        {"from": "9", "to": "10"},
+        {"from": "9", "to": "11"},
+        {"from": "11", "to": "12"},
+        {"from": "13", "to": "15"},
+        {"from": "14", "to": "15"},
+        {"from": "3", "to": "4"},
+        {"from": "3", "to": "5"}
+    ], "node": [
+        {"id": "5", "sequence": "C"},
+        {"id": "7", "sequence": "A"},
+        {"id": "12", "sequence": "ATAT"},
+        {"id": "8", "sequence": "G"},
+        {"id": "1", "sequence": "CAAATAAG"},
+        {"id": "4", "sequence": "T"},
+        {"id": "6", "sequence": "TTG"},
+        {"id": "15", "sequence": "CCAACTCTCTG"},
+        {"id": "2", "sequence": "A"},
+        {"id": "10", "sequence": "A"},
+        {"id": "9", "sequence": "AAATTTTCTGGAGTTCTAT"},
+        {"id": "11", "sequence": "T"},
+        {"id": "13", "sequence": "A"},
+        {"id": "14", "sequence": "T"},
+        {"id": "3", "sequence": "G"}
+    ], "path": [
+        {"mapping": [
+            {"edit": [{"from_length": 8, "to_length": 8}], "position": {"node_id": "1"}, "rank": "1"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "3"}, "rank": "2"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "5"}, "rank": "3"},
+            {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "6"}, "rank": "4"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "8"}, "rank": "5"},
+            {"edit": [{"from_length": 19, "to_length": 19}], "position": {"node_id": "9"}, "rank": "6"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "11"}, "rank": "7"},
+            {"edit": [{"from_length": 4, "to_length": 4}], "position": {"node_id": "12"}, "rank": "8"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "14"}, "rank": "9"},
+            {"edit": [{"from_length": 11, "to_length": 11}], "position": {"node_id": "15"}, "rank": "10"}
+        ], "name": "x"}]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+
+    // Build the xg index (without any sorting)
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    REQUIRE(xg_index.get_node_count() == 15);
+    
+    SECTION("edge ranks are unique") {
+        // Collect all the unique edge ranks we observe for all the edges in the XG.
+        unordered_set<size_t> unique_edge_ranks;
+        xg_index.for_each_edge([&](const edge_t& edge) {
+            size_t edge_index = xg_index.edge_index(edge);
+#ifdef debug
+            cerr << "Edge " << xg_index.get_id(edge.first) << (xg_index.get_is_reverse(edge.first) ? '-' : '+') << " -> "
+                << xg_index.get_id(edge.second) << (xg_index.get_is_reverse(edge.second) ? '-' : '+')
+                << " has index " << edge_index << endl;
+#endif
+            unique_edge_ranks.insert(edge_index);
+        });
+        
+        REQUIRE(unique_edge_ranks.size() == xg_index.get_edge_count());
     }
     
-    for (int node_id : {4, 5}) {
-        for (size_t path_rank : xg_index.paths_of_node(node_id)){
-            for (int other_node_id : {1, 2, 3}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(!xg_index.paths_on_same_component(path_rank, other_path_rank));
-                }
-            }
-            
-            for (int other_node_id : {4, 5}) {
-                for (size_t other_path_rank : xg_index.paths_of_node(other_node_id)) {
-                    REQUIRE(xg_index.paths_on_same_component(path_rank, other_path_rank));
+    SECTION("edge ranks are defined for all ways of articulating edges that exist") {
+        vector<handle_t> forwards;
+        vector<handle_t> reverse;
+        xg_index.for_each_handle([&](const handle_t& h) {
+            forwards.push_back(h);
+            reverse.push_back(xg_index.flip(h));
+        });
+        
+        for (size_t i = 0; i < forwards.size(); i++) {
+            for (size_t j = 0; j < forwards.size(); j++) {
+                for (bool flip1 : {false, true}) {
+                    for (bool flip2 : {false, true}) {
+                        // For all possible combinations of handles and orientations
+                        handle_t from = (flip1 ? reverse : forwards)[i];
+                        handle_t to = (flip2 ? reverse : forwards)[j];
+                        if (xg_index.has_edge(from, to)) {
+                            // If the edge exists
+                            
+                            // Make sure it exists the other way
+                            REQUIRE(xg_index.has_edge(xg_index.flip(to), xg_index.flip(from)));
+                            
+                            // Make sure that both directions have the same index, even if someone didn't use edge_handle.
+                            REQUIRE(xg_index.edge_index(std::make_pair(from, to)) ==
+                                xg_index.edge_index(std::make_pair(xg_index.flip(to), xg_index.flip(from))));
+                        }
+                    }
                 }
             }
         }
+        
+    }
+    
+    
+    SECTION("node offsets are unique and map back to the right nodes") {
+        // Do the same for the node vector offsets, except mapping offset to node ID. 
+        map<size_t, nid_t> id_at_offset;
+        xg_index.for_each_handle([&](const handle_t& h) {
+            nid_t node = xg_index.get_id(h);
+            // TODO: We're assuming this is 0-based. See https://github.com/vgteam/libhandlegraph/issues/41.
+            size_t offset = xg_index.node_vector_offset(node);
+            
+#ifdef debug
+            if (id_at_offset.count(offset)) {
+                cerr << "Found offset " << offset << " for node " << node << " occupied by " << id_at_offset.at(offset) << endl;
+            } else {
+                cerr << "Found free offset " << offset << " for node " << node << endl;
+            }
+            // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+            cerr << "Mapping back offset " << offset << " gives node " << xg_index.node_at_vector_offset(offset + 1) << endl;
+#endif
+            
+            id_at_offset[offset] = node;
+        });
+        
+        // Make sure all the nodes have unique offsets.
+        REQUIRE(id_at_offset.size() == xg_index.get_node_count());
+        
+        for (auto& kv : id_at_offset) {
+            // Make sure each offset maps back to the right node.
+            // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+            REQUIRE(xg_index.node_at_vector_offset(kv.first + 1) == kv.second);
+        }
+        
+        // Now make sure all intermediate offsets map properly.
+        auto it = id_at_offset.begin();
+        auto prev = it;
+        ++it;
+        while (it != id_at_offset.end()) {
+            // Go through adjacent node starts in sequence order
+            for (size_t i = prev->first; i < it->first; i++) {
+                // Every base before the first base of the next node should belong to the previous node.
+                // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+                nid_t node_at_i = xg_index.node_at_vector_offset(i + 1);
+                
+#ifdef debug
+                cerr << "Base at index " << i << " maps to node " << node_at_i << endl;
+#endif
+                
+                REQUIRE(node_at_i == prev->second);
+            }
+            prev = it;
+            ++it;
+        }
+        
     }
 }
+
+
+
 
 }
 }

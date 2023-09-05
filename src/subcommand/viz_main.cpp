@@ -1,7 +1,10 @@
 #include "subcommand.hpp"
 #include "../utility.hpp"
 #include "../viz.hpp"
-#include "../stream.hpp"
+#include "../xg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -109,13 +112,18 @@ int main_viz(int argc, char** argv) {
         }
     }
 
-    xg::XG xgidx;
+    PathPositionHandleGraph* xgidx = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     if (xg_name.empty()) {
-        cerr << "No XG index given. An XG index must be provided." << endl;
+        cerr << "No input graph given. An input graph (-x) must be provided." << endl;
         exit(1);
     } else {
-        ifstream in(xg_name.c_str());
-        xgidx.load(in);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        // We know the PathPositionVectorizableOverlayHelper produces a PathPositionVectorizableOverlay which implements PathPositionHandleGraph.
+        // TODO: Make the types actually work out here.
+        xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
+        assert(xgidx != nullptr);
     }
 
     // todo one packer per thread and merge
@@ -131,8 +139,10 @@ int main_viz(int argc, char** argv) {
         pack_names = packs_in;
     }
 
-    Viz viz(&xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
-    viz.draw();
+    {
+        Viz viz(xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
+        viz.draw();
+    }
 
     return 0;
 }

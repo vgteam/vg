@@ -1,5 +1,5 @@
 #include "translator.hpp"
-#include "stream.hpp"
+#include <vg/io/stream.hpp>
 
 namespace vg {
 
@@ -11,7 +11,7 @@ Translator::Translator(istream& in) {
     function<void(Translation&)> lambda = [&](Translation& trans) {
         translations.push_back(trans);
     };
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
     build_position_table();
 }
 

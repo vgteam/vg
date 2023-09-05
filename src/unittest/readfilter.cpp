@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "readfilter.hpp"
+#include "xg.hpp"
 
 namespace vg {
 namespace unittest {
@@ -48,10 +49,12 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     
     // Pass it over to XG
-    xg::XG index(chunk);
+    xg::XG index;
+    index.from_path_handle_graph(VG(chunk));
     
     // Make a ReadFilter;
-    ReadFilter filter;
+    ReadFilter<Alignment> filter;
+    filter.graph = &index;
     
     SECTION("A read that is not ambiguous is not trimmed") {
         // Build the read
@@ -76,7 +79,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         json2pb(ambiguous, read_json.c_str(), read_json.size());
         
         // It has to say it didn't trim it
-        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == false);
+        REQUIRE(filter.trim_ambiguous_ends(ambiguous, 10) == false);
         // And it has to not mess it up
         REQUIRE(ambiguous.sequence() == "GATTACAAAAAA");
         REQUIRE(ambiguous.quality() == "000000000000");
@@ -112,7 +115,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         json2pb(ambiguous, read_json.c_str(), read_json.size());
         
         // It has to say it trimmed it
-        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
+        REQUIRE(filter.trim_ambiguous_ends(ambiguous, 10) == true);
         // And it has to trim it to the right thing
         REQUIRE(ambiguous.sequence() == "GATTAC");
         REQUIRE(ambiguous.quality() == "123456");
@@ -148,7 +151,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         json2pb(ambiguous, read_json.c_str(), read_json.size());
         
         // It has to say it trimmed it
-        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
+        REQUIRE(filter.trim_ambiguous_ends(ambiguous, 10) == true);
         // And it has to trim it to the right thing
         REQUIRE(ambiguous.sequence() == "GTAATC");
         REQUIRE(ambiguous.quality() == "345678");
@@ -186,7 +189,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         json2pb(ambiguous, read_json.c_str(), read_json.size());
         
         // It has to say it trimmed it
-        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
+        REQUIRE(filter.trim_ambiguous_ends(ambiguous, 10) == true);
         // And it has to trim it to the right thing
         REQUIRE(ambiguous.sequence() == "AGATA");
         REQUIRE(ambiguous.quality() == "00000");
@@ -225,7 +228,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         
         // It has to explode instead of trimming it. Mappings are always
         // required to be specified now.
-        REQUIRE_THROWS(filter.trim_ambiguous_ends(&index, ambiguous, 10));
+        REQUIRE_THROWS(filter.trim_ambiguous_ends(ambiguous, 10));
         
     }
     
@@ -255,7 +258,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         json2pb(ambiguous, read_json.c_str(), read_json.size());
         
         // It has to say it trimmed it
-        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
+        REQUIRE(filter.trim_ambiguous_ends(ambiguous, 10) == true);
         // And it has to trim it to the right thing
         REQUIRE(ambiguous.sequence() == "GATTAC");
         REQUIRE(ambiguous.quality() == "123456");

@@ -758,7 +758,7 @@ WARN_LOGFILE           =
 # spaces.
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = src src/subcommand src/unittest/driver.cpp src/unittest/driver.hpp
+INPUT                  = src src/algorithms src/io src/subcommand src/unittest/driver.cpp src/unittest/driver.hpp deps/xg/src/xg.cpp deps/xg/src/xg.hpp deps/libbdsg/src deps/libbdsg/include/bdsg deps/libhandlegraph/src deps/libhandlegraph/src/include/handlegraph deps/libvgio/src deps/libvgio/include/vg/io deps/libvgio/deps
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -863,7 +863,7 @@ IMAGE_PATH             =
 # code is scanned, but not when the output code is generated. If lines are added
 # or removed, the anchors will not be placed correctly.
 
-INPUT_FILTER           = "python contrib/proto2cpp/proto2cpp.py"
+INPUT_FILTER           = "python3 contrib/proto2cpp/proto2cpp.py"
 
 # The FILTER_PATTERNS tag can be used to specify filters on a per file pattern
 # basis. Doxygen will compare the file name with each pattern and apply the
@@ -1060,7 +1060,7 @@ HTML_HEADER            =
 # that doxygen normally uses.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_FOOTER            =
+HTML_FOOTER            = doc/footer_template.html
 
 # The HTML_STYLESHEET tag can be used to specify a user-defined cascading style
 # sheet that is used by each HTML page. It can be used to fine-tune the look of

@@ -35,7 +35,7 @@ public:
     int fragment;
     bool primary; // if not a sub-MEM
     std::vector<gcsa::node_type> nodes;
-    map<string, vector<pair<size_t, bool> > > positions;
+    unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions;
     
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,

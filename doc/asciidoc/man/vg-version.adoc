@@ -1,0 +1,67 @@
+= vg-version(1)
+vgteam contributors
+v1.20.0
+:doctype: manpage
+:manmanual: vg
+:mansource: vg
+:man-linkstyle: pass:[blue R < >]
+
+== Name
+
+vg-version - get version and build information about vg
+
+== Synopsis
+
+*vg version* [_OPTION_]...
+
+== Options
+
+*-s*::
+*--slug*::
+  Print only the one-line, whitespace-free version string (e.g. _v1.20.0-70-g472e24c9c_), for use in scripts.
+
+*-h*::
+*--help*::
+  Print help about the *vg version* command and its supported options.
+  
+== Description
+
+When run without options, *vg version* outputs information about the version of *vg* that is running, including:
+
+* The most recent released version on which your *vg* is based
+* The number of commits since that version (if not itself a released version)
+* The Git commit hash (if not itself a released version)
+* The compiler that was used to build *vg*
+* The OS that was used to build *vg*
+* The C++ standard library that *vg* was linked against
+* The user name and host name that built *vg*
+
+When run with the *-s* option, *vg version* prints just the release and Git commit information.
+
+== Examples
+
+To print all version information (human-readable):
+
+----
+$ vg version
+vg version v1.20.0-70-g472e24c9c "Ginestra"
+Compiled with g++ (GCC) 8.1.0 on Linux
+Linked against libstd++ 20180502
+Built by anovak@courtyard
+----
+
+To print just the short "`version slug`":
+
+----
+$ vg version -s
+v1.20.0-70-g472e24c9c
+----
+
+== See Also
+*vg*(1), *git*(1)
+
+== Copyright
+
+Copyright (C) 2019 {author}.
+
+Free use of this documentation is granted under the terms of the MIT License.

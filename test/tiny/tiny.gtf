@@ -1,0 +1,10 @@
+##description: 
+##format: gtf
+x	SOURCE	gene	2	40	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1";
+x	SOURCE	transcript	2	40	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript1";
+x	SOURCE	exon	2	10	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript1"; exon_number 1;
+x	SOURCE	exon	20	25	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript1"; exon_number 2;
+x	SOURCE	exon	29	40	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript1"; exon_number 3;
+x	SOURCE	transcript	2	40	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript2";
+x	SOURCE	exon	2	10	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript2"; exon_number 1;
+x	SOURCE	exon	29	40	.	+	.	gene_id "gene"; gene_type "protein_coding"; gene_name "GENE1"; transcript_id "transcript2"; exon_number 2;

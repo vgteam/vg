@@ -10,10 +10,21 @@
 
 #include "subcommand.hpp"
 
+#include <bdsg/hash_graph.hpp>
+#include <bdsg/overlays/path_position_overlays.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
+
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../xg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
+#include "../hts_alignment_emitter.hpp"
+#include "../multipath_alignment_emitter.hpp"
+#include "../crash.hpp"
+#include "../watchdog.hpp"
+
 
 using namespace std;
 using namespace vg;
@@ -24,33 +35,73 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE      use the graph in this xg index" << endl
-         << "    -t, --threads N         number of threads to use" << endl
-         << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
-         << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
-         << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
-         << "    -c, --cram-output       write CRAM to stdout" << endl
-         << "    -b, --bam-output        write BAM to stdout" << endl
-         << "    -s, --sam-output        write SAM to stdout" << endl
-         << "    -C, --compression N     level for compression [0-9]" << endl;
+         << "  -x, --xg-name FILE       use this graph or xg index (required)" << endl
+         << "  -t, --threads N          number of threads to use" << endl
+         << "  -p, --into-path NAME     surject into this path or its subpaths (many allowed, default: reference, then non-alt generic)" << endl
+         << "  -F, --into-paths FILE    surject into path names listed in HTSlib sequence dictionary or path list FILE" << endl
+         << "  -i, --interleaved        GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
+         << "  -M, --multimap           include secondary alignments to all overlapping paths instead of just primary" << endl
+         << "  -G, --gaf-input          input file is GAF instead of GAM" << endl
+         << "  -m, --gamp-input         input file is GAMP instead of GAM" << endl
+         << "  -c, --cram-output        write CRAM to stdout" << endl
+         << "  -b, --bam-output         write BAM to stdout" << endl
+         << "  -s, --sam-output         write SAM to stdout" << endl
+         << "  -l, --subpath-local      let the multipath mapping surjection produce local (rather than global) alignments" << endl
+         << "  -P, --prune-low-cplx     prune short and low complexity anchors during realignment" << endl
+         << "  -a, --max-anchors N      use no more than N anchors per target path (default: 200)" << endl
+         << "  -S, --spliced            interpret long deletions against paths as spliced alignments" << endl
+         << "  -A, --qual-adj           adjust scoring for base qualities, if they are available" << endl
+         << "  -N, --sample NAME        set this sample name for all reads" << endl
+         << "  -R, --read-group NAME    set this read group for all reads" << endl
+         << "  -f, --max-frag-len N     reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
+         << "  -L, --list-all-paths     annotate SAM records with a list of all attempted re-alignments to paths in SS tag" << endl
+         << "  -C, --compression N      level for compression [0-9]" << endl
+         << "  -V, --no-validate        skip checking whether alignments plausibly are against the provided graph" << endl
+         << "  -w, --watchdog-timeout N warn when reads take more than the given number of seconds to surject" << endl;
+}
+
+/// If the given alignment doesn't make sense against the given graph (i.e.
+/// doesn't agree with the nodes in the graph), print a message and stop the
+/// program. Is thread-safe.
+static void ensure_alignment_is_for_graph(const Alignment& aln, const HandleGraph& graph) {
+    AlignmentValidity validity = alignment_is_valid(aln, &graph);
+    if (!validity) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << "error:[vg surject] Alignment " << aln.name() << " cannot be interpreted against this graph: " << validity.message << std::endl;
+            std::cerr << "Make sure that you are using the same graph that the reads were mapped to!" << std::endl;
+        }
+        exit(1);
+    }
 }
 
 int main_surject(int argc, char** argv) {
-
+    
     if (argc == 2) {
         help_surject(argv);
         return 1;
     }
-
+    
     string xg_name;
-    set<string> path_names;
-    string path_prefix;
+    vector<string> path_names;
     string path_file;
-    string output_type = "gam";
-    string input_type = "gam";
+    string output_format = "GAM";
+    string input_format = "GAM";
+    bool spliced = false;
     bool interleaved = false;
-    string header_file;
+    string sample_name;
+    string read_group;
+    int32_t max_frag_len = 0;
     int compress_level = 9;
+    int min_splice_length = 20;
+    size_t watchdog_timeout = 10;
+    bool subpath_global = true; // force full length alignments in mpmap resolution
+    bool qual_adj = false;
+    bool prune_anchors = false;
+    size_t max_anchors = 200;
+    bool annotate_with_all_path_scores = false;
+    bool multimap = false;
+    bool validate = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -58,22 +109,35 @@ int main_surject(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"xb-name", required_argument, 0, 'x'},
+            {"xg-name", required_argument, 0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
-            {"into-prefix", required_argument, 0, 'P'},
+            {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
+            {"subpath-local", required_argument, 0, 'l'},
             {"interleaved", no_argument, 0, 'i'},
+            {"multimap", no_argument, 0, 'M'},
+            {"gaf-input", no_argument, 0, 'G'},
+            {"gamp-input", no_argument, 0, 'm'},
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
-            {"header-from", required_argument, 0, 'H'},
+            {"spliced", no_argument, 0, 'S'},
+            {"prune-low-cplx", no_argument, 0, 'P'},
+            {"max-anchors", required_argument, 0, 'a'},
+            {"qual-adj", no_argument, 0, 'A'},
+            {"sample", required_argument, 0, 'N'},
+            {"read-group", required_argument, 0, 'R'},
+            {"max-frag-len", required_argument, 0, 'f'},
+            {"list-all-paths", no_argument, 0, 'L'},
             {"compress", required_argument, 0, 'C'},
+            {"no-validate", required_argument, 0, 'V'},
+            {"watchdog-timeout", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPa:ALMVw:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -88,44 +152,92 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'p':
-            path_names.insert(optarg);
+            path_names.push_back(optarg);
             break;
 
         case 'F':
             path_file = optarg;
             break;
-
-        case 'P':
-            path_prefix = optarg;
-            break;
-
-        case 'H':
-            header_file = optarg;
+        
+        case 'l':
+            subpath_global = false;
             break;
 
         case 'i':
             interleaved = true;
             break;
+                
+        case 'M':
+            multimap = true;
+            break;
+
+        case 'G':
+            input_format = "GAF";
+            break;
+                
+        case 'm':
+            input_format = "GAMP";
+            break;
             
         case 'c':
-            output_type = "cram";
+            output_format = "CRAM";
             break;
 
         case 'b':
-            output_type = "bam";
+            output_format = "BAM";
             break;
 
         case 's':
             compress_level = -1;
-            output_type = "sam";
+            output_format = "SAM";
+            break;
+                
+        case 'S':
+            spliced = true;
+            break;
+                
+        case 'P':
+            prune_anchors = true;
+            break;
+            
+        case 'a':
+            max_anchors = parse<size_t>(optarg);
+            break;
+            
+        case 'A':
+            qual_adj = true;
             break;
 
-        case 't':
-            omp_set_num_threads(parse<int>(optarg));
+        case 'N':
+            sample_name = optarg;
+            break;
+            
+        case 'R':
+            read_group = optarg;
+            break;
+            
+        case 'f':
+            max_frag_len = parse<int32_t>(optarg);
             break;
 
         case 'C':
             compress_level = parse<int>(optarg);
+            break;
+            
+        case 'V':
+            validate = false;
+            break;
+            
+        case 'w':
+            watchdog_timeout = parse<size_t>(optarg);
+            break;
+            
+        case 't':
+            omp_set_num_threads(parse<int>(optarg));
+            break;
+                
+        case 'L':
+            annotate_with_all_path_scores = true;
             break;
 
         case 'h':
@@ -139,383 +251,445 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    // Create a preprocessor to apply read group and sample name overrides in place
+    auto set_metadata = [&](Alignment& update) {
+        if (!sample_name.empty()) {
+            update.set_sample_name(sample_name);
+        }
+        if (!read_group.empty()) {
+            update.set_read_group(read_group);
+        }
+    };
+
     string file_name = get_input_file_name(optind, argc, argv);
-
-    if (!path_file.empty()){
-        // open the file
-        ifstream in(path_file);
-        string line;
-        while (std::getline(in,line)) {
-            path_names.insert(line);
-        }
-    }
-
-    xg::XG* xgidx = nullptr;
-    ifstream xg_stream(xg_name);
-    if(xg_stream) {
-        xgidx = new xg::XG(xg_stream);
-    }
-    if (!xg_stream || xgidx == nullptr) {
-        cerr << "[vg surject] error: could not open xg index" << endl;
-        return 1;
-    }
-
-    // if no paths were given take all of those in the index
-    if (path_names.empty()) {
-        for (size_t i = 1; i <= xgidx->path_count; ++i) {
-            path_names.insert(xgidx->path_name(i));
-        }
-    }
-
-    map<string, int64_t> path_length;
-    int num_paths = xgidx->max_path_rank();
-    for (int i = 1; i <= num_paths; ++i) {
-        auto name = xgidx->path_name(i);
-        path_length[name] = xgidx->path_length(name);
+    
+    PathPositionHandleGraph* xgidx = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    // If we add an overlay for path position queries, use one optimized for
+    // use with reference paths.
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    if (!xg_name.empty()) {
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xgidx = overlay_helper.apply(path_handle_graph.get());
+    } else {
+        // We need an XG index for the rest of the algorithm
+        cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
+        exit(1);
     }
     
-    int thread_count = get_thread_count();
-    vector<Surjector*> surjectors(thread_count);
-    for (int i = 0; i < surjectors.size(); i++) {
-        surjectors[i] = new Surjector(xgidx);
+    // Get the paths to surject into and their length information, either from
+    // the given file, or from the provided list, or from sniffing the graph.
+    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(path_file, path_names, *xgidx);
+    // Clear out path_names so we don't accidentally use it
+    path_names.clear();
+
+    // Convert to a set for membership testing 
+    unordered_set<path_handle_t> paths;
+    paths.reserve(sequence_dictionary.size());
+    for (auto& entry : sequence_dictionary) {
+        paths.insert(get<0>(entry));
     }
-
-    if (input_type == "gam") {
-        if (output_type == "gam") {
-            vector<vector<Alignment> > buffer;
-            buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &surjectors](Alignment& src) {
-                int tid = omp_get_thread_num();
-                // Since we're outputting full GAM, we ignore all this info
-                // about where on the path the alignment falls. But we need to
-                // provide the space to the surject call anyway.
-                string path_name;
-                int64_t path_pos;
-                bool path_reverse;
-                buffer[tid].push_back(surjectors[omp_get_thread_num()]->path_anchored_surject(src,
-                                                                                              path_names,
-                                                                                              path_name,
-                                                                                              path_pos,
-                                                                                              path_reverse));
-                stream::write_buffered(cout, buffer[tid], 100);
-            };
-            get_input_file(file_name, [&](istream& in) {
-                stream::for_each_parallel(in, lambda);
-            });
-            for (int i = 0; i < thread_count; ++i) {
-                stream::write_buffered(cout, buffer[i], 0); // flush
-            }
-        } else {
-            char out_mode[5];
-            string out_format = "";
-            strcpy(out_mode, "w");
-            if (output_type == "bam") { out_format = "b"; }
-            else if (output_type == "cram") { out_format = "c"; }
-            else { out_format = ""; }
-            strcat(out_mode, out_format.c_str());
-            if (compress_level >= 0) {
-                char tmp[2];
-                tmp[0] = compress_level + '0'; tmp[1] = '\0';
-                strcat(out_mode, tmp);
-            }
-            
-            int thread_count = get_thread_count();
-            
-            // bam/sam/cram output
-            
-            // Define a string to hold the SAM header, to be generated later.
-            string header;
-            // To generate the header, we need to know the read group for each sample name.
-            map<string, string> rg_sample;
-            
-            samFile* out = nullptr;
-            int buffer_limit = 100;
-
-            bam_hdr_t* hdr = nullptr;
-            int64_t count = 0;
-            // TODO: What good is this lock if we continue without getting it if the buffer is overfull???
-            omp_lock_t output_lock;
-            omp_init_lock(&output_lock);
-            
-            // We define a type to represent a surjected alignment, ready for
-            // HTSlib output. It consists of surjected path name (or ""),
-            // surjected position (or -1), surjected orientation, and the
-            // actual Alignment.
-            using surjected_t = tuple<string, int64_t, bool, Alignment>;
-            // You make one with make_tuple()
-            
-            // We define a basic surject function, which also fills in the read group info we need to make the header
-            auto surject_alignment = [&](const Alignment& src) {
-                
-                // Set out some variables to populate with the linear position
-                // info we need for SAM/BAM/CRAM
-                string path_name;
-                // Make sure to initialize pos to -1 since it may not be set by
-                // surject_alignment if the read is unmapped, and unmapped
-                // reads need to come out with a 0 1-based position.
-                int64_t path_pos = -1; 
-                bool path_reverse = false;
-                auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(src,
-                                                                                    path_names,
-                                                                                    path_name,
-                                                                                    path_pos,
-                                                                                    path_reverse);
-                // Always use the surjected alignment, even if it surjects to unmapped.
-                
-                if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
-                    // There's no header yet (although we race its
-                    // construction) and we have a sample and a read group.
-                    
-                    // Record the read group for the sample that this read
-                    // represents, so that when we build the header we list it.
-#pragma omp critical (hts_header)
-                    rg_sample[surj.read_group()] = surj.sample_name();
-                }
-                
-                return make_tuple(path_name, path_pos, path_reverse, surj);
-            };
-            
-            // We also define a function to emit the header if it hasn't been made already.
-            // Note that the header will only list the samples and read groups in reads we have encountered so far!
-            auto ensure_header = [&]() {
-#pragma omp critical (hts_header)
+    
+    // Make a single thread-safe Surjector.
+    Surjector surjector(xgidx);
+    surjector.adjust_alignments_for_base_quality = qual_adj;
+    surjector.prune_suspicious_anchors = prune_anchors;
+    surjector.max_anchors = max_anchors;
+    if (spliced) {
+        surjector.min_splice_length = min_splice_length;
+        // we have to bump this up to be sure to align most splice junctions
+        surjector.max_subgraph_bases = 16 * 1024 * 1024;
+    }
+    else {
+        surjector.min_splice_length = numeric_limits<int64_t>::max();
+    }
+    surjector.annotate_with_all_path_scores = annotate_with_all_path_scores;
+    
+    // Count our threads
+    int thread_count = vg::get_thread_count();
+    
+    // Prepare the watchdog
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::seconds(watchdog_timeout)));
+    
+    if (input_format == "GAM" || input_format == "GAF") {
+        
+        // Give helpful warning if someone tries to surject an un-surjectable GAF
+        auto check_gaf_aln = [&](const Alignment& src) {
+            if (src.has_path() && src.sequence().empty()) {
+#pragma omp critical
                 {
-                    if (!hdr) {
-                        hdr = hts_string_header(header, path_length, rg_sample);
-                        if ((out = sam_open("-", out_mode)) == 0) {
-#pragma omp critical (cerr)
-                            cerr << "[vg surject] error: failed to open stdout for writing HTS output" << endl;
-                            exit(1);
-                        } else {
-                            // write the header
-                            if (sam_hdr_write(out, hdr) != 0) {
-#pragma omp critical (cerr)
-                                cerr << "[vg surject] error: failed to write the SAM header" << endl;
-                            }
-                        }
-                    }
-                }
-            };
-            
-            // Finally, we have a little widget function to write a BAM record and check for errors.
-            // Consumes the passed record.
-            auto write_bam_record = [&](bam1_t* b) {
-                assert(out != nullptr);
-                int r = 0;
-#pragma omp critical (cout)
-                r = sam_write1(out, hdr, b);
-                if (r == 0) {
-#pragma omp critical (cerr)
-                    cerr << "[vg surject] error: writing to stdout failed" << endl;
+                    cerr << "error:[surject] Read " << src.name() << " is aligned but does not have a sequence and therefore cannot be surjected. Was it derived from a GAF without a base-level alignment? Or a GAF with a CIGAR string in the 'cg' tag (which does not provide enough information to reconstruct the sequence)?" << endl;
                     exit(1);
                 }
-                bam_destroy1(b);
-            };
-            
-            if (interleaved) {
-                // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations              
-                
-                // We keep a buffer, one per thread, of pairs of surjected alignments
-                vector<vector<pair<surjected_t, surjected_t>>> buffer;
-                buffer.resize(thread_count);
-                
-                // Define a function that handles buffers, possibly opening the
-                // output file if we're on the first record
-                auto handle_buffer = [&](vector<pair<surjected_t, surjected_t>>& buf) {
-                     if (buf.size() >= buffer_limit) {
-                            // We have enough data to start the file.
-                            
-                            // Make sure we have emitted the header
-                            ensure_header();
+            }
+        };
+        
+        // Set up output to an emitter that will handle serialization.
+        // It should process output raw, without any surjection, and it should
+        // respect our parameter for whether to think with splicing.
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", 
+            output_format, sequence_dictionary, thread_count, xgidx,
+            ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
 
-                            // try to get a lock, and force things if we've built up a huge buffer waiting
-                            // TODO: Is continuing without the lock safe? And if so why do we have the lock in the first place?
-                            if (omp_test_lock(&output_lock) || buf.size() > 10*buffer_limit) {
-                                for (auto& surjected_pair : buf) {
-                                    // For each pair of surjected reads
-                                
-                                    // Unpack the first read
-                                    auto& name1 = get<0>(surjected_pair.first);
-                                    auto& pos1 = get<1>(surjected_pair.first);
-                                    auto& reverse1 = get<2>(surjected_pair.first);
-                                    auto& surj1 = get<3>(surjected_pair.first);
-                                    
-                                    // Unpack the second read
-                                    auto& name2 = get<0>(surjected_pair.second);
-                                    auto& pos2 = get<1>(surjected_pair.second);
-                                    auto& reverse2 = get<2>(surjected_pair.second);
-                                    auto& surj2 = get<3>(surjected_pair.second);
-                                    
-                                    // Compute CIGAR strings if actually surjected
-                                    string cigar1 = "", cigar2 = "";
-                                    if (name1 != "") {
-                                        size_t path_len1 = xgidx->path_length(name1);
-                                        cigar1 = cigar_against_path(surj1, reverse1, pos1, path_len1, 0);
-                                    }
-                                    if (name2 != "") {
-                                        size_t path_len2 = xgidx->path_length(name2);
-                                        cigar2 = cigar_against_path(surj2, reverse2, pos2, path_len2, 0);
-                                    }
-                                    
-                                    // TODO: compute template length based on
-                                    // pair distance and alignment content.
-                                    int template_length = 0;
-                                    
-                                    // Create and write paired BAM records referencing each other
-                                    write_bam_record(alignment_to_bam(header, surj1, name1, pos1, reverse1, cigar1,
-                                        name2, pos2, template_length));
-                                    write_bam_record(alignment_to_bam(header, surj2, name2, pos2, reverse2, cigar2,
-                                        name1, pos1, template_length));
-                                
-                                }
-                                
-                                omp_unset_lock(&output_lock);
-                                buf.clear();
-                            }
-                        }
-                };
-                
-                // Define a function to surject the pair and fill in the
-                // HTSlib-required crossreferences
-                function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
-                    // Make sure that the alignments being surjected are
-                    // actually paired with each other (proper
-                    // fragment_prev/fragment_next). We want to catch people
-                    // giving us un-interleaved GAMs as interleaved.
-                    if (aln1.has_fragment_next()) {
+        if (interleaved) {
+            // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
+            // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
+            function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
+                try {
+                    set_crash_context(src1.name() + ", " + src2.name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                    }
+                    // Make sure that the alignments are actually paired with each other
+                    // (proper fragment_prev/fragment_next). We want to catch people giving us
+                    // un-interleaved GAMs as interleaved.
+                    // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                    if (src1.has_fragment_next()) {
                         // Alignment 1 comes first in fragment
-                        if (aln1.fragment_next().name() != aln2.name() ||
-                            !aln2.has_fragment_prev() ||
-                            aln2.fragment_prev().name() != aln1.name()) {
-                        
+                        if (src1.fragment_next().name() != src2.name() ||
+                            !src2.has_fragment_prev() ||
+                            src2.fragment_prev().name() != src1.name()) {
+                            
 #pragma omp critical (cerr)
-                            cerr << "[vg surject] error: alignments " << aln1.name()
-                                 << " and " << aln2.name() << " are adjacent but not paired" << endl;
-                                 
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
                             exit(1);
-                        
+                            
                         }
-                    } else if (aln2.has_fragment_next()) {
+                    } else if (src2.has_fragment_next()) {
                         // Alignment 2 comes first in fragment
-                        if (aln2.fragment_next().name() != aln1.name() ||
-                            !aln1.has_fragment_prev() ||
-                            aln1.fragment_prev().name() != aln2.name()) {
-                        
+                        if (src2.fragment_next().name() != src1.name() ||
+                            !src1.has_fragment_prev() ||
+                            src1.fragment_prev().name() != src2.name()) {
+                            
 #pragma omp critical (cerr)
-                            cerr << "[vg surject] error: alignments " << aln1.name()
-                                 << " and " << aln2.name() << " are adjacent but not paired" << endl;
-                                 
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
                             exit(1);
-                        
+                            
                         }
                     } else {
                         // Alignments aren't paired up at all
 #pragma omp critical (cerr)
-                        cerr << "[vg surject] error: alignments " << aln1.name()
-                             << " and " << aln2.name() << " are adjacent but not paired" << endl;
-                             
+                        cerr << "[vg surject] error: alignments " << src1.name()
+                        << " and " << src2.name() << " are adjacent but not paired" << endl;
+                        
                         exit(1);
                     }
                     
-                    // Find our buffer
-                    auto& thread_buffer = buffer[omp_get_thread_num()];
-                    // Surject each of the pair and buffer the surjected pair
-                    thread_buffer.emplace_back(surject_alignment(aln1), surject_alignment(aln2));
-                    // Spit out the buffer if (over)full
-                    handle_buffer(thread_buffer);
-                };
-                
-                // now apply the alignment processor to the stream
-                get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_interleaved_pair_parallel(in, lambda);
-                });
-                
-                // Spit out any remaining data
-                buffer_limit = 0;
-                for (auto& buf : buffer) {
-                    handle_buffer(buf);
-                }
-                
-            } else {
-                // GAM input is single-ended, so each read can be surjected
-                // independently
-                
-                // We keep a buffer, one per thread, of surjected alignments.
-                vector<vector<surjected_t>> buffer;
-                buffer.resize(thread_count);
-
-                // Define a function that handles buffers, possibly opening the
-                // output file if we're on the first record
-                auto handle_buffer = [&](vector<surjected_t>& buf) {
-                    if (buf.size() >= buffer_limit) {
-                        // We have enough data to start the file.
+                    if (validate) {
+                        ensure_alignment_is_for_graph(src1, *xgidx);
+                        ensure_alignment_is_for_graph(src2, *xgidx);
+                    }
+                    
+                    // Preprocess read to set metadata before surjection
+                    set_metadata(src1);
+                    set_metadata(src2);
+                    
+                    // Surject and emit.
+                    if (multimap) {
                         
-                        // Make sure we have emitted the header
-                        ensure_header();
-
-                        // try to get a lock, and force things if we've built up a huge buffer waiting
-                        // TODO: Is continuing without the lock safe? And if so why do we have the lock in the first place?
-                        if (omp_test_lock(&output_lock) || buf.size() > 10*buffer_limit) {
-                            for (auto& s : buf) {
-                                // For each alignment in the buffer
-                                
-                                // Unpack it
-                                auto& name = get<0>(s);
-                                auto& pos = get<1>(s);
-                                auto& reverse = get<2>(s);
-                                auto& surj = get<3>(s);
-                                
-                                // Generate a CIGAR string for it
-                                string cigar = "";
-                                if (name != "") {
-                                    size_t path_len = xgidx->path_length(name);
-                                    cigar = cigar_against_path(surj, reverse, pos, path_len, 0);
-                                }
-                                
-                                // Create and write a single unpaired BAM record
-                                write_bam_record(alignment_to_bam(header, surj, name, pos, reverse, cigar));
-                                
+                        auto surjected1 = surjector.multi_surject(src1, paths, subpath_global, spliced);
+                        auto surjected2 = surjector.multi_surject(src2, paths, subpath_global, spliced);
+                        
+                        // we have to pair these up manually
+                        unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
+                        for (size_t i = 0; i < surjected1.size(); ++i) {
+                            const auto& pos = surjected1[i].refpos(0);
+                            strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
+                        }
+                        for (size_t i = 0; i < surjected2.size(); ++i) {
+                            const auto& pos = surjected2[i].refpos(0);
+                            strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
+                        }
+                        
+                        for (size_t i = 0; i < surjected1.size(); ++i) {
+                            const auto& pos = surjected1[i].refpos(0);
+                            auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
+                            if (it != strand_idx2.end()) {
+                                // the alignments are paired on this strand
+                                alignment_emitter->emit_pair(move(surjected1[i]), move(surjected2[it->second]), max_frag_len);
                             }
-                            
-                            omp_unset_lock(&output_lock);
-                            buf.clear();
+                            else {
+                                // this strand's surjection is unpaired
+                                alignment_emitter->emit_single(move(surjected1[i]));
+                            }
+                        }
+                        for (size_t i = 0; i < surjected2.size(); ++i) {
+                            const auto& pos = surjected2[i].refpos(0);
+                            if (!strand_idx1.count(make_pair(pos.name(), !pos.is_reverse()))) {
+                                // this strand's surjection is unpaired
+                                alignment_emitter->emit_single(move(surjected2[i]));
+                            }
                         }
                     }
-                };
-
-                function<void(Alignment&)> lambda = [&](Alignment& src) {
-                    auto& thread_buffer = buffer[omp_get_thread_num()];
-                    thread_buffer.push_back(surject_alignment(src));
-                    handle_buffer(thread_buffer);
-                };
-
-
-                // now apply the alignment processor to the stream
-                get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_parallel(in, lambda);
-                });
-                buffer_limit = 0;
-                for (auto& buf : buffer) {
-                    handle_buffer(buf);
+                    else {
+                        // FIXME: these aren't forced to be on the same path, which could be fucky
+                        alignment_emitter->emit_pair(surjector.surject(src1, paths, subpath_global, spliced),
+                                                     surjector.surject(src2, paths, subpath_global, spliced),
+                                                     max_frag_len);
+                    }
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
+                    clear_crash_context();
+                } catch (const std::exception& ex) {
+                    report_exception(ex);
                 }
-                
+            };
+            if (input_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each_interleaved_pair_parallel<Alignment>(in, lambda);
+                });
+            } else {
+                auto gaf_checking_lambda = [&](Alignment& src1, Alignment& src2) {
+                    check_gaf_aln(src1);
+                    check_gaf_aln(src2);
+                    return lambda(src1, src2);
+                };
+                vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
             }
-            
-            
-            if (hdr != nullptr) {
-                bam_hdr_destroy(hdr);
+        } else {
+            // We can just surject each Alignment by itself.
+            // TODO: We don't preserve order relationships (like primary/secondary).
+            function<void(Alignment&)> lambda = [&](Alignment& src) {
+                try {
+                    set_crash_context(src.name());
+                    size_t thread_num = omp_get_thread_num();
+                    if (watchdog) {
+                        watchdog->check_in(thread_num, src.name());
+                    }
+                    if (validate) {
+                        ensure_alignment_is_for_graph(src, *xgidx);
+                    }
+                    
+                    // Preprocess read to set metadata before surjection
+                    set_metadata(src);
+                    
+                    // Surject and emit the single read.
+                    if (multimap) {
+                        alignment_emitter->emit_singles(surjector.multi_surject(src, paths, subpath_global, spliced));
+                    }
+                    else {
+                        alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
+                    }
+                    if (watchdog) {
+                        watchdog->check_out(thread_num);
+                    }
+                    clear_crash_context();
+                } catch (const std::exception& ex) {
+                    report_exception(ex);
+                }
+            };
+            if (input_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each_parallel<Alignment>(in,lambda);
+                });
+            } else {
+                auto gaf_checking_lambda = [&](Alignment& src) {
+                    check_gaf_aln(src);
+                    return lambda(src);
+                };
+                vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
             }
-            assert(out != nullptr);
-            sam_close(out);
-            omp_destroy_lock(&output_lock);
         }
+    } else if (input_format == "GAMP") {
+        // Working on multipath alignments. We need to set the emitter up ourselves.
+        auto path_order_and_length = extract_path_metadata(sequence_dictionary, *xgidx).first;
+        MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_order_and_length);
+        mp_alignment_emitter.set_read_group(read_group);
+        mp_alignment_emitter.set_sample_name(sample_name);
+        mp_alignment_emitter.set_min_splice_length(spliced ? min_splice_length : numeric_limits<int64_t>::max());
+        
+        // TODO: largely repetitive with GAM
+        get_input_file(file_name, [&](istream& in) {
+            if (interleaved) {
+                
+                // GAMP input is paired, and for HTS output reads need to know their pair partners' mapping locations.
+                // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
+                vg::io::for_each_interleaved_pair_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src1, MultipathAlignment& src2) {
+                    try {
+                        set_crash_context(src1.name() + ", " + src2.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, src1.name() + ", " + src2.name());
+                        }
+                    
+                        // Make sure that the alignments are actually paired with each other
+                        // (proper fragment_prev/fragment_next). We want to catch people giving us
+                        // un-interleaved GAMs as interleaved.
+                        // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                        if (src1.paired_read_name() != src2.name() || src2.paired_read_name() != src1.name()) {
+                            
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
+                            exit(1);
+                            
+                        }
+                        else if (src1.paired_read_name().empty() || src2.paired_read_name().empty()) {
+                            // Alignments aren't paired up at all
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << src1.name()
+                            << " and " << src2.name() << " are adjacent but not paired" << endl;
+                            
+                            exit(1);
+                        }
+                        
+                        // convert out of protobuf
+                        multipath_alignment_t mp_src1, mp_src2;
+                        from_proto_multipath_alignment(src1, mp_src1);
+                        from_proto_multipath_alignment(src2, mp_src2);
+                        
+                        
+                        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions;
+                        vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
+                        
+                        vector<tuple<string, bool, int64_t>> positions_unpaired1, positions_unpaired2;
+                        vector<multipath_alignment_t> surjected_unpaired1, surjected_unpaired2;
+                        
+                        // surject and record path positions
+                        if (multimap) {
+                            
+                            // TODO: highly repetitive with the version above for Alignments
+                            
+                            vector<tuple<string, int64_t, bool>> positions1, positions2;
+                            auto surjected1 = surjector.multi_surject(mp_src1, paths, positions1, subpath_global, spliced);
+                            auto surjected2 = surjector.multi_surject(mp_src2, paths, positions2, subpath_global, spliced);
+                            
+                            // we have to pair these up manually
+                            unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
+                            for (size_t i = 0; i < surjected1.size(); ++i) {
+                                strand_idx1[make_pair(get<0>(positions1[i]), get<2>(positions1[i]))] = i;
+                            }
+                            for (size_t i = 0; i < surjected2.size(); ++i) {
+                                strand_idx2[make_pair(get<0>(positions2[i]), get<2>(positions2[i]))] = i;
+                            }
+                                                    
+                            for (size_t i = 0; i < surjected1.size(); ++i) {
+                                auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), !get<2>(positions1[i])));
+                                if (it != strand_idx2.end()) {
+                                    // the alignments are paired on this strand
+                                    size_t j = it->second;
+                                    surjected.emplace_back(move(surjected1[i]), move(surjected2[j]));
+                                    
+                                    // reorder the positions to deal with the mismatch in the interfaces
+                                    positions.emplace_back();
+                                    get<0>(positions.back().first) = get<0>(positions1[i]);
+                                    get<1>(positions.back().first) = get<2>(positions1[i]);
+                                    get<2>(positions.back().first) = get<1>(positions1[i]);
+                                    get<0>(positions.back().second) = get<0>(positions2[j]);
+                                    get<1>(positions.back().second) = get<2>(positions2[j]);
+                                    get<2>(positions.back().second) = get<1>(positions2[j]);
+                                }
+                                else {
+                                    // this strand's surjection is unpaired
+                                    surjected_unpaired1.emplace_back(move(surjected1[i]));
+                                    
+                                    // reorder the position to deal with the mismatch in the interfaces
+                                    positions_unpaired1.emplace_back();
+                                    get<0>(positions_unpaired1.back()) = move(get<0>(positions1[i]));
+                                    get<1>(positions_unpaired1.back()) = get<2>(positions1[i]);
+                                    get<2>(positions_unpaired1.back()) = get<1>(positions1[i]);
+                                }
+                            }
+                            for (size_t i = 0; i < surjected2.size(); ++i) {
+                                if (!strand_idx1.count(make_pair(get<0>(positions2[i]), !get<2>(positions2[i])))) {
+                                    // this strand's surjection is unpaired
+                                    surjected_unpaired2.emplace_back(move(surjected2[i]));
+                                    
+                                    // reorder the position to deal with the mismatch in the interfaces
+                                    positions_unpaired2.emplace_back();
+                                    get<0>(positions_unpaired2.back()) = move(get<0>(positions2[i]));
+                                    get<1>(positions_unpaired2.back()) = get<2>(positions2[i]);
+                                    get<2>(positions_unpaired2.back()) = get<1>(positions2[i]);
+                                }
+                            }
+                        }
+                        else {
+                            
+                            // FIXME: these aren't required to be on the same path...
+                            positions.emplace_back();
+                            surjected.emplace_back(surjector.surject(mp_src1, paths, get<0>(positions.front().first),
+                                                                     get<2>(positions.front().first), get<1>(positions.front().first),
+                                                                     subpath_global, spliced),
+                                                   surjector.surject(mp_src2, paths, get<0>(positions.front().second),
+                                                                     get<2>(positions.front().second), get<1>(positions.front().second),
+                                                                     subpath_global, spliced));
+                        }
+                                            
+                        // write to output
+                        vector<int64_t> tlen_limits(surjected.size(), max_frag_len);
+                        mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
+                        mp_alignment_emitter.emit_singles(src1.name(), move(surjected_unpaired1), &positions_unpaired1);
+                        mp_alignment_emitter.emit_singles(src2.name(), move(surjected_unpaired2), &positions_unpaired2);
+                        
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        clear_crash_context();
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
+                    }
+                });
+            } else {
+                // TODO: We don't preserve order relationships (like primary/secondary).
+                vg::io::for_each_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src) {
+                    try {
+                        set_crash_context(src.name());
+                        size_t thread_num = omp_get_thread_num();
+                        if (watchdog) {
+                            watchdog->check_in(thread_num, src.name());
+                        }
+
+                        multipath_alignment_t mp_src;
+                        from_proto_multipath_alignment(src, mp_src);
+                        
+                        // surject and record path positions
+                        vector<tuple<string, bool, int64_t>> positions;
+                        vector<multipath_alignment_t> surjected;
+                        
+                        if (multimap) {
+                            
+                            vector<tuple<string, int64_t, bool>> multi_positions;
+                            surjected = surjector.multi_surject(mp_src, paths, multi_positions, subpath_global, spliced);
+                            
+                            // positions are in different orders in these two interfaces
+                            for (auto& position : multi_positions) {
+                                positions.emplace_back(move(get<0>(position)), get<2>(position), get<1>(position));
+                            }
+                        }
+                        else {
+                            positions.emplace_back();
+                            surjected.emplace_back(surjector.surject(mp_src, paths, get<0>(positions.front()),
+                                                                     get<2>(positions.front()), get<1>(positions.front()),
+                                                                     subpath_global, spliced));
+                        }
+                        
+                        // write to output
+                        mp_alignment_emitter.emit_singles(src.name(), move(surjected), &positions);
+                    
+                        if (watchdog) {
+                            watchdog->check_out(thread_num);
+                        }
+                        clear_crash_context();
+                    } catch (const std::exception& ex) {
+                        report_exception(ex);
+                    }
+                });
+            }
+        });
+    } else {
+        cerr << "[vg surject] Unimplemented input format " << input_format << endl;
+        exit(1);
     }
+    
     cout.flush();
     
-    for (Surjector* surjector : surjectors) {
-        delete surjector;
-    }
-
     return 0;
 }
 

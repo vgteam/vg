@@ -1,12 +1,10 @@
 
 #include <getopt.h>
 #include "subcommand.hpp"
-#include "index.hpp"
-#include "stream.hpp"
-#include "genotyper.hpp"
-#include "genotypekit.hpp"
-#include "variant_recall.hpp"
-#include "stream.hpp"
+#include <vg/io/stream.hpp>
+#include "../genotyper.hpp"
+#include "../genotypekit.hpp"
+#include "../variant_recall.hpp"
 /**
 * GAM sort main
 */
@@ -15,13 +13,12 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 void help_genotype(char** argv) {
-    cerr << "usage: " << argv[0] << " genotype [options] <graph.vg> [reads.index/] > <calls.vcf>" << endl
-         << "Compute genotypes from a graph and an indexed collection of reads" << endl
+    cerr << "usage: " << argv[0] << " genotype [options] <graph.vg> alignments.gam > <calls.vcf>" << endl
+         << "Compute genotypes from a graph and a collection of reads" << endl
          << endl
          << "options:" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -v, --vcf               output in VCF" << endl
-         << "    -G, --gam   GAM         a GAM file to use with variant recall (or in place of index)" << endl
          << "    -V, --recall-vcf VCF    recall variants in a specific VCF file." << endl
          << "    -F, --fasta  FASTA" << endl
          << "    -I, --insertions INS" << endl
@@ -35,7 +32,7 @@ void help_genotype(char** argv) {
          << "    -A, --no_indel_realign  disable indel realignment" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
          << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
-         << "    -E, --no_embed          dont embed gam edits into grpah" << endl
+         << "    -E, --no_embed          don't embed gam edits into graph" << endl
          << "    -T, --traversal         traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -77,7 +74,6 @@ int main_genotype(int argc, char** argv) {
     string gam_file;
     string fasta;
     string insertions_file;
-    bool useindex = true;
 
     // Should we use mapping qualities?
     bool use_mapq = true;
@@ -113,7 +109,6 @@ int main_genotype(int argc, char** argv) {
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"recall-vcf", required_argument, 0, 'V'},
-                {"gam", required_argument, 0, 'G'},
                 {"fasta", required_argument, 0, 'F'},
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
@@ -123,7 +118,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QAd:P:pt:V:I:G:F:zET:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QAd:P:pt:V:I:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -196,10 +191,6 @@ int main_genotype(int argc, char** argv) {
         case 'F':
             fasta = optarg;
             break;
-        case 'G':
-            gam_file = optarg;
-            useindex = false;
-            break;
         case 'E':
             embed_gam_edits = false;
             break;
@@ -234,31 +225,21 @@ int main_genotype(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
+    
+    // get GAM
+    if (optind < argc){
+        gam_file = get_input_file_name(optind, argc, argv);
+        
+    } else {
+        cerr << "[vg genotype] GAM file must be specified as positional argument" << endl;
+        return 1;
+    }
 
     if (just_call){
         string gamfi(gam_file);
         string rstr(ref_path_name);
         genotype_svs(graph, gamfi, rstr);
         exit(0);
-    }
-
-    // setup reads index
-    string reads_index_name = "";
-    if (optind < argc){
-        reads_index_name = get_input_file_name(optind, argc, argv);
-
-    } else {
-        if (gam_file.empty()) {
-            cerr << "[vg genotype] Index argument must be specified when not using -G" << endl;
-            return 1;
-        }
-    }
-    
-    // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
-    Index index;
-    if (useindex){
-        index.open_read_only(reads_index_name);
-        gam_file = reads_index_name;
     }
 
     // Build the set of all the node IDs to operate on
@@ -280,7 +261,7 @@ int main_genotype(int argc, char** argv) {
             insertions.emplace_back(ins);
             ins->open(insertions_file);
         }
-        variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
+        variant_recall(graph, vars, lin_ref, insertions, gam_file);
         return 0;
 
     }
@@ -301,29 +282,19 @@ int main_genotype(int argc, char** argv) {
         return alignment.path().mapping_size() > 0;
     };
 
-    if (useindex) {
-        // Extract all the alignments
-        index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
-                // Only take alignments that don't visit nodes not in the graph
-                if (alignment_contained(alignment)) {
-                    alignments.push_back(alignment);
-                }
-            });
-    } else {
-        // load in all reads (activated by passing GAM directly with -G).
-        // This is used by, ex., toil-vg, which has already used the gam index
-        // to extract relevant reads
-        ifstream gam_reads(gam_file.c_str());
-        if (!gam_reads) {
-            cerr << "[vg genotype] Error opening gam: " << gam_file << endl;
-            return 1;
-        }
-        stream::for_each<Alignment>(gam_reads, [&alignments, &alignment_contained](Alignment& alignment) {
-                if (alignment_contained(alignment)) {
-                    alignments.push_back(alignment);
-                }
-            });
+    // load in all reads (activated by passing GAM directly with -G).
+    // This is used by, ex., toil-vg, which has already used the gam index
+    // to extract relevant reads
+    ifstream gam_reads(gam_file.c_str());
+    if (!gam_reads) {
+        cerr << "[vg genotype] Error opening gam: " << gam_file << endl;
+        return 1;
     }
+    vg::io::for_each<Alignment>(gam_reads, [&alignments, &alignment_contained](Alignment& alignment) {
+        if (alignment_contained(alignment)) {
+            alignments.push_back(alignment);
+        }
+    });
     
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
@@ -367,12 +338,7 @@ int main_genotype(int argc, char** argv) {
     AugmentedGraph augmented_graph;
 
     // Move our input graph into the augmented graph
-    // TODO: less terrible interface.  also shouldn't have to re-index.
     swap(augmented_graph.graph, *graph); 
-    swap(augmented_graph.graph.paths, graph->paths);
-    augmented_graph.graph.paths.rebuild_node_mapping();
-    augmented_graph.graph.paths.rebuild_mapping_aux();
-    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
     // Do the actual augmentation using vg edit. If augmentation was already
     // done, just embeds the reads. Reads will be taken by the AugmentedGraph

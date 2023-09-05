@@ -2,6 +2,9 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gfa.hpp"
+#include "../algorithms/gfa_to_handle.hpp"
+
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -9,7 +12,7 @@ namespace unittest {
 using namespace std;
 
 TEST_CASE("Can import a simple graph from GFA", "[gfa]") {
-    const string graph_gfa = R"(H	VN:Z:0.1
+    const string graph_gfa = R"(H	VN:Z:1.0
 S	1	G
 L	1	+	2	+	0M
 L	1	+	4	+	0M
@@ -23,22 +26,39 @@ L	5	+	2	+	0M
 L	5	+	6	+	0M
 S	6	T
 L	6	+	3	+	0M
-P	1	ref	1	+	1M
-P	2	ref	2	+	1M
-P	3	ref	3	+	1M
-P	1	path1	1	+	1M
-P	4	path1	2	+	1M
-P	5	path1	3	+	1M
-P	2	path1	4	+	1M
-P	1	path2	1	+	1M
-P	4	path2	2	+	1M
-P	5	path2	3	+	1M
-P	6	path2	4	+	1M
-P	3	path2	5	+	1M)";
+P	ref	1+,2+,3+	1M,1M,1M
+P	path1	1+,4+,5+,2+	1M,1M,1M,1M
+P	path2	1+,4+,5+,6+,3+	1M,1M,1M,1M,1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    REQUIRE(gfa_to_graph(in, &vg));
+    algorithms::gfa_to_path_handle_graph(in, &vg);
+    REQUIRE(vg.is_valid());
+    REQUIRE(vg.length() == 6);
+}
+
+TEST_CASE("Can import a simple graph from GFA with out of order lines and elided fields", "[gfa]") {
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	G
+L	5	+	6	+	0M
+L	1	+	2	+	0M
+P	path1	1+,4+,5+,2+	1M,1M,1M,1M
+L	1	+	4	+	0M
+L	2	+	3	+	0M
+S	3	G
+S	4	C
+L	4	+	5	+	*
+S	5	C
+L	5	+	2	+	0M
+S	6	T
+L	6	+	3	+	0M
+P	ref	1+,2+,3+	*
+S	2	T
+P	path2	1+,4+,5+,6+,3+	1M,1M,1M,1M,1M)";
+        
+    VG vg;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &vg);
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 6);
 }
@@ -82,31 +102,14 @@ L	17	+	12	+	0M
 S	16	G
 L	16	+	11	+	0M
 L	16	+	17	+	0M
-P	1	ref	1	+	1M
-P	2	ref	2	+	1M
-P	3	ref	3	+	1M
-P	6	path1	1	+	1M
-P	5	path1	2	+	1M
-P	4	path1	3	+	1M
-P	2	path1	4	+	1M
-P	6	path2	1	+	1M
-P	5	path2	2	+	1M
-P	4	path2	3	+	1M
-P	2	path2	4	+	1M
-P	3	path2	5	+	1M
-P	2	path3	1	+	1M
-P	11	path3	2	+	1M
-P	12	path3	3	+	1M
-P	13	path3	4	+	1M
-P	1	path4	1	+	1M
-P	2	path4	2	+	1M
-P	11	path4	3	+	1M
-P	12	path4	4	+	1M
-P	13	path4	5	+	1M)";
+P	ref	1+,2+,3+	1M,1M,1M
+P	path1	6+,5+,4+,2+	1M,1M,1M,1M
+P	path2	6+,5+,4+,2+,3+	1M,1M,1M,1M,1M
+P	path3	2+,11+,12+,13+	1M,1M,1M,1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    REQUIRE(gfa_to_graph(in, &vg));
+    algorithms::gfa_to_path_handle_graph(in, &vg);
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 17);
 }
@@ -190,73 +193,23 @@ L	35	+	34	+	0M
 S	32	T
 L	32	+	33	+	0M
 S	33	G
-P	1	ref	1	+	1M
-P	2	ref	2	+	1M
-P	3	ref	3	+	1M
-P	1	path1	1	+	1M
-P	2	path1	2	+	1M
-P	20	path1	3	+	1M
-P	21	path1	4	+	1M
-P	5	path2	1	+	1M
-P	4	path2	2	+	1M
-P	13	path2	3	+	1M
-P	14	path2	4	+	1M
-P	15	path2	5	+	1M
-P	20	path3	1	+	1M
-P	29	path3	2	+	1M
-P	30	path3	3	+	1M
-P	31	path3	4	+	1M
-P	4	path4	1	+	1M
-P	13	path4	2	+	1M
-P	14	path4	3	+	1M
-P	15	path4	4	+	1M
-P	5	path5	1	+	1M
-P	4	path5	2	+	1M
-P	2	path5	3	+	1M
-P	3	path5	4	+	1M
-P	6	path6	1	+	1M
-P	7	path6	2	+	1M
-P	8	path6	3	+	1M
-P	4	path6	4	+	1M
-P	2	path6	5	+	1M
-P	2	path7	1	+	1M
-P	20	path7	2	+	1M
-P	29	path7	3	+	1M
-P	30	path7	4	+	1M
-P	31	path7	5	+	1M
-P	22	path8	1	+	1M
-P	23	path8	2	+	1M
-P	24	path8	3	+	1M
-P	20	path8	4	+	1M
-P	21	path8	5	+	1M
-P	6	path9	1	+	1M
-P	7	path9	2	+	1M
-P	8	path9	3	+	1M
-P	4	path9	4	+	1M
-P	2	path9	5	+	1M
-P	3	path9	6	+	1M
-P	22	path10	1	+	1M
-P	23	path10	2	+	1M
-P	24	path10	3	+	1M
-P	20	path10	4	+	1M
-P	5	path11	1	+	1M
-P	4	path11	2	+	1M
-P	2	path11	3	+	1M
-P	2	path12	1	+	1M
-P	20	path12	2	+	1M
-P	21	path12	3	+	1M)";
+P	ref	1+,2+,3+	1M,1M,1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    REQUIRE(gfa_to_graph(in, &vg));
+    algorithms::gfa_to_path_handle_graph(in, &vg);
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 35);
 }
 
 
-TEST_CASE("Can import paths in GFA 0.1 and in GFA 1.0", "[gfa]") {
+TEST_CASE("Can import paths in GFA 1.0 but rejects GFA 0.1 multiline paths", "[gfa]") {
 
-    const string graph_gfa_oneline = R"(H	VN:Z:1.0
+    // Both these GFA files say the same thing.
+
+    SECTION("Single-line paths work") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
 S	1	CAAATAAG
 S	2	A
 S	3	G
@@ -264,7 +217,33 @@ P	x	1+,3+	8M,1M
 L	1	+	2	+	0M
 L	1	+	3	+	0M)";
 
-    const string graph_gfa_multiline = R"(H	VN:Z:0.1
+
+        VG vg;
+        stringstream in(graph_gfa);
+        algorithms::gfa_to_path_handle_graph(in, &vg);
+
+        REQUIRE(vg.is_valid());
+
+        REQUIRE(vg.node_count() == 3);
+        REQUIRE(vg.edge_count() == 2);
+
+        REQUIRE(vg.paths.has_path("x"));
+        auto path = vg.paths.path("x");
+        REQUIRE(path.mapping_size() == 2);
+
+        REQUIRE(mapping_from_length(path.mapping(0)) == 8);
+        REQUIRE(mapping_is_match(path.mapping(0)));
+        REQUIRE(path.mapping(0).position().is_reverse() == false);
+
+        REQUIRE(mapping_from_length(path.mapping(1)) == 1);
+        REQUIRE(mapping_is_match(path.mapping(1)));
+        REQUIRE(path.mapping(1).position().is_reverse() == false);
+
+    }
+
+    SECTION("Multi-line paths are rejected") {
+
+    const string graph_gfa = R"(H	VN:Z:0.1
 S	1	CAAATAAG
 S	2	A
 S	3	G
@@ -273,325 +252,253 @@ P	3	x	2	+	1M
 L	1	+	2	+	0M
 L	1	+	3	+	0M)";
 
-    // Both these GFA files say the same thing.
-    for (auto& graph_gfa : {graph_gfa_oneline, graph_gfa_multiline}) {
-
-        VG vg;
+        bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        
-        REQUIRE(vg.is_valid());
-        
-        REQUIRE(vg.node_count() == 3);
-        REQUIRE(vg.edge_count() == 2);
-        
-        REQUIRE(vg.paths.has_path("x"));
-        auto path = vg.paths.path("x");
-        REQUIRE(path.mapping_size() == 2);
-        
-        REQUIRE(mapping_from_length(path.mapping(0)) == 8);
-        REQUIRE(mapping_is_match(path.mapping(0)));
-        REQUIRE(path.mapping(0).position().is_reverse() == false);
-        
-        REQUIRE(mapping_from_length(path.mapping(1)) == 1);
-        REQUIRE(mapping_is_match(path.mapping(1)));
-        REQUIRE(path.mapping(1).position().is_reverse() == false);
-        
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
     }
+   
 }
 
-TEST_CASE("Can import graphs with perfect match merges from GFA", "[gfa]") {
+TEST_CASE("Can reject graphs that are missing nodes", "[gfa]") {
 
-    SECTION("A graph that merges the ends of two nodes works") {
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTAC
-S	2	ATTACA
-L	1	+	2	+	5M
-P	1	ref	1	+	6M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        
-        REQUIRE(vg.is_valid());
-        
-        // We expect 3 nodes: unique to 1, unique to 2, and shared
-        // It should be 1 base, 5 bases, 1 base
-        // Also there's no reason to reverse anything
-        
-        REQUIRE(vg.node_count() == 3);
-        REQUIRE(vg.edge_count() == 2);
-        
-        REQUIRE(vg.paths.has_path("ref"));
-        auto path = vg.paths.path("ref");
-        REQUIRE(path.mapping_size() == 3);
-        REQUIRE(mapping_from_length(path.mapping(0)) == 1);
-        REQUIRE(mapping_is_match(path.mapping(0)));
-        REQUIRE(path.mapping(0).position().is_reverse() == false);
-        
-        REQUIRE(mapping_from_length(path.mapping(1)) == 5);
-        REQUIRE(mapping_is_match(path.mapping(1)));
-        REQUIRE(path.mapping(1).position().is_reverse() == false);
-        
-        REQUIRE(mapping_from_length(path.mapping(2)) == 1);
-        REQUIRE(mapping_is_match(path.mapping(2)));
-        REQUIRE(path.mapping(2).position().is_reverse() == false);
-    }
-
-    SECTION("A graph that merges the entirety of two nodes works") {
-
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTACA
-S	2	GATTACA
-L	1	+	2	+	7M
-P	1	ref	1	+	7M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see just one merged node
-        
-        REQUIRE(vg.node_count() == 1);
-        REQUIRE(vg.edge_count() == 0);
-        REQUIRE(vg.paths.path("ref").mapping_size() == 1);
-    }
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
 
 }
 
-TEST_CASE("Can import graphs with merges with leading/trailing mismatches/indels from GFA", "[gfa]") {
+TEST_CASE("Can reject graphs that have duplicate nodes", "[gfa]") {
 
-    SECTION("A graph where the merge starts with a mismatch works and the start is tucked") {
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	2	A
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	+	0M
+S	1	GATTACA)";
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTAC
-S	2	GTTACA
-L	1	+	2	+	5M
-P	1	ref	1	+	6M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge starts with a multibase mismatch works and the start is tucked") {
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTAC
-S	2	GGGACA
-L	1	+	2	+	3X2=
-P	1	ref	1	+	6M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge ends with a mismatch works and the end is tucked") {
+}
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTAA
-S	2	ATTACA
-L	1	+	2	+	5M
-P	1	ref	1	+	6M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge ends with a multibase mismatch works and the end is tucked") {
+TEST_CASE("Can accept graphs that have duplicate paths by default", "[gfa]") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTGA
-S	2	ATTACA
-L	1	+	2	+	3=2X
-P	1	ref	1	+	6M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge is entirely a mismatch works") {
+    const string graph_gfa = R"(H	VN:Z:1.0
+P	x	1+,3+	8M,1M
+S	1	CAAATAAG
+S	2	A
+S	3	G
+P	x	1+,3+	8M,1M
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GCCCCC
-S	2	TTTTTA
-L	1	+	2	+	5M
-P	1	ref	1	+	6M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge starts with an insert works and the start is tucked") {
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+    REQUIRE(graph.has_path("x"));
+    // TODO: Expose the flag to require no duplicate paths
+}
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTAC
-S	2	CCATTACA
-L	1	+	2	+	2I5M
-P	1	ref	1	+	6M
-P	2	ref	2	+	8M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge ends with an insert works") {
+TEST_CASE("Can reject graphs that have conflicting paths and walks", "[gfa]") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATT
-S	2	ATTACA
-L	1	+	2	+	3M3I
-P	1	ref	1	+	4M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // No dangling should happen, but we should still have one head/tail
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-        // The graph should be a stick
-        REQUIRE(vg.node_count() == vg.edge_count() + 1);
-    }
-    
-    SECTION("A graph where the merge is entirely an insert works") {
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	2	A
+S	3	G
+P	sample1#0#x	1+,3+	8M,1M
+W	sample1	0	x	*	* >1>3
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
+
+}
+
+TEST_CASE("Can tolerate interesting GFA node IDs", "[gfa]") {
+
+    SECTION("An inoffensive graph is accepted") {
+
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATT
 S	2	ACA
-L	1	+	2	+	3I
-P	1	ref	1	+	4M
-P	2	ref	2	+	3M)";
+L	1	+	2	+	0M)";
         
-        VG vg;
+        bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
+        algorithms::gfa_to_path_handle_graph(in, &graph);
         
-        // No dangling should happen, but we should still have one head/tail
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-        // The graph should be a stick
-        REQUIRE(vg.node_count() == vg.edge_count() + 1);
+        REQUIRE(graph.get_node_count() == 2);
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
     }
-    
-    SECTION("A graph where the merge ends with a deletion works and the end is tucked") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
-S	1	GATTACCC
-S	2	ATTACA
-L	1	+	2	+	5M2D
-P	1	ref	1	+	8M
-P	2	ref	2	+	6M)";
-        
-        VG vg;
-        stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // We should see one head and one tail, despite the danging
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-    }
-    
-    SECTION("A graph where the merge starts with an deletion works") {
+    SECTION("A graph that merges the ends of two nodes is rejected with GFAFormatError") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATTAC
-S	2	ACA
-L	1	+	2	+	4D2M
-P	1	ref	1	+	6M
-P	2	ref	2	+	3M)";
+S	2	ATTACA
+L	1	+	2	+	5M)";
         
-        VG vg;
+        bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // No dangling should happen, but we should still have one head/tail
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-        // The graph should be a stick
-        REQUIRE(vg.node_count() == vg.edge_count() + 1);
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
     }
     
-    SECTION("A graph where the merge is entirely a deletion works") {
+    SECTION("A graph that uses a non-numerical identifier is OK") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATT
-S	2	ACA
-L	1	+	2	+	4D
-P	1	ref	1	+	4M
-P	2	ref	2	+	3M)";
+S	Chana	ACA
+L	1	+	Chana	+	0M)";
         
-        VG vg;
+        bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE(gfa_to_graph(in, &vg));
-        REQUIRE(vg.is_valid());
-        
-        // No dangling should happen, but we should still have one head/tail
-        REQUIRE(vg.head_nodes().size() == 1);
-        REQUIRE(vg.tail_nodes().size() == 1);
-        
-        // The graph should be a stick
-        REQUIRE(vg.node_count() == vg.edge_count() + 1);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
+        REQUIRE(graph.get_node_count() == 2);
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
     }
     
+    SECTION("A graph that uses a negative identifier is OK") {
+
+        const string graph_gfa = R"(H	VN:Z:1.0
+S	1	GATT
+S	-2	ACA
+L	1	+	-2	+	0M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
+        REQUIRE(graph.get_node_count() == 2);
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
+    }
+    
+    SECTION("A graph that uses a zero identifier is OK") {
+
+        const string graph_gfa = R"(H	VN:Z:1.0
+S	1	GATT
+S	0	ACA
+L	1	+	0	+	0M)";
+        
+        bdsg::HashGraph graph;
+        stringstream in(graph_gfa);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
+        REQUIRE(graph.get_node_count() == 2);
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
+    }
+
+}
+
+TEST_CASE("Can import W lines from a GFA", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
+W	GRCh38	0	chr2	*	*	>3<2<1
+S	1	CAAATAAG
+S	2	ATTACA
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	-	0M
+W	GRCh38	0	chr1	*	*	>1>2<3
+W	GRCh38	0	chr3	0	6	>1>2<3
+W	GRCh38	0	chr4	5	6	>3
+W	GRCh38	0	chr5	99	*	>1>2<3
+W	NA19239	1	chr1	0	8	>1
+W	NA19239	1	chr1	14	15	<3
+W	NA19239	2	chr1	*	*	>1>2<3
+)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+	
+	// It should currently interpret all of these as haplotypes, and apply a
+	// subrange if it is interesting.
+    REQUIRE(graph.has_path("GRCh38#0#chr1#0"));
+	REQUIRE(graph.has_path("GRCh38#0#chr2#0"));
+	REQUIRE(graph.has_path("GRCh38#0#chr3#0"));
+	REQUIRE(graph.has_path("GRCh38#0#chr4#0[5-6]"));
+	REQUIRE(graph.has_path("GRCh38#0#chr5#0[99]"));
+	REQUIRE(graph.has_path("NA19239#1#chr1#0"));
+	REQUIRE(graph.has_path("NA19239#1#chr1#0[14-15]"));
+	REQUIRE(graph.has_path("NA19239#2#chr1#0"));
+}
+
+TEST_CASE("Can import W lines from a GFA as haplotype, reference, or generic paths", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0	RS:Z:GRCh38
+S	1	CAAATAAG
+S	2	ATTACA
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	-	0M
+W	GRCh37	0	chr1	*	*	>1>2<3
+W	GRCh38	0	chr1	*	*	>1>2<3
+W	*	0	chr1	*	*	>1>2<3
+)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+	
+	REQUIRE(graph.has_path("GRCh37#0#chr1#0"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh37#0#chr1#0")) == PathSense::HAPLOTYPE);
+    REQUIRE(graph.has_path("GRCh38#0#chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh38#0#chr1")) == PathSense::REFERENCE);
+	REQUIRE(graph.has_path("chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("chr1")) == PathSense::GENERIC);
+}
+
+TEST_CASE("Can import PanSN P lines as haplotype, reference, or generic paths", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0	RS:Z:GRCh38
+S	1	CAAATAAG
+S	2	ATTACA
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	-	0M
+P	GRCh37#0#chr1	1+,3+	8M,1M
+P	GRCh38#0#chr1	1+,3+	8M,1M
+P	chr1	1+,3+	8M,1M
+)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+	
+	REQUIRE(graph.has_path("GRCh37#0#chr1#0"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh37#0#chr1#0")) == PathSense::HAPLOTYPE);
+    REQUIRE(graph.has_path("GRCh38#0#chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh38#0#chr1")) == PathSense::REFERENCE);
+	REQUIRE(graph.has_path("chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("chr1")) == PathSense::GENERIC);
 }
 
 

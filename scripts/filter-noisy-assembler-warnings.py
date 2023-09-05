@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # 
 # filter-noisy-assembler-warnings.py
 # Author: Stuart Berg

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # filter_variants_on_repeats.py: Drop low-frequency variants on repeats
 """

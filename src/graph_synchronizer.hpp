@@ -120,14 +120,14 @@ public:
          * The set will be populated with the NodeSides for the ends of nodes
          * created/visited at the end of the alignment.
          */
-        vector<Translation> apply_edit(const Path& path, set<NodeSide>& dangling);
+        vector<Translation> apply_edit(const Path& path, set<NodeSide>& dangling, size_t max_node_size = 1024);
         
         /**
          * May only be called when locked. Apply a path as an edit to the base
          * graph, leaving new nodes at the ends of the path unattached on their
          * outer sides.
          */
-        vector<Translation> apply_edit(const Path& path);
+        vector<Translation> apply_edit(const Path& path, size_t max_node_size = 1024);
         
         /**
          * May only be called when locked. Apply a path as an edit to the base
@@ -139,7 +139,7 @@ public:
          * The alignment must be in the local forward orientation of the graph
          * for this to make sense.
          */
-        vector<Translation> apply_full_length_edit(const Path& path);
+        vector<Translation> apply_full_length_edit(const Path& path, size_t max_node_size = 1024);
         
     protected:
     

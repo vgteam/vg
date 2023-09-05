@@ -1,15 +1,8 @@
 #include <unordered_set>
 #include "cactus.hpp"
 #include "vg.hpp"
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/weakly_connected_components.hpp"
-#include "algorithms/strongly_connected_components.hpp"
-#include "algorithms/find_shortest_paths.hpp"
-
-extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
-}
+#include "handle.hpp"
+#include "algorithms/dfs.hpp"
 
 //#define debug
 
@@ -203,7 +196,8 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths,
+                                                     bool single_component) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -264,7 +258,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                 cac_side2->node = other_node_id;
                 cac_side2->is_end = other_is_end;
 #ifdef debug
-                cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
+                //cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
 #endif
                 
                 // We get the cactusEdgeEnd corresponding to the side stored in side.
@@ -289,41 +283,55 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     // Now we decide on telomere pairs.
     // We need one for each weakly connected component in the graph, so first we break into connected components.
-    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(&graph);
+    vector<unordered_set<id_t>> weak_components_all;
+    if (single_component == false) {
+        weak_components_all = handlealgs::weakly_connected_components(&graph);
+    } else {
+        // the calling funciton knows it's just one component, so we skip the calculation
+        weak_components_all.resize(1);
+        graph.for_each_handle([&weak_components_all, &graph](handle_t handle) {
+                weak_components_all[0].insert(graph.get_id(handle));
+            });
+    }
+
+    // If we feed size 1 components through to Cactus it will apparently crash.
+    bool warned = false;
+    vector<unordered_set<id_t>> weak_components;
+    weak_components.reserve(weak_components_all.size());
+    for (auto& component : weak_components_all) {
+        if (component.size() > 1) {
+            weak_components.push_back(std::move(component));
+        } else if (!warned) {
+            cerr << "Warning: Cactus does not currently support finding snarls in a single-node connected component" << endl;
+            warned = true;
+        }
+    }
+    weak_components_all.clear();
+    if (weak_components.empty())  {
+        throw runtime_error("Cactus does not currently support finding snarls in graph of single-node connected components");
+    }
        
     // We also want a map so we can efficiently find which component a node lives in.
     unordered_map<id_t, size_t> node_to_component;
     for (size_t i = 0; i < weak_components.size(); i++) {
-        if (weak_components[i].size() == 1) {
-            // If we feed this through to Cactus it will crash.
-            throw runtime_error("Cactus does not currently support finding snarls in a single-node connected component");
-        }
-    
         for (auto& id : weak_components[i]) {
             node_to_component[id] = i;
         }
     }
        
-    // Then we find the heads and tails
-    auto all_heads = algorithms::head_nodes(&graph);
-    auto all_tails = algorithms::tail_nodes(&graph);
+    // Then we find all the tips, inward-facing
+    auto all_tips = handlealgs::find_tips(&graph);
     
 #ifdef debug
-    cerr << "Found " << all_heads.size() << " heads and " << all_tails.size() << " tails in graph" << endl;
+    cerr << "Found " << all_tips.size() << " tips in graph" << endl;
 #endif
     
-    // Alot them to components. We store tips in an inward-facing direction
+    // Allot them to components. We store tips in an inward-facing direction
     vector<unordered_set<handle_t>> component_tips(weak_components.size());
-    for (auto& head : all_heads) {
-        component_tips[node_to_component[graph.get_id(head)]].insert(head);
+    for (auto& tip : all_tips) {
+        component_tips[node_to_component[graph.get_id(tip)]].insert(tip);
 #ifdef debug
-        cerr << "Found head " << graph.get_id(head) << " in component " << node_to_component[graph.get_id(head)] << endl;
-#endif
-    }
-    for (auto& tail : all_tails) {
-        component_tips[node_to_component[graph.get_id(tail)]].insert(graph.flip(tail));
-#ifdef debug
-        cerr << "Found tail " << graph.get_id(tail) << " in component " << node_to_component[graph.get_id(tail)] << endl;
+        cerr << "Found tip " << graph.get_id(tip) << (graph.get_is_reverse(tip) ? '-' : '+') << " in component " << node_to_component[graph.get_id(tip)] << endl;
 #endif
     }
     
@@ -334,7 +342,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     graph.for_each_path_handle([&](const path_handle_t& path_handle) {
         
-        if (graph.get_occurrence_count(path_handle) == 0) {
+        if (graph.is_empty(path_handle)) {
             // Not a real useful path, so skip it. Some alt paths used for
             // haplotype generation are empty.
             return;
@@ -342,9 +350,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         
         string name = graph.get_path_name(path_handle);
         
-        occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
+        step_handle_t step_handle = graph.path_begin(path_handle);
         
-        auto component = node_to_component[graph.get_id(graph.get_occurrence(occurrence_handle))];
+        auto component = node_to_component[graph.get_id(graph.get_handle_of_step(step_handle))];
         
         component_paths[component].push_back(name);
         
@@ -353,21 +361,14 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         cerr << "Path " << name << " belongs to component " << component << endl;
 #endif
         
-        auto process_occurrence = [&](const occurrence_handle_t& occurrence_handle) {
-            handle_t handle = graph.get_occurrence(occurrence_handle);
+        for (handle_t handle : graph.scan_path(path_handle)) {
             path_length[name] += graph.get_length(handle);
             
             if (node_to_component[graph.get_id(handle)] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
                 throw runtime_error("Path " + name + " spans multiple connected components!");
             }
-        };
-        
-        while (graph.has_next_occurrence(occurrence_handle)) {
-            process_occurrence(occurrence_handle);
-            occurrence_handle = graph.get_next_occurrence(occurrence_handle);
         }
-        process_occurrence(occurrence_handle);
         
 #ifdef debug
         cerr << "\tPath " << name << " has length " << path_length[name] << endl;
@@ -378,7 +379,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     // This holds all the strongly connected components that live in each weakly connected component.
     vector<vector<unordered_set<id_t>>> component_strong_components(weak_components.size());
     size_t strong_component_count = 0;
-    for (auto& strong_component : algorithms::strongly_connected_components(&graph)) {
+    for (auto& strong_component : handlealgs::strongly_connected_components(&graph)) {
         // For each strongly connected component
         assert(!strong_component.empty());
         // Assign it to the weak component that some node in it belongs to
@@ -439,13 +440,14 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                     //auto& path_mappings = graph.paths.get_path(path_name);
                     
 #ifdef debug
-                    cerr << "\tPath " << path_name << " has " << graph.get_occurrence_count(path_handle) << " mappings" << endl;
+                    cerr << "\tPath " << path_name << " has " << graph.get_step_count(path_handle) << " mappings" << endl;
 #endif
                     
                     // See if I can get two tips on its ends.
                     // Get the inward-facing start and end handles.
-                    handle_t path_start = graph.get_occurrence(graph.get_first_occurrence(path_handle));
-                    handle_t path_end = graph.flip(graph.get_occurrence(graph.get_last_occurrence(path_handle)));
+                    handle_t path_start = graph.get_handle_of_step(graph.path_begin(path_handle));
+                    step_handle_t final_step = graph.get_previous_step(graph.path_end(path_handle));
+                    handle_t path_end = graph.flip(graph.get_handle_of_step(final_step));
                     
                     if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
                         // This path ends in two tips so we can consider it
@@ -528,7 +530,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                         << graph.get_id(key.first) << " " << graph.get_is_reverse(key.first) << endl;
 #endif
                     
-                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, key.first);
+                    unordered_map<handle_t, size_t> distances = handlealgs::find_shortest_paths(&graph, key.first);
                     
                     for (auto& other_tip : component_tips[i]) {
                         // And save the distances for everything reachable or unreachable.
@@ -658,8 +660,8 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
 #endif
             
             // Dijkstra in both directions
-            unordered_map<handle_t, size_t> distances_right = algorithms::find_shortest_paths(&graph, start);
-            unordered_map<handle_t, size_t> distances_left = algorithms::find_shortest_paths(&graph, graph.flip(start));
+            unordered_map<handle_t, size_t> distances_right = handlealgs::find_shortest_paths(&graph, start);
+            unordered_map<handle_t, size_t> distances_left = handlealgs::find_shortest_paths(&graph, graph.flip(start));
             
             // Find the furthest-out reachable tip on each side
             handle_t furthest_right_tip;
@@ -712,7 +714,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
 #endif
                
                     // Dijkstra out from the current starting tip
-                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, best_tips[starting_tip]);
+                    unordered_map<handle_t, size_t> distances = handlealgs::find_shortest_paths(&graph, best_tips[starting_tip]);
                     
                     // Find the other tip that is furthest away (stored in tip orientation and not Dijkstra orientation)
                     handle_t maximal_tip = best_tips[!starting_tip];

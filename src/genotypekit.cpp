@@ -18,7 +18,7 @@ SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const Snarl
     for(size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
 
-        if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
+        if(contents.first.count(mapping.position().node_id())) {
             // We're inside the bubble. This is super simple when we have the contents!
             *to_return.add_visit() = to_visit(mapping, true);
         }
@@ -137,15 +137,17 @@ vector<const Alignment*> AugmentedGraph::get_alignments(pair<NodeSide, NodeSide>
     }
 }
 
-Support AugmentedGraph::get_support(Node* node) {
+Support AugmentedGraph::get_support(id_t node) {
     Support support;
-    support.set_forward(get_alignments(node->id()).size());
+    support.set_forward(get_alignments(node).size());
     return support;
 }
 
-Support AugmentedGraph::get_support(Edge* edge) {
+Support AugmentedGraph::get_support(edge_t edge) {
     Support support;
-    support.set_forward(get_alignments(NodeSide::pair_from_edge(edge)).size());
+    NodeSide from(graph.get_id(edge.first), !graph.get_is_reverse(edge.first));
+    NodeSide to(graph.get_id(edge.second), graph.get_is_reverse(edge.second));
+    support.set_forward(get_alignments(make_pair(from, to)).size());
     return support;
 }
 
@@ -228,7 +230,8 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
     
         // Run them through vg::edit() to modify the graph, but don't embed them
         // as paths. Update the paths in place, and save the translations.
-        vector<Translation> augmentation_translations = graph.edit(paths, false, true, false);
+        vector<Translation> augmentation_translations;
+        graph.edit(paths, &augmentation_translations, false, true, false);
         
         for (size_t i = 0; i < paths.size(); i++) {
             // Copy all the modified paths back.
@@ -285,12 +288,12 @@ void AugmentedGraph::load_translations(istream& in_file) {
     function<void(Translation&)> lambda = [&](Translation& translation) {
         translator.translations.push_back(translation);
     };
-    stream::for_each(in_file, lambda);
+    vg::io::for_each(in_file, lambda);
     translator.build_position_table();
 }
 
 void AugmentedGraph::write_translations(ostream& out_file) {
-    stream::write_buffered(out_file, translator.translations, 0);
+    vg::io::write_buffered(out_file, translator.translations, 0);
 }
 
 void SupportAugmentedGraph::clear() {
@@ -302,27 +305,65 @@ bool SupportAugmentedGraph::has_supports() const {
     return !node_supports.empty() || !edge_supports.empty();
 }
 
-Support SupportAugmentedGraph::get_support(Node* node) {
+Support SupportAugmentedGraph::get_support(id_t node) {
     return node_supports.count(node) ? node_supports.at(node) : Support();
 }
 
-Support SupportAugmentedGraph::get_support(Edge* edge) {
+Support SupportAugmentedGraph::get_support(edge_t edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
 
 void SupportAugmentedGraph::load_supports(istream& in_file) {
+    // This loads LocationSupport objects. We use them instead of pileups.
+    // TODO: We need a way to view them with vg view
     node_supports.clear();
     edge_supports.clear();
     function<void(LocationSupport&)> lambda = [&](LocationSupport& location_support) {
+#ifdef debug
+        cerr << pb2json(location_support) << endl;
+#endif
         if (location_support.oneof_location_case() == LocationSupport::kNodeId) {
-            node_supports[graph.get_node(location_support.node_id())] = location_support.support();
+            node_supports[location_support.node_id()] = location_support.support();
         } else {
             const Edge& edge = location_support.edge();
-            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
-                                         NodeSide(edge.to(), edge.to_end()))] = location_support.support();
+            edge_t edge_handle = graph.edge_handle(graph.get_handle(edge.from(), edge.from_start()),
+                                                   graph.get_handle(edge.to(), edge.to_end()));
+            edge_supports[edge_handle] = location_support.support();
         }
     };
-    stream::for_each(in_file, lambda);    
+    vg::io::for_each(in_file, lambda);    
+}
+
+void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, const HandleGraph* vectorizable_graph) {
+    Packer packer(vectorizable_graph);
+    packer.load_from_file(pack_file_name);
+    vectorizable_graph->for_each_handle([&](const handle_t& handle) {
+            Position pos;
+            pos.set_node_id(vectorizable_graph->get_id(handle));
+            size_t sequence_offset = packer.position_in_basis(pos);
+            size_t total_coverage = 0;
+            size_t node_length = vectorizable_graph->get_length(handle);
+            for (size_t i = 0; i < node_length; ++i) {
+                total_coverage += packer.coverage_at_position(sequence_offset + i);
+            }
+            double avg_coverage = node_length > 0 ? (double)total_coverage / node_length : 0.;
+            Support support;
+            // we just get one value and put it in "forward".  can't fill out the rest of the Support object. 
+            support.set_forward(avg_coverage);
+            node_supports[vectorizable_graph->get_id(handle)] = support;
+        });
+    vectorizable_graph->for_each_edge([&](const edge_t& handle_edge) {
+            Edge edge;
+            edge.set_from(vectorizable_graph->get_id(handle_edge.first));
+            edge.set_from_start(vectorizable_graph->get_is_reverse(handle_edge.first));
+            edge.set_to(vectorizable_graph->get_id(handle_edge.second));
+            edge.set_to_end(vectorizable_graph->get_is_reverse(handle_edge.second));
+            Support support;
+            support.set_forward(packer.edge_coverage(edge));
+            edge_supports[graph.edge_handle(graph.get_handle(edge.from(), edge.from_start()),
+                                            graph.get_handle(edge.to(), edge.to_end()))] = support;
+            return true;
+        });
 }
 
 void SupportAugmentedGraph::write_supports(ostream& out_file) {
@@ -330,18 +371,23 @@ void SupportAugmentedGraph::write_supports(ostream& out_file) {
     for (auto& node_support : node_supports) {
         LocationSupport location_support;
         *location_support.mutable_support() = node_support.second;
-        location_support.set_node_id(node_support.first->id());
+        location_support.set_node_id(node_support.first);
         buffer.push_back(location_support);
-        stream::write_buffered(out_file, buffer, 500);
+        vg::io::write_buffered(out_file, buffer, 500);
     }
     for (auto& edge_support : edge_supports) {
         LocationSupport location_support;
-        *location_support.mutable_support() = edge_support.second;        
-        *location_support.mutable_edge() = *edge_support.first;
+        *location_support.mutable_support() = edge_support.second;
+        Edge edge;
+        edge.set_from(graph.get_id(edge_support.first.first));
+        edge.set_from_start(graph.get_is_reverse(edge_support.first.first));
+        edge.set_to(graph.get_id(edge_support.first.second));
+        edge.set_to_end(graph.get_is_reverse(edge_support.first.second));
+        *location_support.mutable_edge() = edge;
         buffer.push_back(location_support);
-        stream::write_buffered(out_file, buffer, 500);
+        vg::io::write_buffered(out_file, buffer, 500);
     }
-    stream::write_buffered(out_file, buffer, 0);
+    vg::io::write_buffered(out_file, buffer, 0);
 }
 
 
@@ -568,6 +614,13 @@ Support support_max(const Support& a, const Support& b) {
     to_return.set_reverse(max(a.reverse(), b.reverse()));
     to_return.set_quality(max(a.quality(), b.quality()));    
     return to_return;
+}
+
+Support flip(const Support& to_flip) {
+    Support flipped = to_flip;
+    flipped.set_forward(to_flip.reverse());
+    flipped.set_reverse(to_flip.forward());
+    return flipped;
 }
 
 Support operator+(const Support& one, const Support& other) {

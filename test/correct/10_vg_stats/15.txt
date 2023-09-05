@@ -2,6 +2,12 @@ Total alignments: 100
 Total primary: 100
 Total secondary: 0
 Total aligned: 100
+Total perfect: 100
+Total gapless (softclips allowed): 100
+Total paired: 0
+Total properly paired: 0
+Alignment score: mean 110, median 110, stdev 0, max 110 (100 reads)
+Mapping quality: mean 60, median 60, stdev 0, max 60 (100 reads)
 Insertions: 0 bp in 0 read events
 Deletions: 0 bp in 0 read events
 Substitutions: 0 bp in 0 read events

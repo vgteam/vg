@@ -1,9 +1,21 @@
 #include "utility.hpp"
+#include "statistics.hpp"
 
-#include <cstdio>
 #include <set>
 #include <mutex>
 #include <dirent.h>
+#include <thread>
+#include <cstdio>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <cctype>
+
+
+// For setting the temporary directory in submodules.
+#include <gcsa/utils.h>
+#include <gbwt/utils.h>
+#include <xg.hpp>
 
 namespace vg {
 
@@ -75,6 +87,20 @@ bool is_all_n(const string& seq) {
     return true;
 }
 
+double get_fraction_of_ns(const string& seq) {
+    double n_frac = 0.;
+    if (!seq.empty()) {
+        size_t n_count = 0;
+        for (char c : seq) {
+            if (c == 'n' || c == 'N') {
+                ++n_count;
+            }
+        }
+        n_frac = (double)n_count/(double) seq.length();
+    }
+    return n_frac;
+}
+
 int get_thread_count(void) {
     int thread_count = 1;
 #pragma omp parallel
@@ -85,21 +111,86 @@ int get_thread_count(void) {
     return thread_count;
 }
 
-std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems) {
-    char* tok;
-    char cchars [s.size()+1];
-    char* cstr = &cchars[0];
-    strcpy(cstr, s.c_str());
-    tok = strtok(cstr, delims.c_str());
-    while (tok != NULL) {
-        elems.push_back(tok);
-        tok = strtok(NULL, delims.c_str());
+void choose_good_thread_count() {
+    // If we leave this at 0, we won't apply any thread count and leave whatever OMP defaults to.
+    int count = 0;
+
+    if (count == 0) {
+        // First priority: OMP_NUM_THREADS
+        const char* value = getenv("OMP_NUM_THREADS");
+        if (value) {
+            // Read the value. Throws if it isn't a legit number.
+            count = std::stoi(value);
+        }
+    }
+
+    if (count == 0) {
+        // Next priority: /sys/fs/cgroup/cpu/cpu.cfs_quota_us over /sys/fs/cgroup/cpu/cpu.cfs_period_us
+        ifstream quota_file("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+        ifstream period_file("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+
+        if (quota_file && period_file) {
+            // Read the period and quota
+            int64_t quota;
+            quota_file >> quota;
+            int64_t period;
+            period_file >> period;
+
+            if (quota >= 0 && period != 0) {
+                // Compute how many threads we may use.
+                // May come out to 0, in which case it is ignored.
+                count = (int) ceil(quota / (double) period);
+            }
+        }
+    }
+
+    if (count == 0) {
+        // Next priority: hardware concurrency as reported by the STL.
+        // This may itself be 0 if ungettable.
+        count = std::thread::hardware_concurrency();
+    }
+    
+    if (count != 0) {
+        omp_set_num_threads(count);
+    }
+}
+
+std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems, size_t max_cuts) {
+    size_t start = string::npos;
+    size_t cuts = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (delims.find(s[i]) != string::npos && cuts < max_cuts) {
+            if (start != string::npos && i > start) {
+                elems.push_back(s.substr(start, i - start));
+            }
+            start = string::npos;
+            ++cuts;
+        } else if (start == string::npos) {
+            start = i;
+        }
+    }
+    if (start != string::npos && start < s.size()) {
+        elems.push_back(s.substr(start, s.size() - start));
     }
     return elems;
 }
-std::vector<std::string> split_delims(const std::string &s, const std::string& delims) {
+
+std::vector<std::string> split_delims(const std::string &s, const std::string& delims, size_t max_cuts) {
     std::vector<std::string> elems;
-    return split_delims(s, delims, elems);
+    return split_delims(s, delims, elems, max_cuts);
+}
+
+bool starts_with(const std::string& value, const std::string& prefix) {
+#if __cplusplus > 201703L
+    // C++20 provides this
+    return value.starts_with(prefix);
+#else
+    // Before then, C++ is terrible and we have to do it ourselves.
+    if (value.size() < prefix.size()) {
+        return false;
+    }
+    return std::equal(prefix.begin(), prefix.end(), value.begin());
+#endif
 }
 
 const std::string sha1sum(const std::string& data) {
@@ -136,6 +227,10 @@ bool is_number(const std::string& s) {
                         [](char c) { return !std::isdigit(c); }) == s.end();
 }
 
+bool isATGC(const char& b) {
+    return (b == 'A' || b == 'T' || b == 'G' || b == 'C');
+}
+
 bool allATGC(const string& s) {
     for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
         char b = *c;
@@ -167,6 +262,20 @@ string nonATGCNtoN(const string& s) {
     return n;
 }
 
+string allAmbiguousToN(const string& s) {
+    auto n = s;
+    for (string::iterator c = n.begin(); c != n.end(); ++c) {
+        char b = *c;
+        if (b == 'M' || b == 'R' || b == 'W' || b == 'S' || b == 'Y' ||
+            b == 'K' || b == 'V' || b == 'H' || b == 'D' || b == 'B') {
+            // Replace known IUPAC ambiguity codes with N.
+            // Leave weird things like '-' or '*' which should be errors.
+            *c = 'N';
+        }
+    }
+    return n;
+}
+
 string toUppercase(const string& s) {
     auto n = s;
     for (string::iterator c = n.begin(); c != n.end(); ++c) {
@@ -177,56 +286,115 @@ string toUppercase(const string& s) {
     return n;
 }
 
+void toUppercaseInPlace(string& s) {
+    for (int i = 0; i < s.size(); ++i) {
+        s[i] = toupper(s[i]);
+    }
+}
+
+void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width) {
+    os << ">" << name << "\n";
+    for (size_t written = 0; written < sequence.length(); written += width) {
+        os << sequence.substr(written, min(width, sequence.length() - written)) << "\n";
+    }
+    os << flush;
+}
+
 namespace temp_file {
 
 // We use this to make the API thread-safe
-recursive_mutex monitor;
+static recursive_mutex monitor;
 
-string temp_dir;
+static string temp_dir;
 
 /// Because the names are in a static object, we can delete them when
 /// std::exit() is called.
 struct Handler {
-    set<string> filenames;
+    /// What temp files have we handed out?
+    unordered_set<string> filenames;
+    
+    /// What temp directories have we handed out
+    unordered_set<string> dirnames;
+    
+    /// Place where all temporary files for this vg invocation live.
     string parent_directory;
+    
+    /// Make sure the parent directory for all our temporary files and
+    /// directories exists.
+    void ensure_parent_directory() {
+        if (parent_directory.empty()) {
+            // Make a parent directory for our temp files
+            string tmpdirname = get_dir() + "/vg-XXXXXX";
+            auto got = mkdtemp(&tmpdirname[0]);
+            if (got != nullptr) {
+                // Save the directory we got
+                parent_directory = got;
+            } else {
+                cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpdirname << endl;
+                exit(1);
+            }
+        }
+    }
+    
+    /// Delete a directory and all files in it.
+    static void remove_directory(const string& name) {
+        // Open it up to get the files
+        auto directory = opendir(name.c_str());
+        
+        dirent* dp;
+        while ((dp = readdir(directory)) != nullptr) {
+            // For every item still in it
+            
+            if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
+                // This is a special here or up entry, so skip it.
+                continue;
+            }
+            
+            // Compute the full path
+            string path = name + "/" + dp->d_name;
+            
+            struct stat dp_stat;
+            stat(path.c_str(), &dp_stat);
+            if (S_ISDIR(dp_stat.st_mode) && !S_ISLNK(dp_stat.st_mode)) {
+                // It's a directory and may have stuff in it.
+                // It isn't a link to some other random place (unless the
+                // current user is tampering with their own temp files to
+                // delete their own stuff).
+                // Clear it out.
+                remove_directory(path);
+            } else {
+                // Normal file or symlink.
+                // Delete just it.
+                std::remove(path.c_str());
+            }
+        }
+        closedir(directory);
+        
+        // Delete the directory itself
+        std::remove(name.c_str());
+    }
+
     ~Handler() {
         // No need to lock in static destructor
         for (auto& filename : filenames) {
             std::remove(filename.c_str());
         }
+        for (auto& dirname : dirnames) {
+            remove_directory(dirname);
+        }
         if (!parent_directory.empty()) {
             // There may be extraneous files in the directory still (like .fai files)
-            auto directory = opendir(parent_directory.c_str());
-            
-            dirent* dp;
-            while ((dp = readdir(directory)) != nullptr) {
-                // For every item still in it, delete it.
-                // TODO: Maybe eventually recursively delete?
-                std::remove((parent_directory + "/" + dp->d_name).c_str());
-            }
-            closedir(directory);
-            
-            // Delete the directory itself
-            std::remove(parent_directory.c_str());
+            remove_directory(parent_directory);
         }
     }
-} handler;
+};
+// make a static instance so that its destructor is called from std::exit()
+static Handler handler;
 
 string create(const string& base) {
     lock_guard<recursive_mutex> lock(monitor);
 
-    if (handler.parent_directory.empty()) {
-        // Make a parent directory for our temp files
-        string tmpdirname = get_dir() + "/vg-XXXXXX";
-        auto got = mkdtemp(&tmpdirname[0]);
-        if (got != nullptr) {
-            // Save the directory we got
-            handler.parent_directory = got;
-        } else {
-            cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpdirname << endl;
-            exit(1);
-        }
-    }
+    handler.ensure_parent_directory(); 
 
     string tmpname = handler.parent_directory + "/" + base + "XXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
@@ -248,33 +416,74 @@ string create() {
     return create("vg-");
 }
 
+string create_directory() {
+    lock_guard<recursive_mutex> lock(monitor);
+    
+    handler.ensure_parent_directory(); 
+
+    string tmpname = handler.parent_directory + "/dir-XXXXXX";
+    auto got = mkdtemp(&tmpname[0]);
+    if (got != nullptr) {
+        // Save the directory we got
+        handler.dirnames.insert(got);
+        return got;
+    } else {
+        cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpname << endl;
+        exit(1);
+    }
+}
+
 void remove(const string& filename) {
     lock_guard<recursive_mutex> lock(monitor);
     
-    std::remove(filename.c_str());
-    handler.filenames.erase(filename);
+    if (handler.dirnames.count(filename)) {
+        handler.remove_directory(filename);
+        handler.dirnames.erase(filename);
+    } else if (handler.filenames.count(filename)) {
+        std::remove(filename.c_str());
+        handler.filenames.erase(filename);
+    } else {
+        // Probably e.g. a .fai file. Just remove it and fail if it's a
+        // nonempty directory.
+        std::remove(filename.c_str());
+    }
+}
+
+void forget() {
+    lock_guard<recursive_mutex> lock(monitor);
+    
+    // forget in our submodules as well
+    xg::temp_file::forget();
+    gbwt::TempFile::forget();
+    gcsa::TempFile::forget();
+    
+    handler.filenames.clear();
+    handler.dirnames.clear();
+    handler.parent_directory.clear();
+}
+
+void set_system_dir() {
+    const char* system_temp_dir = nullptr;
+    for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
+        if (system_temp_dir == nullptr) {
+            system_temp_dir = getenv(var_name);
+        }
+    }
+    set_dir(system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
 }
 
 void set_dir(const string& new_temp_dir) {
     lock_guard<recursive_mutex> lock(monitor);
-    
     temp_dir = new_temp_dir;
+
+    // Several submodules use their own temporary directories.
+    gcsa::TempFile::setDirectory(temp_dir);
+    gbwt::TempFile::setDirectory(temp_dir);
+    xg::temp_file::set_dir(temp_dir);
 }
 
 string get_dir() {
     lock_guard<recursive_mutex> lock(monitor);
-
-    // Get the default temp dir from environment variables.
-    if (temp_dir.empty()) {
-        const char* system_temp_dir = nullptr;
-        for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
-            if (system_temp_dir == nullptr) {
-                system_temp_dir = getenv(var_name);
-            }
-        }
-        temp_dir = (system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
-    }
-
     return temp_dir;
 }
 
@@ -304,27 +513,17 @@ string make_variant_id(const vcflib::Variant& variant) {
     std::stringstream variant_stringer;
     variant_stringer << variant.sequenceName << '\n';
     variant_stringer << variant.position << '\n';
-    variant_stringer << variant.ref << '\n';
+    // Case insensitive so we can use this function to get ids consistent with
+    // vg construct (which converts to uppercase before assigning ids)
+    variant_stringer << toUppercase(variant.ref) << '\n';
     for (auto& alt : variant.alt) {
-        variant_stringer << alt << '\n';
+      variant_stringer << toUppercase(alt) << '\n';
     }
     hasher.update(variant_stringer.str());
 
     // Name the variant with the hex hash. Will be unique unless two
     // identical variants are in the file.
     return hasher.final();
-}
-
-double median(std::vector<int> &v) {
-    size_t n = v.size() / 2;
-    std::nth_element(v.begin(), v.begin()+n, v.end());
-    int vn = v[n];
-    if (v.size()%2 == 1) {
-        return vn;
-    } else {
-        std::nth_element(v.begin(), v.begin()+n-1, v.end());
-        return 0.5*(vn+v[n-1]);
-    }
 }
     
 vector<size_t> range_vector(size_t begin, size_t end) {
@@ -336,6 +535,31 @@ vector<size_t> range_vector(size_t begin, size_t end) {
     return range;
 }
 
+std::vector<size_t> stack_permutations(const std::vector<size_t>& bottom, const std::vector<size_t>& top) {
+    std::vector<size_t> result;
+    result.reserve(top.size());
+    for (auto& index : top) {
+        result.push_back(bottom[index]);
+    }
+    return result;
+}
+
+bool have_input_file(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Out of arguments
+        return false;
+    }
+    
+    if (argv[optind][0] == '\0') {
+        // File name is empty
+        return false;
+    }
+    
+    // Otherwise we found one
+    return true;
+}
+
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {
     
     // Just combine the two operations below in the way they're supposed to be used together    
@@ -343,7 +567,7 @@ void get_input_file(int& optind, int argc, char** argv, function<void(istream&)>
 
 }
 
-string get_input_file_name(int& optind, int argc, char** argv) {
+string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
@@ -356,6 +580,13 @@ string get_input_file_name(int& optind, int argc, char** argv) {
     if (file_name.empty()) {
         cerr << "error:[get_input_file_name] specify a non-empty input filename" << endl;
         exit(1);
+    }
+
+    if (test_open && file_name != "-") {
+        ifstream file_stream(file_name);
+        if (!file_stream) {
+            cerr << "error:[get_input_file_name] unable to open input file: " << file_name << endl;
+        }
     }
     
     return file_name;
@@ -400,89 +631,39 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
     
 }
 
-double phi(double x1, double x2) {
-    return (std::erf(x2/std::sqrt(2)) - std::erf(x1/std::sqrt(2)))/2;
+pair<string, string> split_ext(const string& filename) {
+    pair<string, string> parts;
+
+    size_t dot = filename.rfind('.');
+    
+    if (dot == string::npos) {
+        // Put it all in the first part
+        parts.first = filename;
+    } else {
+        // Split on either side of the dot.
+        parts.first = filename.substr(0, dot);
+        parts.second = filename.substr(dot + 1);
+    }
+    
+    return parts;
 }
 
-// Modified from qnorm function in R source:
-// https://svn.r-project.org/R/trunk/src/nmath/qnorm.c
-double normal_inverse_cdf(double p) {
-    assert(0.0 < p && p < 1.0);
-    double q, r, val;
-    
-    q = p - 0.5;
-    
-    /*-- use AS 241 --- */
-    /* double ppnd16_(double *p, long *ifault)*/
-    /*      ALGORITHM AS241  APPL. STATIST. (1988) VOL. 37, NO. 3
-     
-     Produces the normal deviate Z corresponding to a given lower
-     tail area of P; Z is accurate to about 1 part in 10**16.
-     
-     (original fortran code used PARAMETER(..) for the coefficients
-     and provided hash codes for checking them...)
-     */
-    if (fabs(q) <= .425) {/* 0.075 <= p <= 0.925 */
-        r = .180625 - q * q;
-        val =
-        q * (((((((r * 2509.0809287301226727 +
-                   33430.575583588128105) * r + 67265.770927008700853) * r +
-                 45921.953931549871457) * r + 13731.693765509461125) * r +
-               1971.5909503065514427) * r + 133.14166789178437745) * r +
-             3.387132872796366608)
-        / (((((((r * 5226.495278852854561 +
-                 28729.085735721942674) * r + 39307.89580009271061) * r +
-               21213.794301586595867) * r + 5394.1960214247511077) * r +
-             687.1870074920579083) * r + 42.313330701600911252) * r + 1.);
+string file_base_name(const string& filename) {
+    size_t slash = filename.rfind('/');
+    if (slash == string::npos) {
+        return split_ext(filename).first;
+    } else {
+        return split_ext(filename.substr(slash + 1)).first;
     }
-    else { /* closer than 0.075 from {0,1} boundary */
-        
-        /* r = min(p, 1-p) < 0.075 */
-        if (q > 0)
-            r = 1.0 - p;
-        else
-            r = p;
-        
-        r = sqrt(- log(r));
-        /* r = sqrt(-log(r))  <==>  min(p, 1-p) = exp( - r^2 ) */
-        
-        if (r <= 5.) { /* <==> min(p,1-p) >= exp(-25) ~= 1.3888e-11 */
-            r += -1.6;
-            val = (((((((r * 7.7454501427834140764e-4 +
-                         .0227238449892691845833) * r + .24178072517745061177) *
-                       r + 1.27045825245236838258) * r +
-                      3.64784832476320460504) * r + 5.7694972214606914055) *
-                    r + 4.6303378461565452959) * r +
-                   1.42343711074968357734)
-            / (((((((r *
-                     1.05075007164441684324e-9 + 5.475938084995344946e-4) *
-                    r + .0151986665636164571966) * r +
-                   .14810397642748007459) * r + .68976733498510000455) *
-                 r + 1.6763848301838038494) * r +
-                2.05319162663775882187) * r + 1.);
-        }
-        else { /* very close to  0 or 1 */
-            r += -5.;
-            val = (((((((r * 2.01033439929228813265e-7 +
-                         2.71155556874348757815e-5) * r +
-                        .0012426609473880784386) * r + .026532189526576123093) *
-                      r + .29656057182850489123) * r +
-                     1.7848265399172913358) * r + 5.4637849111641143699) *
-                   r + 6.6579046435011037772)
-            / (((((((r *
-                     2.04426310338993978564e-15 + 1.4215117583164458887e-7)*
-                    r + 1.8463183175100546818e-5) * r +
-                   7.868691311456132591e-4) * r + .0148753612908506148525)
-                 * r + .13692988092273580531) * r +
-                .59983220655588793769) * r + 1.);
-        }
-        
-        if(q < 0.0)
-            val = -val;
-        /* return (q >= 0.)? r : -r ;*/
-    }
-    return val;
 }
+
+bool file_exists(const string& filename) {
+    // TODO: use C++17 features to actually poll existence.
+    // For now we see if we can open it.
+    ifstream in(filename);
+    return in.is_open();
+}
+
     
 void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
     // Set the ref allele
@@ -532,36 +713,6 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
     return variant.alleles.size() - 1;
 }
 
-// https://stackoverflow.com/a/19039500/238609
-double slope(const std::vector<double>& x, const std::vector<double>& y) {
-    const auto n    = x.size();
-    const auto s_x  = std::accumulate(x.begin(), x.end(), 0.0);
-    const auto s_y  = std::accumulate(y.begin(), y.end(), 0.0);
-    const auto s_xx = std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
-    const auto s_xy = std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
-    const auto a    = (n * s_xy - s_x * s_y) / (n * s_xx - s_x * s_x);
-    return a;
-}
-
-//https://stats.stackexchange.com/a/7459/14524
-// returns alpha parameter of zipf distribution
-double fit_zipf(const vector<double>& y) {
-    // assume input is log-scaled
-    // fit a log-log model
-    assert(y.size());
-    vector<double> ly(y.size());
-    for (int i = 0; i < ly.size(); ++i) {
-        //cerr << y[i] << " ";
-        ly[i] = log(y[i]);
-    }
-    //cerr << endl;
-    vector<double> lx(y.size());
-    for (int i = 1; i <= lx.size(); ++i) {
-        lx[i-1] = log(i);
-    }
-    return -slope(lx, ly);
-}
-
 // exponentiation by squaring as implemented in
 // https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
 size_t integer_power(uint64_t base, uint64_t exponent) {
@@ -607,6 +758,18 @@ string random_sequence(size_t length) {
     return seq;
 }
 
+string pseudo_random_sequence(size_t length, uint64_t seed) {
+    static const string alphabet = "ACGT";
+    mt19937_64 gen(1357908642ull * seed + 80085ull);
+    vg::uniform_int_distribution<char> distr(0, 3);
+    
+    string seq(length, '\0');
+    for (size_t i = 0; i < length; i++) {
+        seq[i] = alphabet[distr(gen)];
+    }
+    return seq;
+}
+
 string replace_in_string(string subject,
                          const string& search,
                          const string& replace) {
@@ -620,6 +783,123 @@ string replace_in_string(string subject,
 
 string percent_url_encode(const string& seq) {
     return replace_in_string(seq, "%", "%25");
+}
+
+LazyRNG::LazyRNG(const std::function<string(void)>& get_seed) : get_seed(get_seed) {
+    // Nothing to do
+}
+
+minstd_rand::result_type LazyRNG::operator()() {
+    if (!rng) {
+        // Make sure the RNG is initialized
+        string seed = get_seed();
+        
+        // Turn the string into a 32-bit number.
+        uint32_t seedNumber = 0;
+        for (uint8_t byte : seed) {
+            // Sum up with primes and overflow.
+            // TODO: this is a bit of a bad hash function but it should be good enough.
+            seedNumber = seedNumber * 13 + byte;
+        }
+        
+        rng = make_unique<minstd_rand>(seedNumber);
+    }
+    return (*rng)();
+}
+
+bool deterministic_flip(LazyRNG& rng) {
+    return rng() % 2;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under) {
+    
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, pair<id_t, bool>>& node_trans : over) {
+        const pair<id_t, bool>& trans_thru = under.at(node_trans.second.first);
+        overlaid[node_trans.first] = make_pair(trans_thru.first, trans_thru.second != node_trans.second.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under) {
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, id_t>& node_trans : over) {
+        overlaid[node_trans.first] = under.at(node_trans.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, id_t>& under) {
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, pair<id_t, bool>>& node_trans : over) {
+        overlaid[node_trans.first] = make_pair(under.at(node_trans.second.first), node_trans.second.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                    const unordered_map<id_t, id_t>& under) {
+    unordered_map<id_t, id_t> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, id_t>& node_trans : over) {
+        overlaid[node_trans.first] = under.at(node_trans.second);
+    }
+    return overlaid;
+}
+
+template<>
+bool parse(const string& arg, double& dest) {
+    size_t after;
+    dest = std::stod(arg, &after);
+    return(after == arg.size());
+}
+
+template<>
+bool parse(const string& arg, std::regex& dest) {
+    // This throsw std::regex_error if it can't parse.
+    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
+    dest = std::regex(arg);
+    return true;
+}
+
+template<>
+bool parse(const string& arg, pos_t& dest) {
+    const char* cursor = arg.c_str();
+    // The STL cheats and breaks constness here.
+    char* next = nullptr;
+    // Read the node ID
+    get_id(dest) = std::strtoull(cursor, &next, 10);
+    if (next == nullptr || *next == '\0' || id(dest) == 0) {
+        // Out of parts or didn't get an ID
+        return false;
+    }
+    if (*next == '+') {
+        get_is_rev(dest) = false;
+    } else if (*next == '-') {
+        get_is_rev(dest) = true;
+    } else {
+        // No separator character
+        return false;
+    }
+    cursor = next;
+    ++cursor;
+    if (*cursor == '\0') {
+        // No offset
+        return false;
+    }
+    // Parse the offset
+    get_offset(dest) = std::strtoull(cursor, &next, 10);
+    if (next == nullptr || *next != '\0') {
+        // We didn't consume the rest of the string
+        return false;
+    }
+    return true;
 }
 
 }

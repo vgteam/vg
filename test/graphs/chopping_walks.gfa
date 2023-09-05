@@ -1,0 +1,13 @@
+H	VN:Z:1.1
+S	1	G
+S	2	A
+S	3	T
+S	4	GGG
+S	5	T
+S	6	A
+S	7	C
+S	8	A
+S	9	A
+W	short	1	chr	0	8	>1>4>5>6>7>9
+W	alt	0	chr	0	9	>1>2>4>5>6>8>9
+W	short	2	chr	0	8	>1>4>5>6>7>9

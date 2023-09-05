@@ -10,8 +10,7 @@
 #include <math.h>
 #include "vg.hpp"
 #include "mapper.hpp"
-#include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 /** \file
  * Provides a way to filter Edits contained
@@ -21,6 +20,56 @@
  *
  */
 namespace vg{
+
+struct BREAKPOINT{
+    string name;
+    Position position;
+    vector<BREAKPOINT> mates;
+    
+    string contig;
+    int64_t start = -1;
+    int64_t upper_bound = 100;
+    int64_t lower_bound = 100;
+    
+    // Does the breakpoint point this way --->>
+    // or this way <<---
+    bool isForward;
+    // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+    int SV_TYPE = 0;
+    //
+    
+    int normal_supports = 0;
+    int tumor_supports = 0;
+    
+    int fragl_supports = 0;
+    int split_supports = 0;
+    int other_supports = 0;
+    
+    inline int total_supports(){
+        return fragl_supports + split_supports + other_supports;
+    }
+    inline bool overlap(BREAKPOINT p, int dist){
+        
+        if (start > -1 ){
+            if ( abs(start - p.start) < dist){
+                return true;
+            }
+        }
+        else{
+            if (position.node_id() == p.position.node_id() && abs(position.offset() - p.position.offset()) < dist){
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    inline string to_string(){
+        stringstream x;
+        x << "Pos: " << start << " u: " << upper_bound << " l: " << lower_bound << " s: " << total_supports();
+        return x.str();
+    }
+    
+};
 
 class Filter{
     public:
@@ -96,13 +145,13 @@ class Filter{
         void set_split_read_limit(int split_limit);
         void set_window_length(int window_length);
         void set_my_vg(vg::VG* vg);
-        void set_my_xg_idx(xg::XG* xg_idx);
+        void set_my_path_position_graph(PathPositionHandleGraph* graph);
         void set_inverse(bool do_inv);
 
         void init_mapper();
 
         vg::VG* my_vg = NULL;
-        xg::XG* my_xg_index = NULL;
+        PathPositionHandleGraph* my_path_position_graph = NULL;
         gcsa::GCSA* gcsa_ind;
         gcsa::LCPArray * lcp_ind;
         Mapper* my_mapper;
