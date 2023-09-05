@@ -133,6 +133,15 @@ public:
     /// seeds are printed as their positions
     void print_self() const;
 
+    /// Is the given node in a multicomponent chain, looping chain, or anything else that would cause
+    /// it to not have exact distances?
+    /// The distances are only guaranteed to be correct up to the given distance limit
+    /// Cyclic snarls don't count as being invalid
+    bool node_is_invalid(nid_t id, const SnarlDistanceIndex& distance_index, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+
+    /// Is the node in a cyclic (non-dag) snarl?
+    bool node_is_in_cyclic_snarl(nid_t id, const SnarlDistanceIndex& distance_index) const; 
+
     ///Check that the tree is correct
     void validate_zip_tree(const SnarlDistanceIndex& distance_index, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
