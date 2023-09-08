@@ -1,6 +1,6 @@
 #include "gfa_to_handle.hpp"
 #include "../path.hpp"
-
+#include "../rgfa.hpp"
 #include <gbwtgraph/utils.h>
 
 namespace vg {
@@ -300,16 +300,24 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                 // Start later than 0
                 subrange = std::pair<int64_t, int64_t>(offset, PathMetadata::NO_END_POSITION);
             }
+
+            string rgfa_path_name;
+            if (path_rank > 0) {
+                // Special logic for off-reference paths, which get loaded into special rGFA cover paths
+                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length);
+            } else {
+                // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
+                rgfa_path_name = PathMetadata::create_path_name(PathSense::GENERIC,
+                                                                PathMetadata::NO_SAMPLE_NAME,
+                                                                path_name, 
+                                                                PathMetadata::NO_HAPLOTYPE,
+                                                                PathMetadata::NO_PHASE_BLOCK,
+                                                                subrange);
+            }
+            path_handle_t path = graph->create_path_handle(rgfa_path_name);
             
-            // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
-            path_handle_t path = graph->create_path(PathSense::GENERIC,
-                                                    PathMetadata::NO_SAMPLE_NAME,
-                                                    path_name, 
-                                                    PathMetadata::NO_HAPLOTYPE,
-                                                    PathMetadata::NO_PHASE_BLOCK,
-                                                    subrange);
             // Then cache it
-            found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));
+            found = rgfa_cache->emplace_hint(found, rgfa_path_name, std::make_pair(path, offset));
         }
         
         // Add the step to the path
