@@ -337,6 +337,10 @@ int32_t main_rna(int32_t argc, char** argv) {
         for (auto & filename: intron_filenames) {
 
             auto intron_stream = new ifstream(filename);
+            if (!(*intron_stream)) {
+                cerr << "ERROR: intron file " << filename << " could not be opened" << endl;
+                return 1;
+            }
             intron_streams.emplace_back(intron_stream);
         }
 
@@ -364,6 +368,10 @@ int32_t main_rna(int32_t argc, char** argv) {
         for (auto & filename: transcript_filenames) {
 
             auto transcript_stream = new ifstream(filename);
+            if (!(*transcript_stream)) {
+                cerr << "ERROR: transcript file " << filename << " could not be opened" << endl;
+                return 1;
+            }
             transcript_streams.emplace_back(transcript_stream);
         }
 
@@ -372,7 +380,6 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         if (show_progress) { cerr << "[vg rna] Transcripts parsed and graph updated in " << gcsa::readTimer() - time_transcript_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
-
 
     if (!transcript_streams.empty() && (!haplotype_index->empty() || proj_emded_paths) && !use_hap_ref) {
 

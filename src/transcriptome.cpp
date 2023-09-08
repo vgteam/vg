@@ -200,7 +200,7 @@ CompletedTranscriptPath::CompletedTranscriptPath(const EditedTranscriptPath & ed
     is_haplotype = edited_transcript_path_in.is_haplotype;
 
     path.reserve(edited_transcript_path_in.path.mapping_size());
-
+    
     for (auto mapping: edited_transcript_path_in.path.mapping()) {
 
         auto handle = mapping_to_handle(mapping, graph);
@@ -356,12 +356,12 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
     if (use_haplotype_paths) {
 
         // Construct edited reference transcript paths using haplotype GBWT paths.
-        edited_transcript_paths = construct_reference_transcript_paths_gbwt(transcripts, *haplotype_index);
+        edited_transcript_paths = move(construct_reference_transcript_paths_gbwt(transcripts, *haplotype_index));
 
     } else {
 
         // Construct edited reference transcript paths using embedded graph paths.
-        edited_transcript_paths = construct_reference_transcript_paths_embedded(transcripts, graph_path_pos_overlay);
+        edited_transcript_paths = move(construct_reference_transcript_paths_embedded(transcripts, graph_path_pos_overlay));
     } 
 
     if (show_progress) { cerr << "\tConstructed " << edited_transcript_paths.size() << " reference transcript paths" << endl; };
@@ -449,7 +449,7 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
 
     // Project and add transcripts to transcriptome.
     project_haplotype_transcripts(transcripts, haplotype_index, graph_path_pos_overlay, proj_emded_paths, mean_node_length());
-
+    
     // Augment splice graph with new splice-junction edges.    
     add_splice_junction_edges(_transcript_paths);
 
@@ -961,7 +961,7 @@ void Transcriptome::construct_reference_transcript_paths_embedded_callback(list<
 
         // Get next transcript belonging to current thread.
         const Transcript & transcript = transcripts.at(transcripts_idx);
-
+        
         // Construct edited transcript paths.
         auto new_edited_transcript_paths = project_transcript_embedded(transcript, graph_path_pos_overlay, true, false);
 
@@ -1003,7 +1003,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
         exon_end_node_path_steps.emplace_back(multimap<path_handle_t, step_handle_t>());
         exon_end_node_path_steps.back().emplace(exon_path_handle, exon.border_steps.second);
-
+        
         if (use_haplotype_paths) {
 
             auto start_border_is_reverse = _graph->get_is_reverse(_graph->get_handle_of_step(exon.border_steps.first));
@@ -1062,7 +1062,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
             continue;
         }
-
+        
         list<EditedTranscriptPath> cur_edited_transcript_paths;
 
         // Construct transcript path and set transcript origin name.
@@ -1071,9 +1071,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
         bool is_partial = false;
 
         for (size_t exon_idx = 0; exon_idx < exon_start_node_path_steps.size(); ++exon_idx) {
-
+            
             if (is_partial) { break; }
-
             // Transcripts with cycles at both exon boundaries are currently 
             // not supported.
             // TODO: Add support for this.
@@ -1184,6 +1183,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     // be reverse complemented if transcript is on the '-' strand.
                     auto new_mapping = exon_path.add_mapping();
                     new_mapping->set_rank(exon_path.mapping_size());
+                    
 
                     new_mapping->mutable_position()->set_node_id(_graph->get_id(_graph->get_handle_of_step(haplotype_path_start_step)));
                     new_mapping->mutable_position()->set_offset(offset);
@@ -1193,7 +1193,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     auto new_edit = new_mapping->add_edit();
                     new_edit->set_from_length(edit_length);
                     new_edit->set_to_length(edit_length);
-                    
+                                        
                     if (haplotype_path_start_step == haplotype_path_end_step) { break; }
 
                     haplotype_path_start_step = _graph->get_next_step(haplotype_path_start_step);
@@ -1206,7 +1206,11 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
                     while (true) {
 
-                        exon_cur_edited_transcript_paths_base_it->path = concat_paths(exon_cur_edited_transcript_paths_base_it->path, exon_path);
+                        for (const Mapping& mapping : exon_path.mapping()) {
+                            auto new_mapping = exon_cur_edited_transcript_paths_base_it->path.add_mapping();
+                            *new_mapping = mapping;
+                            new_mapping->set_rank(exon_cur_edited_transcript_paths_base_it->path.mapping_size());
+                        }
 
                         if (exon_cur_edited_transcript_paths_base_it == cur_edited_transcript_paths_base_eit) { break; }
                         ++exon_cur_edited_transcript_paths_base_it;
@@ -1222,7 +1226,11 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
                         // If not last boundary combination copy current base transcipt path.
                         cur_edited_transcript_paths.emplace_back(*exon_cur_edited_transcript_paths_base_it);
-                        cur_edited_transcript_paths.back().path = concat_paths(cur_edited_transcript_paths.back().path, exon_path);
+                        for (const Mapping& mapping : exon_path.mapping()) {
+                            auto new_mapping = cur_edited_transcript_paths.back().path.add_mapping();
+                            *new_mapping = mapping;
+                            new_mapping->set_rank(cur_edited_transcript_paths.back().path.mapping_size());
+                        }
 
                         if (exon_cur_edited_transcript_paths_base_it == cur_edited_transcript_paths_base_eit) { break; }
                         ++exon_cur_edited_transcript_paths_base_it;
@@ -1244,6 +1252,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
         }
 
         if (!is_partial) {
+            
 
             auto cur_edited_transcript_paths_it = cur_edited_transcript_paths.begin();
 
@@ -1627,7 +1636,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
     for (size_t exon_idx = 0; exon_idx < cur_transcript.exons.size(); ++exon_idx) {
 
         const Exon & cur_exon = cur_transcript.exons.at(exon_idx);
-
+        
         // Add node exon boundary ids
         exon_node_ids.emplace_back(_graph->get_id(_graph->get_handle_of_step(cur_exon.border_steps.first)), _graph->get_id(_graph->get_handle_of_step(cur_exon.border_steps.second)));
 
@@ -1736,7 +1745,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
         }
 
         for (size_t exon_idx = 0; exon_idx < cur_transcript.exons.size(); ++exon_idx) {
-
+            
             const Exon & cur_exon = cur_transcript.exons.at(exon_idx);
 
             assert(gbwt::Node::id(haplotype.first.at(exon_idx).front()) == exon_node_ids.at(exon_idx).first);
@@ -1746,17 +1755,19 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
 
                 assert(haplotype.first.at(exon_idx).at(exon_node_idx) != gbwt::ENDMARKER);
 
+                
                 auto node_id = gbwt::Node::id(haplotype.first.at(exon_idx).at(exon_node_idx));
                 auto node_length = _graph->get_length(_graph->get_handle(node_id, false));
-
+                
                 int32_t offset = 0;
+                
 
                 // Adjust start position from exon border (last position in upstream intron)
                 // to first position in exon. Do not adjust if first position in path.
                 if ((cur_exon.coordinates.first > 0) && (exon_node_idx == 0)) {
 
                     if (cur_exon.border_offsets.first + 1 == node_length) {
-
+                        
                         assert(haplotype.first.at(exon_idx).size() > 1);
                         assert(node_id != exon_node_ids.at(exon_idx).second);
 
@@ -1769,7 +1780,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                 }
 
                 int32_t edit_length = node_length - offset;
-
+                
                 // Adjust end position from exon border (first position in downstream intron)
                 // to last position in exon. Do not adjust if last position in path.
                 if ((cur_exon.coordinates.second < cur_transcript.chrom_length - 1) && (exon_node_idx == haplotype.first.at(exon_idx).size() - 1)) {
@@ -2072,26 +2083,17 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
             assert(cur_mapping.edit_size() == 1);
             assert(edit_is_match(cur_mapping.edit(0)));
 
-            // Do not check if left boundary of start exon is novel.
-            if (!include_transcript_ends && i == 0) {
-
-                if (cur_mapping.position().offset() + cur_mapping.edit(0).from_length() != _graph->get_length(cur_handle)) {
-
-                    return true;
-                }
-
-            // Do not check if right boundary of end exon is novel.
-            } else if (!include_transcript_ends && i == transcript_path.path.mapping_size() - 1) {
-
+            if (include_transcript_ends || i != 0) {
+                // Check if left boundary is novel
                 if (cur_mapping.position().offset() > 0) {
-
                     return true;
                 }
-
-            // Check if both boundaries are novel.
-            } else if (cur_mapping.position().offset() > 0 || cur_mapping.edit(0).from_length() != _graph->get_length(cur_handle)) {
-
-                return true;
+            }
+            if (include_transcript_ends && i + 1 != transcript_path.path.mapping_size()) {
+                // Check if right boundary is novel
+                if (cur_mapping.position().offset() + cur_mapping.edit(0).from_length() != _graph->get_length(cur_handle)) {
+                    return true;
+                }
             }
         }
     }
