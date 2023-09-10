@@ -106,6 +106,9 @@ protected:
 
     vector<pair<step_handle_t, step_handle_t>> rgfa_intervals;
 
+    // so rgfa_intervals[0,num_ref_intervals-1] will be all rank-0 reference intervals
+    int64_t num_ref_intervals;
+
     unordered_map<nid_t, int64_t> node_to_interval;
 };
 
