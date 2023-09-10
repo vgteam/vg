@@ -96,8 +96,10 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             if (RGFACover::is_rgfa_path_name(graph->get_path_name(it->second.first))) {
                 std::tie(sample_name, locus_name) = RGFACover::parse_rgfa_locus_name(locus_name);
             }
-            string rgfa_sn = PathMetadata::create_path_name(PathSense::REFERENCE, sample_name, locus_name,
-                                                            haplotype, PathMetadata::NO_PHASE_BLOCK,
+            string rgfa_sn = PathMetadata::create_path_name(sample_name.empty() ? PathSense::GENERIC : PathSense::REFERENCE,
+                                                            sample_name, locus_name,
+                                                            sample_name.empty() ? PathMetadata::NO_HAPLOTYPE : haplotype,
+                                                            PathMetadata::NO_PHASE_BLOCK,
                                                             PathMetadata::NO_SUBRANGE);
             out << "\t" << "SN:Z:" << rgfa_sn
                 << "\t" << "SO:i:" << it->second.second

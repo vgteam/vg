@@ -2,7 +2,7 @@
 #include <sstream>
 #include <algorithm>
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -20,16 +20,19 @@ string RGFACover::make_rgfa_path_name(const string& path_name, int64_t start, in
     subrange_t path_subrange;
     PathMetadata::parse_path_name(path_name, path_sense, path_sample, path_locus,
                                   path_haplotype, path_phase_block, path_subrange);
+    if (path_subrange == PathMetadata::NO_SUBRANGE) {
+        path_subrange = make_pair(0, 0);
+    }
 
     // we move the sample into the locus
     // todo: is there something nicer?
     string rgfa_locus;        
     assert(path_locus != PathMetadata::NO_LOCUS_NAME);    
     if (path_sample != PathMetadata::NO_SAMPLE_NAME) {
-        rgfa_locus = "SN:Z:" + path_sample;
+        rgfa_locus = path_sample + "::";
     }
     // the contig name will be behind SC...
-    rgfa_locus += ":SC:Z:" + path_locus;
+    rgfa_locus += path_locus;
 
     // we apply the subrange offset
     path_subrange.first += start;
@@ -45,27 +48,22 @@ string RGFACover::make_rgfa_path_name(const string& path_name, int64_t start, in
 }
 
 bool RGFACover::is_rgfa_path_name(const string& path_name) {
-    return path_name == RGFACover::rgfa_sample_name;
+    return PathMetadata::parse_sample_name(path_name) == RGFACover::rgfa_sample_name;
 }
 
 pair<string, string> RGFACover::parse_rgfa_locus_name(const string& locus_name) {
-    pair<string, string> sample_locus;
-    vector<string> toks = split_delims(locus_name, ":");
-    assert(toks.size() % 3 == 0);
-    for (int64_t i = 0; i < toks.size(); i+=3) {
-        if (toks[i] == "SN") {
-            assert(toks[i+1] == "Z");
-            sample_locus.first = toks[i+2];
-        } else if (toks[i] == "SC") {
-            assert(toks[i+1] == "Z");
-            sample_locus.second = toks[i+2];
-        } else {
-            assert(false);
-        }
-    }
-    return sample_locus;    
-}
+    pair<string, string> sample_locus = make_pair(PathMetadata::NO_SAMPLE_NAME, PathMetadata::NO_LOCUS_NAME);
 
+    auto pos = locus_name.find("::");
+    if (pos != string::npos) {
+        sample_locus.first = locus_name.substr(0, pos);
+        sample_locus.second = locus_name.substr(pos + 2); 
+    } else {
+        sample_locus.second = locus_name;
+    }
+
+    return sample_locus;
+}    
 
 void RGFACover::clear(MutablePathMutableHandleGraph* graph) {
     vector<path_handle_t> rgfa_paths;
@@ -102,7 +100,12 @@ void RGFACover::compute(const PathHandleGraph* graph,
             node_to_interval[node_id] = rgfa_intervals.size() - 1;
         });
     }
+    this->num_ref_intervals = this->rgfa_intervals.size();
 
+#ifdef debug
+    cerr << "[rgfa] Selected " << rgfa_intervals.size() << " rank=0 reference paths" << endl;
+#endif
+    
     // we use the path traversal finder for everything
     // (even gbwt haplotypes, as we're using the path handle interface)
     PathTraversalFinder path_trav_finder(*graph, *snarl_manager);
@@ -146,6 +149,9 @@ void RGFACover::compute(const PathHandleGraph* graph,
         for (int64_t j = 0; j < rgfa_intervals_vector[t].size(); ++j) {
             this->rgfa_intervals.push_back(rgfa_intervals_vector[t][j]);
         }
+#ifdef debug
+        cerr << "Adding " << rgfa_intervals_vector[t].size() << " rgfa intervals from thread " << t << endl;
+#endif
         rgfa_intervals_vector[t].clear();
 
         for (const auto& node_interval : node_to_interval_vector[t]) {
@@ -175,6 +181,7 @@ void RGFACover::load(const PathHandleGraph* graph,
             node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = rgfa_intervals.size() - 1;
         });
     }
+    this->num_ref_intervals = this->rgfa_intervals.size();
 
     // then the rgfa cover paths
     // since we want to keep our structures in  terms of original paths, we have to map back
@@ -185,7 +192,8 @@ void RGFACover::load(const PathHandleGraph* graph,
     // (this does not make guarantees about degenerate fragmentation related cases tho)
     unordered_map<pair<string, string>, vector<path_handle_t>> sample_locus_to_paths;    
     graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
-        sample_locus_to_paths[parse_rgfa_locus_name(graph->get_path_name(path_handle))] = {};
+        string locus_name = graph->get_locus_name(path_handle);
+        sample_locus_to_paths[parse_rgfa_locus_name(locus_name)] = {};
     });
     graph->for_each_path_handle([&](path_handle_t path_handle) {
         pair<string, string> sample_locus = make_pair(graph->get_sample_name(path_handle), graph->get_locus_name(path_handle));
@@ -199,20 +207,30 @@ void RGFACover::load(const PathHandleGraph* graph,
     // so should probably have a better error message than the asserts below (ie if exact interval match not found)
     graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {    
         // pase the rgfa locus to get the original sample and locus
-        pair<string, string> source_sample_locus = parse_rgfa_locus_name(graph->get_path_name(path_handle));
+        pair<string, string> source_sample_locus = parse_rgfa_locus_name(graph->get_locus_name(path_handle));
         // find the sample in our index
         const vector<path_handle_t>& source_paths = sample_locus_to_paths.at(source_sample_locus);
         // find the containing path
         subrange_t rgfa_subrange = graph->get_subrange(path_handle);
         assert(rgfa_subrange != PathMetadata::NO_SUBRANGE);
         int64_t rgfa_haplotype = graph->get_haplotype(path_handle);
+        // allow match between 0 and NO_HAPLOTYPE
+        if (rgfa_haplotype == PathMetadata::NO_HAPLOTYPE) {
+            rgfa_haplotype = 0;
+        }
         const path_handle_t* source_path = nullptr;
         subrange_t source_subrange;
         for (const path_handle_t& source_path_candidate : source_paths) {
-            if (graph->get_haplotype(source_path_candidate) == rgfa_haplotype) {
+            int64_t source_haplotype = graph->get_haplotype(source_path_candidate);
+            if (source_haplotype == PathMetadata::NO_HAPLOTYPE) {
+                source_haplotype = 0;
+            }
+            if (source_haplotype == rgfa_haplotype) {
                 source_subrange = graph->get_subrange(source_path_candidate);
                 if (source_subrange == PathMetadata::NO_SUBRANGE) {
                     source_subrange.first = 0;
+                }
+                if (source_subrange == PathMetadata::NO_SUBRANGE || source_subrange.second == PathMetadata::NO_END_POSITION) {
                     source_subrange.second = 0;
                     graph->for_each_step_in_path(source_path_candidate, [&](step_handle_t step) {
                         source_subrange.second += graph->get_length(graph->get_handle_of_step(step));
@@ -241,7 +259,6 @@ void RGFACover::load(const PathHandleGraph* graph,
 
         bool found_end;
         step_handle_t source_end;
-        cur_offset = 0;
         for (step_handle_t cur_step = source_start; graph->has_next_step(cur_step); cur_step = graph->get_next_step(cur_step)) {
             if (cur_offset == rgfa_subrange.second) {
                 found_end = true;
@@ -268,38 +285,38 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     vector<int64_t> rgfa_offsets(this->rgfa_intervals.size());
     vector<int64_t> rgfa_lengths(this->rgfa_intervals.size());
 #pragma omp parallel for
-    for (int64_t i = 0; i < this->rgfa_intervals.size(); ++i) {
+    for (int64_t i = this->num_ref_intervals; i < this->rgfa_intervals.size(); ++i) {
         path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(rgfa_intervals[i].first);
-        // below check is because we don't write the reference path, which is in the cover but
-        // not using the naming convention
-        if (is_rgfa_path_name(graph->get_path_name(source_path_handle))) {
-            rgfa_offsets[i] = 0;
-            mutable_graph->for_each_step_in_path(source_path_handle, [&](step_handle_t step_handle) {
-                if (step_handle == rgfa_intervals[i].first) {
-                    return false;
-                }
-                rgfa_offsets[i] += graph->get_length(graph->get_handle_of_step(step_handle));
-                return true;
-            });
-            rgfa_lengths[i] = 0;
-            for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != rgfa_intervals[i].second;
-                 step_handle = mutable_graph->get_next_step(step_handle)) {
-                rgfa_lengths[i] += graph->get_length(graph->get_handle_of_step(step_handle));
+#ifdef debug
+        cerr << "computing offset for application of rgfa path " << graph->get_path_name(source_path_handle) << endl;
+#endif
+        rgfa_offsets[i] = 0;
+        mutable_graph->for_each_step_in_path(source_path_handle, [&](step_handle_t step_handle) {
+            if (step_handle == rgfa_intervals[i].first) {
+                return false;
             }
+            rgfa_offsets[i] += graph->get_length(graph->get_handle_of_step(step_handle));
+            return true;
+        });
+        rgfa_lengths[i] = 0;
+        step_handle_t last_step = mutable_graph->get_next_step(rgfa_intervals[i].second);
+        for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != last_step;
+             step_handle = mutable_graph->get_next_step(step_handle)) {
+            rgfa_lengths[i] += graph->get_length(graph->get_handle_of_step(step_handle));
+
         }
     }
 
     // write the rgfa paths
-    for (int64_t i = 0; i < this->rgfa_intervals.size(); ++i) {
+    for (int64_t i = this->num_ref_intervals; i < this->rgfa_intervals.size(); ++i) {
         path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(rgfa_intervals[i].first);
         string source_path_name = graph->get_path_name(source_path_handle);
-        if (is_rgfa_path_name(source_path_name)) {
-            string rgfa_path_name = make_rgfa_path_name(source_path_name, rgfa_offsets[i], rgfa_lengths[i]);
-            path_handle_t rgfa_path_handle = mutable_graph->create_path_handle(rgfa_path_name);
-            for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != rgfa_intervals[i].second;
-                 step_handle = mutable_graph->get_next_step(step_handle)) {
-                mutable_graph->append_step(rgfa_path_handle, mutable_graph->get_handle_of_step(step_handle));
-            }
+        string rgfa_path_name = make_rgfa_path_name(source_path_name, rgfa_offsets[i], rgfa_lengths[i]);
+        path_handle_t rgfa_path_handle = mutable_graph->create_path_handle(rgfa_path_name);
+        step_handle_t last_step = mutable_graph->get_next_step(rgfa_intervals[i].second);
+        for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != last_step;
+             step_handle = mutable_graph->get_next_step(step_handle)) {
+            mutable_graph->append_step(rgfa_path_handle, mutable_graph->get_handle_of_step(step_handle));
         }
     }
 
@@ -479,6 +496,13 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
         const vector<step_handle_t>& trav = travs.at(best_stats_fragment.second.first);
         const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.second.second;
 
+#ifdef debug
+        cerr << "best trav: ";
+        for (auto xx : trav) cerr << " " << graph->get_id(graph->get_handle_of_step(xx));
+        cerr << endl << "uncovered interval [" << uncovered_interval.first << "," << uncovered_interval.second << "]" <<endl;
+#endif
+            
+
         // our traversal may have been partially covered by a different iteration, if so, we need to break it up
         // and continue
         vector<pair<int64_t, int64_t>> chopped_intervals;
@@ -518,6 +542,9 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
         // add the interval to the local (thread safe) structures
         step_handle_t step = trav[uncovered_interval.first];
         int64_t interval_length = uncovered_interval.second - uncovered_interval.first;
+#ifdef debug
+        cerr << "adding interval with length " << interval_length << endl;
+#endif
         for (int64_t i = 0; i < interval_length; ++i) {
             thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = thread_rgfa_intervals.size();
             step = graph->get_next_step(step);
