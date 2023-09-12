@@ -472,6 +472,7 @@ class ZipCodeForest {
     /// Then, get new intervals whenever the order of the read disagrees with the order of the graph
     /// Re-order the new intervals by the first seed's offset in the read
     /// Returns the intervals on zipcode_sort_order
+    /// If there will be too many duplications of chains, give up and return an empty vector
     vector<interval_and_orientation_t> sort_zipcodes_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
                              size_t depth, const SnarlDistanceIndex& distance_index) const; 
 
