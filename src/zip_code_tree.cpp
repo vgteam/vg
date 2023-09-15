@@ -1937,14 +1937,17 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
         //This contains read offsets from before the snarl (or from the snarl if there was nothing before it in its parent)
         vector<size_t> preceding_offsets;
+
+        //Check up to this many seeds on each side
+        size_t check_count = 10;
         if (start_of_snarl == chain_interval.interval_start) {
             //If this is the first interval of the chain, then just take stuff from the snarl
-            for (int check_i = start_of_snarl ; check_i < end_of_snarl && check_i - start_of_snarl < 3; check_i++) {
+            for (int check_i = start_of_snarl ; check_i < end_of_snarl && check_i - start_of_snarl < 10; check_i++) {
                 preceding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
             }
         } else {
             //Otherwise, take seeds from before the snarl in the chain
-            for (int check_i = start_of_snarl-1 ; check_i >= chain_interval.interval_start && start_of_snarl - check_i <= 3; check_i--) {
+            for (int check_i = start_of_snarl-1 ; check_i >= chain_interval.interval_start && start_of_snarl - check_i <= 10; check_i--) {
                 preceding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
             }
         }
@@ -1953,12 +1956,12 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         vector<size_t> succeeding_offsets;
         if (end_of_snarl == chain_interval.interval_end) {
             //If there is nothing after, take from the snarl
-            for (int check_i = start_of_snarl ; check_i < end_of_snarl && check_i - start_of_snarl < 3; check_i++) {
+            for (int check_i = start_of_snarl ; check_i < end_of_snarl && check_i - start_of_snarl < 10; check_i++) {
                 succeeding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
             }
         } else {
             //Otherwise, take from whatever comes next in the chain
-            for (int check_i = end_of_snarl ; check_i < chain_interval.interval_end && check_i < end_of_snarl+3 ; check_i++) {
+            for (int check_i = end_of_snarl ; check_i < chain_interval.interval_end && check_i < end_of_snarl+10 ; check_i++) {
                 succeeding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
             }
         }
