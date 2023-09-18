@@ -1927,70 +1927,6 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         }
     };
 
-    //Returns true if a cyclic snarl gets traversed end-to-start in a forward traversal of the read
-    //Assumes that the parent of the cyclic snarl has been sorted
-    //The snarl has seed indices in forest_state.seed_sort_order [start_of_snarl, end_of_snarl)
-    auto cyclic_snarl_is_traversed_backwards = [&] (const interval_and_orientation_t& chain_interval,
-                                    size_t start_of_snarl, size_t end_of_snarl, const vector<size_t>& sort_order) {
-        //If this is a cyclic snarl, then check if it is being traversed forward or backward by the read
-        // Take a sample of seeds before and after the snarl to get the direction
-
-        //This contains read offsets from before the snarl (or from the snarl if there was nothing before it in its parent)
-        vector<size_t> preceding_offsets;
-
-        //Check up to this many seeds on each side
-        size_t check_count = 10;
-        if (start_of_snarl == chain_interval.interval_start) {
-            //If this is the first interval of the chain, then just take stuff from the snarl
-            for (int check_i = start_of_snarl ; check_i < end_of_snarl && check_i - start_of_snarl < 10; check_i++) {
-                preceding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
-            }
-        } else {
-            //Otherwise, take seeds from before the snarl in the chain
-            for (int check_i = start_of_snarl-1 ; check_i >= chain_interval.interval_start && start_of_snarl - check_i <= 10; check_i--) {
-                preceding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
-            }
-        }
-
-        //This contains read offsets from after the snarl
-        vector<size_t> succeeding_offsets;
-        if (end_of_snarl == chain_interval.interval_end) {
-            //If there is nothing after, take from the snarl
-            for (int check_i = start_of_snarl ; check_i < end_of_snarl && check_i - start_of_snarl < 10; check_i++) {
-                succeeding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
-            }
-        } else {
-            //Otherwise, take from whatever comes next in the chain
-            for (int check_i = end_of_snarl ; check_i < chain_interval.interval_end && check_i < end_of_snarl+10 ; check_i++) {
-                succeeding_offsets.emplace_back(seeds->at(sort_order[check_i]).source);
-            }
-        }
-#ifdef DEBUG_ZIP_CODE_SORTING
-        if (preceding_offsets.size() == 0 || succeeding_offsets.size() == 0) {
-            //If there is nothing to judge by, just say it isn't reversed
-            return false;
-            //TODO: I don't think this will happen. If there is nothing before or after, it will fill both in with the snarl
-            assert(false);
-        }
-#endif 
-        //Take the median of each vector and see which is greater
-        std::sort(preceding_offsets.begin(), preceding_offsets.end());
-        size_t median_preceding = preceding_offsets[ preceding_offsets.size() / 2];
-
-        std::sort(succeeding_offsets.begin(), succeeding_offsets.end());
-        size_t median_succeeding = succeeding_offsets[ succeeding_offsets.size() / 2];
-#ifdef DEBUG_ZIP_CODE_SORTING
-        cerr << "Preceeding: ";
-        for (auto x : preceding_offsets) { cerr << x << " ";}
-        cerr << endl << "Succeeding ";
-        for (auto x : succeeding_offsets) {cerr << x << " ";}
-        cerr << endl;
-#endif
-
-        return median_preceding > median_succeeding;
-
-    };
-
     //At the given depth, go through sort_order in the given interval to find the intervals for the next level 
     //and add to new_intervals
     auto find_next_intervals = [&] (const interval_and_orientation_t& interval,
@@ -2046,14 +1982,11 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
                 new_intervals.back().interval_end = i;
 
-                if (new_intervals.back().code_type == ZipCode::CYCLIC_SNARL) {
-                    new_intervals.back().is_reversed = cyclic_snarl_is_traversed_backwards(interval,
-                                    new_intervals.back().interval_start, i, sort_order); 
-                } else {
-                    new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(sort_order[i-1]), depth+1, distance_index) 
-                                         ? !interval.is_reversed
-                                         : interval.is_reversed;
-                }
+                
+                new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(sort_order[i-1]), depth+1, distance_index) 
+                                     ? !interval.is_reversed
+                                     : interval.is_reversed;
+               
  
 
                 //Open a new run
@@ -2064,16 +1997,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         //Close the last run
         new_intervals.back().interval_end = interval.interval_end;
 
-        //Get the orientation of the previous child
-        if (new_intervals.back().code_type == ZipCode::CYCLIC_SNARL) {
-            //For a cyclic snarl
-            new_intervals.back().is_reversed = cyclic_snarl_is_traversed_backwards(interval,
-                            new_intervals.back().interval_start, interval.interval_end, sort_order); 
-        } else {
-            new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(sort_order[interval.interval_end-1]), depth+1, distance_index) 
-                                 ? !interval.is_reversed
-                                 : interval.is_reversed;
-        }
+        new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(sort_order[interval.interval_end-1]), depth+1, distance_index) 
+                             ? !interval.is_reversed
+                             : interval.is_reversed;
 #ifdef DEBUG_ZIP_CODE_SORTING
         cerr << "New sort order " << endl;
         for (auto& interval : new_intervals) {
@@ -2121,20 +2047,6 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         const Seed& seed_to_sort = seeds->at(zipcode_sort_order[interval.interval_start]);
 
 
-
-        if (interval.code_type == ZipCode::CYCLIC_SNARL) {
-            // If this is a cyclic snarl, then the children should be sorted by both their position on the graph
-            // and their offset on the read
-
-            //First, figure out if the read flows through the snarl start-to-end or end-to-start
-
-            //Sort the snarl and get intervals of the snarl's children
-            auto new_intervals =  sort_zipcodes_on_cyclic_snarl(zipcode_sort_order, interval, interval_depth, distance_index);
-            if (new_intervals.size() != 0) {
-                return new_intervals;
-            }
-            //If finding intervals on the cyclic snarl failed, then keep going as if it wasn't cyclic
-        }
         //If this either wasn't a cyclic snarl or it was a cyclic snarl that failed
 
         // Sorting will either be done with radix sort or with std::sort, depending on which is more efficient
@@ -2305,211 +2217,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
     }
     cerr << endl;
 #endif
-
-    /**** For each child interval, sort the seeds by their offset in the read ****/
-
-    //Remember the largest and smallest read offsets, so we can determine if its faster to do radix or nlogn sort
-    size_t min_read_offset = seeds->at(zipcode_sort_order[interval.interval_start]).source;
-    size_t max_read_offset = min_read_offset; 
-
-    for (const interval_and_orientation_t& child_interval : child_intervals) {
-
-        //First, which sort should we use?
-        size_t radix_cost = max_read_offset - min_read_offset;
-        size_t default_cost = (child_interval.interval_end - child_interval.interval_start) * 
-                              std::log2(child_interval.interval_end - child_interval.interval_start);
-
-        bool use_radix = radix_cost < default_cost;
-
-        if (use_radix) {
-            radix_sort_zipcodes(zipcode_sort_order, child_interval, 
-                        interval.is_reversed, std::numeric_limits<size_t>::max(), distance_index,
-                        [&](const Seed& seed, size_t depth) {
-                            //Sort on the offset in the read
-                            return seed.source;
-                        });
-        } else {
-            default_sort_zipcodes(zipcode_sort_order, child_interval, 
-                        interval.is_reversed, std::numeric_limits<size_t>::max(), distance_index,
-                        [&](const Seed& seed, size_t depth) {
-                            //Sort on the offset in the read
-                            return seed.source;
-                        });
-        }
-    }
-
-#ifdef DEBUG_ZIP_CODE_SORTING
-    cerr << "After sorting children" << endl;
-    for (auto& interval : child_intervals) {
-        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(zipcode_sort_order[i]).pos << "/" << seeds->at(zipcode_sort_order[i]).source << ", ";
-        }
-        cerr << "|";
-    }
-    cerr << endl;
-#endif
-
-    /****** Find intervals along each child where the order of the read and the order in the chain disagree  *******/
-
-    //Helper function to get the prefix sum of the child on the chain (child of the cyclic snarl). 
-    //Used for ordering the children
-    auto get_prefix_sum = [&] (const Seed& seed) {
-        size_t prefix_sum;
-        if (seed.zipcode_decoder->max_depth() == depth+1) {
-            //If this is a node pretending to be a chain
-
-            //Just use the offset in the node
-            prefix_sum = seed.zipcode_decoder->get_is_reversed_in_parent(depth+1) != is_rev(seed.pos)
-                            ? seed.zipcode_decoder->get_length(depth+1) - offset(seed.pos)
-                            : offset(seed.pos);
-        } else if (seed.zipcode_decoder->get_code_type(depth+2) == ZipCode::REGULAR_SNARL 
-            || seed.zipcode_decoder->get_code_type(depth+2) == ZipCode::IRREGULAR_SNARL
-            || seed.zipcode_decoder->get_code_type(depth+2) == ZipCode::CYCLIC_SNARL) { 
-            //If this is a snarl, then get the prefix sum value*3 + 1
-            prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+2) * 3,  1);
-        } else {
-            //If this is a node, then get the prefix sum value plus the offset in the position, and multiply by 2 
-            size_t node_offset = seed.zipcode_decoder->get_is_reversed_in_parent(depth+2) != is_rev(seed.pos)
-                             ? seed.zipcode_decoder->get_length(depth+2) - offset(seed.pos)
-                             : offset(seed.pos);
-            prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(depth+2), node_offset);
-            prefix_sum *= 3;
-            if (node_offset == 0) {
-                prefix_sum = SnarlDistanceIndex::sum(prefix_sum, 2);
-            }
-        }
-        return prefix_sum;
-    };
-
-    vector<interval_and_orientation_t> read_intervals;
-    for (const interval_and_orientation_t& child_interval : child_intervals) {
-        //For each child interval, split into new intervals if the order in the read differs from the order in the graph
-        // The read may go through the child forwards, backwards, both, multiple times, etc.
-        // TODO: I don't know how to deal with this properly, so for now this will find slices of seeds that are monotonically
-        // increasing or decreasing along the child. Any time it switches (the next seed came before the previous in the chain),
-        // then start a new segment. The new segment's orientation will be determined by the seed after it.
-        // This is very easily broken but it's the best I can think of for now
-
-        enum orientation_t {FORWARD, BACKWARD, EQUAL};
-        //At first, we don't know if the current run of seeds is going forwards or backwards in the child
-        orientation_t current_orientation = EQUAL;
-
-        //Start a new read_interval, initially just the start, add the end when starting a new one
-        read_intervals.emplace_back(child_interval.interval_start, child_interval.interval_start, false, ZipCode::CHAIN);
-        size_t previous_prefix_sum = get_prefix_sum(seeds->at(zipcode_sort_order[child_interval.interval_start]));
-        for (size_t i = child_interval.interval_start+1 ; i < child_interval.interval_end ; i++) {
-            size_t current_prefix_sum = get_prefix_sum(seeds->at(zipcode_sort_order[i]));
-            if (current_orientation == EQUAL) {
-                // If we don't know yet what orientation this run is in, this seed will still be added to the
-                // current run, and we just need to check if there is a new orientation
-                if (previous_prefix_sum < current_prefix_sum) {
-                    current_orientation = FORWARD;
-                } else if (previous_prefix_sum > current_prefix_sum) {
-                    current_orientation = BACKWARD;
-                }
-                                       
-            } else if ((current_orientation == FORWARD && previous_prefix_sum > current_prefix_sum) ||
-                       (current_orientation == BACKWARD && previous_prefix_sum < current_prefix_sum)) {
-                //If we are currently traversing in a specific direction and the next seed is
-                // going in the opposite direction
-
-                //End the current run
-                read_intervals.back().interval_end = i;
-
-                //If the child chain is traversed backwards in its own local orientation
-                read_intervals.back().is_reversed = current_orientation == BACKWARD;
-
-                //Start a new run
-                read_intervals.emplace_back(i, i, false, ZipCode::CHAIN);
-
-                //We don't yet know the orientation of the next run, so leave it at EQUAL
-                current_orientation = EQUAL;
-            }
-
-            previous_prefix_sum = current_prefix_sum;
-        }
-        //Now end the last run
-        read_intervals.back().interval_end = child_interval.interval_end;
-        read_intervals.back().is_reversed = current_orientation == BACKWARD;
-    }
-
-    if (read_intervals.size() > 5*child_intervals.size()) {
-        //If there are more than 5 duplicates per child chain
-        vector<interval_and_orientation_t> empty;
-        return empty;
-    }
-
-#ifdef DEBUG_ZIP_CODE_SORTING
-    cerr << "After splitting/duplicating chains " << endl;
-    for (auto& interval : read_intervals) {
-        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(zipcode_sort_order[i]).pos << ", ";
-        }
-        cerr << interval.is_reversed << "|";
-    }
-    cerr << endl;
-#endif
-
-    /*****  Find the sort order of the intervals, ordered by the first seed in the read *****/
-    vector<size_t> interval_sort_order(read_intervals.size(), 0);
-    for (size_t i = 0 ; i < interval_sort_order.size() ; i++) {
-        interval_sort_order[i] = i;
-    } 
-    std::sort(interval_sort_order.begin(), interval_sort_order.end(), [&] (const size_t& a, const size_t& b) {
-        // Sort by the first seed in the read in the interval. Since the intervals are sorted by read position, 
-        // the first seed in the read will be the first seed
-        size_t seed_index_a = read_intervals[a].interval_start;
-
-        size_t seed_index_b = read_intervals[b].interval_start;
-
-        if (interval.is_reversed) {
-            return seeds->at(zipcode_sort_order[seed_index_a]).source >= seeds->at(zipcode_sort_order[seed_index_b]).source;
-        } else {
-            return seeds->at(zipcode_sort_order[seed_index_a]).source < seeds->at(zipcode_sort_order[seed_index_b]).source;
-        }
-    });
-
-    /****** Get the sort order of the seeds, to be copied back into the real one ********/
-
-    //The new sort order. Values are indices into seeds, so it will be copied directly into zipcode_sort_order
-    vector<size_t> new_sort_order;
-    new_sort_order.reserve(interval.interval_end - interval.interval_start);
-
-    //Get the same intervals, but this time ordered and in terms of indices into zipcode_sort_order
-    //The new order might put two seeds in the same chain next to each other, when they should really be different intervals
-    vector<interval_and_orientation_t> new_intervals;
-
-    for (size_t interval_i : interval_sort_order) {
-        const auto& current_interval = read_intervals[interval_i];
-
-        //Add this interval in terms of the actual zipcode_sort_order
-        new_intervals.emplace_back(new_sort_order.size() + interval.interval_start, 
-                                   new_sort_order.size() + interval.interval_start + (current_interval.interval_end - current_interval.interval_start), 
-                                   current_interval.is_reversed,
-                                   ZipCode::CHAIN);
-
-        //Add everything in this interval to the new sort order
-        for (size_t i = current_interval.interval_start ; i < current_interval.interval_end ; i++) {
-            new_sort_order.emplace_back(zipcode_sort_order[i]);
-        }
-    }
-
-    //Replace everything in the interval in zipcode_sort_order with the new sorted values
-    for (size_t i = 0 ; i < new_sort_order.size() ; i++) {
-        zipcode_sort_order[interval.interval_start + i] = new_sort_order[i];
-    }
-#ifdef DEBUG_ZIP_CODE_SORTING
-    cerr << "New sort order for cyclic snarl" << endl;
-    for (auto& interval : new_intervals) {
-        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
-            cerr << seeds->at(zipcode_sort_order[i]).pos << ", ";
-        }
-        cerr << "|";
-    }
-    cerr << endl;
-#endif
-
-    return new_intervals;
+    return child_intervals;
 }
 
 }

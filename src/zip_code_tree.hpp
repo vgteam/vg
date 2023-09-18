@@ -466,13 +466,8 @@ class ZipCodeForest {
 
     /// Helper function to sort the seeds on a cyclic (non-dag) snarl
     /// depth is the depth of the snarl
-    /// interval.is_reversed is true if the zipcodes should be sorted with the end of the read first
-    /// The seeds in the interval are first ordered by the child of the chain that they are on.
-    /// Sort the seeds again within each child of the chain, this time by their offset in the read
-    /// Then, get new intervals whenever the order of the read disagrees with the order of the graph
-    /// Re-order the new intervals by the first seed's offset in the read
     /// Returns the intervals on zipcode_sort_order
-    /// If there will be too many duplications of chains, give up and return an empty vector
+    /// The intervals may be duplicated and in different orientations
     vector<interval_and_orientation_t> sort_zipcodes_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
                              size_t depth, const SnarlDistanceIndex& distance_index) const; 
 
