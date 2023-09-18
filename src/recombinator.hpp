@@ -34,6 +34,12 @@ namespace vg {
  * may share kmers.)
  *
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
+ *
+ * Versions:
+ *
+ * * Version 2: Top-level chains include a contig name. Compatible with version 1.
+ *
+ * * Version 1: Initial version.
  */
 class Haplotypes {
 public:
@@ -55,7 +61,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 1;
+        constexpr static std::uint32_t VERSION = 2;
+        constexpr static std::uint32_t MIN_VERSION = 1;
         constexpr static std::uint64_t DEFAULT_K = 29;
 
         /// A magic number that identifies the file.
@@ -117,7 +124,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<sequence_type> sequences;
 
-        // TODO: This could be compressed by removing duplicate haplotypes.
+        // TODO: This needs to be compressed for larger datasets.
         sdsl::bit_vector kmers_present;
 
         /// Returns the start node as a GBWTGraph handle.
@@ -153,6 +160,9 @@ public:
         /// GBWT construction job for this chain.
         size_t job_id;
 
+        /// Contig name corresponding to the chain.
+        std::string contig_name;
+
         /// Subchains in the order they appear in.
         std::vector<Subchain> subchains;
 
@@ -161,6 +171,9 @@ public:
 
         /// Loads the object from a stream in the simple-sds format.
         void simple_sds_load(std::istream& in);
+
+        /// Loads the old version without a contig name.
+        void load_old(std::istream& in);
 
         /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
@@ -440,6 +453,10 @@ public:
         /// the wrong variants out.
         double absent_score = ABSENT_SCORE;
 
+        /// After selecting the initial `num_haplotypes` haplotypes, choose the
+        /// highest-scoring pair out of them.
+        bool diploid_sampling = false;
+
         /// Include named and reference paths.
         bool include_reference = false;
     };
@@ -475,6 +492,9 @@ public:
         /// participates in.
         std::vector<std::pair<size_t, double>> scores;
     };
+
+    /// Kmer classification.
+    enum kmer_presence { absent, heterozygous, present, frequent };
 
     /**
      * Extracts the local haplotypes in the given subchain. In addition to the
