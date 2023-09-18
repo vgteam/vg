@@ -2089,7 +2089,7 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
                     return true;
                 }
             }
-            if (include_transcript_ends && i + 1 != transcript_path.path.mapping_size()) {
+            if (include_transcript_ends || i + 1 != transcript_path.path.mapping_size()) {
                 // Check if right boundary is novel
                 if (cur_mapping.position().offset() + cur_mapping.edit(0).from_length() != _graph->get_length(cur_handle)) {
                     return true;
