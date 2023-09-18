@@ -1937,7 +1937,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
             if (cell_count > max_dp_cells) {
                 #pragma omp critical (cerr)
-                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
                 // Fake a softclip right in input graph space
                 alignment.clear_path();
                 Mapping* m = alignment.mutable_path()->add_mapping();
@@ -1952,9 +1952,9 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             } else {
 #ifdef debug
                 #pragma omp critical (cerr)
-                std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with GSSW" << std::endl;
+                std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
-                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), false);
+                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true);
             }
         }
         

@@ -11,6 +11,7 @@ set -ex
 # Our GAM file for writing our mapped reads to
 : "${GAM_FILE:="trash/mapped-${CONDITION}.gam"}"
 : "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.gam"}"
+: "${GIRAFFE_ARGS:=""}"
 
 if which sbatch >/dev/null 2>&1 ; then
     # Slurm is available.
@@ -70,7 +71,7 @@ cd ..
 
 rm -f *.out
 JOB_ARGS=(-c16 --mem 400G --job-name zipcode-run)
-do_sbatch "time vg giraffe --parameter-preset lr --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} -t16 >${GAM_FILE}"
+do_sbatch "time vg giraffe --parameter-preset lr --progress --track-provenance -Z ${GRAPH_BASE}.gbz -d ${GRAPH_BASE}.dist -m ${GRAPH_BASE}.${MINPARAMS}.withzip.min -z ${GRAPH_BASE}.${MINPARAMS}.zipcodes -G ${INPUT_READS} -t16 ${GIRAFFE_ARGS} >${GAM_FILE}"
 
 swait
 

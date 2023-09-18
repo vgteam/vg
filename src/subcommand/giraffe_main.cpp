@@ -365,7 +365,7 @@ static GroupedOptionGroup get_options() {
         "max-dp-cells",
         &MinimizerMapper::max_dp_cells,
         MinimizerMapper::default_max_dp_cells,
-        "maximum number of alignment cells to allow in a tail with GSSW"
+        "maximum number of alignment cells to allow in a tail"
     );
     return parser;
 }

@@ -281,9 +281,9 @@ public:
     /// overflow?
     static constexpr int MAX_DP_LENGTH = 30000;
     
-    /// How many DP cells should we be willing to do in GSSW for an end-pinned
+    /// How many DP cells should we be willing to do for an end-pinned
     /// alignment? If we want to do more than this, just leave tail unaligned.
-    static constexpr size_t default_max_dp_cells = 16UL * 1024UL * 1024UL;
+    static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
     size_t max_dp_cells = default_max_dp_cells;
 
     /////////////////
