@@ -631,13 +631,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                         } 
                         std::cerr << std::endl;
                     }
-                    for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
-                        // Log each range on a path associated with the chain.
-                        #pragma omp critical (cerr)
-                        std::cerr << log_name() << "\tAt linear reference "
-                            << this->path_graph->get_path_name(handle_and_range.first)
-                            << ":" << handle_and_range.second.first
-                            << "-" << handle_and_range.second.second << std::endl;
+                    if (track_provenance) {
+                        for (auto& handle_and_range : funnel.get_positions(funnel.latest())) {
+                            // Log each range on a path associated with the chain.
+                            #pragma omp critical (cerr)
+                            std::cerr << log_name() << "\tAt linear reference "
+                                << this->path_graph->get_path_name(handle_and_range.first)
+                                << ":" << handle_and_range.second.first
+                                << "-" << handle_and_range.second.second << std::endl;
+                        }
                     }
                     if (track_correctness && funnel.was_correct(funnel.latest())) {
                         #pragma omp critical (cerr)
