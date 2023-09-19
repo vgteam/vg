@@ -26,7 +26,8 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
          << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by SHA1 hash" << endl
-         << "    -A, --alt-paths-plain  save paths for alts of variants by variant ID (if possible, otherwise SHA1)" << endl
+         << "    -A, --alt-paths-plain  save paths for alts of variants by variant ID if possible, otherwise SHA1" << endl
+         << "                           (IDs must be unique across all input VCFs)" << endl
          << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region (may repeat, if on different contigs)" << endl
          << "    -C, --region-is-chrom  don't attempt to parse the regions (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
