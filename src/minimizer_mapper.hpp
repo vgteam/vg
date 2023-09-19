@@ -687,12 +687,15 @@ protected:
      * global-align the sequence of the given Alignment to it. Populate the
      * Alignment's path and score.
      *
-     * Finds an alignment against a graph path if it is <= max_path_length, and uses <= max_dp_cells GSSW cells.
+     * Finds an alignment against a graph path if it is <= max_path_length.
      *
      * If one of the anchor positions is empty, does pinned alignment against
      * the other position.
+     *
+     * For pinned alignment, restricts the alignment to have gaps no longer
+     * than max_gap_length, and to use <= max_dp_cells cells.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
     
     /**
      * Set pair partner references for paired mapping results.

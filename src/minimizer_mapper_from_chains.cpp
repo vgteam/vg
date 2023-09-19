@@ -1291,9 +1291,10 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
                 
                 // Work out how far the tail can see
-                size_t graph_horizon = left_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
+                size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin());
+                size_t graph_horizon = left_tail_length + max_gap_length; 
                 // Align the left tail, anchoring the right end.
-                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
+                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
                 
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -1490,8 +1491,9 @@ Alignment MinimizerMapper::find_chain_alignment(
                 link_aln.set_quality(aln.quality().substr(link_start, link_length));
             }
             // Guess how long of a graph path we ought to allow in the alignment.
-            size_t path_length = std::max(graph_length, link_length) + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
-            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells, this->choose_band_padding);
+            size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
+            size_t path_length = std::max(graph_length, link_length);
+            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells, this->choose_band_padding);
             
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1612,9 +1614,10 @@ Alignment MinimizerMapper::find_chain_alignment(
                 }
 
                 // Work out how far the tail can see
-                size_t graph_horizon = right_tail_length + this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
+                size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
+                size_t graph_horizon = right_tail_length + max_gap_length;
                 // Align the right tail, anchoring the left end.
-                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
+                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
                 
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -1841,7 +1844,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     callback(dagified_graph, dagified_handle_to_base);
 }
 
-void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
     
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
@@ -1931,7 +1934,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
         } else {
             // Do pinned alignment off the anchor we actually have.
-            // Work out how big it will be
+            // Work out how big it will be.
             size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
             if (cell_count > max_dp_cells) {
                 #pragma omp critical (cerr)
@@ -1952,7 +1955,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
                 #pragma omp critical (cerr)
                 std::cerr << "debug[MinimizerMapper::align_sequence_between]: Fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
 #endif
-                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true);
+                aligner->align_pinned(alignment, dagified_graph, !is_empty(left_anchor), true, max_gap_length);
             }
         }
         
