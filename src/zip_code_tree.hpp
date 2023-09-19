@@ -434,7 +434,7 @@ class ZipCodeForest {
         size_t interval_end : 26;   //exclusive
         bool is_reversed : 1;
         ZipCode::code_type_t code_type : 5;
-        size_t depth : 6;
+        size_t depth;
 
         interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type, size_t depth) :
             interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth) {}
