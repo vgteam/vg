@@ -44,7 +44,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDis
     }
 
     //Start with the root
-    interval_and_orientation_t first_interval (0, seeds->size(), false, ZipCode::EMPTY);
+    interval_and_orientation_t first_interval (0, seeds->size(), false, ZipCode::EMPTY, 0);
     //Get the intervals of the connected components
     vector<interval_and_orientation_t> new_intervals = sort_one_interval(forest_state.seed_sort_order, first_interval, 0, distance_index);;
     forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
@@ -78,8 +78,9 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDis
         cerr << "Close anything open" << endl;
 #endif
         while (!forest_state.open_intervals.empty()) {
-            if (forest_state.open_intervals.back().interval_end <= current_interval.interval_start) {
-                //If the range of the this interval comes after the range in the open interval,
+            //TODO: DO a proper check to see if it is a hcild of the previous interval
+            if (current_interval.depth <= forest_state.open_intervals.back().depth) {
+                //If the current interval is not a child of the open interval
                 //close the last thing in open_intervals
 
 #ifdef DEBUG_ZIP_CODE_TREE
@@ -1945,7 +1946,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
         if (seeds->at(sort_order[interval.interval_start]).zipcode_decoder->max_depth() == depth ) {
             //If this is a trivial chain, then just return the same interval as a node
-            new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE);
+            new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
+                                       depth == std::numeric_limits<size_t>::max() ? 0 : depth+1);
             return new_intervals;
         }
 
@@ -1963,7 +1965,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
         //Start the first interval. The end value and is_reversed gets set when ending the interval
         new_intervals.emplace_back(interval.interval_start, interval.interval_start, interval.is_reversed, 
-                                   previous_is_node ? ZipCode::NODE : first_type);
+                                   previous_is_node ? ZipCode::NODE : first_type, 
+                                   depth == std::numeric_limits<size_t>::max() ? 0 : depth+1);
         for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
             
             //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
@@ -1990,7 +1993,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
  
 
                 //Open a new run
-                new_intervals.emplace_back(i, i, interval.is_reversed, is_node ? ZipCode::NODE : current_type);
+                new_intervals.emplace_back(i, i, interval.is_reversed, is_node ? ZipCode::NODE : current_type, 
+                                   depth == std::numeric_limits<size_t>::max() ? 0 : depth+1);
             }
         }
 
@@ -2047,6 +2051,17 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         const Seed& seed_to_sort = seeds->at(zipcode_sort_order[interval.interval_start]);
 
 
+
+        if (interval.code_type == ZipCode::CYCLIC_SNARL) {
+            // If this is a cyclic snarl, then the children may be duplicated
+
+            //Sort the snarl and get intervals of the snarl's children
+            auto new_intervals =  sort_zipcodes_on_cyclic_snarl(zipcode_sort_order, interval, interval_depth, distance_index);
+            if (new_intervals.size() != 0) {
+                return new_intervals;
+            }
+            //If finding intervals on the cyclic snarl failed, then keep going as if it wasn't cyclic
+        }
         //If this either wasn't a cyclic snarl or it was a cyclic snarl that failed
 
         // Sorting will either be done with radix sort or with std::sort, depending on which is more efficient
@@ -2188,8 +2203,52 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
 
     vector<interval_and_orientation_t> child_intervals;
 
+    // Keep track of which child intervals have been added, as the child rank and orientation
+    // After adding each child, check if it can be reached by anything coming after it in the order
+    // If it can, add the first child to the end of child_intervals 
+    vector<pair<size_t, bool>> added_children;
 
-    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN);
+    net_handle_t snarl_handle = seeds->at(zipcode_sort_order[interval.interval_start]).zipcode_decoder->get_net_handle(depth, &distance_index);
+
+    //Helper function to close the last interval in child_intervals, which should end at end_index
+    auto close_interval = [&] (const Seed& seed, size_t end_index) {
+        //Close the interval that ends with the given seed
+        child_intervals.back().interval_end = end_index;
+
+        //Check the orientation of the ending interval. If it can be traversed in either direction, duplicate it
+        size_t rank = seed.zipcode_decoder->get_rank_in_snarl(depth+1);
+        if (distance_index.distance_in_snarl(snarl_handle, rank, false, interval.is_reversed ? 1 : 0, false)
+                     != std::numeric_limits<size_t>::max() || 
+            distance_index.distance_in_snarl(snarl_handle, rank, true, interval.is_reversed ? 0 : 1, false)
+                     != std::numeric_limits<size_t>::max()) {
+            //If the previous child can be traversed forwards in a forward (relative to the current global orientation of the snarl)
+            // traversal (from either snarl bound) of the snarl
+
+            //Set the previous interval to be traversed forwards
+            child_intervals.back().is_reversed = false;
+
+            added_children.emplace_back(rank, false);
+
+            //Check if the child can also be traversed backwards
+            if (distance_index.distance_in_snarl(snarl_handle, rank, true, interval.is_reversed ? 1 : 0, false)
+                     != std::numeric_limits<size_t>::max() || 
+            distance_index.distance_in_snarl(snarl_handle, rank, false, interval.is_reversed ? 0 : 1, false)
+                     != std::numeric_limits<size_t>::max()){
+                //Copy the last thing
+                interval_and_orientation_t copy (child_intervals.back().interval_start,
+                                                 end_index, true, ZipCode::CHAIN, depth+1);
+                child_intervals.emplace_back(std::move(copy));
+                added_children.emplace_back(rank, true);
+            }
+        } else {
+            //If the previous child cannot be traversed forwards, then it is only ever traversed backwards
+            child_intervals.back().is_reversed = true;
+            added_children.emplace_back(rank, true);
+        }
+
+    };
+
+    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN, depth+1);
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
            
         const Seed& current_seed = seeds->at(zipcode_sort_order[i]);
@@ -2199,13 +2258,15 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                                                                     *previous_seed.zipcode_decoder, depth+1);
 
         if (is_different_from_previous) {
+            //Close the interval
+            close_interval(previous_seed, i);
 
-            child_intervals.back().interval_end = i;
-
-            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN);
+            //Add a new interval starting here
+            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN, depth+1);
         }
     }
-    child_intervals.back().interval_end = interval.interval_end;
+    //Close the last interval
+    close_interval(seeds->at(zipcode_sort_order[interval.interval_end-1]), interval.interval_end);
 
 #ifdef DEBUG_ZIP_CODE_SORTING
     cerr << "Intervals of children" << endl;
@@ -2217,6 +2278,33 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
     }
     cerr << endl;
 #endif
+
+    /******* Now go through the list of child intervals and duplicate/flip ones that need a non-dag edge added ******/
+    size_t child_count = child_intervals.size();
+    for (size_t child_i = 0 ; child_i < child_count ; child_i++) {
+        const interval_and_orientation_t& child_interval = child_intervals[child_i];
+        const Seed& child_seed = seeds->at(zipcode_sort_order[child_interval.interval_start]);
+
+
+        for (size_t next_i = child_i ; next_i < child_count ; next_i++) {
+            //Go through every child interval from the current one to the end (not including new things added)
+
+            const interval_and_orientation_t& next_interval = child_intervals[next_i];
+            const Seed& next_seed = seeds->at(zipcode_sort_order[next_interval.interval_start]);
+            if (distance_index.distance_in_snarl(snarl_handle, next_seed.zipcode_decoder->get_rank_in_snarl(depth+1), !next_interval.is_reversed, 
+                                                               child_seed.zipcode_decoder->get_rank_in_snarl(depth+1), child_interval.is_reversed) 
+                 != std::numeric_limits<size_t>::max()) {
+                //If there is a path from the next child back to the current child,
+                // Copy the current child's interval to the end of the child interval list
+                // And break out of the inner loop
+
+                child_intervals.emplace_back(child_interval.interval_start, child_interval.interval_end, child_interval.is_reversed,
+                                             child_interval.code_type, child_interval.depth); 
+                break;
+            }
+        }
+    }
+
     return child_intervals;
 }
 

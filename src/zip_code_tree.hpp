@@ -430,13 +430,14 @@ class ZipCodeForest {
     /// snarl tree node, and is_reversed is true if that snarl tree node
     /// is reversed relative to the top-level chain
     struct interval_and_orientation_t {
-        size_t interval_start : 29; //inclusive
-        size_t interval_end : 29;   //exclusive
+        size_t interval_start : 26; //inclusive
+        size_t interval_end : 26;   //exclusive
         bool is_reversed : 1;
         ZipCode::code_type_t code_type : 5;
+        size_t depth : 6;
 
-        interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type) :
-            interval_start(start), interval_end(end), is_reversed(rev), code_type(type) {}
+        interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type, size_t depth) :
+            interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth) {}
     };
 
     /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given depth)
