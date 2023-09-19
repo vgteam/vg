@@ -42,11 +42,14 @@ using namespace std;
  * Save a handle graph. 
  * Todo: should this be somewhere else (ie in vgio with new types registered?)
  */
-inline void save_handle_graph(HandleGraph* graph, ostream& os) {
+inline void save_handle_graph(HandleGraph* graph, ostream& os,
+                              const set<string>& rgfa_paths = {},
+                              bool rgfa_pline = false,
+                              bool use_w_lines = true) {
 
     if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
         // We loaded a GFA into a handle graph, want to write back to GFA
-        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os);
+        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os, rgfa_paths, rgfa_pline, use_w_lines);
     } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(os);
@@ -58,14 +61,17 @@ inline void save_handle_graph(HandleGraph* graph, ostream& os) {
     }
 }
 
-inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
+inline void save_handle_graph(HandleGraph* graph, const string& dest_path,
+                              const set<string>& rgfa_paths = {},
+                              bool rgfa_pline = false,
+                              bool use_w_lines = true) {  
     if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
         // We loaded a GFA into a handle graph, want to write back to GFA
         ofstream os(dest_path);
         if (!os) {
             throw runtime_error("error[save_handle_graph]: Unable to write to: " + dest_path);
         }
-        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os);
+        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os, rgfa_paths, rgfa_pline, use_w_lines);
     } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(dest_path);

@@ -618,6 +618,7 @@ int main_paths(int argc, char** argv) {
                 exit(1);
             }
 
+            set<string> reference_path_names;
             if (drop_paths || retain_paths) {
                 vector<string> to_destroy;
                 if (drop_paths) {
@@ -643,6 +644,7 @@ int main_paths(int argc, char** argv) {
                 unordered_set<path_handle_t> reference_paths;
                 for_each_selected_path([&](const path_handle_t& path_handle) {
                     reference_paths.insert(path_handle);
+                    reference_path_names.insert(graph->get_path_name(path_handle));
                 });
                 // compute the new cover
                 rgfa_cover.compute(mutable_graph, snarl_manager.get(), reference_paths, rgfa_min_len);
@@ -651,7 +653,7 @@ int main_paths(int argc, char** argv) {
             }
             
             // output the graph
-            vg::io::save_handle_graph(graph.get(), std::cout);
+            vg::io::save_handle_graph(graph.get(), std::cout, reference_path_names);
         }
         else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one
