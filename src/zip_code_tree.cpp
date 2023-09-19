@@ -1967,7 +1967,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
             
             //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
-            ZipCode::code_type_t current_type = seeds->at(sort_order[i]).zipcode_decoder->get_code_type(child_Depth);
+            ZipCode::code_type_t current_type = seeds->at(sort_order[i]).zipcode_decoder->get_code_type(child_depth);
             bool is_node = current_type == ZipCode::NODE;
             size_t sort_value = is_node 
                               ? (ZipCodeTree::seed_is_reversed_at_depth(seeds->at(sort_order[i]), child_depth, distance_index) ? 1 : 0)
@@ -2301,6 +2301,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
             }
         }
     }
+#ifdef DEBUG_ZIP_CODE_TREE
+    assert(child_intervals.size() <= child_count*4);
+#endif
 
     return child_intervals;
 }
