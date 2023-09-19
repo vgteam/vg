@@ -1931,11 +1931,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             aligner->align_global_banded(alignment, dagified_graph, band_padding, true);
         } else {
             // Do pinned alignment off the anchor we actually have.
-            // Don't use X-Drop because Dozeu is known to just overwrite the
-            // stack with garbage whenever alignments are "too big", and these
-            // alignments are probably often too big.
-            // But if we don't use Dozeu this uses GSSW and that can *also* be too big.
-            // So work out how big it will be
+            // Work out how big it will be
             size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
             if (cell_count > max_dp_cells) {
                 #pragma omp critical (cerr)
