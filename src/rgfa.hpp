@@ -30,7 +30,8 @@ public:
     static const string rgfa_sample_name;
 
     // make an rGFA path name from a subrange of a normal path
-    static string make_rgfa_path_name(const string& path_name, int64_t start, int64_t length);
+    static string make_rgfa_path_name(const string& path_name, int64_t start, int64_t length,
+                                      bool specify_subrange_end = true);
 
     // test if path name is rGFA
     static bool is_rgfa_path_name(const string& path_name);
