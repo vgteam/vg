@@ -10,7 +10,8 @@ using namespace std;
 
 const string RGFACover::rgfa_sample_name = "_rGFA_";
 
-string RGFACover::make_rgfa_path_name(const string& path_name, int64_t start, int64_t length) {
+string RGFACover::make_rgfa_path_name(const string& path_name, int64_t start, int64_t length,
+                                      bool specify_subrange_end) {
 
     PathSense path_sense;
     string path_sample;
@@ -36,7 +37,7 @@ string RGFACover::make_rgfa_path_name(const string& path_name, int64_t start, in
 
     // we apply the subrange offset
     path_subrange.first += start;
-    path_subrange.second = path_subrange.first + length;
+    path_subrange.second = specify_subrange_end ? path_subrange.first + length : PathMetadata::NO_END_POSITION;
 
 
     // and return the final path, with sample/locus/rgfa-rank embedded in locus

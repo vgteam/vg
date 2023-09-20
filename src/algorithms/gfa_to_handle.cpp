@@ -291,7 +291,6 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         }
         if (found == rgfa_cache->end()) {
             // Need to make a new path, possibly with subrange start info.
-            
             std::pair<int64_t, int64_t> subrange;
             if (offset == 0) {
                 // Don't send a subrange
@@ -304,7 +303,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             string rgfa_path_name;
             if (path_rank > 0) {
                 // Special logic for off-reference paths, which get loaded into special rGFA cover paths
-                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length);
+                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length, false);
             } else {
                 // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
                 rgfa_path_name = PathMetadata::create_path_name(PathSense::GENERIC,
@@ -317,7 +316,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             path_handle_t path = graph->create_path_handle(rgfa_path_name);
             
             // Then cache it
-            found = rgfa_cache->emplace_hint(found, rgfa_path_name, std::make_pair(path, offset));
+            found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));
         }
         
         // Add the step to the path
