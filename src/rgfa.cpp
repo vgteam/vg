@@ -88,7 +88,7 @@ void RGFACover::compute(const PathHandleGraph* graph,
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
         this->rgfa_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
-                                                 graph->path_back(ref_path_handle)));
+                                                 graph->path_end(ref_path_handle)));
         graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
             nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
             if (node_to_interval.count(node_id)) {
@@ -176,7 +176,7 @@ void RGFACover::load(const PathHandleGraph* graph,
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
         this->rgfa_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
-                                                 graph->path_back(ref_path_handle)));
+                                                 graph->path_end(ref_path_handle)));
         graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
             node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = rgfa_intervals.size() - 1;
         });
@@ -205,7 +205,7 @@ void RGFACover::load(const PathHandleGraph* graph,
     // next, we scan each rgfa path fragment, and use the index to semi-quickly find its source path interval
     // todo: An inconsistency between cover paths and source paths is a possibility if someone messed up their graph
     // so should probably have a better error message than the asserts below (ie if exact interval match not found)
-    graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {    
+    graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
         // pase the rgfa locus to get the original sample and locus
         pair<string, string> source_sample_locus = parse_rgfa_locus_name(graph->get_locus_name(path_handle));
         // find the sample in our index
@@ -270,6 +270,7 @@ void RGFACover::load(const PathHandleGraph* graph,
         assert(found_end);
 
         // we can finally add our interval
+        source_end = graph->get_next_step(source_end);
         this->rgfa_intervals.push_back(make_pair(source_start, source_end));
         for (step_handle_t cur_step = source_start; cur_step != source_end; cur_step = graph->get_next_step(cur_step)) {
             node_to_interval[graph->get_id(graph->get_handle_of_step(cur_step))] = rgfa_intervals.size() - 1;
@@ -299,8 +300,7 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
             return true;
         });
         rgfa_lengths[i] = 0;
-        step_handle_t last_step = mutable_graph->get_next_step(rgfa_intervals[i].second);
-        for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != last_step;
+        for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != rgfa_intervals[i].second;
              step_handle = mutable_graph->get_next_step(step_handle)) {
             rgfa_lengths[i] += graph->get_length(graph->get_handle_of_step(step_handle));
 
@@ -313,8 +313,7 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         string source_path_name = graph->get_path_name(source_path_handle);
         string rgfa_path_name = make_rgfa_path_name(source_path_name, rgfa_offsets[i], rgfa_lengths[i]);
         path_handle_t rgfa_path_handle = mutable_graph->create_path_handle(rgfa_path_name);
-        step_handle_t last_step = mutable_graph->get_next_step(rgfa_intervals[i].second);
-        for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != last_step;
+        for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != rgfa_intervals[i].second;
              step_handle = mutable_graph->get_next_step(step_handle)) {
             mutable_graph->append_step(rgfa_path_handle, mutable_graph->get_handle_of_step(step_handle));
         }
@@ -325,10 +324,12 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 
 int64_t RGFACover::get_rank(nid_t node_id) const {
     if (!node_to_interval.count(node_id)) {
+        cerr << "rank is -1 because " << node_id << " is not in the node_to_interval structure" << endl;
         return -1;
     }
 
     const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(this->node_to_interval.at(node_id));
+    cerr << "get rank" << endl;
 
     // since our decomposition is based on snarl tranversals, we know that fragments must
     // overlap their parents on snarl end points (at the very least)
@@ -339,7 +340,8 @@ int64_t RGFACover::get_rank(nid_t node_id) const {
         left_rank = 1 + get_rank(graph->get_id(graph->get_handle_of_step(left_parent)));
     }
 
-    step_handle_t right_parent = graph->get_next_step(rgfa_interval.second);
+    // don't need to go next, since already one past
+    step_handle_t right_parent = rgfa_interval.second;
     int64_t right_rank = 0;
     if (right_parent != graph->path_end(graph->get_path_handle_of_step(rgfa_interval.second))) {
         right_rank = 1 + get_rank(graph->get_id(graph->get_handle_of_step(right_parent)));
@@ -549,7 +551,7 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
             thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = thread_rgfa_intervals.size();
             step = graph->get_next_step(step);
         }
-        thread_rgfa_intervals.push_back(make_pair(trav[uncovered_interval.first], trav[uncovered_interval.second-1]));
+        thread_rgfa_intervals.push_back(make_pair(trav[uncovered_interval.first], trav[uncovered_interval.second]));
     }
 }
 

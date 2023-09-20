@@ -104,6 +104,7 @@ protected:
 
     const PathHandleGraph* graph;
 
+    // intervals are end-exclusive (like bed)
     vector<pair<step_handle_t, step_handle_t>> rgfa_intervals;
 
     // so rgfa_intervals[0,num_ref_intervals-1] will be all rank-0 reference intervals
