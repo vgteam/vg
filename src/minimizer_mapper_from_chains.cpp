@@ -1711,12 +1711,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
 #ifdef debug
     std::cerr << "Local graph:" << std::endl;
     dump_debug_graph(local_graph);
-    {
-        ProblemDumpExplainer exp(false, "local-graph");
-        exp.value(local_graph);
-    }
 #endif
-    
     
     // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
     nid_t local_left_anchor_id = 0;
