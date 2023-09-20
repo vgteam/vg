@@ -2,7 +2,7 @@
 #include <sstream>
 #include <algorithm>
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -324,12 +324,10 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 
 int64_t RGFACover::get_rank(nid_t node_id) const {
     if (!node_to_interval.count(node_id)) {
-        cerr << "rank is -1 because " << node_id << " is not in the node_to_interval structure" << endl;
         return -1;
     }
 
     const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(this->node_to_interval.at(node_id));
-    cerr << "get rank" << endl;
 
     // since our decomposition is based on snarl tranversals, we know that fragments must
     // overlap their parents on snarl end points (at the very least)
