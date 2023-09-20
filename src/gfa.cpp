@@ -55,7 +55,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
         string path_name = graph->get_path_name(path_handle);
-        if (rgfa_paths.count(path_name) || RGFACover::is_rgfa_path_name(path_name)) {
+        if (rgfa_paths.count(path_name) || (!rgfa_paths.empty() && RGFACover::is_rgfa_path_name(path_name))) {
             size_t offset = 0;
             subrange_t path_subrange = graph->get_subrange(path_handle);
             if (path_subrange != PathMetadata::NO_SUBRANGE) {
@@ -93,7 +93,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             string sample_name = graph->get_sample_name(it->second.first);
             string locus_name = graph->get_locus_name(it->second.first);
             int64_t haplotype = graph->get_haplotype(it->second.first);
-            if (RGFACover::is_rgfa_path_name(graph->get_path_name(it->second.first))) {
+            if (!rgfa_paths.empty() && RGFACover::is_rgfa_path_name(graph->get_path_name(it->second.first))) {
                 std::tie(sample_name, locus_name) = RGFACover::parse_rgfa_locus_name(locus_name);
             }
             string rgfa_sn = PathMetadata::create_path_name(sample_name.empty() ? PathSense::GENERIC : PathSense::REFERENCE,
@@ -134,7 +134,8 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
         auto path_name = graph->get_path_name(h);
-        if (rgfa_pline || !rgfa_paths.count(path_name)) {
+        if (rgfa_pline || rgfa_paths.empty() ||
+            (!rgfa_paths.count(path_name) && !RGFACover::is_rgfa_path_name(path_name))) {
             if (graph->get_sense(h) != PathSense::REFERENCE && reference_samples.count(graph->get_sample_name(h))) {
                 // We have a mix of reference and non-reference paths on the same sample which GFA can't handle.
                 cerr << "warning [gfa]: path " << path_name << " will be interpreted as reference sense "
