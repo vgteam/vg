@@ -1,4 +1,4 @@
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 
@@ -44,7 +44,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDis
     }
 
     //Start with the root
-    interval_and_orientation_t first_interval (0, seeds->size(), false, ZipCode::EMPTY, 0);
+    interval_and_orientation_t first_interval (0, seeds->size(), false, ZipCode::EMPTY, 0, false);
     //Get the intervals of the connected components
     vector<interval_and_orientation_t> new_intervals = sort_one_interval(forest_state.seed_sort_order, first_interval, 0, distance_index);;
     forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
@@ -75,7 +75,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDis
          ********/
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Process interval of type " << current_interval.code_type << " with range " << current_interval.interval_start << "-" << current_interval.interval_end << endl;
-        assert(current_interval.depth <= seeds->at(forest_state.seed_sort_order[current_interval.interval_start]).zipcode_decoder->max_depth());
+        assert(current_interval.depth <= seeds->at(forest_state.seed_sort_order[current_interval.interval_start]).zipcode_decoder->max_depth()+1);
         cerr << "Close anything open" << endl;
 #endif
         while (!forest_state.open_intervals.empty()) {
@@ -1849,6 +1849,7 @@ std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator:
 
 vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interval(vector<size_t>& zipcode_sort_order,
     const interval_and_orientation_t& interval, size_t interval_depth, const SnarlDistanceIndex& distance_index) const {
+        cerr << "SORT INTERVAL" << endl;
 
     /*
       Sort the seeds in roughly linear/topological-ish order along the top-level chains
@@ -1944,7 +1945,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         if (seeds->at(sort_order[interval.interval_start]).zipcode_decoder->max_depth() == depth ) {
             //If this is a trivial chain, then just return the same interval as a node
             new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
-                                       child_depth);
+                                       child_depth, interval.duplicated);
             return new_intervals;
         }
 
@@ -1963,7 +1964,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         //Start the first interval. The end value and is_reversed gets set when ending the interval
         new_intervals.emplace_back(interval.interval_start, interval.interval_start, interval.is_reversed, 
                                    previous_is_node ? ZipCode::NODE : first_type, 
-                                   child_depth);
+                                   child_depth, interval.duplicated);
         for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
             
             //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
@@ -1991,7 +1992,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
                 //Open a new run
                 new_intervals.emplace_back(i, i, interval.is_reversed, is_node ? ZipCode::NODE : current_type, 
-                                   child_depth);
+                                   child_depth, interval.duplicated);
             }
         }
 
@@ -2049,7 +2050,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
 
 
-        if (interval.code_type == ZipCode::CYCLIC_SNARL) {
+        if (interval.code_type == ZipCode::CYCLIC_SNARL && !interval.duplicated) {
             // If this is a cyclic snarl, then the children may be duplicated
 
             //Sort the snarl and get intervals of the snarl's children
@@ -2233,7 +2234,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                      != std::numeric_limits<size_t>::max()){
                 //Copy the last thing
                 interval_and_orientation_t copy (child_intervals.back().interval_start,
-                                                 end_index, true, ZipCode::CHAIN, depth+1);
+                                                 end_index, true, ZipCode::CHAIN, depth+1, true);
                 child_intervals.emplace_back(std::move(copy));
                 added_children.emplace_back(rank, true);
             }
@@ -2245,7 +2246,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
 
     };
 
-    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN, depth+1);
+    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN, depth+1, true);
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
            
         const Seed& current_seed = seeds->at(zipcode_sort_order[i]);
@@ -2259,7 +2260,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
             close_interval(previous_seed, i);
 
             //Add a new interval starting here
-            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN, depth+1);
+            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN, depth+1, true);
         }
     }
     //Close the last interval
@@ -2296,7 +2297,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                 // And break out of the inner loop
 
                 child_intervals.emplace_back(child_interval.interval_start, child_interval.interval_end, child_interval.is_reversed,
-                                             child_interval.code_type, child_interval.depth); 
+                                             child_interval.code_type, child_interval.depth, true); 
                 break;
             }
         }

@@ -434,10 +434,11 @@ class ZipCodeForest {
         size_t interval_end : 26;   //exclusive
         bool is_reversed : 1;
         ZipCode::code_type_t code_type : 5;
-        size_t depth;
+        size_t depth : 16;
+        bool duplicated : 1; //Has this interval been duplicated in a cyclic snarl?
 
-        interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type, size_t depth) :
-            interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth) {}
+        interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type, size_t depth, bool duplicated) :
+            interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth), duplicated(duplicated) {}
     };
 
     /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given depth)
