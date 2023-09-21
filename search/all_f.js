@@ -11,7 +11,7 @@ var searchData=
   ['offsets_5fin_5fpaths_3810',['offsets_in_paths',['../classxg_1_1XG.html#af77c93c34b8009c590fa4ee2b01fd64e',1,'xg::XG::offsets_in_paths()'],['../namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128',1,'vg::algorithms::offsets_in_paths()']]],
   ['offsets_5frank_3811',['offsets_rank',['../classxg_1_1XGPath.html#aa6f1e3a71e8ceb8242a4b1f5157a789b',1,'xg::XGPath']]],
   ['offsets_5fselect_3812',['offsets_select',['../classxg_1_1XGPath.html#a22511bf04c45ce0c8620069781e3cdee',1,'xg::XGPath']]],
-  ['ok_3813',['ok',['../structvg_1_1WFAAlignment.html#a64f88d651eb19e3045ab6f9b5552e6c6',1,'vg::WFAAlignment::ok()'],['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9ae41b7fcb28f19fd52e9b25b6bb0ada27',1,'vg::AlignmentValidity::OK()']]],
+  ['ok_3813',['OK',['../structvg_1_1AlignmentValidity.html#acbf722cab695a00b651bab515806a7e9ae41b7fcb28f19fd52e9b25b6bb0ada27',1,'vg::AlignmentValidity::OK()'],['../structvg_1_1WFAAlignment.html#a64f88d651eb19e3045ab6f9b5552e6c6',1,'vg::WFAAlignment::ok()']]],
   ['old_5fedge_5ftype_5fend_5fend_3814',['OLD_EDGE_TYPE_END_END',['../classxg_1_1XG.html#a42c04fbecadef083a270c715b250e0cd',1,'xg::XG']]],
   ['old_5fedge_5ftype_5fend_5fstart_3815',['OLD_EDGE_TYPE_END_START',['../classxg_1_1XG.html#a00a6fd4ed46f08eff821566c078b744c',1,'xg::XG']]],
   ['old_5fedge_5ftype_5fmax_3816',['OLD_EDGE_TYPE_MAX',['../classxg_1_1XG.html#a720a6ad7d985ff3f67b3cc1f49328992',1,'xg::XG']]],
