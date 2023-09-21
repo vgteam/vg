@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 26
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -157,3 +157,10 @@ is "$?" 0 "gbz deconstruction gives same output as gbwt deconstruction"
 rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi x.decon.vcf x.gbz.decon.vcf x.giraffe.gbz x.min x.dist small.s1.h1.fa small.s1.h2.fa decon.s1.h1.fa decon.s1.h2.fa
 
 
+vg deconstruct rgfa/rgfa_ins2.gfa -P y -ea | grep  "^y	11" | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' > rgfa_ins2_y.vcf
+vg paths -x rgfa/rgfa_ins2.gfa -R 1 -Q x | vg deconstruct - -P _rGFA_ -ea | grep  "^y	11" | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' > rgfa_ins2_rgfa.vcf
+diff rgfa_ins2_y.vcf rgfa_ins2_rgfa.vcf
+is "$?" 0 "deconstruct properly handles rGFA reference"
+is $(cat rgfa_ins2_rgfa.vcf | wc -l) 1 "deconstruct properly handles rGFA reference (sanity check)"
+
+rm -f rgfa_ins2_y.vcf rgfa_ins2_rgfa.vcf

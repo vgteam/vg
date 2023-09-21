@@ -39,6 +39,11 @@ public:
     // break up the rGFA locus name back into original sample and locus
     static pair<string, string> parse_rgfa_locus_name(const string& locus_name);
 
+    // undo make_rgfa_path_name, getting back an original non-rgfa name
+    // if the input's not a rgfa path name, just return it
+    static string revert_rgfa_path_name(const string& path_name,
+                                        bool strip_subrange = false);    
+
 public:
     // clear out the existing rGFA cover from the graph.  recommended to run this
     // before compute()
