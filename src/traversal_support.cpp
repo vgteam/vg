@@ -495,7 +495,7 @@ Support PackedTraversalSupportFinder::get_min_node_support(id_t node) const {
     size_t offset = packer.position_in_basis(pos);
     size_t coverage = packer.coverage_at_position(offset);
     size_t end_offset = offset + graph.get_length(graph.get_handle(node));
-    for (int i = offset + 1; i < end_offset; ++i) {
+    for (int i = offset + 1; i < end_offset && coverage > 0; ++i) {
         coverage = min(coverage, packer.coverage_at_position(i));
     }
     Support support;
