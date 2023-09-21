@@ -1849,7 +1849,6 @@ std::ostream& operator<<(std::ostream& out, const ZipCodeTree::reverse_iterator:
 
 vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interval(vector<size_t>& zipcode_sort_order,
     const interval_and_orientation_t& interval, size_t interval_depth, const SnarlDistanceIndex& distance_index) const {
-        cerr << "SORT INTERVAL" << endl;
 
     /*
       Sort the seeds in roughly linear/topological-ish order along the top-level chains
@@ -2068,36 +2067,50 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         // If the range of values is greater than the n log n (in the number of things being sorted) of the default
         // sorter, then use radix
 
-        bool use_radix;
-        if (interval.code_type  == ZipCode::ROOT_CHAIN) {
-            //If this is a root chain, then use the default sort, because it's probably too big for radix and we can't tell
-            //anyways because we don't store the length of a root-chain
-            use_radix = false;
-        } else if (interval.code_type == ZipCode::NODE || interval.code_type == ZipCode::CHAIN) {
-            //If we're sorting a node or chain, then the range of values is the minimum length of the node/chain
-            // times 3 because it gets multiplied by 3 to differentiate nodes and snarls
-            size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(interval_depth) * 3;
-            size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
+        if (interval.needs_reorder) {
+            //This is already sorted, just in the reversed order
 
-            use_radix = radix_cost < default_cost;
-        } else {
-            //Otherwise, this is a snarl and the range of values is the number of children in the snarl
+            //Copy the order
+            vector<size_t> reversed_order (zipcode_sort_order.begin() + interval.interval_start,
+                                           zipcode_sort_order.begin() + interval.interval_end);
+            //And put it back reversed
+            for (size_t i = 0 ; i < reversed_order.size() ; i++) {
+                zipcode_sort_order[interval.interval_end - 1 - i] = reversed_order[i];
+            }
 
-            size_t radix_cost = seed_to_sort.zipcode_decoder->get_snarl_child_count(interval_depth, &distance_index);
-            size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
+        } else if (!interval.sorted) {
+            //If this is unsorted
+            bool use_radix;
+            if (interval.code_type  == ZipCode::ROOT_CHAIN) {
+                //If this is a root chain, then use the default sort, because it's probably too big for radix and we can't tell
+                //anyways because we don't store the length of a root-chain
+                use_radix = false;
+            } else if (interval.code_type == ZipCode::NODE || interval.code_type == ZipCode::CHAIN) {
+                //If we're sorting a node or chain, then the range of values is the minimum length of the node/chain
+                // times 3 because it gets multiplied by 3 to differentiate nodes and snarls
+                size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(interval_depth) * 3;
+                size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
 
-            use_radix = radix_cost < default_cost;
-        }
-        bool reverse_order = (interval.code_type == ZipCode::REGULAR_SNARL || interval.code_type == ZipCode::IRREGULAR_SNARL) 
-                             ? false
-                             : interval.is_reversed; 
-        //For everything except a cyclic snarl, sort normally
-        if (use_radix) {
-            //Sort the given interval using the value-getter and orientation
-            radix_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
-        } else {
-            //Sort the given interval using the value-getter and orientation
-            default_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
+                use_radix = radix_cost < default_cost;
+            } else {
+                //Otherwise, this is a snarl and the range of values is the number of children in the snarl
+
+                size_t radix_cost = seed_to_sort.zipcode_decoder->get_snarl_child_count(interval_depth, &distance_index);
+                size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
+
+                use_radix = radix_cost < default_cost;
+            }
+            bool reverse_order = (interval.code_type == ZipCode::REGULAR_SNARL || interval.code_type == ZipCode::IRREGULAR_SNARL) 
+                                 ? false
+                                 : interval.is_reversed; 
+            //For everything except a cyclic snarl, sort normally
+            if (use_radix) {
+                //Sort the given interval using the value-getter and orientation
+                radix_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
+            } else {
+                //Sort the given interval using the value-getter and orientation
+                default_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
+            }
         }
         return find_next_intervals(interval, interval_depth, zipcode_sort_order, get_sort_value);
     }
@@ -2235,6 +2248,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                 //Copy the last thing
                 interval_and_orientation_t copy (child_intervals.back().interval_start,
                                                  end_index, true, ZipCode::CHAIN, depth+1, true);
+                copy.needs_reorder = true;
                 child_intervals.emplace_back(std::move(copy));
                 added_children.emplace_back(rank, true);
             }
@@ -2298,6 +2312,14 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
 
                 child_intervals.emplace_back(child_interval.interval_start, child_interval.interval_end, child_interval.is_reversed,
                                              child_interval.code_type, child_interval.depth, true); 
+                if (child_intervals[child_intervals.size()-2].interval_start == child_interval.interval_start ||
+                    (child_i+1 < child_intervals.size() && child_intervals[child_i+1].interval_start == child_interval.interval_start)) {
+                    //If the last copy of this interval was in the opposite direction
+                    child_intervals.back().needs_reorder = true;
+                } else {
+                    //If the last copy of this interval was in the same direction
+                    child_intervals.back().sorted = true;
+                }
                 break;
             }
         }
