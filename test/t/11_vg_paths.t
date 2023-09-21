@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 25
+plan tests 26
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -87,6 +87,18 @@ diff rgfa_ins2_fragments.rgfa rgfa_ins2_expected_fragments.rgfa
 is $? 0 "Found the expected rgfa cover for simple nested insertion that requires two fragments"
 
 rm -f rgfa_ins2.rgfa rgfa_ins2_expected_fragments.rgfa rgfa_ins2_fragments.rgfa
+
+vg paths -v rgfa/rgfa_ins2.gfa -R 3 -Q x | grep ^S | sort -nk2 > rgfa_ins2.rgfa
+printf "S	1	CAAATAAG	SN:Z:x	SO:i:0	SR:i:0
+S	2	TTT	SN:Z:y	SO:i:8	SR:i:1
+S	3	TTT	SN:Z:z	SO:i:11	SR:i:2
+S	4	TTT	SN:Z:y	SO:i:21	SR:i:1
+S	5	TTT	SN:Z:x	SO:i:8	SR:i:0
+S	6	TTTTTTTTTT	SN:Z:y	SO:i:11	SR:i:1\n" > rgfa_ins2_expected_segs.rgfa
+diff rgfa_ins2_expected_segs.rgfa rgfa_ins2.rgfa
+is $? 0 "Found the expected rgfa tags for simple nested insertion that requires two fragments"
+
+rm -f rgfa_ins2_expected_segs.rgfa rgfa_ins2.rgfa
 
 vg paths -v rgfa/rgfa_ins2.gfa -R 5 -Q x | vg convert - -fW > rgfa_ins2R5.rgfa
 printf "P	_rGFA_#y[8]	2+,6+,4+	*\n" > rgfa_ins2R5_expected_fragments.rgfa
