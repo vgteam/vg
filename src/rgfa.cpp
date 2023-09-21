@@ -66,6 +66,29 @@ pair<string, string> RGFACover::parse_rgfa_locus_name(const string& locus_name) 
     return sample_locus;
 }    
 
+string RGFACover::revert_rgfa_path_name(const string& rgfa_path_name, bool strip_subrange) {
+    if (!is_rgfa_path_name(rgfa_path_name)) {
+        return rgfa_path_name;
+    }
+    PathSense path_sense;
+    string path_sample;
+    string path_locus;
+    size_t path_haplotype;
+    size_t path_phase_block;
+    subrange_t path_subrange;
+    PathMetadata::parse_path_name(rgfa_path_name, path_sense, path_sample, path_locus,
+                                  path_haplotype, path_phase_block, path_subrange);
+
+    std::tie(path_sample, path_locus) = parse_rgfa_locus_name(path_locus);
+
+    if (path_sense == PathSense::REFERENCE && path_sample == PathMetadata::NO_SAMPLE_NAME) {
+        path_sense = PathSense::GENERIC;        
+    }
+    return PathMetadata::create_path_name(path_sense, path_sample,
+                                          path_locus, path_haplotype,
+                                          path_phase_block, strip_subrange ? PathMetadata::NO_SUBRANGE : path_subrange);
+}
+
 void RGFACover::clear(MutablePathMutableHandleGraph* graph) {
     vector<path_handle_t> rgfa_paths;
     graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
