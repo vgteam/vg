@@ -612,7 +612,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         }
 #endif
         if (ref_paths.count(path_trav_name) &&
-            (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
+            (ref_trav_name.empty() || path_trav_name < ref_trav_name ||
+             (RGFACover::is_rgfa_path_name(ref_trav_name) && !RGFACover::is_rgfa_path_name(path_trav_name)))) {
             ref_trav_name = path_trav_name;
 #ifdef debug
 #pragma omp critical (cerr)

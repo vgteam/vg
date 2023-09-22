@@ -327,7 +327,6 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
         for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != rgfa_intervals[i].second;
              step_handle = mutable_graph->get_next_step(step_handle)) {
             rgfa_lengths[i] += graph->get_length(graph->get_handle_of_step(step_handle));
-
         }
     }
 
@@ -351,20 +350,21 @@ int64_t RGFACover::get_rank(nid_t node_id) const {
         return -1;
     }
 
-    const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(this->node_to_interval.at(node_id));
+    int64_t interval_idx = this->node_to_interval.at(node_id);
+    const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(interval_idx);
 
     // since our decomposition is based on snarl tranversals, we know that fragments must
     // overlap their parents on snarl end points (at the very least)
     // therefore we can find parents by scanning along the rgfa paths.    
     step_handle_t left_parent = graph->get_previous_step(rgfa_interval.first);
-    int64_t left_rank = 0;
+    int64_t left_rank = interval_idx < num_ref_intervals ? 0 : -1;
     if (left_parent != graph->path_front_end(graph->get_path_handle_of_step(rgfa_interval.first))) {
         left_rank = 1 + get_rank(graph->get_id(graph->get_handle_of_step(left_parent)));
     }
 
     // don't need to go next, since already one past
     step_handle_t right_parent = rgfa_interval.second;
-    int64_t right_rank = 0;
+    int64_t right_rank = interval_idx < num_ref_intervals ? 0 : -1;
     if (right_parent != graph->path_end(graph->get_path_handle_of_step(rgfa_interval.second))) {
         right_rank = 1 + get_rank(graph->get_id(graph->get_handle_of_step(right_parent)));
     }
@@ -464,6 +464,9 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
             travs.push_back(trav);
         }
     }
+#ifdef debug
+    cerr << "doing snarl " << pb2json(snarl.start()) << "-" << pb2json(snarl.end()) << " with " << travs.size() << " travs" << endl;
+#endif
 
 
     // build an initial ranked list of candidate traversal fragments
@@ -573,7 +576,8 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
             thread_node_to_interval[graph->get_id(graph->get_handle_of_step(step))] = thread_rgfa_intervals.size();
             step = graph->get_next_step(step);
         }
-        thread_rgfa_intervals.push_back(make_pair(trav[uncovered_interval.first], trav[uncovered_interval.second]));
+        thread_rgfa_intervals.push_back(make_pair(trav.at(uncovered_interval.first),
+                                                  graph->get_next_step(trav.at(uncovered_interval.second - 1))));
     }
 }
 
