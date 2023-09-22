@@ -58,7 +58,7 @@ void help_call(char** argv) {
        << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
        << "    -O, --gbz-translation   Use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed. defaults to all paths)" << endl
-       << "    -S, --ref-sample NAME   Call on all paths with given sample name (cannot be used with -p)" << endl
+       << "    -S, --ref-sample NAME   Call on all paths with given sample name (cannot be used with -p; multiple allowed)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
@@ -83,7 +83,7 @@ int main_call(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
-    string ref_sample;
+    set<string> ref_sample_set;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
     string min_support_string;
@@ -229,7 +229,7 @@ int main_call(int argc, char** argv) {
             ref_paths.push_back(optarg);
             break;
         case 'S':
-            ref_sample = optarg;
+            ref_sample_set.insert(optarg);
             break;            
         case 'o':
             ref_path_offsets.push_back(parse<int>(optarg));
@@ -363,7 +363,7 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
         return 1;        
     }
-    if (!ref_paths.empty() && !ref_sample.empty()) {
+    if (!ref_paths.empty() && !ref_sample_set.empty()) {
         cerr << "error [vg call]: -S cannot be used with -p" << endl;
         return 1;
     }
@@ -507,7 +507,7 @@ int main_call(int argc, char** argv) {
                 PathSense path_sense = PathMetadata::parse_sense(name);
                 if (!Paths::is_alt(name) && path_sense != PathSense::HAPLOTYPE) {
                     string sample_name = PathMetadata::parse_sample_name(name);
-                    if (ref_sample.empty() || sample_name == ref_sample) {                        
+                    if (ref_sample_set.empty() || ref_sample_set.count(sample_name)) {                        
                         ref_paths.push_back(name);
                         // keep track of length best we can using maximum coordinate in event of subpaths
                         subrange_t subrange;
