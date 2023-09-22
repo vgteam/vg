@@ -44,7 +44,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDis
     }
 
     //Start with the root
-    interval_and_orientation_t first_interval (0, seeds->size(), false, ZipCode::EMPTY, 0, false);
+    interval_and_orientation_t first_interval (0, seeds->size(), false, ZipCode::EMPTY, 0);
     //Get the intervals of the connected components
     vector<interval_and_orientation_t> new_intervals = sort_one_interval(forest_state.seed_sort_order, first_interval, 0, distance_index);;
     forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
@@ -1944,7 +1944,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         if (seeds->at(sort_order[interval.interval_start]).zipcode_decoder->max_depth() == depth ) {
             //If this is a trivial chain, then just return the same interval as a node
             new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
-                                       child_depth, interval.duplicated);
+                                       child_depth);
             return new_intervals;
         }
 
@@ -1963,7 +1963,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         //Start the first interval. The end value and is_reversed gets set when ending the interval
         new_intervals.emplace_back(interval.interval_start, interval.interval_start, interval.is_reversed, 
                                    previous_is_node ? ZipCode::NODE : first_type, 
-                                   child_depth, interval.duplicated);
+                                   child_depth);
         for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
             
             //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
@@ -1991,7 +1991,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
                 //Open a new run
                 new_intervals.emplace_back(i, i, interval.is_reversed, is_node ? ZipCode::NODE : current_type, 
-                                   child_depth, interval.duplicated);
+                                   child_depth);
             }
         }
 
@@ -2049,7 +2049,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
 
 
 
-        if (interval.code_type == ZipCode::CYCLIC_SNARL && !interval.duplicated) {
+        if (interval.code_type == ZipCode::CYCLIC_SNARL) {
             // If this is a cyclic snarl, then the children may be duplicated
 
             //Sort the snarl and get intervals of the snarl's children
@@ -2067,51 +2067,38 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         // If the range of values is greater than the n log n (in the number of things being sorted) of the default
         // sorter, then use radix
 
-        if (interval.needs_reorder) {
-            //This is already sorted, just in the reversed order
+        bool use_radix;
+        if (interval.code_type  == ZipCode::ROOT_CHAIN) {
+            //If this is a root chain, then use the default sort, because it's probably too big for radix and we can't tell
+            //anyways because we don't store the length of a root-chain
+            use_radix = false;
+        } else if (interval.code_type == ZipCode::NODE || interval.code_type == ZipCode::CHAIN) {
+            //If we're sorting a node or chain, then the range of values is the minimum length of the node/chain
+            // times 3 because it gets multiplied by 3 to differentiate nodes and snarls
+            size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(interval_depth) * 3;
+            size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
 
-            //Copy the order
-            vector<size_t> reversed_order (zipcode_sort_order.begin() + interval.interval_start,
-                                           zipcode_sort_order.begin() + interval.interval_end);
-            //And put it back reversed
-            for (size_t i = 0 ; i < reversed_order.size() ; i++) {
-                zipcode_sort_order[interval.interval_end - 1 - i] = reversed_order[i];
-            }
+            use_radix = radix_cost < default_cost;
+        } else {
+            //Otherwise, this is a snarl and the range of values is the number of children in the snarl
 
-        } else if (!interval.sorted) {
-            //If this is unsorted
-            bool use_radix;
-            if (interval.code_type  == ZipCode::ROOT_CHAIN) {
-                //If this is a root chain, then use the default sort, because it's probably too big for radix and we can't tell
-                //anyways because we don't store the length of a root-chain
-                use_radix = false;
-            } else if (interval.code_type == ZipCode::NODE || interval.code_type == ZipCode::CHAIN) {
-                //If we're sorting a node or chain, then the range of values is the minimum length of the node/chain
-                // times 3 because it gets multiplied by 3 to differentiate nodes and snarls
-                size_t radix_cost = seed_to_sort.zipcode_decoder->get_length(interval_depth) * 3;
-                size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
+            size_t radix_cost = seed_to_sort.zipcode_decoder->get_snarl_child_count(interval_depth, &distance_index);
+            size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
 
-                use_radix = radix_cost < default_cost;
-            } else {
-                //Otherwise, this is a snarl and the range of values is the number of children in the snarl
-
-                size_t radix_cost = seed_to_sort.zipcode_decoder->get_snarl_child_count(interval_depth, &distance_index);
-                size_t default_cost = (interval.interval_end - interval.interval_start) * std::log2(interval.interval_end - interval.interval_start);
-
-                use_radix = radix_cost < default_cost;
-            }
-            bool reverse_order = (interval.code_type == ZipCode::REGULAR_SNARL || interval.code_type == ZipCode::IRREGULAR_SNARL) 
-                                 ? false
-                                 : interval.is_reversed; 
-            //For everything except a cyclic snarl, sort normally
-            if (use_radix) {
-                //Sort the given interval using the value-getter and orientation
-                radix_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
-            } else {
-                //Sort the given interval using the value-getter and orientation
-                default_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
-            }
+            use_radix = radix_cost < default_cost;
         }
+        bool reverse_order = (interval.code_type == ZipCode::REGULAR_SNARL || interval.code_type == ZipCode::IRREGULAR_SNARL) 
+                             ? false
+                             : interval.is_reversed; 
+        //For everything except a cyclic snarl, sort normally
+        if (use_radix) {
+            //Sort the given interval using the value-getter and orientation
+            radix_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
+        } else {
+            //Sort the given interval using the value-getter and orientation
+            default_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
+        }
+        
         return find_next_intervals(interval, interval_depth, zipcode_sort_order, get_sort_value);
     }
 
@@ -2247,8 +2234,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                      != std::numeric_limits<size_t>::max()){
                 //Copy the last thing
                 interval_and_orientation_t copy (child_intervals.back().interval_start,
-                                                 end_index, true, ZipCode::CHAIN, depth+1, true);
-                copy.needs_reorder = true;
+                                                 end_index, true, ZipCode::CHAIN, depth+1);
                 child_intervals.emplace_back(std::move(copy));
                 added_children.emplace_back(rank, true);
             }
@@ -2260,7 +2246,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
 
     };
 
-    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN, depth+1, true);
+    child_intervals.emplace_back(interval.interval_start, interval.interval_start, false, ZipCode::CHAIN, depth+1);
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
            
         const Seed& current_seed = seeds->at(zipcode_sort_order[i]);
@@ -2274,7 +2260,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
             close_interval(previous_seed, i);
 
             //Add a new interval starting here
-            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN, depth+1, true);
+            child_intervals.emplace_back(i,  i, false, ZipCode::CHAIN, depth+1);
         }
     }
     //Close the last interval
@@ -2311,15 +2297,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_zipcodes_o
                 // And break out of the inner loop
 
                 child_intervals.emplace_back(child_interval.interval_start, child_interval.interval_end, child_interval.is_reversed,
-                                             child_interval.code_type, child_interval.depth, true); 
-                if (child_intervals[child_intervals.size()-2].interval_start == child_interval.interval_start ||
-                    (child_i+1 < child_intervals.size() && child_intervals[child_i+1].interval_start == child_interval.interval_start)) {
-                    //If the last copy of this interval was in the opposite direction
-                    child_intervals.back().needs_reorder = true;
-                } else {
-                    //If the last copy of this interval was in the same direction
-                    child_intervals.back().sorted = true;
-                }
+                                             child_interval.code_type, child_interval.depth); 
                 break;
             }
         }
