@@ -521,7 +521,7 @@ int main_call(int argc, char** argv) {
                     }
                 }
             });
-        if (ref_sample_names.size() > 1 && ref_sample.empty()) {
+        if (ref_sample_names.size() > 1 && ref_sample_set.empty()) {
             cerr << "error [vg call]: Multiple reference samples detected: [";
             size_t count = 0;
             for (const string& n : ref_sample_names) {                

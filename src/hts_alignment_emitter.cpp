@@ -12,6 +12,7 @@
 #include "algorithms/find_translation.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
+#include "rgfa.hpp"
 
 #include <sstream>
 
@@ -179,6 +180,7 @@ pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path
         auto& own_length = get<1>(path_info);
         auto& base_length = get<2>(path_info);
         string base_path_name = subpath_support ? get_path_base_name(graph, path) : graph.get_path_name(path);
+        base_path_name = RGFACover::revert_rgfa_path_name(base_path_name);
         if (!base_path_set.count(base_path_name)) {
             path_names_and_lengths.push_back(make_pair(base_path_name, base_length));
             base_path_set.insert(base_path_name);
@@ -229,7 +231,7 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             
             if (print_subrange_warnings) {
                 subrange_t subrange;
-                std::string base_path_name = Paths::strip_subrange(sequence_name, &subrange);
+                std::string base_path_name = Paths::strip_subrange(RGFACover::revert_rgfa_path_name(sequence_name), &subrange);
                 if (subrange != PathMetadata::NO_SUBRANGE) {
                     // The user is asking explicitly to surject to a path that is a
                     // subrange of some other logical path, like
@@ -693,7 +695,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
 
     // Resolve subpath naming / offset
     subrange_t subrange;
-    path_name = Paths::strip_subrange(path_name, &subrange);
+    path_name = Paths::strip_subrange(RGFACover::revert_rgfa_path_name(path_name), &subrange);
     if (subrange != PathMetadata::NO_SUBRANGE) {
         pos += subrange.first;
     }
