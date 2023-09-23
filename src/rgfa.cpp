@@ -305,30 +305,40 @@ void RGFACover::load(const PathHandleGraph* graph,
 void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
     assert(this->graph == static_cast<PathHandleGraph*>(mutable_graph));
 
-    // compute the offsets in parallel, assuming we don't have a path position index of all paths
-    // todo: we could be smarter about not traversing the same path multiple times!
-    vector<int64_t> rgfa_offsets(this->rgfa_intervals.size());
-    vector<int64_t> rgfa_lengths(this->rgfa_intervals.size());
-#pragma omp parallel for
+    // index paths isued in rgfa cover
+    unordered_map<step_handle_t, int64_t> step_to_offset;
+    unordered_set<path_handle_t> source_path_set;
     for (int64_t i = this->num_ref_intervals; i < this->rgfa_intervals.size(); ++i) {
         path_handle_t source_path_handle = mutable_graph->get_path_handle_of_step(rgfa_intervals[i].first);
-#ifdef debug
-        cerr << "computing offset for application of rgfa path " << graph->get_path_name(source_path_handle) << endl;
-#endif
-        rgfa_offsets[i] = 0;
-        mutable_graph->for_each_step_in_path(source_path_handle, [&](step_handle_t step_handle) {
-            if (step_handle == rgfa_intervals[i].first) {
-                return false;
+        step_to_offset[rgfa_intervals[i].first] = -1;
+        source_path_set.insert(source_path_handle);
+    }
+    vector<path_handle_t> source_paths(source_path_set.begin(), source_path_set.end()); // for old-style omp interface
+#pragma omp parallel for
+    for (int64_t i = 0; i < source_paths.size(); ++i) {
+        int64_t offset = 0;
+        graph->for_each_step_in_path(source_paths[i], [&](step_handle_t step_handle) {
+            if (step_to_offset.count(step_handle)) {
+                step_to_offset[step_handle] = offset;
             }
-            rgfa_offsets[i] += graph->get_length(graph->get_handle_of_step(step_handle));
-            return true;
+            offset += graph->get_length(graph->get_handle_of_step(step_handle));
         });
+    }
+    
+    // compute the offsets in parallel
+    vector<int64_t> rgfa_offsets(this->rgfa_intervals.size());
+    vector<int64_t> rgfa_lengths(this->rgfa_intervals.size());
+
+#pragma omp parallel for
+    for (int64_t i = this->num_ref_intervals; i < this->rgfa_intervals.size(); ++i) {
+        rgfa_offsets[i] = step_to_offset.at(rgfa_intervals[i].first);
         rgfa_lengths[i] = 0;
         for (step_handle_t step_handle = rgfa_intervals[i].first; step_handle != rgfa_intervals[i].second;
              step_handle = mutable_graph->get_next_step(step_handle)) {
             rgfa_lengths[i] += graph->get_length(graph->get_handle_of_step(step_handle));
-        }
+        }        
     }
+    step_to_offset.clear();
 
     // write the rgfa paths
     for (int64_t i = this->num_ref_intervals; i < this->rgfa_intervals.size(); ++i) {
