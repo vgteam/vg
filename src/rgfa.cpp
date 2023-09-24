@@ -1,6 +1,7 @@
 #include "rgfa.hpp"
 #include <sstream>
 #include <algorithm>
+#include <queue>
 
 //#define debug
 
@@ -275,29 +276,43 @@ void RGFACover::load(const PathHandleGraph* graph,
             if (cur_offset + source_subrange.first == rgfa_subrange.first) {
                 source_start = cur_step;
                 found_start = true;
+            } else {
+                cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
             }
-            cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
             return !found_start;
         });
         assert(found_start);
+        assert(graph->get_id(graph->get_handle_of_step(source_start)) ==
+               graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle))));
+                assert(graph->get_is_reverse(graph->get_handle_of_step(source_start)) ==
+                       graph->get_is_reverse(graph->get_handle_of_step(graph->path_begin(path_handle))));
 
-        bool found_end;
+        bool found_end = false;
         step_handle_t source_end;
-        for (step_handle_t cur_step = source_start; graph->has_next_step(cur_step); cur_step = graph->get_next_step(cur_step)) {
-            if (cur_offset == rgfa_subrange.second) {
+        int64_t num_steps = 0;
+        for (step_handle_t cur_step = source_start;; cur_step = graph->get_next_step(cur_step)) {
+            ++num_steps;
+            cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
+            
+            if (cur_offset + source_subrange.first == rgfa_subrange.second) {
                 found_end = true;
                 source_end = cur_step;
                 break;
             }
-            cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
+            if (!graph->has_next_step(cur_step)) {
+                break;
+            }
         }
         assert(found_end);
+        assert(num_steps == graph->get_step_count(path_handle));
 
         // we can finally add our interval
         source_end = graph->get_next_step(source_end);
         this->rgfa_intervals.push_back(make_pair(source_start, source_end));
         for (step_handle_t cur_step = source_start; cur_step != source_end; cur_step = graph->get_next_step(cur_step)) {
-            node_to_interval[graph->get_id(graph->get_handle_of_step(cur_step))] = rgfa_intervals.size() - 1;
+            int64_t cur_id = graph->get_id(graph->get_handle_of_step(cur_step));
+            assert(!node_to_interval.count(cur_id));
+            node_to_interval[cur_id] = rgfa_intervals.size() - 1;
         }
     });
 }
@@ -356,46 +371,58 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 }
 
 int64_t RGFACover::get_rank(nid_t node_id) const {
-    if (!node_to_interval.count(node_id)) {
-        return -1;
-    }
 
-    int64_t interval_idx = this->node_to_interval.at(node_id);
-    const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(interval_idx);
+    // search back to reference in order to find the rank.
+    unordered_set<nid_t> visited;
+    priority_queue<pair<int64_t, nid_t>> queue;
+    queue.push(make_pair(0, node_id));
 
-    // since our decomposition is based on snarl tranversals, we know that fragments must
-    // overlap their parents on snarl end points (at the very least)
-    // therefore we can find parents by scanning along the rgfa paths.    
-    step_handle_t left_parent = graph->get_previous_step(rgfa_interval.first);
-    int64_t left_rank = interval_idx < num_ref_intervals ? 0 : -1;
-    if (left_parent != graph->path_front_end(graph->get_path_handle_of_step(rgfa_interval.first))) {
-        left_rank = 1 + get_rank(graph->get_id(graph->get_handle_of_step(left_parent)));
-    }
+    nid_t current_id;
+    int64_t distance = 0;
 
-    // don't need to go next, since already one past
-    step_handle_t right_parent = rgfa_interval.second;
-    int64_t right_rank = interval_idx < num_ref_intervals ? 0 : -1;
-    if (right_parent != graph->path_end(graph->get_path_handle_of_step(rgfa_interval.second))) {
-        right_rank = 1 + get_rank(graph->get_id(graph->get_handle_of_step(right_parent)));
-    }
+    while (!queue.empty()) {
+        std::tie(distance, current_id) = queue.top();
+        queue.pop();
 
-    return min(left_rank, right_rank);    
-}
+        if (!visited.count(current_id)) {
 
-step_handle_t RGFACover::get_step(nid_t node_id) const {    
-    assert(node_to_interval.count(node_id));
+            visited.insert(current_id);
 
-    const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(this->node_to_interval.at(node_id));    
-    path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_interval.first);
-    for (step_handle_t step = rgfa_interval.first; step != rgfa_interval.second; step = graph->get_next_step(step)) {
-        if (graph->get_id(graph->get_handle_of_step(step)) == node_id) {
-            return step;
+            if (this->node_to_interval.count(current_id)) {
+                int64_t interval_idx = this->node_to_interval.at(current_id);
+
+                // we've hit the reference, can stop searching
+                if (interval_idx < this->num_ref_intervals) {
+                    return distance;
+                }
+
+                // visit the neighbouring intervals
+                const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(interval_idx);
+                step_handle_t left_parent = graph->get_previous_step(rgfa_interval.first);
+                if (left_parent != graph->path_front_end(graph->get_path_handle_of_step(rgfa_interval.first))) {
+                    queue.push(make_pair(distance + 1, graph->get_id(graph->get_handle_of_step(left_parent))));
+                }
+                const step_handle_t& right_parent = rgfa_interval.second;
+                if (right_parent != graph->path_end(graph->get_path_handle_of_step(rgfa_interval.second))) {
+                    queue.push(make_pair(distance + 1, graph->get_id(graph->get_handle_of_step(right_parent))));
+                }
+            } else {
+                // revert to graph search if node not in interval (distance doesn't increase -- we only count intervals)
+                graph->follow_edges(graph->get_handle(current_id), false, [&](handle_t next) {
+                    queue.push(make_pair(distance, graph->get_id(next)));
+                });
+                graph->follow_edges(graph->get_handle(current_id), true, [&](handle_t next) {
+                    queue.push(make_pair(distance, graph->get_id(next)));
+                });                                
+            }
+            
         }
     }
-    assert(false);
-    return step_handle_t();
-}
 
+    // this shouldn't happen?
+    return -1;
+}
+    
 pair<const pair<step_handle_t, step_handle_t>*,
      const pair<step_handle_t, step_handle_t>*>
 RGFACover::get_parent_intervals(const pair<step_handle_t, step_handle_t>& interval) const {
