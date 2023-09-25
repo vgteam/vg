@@ -8,6 +8,7 @@
 #include <vg/io/alignment_emitter.hpp>
 #include "../clip.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
+#include "../rgfa.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -44,6 +45,7 @@ void help_clip(char** argv) {
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
        << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
        << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
+       << "    -i, --ignore-path-prefix  Ignore all paths beginning with given prefix, ex when computing depth [_rGFA_]." << endl
        << "    -t, --threads N           number of threads to use [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
        << endl;
@@ -54,6 +56,7 @@ int main_clip(int argc, char** argv) {
     string bed_path;
     string snarls_path;
     vector<string> ref_prefixes;
+    vector<string> ignore_prefixes = {RGFACover::rgfa_sample_name};
     int64_t min_depth = -1;
     int64_t min_fragment_len = 0;
     bool verbose = false;
@@ -102,13 +105,14 @@ int main_clip(int argc, char** argv) {
             {"snarls", required_argument, 0, 'r'},
             {"min-fragment-len", required_argument, 0, 'm'},
             {"output-bed", no_argument, 0, 'B'},
+            {"ignore-path-prefixes", required_argument, 0, 'i'},
             {"threads", required_argument, 0, 't'},
             {"verbose", required_argument, 0, 'v'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:sSn:e:N:E:a:l:L:D:c:P:r:m:Bt:v",
+        c = getopt_long (argc, argv, "hb:d:sSn:e:N:E:a:l:L:D:c:P:r:m:Bi:t:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -179,6 +183,9 @@ int main_clip(int argc, char** argv) {
             break;
         case 'B':
             out_bed = true;
+            break;
+        case 'i':
+            ignore_prefixes.push_back(optarg);
             break;
         case 'v':
             verbose = true;
@@ -336,13 +343,24 @@ int main_clip(int argc, char** argv) {
     }        
 
     if (min_depth >= 0) {
+        // compute paths to ignore
+        unordered_set<path_handle_t> ignore_set;
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            for (const string& ip : ignore_prefixes) {
+                if (path_name.compare(0, ip.length(), ip) == 0) {
+                    ignore_set.insert(path_handle);
+                    break;
+                }
+            }
+        });
         // run the depth clipping       
         if (bed_path.empty()) {            
             // do the whole graph
-            clip_low_depth_nodes_and_edges(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
+            clip_low_depth_nodes_and_edges(graph.get(), min_depth, ref_prefixes, min_fragment_len, ignore_set, verbose);
         } else {
             // do the contained snarls
-            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, verbose);
+            clip_contained_low_depth_nodes_and_edges(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, ignore_set, verbose);
         }
         
     } else if (max_deletion >= 0) {
