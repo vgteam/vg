@@ -192,7 +192,8 @@ void RGFACover::compute(const PathHandleGraph* graph,
 }
 
 void RGFACover::load(const PathHandleGraph* graph,
-                     const unordered_set<path_handle_t>& reference_paths) {
+                     const unordered_set<path_handle_t>& reference_paths,
+                     bool use_original_paths) {
     // start from scratch
     this->rgfa_intervals.clear();
     this->node_to_interval.clear();
@@ -200,121 +201,132 @@ void RGFACover::load(const PathHandleGraph* graph,
 
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
+        graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
+            node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = rgfa_intervals.size();
+        });
         this->rgfa_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                  graph->path_end(ref_path_handle)));
-        graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
-            node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = rgfa_intervals.size() - 1;
-        });
     }
     this->num_ref_intervals = this->rgfa_intervals.size();
 
-    // then the rgfa cover paths
-    // since we want to keep our structures in  terms of original paths, we have to map back
-    // to them here (if we don't have original paths, then we can't find the overlaps and
-    // therefore nesting relationships between them.
+    if (!use_original_paths) {
+        // just suck up the rgfa fragments right into the data structure
+        graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
+            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = rgfa_intervals.size();
+            });
+            this->rgfa_intervals.push_back(make_pair(graph->path_begin(path_handle),
+                                                     graph->path_end(path_handle)));
+        });
+    } else {
+        // then the rgfa cover paths
+        // since we want to keep our structures in  terms of original paths, we have to map back
+        // to them here (if we don't have original paths, then we can't find the overlaps and
+        // therefore nesting relationships between them.
 
-    // we start by making a little index in two scans, as I'm worried about quadratic path scan below otherwise
-    // (this does not make guarantees about degenerate fragmentation related cases tho)
-    unordered_map<pair<string, string>, vector<path_handle_t>> sample_locus_to_paths;    
-    graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
-        string locus_name = graph->get_locus_name(path_handle);
-        sample_locus_to_paths[parse_rgfa_locus_name(locus_name)] = {};
-    });
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
-        pair<string, string> sample_locus = make_pair(graph->get_sample_name(path_handle), graph->get_locus_name(path_handle));
-        if (sample_locus_to_paths.count(sample_locus)) {
-            sample_locus_to_paths[sample_locus].push_back(path_handle);
-        }
-    });
-
-    // next, we scan each rgfa path fragment, and use the index to semi-quickly find its source path interval
-    // todo: An inconsistency between cover paths and source paths is a possibility if someone messed up their graph
-    // so should probably have a better error message than the asserts below (ie if exact interval match not found)
-    graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
-        // pase the rgfa locus to get the original sample and locus
-        pair<string, string> source_sample_locus = parse_rgfa_locus_name(graph->get_locus_name(path_handle));
-        // find the sample in our index
-        const vector<path_handle_t>& source_paths = sample_locus_to_paths.at(source_sample_locus);
-        // find the containing path
-        subrange_t rgfa_subrange = graph->get_subrange(path_handle);
-        assert(rgfa_subrange != PathMetadata::NO_SUBRANGE);
-        int64_t rgfa_haplotype = graph->get_haplotype(path_handle);
-        // allow match between 0 and NO_HAPLOTYPE
-        if (rgfa_haplotype == PathMetadata::NO_HAPLOTYPE) {
-            rgfa_haplotype = 0;
-        }
-        const path_handle_t* source_path = nullptr;
-        subrange_t source_subrange;
-        for (const path_handle_t& source_path_candidate : source_paths) {
-            int64_t source_haplotype = graph->get_haplotype(source_path_candidate);
-            if (source_haplotype == PathMetadata::NO_HAPLOTYPE) {
-                source_haplotype = 0;
+        // we start by making a little index in two scans, as I'm worried about quadratic path scan below otherwise
+        // (this does not make guarantees about degenerate fragmentation related cases tho)
+        unordered_map<pair<string, string>, vector<path_handle_t>> sample_locus_to_paths;    
+        graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
+            string locus_name = graph->get_locus_name(path_handle);
+            sample_locus_to_paths[parse_rgfa_locus_name(locus_name)] = {};
+        });
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+            pair<string, string> sample_locus = make_pair(graph->get_sample_name(path_handle), graph->get_locus_name(path_handle));
+            if (sample_locus_to_paths.count(sample_locus)) {
+                sample_locus_to_paths[sample_locus].push_back(path_handle);
             }
-            if (source_haplotype == rgfa_haplotype) {
-                source_subrange = graph->get_subrange(source_path_candidate);
-                if (source_subrange == PathMetadata::NO_SUBRANGE) {
-                    source_subrange.first = 0;
+        });
+
+        // next, we scan each rgfa path fragment, and use the index to semi-quickly find its source path interval
+        // todo: An inconsistency between cover paths and source paths is a possibility if someone messed up their graph
+        // so should probably have a better error message than the asserts below (ie if exact interval match not found)
+        graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
+            // pase the rgfa locus to get the original sample and locus
+            pair<string, string> source_sample_locus = parse_rgfa_locus_name(graph->get_locus_name(path_handle));
+            // find the sample in our index
+            const vector<path_handle_t>& source_paths = sample_locus_to_paths.at(source_sample_locus);
+            // find the containing path
+            subrange_t rgfa_subrange = graph->get_subrange(path_handle);
+            assert(rgfa_subrange != PathMetadata::NO_SUBRANGE);
+            int64_t rgfa_haplotype = graph->get_haplotype(path_handle);
+            // allow match between 0 and NO_HAPLOTYPE
+            if (rgfa_haplotype == PathMetadata::NO_HAPLOTYPE) {
+                rgfa_haplotype = 0;
+            }
+            const path_handle_t* source_path = nullptr;
+            subrange_t source_subrange;
+            for (const path_handle_t& source_path_candidate : source_paths) {
+                int64_t source_haplotype = graph->get_haplotype(source_path_candidate);
+                if (source_haplotype == PathMetadata::NO_HAPLOTYPE) {
+                    source_haplotype = 0;
                 }
-                if (source_subrange == PathMetadata::NO_SUBRANGE || source_subrange.second == PathMetadata::NO_END_POSITION) {
-                    source_subrange.second = 0;
-                    graph->for_each_step_in_path(source_path_candidate, [&](step_handle_t step) {
-                        source_subrange.second += graph->get_length(graph->get_handle_of_step(step));
-                    });
+                if (source_haplotype == rgfa_haplotype) {
+                    source_subrange = graph->get_subrange(source_path_candidate);
+                    if (source_subrange == PathMetadata::NO_SUBRANGE) {
+                        source_subrange.first = 0;
+                    }
+                    if (source_subrange == PathMetadata::NO_SUBRANGE || source_subrange.second == PathMetadata::NO_END_POSITION) {
+                        source_subrange.second = 0;
+                        graph->for_each_step_in_path(source_path_candidate, [&](step_handle_t step) {
+                            source_subrange.second += graph->get_length(graph->get_handle_of_step(step));
+                        });
+                    }
+                    if (rgfa_subrange.first >= source_subrange.first && rgfa_subrange.second <= source_subrange.second) {
+                        source_path = &source_path_candidate;
+                        break;
+                    }
                 }
-                if (rgfa_subrange.first >= source_subrange.first && rgfa_subrange.second <= source_subrange.second) {
-                    source_path = &source_path_candidate;
+            }
+            assert(source_path != nullptr);
+            // now find the exact interval in the containing path and update our data structure
+            bool found_start = false;
+            step_handle_t source_start;
+            int64_t cur_offset = 0;
+            graph->for_each_step_in_path(*source_path, [&](step_handle_t cur_step) {
+                if (cur_offset + source_subrange.first == rgfa_subrange.first) {
+                    source_start = cur_step;
+                    found_start = true;
+                } else {
+                    cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
+                }
+                return !found_start;
+            });
+            assert(found_start);
+            assert(graph->get_id(graph->get_handle_of_step(source_start)) ==
+                   graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle))));
+            assert(graph->get_is_reverse(graph->get_handle_of_step(source_start)) ==
+                   graph->get_is_reverse(graph->get_handle_of_step(graph->path_begin(path_handle))));
+
+            bool found_end = false;
+            step_handle_t source_end;
+            int64_t num_steps = 0;
+            for (step_handle_t cur_step = source_start;; cur_step = graph->get_next_step(cur_step)) {
+                ++num_steps;
+                cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
+            
+                if (cur_offset + source_subrange.first == rgfa_subrange.second) {
+                    found_end = true;
+                    source_end = cur_step;
+                    break;
+                }
+                if (!graph->has_next_step(cur_step)) {
                     break;
                 }
             }
-        }
-        assert(source_path != nullptr);
-        // now find the exact interval in the containing path and update our data structure
-        bool found_start = false;
-        step_handle_t source_start;
-        int64_t cur_offset = 0;
-        graph->for_each_step_in_path(*source_path, [&](step_handle_t cur_step) {
-            if (cur_offset + source_subrange.first == rgfa_subrange.first) {
-                source_start = cur_step;
-                found_start = true;
-            } else {
-                cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
+            assert(found_end);
+            assert(num_steps == graph->get_step_count(path_handle));
+
+            // we can finally add our interval
+            source_end = graph->get_next_step(source_end);
+            this->rgfa_intervals.push_back(make_pair(source_start, source_end));
+            for (step_handle_t cur_step = source_start; cur_step != source_end; cur_step = graph->get_next_step(cur_step)) {
+                int64_t cur_id = graph->get_id(graph->get_handle_of_step(cur_step));
+                assert(!node_to_interval.count(cur_id));
+                node_to_interval[cur_id] = rgfa_intervals.size() - 1;
             }
-            return !found_start;
         });
-        assert(found_start);
-        assert(graph->get_id(graph->get_handle_of_step(source_start)) ==
-               graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle))));
-                assert(graph->get_is_reverse(graph->get_handle_of_step(source_start)) ==
-                       graph->get_is_reverse(graph->get_handle_of_step(graph->path_begin(path_handle))));
-
-        bool found_end = false;
-        step_handle_t source_end;
-        int64_t num_steps = 0;
-        for (step_handle_t cur_step = source_start;; cur_step = graph->get_next_step(cur_step)) {
-            ++num_steps;
-            cur_offset += graph->get_length(graph->get_handle_of_step(cur_step));
-            
-            if (cur_offset + source_subrange.first == rgfa_subrange.second) {
-                found_end = true;
-                source_end = cur_step;
-                break;
-            }
-            if (!graph->has_next_step(cur_step)) {
-                break;
-            }
-        }
-        assert(found_end);
-        assert(num_steps == graph->get_step_count(path_handle));
-
-        // we can finally add our interval
-        source_end = graph->get_next_step(source_end);
-        this->rgfa_intervals.push_back(make_pair(source_start, source_end));
-        for (step_handle_t cur_step = source_start; cur_step != source_end; cur_step = graph->get_next_step(cur_step)) {
-            int64_t cur_id = graph->get_id(graph->get_handle_of_step(cur_step));
-            assert(!node_to_interval.count(cur_id));
-            node_to_interval[cur_id] = rgfa_intervals.size() - 1;
-        }
-    });
+    }
 }
 
 void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
@@ -396,16 +408,17 @@ int64_t RGFACover::get_rank(nid_t node_id) const {
                     return distance;
                 }
 
-                // visit the neighbouring intervals
+                // search out of the snarl -- any parent traversals will overlap here
                 const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(interval_idx);
-                step_handle_t left_parent = graph->get_previous_step(rgfa_interval.first);
-                if (left_parent != graph->path_front_end(graph->get_path_handle_of_step(rgfa_interval.first))) {
-                    queue.push(make_pair(distance + 1, graph->get_id(graph->get_handle_of_step(left_parent))));
-                }
-                const step_handle_t& right_parent = rgfa_interval.second;
-                if (right_parent != graph->path_end(graph->get_path_handle_of_step(rgfa_interval.second))) {
-                    queue.push(make_pair(distance + 1, graph->get_id(graph->get_handle_of_step(right_parent))));
-                }
+                
+                graph->follow_edges(graph->get_handle_of_step(rgfa_interval.first), true, [&](handle_t prev) {
+                    queue.push(make_pair(distance + 1, graph->get_id(prev)));
+                });
+                step_handle_t last_step = graph->get_previous_step(rgfa_interval.second);
+                graph->follow_edges(graph->get_handle_of_step(last_step), false, [&](handle_t next) {
+                    queue.push(make_pair(distance + 1, graph->get_id(next)));
+                });
+
             } else {
                 // revert to graph search if node not in interval (distance doesn't increase -- we only count intervals)
                 graph->follow_edges(graph->get_handle(current_id), false, [&](handle_t next) {
