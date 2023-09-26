@@ -466,12 +466,6 @@ class ZipCodeForest {
                              bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
                              const std::function<size_t(const Seed& seed, size_t depth)>& get_sort_value) const; 
 
-    /// Helper function to sort the seeds on a cyclic (non-dag) snarl
-    /// depth is the depth of the snarl
-    /// Returns the intervals on zipcode_sort_order
-    /// The intervals may be duplicated and in different orientations
-    vector<interval_and_orientation_t> sort_zipcodes_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             size_t depth, const SnarlDistanceIndex& distance_index) const; 
 
     //////////////////// data structures and helper functions for building the forest
 
@@ -538,6 +532,18 @@ class ZipCodeForest {
 
 
     };
+
+    /// Helper function to sort the seeds on a cyclic (non-dag) snarl
+    /// depth is the depth of the snarl
+    /// Returns the intervals on zipcode_sort_order
+    /// The intervals may be duplicated and in different orientations
+    vector<interval_and_orientation_t> process_interval_on_cyclic_snarl(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
+                             size_t depth, const SnarlDistanceIndex& distance_index) const; 
+
+    /// Given an interval of seeds on the same snarl, make a fake snarl where each child is a single seed
+    /// The interval is fully processed after running this so return void
+    void add_snarl_of_seeds(forest_growing_state_t& forest_state, const interval_and_orientation_t& interval,
+                             size_t depth, const SnarlDistanceIndex& distance_index) ; 
 
     // Open a chain that starts at the current_seed
     // If the chain is in a snarl, then add empty edges for the distances to everything before it in the snarl
