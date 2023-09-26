@@ -478,6 +478,7 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
 
     // start by finding the path traversals through the snarl
     vector<vector<step_handle_t>> travs;
+    vector<string> trav_names;
     {
         pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs = path_trav_finder.find_path_traversals(snarl);
         travs.reserve(path_travs.first.size());
@@ -512,6 +513,7 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
                 std::reverse(trav.begin(), trav.end());
             }
             travs.push_back(trav);
+            trav_names.push_back(trav_path_name);
         }
     }
 #ifdef debug
@@ -520,7 +522,7 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
 
 
     // build an initial ranked list of candidate traversal fragments
-    vector<pair<int64_t, pair<int64_t, pair<int64_t, int64_t>>>> ranked_trav_fragments;
+    vector<RankedFragment> ranked_trav_fragments;
     for (int64_t trav_idx = 0; trav_idx < travs.size(); ++trav_idx) {
         // only a reference traversal (or deletion that we don't need to consider)
         // will have its first two nodes covered
@@ -548,30 +550,24 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
             }
             if (!cyclic && interval_length >= minimum_length) {
                 int64_t trav_coverage = get_coverage(trav, uncovered_interval);
-                ranked_trav_fragments.push_back(make_pair(trav_coverage, make_pair(trav_idx, uncovered_interval)));
+                ranked_trav_fragments.push_back({trav_coverage, &trav_names[trav_idx], trav_idx, uncovered_interval});
             }
         }
     }
 
-    // todo: typedef!
-    auto heap_comp = [] (const pair<int64_t, pair<int64_t, pair<int64_t, int64_t>>>& s1,
-                         const pair<int64_t, pair<int64_t, pair<int64_t, int64_t>>>& s2) {
-        return s1.first < s2.first;
-    };
-
     // put the fragments into a max heap
-    std::make_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
+    std::make_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
 
     // now greedily pull out traversal intervals from the ranked list until none are left
     while (!ranked_trav_fragments.empty()) {
 
         // get the best scoring (max) fragment from heap
         auto best_stats_fragment = ranked_trav_fragments.front();
-        std::pop_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
+        std::pop_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
         ranked_trav_fragments.pop_back();
         
-        const vector<step_handle_t>& trav = travs.at(best_stats_fragment.second.first);
-        const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.second.second;
+        const vector<step_handle_t>& trav = travs.at(best_stats_fragment.trav_idx);
+        const pair<int64_t, int64_t>& uncovered_interval = best_stats_fragment.fragment;
 
 #ifdef debug
         cerr << "best trav: ";
@@ -609,8 +605,8 @@ void RGFACover::compute_snarl(const Snarl& snarl, PathTraversalFinder& path_trav
                 }
                 if (chopped_trav_length >= minimum_length) {
                     int64_t trav_coverage = get_coverage(trav, chopped_interval);
-                    ranked_trav_fragments.push_back(make_pair(trav_coverage, make_pair(best_stats_fragment.second.first, chopped_interval)));
-                    std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end(), heap_comp);
+                    ranked_trav_fragments.push_back({trav_coverage, best_stats_fragment.name, best_stats_fragment.trav_idx, chopped_interval});
+                    std::push_heap(ranked_trav_fragments.begin(), ranked_trav_fragments.end());
                 }
             }
             continue;

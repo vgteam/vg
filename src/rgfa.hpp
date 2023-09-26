@@ -119,6 +119,18 @@ protected:
     int64_t num_ref_intervals;
 
     unordered_map<nid_t, int64_t> node_to_interval;
+
+    // used when selecting traversals to make the greedy cover
+    struct RankedFragment {
+        int64_t coverage;
+        const string* name;
+        int64_t trav_idx;
+        pair<int64_t, int64_t> fragment;
+        bool operator<(const RankedFragment& f2) {
+            // note: name comparison is flipped because we want to select high coverage / low name
+            return this->coverage < f2.coverage || (this->coverage == f2.coverage && *this->name > *f2.name);
+        }
+    };
 };
 
 /// Export the given VG graph to the given GFA file.
