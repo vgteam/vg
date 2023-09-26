@@ -57,10 +57,12 @@ public:
 
     // load the rgfa cover from the graph, assuming it's been computed already and
     // saved in special rgfa paths
-    // this function assumes that the rGFA cover paths are exactly consistent
-    // with the original paths.
+    // the use_original_paths flag specifies whether the cover indexes the original
+    // paths or the rgfa paths fragments (if the former, then they must exist
+    // and be 100% consistent with the paths used to construct the fragments)
     void load(const PathHandleGraph* graph,
-              const unordered_set<path_handle_t>& reference_paths);
+              const unordered_set<path_handle_t>& reference_paths,
+              bool use_original_paths = false);
 
     // apply the rgfa cover to a graph (must have been computed first), adding it
     // as a bunch of (reference sense) paths with a special sample name
