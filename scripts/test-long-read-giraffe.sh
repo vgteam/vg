@@ -13,6 +13,12 @@ set -ex
 : "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.gam"}"
 : "${GIRAFFE_ARGS:=""}"
 
+# Make absolute paths before changing directories
+DATA_DIR="$(abspath "${DATA_DIR}")"
+GRAPH_BASE="$(abspath "${GRAPH_BASE}")"
+GAM_FILE="$(abspath "${GAM_FILE}")"
+INPUT_READS="$(abspath "${INPUT_READS}")"
+
 if which sbatch >/dev/null 2>&1 ; then
     # Slurm is available.
     # Put your Slurm command arguments in a JOB_ARGS array and run do_sbatch or
@@ -128,8 +134,12 @@ cat "${PLOT_DIR}/stats.tsv"
 
 JOB_ARGS=(-c16 --mem 20G)
 do_srun vg annotate -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m >${GAM_FILE%.gam}.annotated.gam
-do_srun vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} >${GAM_FILE%.gam}.compared.gam
-    
+do_srun vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} -T -a "${CONDITION}" -o ${GAM_FILE%.gam}.compared.gam > ${GAM_FILE%.gam}.compared.tsv
+
+# Now make a PR plot stratified by MAPQ
+Rscript scripts/plot-pr.R ${GAM_FILE%.gam}.compared.tsv ${GAM_FILE%.gam}.compared.svg
+
+
 
 
 

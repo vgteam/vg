@@ -11,10 +11,10 @@ require("ggrepel")
 
 # Read in the combined toil-vg stats.tsv, listing:
 # correct, mapq, aligner (really graph name), read name, count
-dat <- read.table(commandArgs(TRUE)[1], header=T)
+dat <- read.table(commandArgs(TRUE)[1], header=T, colClasses=c("aligner"="factor"))
 
 if (! ("count" %in% names(dat))) {
-    # If the count column is not present, add i
+    # If the count column is not present, add it
     dat$count <- rep(1, nrow(dat))
 }
 
