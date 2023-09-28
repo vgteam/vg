@@ -559,10 +559,10 @@ class ZipCodeForest {
     // seed_index is the index of the current seed in the list of seeds
     void add_child_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                       const size_t& distance_limit, const size_t& depth, const size_t& seed_index, 
-                      bool child_is_reversed, bool chain_is_reversed);
+                      bool child_is_reversed, bool chain_is_reversed, bool is_cyclic_snarl);
 
     // Start a new snarl
-    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth);
+    void open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl);
 
     // Close a snarl
     // depth is the depth of the snarl and last_seed is the last seed in the snarl

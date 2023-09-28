@@ -139,9 +139,17 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 
         if (current_interval.code_type == ZipCode::CYCLIC_SNARL) {
 
+            add_child_to_chain(forest_state, distance_index, distance_limit, current_depth,
+                               forest_state.seed_sort_order[current_interval.interval_start], 
+                               current_interval.is_reversed, forest_state.open_intervals.back().is_reversed,
+                               true);
+
             //Make a snarl containing just the seeds
             add_snarl_of_seeds(forest_state, current_interval, current_depth, distance_index);
 
+            trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_END, 
+                                                                         std::numeric_limits<size_t>::max(), 
+                                                                         false});
         } else {
             //Otherwise, sort get the intervals normally
 
@@ -185,7 +193,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 
                 if (current_interval.code_type == ZipCode::ROOT_SNARL) {
                     // Open the root snarl
-                    open_snarl(forest_state, 0);
+                    open_snarl(forest_state, 0, false);
                 } else if (current_interval.code_type == ZipCode::NODE) {
                     //For a root node, just add the chain and all the seeds
 
@@ -199,7 +207,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
 
                         add_child_to_chain(forest_state, distance_index, distance_limit, current_depth, 
                                            forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                           current_interval.is_reversed ); 
+                                           current_interval.is_reversed, false); 
                     }
                     close_chain(forest_state, distance_index, distance_limit, current_depth, 
                                 seeds->at(forest_state.seed_sort_order[current_interval.interval_end-1]), current_interval.is_reversed); 
@@ -228,25 +236,25 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                             //If this is getting added to a node
                             add_child_to_chain(forest_state, distance_index, distance_limit, current_depth-1, 
                                                forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                               forest_state.open_intervals.back().is_reversed ); 
+                                               forest_state.open_intervals.back().is_reversed, false); 
                         } else {
                             add_child_to_chain(forest_state, distance_index, distance_limit, current_depth, 
                                                forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                               forest_state.open_intervals.back().is_reversed ); 
+                                               forest_state.open_intervals.back().is_reversed, false); 
                         }
                     }
 
                 } else {
 #ifdef DEBUG_ZIP_CODE_TREE
                     assert(current_interval.code_type == ZipCode::REGULAR_SNARL || 
-                           current_interval.code_type == ZipCode::IRREGULAR_SNARL ||
-                           current_interval.code_type == ZipCode::CYCLIC_SNARL);
+                           current_interval.code_type == ZipCode::IRREGULAR_SNARL);
 #endif
 
                     //Add the snarl to the chain
                     add_child_to_chain(forest_state, distance_index, distance_limit, current_depth,
                                        forest_state.seed_sort_order[current_interval.interval_start], 
-                                       current_interval.is_reversed, forest_state.open_intervals.back().is_reversed);
+                                       current_interval.is_reversed, forest_state.open_intervals.back().is_reversed,
+                                       false);
                 }
                 
 
@@ -551,7 +559,7 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state, const Snar
 
 void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
                        const size_t& distance_limit, const size_t& depth, const size_t& seed_index, bool child_is_reversed,
-                       bool chain_is_reversed) {
+                       bool chain_is_reversed, bool is_cyclic_snarl) {
     const Seed& current_seed = seeds->at(seed_index);
     //For these things, we need to remember the offset in the node/chain
 
@@ -768,7 +776,7 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SEED, seed_index, child_is_reversed != is_rev(current_seed.pos)});
     } else {
 
-        open_snarl(forest_state, depth); 
+        open_snarl(forest_state, depth, is_cyclic_snarl); 
 
         //For finding the distance to the next thing in the chain, the offset
         //stored should be the offset of the end bound of the snarl, so add the 
@@ -790,14 +798,14 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
 
 }
 
-void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth) {
+void ZipCodeForest::open_snarl(forest_growing_state_t& forest_state, const size_t& depth, bool is_cyclic_snarl) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "\t\tOpen new snarl at depth " << depth << endl;
 #endif
     //If this was a snarl, record the start of the snarl
     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});
     
-    if (depth != 0) {
+    if (depth != 0 && !is_cyclic_snarl) {
         //Remember the start of the snarl to find distances later
         //Don't do this for a root snarl because technically there is no start node so there are no distances to it
         forest_state.sibling_indices_at_depth[depth].push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max()});
@@ -2174,11 +2182,8 @@ void ZipCodeForest::add_snarl_of_seeds(forest_growing_state_t& forest_state, con
 #endif
 
     net_handle_t snarl_handle = seeds->at(forest_state.seed_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_net_handle(depth, &distance_index);
-    
-    /********    open the snarl   ***********/
-    trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_START, std::numeric_limits<size_t>::max(), false});                                   
 
-#ifdef DEBUG_ZIP_CODE_TREE
+    #ifdef DEBUG_ZIP_CODE_TREE
 cerr << "Find intervals on snarl" << endl;
 #endif
     /********   Find intervals of runs of seeds on the same chain *********/
@@ -2404,10 +2409,6 @@ cerr << "Find intervals on snarl" << endl;
                                                                  false});
 
 
-    /*******     close the snarl    *******/
-    trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_END, 
-                                                                 std::numeric_limits<size_t>::max(), 
-                                                                 false});
 
     return;
 }
