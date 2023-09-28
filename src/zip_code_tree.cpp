@@ -145,7 +145,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                                true);
 
             //Make a snarl containing just the seeds
-            add_snarl_of_seeds(forest_state, current_interval, current_depth, distance_index);
+            add_cyclic_snarl(forest_state, current_interval, current_depth, distance_index);
 
             trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SNARL_END, 
                                                                          std::numeric_limits<size_t>::max(), 
@@ -2175,7 +2175,7 @@ void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, co
 }
 
 
-void ZipCodeForest::add_snarl_of_seeds(forest_growing_state_t& forest_state, const interval_and_orientation_t& snarl_interval,
+void ZipCodeForest::add_cyclic_snarl(forest_growing_state_t& forest_state, const interval_and_orientation_t& snarl_interval,
                              size_t depth, const SnarlDistanceIndex& distance_index) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Get all-to-all comparison of runs of seeds on a cyclic snarl" << endl;
@@ -2243,7 +2243,11 @@ cerr << "Find intervals on snarl" << endl;
     pos_t start_bound_pos = make_pos_t(distance_index.node_id(start_bound),
                                                distance_index.get_connectivity(start_bound) == SnarlDistanceIndex::END_START,
                                                distance_index.minimum_length(start_bound)-1); 
-    added_children.emplace_back(start_bound_pos);
+
+    net_handle_t end_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, true, true));
+    pos_t end_bound_pos = make_pos_t(distance_index.node_id(end_bound),
+                                               distance_index.get_connectivity(end_bound) == SnarlDistanceIndex::END_START,
+                                               0); 
 
     //We'll add runs of seeds on the same chain or node. This is used to find their offsets on whatever
     //chain/node they are on
@@ -2284,30 +2288,61 @@ cerr << "Find intervals on snarl" << endl;
             }
 #endif
 
+            //Only add the interval in the orientation it can be reached in
+            // This is true for reversed, false for forwards
+            vector<bool> orientations;
+            //Get the bounding positions, facing into the interval
+            const Seed& start_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
+            size_t to_seed_depth = start_seed.zipcode_decoder->max_depth();
+            bool start_seed_is_rev = to_interval.is_reversed != 
+                               start_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
+            pos_t start_pos = start_seed_is_rev 
+                            ? make_pos_t(id(start_seed.pos),
+                                          distance_index.minimum_length(distance_index.get_node_net_handle(
+                                                                          id(start_seed.pos))) 
+                                                    - offset(start_seed.pos),
+                                          !is_rev(start_seed.pos))
+                            : start_seed.pos;
+
+            const Seed& end_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_end - 1]);
+            bool end_seed_is_rev = to_interval.is_reversed == 
+                               end_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
+            pos_t end_pos = end_seed_is_rev 
+                            ? make_pos_t(id(end_seed.pos),
+                                          distance_index.minimum_length(distance_index.get_node_net_handle(
+                                                                          id(end_seed.pos))) 
+                                                    - offset(end_seed.pos),
+                                          !is_rev(end_seed.pos))
+                            : end_seed.pos;
+            
+            size_t distance_start_left = minimum_distance(distance_index, start_bound_pos, start_pos);
+            size_t distance_start_right = minimum_distance(distance_index, start_bound_pos, end_pos); 
+            size_t distance_end_left = minimum_distance(distance_index, end_bound_pos, start_pos);
+            size_t distance_end_right = minimum_distance(distance_index, end_bound_pos, end_pos); 
+
+            if (distance_start_left != std::numeric_limits<size_t>::max() || 
+                distance_end_right != std::numeric_limits<size_t>::max()) {
+                orientations.emplace_back(false);
+            }
+            if (distance_start_right != std::numeric_limits<size_t>::max() || 
+                distance_end_left != std::numeric_limits<size_t>::max()) {
+                orientations.emplace_back(true);
+            }
+
             //For each seed
-            for (bool rev : {false, true}) {
+            for (bool rev : orientations) {
                 //In each orientation
 
                 //The seed that we're reaching from previous children (the start of the chain if oriented forwards)
-                const auto& to_seed = rev ? seeds->at(forest_state.seed_sort_order[to_interval.interval_end - 1])
-                                          : seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
-                size_t to_seed_depth = to_seed.zipcode_decoder->max_depth();
-
-                //Get the position of the seed facing into the chain
-                bool seed_is_rev = to_interval.is_reversed != 
-                               to_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
-                if (rev) {
-                    seed_is_rev = !seed_is_rev;
-                }
-                pos_t to_pos = seed_is_rev ? make_pos_t(id(to_seed.pos),
-                                            distance_index.minimum_length(distance_index.get_node_net_handle(
-                                                                          id(to_seed.pos))) 
-                                                    - offset(to_seed.pos),
-                                            !is_rev(to_seed.pos))
-                               : to_seed.pos;
+                pos_t to_pos = rev ? end_pos : start_pos;
+                bool seed_is_rev = rev ? end_seed_is_rev : start_seed_is_rev;
                     
 
                 //Go through each of the added children backwards, to add the distance
+                //Start with the distance to the start bound
+                trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
+                                                                         rev ? distance_start_right : distance_start_left, 
+                                                                         false});
                 for (auto from_pos = added_children.rbegin() ; from_pos < added_children.rend() ; from_pos++) {
                     size_t dist = minimum_distance(distance_index, *from_pos, to_pos);
                     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
@@ -2392,13 +2427,16 @@ cerr << "Find intervals on snarl" << endl;
 
     /********  Add the distances to the end of the snarl and the number of children ********/
     //End bound facing out
-    net_handle_t end_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, true, false));
-    pos_t end_bound_pos = make_pos_t(distance_index.node_id(end_bound),
-                                     distance_index.get_connectivity(end_bound) == SnarlDistanceIndex::END_START,
+    pos_t end_bound_pos_out = make_pos_t(id(end_bound_pos),
+                                         !is_rev(end_bound_pos),
                                      distance_index.minimum_length(end_bound)-1); 
 
+    //Add the length of the snarl
+    trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
+                 seeds->at(forest_state.seed_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_length(depth), 
+                 false});
     for (auto from_pos = added_children.rbegin() ; from_pos < added_children.rend()-1 ; from_pos++) {
-        size_t dist = minimum_distance(distance_index, *from_pos, end_bound_pos);
+        size_t dist = minimum_distance(distance_index, *from_pos, end_bound_pos_out);
         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, dist, false});
     }
     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 

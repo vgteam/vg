@@ -534,7 +534,7 @@ class ZipCodeForest {
     };
     /// Given an interval of seeds on the same snarl, make a fake snarl where each child is a single seed
     /// The interval is fully processed after running this so return void
-    void add_snarl_of_seeds(forest_growing_state_t& forest_state, const interval_and_orientation_t& snarl_interval,
+    void add_cyclic_snarl(forest_growing_state_t& forest_state, const interval_and_orientation_t& snarl_interval,
                              size_t depth, const SnarlDistanceIndex& distance_index) ; 
 
     // Open a chain that starts at the current_seed
