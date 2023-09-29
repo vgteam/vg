@@ -414,7 +414,14 @@ int64_t RGFACover::get_rank(nid_t node_id) const {
                 graph->follow_edges(graph->get_handle_of_step(rgfa_interval.first), true, [&](handle_t prev) {
                     queue.push(make_pair(distance + 1, graph->get_id(prev)));
                 });
-                step_handle_t last_step = graph->get_previous_step(rgfa_interval.second);
+                // hack around gbwtgraph bug (feature?) that does not let you decrement path_end
+                path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_interval.first);
+                step_handle_t last_step;
+                if (rgfa_interval.second == graph->path_end(path_handle)) {
+                    last_step = graph->path_back(path_handle);
+                } else {
+                    last_step = graph->get_previous_step(rgfa_interval.second);
+                }
                 graph->follow_edges(graph->get_handle_of_step(last_step), false, [&](handle_t next) {
                     queue.push(make_pair(distance + 1, graph->get_id(next)));
                 });
