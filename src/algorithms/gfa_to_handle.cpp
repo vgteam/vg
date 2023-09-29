@@ -303,7 +303,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             string rgfa_path_name;
             if (path_rank > 0) {
                 // Special logic for off-reference paths, which get loaded into special rGFA cover paths
-                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length, false);
+                rgfa_path_name = RGFACover::make_rgfa_path_name(path_name, offset, length, true);
             } else {
                 // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
                 rgfa_path_name = PathMetadata::create_path_name(PathSense::GENERIC,
