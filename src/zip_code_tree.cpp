@@ -2178,7 +2178,12 @@ void ZipCodeForest::default_sort_zipcodes(vector<size_t>& zipcode_sort_order, co
 void ZipCodeForest::add_cyclic_snarl(forest_growing_state_t& forest_state, const interval_and_orientation_t& snarl_interval,
                              size_t depth, const SnarlDistanceIndex& distance_index) {
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "Get all-to-all comparison of runs of seeds on a cyclic snarl" << endl;
+    cerr << "Get all-to-all comparison of runs of seeds on a cyclic snarl at dept " << depth << endl;
+    cerr << "Seeds: ";
+    for (size_t i = snarl_interval.interval_start ; i < snarl_interval.interval_end ; i++) {
+        cerr << seeds->at(forest_state.seed_sort_order[i]).pos << " ";
+    }
+    cerr << endl;
 #endif
 
     net_handle_t snarl_handle = seeds->at(forest_state.seed_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_net_handle(depth, &distance_index);
@@ -2211,9 +2216,10 @@ cerr << "Find intervals on snarl" << endl;
             }
             last_end = next_interval.interval_end;
             if (next_interval.interval_end - next_interval.interval_start == 1 || 
-                current_depth == seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->max_depth()) {
+                (current_depth == seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->max_depth() &&
+                 seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->get_code_type(current_depth) == ZipCode::CHAIN)) {
+                cerr << "For seed " << seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).pos <<  " max depth  " << seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->max_depth() << endl; 
                 //If this is just one seed, or a trivial chain
-
 
                 child_intervals.emplace_back(std::move(next_interval));
             } else {
@@ -2279,12 +2285,18 @@ cerr << "Find intervals on snarl" << endl;
         for (auto& to_interval : child_intervals) {
 
 #ifdef DEBUG_ZIP_CODE_TREE
-            //Check that everything really is on the same node
-            const Seed& start_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
+            //Check that everything really is on the same node/chain
+            const Seed& first_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
             for (size_t i = to_interval.interval_start ; i < to_interval.interval_end ; i++) {
                 const Seed& curr_seed =  seeds->at(forest_state.seed_sort_order[i]);
-                assert(start_seed.zipcode_decoder->max_depth() == curr_seed.zipcode_decoder->max_depth());
-                assert(ZipCodeDecoder::is_equal(*start_seed.zipcode_decoder, *curr_seed.zipcode_decoder, curr_seed.zipcode_decoder->max_depth())) ;
+                assert(first_seed.zipcode_decoder->max_depth() == curr_seed.zipcode_decoder->max_depth());
+                if (first_seed.zipcode_decoder->get_code_type(first_seed.zipcode_decoder->max_depth()) == ZipCode::CHAIN) {
+                    //If its a trivial chain
+                    assert(ZipCodeDecoder::is_equal(*first_seed.zipcode_decoder, *curr_seed.zipcode_decoder, curr_seed.zipcode_decoder->max_depth()));
+                } else {
+                    //If its a node on a chain
+                    assert(ZipCodeDecoder::is_equal(*first_seed.zipcode_decoder, *curr_seed.zipcode_decoder, curr_seed.zipcode_decoder->max_depth()-1));
+                }
             }
 #endif
 
