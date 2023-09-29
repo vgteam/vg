@@ -2216,9 +2216,7 @@ cerr << "Find intervals on snarl" << endl;
             }
             last_end = next_interval.interval_end;
             if (next_interval.interval_end - next_interval.interval_start == 1 || 
-                (current_depth == seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->max_depth() &&
-                 seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->get_code_type(current_depth) == ZipCode::CHAIN)) {
-                cerr << "For seed " << seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).pos <<  " max depth  " << seeds->at(forest_state.seed_sort_order[next_interval.interval_start]).zipcode_decoder->max_depth() << endl; 
+                next_interval.code_type == ZipCode::NODE) {
                 //If this is just one seed, or a trivial chain
 
                 child_intervals.emplace_back(std::move(next_interval));

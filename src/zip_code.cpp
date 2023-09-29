@@ -425,7 +425,7 @@ size_t ZipCodeDecoder::get_rank_in_snarl(const size_t& depth) {
         return zip_value;
     } else {
         //If this is a snarl
-        throw std::runtime_error("zipcodes don't store ranks of top-level chains or snarls");
+        throw std::runtime_error("zipcodes don't store snarl ranks for snarls");
     }
 }
 
