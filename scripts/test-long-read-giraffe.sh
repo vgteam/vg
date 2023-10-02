@@ -140,7 +140,7 @@ JOB_ARGS=(-c16 --mem 20G)
 do_srun vg annotate -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m >${GAM_FILE%.gam}.annotated.gam
 do_srun vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} -T -a "${CONDITION}" -o ${GAM_FILE%.gam}.compared.gam > ${GAM_FILE%.gam}.compared.tsv
 
-Rscript scripts/plot-pr.R ${GAM_FILE%.gam}.compared.tsv ${GAM_FILE%.gam}.alone.sv
+Rscript scripts/plot-pr.R ${GAM_FILE%.gam}.compared.tsv ${GAM_FILE%.gam}.alone.png
 
 # Start a combined TSV with all our reads
 COMPARISON_SCRATCH="${COMPARISON_BASE}.combined.tsv"
@@ -156,8 +156,8 @@ for OTHER_TSV in "${COMPARISON_BASE}"*"${COMPARISON_SUFFIX}" ; do
 done
 
 # Now make a PR plot stratified by MAPQ
-Rscript scripts/plot-pr.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.compared.svg
-Rscript scripts/plot-qq.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.qq.svg
+Rscript scripts/plot-pr.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.compared.png
+Rscript scripts/plot-qq.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.qq.png
 
 
 
