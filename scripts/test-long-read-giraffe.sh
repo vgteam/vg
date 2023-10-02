@@ -157,6 +157,7 @@ done
 
 # Now make a PR plot stratified by MAPQ
 Rscript scripts/plot-pr.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.compared.svg
+Rscript scripts/plot-qq.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.qq.svg
 
 
 
