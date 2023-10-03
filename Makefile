@@ -92,12 +92,6 @@ LD_STATIC_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_STATIC
 # So we make a list of prefixes to search for it.
 OMP_PREFIXES:=/
 
-# Travis needs -latomic for all builds *but* GCC on Mac
-ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic | wc -l)), 0)
-    # Use -latomic if the compiler doesn't complain about it
-    LD_LIB_FLAGS += -latomic
-endif
-
 COMPILER_ID=$(strip $(shell $(CXX) --version 2>&1))
 ifeq ($(shell uname -s),Darwin)
     $(info OS is Mac)
