@@ -233,6 +233,10 @@ else
     # We want to link against the elfutils libraries
     LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
 
+    # We want to link against libatomic which the GNU C++ standard library needs.
+    # See <https://github.com/nodejs/node/issues/30093> and <https://stackoverflow.com/q/30591313>
+    LD_LIB_FLAGS += -latomic
+
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
 
