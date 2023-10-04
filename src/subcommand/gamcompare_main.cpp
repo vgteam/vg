@@ -257,7 +257,7 @@ int main_gamcompare(int argc, char** argv) {
         // Output TSV to standard out in the format plot-qq.R needs.
         if (!header_printed) {
             // It needs a header
-            cout << "correct\tmq\taligner\tread" << endl;
+            cout << "correct\tmq\taligner\tread\teligible" << endl;
             header_printed = true;
         }
         
@@ -266,7 +266,8 @@ int main_gamcompare(int argc, char** argv) {
             cout << (aln.correctly_mapped() ? "1" : "0") << "\t";
             cout << aln.mapping_quality() << "\t";
             cout << aligner_name << "\t";
-            cout << aln.name() << endl;
+            cout << aln.name() << "\t";
+            cout << (aln.to_correct().name().empty() ? "0" : "1") << endl;
         }
         text_buffer.clear();
     };
@@ -362,11 +363,17 @@ int main_gamcompare(int argc, char** argv) {
 #pragma omp critical
         {
             if (output_tsv) {
-                text_buffer.emplace_back(std::move(aln));
+                if (emitter) {
+                    // Copy the alignment since we need it twice
+                    text_buffer.emplace_back(aln);
+                } else {
+                    text_buffer.emplace_back(std::move(aln));
+                }
                 if (text_buffer.size() > 1000) {
                     flush_text_buffer();
                 }
-            } else {
+            }
+            if (emitter) {
                 emitter->write(std::move(aln));
             }
         }
