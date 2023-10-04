@@ -10,8 +10,13 @@ require("tidyverse")
 require("ggrepel")
 
 # Read in the combined toil-vg stats.tsv, listing:
-# correct, mapq, aligner (really graph name), read name, count
+# correct, mapq, aligner (really graph name), read name, count, eligible
 dat <- read.table(commandArgs(TRUE)[1], header=T, colClasses=c("aligner"="factor"))
+
+if (("eligible" %in% names(dat))) {
+    # If the eligible column is present, remove ineligible reads
+    dat <- dat[dat$eligible == 1, ]
+}
 
 if (! ("count" %in% names(dat))) {
     # If the count column is not present, add it

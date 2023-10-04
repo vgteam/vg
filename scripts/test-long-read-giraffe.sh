@@ -144,7 +144,7 @@ Rscript scripts/plot-pr.R ${GAM_FILE%.gam}.compared.tsv ${GAM_FILE%.gam}.alone.p
 
 # Start a combined TSV with all our reads
 COMPARISON_SCRATCH="${COMPARISON_BASE}.combined.tsv"
-printf "correct\tmq\taligner\tread\n" >"${COMPARISON_SCRATCH}"
+printf "correct\tmq\taligner\tread\teligible\n" >"${COMPARISON_SCRATCH}"
 cat ${GAM_FILE%.gam}.compared.tsv | grep -v "^correct" >>"${COMPARISON_SCRATCH}"
 
 for OTHER_TSV in "${COMPARISON_BASE}"*"${COMPARISON_SUFFIX}" ; do
