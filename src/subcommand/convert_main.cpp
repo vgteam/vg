@@ -661,16 +661,9 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
             // Compose the new reference-ified metadata
             std::string sample = input->get_sample_name(path);
             std::string locus = input->get_locus_name(path);
-            int64_t haplotype;
-            if (sample_to_haplotypes[sample].size() > 1) {
-                // We should preserve the haplotype because we have multiple
-                // haplotype phases of this sample.
-                haplotype = input->get_haplotype(path);
-            } else {
-                // We should drop the haplotype number because this sample has only
-                // one haplotype phase.
-                haplotype = PathMetadata::NO_HAPLOTYPE;
-            }
+            // We should always preserve the haplotype phase number; we
+            // will need it if we ever want to go back to haplotype sense.
+            int64_t haplotype = input->get_haplotype(path);
             auto subrange = input->get_subrange(path);
             bool is_circular = input->get_is_circular(path);
             
