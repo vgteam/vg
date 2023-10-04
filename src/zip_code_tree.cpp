@@ -2346,7 +2346,6 @@ cerr << "Find intervals on snarl" << endl;
                 //The seed that we're reaching from previous children (the start of the chain if oriented forwards)
                 const Seed& to_seed = rev ? end_seed : start_seed;
                 pos_t to_pos = rev ? end_pos : start_pos;
-                bool seed_is_rev = rev ? end_seed_is_rev : start_seed_is_rev;
                     
 
                 //Go through each of the added children backwards, to add the distance
@@ -2374,7 +2373,8 @@ cerr << "Find intervals on snarl" << endl;
                     //Add everything in this interval backwards
                     size_t previous_prefix_sum;
                     for (int seed_i = to_interval.interval_end-1 ; seed_i >= to_interval.interval_start ; seed_i--) {
-                        size_t current_prefix_sum = get_lowest_prefix_sum(seeds->at(forest_state.seed_sort_order[seed_i])); 
+                        size_t seed_index = forest_state.seed_sort_order[seed_i];
+                        size_t current_prefix_sum = get_lowest_prefix_sum(seeds->at(seed_index)); 
                         if (seed_i != to_interval.interval_end-1) {
                             size_t dist = current_prefix_sum > previous_prefix_sum ? current_prefix_sum-previous_prefix_sum
                                                                                    : previous_prefix_sum-current_prefix_sum;
@@ -2382,8 +2382,23 @@ cerr << "Find intervals on snarl" << endl;
                                                                          dist,
                                                                          false});
                         }
+
+                        //Is the node reversed in its parent chain?
+                        bool seed_is_rev = seeds->at(seed_index).zipcode_decoder->get_is_reversed_in_parent(
+                                                        seeds->at(seed_index).zipcode_decoder->max_depth());
+
+                        //Is the seeds's position going backwards?
+                        if (is_rev(seeds->at(seed_index).pos)){
+                            seed_is_rev = !seed_is_rev;
+                        }
+                        //Is the chain traversed backwards?
+                        if (to_interval.is_reversed) {
+                            seed_is_rev = !seed_is_rev;
+                        }
+                        //The interval is traversed backwards so reverse it again
+                        seed_is_rev = !seed_is_rev;
                         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SEED, 
-                                                                                     forest_state.seed_sort_order[seed_i], 
+                                                                                     seed_index, 
                                                                                      seed_is_rev});
                         previous_prefix_sum = current_prefix_sum; 
                     }
@@ -2391,7 +2406,8 @@ cerr << "Find intervals on snarl" << endl;
                     //Add everything in this interval forwards
                     size_t previous_prefix_sum;
                     for (size_t seed_i = to_interval.interval_start ; seed_i < to_interval.interval_end ; seed_i++) {
-                        size_t current_prefix_sum = get_lowest_prefix_sum(seeds->at(forest_state.seed_sort_order[seed_i]));
+                        size_t seed_index = forest_state.seed_sort_order[seed_i];
+                        size_t current_prefix_sum = get_lowest_prefix_sum(seeds->at(seed_index));
                         if (seed_i != to_interval.interval_start) {
                             assert(seeds->at(forest_state.seed_sort_order[seed_i]).zipcode_decoder->max_depth() == to_seed_depth);
 
@@ -2401,8 +2417,19 @@ cerr << "Find intervals on snarl" << endl;
                                                                          dist,
                                                                          false});
                         }
+                        //Is the seed reversed in its parent chain
+                        bool seed_is_rev = seeds->at(seed_index).zipcode_decoder->get_is_reversed_in_parent(
+                                                        seeds->at(seed_index).zipcode_decoder->max_depth());
+                        //Is the seeds's position going backwards?
+                        if (is_rev(seeds->at(seed_index).pos)){
+                            seed_is_rev = !seed_is_rev;
+                        }
+                        //Is the chain traversed backwards?
+                        if (to_interval.is_reversed) {
+                            seed_is_rev = !seed_is_rev;
+                        }
                         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SEED, 
-                                                                                     forest_state.seed_sort_order[seed_i], 
+                                                                                     seed_index, 
                                                                                      seed_is_rev});
                         previous_prefix_sum = current_prefix_sum; 
                     }
@@ -2420,7 +2447,7 @@ cerr << "Find intervals on snarl" << endl;
 #endif
 
                 //Get the position of the seed facing out the chain
-                seed_is_rev = to_interval.is_reversed != 
+                bool seed_is_rev = to_interval.is_reversed != 
                                    from_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
                 if (rev) {
                     seed_is_rev = !seed_is_rev;
