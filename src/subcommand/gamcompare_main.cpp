@@ -11,6 +11,7 @@
 #include "subcommand.hpp"
 
 #include "../alignment.hpp"
+#include "../annotation.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
@@ -267,7 +268,7 @@ int main_gamcompare(int argc, char** argv) {
             cout << aln.mapping_quality() << "\t";
             cout << aligner_name << "\t";
             cout << aln.name() << "\t";
-            cout << (aln.to_correct().name().empty() ? "0" : "1") << endl;
+            cout << (has_annotation(aln, "no_truth") ? "0" : "1") << endl;
         }
         text_buffer.clear();
     };
@@ -342,6 +343,8 @@ int main_gamcompare(int argc, char** argv) {
 
             // Annotate it as such
             aln.set_correctly_mapped(correctly_mapped);
+            // And make sure we say it was possible to get
+            clear_annotation(aln, "no_truth");
             
             if (correctly_mapped) {
                 correct_counts.at(omp_get_thread_num()) += 1;
@@ -359,6 +362,10 @@ int main_gamcompare(int argc, char** argv) {
                     correct_count_by_mapq_by_thread.at(omp_get_thread_num()).at(mapq) += 1;
                 }
             }
+        } else if (range != -1) {
+            // We are flagging reads correct/incorrect, but this read has no truth position.
+            // Remember that it was impossible to get.
+            set_annotation(aln, "no_truth", true);
         }
 #pragma omp critical
         {
