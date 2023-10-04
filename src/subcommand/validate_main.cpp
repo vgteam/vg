@@ -141,7 +141,15 @@ int main_validate(int argc, char** argv) {
                 }
             });
 
+        unordered_set<string> path_names;        
         graph->for_each_path_handle([&](path_handle_t path_handle) {
+                string path_name = graph->get_path_name(path_handle);
+                if (path_names.count(path_name)) {
+                    cerr << "graph invalid: duplicate path name, " << path_name <<", detected" << endl;
+                    valid_graph = false;
+                } else {
+                    path_names.insert(path_name);
+                }
                 size_t i = 0;
                 handle_t prev;
                 graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
@@ -151,14 +159,14 @@ int main_validate(int argc, char** argv) {
                                 cerr << "graph invalid: missing edge between " << (i-1) << "th step ("
                                      << graph->get_id(prev) << ":" << graph->get_is_reverse(prev) << ") and "
                                      << i << "th step (" << graph->get_id(handle) << ":" << graph->get_is_reverse(handle)
-                                     << ") of path " << graph->get_path_name(path_handle) << endl;
+                                     << ") of path " << path_name << endl;
                                 valid_graph = false;
                             }
                             if (!graph->has_edge(graph->flip(handle), graph->flip(prev))) {
                                 cerr << "graph invalid: missing edge between " << (i) << "th step ("
                                      << graph->get_id(handle) << ":" << !graph->get_is_reverse(handle) << ") and "
                                      << (i-1) << "th step (" << graph->get_id(prev) << ":" << graph->get_is_reverse(prev)
-                                     << ") of path " << graph->get_path_name(path_handle) << endl;
+                                     << ") of path " << path_name << endl;
                                 valid_graph = false;
                             }
                         }
