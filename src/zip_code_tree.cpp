@@ -2242,16 +2242,21 @@ cerr << "Find intervals on snarl" << endl;
     //Remember what we've added to add distances. This stores the end each interval, so we can find the distances
     // from it to the next child added
     vector<pair<const Seed&, pos_t>> added_children;
-    //Start with the boundary node
-    net_handle_t start_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, false, true));
+
+    //Get the boundaries of the snarl, facing in
+    net_handle_t start_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, 
+                                                                           snarl_interval.is_reversed ? true : false, 
+                                                                           true));
     pos_t start_bound_pos = make_pos_t(distance_index.node_id(start_bound),
                                                distance_index.get_connectivity(start_bound) == SnarlDistanceIndex::END_START,
                                                distance_index.minimum_length(start_bound)-1); 
 
-    net_handle_t end_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, true, true));
+    net_handle_t end_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, 
+                                                                           snarl_interval.is_reversed ? false : true, 
+                                                                           true));
     pos_t end_bound_pos = make_pos_t(distance_index.node_id(end_bound),
                                                distance_index.get_connectivity(end_bound) == SnarlDistanceIndex::END_START,
-                                               0); 
+                                               distance_index.minimum_length(end_bound)-1); 
 
     //We'll add runs of seeds on the same chain or node. This is used to find their offsets on whatever
     //chain/node they are on
@@ -2301,13 +2306,15 @@ cerr << "Find intervals on snarl" << endl;
             //Only add the interval in the orientation it can be reached in
             // This is true for reversed, false for forwards
             vector<bool> orientations;
+
             //Get the bounding positions, facing into the interval
             const Seed& start_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
             size_t to_seed_depth = start_seed.zipcode_decoder->max_depth();
 
             //This is the orientation of the node in the chain, so this points forward in the chain
             bool start_seed_is_rev = start_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
-            //If the interval is going backwards, then the orientation flips to point into the interval
+            //If the interval is traversing the chain backwards, then the orientation flips to point 
+            //backwards in the chain, into the interval
             if (to_interval.is_reversed) {
                 start_seed_is_rev = !start_seed_is_rev;
             }
@@ -2331,6 +2338,7 @@ cerr << "Find intervals on snarl" << endl;
             if (to_interval.is_reversed) {
                 end_seed_is_rev = !end_seed_is_rev;
             }
+            //If the seed isn't pointing into the interval, then it needs to be flipped
             if (is_rev(end_seed.pos) != end_seed_is_rev) {
                 end_seed_is_rev = true;
             }
@@ -2366,10 +2374,6 @@ cerr << "Find intervals on snarl" << endl;
                     
 
                 //Go through each of the added children backwards, to add the distance
-                //Start with the distance to the start bound
-                trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
-                                                                         rev ? distance_start_right : distance_start_left, 
-                                                                         false});
                 for (auto from = added_children.crbegin() ; from < added_children.crend() ; from++) {
                     const auto& from_seed = from->first;
                     auto& from_pos = from->second;
@@ -2379,6 +2383,10 @@ cerr << "Find intervals on snarl" << endl;
                                                                                  dist, 
                                                                                  false});
                 }
+                //End with the distance to the start bound
+                trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
+                                                                         rev ? distance_start_right : distance_start_left, 
+                                                                         false});
 
                 //Add the seed as its own chain
                 trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_START, 
@@ -2486,27 +2494,23 @@ cerr << "Find intervals on snarl" << endl;
     //End bound facing out
     pos_t end_bound_pos_out = make_pos_t(id(end_bound_pos),
                                          !is_rev(end_bound_pos),
-                                     distance_index.minimum_length(end_bound)-1); 
+                                         0); 
 
-    //Add the length of the snarl
-    trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
-                 seeds->at(forest_state.seed_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_length(depth), 
-                 false});
-    for (auto from = added_children.crbegin() ; from < added_children.crend()-1 ; from++) {
-        const auto& from_seed = from->first;
+    //Distance from each of the children to the end
+    for (auto from = added_children.crbegin() ; from < added_children.crend() ; from++) {
         auto from_pos = from->second;
         size_t dist = minimum_distance(distance_index, from_pos, end_bound_pos_out);
         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, dist, false});
     }
+    //Add the length of the snarl
     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
-                                                                 distance_index.minimum_length(snarl_handle), 
-                                                                 false});
+            seeds->at(forest_state.seed_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_length(depth), 
+            false});
+
+    //Add the number of children
     trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::NODE_COUNT, 
-                                                                 added_children.size()-1, 
+                                                                 added_children.size(), 
                                                                  false});
-
-
-
     return;
 }
     
