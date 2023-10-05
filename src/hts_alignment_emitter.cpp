@@ -695,10 +695,17 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
 
     // Resolve subpath naming / offset
     subrange_t subrange;
-    path_name = Paths::strip_subrange(RGFACover::revert_rgfa_path_name(path_name), &subrange);
-    if (subrange != PathMetadata::NO_SUBRANGE) {
-        pos += subrange.first;
-    }
+    if (RGFACover::is_rgfa_path_name(path_name)) {
+        // unpack the rGFA path name.  also, we *leave* the subrange on in this case
+        // since we want the fragments to show up as references (todo: do we really?)
+        path_name = RGFACover::revert_rgfa_path_name(path_name, false);
+    } else {
+        // strip subrange and add it to the offset
+        path_name = Paths::strip_subrange(path_name, &subrange);
+        if (subrange != PathMetadata::NO_SUBRANGE) {
+            pos += subrange.first;
+        }        
+    }     
 }
 
 void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest) {
