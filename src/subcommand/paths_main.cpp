@@ -41,7 +41,7 @@ void help_paths(char** argv) {
          << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
          << "  rGFA cover" << endl
-         << "    -R, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
+         << "    -f, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
          << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover (-R)." << endl
          << "    -t, --threads N          use up to N threads when computing rGFA cover (default: all available)" << endl
          << "  output path data:" << endl
@@ -139,7 +139,7 @@ int main_paths(int argc, char** argv) {
             {"extract-vg", no_argument, 0, 'V'},
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
-            {"rgfa-cover", required_argument, 0, 'R'},
+            {"rgfa-min-length", required_argument, 0, 'f'},
             {"snarls", required_argument, 0, 's'},
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-gaf", no_argument, 0, 'A'},            
@@ -164,7 +164,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drR:s:aGHp:ct:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drf:R:s:aGHp:ct:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -200,7 +200,7 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
-        case 'R':
+        case 'f':
             rgfa_min_len = parse<int64_t>(optarg);            
             output_formats++;
             break;

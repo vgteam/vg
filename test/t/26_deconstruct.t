@@ -158,7 +158,7 @@ rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi x.decon.vcf x.gbz.decon
 
 
 vg deconstruct rgfa/rgfa_ins2.gfa -P y -ea | grep  "^y	11" | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' > rgfa_ins2_y.vcf
-vg paths -x rgfa/rgfa_ins2.gfa -R 1 -Q x | vg deconstruct - -P _rGFA_ -ea | grep  "^y	11" | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' > rgfa_ins2_rgfa.vcf
+vg paths -x rgfa/rgfa_ins2.gfa -f 1 -Q x | vg deconstruct - -P _rGFA_ -ea | grep  "^y	11" | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' > rgfa_ins2_rgfa.vcf
 diff rgfa_ins2_y.vcf rgfa_ins2_rgfa.vcf
 is "$?" 0 "deconstruct properly handles rGFA reference"
 is $(cat rgfa_ins2_rgfa.vcf | wc -l) 1 "deconstruct properly handles rGFA reference (sanity check)"
