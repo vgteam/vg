@@ -57,6 +57,7 @@ void help_paths(char** argv) {
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
          << "    -S, --sample STR         select the haplotypes or reference paths for this sample" << endl
+         << "        --rgfa-paths         select all rGFA fragments (must have been added with -R previously)" << endl
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
          << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
          << "    -R, --reference-paths    select the reference paths" << endl
@@ -93,6 +94,9 @@ unordered_map<PathSense, string> SENSE_TO_STRING {
     {PathSense::GENERIC, "GENERIC"},
     {PathSense::HAPLOTYPE, "HAPLOTYPE"}
 };
+
+// Long options with no corresponding short options.
+const int OPT_SELECT_RGFA_FRAGMENTS = 1000;
 
 int main_paths(int argc, char** argv) {
 
@@ -155,7 +159,8 @@ int main_paths(int argc, char** argv) {
             {"generic-paths", no_argument, 0, 'G'},
             {"reference-paths", no_argument, 0, 'R'},
             {"haplotype-paths", no_argument, 0, 'H'},
-            {"coverage", no_argument, 0, 'c'},            
+            {"coverage", no_argument, 0, 'c'},
+            {"rgfa-paths", no_argument, 0, OPT_SELECT_RGFA_FRAGMENTS},
             {"threads", required_argument, 0, 't'},
             // Hidden options for backward compatibility.
             {"threads-by", required_argument, 0, 'q'},
@@ -284,6 +289,11 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
+        case OPT_SELECT_RGFA_FRAGMENTS:
+            sample_name = RGFACover::rgfa_sample_name;
+            selection_criteria++;
+            break;
+            
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -350,7 +360,7 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used" << std::endl;
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p, --rgfa-paths,) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (select_alt_paths && !gbwt_file.empty()) {
@@ -766,7 +776,7 @@ int main_paths(int argc, char** argv) {
             }
             for_each_selected_path([&](path_handle_t path_handle) {
                 if (list_names) {
-                    cout << graph->get_path_name(path_handle);
+                    cout << RGFACover::revert_rgfa_path_name(graph->get_path_name(path_handle));
                     if (list_lengths) {
                         size_t path_length = 0;
                         for (handle_t handle : graph->scan_path(path_handle)) {
