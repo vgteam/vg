@@ -191,7 +191,7 @@ is $? 0 "overriding contig length does not change calls"
 
 rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
 
-vg paths -x rgfa/rgfa_ins2.gfa -Q x -R 1 | grep -v ^P | grep -v ^W > rgfa_ins2.rgfa
+vg paths -x rgfa/rgfa_ins2.gfa -Q x -f 1 | grep -v ^P | grep -v ^W > rgfa_ins2.rgfa
 vg sim -x rgfa_ins2.rgfa -n 30 -s 99 -l 20 -a > rgfa_ins2.gam
 vg pack -x rgfa_ins2.rgfa -g rgfa_ins2.gam -o rgfa_ins2.pack
 vg call rgfa_ins2.rgfa -k rgfa_ins2.pack -Aa | grep -v "^#" | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > rgfa_ins2.vcf
