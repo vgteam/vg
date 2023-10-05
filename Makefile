@@ -92,12 +92,6 @@ LD_STATIC_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_STATIC
 # So we make a list of prefixes to search for it.
 OMP_PREFIXES:=/
 
-# Travis needs -latomic for all builds *but* GCC on Mac
-ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic | wc -l)), 0)
-    # Use -latomic if the compiler doesn't complain about it
-    LD_LIB_FLAGS += -latomic
-endif
-
 COMPILER_ID=$(strip $(shell $(CXX) --version 2>&1))
 ifeq ($(shell uname -s),Darwin)
     $(info OS is Mac)
@@ -238,6 +232,10 @@ else
 
     # We want to link against the elfutils libraries
     LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
+
+    # We want to link against libatomic which the GNU C++ standard library needs.
+    # See <https://github.com/nodejs/node/issues/30093> and <https://stackoverflow.com/q/30591313>
+    LD_LIB_FLAGS += -latomic
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp

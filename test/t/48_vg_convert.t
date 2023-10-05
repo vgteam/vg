@@ -90,7 +90,7 @@ vg convert x.vg -F mut.gaf -t 1 > mut-back.gam
 vg view -a mut.gam | jq .path > mut.path
 vg view -a mut-back.gam | jq .path > mut-back.path
 # Json comparison that is not order dependent: https://stackoverflow.com/a/31933234
-is $(jq --argfile a mut.path --argfile b mut-back.path -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b') true "vg convert gam -> gaf -> gam produces same gam Paths with snps and indels"
+is $(jq --slurpfile a mut.path --slurpfile b mut-back.path -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b') true "vg convert gam -> gaf -> gam produces same gam Paths with snps and indels"
 
 vg view -a mut.gam | jq .sequence > mut.seq
 vg view -a mut-back.gam | jq .sequence > mut-back.seq

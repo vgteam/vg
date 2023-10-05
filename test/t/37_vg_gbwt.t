@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 148
+plan tests 149
 
 
 # Build vg graphs for two chromosomes
@@ -393,9 +393,18 @@ is $? 0 "GBZ GBWT tag extraction works"
 is "$(grep reference_samples tags.tsv | cut -f2 | tr ' ' '\\n' | sort | tr '\\n' ' ')" "GRCh37 GRCh38" "GBWT tags contain the correct reference samples"
 vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38 CHM13"
 is $? 0 "GBZ GBWT tag modification works"
-is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | grep HAPLOTYPE | wc -l)" "1" "Changing reference_samples tag can make a reference a haplotype"
-is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
+is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep HAPLOTYPE | wc -l)" "1" "Changing reference_samples tag can make a reference a haplotype"
+is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
 vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38#1 CHM13" 2>/dev/null
 is $? 1 "GBZ GBWT tag modification validation works"
 
 rm -f gfa.gbz gfa2.gbz tags.tsv
+
+# Build a GBZ from a graph with a reference but no haplotype phase number
+# TODO: When <https://github.com/vgteam/vg/issues/4110> is fixed, actually parse this as GFA
+vg gbwt -g gfa.gbz --gbz-format -E -x graphs/gfa_two_part_reference.gfa
+is "$(vg paths -M --reference-paths -x gfa.gbz | grep -v "^#" | cut -f4 | grep NO_HAPLOTYPE | wc -l)" "2" "GBZ can represent reference paths without haplotype numbers"
+
+rm -f gfa.gbz
+
+
