@@ -2304,8 +2304,17 @@ cerr << "Find intervals on snarl" << endl;
             //Get the bounding positions, facing into the interval
             const Seed& start_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
             size_t to_seed_depth = start_seed.zipcode_decoder->max_depth();
-            bool start_seed_is_rev = to_interval.is_reversed != 
-                               start_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
+
+            //This is the orientation of the node in the chain, so this points forward in the chain
+            bool start_seed_is_rev = start_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
+            //If the interval is going backwards, then the orientation flips to point into the interval
+            if (to_interval.is_reversed) {
+                start_seed_is_rev = !start_seed_is_rev;
+            }
+            //The seed needs to be pointing in the same direction, so flip it if it isn't
+            if (is_rev(start_seed.pos) != start_seed_is_rev) {
+                start_seed_is_rev = true;
+            }
             pos_t start_pos = start_seed_is_rev 
                             ? make_pos_t(id(start_seed.pos),
                                           distance_index.minimum_length(distance_index.get_node_net_handle(
@@ -2315,8 +2324,16 @@ cerr << "Find intervals on snarl" << endl;
                             : start_seed.pos;
 
             const Seed& end_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_end - 1]);
-            bool end_seed_is_rev = to_interval.is_reversed == 
-                               end_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
+
+            //This is the opposite orientation of the node in the chain, so it points backward in the chain 
+            bool end_seed_is_rev = !end_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
+            //If the interval is backwards in the chain, flip the orientation to point into the interval
+            if (to_interval.is_reversed) {
+                end_seed_is_rev = !end_seed_is_rev;
+            }
+            if (is_rev(end_seed.pos) != end_seed_is_rev) {
+                end_seed_is_rev = true;
+            }
             pos_t end_pos = end_seed_is_rev 
                             ? make_pos_t(id(end_seed.pos),
                                           distance_index.minimum_length(distance_index.get_node_net_handle(
@@ -2446,18 +2463,17 @@ cerr << "Find intervals on snarl" << endl;
                 assert(from_seed.zipcode_decoder->max_depth() == to_seed_depth);
 #endif
 
-                //Get the position of the seed facing out the chain
-                bool seed_is_rev = to_interval.is_reversed != 
-                                   from_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
-                if (rev) {
-                    seed_is_rev = !seed_is_rev;
-                }
-                pos_t from_pos = seed_is_rev ? make_pos_t(id(from_seed.pos),
+                //If we're adding the interval in reverse, then add the start pos flipped, otherwise the end pos flipped
+                pos_t from_pos = rev ? make_pos_t(id(start_pos),
                                             distance_index.minimum_length(distance_index.get_node_net_handle(
                                                                           id(from_seed.pos))) 
-                                                    - offset(from_seed.pos),
-                                            !is_rev(from_seed.pos))
-                               : from_seed.pos;
+                                                    - offset(start_pos),
+                                            !is_rev(start_pos))
+                                     : make_pos_t(id(end_pos),
+                                            distance_index.minimum_length(distance_index.get_node_net_handle(
+                                                                          id(from_seed.pos))) 
+                                                    - offset(end_pos),
+                                            !is_rev(end_pos));
                 added_children.emplace_back(from_seed, from_pos);
             }
         }
