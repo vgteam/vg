@@ -2245,18 +2245,18 @@ cerr << "Find intervals on snarl" << endl;
 
     //Get the boundaries of the snarl, facing in
     net_handle_t start_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, 
-                                                                           snarl_interval.is_reversed ? true : false, 
-                                                                           true));
+                                                                      snarl_interval.is_reversed ? true : false, 
+                                                                      true));
     pos_t start_bound_pos = make_pos_t(distance_index.node_id(start_bound),
-                                               distance_index.get_connectivity(start_bound) == SnarlDistanceIndex::END_START,
-                                               distance_index.minimum_length(start_bound)-1); 
+                                       distance_index.get_connectivity(start_bound) == SnarlDistanceIndex::END_START,
+                                       distance_index.minimum_length(start_bound)-1); 
 
     net_handle_t end_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, 
-                                                                           snarl_interval.is_reversed ? false : true, 
-                                                                           true));
+                                                                 snarl_interval.is_reversed ? false : true, 
+                                                                 true));
     pos_t end_bound_pos = make_pos_t(distance_index.node_id(end_bound),
-                                               distance_index.get_connectivity(end_bound) == SnarlDistanceIndex::END_START,
-                                               distance_index.minimum_length(end_bound)-1); 
+                                     distance_index.get_connectivity(end_bound) == SnarlDistanceIndex::END_START,
+                                     distance_index.minimum_length(end_bound)-1); 
 
     //We'll add runs of seeds on the same chain or node. This is used to find their offsets on whatever
     //chain/node they are on
@@ -2473,13 +2473,11 @@ cerr << "Find intervals on snarl" << endl;
 
                 //If we're adding the interval in reverse, then add the start pos flipped, otherwise the end pos flipped
                 pos_t from_pos = rev ? make_pos_t(id(start_pos),
-                                            distance_index.minimum_length(distance_index.get_node_net_handle(
-                                                                          id(from_seed.pos))) 
+                                            start_seed.zipcode_decoder->get_length(to_seed_depth) 
                                                     - offset(start_pos),
                                             !is_rev(start_pos))
                                      : make_pos_t(id(end_pos),
-                                            distance_index.minimum_length(distance_index.get_node_net_handle(
-                                                                          id(from_seed.pos))) 
+                                            end_seed.zipcode_decoder->get_length(to_seed_depth) 
                                                     - offset(end_pos),
                                             !is_rev(end_pos));
                 added_children.emplace_back(from_seed, from_pos);
