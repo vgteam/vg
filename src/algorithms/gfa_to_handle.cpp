@@ -674,10 +674,6 @@ tuple<string, size_t, string, pair<int64_t, int64_t>, GFAParser::chars_t, GFAPar
     
     // Grab the haplotype number
     int64_t haplotype_number = take_number(cursor, end, -1, "parsing haplotype number");
-    if (haplotype_number == -1) {
-        // This field is required
-        throw GFAFormatError("Missing haplotype number in W line", cursor);
-    }
     take_tab(cursor, end, "parsing end of haplotype number");
     
     // Grab the sequence/contig/locus name
