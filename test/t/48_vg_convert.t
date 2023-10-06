@@ -404,15 +404,13 @@ is "${?}" "0" "GFA -> HashGraph -> GFA conversion preserves path metadata"
 
 # We can't do rGFA to GBZ directly until the GBWTGraph GFA parser learns to read tags
 # rGFA to HashGraph to GBZ to GFA
-# todo: would be great if gbz could preserve the NO_HAPLOTYPE
-#       gbz also strips the end of the subrange
-vg paths -M -x graphs/rgfa_with_reference.rgfa | sed -e 's/NO_HAPLOTYPE/0/g' -e 's/_rGFA_#/_rGFA_#0#/g' -e 's/-2//g' -e 's/-8//g' |  sort >paths.truth.txt
+vg paths -M -x graphs/rgfa_with_reference.rgfa | sed -e 's/-2//g' -e 's/-8//g' |  sort >paths.truth.txt
 vg convert -a graphs/rgfa_with_reference.rgfa > rgfa_with_reference.hg
 vg gbwt -x rgfa_with_reference.hg -E --gbz-format -g rgfa_with_reference.gbz
 vg paths -M -x rgfa_with_reference.gbz | sort >paths.gbz.txt
 cmp paths.gbz.txt paths.truth.txt
 is "${?}" "0" "rGFA -> HashGraph -> GBZ conversion preserves path metadata"
-vg paths -M -x graphs/rgfa_with_reference.rgfa | sed -e 's/NO_HAPLOTYPE/0/g' -e 's/_rGFA_#/_rGFA_#0#/g' |  sort >paths.truth.txt
+vg paths -M -x graphs/rgfa_with_reference.rgfa |  sort >paths.truth.txt
 vg convert -f rgfa_with_reference.gbz >extracted.gfa
 vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt
