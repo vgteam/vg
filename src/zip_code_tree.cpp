@@ -2324,10 +2324,10 @@ cerr << "Find intervals on snarl" << endl;
             }
             pos_t start_pos = start_seed_is_rev 
                             ? make_pos_t(id(start_seed.pos),
+                                          !is_rev(start_seed.pos),
                                           distance_index.minimum_length(distance_index.get_node_net_handle(
                                                                           id(start_seed.pos))) 
-                                                    - offset(start_seed.pos),
-                                          !is_rev(start_seed.pos))
+                                                    - offset(start_seed.pos))
                             : start_seed.pos;
 
             const Seed& end_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_end - 1]);
@@ -2344,10 +2344,10 @@ cerr << "Find intervals on snarl" << endl;
             }
             pos_t end_pos = end_seed_is_rev 
                             ? make_pos_t(id(end_seed.pos),
+                                          !is_rev(end_seed.pos),
                                           distance_index.minimum_length(distance_index.get_node_net_handle(
                                                                           id(end_seed.pos))) 
-                                                    - offset(end_seed.pos),
-                                          !is_rev(end_seed.pos))
+                                                    - offset(end_seed.pos))
                             : end_seed.pos;
             
             size_t distance_start_left = minimum_distance(distance_index, start_bound_pos, start_pos);
@@ -2473,14 +2473,16 @@ cerr << "Find intervals on snarl" << endl;
 
                 //If we're adding the interval in reverse, then add the start pos flipped, otherwise the end pos flipped
                 pos_t from_pos = rev ? make_pos_t(id(start_pos),
+                                            !is_rev(start_pos),
                                             start_seed.zipcode_decoder->get_length(to_seed_depth) 
-                                                    - offset(start_pos),
-                                            !is_rev(start_pos))
+                                                    - offset(start_pos))
                                      : make_pos_t(id(end_pos),
+                                            !is_rev(end_pos),
                                             end_seed.zipcode_decoder->get_length(to_seed_depth) 
-                                                    - offset(end_pos),
-                                            !is_rev(end_pos));
+                                                    - offset(end_pos));
                 added_children.emplace_back(from_seed, from_pos);
+                print_self();
+                cerr << "The last thing has from pos " << from_pos <<  " and to pos " << to_pos << endl;
             }
         }
     }
