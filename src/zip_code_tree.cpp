@@ -2321,12 +2321,13 @@ cerr << "Find intervals on snarl" << endl;
             //The seed needs to be pointing in the same direction, so flip it if it isn't
             if (is_rev(start_seed.pos) != start_seed_is_rev) {
                 start_seed_is_rev = true;
+            } else {
+                start_seed_is_rev = false;
             }
             pos_t start_pos = start_seed_is_rev 
                             ? make_pos_t(id(start_seed.pos),
                                           !is_rev(start_seed.pos),
-                                          distance_index.minimum_length(distance_index.get_node_net_handle(
-                                                                          id(start_seed.pos))) 
+                                          start_seed.zipcode_decoder->get_length(to_seed_depth)
                                                     - offset(start_seed.pos))
                             : start_seed.pos;
 
@@ -2341,12 +2342,13 @@ cerr << "Find intervals on snarl" << endl;
             //If the seed isn't pointing into the interval, then it needs to be flipped
             if (is_rev(end_seed.pos) != end_seed_is_rev) {
                 end_seed_is_rev = true;
+            } else {
+                end_seed_is_rev = false;
             }
             pos_t end_pos = end_seed_is_rev 
                             ? make_pos_t(id(end_seed.pos),
                                           !is_rev(end_seed.pos),
-                                          distance_index.minimum_length(distance_index.get_node_net_handle(
-                                                                          id(end_seed.pos))) 
+                                          end_seed.zipcode_decoder->get_length(to_seed_depth) 
                                                     - offset(end_seed.pos))
                             : end_seed.pos;
             
@@ -2481,8 +2483,6 @@ cerr << "Find intervals on snarl" << endl;
                                             end_seed.zipcode_decoder->get_length(to_seed_depth) 
                                                     - offset(end_pos));
                 added_children.emplace_back(from_seed, from_pos);
-                print_self();
-                cerr << "The last thing has from pos " << from_pos <<  " and to pos " << to_pos << endl;
             }
         }
     }
