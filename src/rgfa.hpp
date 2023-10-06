@@ -126,7 +126,7 @@ protected:
         const string* name;
         int64_t trav_idx;
         pair<int64_t, int64_t> fragment;
-        bool operator<(const RankedFragment& f2) {
+        bool operator<(const RankedFragment& f2) const {
             // note: name comparison is flipped because we want to select high coverage / low name
             return this->coverage < f2.coverage || (this->coverage == f2.coverage && *this->name > *f2.name);
         }
