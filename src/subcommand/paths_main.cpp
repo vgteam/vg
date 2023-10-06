@@ -519,7 +519,7 @@ int main_paths(int argc, char** argv) {
                 // Write as a Path in a VG
                 chunk_to_emitter(path, *graph_emitter);
             } else if (extract_as_fasta) {
-                write_fasta_sequence(name, path_sequence(*graph, path), cout);
+                write_fasta_sequence(RGFACover::revert_rgfa_path_name(name, false), path_sequence(*graph, path), cout);
             }
             if (list_lengths) {
                 cout << path.name() << "\t" << path_to_length(path) << endl;
@@ -831,7 +831,8 @@ int main_paths(int argc, char** argv) {
                     } else if (extract_as_vg) {
                         chunk_to_emitter(path, *graph_emitter); 
                     } else if (extract_as_fasta) {
-                        write_fasta_sequence(graph->get_path_name(path_handle), path_sequence(*graph, path), cout);
+                        write_fasta_sequence(RGFACover::revert_rgfa_path_name(graph->get_path_name(path_handle), false),
+                                             path_sequence(*graph, path), cout);
                     }
                 }
             });
