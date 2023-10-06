@@ -776,7 +776,7 @@ int main_paths(int argc, char** argv) {
             }
             for_each_selected_path([&](path_handle_t path_handle) {
                 if (list_names) {
-                    cout << RGFACover::revert_rgfa_path_name(graph->get_path_name(path_handle));
+                    cout << graph->get_path_name(path_handle);
                     if (list_lengths) {
                         size_t path_length = 0;
                         for (handle_t handle : graph->scan_path(path_handle)) {
