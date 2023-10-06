@@ -151,8 +151,9 @@ static bool for_each_subpath_of(const PathPositionHandleGraph& graph, const stri
 
 /// Returns the base path name for this path (i.e. the path's name without any subrange).
 static string get_path_base_name(const PathPositionHandleGraph& graph, const path_handle_t& path) {
-    if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
-        // This is a full path
+    string path_name = graph.get_path_name(path);
+    if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE || RGFACover::is_rgfa_path_name(path_name)) {
+        // This is a full path or an rGFA fragment that we don't want to touch
         return graph.get_path_name(path);
     } else {
         // This is a subpath, so remember what it's a subpath of, and use that.
@@ -231,7 +232,14 @@ vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const strin
             
             if (print_subrange_warnings) {
                 subrange_t subrange;
-                std::string base_path_name = Paths::strip_subrange(RGFACover::revert_rgfa_path_name(sequence_name), &subrange);
+                std::string base_path_name;
+                if (RGFACover::is_rgfa_path_name(sequence_name)) {
+                    base_path_name = RGFACover::revert_rgfa_path_name(sequence_name, false);
+                    // a white lie, but we want our subranges in rgfa intervals, at least for now
+                    subrange = PathMetadata::NO_SUBRANGE; 
+                } else {
+                    base_path_name = Paths::strip_subrange(sequence_name, &subrange);
+                }
                 if (subrange != PathMetadata::NO_SUBRANGE) {
                     // The user is asking explicitly to surject to a path that is a
                     // subrange of some other logical path, like
