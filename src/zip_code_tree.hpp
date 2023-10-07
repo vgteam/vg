@@ -142,6 +142,10 @@ public:
 
     ///Check that the tree is correct
     void validate_zip_tree(const SnarlDistanceIndex& distance_index, size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+    ///Helper function for validate_zip_tree for just a snarl
+    void validate_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, const SnarlDistanceIndex& distance_index, 
+                        size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+
 
     ///Get the number of items in the tree
     size_t get_tree_size() const {return zip_code_tree.size();};

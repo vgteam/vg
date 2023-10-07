@@ -1335,6 +1335,15 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
         }
     }
 
+    /************* Check snarl distances and child count ********************/    
+
+    std::vector<tree_item_t>::const_iterator itr = zip_code_tree.cbegin();
+    while (itr != zip_code_tree.end()) { 
+        if (itr->type == SNARL_START) {
+            validate_snarl(itr, distance_index, distance_limit);
+        }
+        itr++;
+    }
 
 
     /************* Check distances and snarl tree relationships *******************/
@@ -1433,6 +1442,112 @@ void ZipCodeTree::validate_zip_tree(const SnarlDistanceIndex& distance_index, si
 
     }
 }
+
+//Helper function for validating a snarl. zip_iterator is an iterator to the snarl start
+void ZipCodeTree::validate_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, const SnarlDistanceIndex& distance_index, 
+                                  size_t distance_limit) const {
+
+    //For checking distances, remember the last seed in each chain. 
+    //For snarls at the end of chains, store a position with node id 0
+    //to ignore it because I don't know how to check that 
+    vector<pos_t> from_positions;
+
+    //Distances come before the chain that they end at, so build up a 
+    //vector of distances to check when we reach the chain
+    vector<size_t> distances;
+
+    //Start with the snarl start TODO: Actually do this
+    from_positions.emplace_back(make_pos_t(0, false, 0));
+    zip_iterator++;
+    while (zip_iterator->type != NODE_COUNT) {
+        cerr << (zip_iterator - zip_code_tree.begin()) << " " << zip_iterator->type << endl;
+        if (zip_iterator->type == EDGE) {
+            distances.emplace_back(zip_iterator->value);
+            zip_iterator++;
+        } else if (zip_iterator->type == CHAIN_START) {
+            //If this is the start of a chain, check distances and get to the
+            //end of the chain
+
+            //If the chain starts on a seed, then check the distances. Otherwise, 
+            // it must be a snarl and we can't check distances
+            zip_iterator++;
+            if (zip_iterator->type == SNARL_START) {
+                //Just validate the nested snarl
+                validate_snarl(zip_iterator, distance_index, distance_limit);
+            } else if (zip_iterator->type == SEED) {
+                //Check distances from all children before the seed to the seed
+                assert(distances.size() == from_positions.size());
+                pos_t to_pos = seeds->at(zip_iterator->value).pos; 
+                if (zip_iterator->is_reversed) {
+                    to_pos = make_pos_t(id(to_pos),
+                                          !is_rev(to_pos),
+                                          distance_index.minimum_length(
+                                                distance_index.get_node_net_handle(id(to_pos)))
+                                              - offset(to_pos) - 1);
+                }
+                for (size_t i = 0 ; i < distances.size() ; i ++) {
+                    pos_t from_pos = from_positions[from_positions.size() - 1 - i];
+                    if (id(from_pos) != 0) {
+                        size_t distance = minimum_distance(distance_index, from_pos, to_pos);
+                        cerr << "Distance between " << from_pos << " and " << to_pos << " is " << distance << " guessed: " << distances[i] << endl;
+                        if (from_pos == to_pos) {
+                            //TODO: This should check for loops but i'll do that later
+                        } else if (distance < distance_limit) {
+                            assert(distance == distances[i]);
+                        } else {
+                            assert(distances[i] >= distance_limit);
+                        }
+                    }
+                    
+                }
+            }
+            //Now get to the end of the chain
+            //Make sure we find the correct chain_end by remembering how many we opened
+            size_t open_chain_count = 1;
+            while (open_chain_count > 0) {
+                if (zip_iterator->type == CHAIN_START) {
+                    open_chain_count++;
+                } else if (zip_iterator->type == CHAIN_END) {
+                    open_chain_count--;
+                }
+                zip_iterator++;
+            }
+            //zip_iterator now points to one thing after the end of the child chain
+            // If the last thing in the chain was a node, add the position, otherwise
+            //add an empty position
+            auto last = zip_iterator-2;
+            if (last->type == SEED) {
+                //The last seed pointing out
+                pos_t from_pos = seeds->at(last->value).pos;
+                if (last->is_reversed) {
+                    from_pos = make_pos_t(id(from_pos),
+                                          !is_rev(from_pos),
+                                          distance_index.minimum_length(
+                                                distance_index.get_node_net_handle(id(from_pos)))
+                                              - offset(from_pos) - 1);
+                }
+                from_positions.emplace_back(from_pos);
+            } else {
+                from_positions.emplace_back(make_pos_t(0, false, 0));
+            }
+
+            //Clear the list of distances
+            distances.clear();
+        } else {
+            assert(zip_iterator->type == NODE_COUNT);
+            zip_iterator++;
+        }
+
+    }
+    //TODO: Check the distances to the end of the snarl
+
+    //zip_iterator now points to the node count
+    assert(from_positions.size()-1 == zip_iterator->value);
+    zip_iterator++;
+    assert(zip_iterator->type == SNARL_END);
+    return;
+};
+
 
 
 ZipCodeTree::iterator::iterator(vector<tree_item_t>::const_iterator begin, vector<tree_item_t>::const_iterator end) : it(begin), end(end) {
