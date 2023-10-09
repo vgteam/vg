@@ -223,7 +223,7 @@ public:
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
     /// How many things should we produce fragments for, min?
-    static constexpr size_t default_min_to_fragment = 2;
+    static constexpr size_t default_min_to_fragment = 4;
     size_t min_to_fragment = default_min_to_fragment;
 
     /// How many things should we produce fragments for, max?
@@ -269,7 +269,7 @@ public:
     
     /// Disregard the chain score thresholds when they would give us
     /// fewer than this many chains.
-    static constexpr int default_min_chains = 2;
+    static constexpr int default_min_chains = 4;
     int min_chains = default_min_chains;
     
     /// Even if we would have fewer than min_chains results, don't
@@ -290,9 +290,9 @@ public:
     /// really likely to help for short reads.
     static constexpr bool default_use_explored_cap = false;
     bool use_explored_cap = default_use_explored_cap;
-    /// How should we scale MAPQs before clamping/capping, for calibration
-    static constexpr double default_mapq_scale = 1.0;
-    double mapq_scale = default_mapq_scale;
+    /// How should we scale scores before mapq, for calibration
+    static constexpr double default_mapq_score_scale = 1.0;
+    double mapq_score_scale = default_mapq_score_scale;
 
     /////////////////
     // More shared parameters:

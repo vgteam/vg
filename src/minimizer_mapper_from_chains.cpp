@@ -963,35 +963,31 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
+    vector<double> scaled_scores;
+    scaled_scores.reserve(scores.size());
+    for (auto& score : scores) {
+        scaled_scores.push_back(score * mapq_score_scale);
+    }
+
     crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
+        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false) ;
     
-    set_annotation(mappings.front(), "mapq_unscaled", mapq);
-    
-    if (show_work && mapq_scale != 1.0) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "unscaled MAPQ is " << mapq << endl;
-        }
-    }
-    mapq *= mapq_scale;
-
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
 #endif
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
-        }
-    }
-
     if (use_explored_cap) {
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
+            }
+        }
     
         // TODO: give SmallBitset iterators so we can use it instead of an index vector.
         vector<size_t> explored_minimizers;
@@ -1007,24 +1003,33 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
         // Apply the caps and transformations
-        mapq = round(min(mapq_explored_cap, min(mapq, 60.0)));
+        mapq = round(min(mapq_explored_cap, mapq));
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
-                cerr << log_name() << "MAPQ is " << mapq << endl;
             }
         }
     }
 
-    // Remember the uncapped MAPQ and the caps
-    set_annotation(mappings.front(),"secondary_scores", scores);
-    
+
     // Make sure to clamp 0-60.
-    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
-   
-    
+    mapq = max(mapq, 0.0);
+    mapq = min(mapq, 60.0);
+    // And save the MAPQ
+    mappings.front().set_mapping_quality(mapq);
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "MAPQ is " << mapq << endl;
+        }
+    }
+
+    // Remember the scores
+    set_annotation(mappings.front(),"secondary_scores", scores);
+
     if (track_provenance) {
         funnel.substage_stop();
     }
