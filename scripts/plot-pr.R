@@ -109,7 +109,7 @@ limits <- c(0, 4)
 if ( reads.per.condition > 10000 ) {
     # Use big scale if there are a lot of reads
     labels <- c(labels, "1e-5","1e-6","1e-7","1e-8","1e-9")
-    breaks <- c(breaks, ,5,6,7,8,9)
+    breaks <- c(breaks, 5,6,7,8,9)
     limits <- c(0, 9)
 }
 
