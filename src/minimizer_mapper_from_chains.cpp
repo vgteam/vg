@@ -968,6 +968,16 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
         get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
+    
+    set_annotation(mappings.front(), "mapq_unscaled", mapq);
+    
+    if (show_work && mapq_scale != 1.0) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "unscaled MAPQ is " << mapq << endl;
+        }
+    }
+    mapq *= mapq_scale;
 
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;

@@ -275,6 +275,12 @@ static GroupedOptionGroup get_options() {
         MinimizerMapper::default_use_explored_cap,
         "disable explored minimizer layout cap on mapping quality"
     );
+    comp_opts.add_range(
+        "mapq-scale",
+        &MinimizerMapper::mapq_scale,
+        MinimizerMapper::default_mapq_scale,
+        "scale mapping quality"
+    );
     
     // Configure chaining
     auto& chaining_opts = parser.add_group<MinimizerMapper>("long-read/chaining parameters");
@@ -609,7 +615,8 @@ int main_giraffe(int argc, char** argv) {
     presets["lr"]
         .add_entry<bool>("align-from-chains", true)
         // Since the default is true, the option name has "no", but we are setting the cap off.
-        .add_entry<bool>("no-explored-cap", false) 
+        .add_entry<bool>("no-explored-cap", false)
+        .add_entry<double>("mapq-scale", 0.1) 
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
