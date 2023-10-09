@@ -711,8 +711,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("align");
     }
 
+#ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
     vector<size_t> minimizer_kept_count(minimizers.size(), 0);
+#endif
     
     // Now start the alignment step. Everything has to become an alignment.
 
@@ -860,8 +862,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 
             for (size_t i = 0 ; i < minimizer_kept_chain_count[processed_num].size() ; i++) {
+#ifdef print_minimizer_table
                 minimizer_kept_count[i] += minimizer_kept_chain_count[processed_num][i];
-                if (minimizer_kept_chain_count[processed_num][i] > 0) {
+#endif
+                if (use_explored_cap && minimizer_kept_chain_count[processed_num][i] > 0) {
                     // This minimizer is in a zip code tree that gave rise
                     // to at least one alignment, so it is explored.
                     minimizer_explored.insert(i);
@@ -968,6 +972,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
 #endif
+    set_annotation(mappings.front(), "mapq_uncapped", mapq);
     
     if (show_work) {
         #pragma omp critical (cerr)
@@ -975,34 +980,37 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
         }
     }
+
+    if (use_explored_cap) {
     
-    // TODO: give SmallBitset iterators so we can use it instead of an index vector.
-    vector<size_t> explored_minimizers;
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        if (minimizer_explored.contains(i)) {
-            explored_minimizers.push_back(i);
+        // TODO: give SmallBitset iterators so we can use it instead of an index vector.
+        vector<size_t> explored_minimizers;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (minimizer_explored.contains(i)) {
+                explored_minimizers.push_back(i);
+            }
+        }
+        // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
+        double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
+        double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
+
+        set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
+
+        // Apply the caps and transformations
+        mapq = round(min(mapq_explored_cap, min(mapq, 60.0)));
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
+                cerr << log_name() << "MAPQ is " << mapq << endl;
+            }
         }
     }
-    // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
-    double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(),"secondary_scores", scores);
-    set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
-
-    // Apply the caps and transformations
-    mapq = round(min(mapq_explored_cap, min(mapq, 60.0)));
-
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
-            cerr << log_name() << "MAPQ is " << mapq << endl;
-        }
-    }
-        
+    
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
    

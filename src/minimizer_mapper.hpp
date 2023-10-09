@@ -290,6 +290,11 @@ public:
     // More shared parameters:
     /////////////////
     
+    /// If set, cap mapping quality based on minimizer layout in the read. Only
+    /// really likely to help for short reads.
+    static constexpr bool default_use_explored_cap = false;
+    bool use_explored_cap = default_use_explored_cap;
+
     static constexpr size_t default_max_multimaps = 1;
     size_t max_multimaps = default_max_multimaps;
     static constexpr size_t default_distance_limit = 200;
