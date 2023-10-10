@@ -2330,10 +2330,12 @@ cerr << "Find intervals on snarl" << endl;
                                              ZipCode::CHAIN, current_depth+1});
             }
             last_end = next_interval.interval_end;
-            if (next_interval.interval_end - next_interval.interval_start == 1 || 
-                next_interval.code_type == ZipCode::NODE) {
-                //If this is just one seed, or a trivial chain
-
+            if (next_interval.interval_end - next_interval.interval_start == 1) {
+                //If this is just one seed, add the interval
+                child_intervals.emplace_back(std::move(next_interval));
+            } else if (next_interval.code_type == ZipCode::NODE) {
+                //If this is a node, then sort it
+                sort_one_interval(forest_state.seed_sort_order, next_interval, current_depth, distance_index);
                 child_intervals.emplace_back(std::move(next_interval));
             } else {
                 //If this is another snarl/chain to process
