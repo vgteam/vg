@@ -2390,7 +2390,7 @@ cerr << "Find intervals on snarl" << endl;
                                                                                        : chain_is_reversed);
         //Start with the offset in the node
         size_t node_offset = is_rev(seed.pos) != node_is_rev
-                ? seed.zipcode_decoder->get_length(depth) - offset(seed.pos)
+                ? seed.zipcode_decoder->get_length(max_depth) - offset(seed.pos)
                 : offset(seed.pos);
 
         //Possibly add the offset in the chain
@@ -2520,11 +2520,14 @@ cerr << "Find intervals on snarl" << endl;
 
                 if (rev) {
                     //Add everything in this interval backwards
-                    size_t previous_prefix_sum;
+                    size_t previous_prefix_sum=0;
                     for (int seed_i = to_interval.interval_end-1 ; seed_i >= to_interval.interval_start ; seed_i--) {
                         size_t seed_index = forest_state.seed_sort_order[seed_i];
                         size_t current_prefix_sum = get_lowest_prefix_sum(seeds->at(seed_index), !to_interval.is_reversed); 
                         if (seed_i != to_interval.interval_end-1) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                            assert(current_prefix_sum >= previous_prefix_sum);
+#endif
                             size_t dist = current_prefix_sum-previous_prefix_sum;
                             trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
                                                                          dist,
@@ -2552,12 +2555,15 @@ cerr << "Find intervals on snarl" << endl;
                     }
                 } else {
                     //Add everything in this interval forwards
-                    size_t previous_prefix_sum;
+                    size_t previous_prefix_sum = 0;
                     for (size_t seed_i = to_interval.interval_start ; seed_i < to_interval.interval_end ; seed_i++) {
                         size_t seed_index = forest_state.seed_sort_order[seed_i];
                         size_t current_prefix_sum = get_lowest_prefix_sum(seeds->at(seed_index), to_interval.is_reversed);
                         if (seed_i != to_interval.interval_start) {
+#ifdef DEBUG_ZIP_CODE_TREE
                             assert(seeds->at(forest_state.seed_sort_order[seed_i]).zipcode_decoder->max_depth() == to_seed_depth);
+                            assert(current_prefix_sum >= previous_prefix_sum);
+#endif
 
                             size_t dist = current_prefix_sum-previous_prefix_sum;
                             trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, 
