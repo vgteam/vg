@@ -1,6 +1,8 @@
 //#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
+//This is used to get an all-to-all-seeds distance matrix for cyclic snarls
+//#define EXHAUSTIVE_CYCLIC_SNARLS
 
 #include "zip_code_tree.hpp"
 
@@ -2349,6 +2351,13 @@ cerr << "Find intervals on snarl" << endl;
         }
 
     }
+#ifdef EXHAUSTIVE_CYCLIC_SNARLS
+    //Make this an all-to-all comparison of seeds
+    child_intervals.clear();
+    for (size_t i = snarl_interval.interval_start ; i < snarl_interval.interval_end ; i++) {
+        child_intervals.push_back({i, i+1, false, ZipCode::CHAIN, depth+1});
+    }
+#endif
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Add distances for " << child_intervals.size() << " intervals" << endl;
 #endif
@@ -2487,6 +2496,11 @@ cerr << "Find intervals on snarl" << endl;
                 distance_end_left != std::numeric_limits<size_t>::max()) {
                 orientations.emplace_back(true);
             }
+#ifdef EXHAUSTIVE_CYCLIC_SNARLS
+            orientations.clear();
+            orientations.emplace_back(false);
+            orientations.emplace_back(true);
+#endif
 
             //For each seed
             for (bool rev : orientations) {
