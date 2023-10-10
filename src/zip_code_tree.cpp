@@ -2351,6 +2351,34 @@ cerr << "Find intervals on snarl" << endl;
         }
 
     }
+#ifdef DEBUG_ZIP_CODE_TREE
+    //Check that all seeds in an interval are on the same chain
+    //and that all seeds are included exactly once
+    vector<bool> seed_included((snarl_interval.interval_end - snarl_interval.interval_start), false);
+    size_t child_count = 0;
+    for (auto& child_interval : child_intervals) {
+        auto& start_seed = seeds->at(forest_state.seed_sort_order[child_interval.interval_start]);
+        size_t depth = start_seed.zipcode_decoder->max_depth();
+        for (auto x = child_interval.interval_start ; x < child_interval.interval_end ; x++) {
+            auto& current_seed = seeds->at(forest_state.seed_sort_order[x]);
+            assert(current_seed.zipcode_decoder->max_depth() == depth);
+            for (size_t d = 0 ; d < depth ; d++) {
+                assert(ZipCodeDecoder::is_equal(*current_seed.zipcode_decoder, *start_seed.zipcode_decoder, d));
+            }
+            assert(x >= snarl_interval.interval_start);
+            assert(x < snarl_interval.interval_end);
+            size_t i = x - snarl_interval.interval_start;
+            assert(!seed_included[i]);
+            seed_included[i] = true;
+        }
+        child_count += (child_interval.interval_end - child_interval.interval_start);
+    }
+    assert(child_count == (snarl_interval.interval_end - snarl_interval.interval_start)); 
+    for (auto x : seed_included) {
+        assert(x);
+    }
+
+#endif
 #ifdef EXHAUSTIVE_CYCLIC_SNARLS
     //Make this an all-to-all comparison of seeds
     child_intervals.clear();
