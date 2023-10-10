@@ -85,6 +85,8 @@ public:
     // return nullptr if node not in an interval
     const pair<step_handle_t, step_handle_t>* get_interval(nid_t node_id) const;
 
+    // add R_CHROM, R_START, R_END, F_LEN tags to a VCF using the cover
+    void annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os);
     
 protected:
 
@@ -106,7 +108,11 @@ protected:
     // this is always possible because they are, by definition, disjoint
     // this should only be run from inside apply()
     void forwardize_rgfa_paths(MutablePathMutableHandleGraph* mutable_graph);
-    
+
+    // search back to the reference and return <distance, step> when its found
+    // (here distance is the number of intervals crossed, aka rank)
+    // "first" toggles returning the first interfval found vs all of them
+    vector<pair<int64_t, nid_t>> get_reference_nodes(nid_t node_id, bool first) const;    
     
 protected:
 
@@ -132,6 +138,8 @@ protected:
         }
     };
 };
+
+
 
 /// Export the given VG graph to the given GFA file.
 }

@@ -202,7 +202,19 @@ void RGFACover::load(const PathHandleGraph* graph,
     // start with the reference paths
     for (const path_handle_t& ref_path_handle : reference_paths) {
         graph->for_each_step_in_path(ref_path_handle, [&](step_handle_t step_handle) {
-            node_to_interval[graph->get_id(graph->get_handle_of_step(step_handle))] = rgfa_intervals.size();
+            nid_t node_id = graph->get_id(graph->get_handle_of_step(step_handle));
+            if (graph->get_is_reverse(graph->get_handle_of_step(step_handle))) {
+                cerr << "[rgfa] error: Reversed step " << node_id << " found in rank-0 reference "
+                     << graph->get_path_name(ref_path_handle) << ". All rGFA path fragments must be forward-only." << endl;
+                exit(1);
+            }            
+            if (node_to_interval.count(node_id)) {
+                cerr << "[rgfa] error: Cycle found on node " << node_id << "in rank-0 reference "
+                     << graph->get_path_name(ref_path_handle) << ". All rGFA path fragments must be acyclic." << endl;
+                exit(1);
+
+            }
+            node_to_interval[node_id] = rgfa_intervals.size();
         });
         this->rgfa_intervals.push_back(make_pair(graph->path_begin(ref_path_handle),
                                                  graph->path_end(ref_path_handle)));
@@ -385,62 +397,8 @@ void RGFACover::apply(MutablePathMutableHandleGraph* mutable_graph) {
 int64_t RGFACover::get_rank(nid_t node_id) const {
 
     // search back to reference in order to find the rank.
-    unordered_set<nid_t> visited;
-    priority_queue<pair<int64_t, nid_t>> queue;
-    queue.push(make_pair(0, node_id));
-
-    nid_t current_id;
-    int64_t distance = 0;
-
-    while (!queue.empty()) {
-        std::tie(distance, current_id) = queue.top();
-        queue.pop();
-
-        if (!visited.count(current_id)) {
-
-            visited.insert(current_id);
-
-            if (this->node_to_interval.count(current_id)) {
-                int64_t interval_idx = this->node_to_interval.at(current_id);
-
-                // we've hit the reference, can stop searching
-                if (interval_idx < this->num_ref_intervals) {
-                    return distance;
-                }
-
-                // search out of the snarl -- any parent traversals will overlap here
-                const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(interval_idx);
-                
-                graph->follow_edges(graph->get_handle_of_step(rgfa_interval.first), true, [&](handle_t prev) {
-                    queue.push(make_pair(distance + 1, graph->get_id(prev)));
-                });
-                // hack around gbwtgraph bug (feature?) that does not let you decrement path_end
-                path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_interval.first);
-                step_handle_t last_step;
-                if (rgfa_interval.second == graph->path_end(path_handle)) {
-                    last_step = graph->path_back(path_handle);
-                } else {
-                    last_step = graph->get_previous_step(rgfa_interval.second);
-                }
-                graph->follow_edges(graph->get_handle_of_step(last_step), false, [&](handle_t next) {
-                    queue.push(make_pair(distance + 1, graph->get_id(next)));
-                });
-
-            } else {
-                // revert to graph search if node not in interval (distance doesn't increase -- we only count intervals)
-                graph->follow_edges(graph->get_handle(current_id), false, [&](handle_t next) {
-                    queue.push(make_pair(distance, graph->get_id(next)));
-                });
-                graph->follow_edges(graph->get_handle(current_id), true, [&](handle_t next) {
-                    queue.push(make_pair(distance, graph->get_id(next)));
-                });                                
-            }
-            
-        }
-    }
-
-    // this shouldn't happen?
-    return -1;
+    vector<pair<int64_t, nid_t>> ref_steps = this->get_reference_nodes(node_id, true);
+    return ref_steps.at(0).first;
 }
     
 pair<const pair<step_handle_t, step_handle_t>*,
@@ -756,6 +714,189 @@ void RGFACover::forwardize_rgfa_paths(MutablePathMutableHandleGraph* mutable_gra
             });
         }
     });
+}
+
+vector<pair<int64_t, nid_t>> RGFACover::get_reference_nodes(nid_t node_id, bool first) const {
+
+    // search back to reference in order to find the rank.
+    unordered_set<nid_t> visited;
+    priority_queue<pair<int64_t, nid_t>> queue;
+    queue.push(make_pair(0, node_id));
+
+    nid_t current_id;
+    int64_t distance = 0;
+
+    // output reference intervals
+    vector<pair<int64_t, nid_t>> output_reference_nodes;
+
+    while (!queue.empty()) {
+        std::tie(distance, current_id) = queue.top();
+        queue.pop();
+
+        if (!visited.count(current_id)) {
+
+            visited.insert(current_id);
+
+            if (this->node_to_interval.count(current_id)) {
+                int64_t interval_idx = this->node_to_interval.at(current_id);
+
+                const pair<step_handle_t, step_handle_t>& rgfa_interval = this->rgfa_intervals.at(interval_idx);
+
+                // we've hit the reference, fish out its step and stop searching.
+                if (interval_idx < this->num_ref_intervals) {
+                    output_reference_nodes.push_back(make_pair(distance, current_id));
+                    if (first) {
+                        break;
+                    }
+                    continue;
+                }
+
+                // search out of the snarl -- any parent traversals will overlap here                
+                graph->follow_edges(graph->get_handle_of_step(rgfa_interval.first), true, [&](handle_t prev) {
+                    queue.push(make_pair(distance + 1, graph->get_id(prev)));
+                });
+                // hack around gbwtgraph bug (feature?) that does not let you decrement path_end
+                path_handle_t path_handle = graph->get_path_handle_of_step(rgfa_interval.first);
+                step_handle_t last_step;
+                if (rgfa_interval.second == graph->path_end(path_handle)) {
+                    last_step = graph->path_back(path_handle);
+                } else {
+                    last_step = graph->get_previous_step(rgfa_interval.second);
+                }
+                graph->follow_edges(graph->get_handle_of_step(last_step), false, [&](handle_t next) {
+                    queue.push(make_pair(distance + 1, graph->get_id(next)));
+                });
+
+            } else {
+                // revert to graph search if node not in interval (distance doesn't increase -- we only count intervals)
+                graph->follow_edges(graph->get_handle(current_id), false, [&](handle_t next) {
+                    queue.push(make_pair(distance, graph->get_id(next)));
+                });
+                graph->follow_edges(graph->get_handle(current_id), true, [&](handle_t next) {
+                    queue.push(make_pair(distance, graph->get_id(next)));
+                });                                
+            }
+            
+        }
+    }
+
+    assert(output_reference_nodes.size() > 0 && (first == (output_reference_nodes.size() == 1)));
+    return output_reference_nodes;
+}
+
+void RGFACover::annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os) {
+    vcflib::Variant var(vcf);
+
+    // want a reference position lookup
+    unordered_map<nid_t, int64_t> node_to_ref_pos;
+    for (int64_t i = 0; i < this->num_ref_intervals; ++i) {
+        const pair<step_handle_t, step_handle_t>& ref_interval = this->rgfa_intervals.at(i);
+        // assumption: ref intervals span entire path
+        assert(graph->path_begin(graph->get_path_handle_of_step(ref_interval.first)) == ref_interval.first);
+        int64_t pos = 0;
+        for (step_handle_t step_handle = ref_interval.first; step_handle != ref_interval.second;
+             step_handle = graph->get_next_step(step_handle)) {
+            handle_t handle = graph->get_handle_of_step(step_handle);
+            nid_t node_id = graph->get_id(handle);
+            assert(!graph->get_is_reverse(handle));            
+            assert(!node_to_ref_pos.count(node_id));
+            node_to_ref_pos[node_id] = pos;
+            pos += graph->get_length(handle);
+        }
+    }
+    
+    // also want an rGFA path lookup
+    unordered_map<string, path_handle_t> name_to_rgfa_path;
+    graph->for_each_path_of_sample(RGFACover::rgfa_sample_name, [&](path_handle_t path_handle) {
+        name_to_rgfa_path[RGFACover::revert_rgfa_path_name(graph->get_path_name(path_handle))] = path_handle;
+    });
+
+    // remove header lines we're going to add
+    vcf.removeInfoHeaderLine("R_CHROM");
+    vcf.removeInfoHeaderLine("R_START");
+    vcf.removeInfoHeaderLine("R_END");
+    vcf.removeInfoHeaderLine("RANK");
+
+    // and add them back, so as not to duplicate them if they are already there
+    vcf.addHeaderLine("##INFO=<ID=R_CHROM,Number=1,Type=String,Description=\"Reference Chromsome Name\">");
+    vcf.addHeaderLine("##INFO=<ID=R_START,Number=1,Type=String,Description=\"Chromsome Start (0-based inclusive)\">");
+    vcf.addHeaderLine("##INFO=<ID=R_END,Number=1,Type=String,Description=\"Reference End (0-based exclusive)\">");
+    vcf.addHeaderLine("##INFO=<ID=RANK,Number=1,Type=String,Description=\"rGFA Rank\">");
+
+    os << vcf.header << endl;
+
+    string prev_sequence_name;
+    string prev_r_chrom;
+    string prev_r_start;
+    string prev_r_end;
+    string prev_rank;
+    while (vcf.getNextVariant(var)) {
+        if (name_to_rgfa_path.count(var.sequenceName)) {
+            string r_chrom;
+            string r_start;
+            string r_end;
+            string rank;
+            if (var.sequenceName == prev_sequence_name) {
+                // just use the previous values, which will be the same
+                r_chrom = prev_r_chrom;
+                r_start = prev_r_start;
+                r_end = prev_r_end;
+                rank = prev_rank;
+            } else {
+                // compute from the cover
+                path_handle_t path_handle = name_to_rgfa_path.at(var.sequenceName);
+                nid_t first_node = graph->get_id(graph->get_handle_of_step(graph->path_begin(path_handle)));
+                vector<pair<int64_t, nid_t>> ref_nodes = this->get_reference_nodes(first_node, false);
+
+                int64_t min_ref_pos = numeric_limits<int64_t>::max();
+                int64_t max_ref_pos = -1;
+                int64_t min_rank = numeric_limits<int64_t>::max();
+                for (const pair<int64_t, nid_t>& rank_node : ref_nodes) {
+                    step_handle_t ref_step = this->rgfa_intervals.at(node_to_interval.at(rank_node.second)).first;
+                    path_handle_t ref_path = graph->get_path_handle_of_step(ref_step);
+                    string name = graph->get_path_name(ref_path);
+                    // we assume one reference contig (which is built into the whole structure)
+                    assert(r_chrom.empty() || r_chrom == name);
+                    r_chrom = name;
+                    int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
+                    min_ref_pos = min(min_ref_pos, ref_pos);
+                    max_ref_pos = max(max_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
+                    min_rank = min(min_rank, rank_node.first);
+                }
+
+                r_start = std::to_string(min_ref_pos);
+                r_end = std::to_string(max_ref_pos);
+                rank = std::to_string(min_rank);
+            }
+
+            if (!var.info.count("R_CHROM")) {
+                var.format.push_back("R_CHROM");
+            }
+            var.info["R_CHROM"] = {r_chrom};
+            if (!var.info.count("R_START")) {
+                var.format.push_back("R_START");
+            }
+            var.info["R_START"] = {r_start};
+            if (!var.info.count("R_END")) {
+                var.format.push_back("R_END");
+            }
+            var.info["R_END"] = {r_end};
+            if (!var.info.count("RANK")) {
+                var.format.push_back("RANK");
+            }
+            var.info["RANK"] = {rank};
+            
+            prev_sequence_name = var.sequenceName;
+            prev_r_chrom = r_chrom;
+            prev_r_start = r_start;
+            prev_r_end = r_end;
+            prev_rank = rank;
+            
+        } else {
+            //cerr << "rGFA [warning]: VCF reference " << var.sequenceName << " not found in graph" << endl;
+        }
+        os << var << endl;        
+    }
 }
 
 }
