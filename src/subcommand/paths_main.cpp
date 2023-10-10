@@ -44,6 +44,7 @@ void help_paths(char** argv) {
          << "    -f, --rgfa-min-length N  add rGFA cover to graph, using seleciton from -Q/-S as rank-0 backbone, only adding fragments >= Nbp (default:-1=disabled)" << endl
          << "    -s, --snarls FILE        snarls (from vg snarls) to avoid recomputing. snarls only used for rgfa cover (-R)." << endl
          << "    -t, --threads N          use up to N threads when computing rGFA cover (default: all available)" << endl
+         << "        --rgfa-vcf FILE      add rGFA cover tags to VCF (which must be called on rGFA cover in graph from -f)" << endl
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
@@ -97,6 +98,7 @@ unordered_map<PathSense, string> SENSE_TO_STRING {
 
 // Long options with no corresponding short options.
 const int OPT_SELECT_RGFA_FRAGMENTS = 1000;
+const int OPT_ANNOTATE_RGFA_VCF = 1001;
 
 int main_paths(int argc, char** argv) {
 
@@ -113,6 +115,7 @@ int main_paths(int argc, char** argv) {
     bool drop_paths = false;
     bool retain_paths = false;
     int64_t rgfa_min_len = -1;
+    string rgfa_vcf_filename;
     string snarl_filename;
     string graph_file;
     string gbwt_file;
@@ -161,6 +164,7 @@ int main_paths(int argc, char** argv) {
             {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},
             {"rgfa-paths", no_argument, 0, OPT_SELECT_RGFA_FRAGMENTS},
+            {"rgfa-vcf", required_argument, 0, OPT_ANNOTATE_RGFA_VCF},
             {"threads", required_argument, 0, 't'},
             // Hidden options for backward compatibility.
             {"threads-by", required_argument, 0, 'q'},
@@ -293,6 +297,11 @@ int main_paths(int argc, char** argv) {
             sample_name = RGFACover::rgfa_sample_name;
             selection_criteria++;
             break;
+
+        case OPT_ANNOTATE_RGFA_VCF:
+            rgfa_vcf_filename = optarg;
+            output_formats++;
+            break;
             
         case 't':
         {
@@ -356,11 +365,11 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -R, -L, -F, -E, -C or -c) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -R, -L, -F, -E, -C, -c, --rgfa-vcf) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p, --rgfa-paths,) cannot be used" << std::endl;
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p, --rgfa-paths) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (select_alt_paths && !gbwt_file.empty()) {
@@ -664,8 +673,27 @@ int main_paths(int argc, char** argv) {
             
             // output the graph
             vg::io::save_handle_graph(graph.get(), std::cout, reference_path_names);
-        }
-        else if (coverage) {
+        } else if (!rgfa_vcf_filename.empty()) {
+            RGFACover rgfa_cover;
+            // load up the rank-0 reference path selection
+            unordered_set<path_handle_t> reference_paths;
+            for_each_selected_path([&](const path_handle_t& path_handle) {
+                reference_paths.insert(path_handle);
+            });
+            // load up the cover (which must have been previously computed and serialized with -f)
+            rgfa_cover.load(graph.get(), reference_paths);
+            if (rgfa_cover.get_intervals().size() == 0) {
+                cerr << "error[vg paths]: no rGFA cover found in graph. Please compute one with -f before annotating a VCF" << endl;
+                exit(1);
+            }
+            vcflib::VariantCallFile variant_file;
+            variant_file.open(rgfa_vcf_filename);
+            if (!variant_file.is_open()) {
+                cerr << "error[vg paths]: unable to open VCF file: " << rgfa_vcf_filename << endl;
+                exit(1);
+            }
+            rgfa_cover.annotate_vcf(variant_file, cout);
+        } else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one
             // (we're doing the whole graph here, which could be inefficient in the case the user is selecting
             //  a small path)
