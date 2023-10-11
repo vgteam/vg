@@ -780,7 +780,7 @@ vector<pair<int64_t, nid_t>> RGFACover::get_reference_nodes(nid_t node_id, bool 
         }
     }
 
-    assert(output_reference_nodes.size() > 0 && (first == (output_reference_nodes.size() == 1)));
+    assert(output_reference_nodes.size() > 0 && (!first || (output_reference_nodes.size() == 1)));
     return output_reference_nodes;
 }
 
@@ -859,8 +859,11 @@ void RGFACover::annotate_vcf(vcflib::VariantCallFile& vcf, ostream& os) {
                     assert(r_chrom.empty() || r_chrom == name);
                     r_chrom = name;
                     int64_t ref_pos = node_to_ref_pos.at(rank_node.second);
-                    min_ref_pos = min(min_ref_pos, ref_pos);
-                    max_ref_pos = max(max_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
+                    // assume snarl is forward on both reference nodes
+                    // todo: this won't be exact for some inversion cases, I don't think --
+                    //       need to test these and either add check / or move to oriented search
+                    min_ref_pos = min(min_ref_pos, ref_pos + (int64_t)graph->get_length(graph->get_handle(rank_node.second)));
+                    max_ref_pos = max(max_ref_pos, ref_pos);
                     min_rank = min(min_rank, rank_node.first);
                 }
 
