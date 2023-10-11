@@ -35,15 +35,16 @@ namespace vg {
                 bool left = true;
                 size_t position;
                 size_t length;
-                size_t left_offset;
-                size_t right_offset;
+                size_t offset;
                 vector<size_t> mapped_nodes_ids;
             };
 
             struct Primer_pair {
                 Primer left_primer;
                 Primer right_primer;
-                size_t product_size;
+                size_t linear_product_size;
+                size_t min_product_size;
+                size_t max_product_size;
             };
             
             class Primer_finder {
@@ -91,6 +92,8 @@ namespace vg {
                                     Primer_pair primer_pair{left_primer, right_primer,
                                         right_primer.position - left_primer.position + 1};
                                     primer_pairs.push_back(primer_pair);
+                                    left_primer = {""};
+                                    right_primer = {"", false};
                                 }
                                 left_primer.sequence = match[1];
                             } else if (regex_search(line, match, right_seq_pattern)) {
@@ -101,10 +104,13 @@ namespace vg {
                                 left_primer.length = stoi(pos_and_len[1]);
                             } else if (regex_search(line, match, right_pos_pattern)) {
                                 vector<string> pos_and_len = split(match[1], ",");
-                                right_primer.position = stoi(pos_and_len[0]);
                                 right_primer.length = stoi(pos_and_len[1]);
+                                right_primer.position = stoi(pos_and_len[0]) - right_primer.length;
+                                
                             }
                         }
+                        map_to_nodes(left_primer);
+                        map_to_nodes(right_primer);
                         Primer_pair primer_pair{left_primer, right_primer, 
                             right_primer.position - left_primer.position + 1};
                         primer_pairs.push_back(primer_pair);
@@ -123,14 +129,14 @@ namespace vg {
                     handle_t cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
                     primer.mapped_nodes_ids.push_back(graph->get_id(cur_node_handle));
                     string cur_node_sequence = graph->get_sequence(cur_node_handle);
-                    size_t primer_matched_index =  longest_match_len(cur_node_sequence, primer_seq) - 1;
-                    while (primer_matched_index <= primer_seq.size()-1) {
+                    size_t primer_matched_index =  longest_match_len(primer, cur_node_sequence, primer_seq) - 1;
+                    while (primer_matched_index < primer_seq.size()-1) {
                         cur_node_step_handle = graph->get_next_step(cur_node_step_handle);
                         cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
                         primer.mapped_nodes_ids.push_back(graph->get_id(cur_node_handle));
                         cur_node_sequence = graph->get_sequence(cur_node_handle);
                         string primer_substr = primer_seq.substr(primer_matched_index + 1, primer.length - primer_matched_index - 1);
-                        primer_matched_index += longest_match_len(primer_substr, cur_node_sequence);
+                        primer_matched_index += longest_match_len(primer, primer_substr, cur_node_sequence);
                     }
                 }
 
@@ -202,6 +208,12 @@ namespace vg {
                         cout << "depth of min node is: " << distance_index->get_depth(min_node_net_handle) << endl;
                         cout << "make sure that min node net handle is a node: " << distance_index->is_node(min_node_net_handle) << endl;
                         
+                        size_t min_dist_12_17 = distance_index->minimum_distance(12, false, 1, 17, false, 2);
+                        size_t max_dist_12_17 = distance_index->maximum_distance(12, false, 3, 17, false, 3);
+
+                        cout << "min dist between node 12 and node 17: " << min_dist_12_17 << endl;
+                        cout << "max dist between node 12 and node 17: " << max_dist_12_17 << endl;
+
                         cout << "SnarlDistanceIndex works! :)" << endl;
                         cout << "-------------------------------------" << endl;
 
@@ -209,7 +221,7 @@ namespace vg {
                         for (vector<Primer_pair>::iterator it = primer_pairs.begin(); it != primer_pairs.end(); ++it) {
                             Primer left_primer = it->left_primer;
                             Primer right_primer = it->right_primer;
-                            cout << "product size: " << it->product_size << endl;
+                            cout << "product size: " << it->linear_product_size << endl;
                             cout << left_primer.left << " " << left_primer.position << " " << 
                                 left_primer.length << " " << left_primer.sequence << endl;
                             for (int i = 0; i < left_primer.mapped_nodes_ids.size(); i++) {
@@ -220,8 +232,8 @@ namespace vg {
                             cout << endl;
                             cout << right_primer.left << " " << right_primer.position << " " << 
                                 right_primer.length << " " << right_primer.sequence << " " << revcomp(right_primer.sequence) << endl;
-                            for (int i = 0; i < left_primer.mapped_nodes_ids.size(); i++) {
-                                size_t cur_node_id = left_primer.mapped_nodes_ids[i];
+                            for (int i = 0; i < right_primer.mapped_nodes_ids.size(); i++) {
+                                size_t cur_node_id = right_primer.mapped_nodes_ids[i];
                                 handle_t cur_node_handle = graph->get_handle(cur_node_id);
                                 cout << graph->get_sequence(cur_node_handle) << " ";
                             }
@@ -247,15 +259,27 @@ namespace vg {
                     return s.substr(0, end+1);
                 }
 
-                size_t longest_match_len(string const left_seq, string const right_seq) {
+                size_t longest_match_len(Primer& primer, string const left_seq, string const right_seq) {
                     size_t llen = left_seq.size(), rlen = right_seq.size();
                     size_t length = min(llen, rlen);
                     size_t longest_match = 0;
-                    for (int i = 1; i <= length; i++) {
-                        if (right_seq.substr(0, length) == left_seq.substr(rlen - i, i)) {
+
+                    // Change .. can be done in one for loop
+                    if (llen >= rlen) {
+                        for (size_t i = 0; i <= llen - rlen; i++) {
+                            if (left_seq.substr(i, rlen) == right_seq) {
+                                longest_match = rlen;
+                                return longest_match;
+                            }
+                        }
+                    }
+
+                    for (size_t i = 1; i <= length; i++) {
+                        if (left_seq.substr(llen - i, i) == right_seq.substr(0, i)) {
                             longest_match = i;
                         }
                     }
+
                     return longest_match;
                 }
 
