@@ -12,11 +12,18 @@ void TickChainLink::reset_chain() {
     reset_chain_parent();
 }
 
-bool TickChainLink::tick_chain() {
+bool TickChainLink::tick_along_chain() {
+    std::cerr << "Tick chain at " << this << std::endl;
     return tick_chain_parent();
 }
 
+bool TickChainLink::is_static() const {
+    return true;
+}
+
 TickChainLink& TickChainLink::chain(TickChainLink& next) {
+    std::cerr << "Chain " << this << " onto parent " << &next << std::endl;
+
     // Attach next to us
     next.reset_chain_parent = [&]() {
         this->reset_chain();
@@ -110,8 +117,7 @@ TickChainLink& GroupedOptionGroup::chain(TickChainLink& next) {
         // Just chain through
         return TickChainLink::chain(next);
     } else {
-        // Chain us to first subgroup, and last subgroup to next.
-        TickChainLink::chain(*subgroups.front());
+        // We are already chained to first subgroup, so chain last subgroup to next.
         subgroups.back()->chain(next);
         return next;
     }

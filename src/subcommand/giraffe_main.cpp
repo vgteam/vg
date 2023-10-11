@@ -76,11 +76,11 @@ struct ScoringOptions {
     int8_t full_length_bonus = default_full_length_bonus;
 };
 
-static GroupedOptionGroup get_options() {
-    GroupedOptionGroup parser;
+static std::unique_ptr<GroupedOptionGroup> get_options() {
+    std::unique_ptr<GroupedOptionGroup> parser(new GroupedOptionGroup());
     
     // Configure Giraffe program settings
-    auto& main_opts = parser.add_group<GiraffeMainOptions>("program options");
+    auto& main_opts = parser->add_group<GiraffeMainOptions>("program options");
     main_opts.add_range(
         "watchdog-timeout", 
         &GiraffeMainOptions::watchdog_timeout,
@@ -95,7 +95,7 @@ static GroupedOptionGroup get_options() {
     );
     
     // Configure scoring
-    auto& scoring_opts = parser.add_group<ScoringOptions>("scoring options");
+    auto& scoring_opts = parser->add_group<ScoringOptions>("scoring options");
     scoring_opts.add_range(
         "match",
         &ScoringOptions::match,
@@ -128,7 +128,7 @@ static GroupedOptionGroup get_options() {
     );
 
     // Configure output settings on the MinimizerMapper
-    auto& result_opts = parser.add_group<MinimizerMapper>("result options");
+    auto& result_opts = parser->add_group<MinimizerMapper>("result options");
     result_opts.add_range(
         "max-multimaps", 'M',
         &MinimizerMapper::max_multimaps,
@@ -137,7 +137,7 @@ static GroupedOptionGroup get_options() {
     );
     
     // Configure normal Giraffe mapping computation
-    auto& comp_opts = parser.add_group<MinimizerMapper>("computational parameters");
+    auto& comp_opts = parser->add_group<MinimizerMapper>("computational parameters");
     comp_opts.add_range(
         "hit-cap", 'c',
         &MinimizerMapper::hit_cap,
@@ -283,7 +283,7 @@ static GroupedOptionGroup get_options() {
     );
     
     // Configure chaining
-    auto& chaining_opts = parser.add_group<MinimizerMapper>("long-read/chaining parameters");
+    auto& chaining_opts = parser->add_group<MinimizerMapper>("long-read/chaining parameters");
     chaining_opts.add_flag(
         "align-from-chains",
         &MinimizerMapper::align_from_chains,
@@ -480,10 +480,10 @@ int main_giraffe(int argc, char** argv) {
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
 
     // Set up to parse options
-    GroupedOptionGroup parser = get_options();
+    std::unique_ptr<GroupedOptionGroup> parser = get_options();
 
     if (argc == 2) {
-        help_giraffe(argv, parser, false);
+        help_giraffe(argv, *parser, false);
         return 1;
     }
     
@@ -563,7 +563,7 @@ int main_giraffe(int argc, char** argv) {
     bool discard_alignments = false;
     
     // Chain all the ranges and get a function that loops over all combinations.
-    auto for_each_combo = parser.get_iterator();
+    auto for_each_combo = parser->get_iterator();
     
 
     // Formats for alignment output.
@@ -665,11 +665,11 @@ int main_giraffe(int argc, char** argv) {
         {"show-work", no_argument, 0, OPT_SHOW_WORK},
         {"threads", required_argument, 0, 't'},
     };
-    parser.make_long_options(long_options);
+    parser->make_long_options(long_options);
     long_options.push_back({0, 0, 0, 0});
     
     std::string short_options = "hZ:x:g:H:m:z:d:pG:f:iM:N:R:o:Pnb:t:A:";
-    parser.make_short_options(short_options);
+    parser->make_short_options(short_options);
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -685,7 +685,7 @@ int main_giraffe(int argc, char** argv) {
         if (c == -1)
             break;
             
-        if (parser.parse(c, optarg)) {
+        if (parser->parse(c, optarg)) {
             // Parser took care of it
             continue;
         }
@@ -893,7 +893,7 @@ int main_giraffe(int argc, char** argv) {
                         exit(1);
                     } else {
                         // Apply the preset values.
-                        found->second.apply(parser);
+                        found->second.apply(*parser);
                     }
                 }
                 break;
@@ -957,7 +957,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, parser, true);
+                help_giraffe(argv, *parser, true);
                 exit(1);
                 break;
         }
@@ -1007,9 +1007,9 @@ int main_giraffe(int argc, char** argv) {
     }
 
     // If we don't want rescue, let the user see we don't try it.
-    if (parser.get_option_value<size_t>("rescue-attempts") == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+    if (parser->get_option_value<size_t>("rescue-attempts") == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
         // Replace any parsed values
-        parser.set_option_value<size_t>("rescue-attempts", 0);
+        parser->set_option_value<size_t>("rescue-attempts", 0);
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
@@ -1255,7 +1255,7 @@ int main_giraffe(int argc, char** argv) {
                 s << "-i";
             }
             // Make a slug of the other options
-            parser.print_options(s, true);
+            parser->print_options(s, true);
             s << ".gam";
             
             output_filename = s.str();
@@ -1271,11 +1271,11 @@ int main_giraffe(int argc, char** argv) {
 
         // Show and apply all the parser-managed options
         if (show_progress) {
-            parser.print_options(cerr);
+            parser->print_options(cerr);
         }
-        parser.apply(minimizer_mapper);
-        parser.apply(main_options);
-        parser.apply(scoring_options);
+        parser->apply(minimizer_mapper);
+        parser->apply(main_options);
+        parser->apply(scoring_options);
         
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;

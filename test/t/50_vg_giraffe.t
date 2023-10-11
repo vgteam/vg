@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 50
+plan tests 51
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -44,6 +44,12 @@ is "${?}" "0" "a read can be mapped with the fast preset"
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq -b default >/dev/null
 is "${?}" "0" "a read can be mapped with the default preset"
+
+rm -Rf grid-out
+mkdir grid-out
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-basename grid-out/file --hard-hit-cap 5:10
+is "$(ls grid-out/*.gam | wc -l)" "5" "Grid search works"
+rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
 is "$(vg view -aj  mapped-nobonus.gam | jq '.score')" "63" "Mapping without a full length bonus produces the correct score"

@@ -102,22 +102,43 @@ namespace subcommand {
  *
  * Each link in the chain works like a digit place in a number, and ticking increments the number.
  * This lets us do gird search over a bunch of values of different types without a bunch of nexted loops.
+ *
+ * May not move after chain() has been called on it! So we make it immovable.
  */
 struct TickChainLink {
+
+    TickChainLink() = default;
+    TickChainLink(const TickChainLink& other) = delete;
+    TickChainLink(TickChainLink&& other) = delete;
+    TickChainLink& operator=(const TickChainLink& other) = delete;
+    TickChainLink& operator=(TickChainLink&& other) = delete;
+    virtual ~TickChainLink() = default;
+
     /// This will be called when we want to reset_chain what we are chained onto.
     std::function<void(void)> reset_chain_parent = []() {
     };
-    /// This will be called when we need to tick_chain our parent
-    std::function<bool(void)> tick_chain_parent = []() {
+    /// This will be called when we need to tick_along_chain our parent
+    std::function<bool(void)> tick_along_chain_parent = []() {
         return false;
     };
     
     /// Reset the chain to its initial values.
     virtual void reset_chain();
+
+    /// Tick the chain. Return true if there's still a value for the chain, and
+    /// false if the chain is out of values.
+    /// Should be called by tick_chain() or a child.
+    /// May not delegate to a different item.
+    protected virtual bool tick_along_chain();
     
     /// Tick the chain. Return true if there's still a value for the chain, and
     /// false if the chain is out of values.
+    /// Should be called on the last item in the chain.
+    /// May delegate to a different item (for e.g. groups).
     virtual bool tick_chain();
+
+    /// Return true if this link never changes. We assume we are static by default.
+    virtual bool is_static() const;
     
     /// Add a thing to the chain after us.
     /// Return that thing.
@@ -141,7 +162,7 @@ namespace vg {
 /**
  * Tickable link that represents a single value or a range of values.
  * Range rusn from start to <=end, going up by step.
- * You can set the range to s aingle value or to a full range, and when you read it you see the current value.
+ * You can set the range to a single value or to a full range, and when you read it you see the current value.
  */
 template<typename Number>
 struct Range : public subcommand::TickChainLink {
@@ -219,6 +240,8 @@ struct Range : public subcommand::TickChainLink {
         
         return true;
     }
+
+
     
     /// Convert to Number with the current value
     operator Number() const {
@@ -248,10 +271,10 @@ struct Range : public subcommand::TickChainLink {
             // We are at the end
             return false;
         }
-        
+        auto old_here = here;
         here += step;
-        if ((step > 0 && here > end) || (step < 0 && here < end)) {
-            // We have passed the end (for things like double)
+        if ((step > 0 && (here > end || old_here >= here)) || (step < 0 && (here < end || old_here <= here))) {
+            // We have passed the end (for things like double), or done an overflow
             return false;
         }
         
@@ -259,22 +282,34 @@ struct Range : public subcommand::TickChainLink {
     }
     
     /// Increment our value.
-    /// If it overflows, tick_chain whatever we are chained onto, and reset and succeed if that succeeds.
-    bool tick_chain() {
+    /// If it overflows, tick_along_chain whatever we are chained onto, and reset and succeed if that succeeds.
+    bool tick_along_chain() {
+        std::cerr << "Tick chain at " << this << std::endl;
+        std::cerr << "Ticking chain of " << start << " to " << end << std::endl;
         if (tick()) {
             // We could change
+            std::cerr << "We could change" << std::endl;
             return true;
         } else {
             // We couldn't change.
-            if (tick_chain_parent()) {
+            std::cerr << "We couldn't change" << std::endl;
+            if (tick_along_chain_parent()) {
                 // We have a parent we could advance.
+                std::cerr << "Parent could change" << std::endl;
                 reset();
                 return true;
             } else {
                 // Our parent couldn't advance either.
+                std::cerr << "Parent couldn't change" << std::endl;
                 return false;
             }
         }
+    }
+
+    /// Declare we are static if the range is one element.
+    bool is_static() const {
+        // Would we pass the end or overflow if we ticked from start?
+        return (start == end) || (step > 0 && (start + step > end || start + step <= start)) || (step < 0 && (start + step < end || start + step >= start));
     }
 };
 
@@ -459,8 +494,12 @@ struct BaseArgSpec : public TickChainLink {
     /// Print default value to the given stream, if appropriate.
     virtual void print_default(ostream& out) const = 0;
     /// Print option and value to the given stream, without newlines, between the given separators.
-    /// If slug is set, use short option if available and don't include spaces.
+    /// If slug is set, only print if variable, use short option if available and don't include spaces.
     virtual void print(ostream& out, const char* sep = "", const char* after = "", bool slug = false) const {
+        if (slug && this->is_static()) {
+            // We never change, so exclude from the slug
+            return;
+        }
         out << sep;
         if (slug && short_option != '\0') {
             out << "-" << short_option;
@@ -650,6 +689,10 @@ struct RangeArgSpec : public ValueArgSpec<T, Receiver, Range<T>> {
     
     using ValueArgSpec<T, Receiver, Range<T>>::ValueArgSpec;
     virtual ~RangeArgSpec() = default;
+
+    virtual bool is_static() const {
+        return this->value.is_static();
+    }
     
     virtual TickChainLink& chain(TickChainLink& next) {
         // Wire our value range into the chain.
@@ -685,13 +728,9 @@ struct FlagArgSpec : public ValueArgSpec<bool, Receiver> {
     }
     virtual void print(ostream& out, const char* sep = "", const char* after = "", bool slug = false) const {
         // Override print to just print the flag when used
-        if (this->value != this->default_value) {
+        if (!slug && this->value != this->default_value) {
             out << sep;
-            if (slug && this->short_option != '\0') {
-                out << "-" << this->short_option;
-            } else {
-                out << "--" << this->option;
-            }
+            out << "--" << this->option;
             out << after;
         }
     }
@@ -725,7 +764,7 @@ struct BaseOptionGroup : public TickChainLink {
     
     /// Print all options set.
     /// By default, prints one option per line.
-    /// If slug is set, prints short options, all on one line.
+    /// If slug is set, prints short options for ranges only, all on one line.
     virtual void print_options(ostream& out, bool slug = false) const = 0;
     
     /// Get help, in the form of pairs of options and descriptions.
@@ -782,13 +821,12 @@ struct OptionGroup : public BaseOptionGroup {
             // Just chain through
             return TickChainLink::chain(next);
         } else {
-            // Chain us to first arg, and last arg to next.
-            TickChainLink::chain(*args.front());
+            // We are already chained to first arg, so chain last arg to next.
             args.back()->chain(next);
             return next;
         }
     }
-    
+
     // We need to take default_value by value, and not by reference, because we
     // often want to pass stuff that is constexpr and trying to use a reference
     // will make us try to link against it.
@@ -798,7 +836,10 @@ struct OptionGroup : public BaseOptionGroup {
     template<typename T, typename Spec = ValueArgSpec<T, Receiver>>
     void add_option(const std::string& name, char short_option, T Receiver::*dest, T default_value, const std::string& help, const ValidatorFunction<T>& validator = [](const T& ignored) {}) {
         args.emplace_back(new Spec(name, short_option, dest, default_value, help, validator));
-        if (args.size() > 1) {
+        if (args.size() == 1) {
+            // Chain us to first arg
+            TickChainLink::chain(*args.front());
+        } else {
             // Chain onto previous option
             args[args.size() - 2]->chain(*args[args.size() - 1]);
         }
@@ -884,7 +925,7 @@ struct OptionGroup : public BaseOptionGroup {
         }
     }
     
-    /// Print all options set, one per line
+    /// Print all options set
     virtual void print_options(ostream& out, bool slug = false) const {
         if (slug) {
             for (auto& arg : args) {
@@ -967,7 +1008,7 @@ struct OptionGroup : public BaseOptionGroup {
     
     /// Heading we will appear under in the help.
     std::string heading;
-    /// Holds the argument definitions and parsing destinations
+    /// Holds the argument definitions and parsing destinations. Because they are chained up they can't move.
     std::vector<std::unique_ptr<BaseArgSpec<Receiver>>> args;
     /// Map from option ID to option index
     std::unordered_map<int, size_t> id_to_index;
@@ -1000,7 +1041,10 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     OptionGroup<Receiver>& add_group(const std::string& heading) {
         OptionGroup<Receiver>* new_group = new OptionGroup<Receiver>(heading);
         subgroups.emplace_back(new_group);
-        if (subgroups.size() > 1) {
+        if (subgroups.size() == 1) {
+            // Chain us to first group
+            TickChainLink::chain(*subgroups.front());
+        } else {
             // Chain the groups
             subgroups[subgroups.size() - 2]->chain(*subgroups[subgroups.size() - 1]);
         }
