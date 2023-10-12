@@ -278,36 +278,27 @@ struct Range : public subcommand::TickChainLink {
         }
         auto old_here = here;
         here += step;
-        std::cerr << "Try changing from " << old_here << " to " << here << " bounded by " << end << std::endl;
         if ((step > 0 && (here > end || old_here >= here)) || (step < 0 && (here < end || old_here <= here))) {
             // We have passed the end (for things like double), or done an overflow
-             std::cerr << "Out of range" << std::endl;
             return false;
         }
-        std::cerr << "In range" << std::endl;
         return true;
     }
     
     /// Increment our value.
     /// If it overflows, tick_along_chain whatever we are chained onto, and reset and succeed if that succeeds.
     bool tick_along_chain() {
-        std::cerr << "Tick chain at " << this << std::endl;
-        std::cerr << "Ticking chain of " << start << " to " << end << std::endl;
         if (tick()) {
             // We could change
-            std::cerr << "We could change" << std::endl;
             return true;
         } else {
             // We couldn't change.
-            std::cerr << "We couldn't change" << std::endl;
             if (tick_along_chain_parent()) {
                 // We have a parent we could advance.
-                std::cerr << "Parent could change" << std::endl;
                 reset();
                 return true;
             } else {
                 // Our parent couldn't advance either.
-                std::cerr << "Parent couldn't change" << std::endl;
                 return false;
             }
         }
@@ -844,7 +835,6 @@ struct OptionGroup : public BaseOptionGroup {
     }
 
     virtual bool tick_chain() {
-        std::cerr << "Group tick chain at " << this << std::endl;
         if (!args.empty()) {
             // Delegate tick to the real end of the chain
             return args.back()->tick_chain();

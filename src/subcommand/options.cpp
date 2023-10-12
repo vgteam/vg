@@ -13,7 +13,6 @@ void TickChainLink::reset_along_chain() {
 }
 
 bool TickChainLink::tick_along_chain() {
-    std::cerr << "Tick along chain at " << this << std::endl;
     return tick_along_chain_parent();
 }
 
@@ -22,7 +21,6 @@ void TickChainLink::reset_chain() {
 }
 
 bool TickChainLink::tick_chain() {
-    std::cerr << "Default tick chain at " << this << std::endl;
     return tick_along_chain();
 }
 
@@ -31,7 +29,6 @@ bool TickChainLink::is_static() const {
 }
 
 TickChainLink& TickChainLink::chain(TickChainLink& next) {
-    std::cerr << "Chain " << this << " onto parent " << &next << std::endl;
 
     // Attach next to us
     next.reset_along_chain_parent = [&]() {
@@ -142,7 +139,6 @@ void GroupedOptionGroup::reset_chain() {
 }
 
 bool GroupedOptionGroup::tick_chain() {
-    std::cerr << "Grouped group tick chain at " << this << std::endl;
     if (!subgroups.empty()) {
         // Delegate tick to the real end of the chain
         return subgroups.back()->tick_chain();
