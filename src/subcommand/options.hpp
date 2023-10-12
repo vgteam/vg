@@ -114,8 +114,8 @@ struct TickChainLink {
     TickChainLink& operator=(TickChainLink&& other) = delete;
     virtual ~TickChainLink() = default;
 
-    /// This will be called when we want to reset_chain what we are chained onto.
-    std::function<void(void)> reset_chain_parent = []() {
+    /// This will be called when we want to reset_along_chain what we are chained onto.
+    std::function<void(void)> reset_along_chain_parent = []() {
     };
     /// This will be called when we need to tick_along_chain our parent
     std::function<bool(void)> tick_along_chain_parent = []() {
@@ -125,12 +125,6 @@ struct TickChainLink {
     /// Reset the chain to its initial values.
     virtual void reset_chain();
 
-    /// Tick the chain. Return true if there's still a value for the chain, and
-    /// false if the chain is out of values.
-    /// Should be called by tick_chain() or a child.
-    /// May not delegate to a different item.
-    protected virtual bool tick_along_chain();
-    
     /// Tick the chain. Return true if there's still a value for the chain, and
     /// false if the chain is out of values.
     /// Should be called on the last item in the chain.
@@ -147,6 +141,17 @@ struct TickChainLink {
     /// Get a function that runs another function for each combination of
     /// values for this Range and all Ranges it has been chained onto.
     virtual std::function<void(const std::function<void(void)>&)> get_iterator();
+
+protected:
+    /// Tick the chain. Return true if there's still a value for the chain, and
+    /// false if the chain is out of values.
+    /// Should be called by tick_chain() or a child.
+    /// May not delegate to a different item.
+    virtual bool tick_along_chain();
+
+    /// Reset along the chain, makign this item and all parents take on their
+    /// initial values.
+    virtual void reset_along_chain();
 };
 
 }
@@ -259,9 +264,9 @@ struct Range : public subcommand::TickChainLink {
     }
     
     /// Start us and all the things we are chained onto at their start values
-    void reset_chain() {
+    void reset_along_chain() {
         reset();
-        reset_chain_parent();
+        reset_along_chain_parent();
     }
     
     /// Increment our value.
@@ -273,11 +278,13 @@ struct Range : public subcommand::TickChainLink {
         }
         auto old_here = here;
         here += step;
+        std::cerr << "Try changing from " << old_here << " to " << here << " bounded by " << end << std::endl;
         if ((step > 0 && (here > end || old_here >= here)) || (step < 0 && (here < end || old_here <= here))) {
             // We have passed the end (for things like double), or done an overflow
+             std::cerr << "Out of range" << std::endl;
             return false;
         }
-        
+        std::cerr << "In range" << std::endl;
         return true;
     }
     
@@ -827,6 +834,24 @@ struct OptionGroup : public BaseOptionGroup {
         }
     }
 
+    virtual void reset_chain() {
+        if (args.empty()) {
+            TickChainLink::reset_chain();
+        } else {
+            // Delegate tick to the real end of the chain
+            args.back()->reset_chain();
+        } 
+    }
+
+    virtual bool tick_chain() {
+        std::cerr << "Group tick chain at " << this << std::endl;
+        if (!args.empty()) {
+            // Delegate tick to the real end of the chain
+            return args.back()->tick_chain();
+        }
+        return false;
+    }
+
     // We need to take default_value by value, and not by reference, because we
     // often want to pass stuff that is constexpr and trying to use a reference
     // will make us try to link against it.
@@ -1070,6 +1095,12 @@ struct GroupedOptionGroup : public BaseOptionGroup {
     
     /// Chain through all subgroups 
     virtual TickChainLink& chain(TickChainLink& next);
+
+    /// Delegate reset to last subgroup
+    virtual void reset_chain();
+
+    /// Delegate tick to last subgroup
+    virtual bool tick_chain();
     
     virtual bool parse(int option_id, const char* optarg); 
     

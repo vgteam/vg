@@ -8,13 +8,22 @@
 namespace vg {
 namespace subcommand {
 
-void TickChainLink::reset_chain() {
-    reset_chain_parent();
+void TickChainLink::reset_along_chain() {
+    reset_along_chain_parent();
 }
 
 bool TickChainLink::tick_along_chain() {
-    std::cerr << "Tick chain at " << this << std::endl;
-    return tick_chain_parent();
+    std::cerr << "Tick along chain at " << this << std::endl;
+    return tick_along_chain_parent();
+}
+
+void TickChainLink::reset_chain() {
+    reset_along_chain();
+}
+
+bool TickChainLink::tick_chain() {
+    std::cerr << "Default tick chain at " << this << std::endl;
+    return tick_along_chain();
 }
 
 bool TickChainLink::is_static() const {
@@ -25,11 +34,11 @@ TickChainLink& TickChainLink::chain(TickChainLink& next) {
     std::cerr << "Chain " << this << " onto parent " << &next << std::endl;
 
     // Attach next to us
-    next.reset_chain_parent = [&]() {
-        this->reset_chain();
+    next.reset_along_chain_parent = [&]() {
+        this->reset_along_chain();
     };
-    next.tick_chain_parent = [&]() {
-        return this->tick_chain();
+    next.tick_along_chain_parent = [&]() {
+        return this->tick_along_chain();
     };
     
     // And return it for a nice chain of chain calls.
@@ -121,6 +130,24 @@ TickChainLink& GroupedOptionGroup::chain(TickChainLink& next) {
         subgroups.back()->chain(next);
         return next;
     }
+}
+
+void GroupedOptionGroup::reset_chain() {
+    if (subgroups.empty()) {
+        TickChainLink::reset_chain();
+    } else {
+        // Delegate tick to the real end of the chain
+        subgroups.back()->reset_chain();
+    } 
+}
+
+bool GroupedOptionGroup::tick_chain() {
+    std::cerr << "Grouped group tick chain at " << this << std::endl;
+    if (!subgroups.empty()) {
+        // Delegate tick to the real end of the chain
+        return subgroups.back()->tick_chain();
+    }
+    return false;
 }
 
 bool GroupedOptionGroup::parse(int option_id, const char* optarg) {
