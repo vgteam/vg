@@ -289,9 +289,15 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
           
             // Also make a list of all the seeds in the problem.
             // This lets us select the single-seed anchors to use.
+
+            //Make sure that each seed gets added only once
+            vector<bool> added_seed (seeds.size(), false);
             vector<size_t> selected_seeds;
             for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees[item_num]) {
-                selected_seeds.push_back(found.seed);
+                if (!added_seed[found.seed]) {
+                    selected_seeds.push_back(found.seed);
+                    added_seed[found.seed] = true;
+                }
             }
             
             if (show_work) {
