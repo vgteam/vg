@@ -294,7 +294,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "min-to-fragment",
         &MinimizerMapper::min_to_fragment,
         MinimizerMapper::default_min_to_fragment,
-        "minimum number of fragmentong problems to run"
+        "minimum number of fragmenting problems to run"
     );
     chaining_opts.add_range(
         "max-to-fragment",
@@ -306,13 +306,19 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "fragment-max-lookback-bases",
         &MinimizerMapper::fragment_max_lookback_bases,
         MinimizerMapper::default_fragment_max_lookback_bases,
-        "maximum distance to look back when makign fragments"
+        "maximum distance to look back when making fragments"
     );
     chaining_opts.add_range(
         "fragment-max-indel-bases",
         &MinimizerMapper::fragment_max_indel_bases,
         MinimizerMapper::default_fragment_max_indel_bases,
         "maximum indel length in a transition when making fragments"
+    );
+    chaining_opts.add_range(
+        "fragment-score-fraction",
+        &MinimizerMapper::fragment_score_fraction,
+        MinimizerMapper::default_fragment_score_fraction,
+        "minimum fraction of best fragment score to retain a fragment"
     );
     chaining_opts.add_range(
         "max-lookback-bases",
