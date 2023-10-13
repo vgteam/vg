@@ -637,7 +637,8 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.3)
-        .add_entry<int>("min-chains", 4);
+        .add_entry<int>("min-chains", 4)
+        .add_entry<size_t>("max-alignments", 5);
         
    
     std::vector<struct option> long_options =
