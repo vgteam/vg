@@ -622,7 +622,6 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<bool>("align-from-chains", true)
         // Since the default is true, the option name has "no", but we are setting the cap off.
         .add_entry<bool>("no-explored-cap", false)
-        .add_entry<double>("mapq-score-scale", 0.0004)
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
@@ -632,7 +631,10 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("hit-cap", 0)
         .add_entry<double>("score-fraction", 1.0)
         // Use a high hard hit cap to allow centromeres
-        .add_entry<size_t>("hard-hit-cap", 16384);
+        .add_entry<size_t>("hard-hit-cap", 16384)
+        // Parameter search results
+        .add_entry<double>("mapq-score-scale", 0.0004)
+        .add_entry<size_t>("min-to-fragment", 2);
         
    
     std::vector<struct option> long_options =

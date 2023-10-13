@@ -1312,10 +1312,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + left_tail_length);
                 size_t graph_horizon = left_tail_length + max_gap_length;
 
+#ifdef warn_on_fallback
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp left tail against " << right_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
                 }
+#endif
 
                 // Align the left tail, anchoring the right end.
                 align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
@@ -1501,13 +1503,15 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Just jump to right tail
                 break;
             }
-            
+           
+#ifdef warn_on_fallback
             // We can't actually do this alignment, we'd have to align too
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
                 cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
+#endif
             
             Alignment link_aln;
             link_aln.set_sequence(linking_bases);
@@ -1636,10 +1640,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
                 size_t graph_horizon = right_tail_length + max_gap_length;
 
+#ifdef warn_on_fallback
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
                 }
+#endif
 
                 // Align the right tail, anchoring the left end.
                 align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
