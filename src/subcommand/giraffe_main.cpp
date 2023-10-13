@@ -616,6 +616,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<bool>("align-from-chains", true)
         // Since the default is true, the option name has "no", but we are setting the cap off.
         .add_entry<bool>("no-explored-cap", false)
+        .add_entry<double>("mapq-score-scale", 0.0004)
         .add_entry<size_t>("watchdog-timeout", 30)
         .add_entry<size_t>("batch-size", 10)
         // Use downsampling instead of max unique minimizer count
