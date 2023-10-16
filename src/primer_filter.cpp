@@ -4,6 +4,7 @@ namespace vg {
 
 using namespace std;
 
+// Constructor
 Primer_finder::Primer_finder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
                 const string& reference_path_name, const SnarlDistanceIndex* distance_index_param) {
     graph = graph_param.get();
@@ -11,6 +12,7 @@ Primer_finder::Primer_finder(const unique_ptr<handlegraph::PathPositionHandleGra
     distance_index = distance_index_param;
 }
 
+// Destructor
 Primer_finder::~Primer_finder() {
     // nothing to do
 }
@@ -23,6 +25,9 @@ const vector<Primer_pair>& Primer_finder::get_selected_primer_pairs() const {
     return selected_primer_pairs;
 }
 
+
+// Make a new pair of primers with given attributes. Primers are processed and 
+// added to primer_pairs and selected_primer_pairs.
 void Primer_finder::add_primer_pair(const size_t& left_primer_starting_node_id,
         const size_t& left_primer_offset, const size_t& left_primer_length,
         const size_t& right_primer_starting_node_id,
@@ -42,9 +47,12 @@ void Primer_finder::add_primer_pair(const size_t& left_primer_starting_node_id,
 }
 
 void Primer_finder::load_primers(const string& path_to_primers) {
-    regex left_seq_pattern("PRIMER_LEFT_\\d+_SEQUENCE=(\\w+)");
+
+    // regular expression patterns to look for primers' sequences, positions on
+    // the reference genome, and lengths
+    regex left_seq_pattern("PRIMER_LEFT_\\d+_SEQUENCE=(\\w+)"); // e.g. PRIMER_LEFT_0_SEQUENCE=ACCGT
     regex right_seq_pattern("PRIMER_RIGHT_\\d+_SEQUENCE=(\\w+)");
-    regex left_pos_pattern("PRIMER_LEFT_\\d+=(\\d+,\\d+)");
+    regex left_pos_pattern("PRIMER_LEFT_\\d+=(\\d+,\\d+)"); // e.g. PRIMER_LEFT_0_=125,20
     regex right_pos_pattern("PRIMER_RIGHT_\\d+=(\\d+,\\d+)");
     
     Primer left_primer {""};
@@ -59,6 +67,7 @@ void Primer_finder::load_primers(const string& path_to_primers) {
         smatch match;
         if (regex_search(line, match, left_seq_pattern)) {
             if (right_primer.sequence != "") {
+                // primers' attributes are processed and stored into primer_pairs here
                 map_to_nodes(left_primer);
                 map_to_nodes(right_primer);
                 Primer_pair primer_pair {left_primer, right_primer,
@@ -109,9 +118,10 @@ void Primer_finder::make_primer(Primer& primer, const size_t& starting_node_id,
     }
     primer.length = length;
     string sequence = "";
-    handle_t cur_handle = graph->get_handle(starting_node_id);
+    handle_t cur_handle = graph->get_handle(starting_node_id); // get the starting node handle
     step_handle_t cur_step_handle = graph->steps_of_handle(cur_handle)[0];
     primer.position = graph->get_position_of_step(cur_step_handle) + offset;
+    // Walk down the path and get the sequence of primer
     if (graph->get_length(cur_handle) - offset > length) {
         sequence += graph->get_sequence(cur_handle).substr(offset, length);
     } else {
@@ -126,9 +136,9 @@ void Primer_finder::make_primer(Primer& primer, const size_t& starting_node_id,
     if (is_left) {
         primer.sequence = sequence;
     } else {
-        primer.sequence = reverse_complement(sequence);
+        primer.sequence = reverse_complement(sequence); // Take the reverse complement for right primer
     }
-    map_to_nodes(primer);
+    map_to_nodes(primer); // Search and store corresponding nodes ids 
 }
 
 void Primer_finder::update_min_max_product_size(Primer_pair& primer_pair) {
@@ -155,7 +165,11 @@ void Primer_finder::map_to_nodes(Primer& primer) {
     handle_t cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
     primer.mapped_nodes_ids.push_back(graph->get_id(cur_node_handle));
     string cur_node_sequence = graph->get_sequence(cur_node_handle);
+    // Get the index at which primer.sequence[0:index] maps to the first node.
+    // Stop here if the first node contains the entire primer sequence 
     size_t primer_matched_index =  longest_match_len(primer, cur_node_sequence, primer_seq, true) - 1;
+    // If the first node containly a prefix of primer sequence, walk down the path and keep adding
+    // node until the entire primer sequence is covered
     while (primer_matched_index < primer_seq.size()-1) {
         cur_node_step_handle = graph->get_next_step(cur_node_step_handle);
         cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
@@ -174,6 +188,7 @@ size_t Primer_finder::longest_match_len(Primer& primer, const string& left_seq,
 
     if (first_node) {
         if (llen >= rlen) {
+            // Check if the first node contains the entire sequence of the priemr
             for (size_t i = 0; i <= llen - rlen; i++) {
                 if (left_seq.substr(i, rlen) == right_seq) {
                     longest_match = rlen;
@@ -183,6 +198,7 @@ size_t Primer_finder::longest_match_len(Primer& primer, const string& left_seq,
             }
         }
         for (size_t i = 1; i <= length; i++) {
+            // Find the length of match between first node sequence's suffix and primer sequnece's prefix
             if (left_seq.substr(llen - i, i) == right_seq.substr(0, i)) {
                 longest_match = i;
                 primer.offset = (primer.left && first_node) ? llen - i : i;
@@ -190,6 +206,7 @@ size_t Primer_finder::longest_match_len(Primer& primer, const string& left_seq,
         }
     } else {
         for (size_t i = 1; i <= length; i++) {
+            // Find the length of match between downstream nodes seqeunces and primer sequence
             if (left_seq.substr(0, i) == right_seq.substr(0, i)) {
                 longest_match = i;
                 primer.offset = (!primer.left) ? i : primer.offset;
@@ -214,6 +231,7 @@ const bool Primer_finder::no_variation(const Primer_pair& primer_pair) const {
     Primer left_primer = primer_pair.left_primer;
     Primer right_primer = primer_pair.right_primer; 
     for (vector<size_t>::iterator node_id = left_primer.mapped_nodes_ids.begin(); node_id != left_primer.mapped_nodes_ids.end(); ++node_id) {
+        // Check if any node has depth more than 1 (i.e. inside a bubble)
         handle_t cur_handle = graph->get_handle(*node_id);
         net_handle_t cur_net_handle = distance_index->get_net(cur_handle, graph);
         size_t depth = distance_index->get_depth(cur_net_handle);
@@ -225,6 +243,7 @@ const bool Primer_finder::no_variation(const Primer_pair& primer_pair) const {
 }
 
 const vector<string> Primer_finder::split(string str, const string& delim) const {
+    // Works like python split() function
     size_t cur_pos = 0;
     string word;
     vector<string> word_list;
