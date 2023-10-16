@@ -16,6 +16,7 @@
 #include <sstream>
 #include <set>
 #include <vg/vg.pb.h>
+#include "utility.hpp"
 #include "snarl_distance_index.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "genotypekit.hpp"
@@ -27,6 +28,12 @@ using namespace std;
 
 namespace vg {
 
+/**
+ * Primer struct contains primer attributes, including sequence, left/right primer,
+ * position on the reference genome, length, index offset in corresponding node on
+ * sequence graph, and vector of corresponding nodes on the sequence graph. Everything
+ * is in the positive/forward orientation.
+ */
 struct Primer {
     string sequence;
     bool left = true;
@@ -36,6 +43,11 @@ struct Primer {
     vector<size_t> mapped_nodes_ids;
 };
 
+/**
+ * Primer_pair struct contains primer pair attributesm including left primer, right primer,
+ * linear product size, minimum and maximum product size on the sequence graph, and boolean on
+ * whether the primers locate in low variation region of the sequence graph.
+ */
 struct Primer_pair {
     Primer left_primer;
     Primer right_primer;
@@ -50,8 +62,8 @@ class Primer_finder {
 private:
     vector<Primer_pair> primer_pairs;
     vector<Primer_pair> selected_primer_pairs;
-    PathPositionHandleGraph* graph;
-    SnarlDistanceIndex* distance_index;
+    const PathPositionHandleGraph* graph;
+    const SnarlDistanceIndex* distance_index;
     path_handle_t reference_path_handle; 
 
 public:
@@ -61,8 +73,8 @@ public:
      * Construct Primer finder given PathPositionHandleGraph, reference graph name
      * and pointer to SnarlDistanceIndex
      */
-    Primer_finder(unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-                string reference_path_name, SnarlDistanceIndex* distance_index_param);
+    Primer_finder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
+                const string& reference_path_name, const SnarlDistanceIndex* distance_index_param);
 
     /**
      * Destructor
@@ -75,27 +87,27 @@ public:
      * primer_pair object is automatically added to primer_pairs vector - and
      * selected_primer_pairs if conditions are met. Mainly used for unit testing.
      */
-    void add_primer_pair(size_t left_primer_starting_node_id,
-                    size_t left_primer_offset, size_t left_primer_length,
-                    size_t right_primer_starting_node_id,
-                    size_t right_primer_offset, size_t right_primer_length);
+    void add_primer_pair(const size_t& left_primer_starting_node_id,
+                    const size_t& left_primer_offset, const size_t& left_primer_length,
+                    const size_t& right_primer_starting_node_id,
+                    const size_t& right_primer_offset, const size_t& right_primer_length);
 
     /**
      * Read the path to the primer3 output. Primers information is parsed,
      * processed, and  stored in primer_pairs vector - and selected_primer_pairs
      * if conditions are met.
      */
-    void load_primers(string path_to_primers);
+    void load_primers(const string& path_to_primers);
 
     /**
      * return vector of Primer pairs
      */
-    vector<Primer_pair> get_primer_pairs();
+    const vector<Primer_pair>& get_primer_pairs() const;
 
     /**
      * return vector selected primer pairs
      */
-    vector<Primer_pair> get_selected_primer_pairs();
+    const vector<Primer_pair>& get_selected_primer_pairs() const;
 
 private:
     /**
@@ -114,7 +126,8 @@ private:
      * and the length of primer.
      * Used in: add_primer_pair
      */
-    void make_primer(Primer& primer, size_t starting_node_id, size_t offset, size_t length, bool is_left);
+    void make_primer(Primer& primer, const size_t& starting_node_id,
+            const size_t& offset, const size_t& length, const bool& is_left);
 
     /**
      * Find and store corresponding node ids to Primer object.
@@ -128,41 +141,27 @@ private:
      * store offset in Primer object.
      * Used in: map_to_nodes
      */
-    size_t longest_match_len(Primer& primer, string const left_seq, string const right_seq,
-        bool const first_node);
+    size_t longest_match_len(Primer& primer, const string& left_seq, const string& right_seq,
+       const bool& first_node);
 
     /**
      * Strip empty spaces on the right side of a string.
      * Used in: load_primers
      */
-    string rstrip(string const s);
+    const string rstrip(const string& s) const;
 
     /**
      * Check if primers in a primer_pair object have variations on the pangenome.
      * Used in: add_primer_node
      *          load_primers
      */
-    bool no_variation(const Primer_pair& primer_pair);
-
-    /**
-     * return the complement of a nucleotide.
-     * Used in: revcomp
-     */
-    char complement(char nt);
-
-    /**
-     * return the reverse complement of a sequence.
-     * Used in: make_primers
-     *          map_to_nodes
-     *      
-     */
-    string revcomp(string const seq);
+    const bool no_variation(const Primer_pair& primer_pair) const;
 
     /**
      * Split a string into vectors.
      * Used in: load_priemrs
      */
-    vector<string> split(string str, string const delim);
+    const vector<string> split(string str, const string& delim) const;
 
 };
 

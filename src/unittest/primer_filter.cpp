@@ -49,10 +49,10 @@ using namespace std;
 
         SECTION("Loads and processes the primers correctly") {
             primer_finder.add_primer_pair(9, 14, 20, 22, 0, 20);
-            vector<Primer_pair> primer_pairs = primer_finder.get_primer_pairs();
-            vector<Primer_pair> selected_primer_pairs = primer_finder.get_selected_primer_pairs();
-            Primer_pair pair_0 = primer_pairs[0]; // 1st set of primers read from primer3 output. No variation in either primers.
-            Primer_pair pair_5 = primer_pairs[5]; // made up set of primers. Variation in both priemrs.
+            const vector<Primer_pair>& primer_pairs = primer_finder.get_primer_pairs();
+            const vector<Primer_pair>& selected_primer_pairs = primer_finder.get_selected_primer_pairs();
+            const Primer_pair& pair_0 = primer_pairs[0]; // 1st set of primers read from primer3 output. No variation in either primers.
+            const Primer_pair& pair_5 = primer_pairs[5]; // made up set of primers. Variation in both priemrs.
                 
             SECTION("Check for basic primer attributes") {
                 REQUIRE(pair_0.left_primer.sequence == "TGCCTGGCATAGAGGAAAGC");
