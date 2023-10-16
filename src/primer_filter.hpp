@@ -42,6 +42,7 @@ struct Primer_pair {
     size_t linear_product_size;
     size_t min_product_size;
     size_t max_product_size;
+    bool no_variation = false;
 };
 
 class Primer_finder {

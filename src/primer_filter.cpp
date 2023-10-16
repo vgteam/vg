@@ -34,10 +34,11 @@ void Primer_finder::add_primer_pair(size_t left_primer_starting_node_id,
     Primer_pair new_primer_pair {left_primer, right_primer,
         right_primer.position - left_primer.position + right_primer.length};
     update_min_max_product_size(new_primer_pair);
-    primer_pairs.push_back(new_primer_pair);
     if (no_variation(new_primer_pair)) {
+        new_primer_pair.no_variation = true;
         selected_primer_pairs.push_back(new_primer_pair);
     }
+    primer_pairs.push_back(new_primer_pair);
 }
 
 void Primer_finder::load_primers(string path_to_primers) {
@@ -63,10 +64,11 @@ void Primer_finder::load_primers(string path_to_primers) {
                 Primer_pair primer_pair {left_primer, right_primer,
                     right_primer.position - left_primer.position + right_primer.length};
                 update_min_max_product_size(primer_pair);
-                primer_pairs.push_back(primer_pair);
                 if (no_variation(primer_pair)) {
+                    primer_pair.no_variation = true;
                     selected_primer_pairs.push_back(primer_pair);
                 }
+                primer_pairs.push_back(primer_pair);
                 left_primer = {""};
                 right_primer = {"", false};
             }
@@ -92,6 +94,7 @@ void Primer_finder::load_primers(string path_to_primers) {
         right_primer.position - left_primer.position + right_primer.length};
     update_min_max_product_size(primer_pair);
     if (no_variation(primer_pair)) {
+        primer_pair.no_variation = true;
         selected_primer_pairs.push_back(primer_pair);
     }
     primer_pairs.push_back(primer_pair);
