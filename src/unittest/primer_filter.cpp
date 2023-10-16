@@ -29,10 +29,9 @@ namespace vg {
 namespace unittest {
 
 using namespace std;
-using namespace Primer_finder;
 
     TEST_CASE( "filter simple primers",
-                "[primers]" ) {
+                "[primer_filter]" ) {
         
         SnarlDistanceIndex distance_index;
         unique_ptr<handlegraph::PathPositionHandleGraph> graph;
@@ -48,14 +47,64 @@ using namespace Primer_finder;
             REQUIRE(primer_finder.get_primer_pairs().size() == 5);
         }
 
-        SECTION("Loads in the sequences correctly") {
+        SECTION("Loads and processes the primers correctly") {
+            primer_finder.add_primer_pair(9, 14, 20, 22, 0, 20);
             vector<Primer_pair> primer_pairs = primer_finder.get_primer_pairs();
-            REQUIRED(primer_pairs[0].left_primer.sequence == 'TGCCTGGCATAGAGGAAAGC');
-            REQUIRED(primer_pairs[0].left_primer.position == 362);
-            REQUIRED(primer_pairs[0].left_primer.length == 20);
-            REQUIRED(primer_pairs[0].right_primer.sequence == 'GCCAGAAGAGCCTCAAGGAG');
-            REQUIRED(primer_pairs[0].right_primer.position == 466);
-            REQUIRED(primer_pairs[0].right_primer.length == 20);
+            vector<Primer_pair> selected_primer_pairs = primer_finder.get_selected_primer_pairs();
+            Primer_pair pair_0 = primer_pairs[0]; // 1st set of primers read from primer3 output. No variation in either primers.
+            Primer_pair pair_5 = primer_pairs[5]; // made up set of primers. Variation in both priemrs.
+                
+            SECTION("Check for basic primer attributes") {
+                REQUIRE(pair_0.left_primer.sequence == "TGCCTGGCATAGAGGAAAGC");
+                REQUIRE(pair_0.left_primer.position == 362);
+                REQUIRE(pair_0.left_primer.length == 20);
+                REQUIRE(pair_0.right_primer.sequence == "GCCAGAAGAGCCTCAAGGAG");
+                REQUIRE(pair_0.right_primer.position == 466);
+                REQUIRE(pair_0.right_primer.length == 20);
+                REQUIRE(pair_5.left_primer.sequence == "AGCCAGACAAATCTGGGTTC");
+                REQUIRE(pair_5.left_primer.position == 181);
+                REQUIRE(pair_5.left_primer.length == 20);
+                REQUIRE(pair_5.right_primer.sequence == "AGATAATTAAACTGAAGTTC");
+                REQUIRE(pair_5.right_primer.position == 260);
+                REQUIRE(pair_5.right_primer.length == 20);
+            }
+
+            SECTION("Check for minimum and maximum distance") {
+                REQUIRE(pair_0.linear_product_size == 124);
+                REQUIRE(pair_0.min_product_size == 124);
+                REQUIRE(pair_0.max_product_size == 124);
+                REQUIRE(pair_5.linear_product_size == 99);
+                REQUIRE(pair_5.min_product_size == 97);
+                REQUIRE(pair_5.max_product_size == 100);
+            }
+
+            SECTION("Check that primers are mapped to correct nodes") {
+                vector<size_t> pair_0_left_primer_nodes {27, 8};
+                for (size_t i = 0; i < pair_0.left_primer.mapped_nodes_ids.size()-1; i++) {
+                    REQUIRE(pair_0.left_primer.mapped_nodes_ids[i] == pair_0_left_primer_nodes[i]);
+                }
+
+                vector<size_t> pair_0_right_primer_nodes {33, 34};
+                for (size_t i = 0; i < pair_0.right_primer.mapped_nodes_ids.size()-1; i++) {
+                    REQUIRE(pair_0.right_primer.mapped_nodes_ids[i] == pair_0_right_primer_nodes[i]);
+                }
+
+                vector<size_t> pair_5_left_primer_nodes {9, 11, 12, 14, 15, 17};
+                for (size_t i = 0; i < pair_5.left_primer.mapped_nodes_ids.size()-1; i++) {
+                    REQUIRE(pair_5.left_primer.mapped_nodes_ids[i] == pair_5_left_primer_nodes[i]);
+                }
+
+                vector<size_t> pair_5_right_primer_nodes {22, 24, 25};
+                for (size_t i = 0; i < pair_5.right_primer.mapped_nodes_ids.size()-1; i++) {
+                    REQUIRE(pair_5.right_primer.mapped_nodes_ids[i] == pair_5_right_primer_nodes[i]);
+                }
+            }
+
+            SECTION("Check for variation at primer sites") {
+                REQUIRE(primer_pairs.size() == 6);
+                REQUIRE(selected_primer_pairs.size() == 5);
+            }
+
         }
 
     }

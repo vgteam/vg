@@ -102,6 +102,13 @@ private:
      */
 
     /**
+     * Update minimum and maximum prodcut to a primer pair object.
+     * Used in: add_primer_pair
+     *          load_primers
+     */
+    void update_min_max_product_size(Primer_pair& primer_pair);
+
+    /**
      * Update a Primer object given starting node id, offset relative to the starting node,
      * and the length of primer.
      * Used in: add_primer_pair

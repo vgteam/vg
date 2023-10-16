@@ -33,6 +33,7 @@ void Primer_finder::add_primer_pair(size_t left_primer_starting_node_id,
     make_primer(right_primer, right_primer_starting_node_id, right_primer_offset, right_primer_length, false);
     Primer_pair new_primer_pair {left_primer, right_primer,
         right_primer.position - left_primer.position + right_primer.length};
+    update_min_max_product_size(new_primer_pair);
     primer_pairs.push_back(new_primer_pair);
     if (no_variation(new_primer_pair)) {
         selected_primer_pairs.push_back(new_primer_pair);
@@ -61,6 +62,7 @@ void Primer_finder::load_primers(string path_to_primers) {
                 map_to_nodes(right_primer);
                 Primer_pair primer_pair {left_primer, right_primer,
                     right_primer.position - left_primer.position + right_primer.length};
+                update_min_max_product_size(primer_pair);
                 primer_pairs.push_back(primer_pair);
                 if (no_variation(primer_pair)) {
                     selected_primer_pairs.push_back(primer_pair);
@@ -88,6 +90,7 @@ void Primer_finder::load_primers(string path_to_primers) {
     map_to_nodes(right_primer);
     Primer_pair primer_pair {left_primer, right_primer, 
         right_primer.position - left_primer.position + right_primer.length};
+    update_min_max_product_size(primer_pair);
     if (no_variation(primer_pair)) {
         selected_primer_pairs.push_back(primer_pair);
     }
@@ -124,6 +127,19 @@ void Primer_finder::make_primer(Primer& primer, size_t starting_node_id, size_t 
     map_to_nodes(primer);
 }
 
+void Primer_finder::update_min_max_product_size(Primer_pair& primer_pair) {
+    Primer left_primer = primer_pair.left_primer;
+    Primer right_primer = primer_pair.right_primer;
+    
+    primer_pair.min_product_size = distance_index->minimum_distance(left_primer.mapped_nodes_ids[0],
+        false, left_primer.offset, right_primer.mapped_nodes_ids[right_primer.mapped_nodes_ids.size()-1], 
+        false, right_primer.offset);
+
+    primer_pair.max_product_size = distance_index->maximum_distance(left_primer.mapped_nodes_ids[0],
+        false, left_primer.offset, right_primer.mapped_nodes_ids[right_primer.mapped_nodes_ids.size()-1], 
+        false, right_primer.offset);
+}
+
 void Primer_finder::map_to_nodes(Primer& primer) {
     string primer_seq;
     if (primer.left) {
@@ -152,39 +168,27 @@ size_t Primer_finder::longest_match_len(Primer& primer, string const left_seq, s
     size_t length = min(llen, rlen);
     size_t longest_match = 0;
 
-    // Change .. can be done in one for loop
-    if (first_node && llen >= rlen) {
-        for (size_t i = 0; i <= llen - rlen; i++) {
-            if (left_seq.substr(i, rlen) == right_seq) {
-                longest_match = rlen;
-                if (primer.left) {
-                    primer.offset = i;
-                } else {
-                    primer.offset = i + primer.sequence.size();
+    if (first_node) {
+        if (llen >= rlen) {
+            for (size_t i = 0; i <= llen - rlen; i++) {
+                if (left_seq.substr(i, rlen) == right_seq) {
+                    longest_match = rlen;
+                    primer.offset = (primer.left) ? i : i + primer.sequence.size();
+                    return longest_match;
                 }
-                return longest_match;
             }
         }
-    }
-
-    if (first_node) {
         for (size_t i = 1; i <= length; i++) {
             if (left_seq.substr(llen - i, i) == right_seq.substr(0, i)) {
                 longest_match = i;
-                if (primer.left && first_node) {
-                    primer.offset = llen - i;
-                } else if (!primer.left) {
-                    primer.offset = i;
-                }
+                primer.offset = (primer.left && first_node) ? llen - i : i;
             }
         }
     } else {
         for (size_t i = 1; i <= length; i++) {
             if (left_seq.substr(0, i) == right_seq.substr(0, i)) {
                 longest_match = i;
-                if (!primer.left) {
-                    primer.offset = i;
-                }
+                primer.offset = (!primer.left) ? i : primer.offset;
             }
         }
     }
