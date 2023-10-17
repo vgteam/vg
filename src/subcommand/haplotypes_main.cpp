@@ -136,7 +136,12 @@ int main_haplotypes(int argc, char** argv) {
         if (config.verbosity >= Haplotypes::verbosity_basic) {
             std::cerr << "Loading haplotype information from " << config.haplotype_input << std::endl;
         }
-        sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+        try {
+            sdsl::simple_sds::load_from(haplotypes, config.haplotype_input);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
 
     // Save haplotype information if necessary.
@@ -518,7 +523,7 @@ void preprocess_graph(const gbwtgraph::GBZ& gbz, Haplotypes& haplotypes, Haploty
         haplotypes = partitioner.partition_haplotypes(config.partitioner_parameters);
     }
     catch (const std::runtime_error& e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (config.verbosity >= Haplotypes::verbosity_basic) {
@@ -544,7 +549,13 @@ void validate_subgraph(const gbwtgraph::GBWTGraph& graph, const gbwtgraph::GBWTG
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
     Recombinator recombinator(gbz, config.verbosity);
-    gbwt::GBWT merged = recombinator.generate_haplotypes(haplotypes, config.kmer_input, config.recombinator_parameters);
+    gbwt::GBWT merged;
+    try {
+        merged = recombinator.generate_haplotypes(haplotypes, config.kmer_input, config.recombinator_parameters);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     omp_set_num_threads(config.threads); // Restore the number of threads.
 
     // Build and serialize GBWTGraph.
@@ -860,10 +871,16 @@ void extract_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
     }
 
     Recombinator recombinator(gbz, config.verbosity);
-    auto result = recombinator.extract_sequences(
-        haplotypes, config.kmer_input,
-        config.chain_id, config.subchain_id, config.recombinator_parameters
-    );
+    std::vector<Recombinator::LocalHaplotype> result;
+    try {
+        result = recombinator.extract_sequences(
+            haplotypes, config.kmer_input,
+            config.chain_id, config.subchain_id, config.recombinator_parameters
+        );
+    } catch (const std::runtime_error& e) {
+        std::cerr << "error: [vg haplotypes] " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (config.verbosity >= Haplotypes::verbosity_detailed) {
         std::cerr << "Found " << result.size() << " haplotypes" << std::endl;
     }
