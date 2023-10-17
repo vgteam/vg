@@ -37,9 +37,9 @@ namespace vg {
 struct Primer {
     string sequence;
     bool left = true;
-    size_t position;
-    size_t length;
-    size_t offset;
+    size_t position = numeric_limits<size_t>::max();
+    size_t length = numeric_limits<size_t>::max();
+    size_t offset = numeric_limits<size_t>::max();
     vector<size_t> mapped_nodes_ids;
 };
 
@@ -48,38 +48,38 @@ struct Primer {
  * linear product size, minimum and maximum product size on the sequence graph, and boolean on
  * whether the primers locate in low variation region of the sequence graph.
  */
-struct Primer_pair {
+struct PrimerPair {
     Primer left_primer;
     Primer right_primer;
-    size_t linear_product_size;
-    size_t min_product_size;
-    size_t max_product_size;
+    size_t linear_product_size = numeric_limits<size_t>::max();
+    size_t min_product_size = numeric_limits<size_t>::max();
+    size_t max_product_size = numeric_limits<size_t>::max();
     bool no_variation = false;
 };
 
-class Primer_finder {
+class PrimerFinder {
 
 private:
-    vector<Primer_pair> primer_pairs;
-    vector<Primer_pair> selected_primer_pairs;
+    vector<PrimerPair> primer_pairs;
+    vector<PrimerPair> selected_primer_pairs;
     const PathPositionHandleGraph* graph;
     const SnarlDistanceIndex* distance_index;
     path_handle_t reference_path_handle; 
 
 public:
-    Primer_finder() = default;
+    PrimerFinder() = default;
     
     /**
      * Construct Primer finder given PathPositionHandleGraph, reference graph name
      * and pointer to SnarlDistanceIndex
      */
-    Primer_finder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
+    PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
                 const string& reference_path_name, const SnarlDistanceIndex* distance_index_param);
 
     /**
      * Destructor
      */
-    ~Primer_finder();
+    ~PrimerFinder();
 
     /**
      * Add a Primer_pair object given primers' starting node id, offset relative
@@ -102,12 +102,12 @@ public:
     /**
      * return vector of Primer pairs
      */
-    const vector<Primer_pair>& get_primer_pairs() const;
+    const vector<PrimerPair>& get_primer_pairs() const;
 
     /**
      * return vector selected primer pairs
      */
-    const vector<Primer_pair>& get_selected_primer_pairs() const;
+    const vector<PrimerPair>& get_selected_primer_pairs() const;
 
 private:
     /**
@@ -119,7 +119,7 @@ private:
      * Used in: add_primer_pair
      *          load_primers
      */
-    void update_min_max_product_size(Primer_pair& primer_pair);
+    void update_min_max_product_size(PrimerPair& primer_pair);
 
     /**
      * Update a Primer object given starting node id, offset relative to the starting node,
@@ -155,7 +155,7 @@ private:
      * Used in: add_primer_node
      *          load_primers
      */
-    const bool no_variation(const Primer_pair& primer_pair) const;
+    const bool no_variation(const PrimerPair& primer_pair) const;
 
     /**
      * Split a string into vectors.
