@@ -27,7 +27,7 @@
 namespace vg {
     namespace unittest {
 
-        TEST_CASE( "filter simple primers",
+        TEST_CASE( "temporary place to write code in for primers",
                   "[primers]" ) {
             
             struct Primer {
@@ -448,7 +448,6 @@ namespace vg {
             string xg_graph_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.xg";
             string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3.out";
             distance_index.deserialize(snarl_index_path);
-            //graph = vg::io::VPKG::load_one<HandleGraph>(xg_graph_path);
             graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
 
             //Primer_finder primer_finder;

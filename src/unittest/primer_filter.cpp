@@ -40,7 +40,7 @@ using namespace std;
         string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3.out";
         distance_index.deserialize(snarl_index_path);
         graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
-        Primer_finder primer_finder(graph, "y", &distance_index);
+        PrimerFinder primer_finder(graph, "y", &distance_index);
         primer_finder.load_primers(primers_path);
         
         SECTION("Loads the correct number of primer pairs") {
@@ -49,10 +49,10 @@ using namespace std;
 
         SECTION("Loads and processes the primers correctly") {
             primer_finder.add_primer_pair(9, 14, 20, 22, 0, 20);
-            vector<Primer_pair> primer_pairs = primer_finder.get_primer_pairs();
-            vector<Primer_pair> selected_primer_pairs = primer_finder.get_selected_primer_pairs();
-            Primer_pair pair_0 = primer_pairs[0]; // 1st set of primers read from primer3 output. No variation in either primers.
-            Primer_pair pair_5 = primer_pairs[5]; // made up set of primers. Variation in both priemrs.
+            const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs();
+            const vector<PrimerPair>& selected_primer_pairs = primer_finder.get_selected_primer_pairs();
+            const PrimerPair& pair_0 = primer_pairs[0]; // 1st set of primers read from primer3 output. No variation in either primers.
+            const PrimerPair& pair_5 = primer_pairs[5]; // made up set of primers. Variation in both priemrs.
                 
             SECTION("Check for basic primer attributes") {
                 REQUIRE(pair_0.left_primer.sequence == "TGCCTGGCATAGAGGAAAGC");
