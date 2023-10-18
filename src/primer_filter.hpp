@@ -38,8 +38,8 @@ struct Primer {
     string sequence;
     bool left = true;
     size_t position = numeric_limits<size_t>::max();
-    size_t length = numeric_limits<size_t>::max();
-    size_t offset = numeric_limits<size_t>::max();
+    size_t length   = numeric_limits<size_t>::max();
+    size_t offset   = numeric_limits<size_t>::max();
     vector<size_t> mapped_nodes_ids;
 };
 
@@ -52,9 +52,10 @@ struct PrimerPair {
     Primer left_primer;
     Primer right_primer;
     size_t linear_product_size = numeric_limits<size_t>::max();
-    size_t min_product_size = numeric_limits<size_t>::max();
-    size_t max_product_size = numeric_limits<size_t>::max();
-    bool no_variation = false;
+    size_t min_product_size    = numeric_limits<size_t>::max();
+    size_t max_product_size    = numeric_limits<size_t>::max();
+    bool no_variation_at_primers  = true;
+    bool no_variation_in_products = true;
 };
 
 class PrimerFinder {
@@ -88,10 +89,10 @@ public:
      * primer_pair object is automatically added to primer_pairs vector - and
      * selected_primer_pairs if conditions are met. Mainly used for unit testing.
      */
-    void add_primer_pair(const size_t& left_primer_starting_node_id,
-                    const size_t& left_primer_offset, const size_t& left_primer_length,
-                    const size_t& right_primer_starting_node_id,
-                    const size_t& right_primer_offset, const size_t& right_primer_length);
+    void add_primer_pair(const string& path_name, const size_t& left_primer_starting_node_id,
+        const size_t& left_primer_offset, const size_t& left_primer_length,
+        const size_t& right_primer_starting_node_id,
+        const size_t& right_primer_offset, const size_t& right_primer_length);
 
     /**
      * Read the path to the primer3 output. Primers information is parsed,
@@ -103,7 +104,7 @@ public:
     /**
      * return vector of Primer pairs
      */
-    const vector<PrimerPair>& get_primer_pairs(const string chrom) const;
+    const vector<PrimerPair>& get_primer_pairs_of_chrom(const string chrom_name) const;
 
     /**
      * return the total number of reference paths
@@ -129,8 +130,8 @@ private:
      * and the length of primer.
      * Used in: add_primer_pair
      */
-    // void make_primer(Primer& primer, const size_t& starting_node_id,
-    //         const size_t& offset, const size_t& length, const bool& is_left);
+    void make_primer(Primer& primer, const string& path_name, const size_t& starting_node_id,
+        const size_t& offset, const size_t& length, const bool& is_left);
 
     /**
      * Find and store corresponding node ids to Primer object.
@@ -158,8 +159,10 @@ private:
      * Used in: add_primer_node
      *          load_primers
      */
-    const bool no_variation(const PrimerPair& primer_pair) const;
+    // const bool no_variation_at_primers(const PrimerPair& primer_pair) const;
 
+    void update_variation(PrimerPair& primer_pair, const string& path_name);
+    
     /**
      * Split a string into vectors.
      * Used in: load_primers
