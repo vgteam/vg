@@ -55,7 +55,8 @@ void help_call(char** argv) {
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
        << "    -z, --gbz               Only call genotypes that are present in GBZ index (applies only if input graph is GBZ)." << endl
-       << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl     
+       << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
+       << "    -O, --gbz-translation   Use the ID translation from the input gbz to apply snarl names to snarl names and AT fields in output" << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed. defaults to all paths)" << endl
        << "    -S, --ref-sample NAME   Call on all paths with given sample name (cannot be used with -p)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
