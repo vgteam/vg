@@ -506,7 +506,10 @@ deps: $(DEPS)
 
 test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
 	. ./source_me.sh && cd test && prove -v t
-	. ./source_me.sh && doc/test-docs.sh
+	# Hide the compiler configuration from the doc tests, so that the ones that
+	# build code can't pick up libraries out of the bg build itself. Definitely
+	# don't source source_me.sh!
+	CFLAGS= CXXFLAGS= CPPFLAGS= LDFLAGS= INCLUDE_FLAGS= LIBRARY_PATH= LD_LIBRARY_PATH= DYLD_LIBRARY_PATH= DYLD_FALLBACK_LIBRARY_PATH= LD_INCLUDE_PATH= CC= CXX= CXX_STANDARD= doc/test-docs.sh
 
 # Somebody has been polluting the test directory with temporary files that are not deleted after the tests.
 # To make git status more useful, we delete everything that looks like a temporary file.
