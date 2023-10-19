@@ -630,13 +630,13 @@ $(LIB_DIR)/cleaned_old_elfutils:
 	+rm -f $(LIB_DIR)/libelf.a $(LIB_DIR)/libebl.a $(LIB_DIR)/libdwfl.a  $(LIB_DIR)/libdwelf.a $(LIB_DIR)/libdw.a
 	+touch $(LIB_DIR)/cleaned_old_elfutils
 
-$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp $(LIBVGIO_DIR)/deps/vg.proto
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LDFLAGS) $(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && rm -rf build-vg && mkdir build-vg && cd build-vg && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_CXX_STANDARD=$(CXX_STANDARD) -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
-	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON .. && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r ../src/include/handlegraph $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && rm -Rf build CMakeCache.txt CMakeFiles && mkdir build && cd build && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. && $(MAKE) $(FILTER) && $(MAKE) install
 
 
 # On Linux, libdeflate builds a .so.
@@ -687,7 +687,7 @@ $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)
 # We need to use /usr first for CMake search or Ubuntu 22.04 will decide pybind11 is installed in / when actually it is only fully installed in /usr.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/contrib/*/*.cpp $(VCFLIB_DIR)/contrib/*/*.h
 	+rm -f $(VCFLIB_DIR)/contrib/WFA2-lib/VERSION
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build .
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH)" cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DZIG=OFF -DCMAKE_C_FLAGS="$(CFLAGS)" -DCMAKE_CXX_FLAGS="$(CXXFLAGS) ${CPPFLAGS}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_PREFIX_PATH="/usr;$(OMP_PREFIXES)" .. && cmake --build .
 	+cp $(VCFLIB_DIR)/contrib/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/contrib/smithwaterman/*.h* $(INC_DIR)
