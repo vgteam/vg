@@ -100,7 +100,7 @@ ifeq ($(shell uname -s),Darwin)
     LD_UTIL_RPATH_FLAGS=""
 
     # Homebrew installs a Protobuf that uses an Abseil that is built with C++17, so we need to build with at least C++17
-    CXX_STANDARD=17
+    CXX_STANDARD?=17
 
     # We may need libraries from Macports
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -221,7 +221,7 @@ else
     $(info Compiler $(CXX) is assumed to be GCC)
 
     # Linux can have some old compilers so we want to work back to C++14
-    CXX_STANDARD=14
+    CXX_STANDARD?=14
 
     # Set an rpath for vg and dependency utils to find installed libraries
     LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
