@@ -64,7 +64,10 @@ int main_convert(int argc, char** argv) {
     bool rgfa_pline = false;
     bool wline = true;
     algorithm_type gfa_output_algorithm = ALGORITHM_DEFAULT;
-    int num_threads = omp_get_max_threads(); // For GBWTGraph to GFA.
+
+    // For GBWTGraph to GFA.
+    int num_threads = omp_get_max_threads();
+    bool use_translation = true;
 
     if (argc == 2) {
         help_convert(argv);
@@ -74,6 +77,7 @@ int main_convert(int argc, char** argv) {
     constexpr int OPT_REF_SAMPLE = 1000;
     constexpr int OPT_GBWTGRAPH_ALGORITHM = 1001;
     constexpr int OPT_VG_ALGORITHM = 1002;
+    constexpr int OPT_NO_TRANSLATION = 1003;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -98,6 +102,7 @@ int main_convert(int argc, char** argv) {
             {"no-wline", no_argument, 0, 'W'},
             {"gbwtgraph-algorithm", no_argument, 0, OPT_GBWTGRAPH_ALGORITHM},
             {"vg-algorithm", no_argument, 0, OPT_VG_ALGORITHM},
+            {"no-translation", no_argument, 0, OPT_NO_TRANSLATION},
             {"gam-to-gaf", required_argument, 0, 'G'},
             {"gaf-to-gam", required_argument, 0, 'F'},
             {"threads", required_argument, 0, 't'},
@@ -172,6 +177,9 @@ int main_convert(int argc, char** argv) {
             break;
         case OPT_VG_ALGORITHM:
             gfa_output_algorithm = algorithm_vg;
+            break;
+        case OPT_NO_TRANSLATION:
+            use_translation = false;
             break;
         case 'G':
             no_multiple_inputs(input);
@@ -411,6 +419,7 @@ int main_convert(int argc, char** argv) {
             
             gbwtgraph::GFAExtractionParameters parameters;
             parameters.num_threads = num_threads;
+            parameters.use_translation = use_translation;
             gbwtgraph::gbwt_to_gfa(*gbwt_graph, std::cout, parameters);
         } else if (gfa_output_algorithm == algorithm_vg) {
             // Use HandleGraph GFA conversion code
@@ -468,14 +477,22 @@ void help_convert(char** argv) {
          << "    -p, --packed-out       output in PackedGraph format [default]" << endl
          << "    -x, --xg-out           output in XG format" << endl
          << "    -f, --gfa-out          output in GFA format" << endl
-         << "    -H, --drop-haplotypes  do not include haplotype paths in the output (useful with GBWTGraph / GBZ inputs)" << endl
+         << "    -H, --drop-haplotypes  do not include haplotype paths in the output" << endl
+         << "                           (useful with GBWTGraph / GBZ inputs)" << endl
          << "gfa output options (use with -f):" << endl
-         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
-         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
+         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of lines" << endl
+         << "                           (multiple allowed, only rank-0 supported)" << endl
+         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines" << endl
+         << "                           (multiple allowed, only rank-0 supported)" << endl
          << "    -B, --rgfa-pline       paths written as rGFA tags also written as lines" << endl
-         << "    -W, --no-wline         write all paths as GFA P-lines instead of W-lines. Allows handling multiple phase blocks and subranges used together." << endl
-         << "    --gbwtgraph-algorithm  Always use the GBWTGraph library GFA algorithm. Not compatible with other GBWT output options or non-GBWT graphs." << endl
-         << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types, but can't preserve original GFA coordinates." << endl
+         << "    -W, --no-wline         Write all paths as GFA P-lines instead of W-lines." << endl
+         << "                           Allows handling multiple phase blocks and subranges used together." << endl
+         << "    --gbwtgraph-algorithm  Always use the GBWTGraph library GFA algorithm." << endl
+         << "                           Not compatible with other GFA output options or non-GBWT graphs." << endl
+         << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types," << endl
+         << "                           but can't preserve original GFA coordinates." << endl
+         << "    --no-translation       When using the GBWTGraph algorith, convert the graph directly to GFA." << endl
+         << "                           Do not use the translation to preserve original coordinates." << endl
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
          << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
@@ -592,16 +609,9 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
                 // Compose the new reference-ified metadata
                 std::string sample = input->get_sample_name(path);
                 std::string locus = input->get_locus_name(path);
-                int64_t haplotype;
-                if (sample_to_haplotypes[sample].size() > 1) {
-                    // We should preserve the haplotype because we have multiple
-                    // haplotype phases of this sample.
-                    haplotype = input->get_haplotype(path);
-                } else {
-                    // We should drop the haplotype number because this sample has only
-                    // one haplotype phase.
-                    haplotype = PathMetadata::NO_HAPLOTYPE;
-                }
+                // We should always preserve the haplotype phase number; we
+                // will need it if we ever want to go back to haplotype sense.
+                int64_t haplotype = input->get_haplotype(path);
                 auto subrange = input->get_subrange(path);
                 
                 // Make a new name with reference-ified metadata.
@@ -651,16 +661,9 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
             // Compose the new reference-ified metadata
             std::string sample = input->get_sample_name(path);
             std::string locus = input->get_locus_name(path);
-            int64_t haplotype;
-            if (sample_to_haplotypes[sample].size() > 1) {
-                // We should preserve the haplotype because we have multiple
-                // haplotype phases of this sample.
-                haplotype = input->get_haplotype(path);
-            } else {
-                // We should drop the haplotype number because this sample has only
-                // one haplotype phase.
-                haplotype = PathMetadata::NO_HAPLOTYPE;
-            }
+            // We should always preserve the haplotype phase number; we
+            // will need it if we ever want to go back to haplotype sense.
+            int64_t haplotype = input->get_haplotype(path);
             auto subrange = input->get_subrange(path);
             bool is_circular = input->get_is_circular(path);
             

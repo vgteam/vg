@@ -37,6 +37,11 @@ jobs:
           
       - name: Checkout code without submodules
         uses: actions/checkout@v2
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
       
       - name: Get or restore dependencies
         run: scripts/restore-deps.sh
