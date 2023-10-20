@@ -506,109 +506,129 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+    // Try all combinations of first and second hot orientations
+    for (bool anchor_a_reverse : {false, true}) {
+        for (bool anchor_b_reverse : {false, true}) {
     
-    // These are graph positions for each minimizer hit. They are first read
-    // bases for forward-read-strand minimizers, and last read bases for
-    // reverse-read-strand minimizers, and they always point in the read's
-    // forward direction.
-    std::vector<pos_t> graph_positions;
+            // These are graph positions for each minimizer hit. They are first read
+            // bases for forward-read-strand minimizers, and last read bases for
+            // reverse-read-strand minimizers, and they always point in the read's
+            // forward direction.
+            std::vector<pos_t> graph_positions;
 
-    // These are read positions for each minimizer hit, in the form of an
-    // anchoring base on the read's forward strand, and an orientation from
-    // that anchoring base for the minimizer sequence's orientation/where the
-    // rest of the minimizer sequence falls in the read. 
-    //
-    // False is read forward (minimizer occurrence is here and to the right),
-    // true is read reverse (minimizer occurrence is here and to the left,
-    // minimal sequence is from the read's reverse strand).
-    std::vector<std::pair<size_t, bool>> read_positions;
+            // These are read positions for each minimizer hit, in the form of an
+            // anchoring base on the read's forward strand, and an orientation from
+            // that anchoring base for the minimizer sequence's orientation/where the
+            // rest of the minimizer sequence falls in the read. 
+            //
+            // False is read forward (minimizer occurrence is here and to the right),
+            // true is read reverse (minimizer occurrence is here and to the left,
+            // minimal sequence is from the read's reverse strand).
+            std::vector<std::pair<size_t, bool>> read_positions;
 
-    // These are the minimizer lengths
-    std::vector<size_t> lengths;
+            // These are the minimizer lengths
+            std::vector<size_t> lengths;
 
-    // Have a 3bp hit at the start of the read and graph. It is anchored at its
-    // start locatiuon in the read.
-    graph_positions.emplace_back(1, false, 0);
-    read_positions.emplace_back(0, false);
-    lengths.emplace_back(3);
+            if (anchor_a_reverse) {
+                // Have a 3bp hit at the start of the read and graph. It is anchored at its
+                // final location in the read.
+                graph_positions.emplace_back(1, false, 2);
+                read_positions.emplace_back(2, true);
+                lengths.emplace_back(3);
+            } else {
+                // Have a 3bp hit at the start of the read and graph. It is anchored at its
+                // start location in the read.
+                graph_positions.emplace_back(1, false, 0);
+                read_positions.emplace_back(0, false);
+                lengths.emplace_back(3);
+            }
+            
+            if (anchor_b_reverse) {
+                // Have another 3bp hit at the end, with the graph and read still going in
+                // the same direction, but with the minimizer on the other strand of the
+                // read.
+                //
+                // It is anchored at its final location in the read, but the position is
+                // still on the forward strand of the graph, since the read is still going
+                // forward along the graph node. 
+                graph_positions.emplace_back(1, false, 9);
+                read_positions.emplace_back(9, true);
+                lengths.emplace_back(3);
+            } else {
+                // Have another 3bp hit at the end, anchored at its start location in the read.
+                graph_positions.emplace_back(1, false, 7);
+                read_positions.emplace_back(7, false);
+                lengths.emplace_back(3);
+            }
 
-    // Have another 3bp hit at the end, with the graph and read still going in
-    // the same direction, but with the minimizer on the other strand of the
-    // read.
-    //
-    // It is anchored at its final location in the read, but the position is
-    // still on the forward strand of the graph, since the read is still going
-    // forward along the graph node. 
-    graph_positions.emplace_back(1, false, 9);
-    read_positions.emplace_back(9, true);
-    lengths.emplace_back(3);
+            vector<MinimizerMapper::Minimizer> minimizers;
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            for (size_t i = 0; i < read_positions.size(); i++) {
+                // Make a minimizer
+                minimizers.emplace_back();
+                minimizers.back().length = lengths.at(i);
+                minimizers.back().value.offset = read_positions.at(i).first;
+                minimizers.back().value.is_reverse = read_positions.at(i).second;
 
-    vector<MinimizerMapper::Minimizer> minimizers;
-    vector<SnarlDistanceIndexClusterer::Seed> seeds;
-    for (size_t i = 0; i < read_positions.size(); i++) {
-        // Make a minimizer
-        minimizers.emplace_back();
-        minimizers.back().length = lengths.at(i);
-        minimizers.back().value.offset = read_positions.at(i).first;
-        minimizers.back().value.is_reverse = read_positions.at(i).second;
+                // Make a zipcode for its graph position
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, graph_positions.at(i));
 
-        // Make a zipcode for its graph position
-        ZipCode zipcode;
-        zipcode.fill_in_zipcode(distance_index, graph_positions.at(i));
+                // Make a seed attaching that graph position to its minimizer.
+                seeds.push_back({ graph_positions.at(i), i, zipcode});
+            }
 
-        // Make a seed attaching that graph position to its minimizer.
-        seeds.push_back({ graph_positions.at(i), i, zipcode});
+            // Make and check the zip code tree
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, distance_index, 10);
+            zip_forest.print_self();
+            REQUIRE(zip_forest.trees.size() == 1);
+            for (auto& tree : zip_forest.trees) {
+                tree.validate_zip_tree(distance_index);
+            }
+
+            // Make an aligner for scoring
+            Aligner aligner;
+
+            // Make the anchors
+            std::vector<algorithms::Anchor> anchors;
+            for (size_t i = 0; i < seeds.size(); i++) {
+                anchors.push_back(TestMinimizerMapper::to_anchor(aln, minimizers, seeds, i, graph, &aligner));
+
+                std::cerr << "Check anchor " << i << std::endl;
+
+                // Make sure the anchor is right.
+                // It needs to start at the right place in the read.
+                REQUIRE(anchors.back().read_start() == minimizers.at(seeds.at(i).source).forward_offset());
+                // Sinve the minimizers are all within single nodes here, the anchor should be as long as the minimizer.
+                REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
+            }
+
+            auto handle_transition = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+            };
+
+            // For each form anchor and to anchor, remember the read and graph distances.
+            std::unordered_map<std::pair<size_t, size_t>, std::pair<size_t, size_t>> all_transitions;
+
+            // Set up to get all the transitions between anchors in the zip code tree
+            auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max());
+            // And get them
+            transition_iterator(anchors, distance_index, graph, std::numeric_limits<size_t>::max(), [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+                // And for each of them, remember them
+                std::cerr << "From anchor " << from_anchor << " to anchor " << to_anchor << " we cross " << read_distance << " bp of read and " << graph_distance << " bp of graph" << std::endl;
+                all_transitions.emplace(std::make_pair(from_anchor, to_anchor), std::make_pair(read_distance, graph_distance));
+            });
+
+            // Make sure we got the right transitions for these anchors
+            REQUIRE(all_transitions.size() == 1);
+            // AAAAAAAAAA
+            // XXX----XXX
+            //   01234
+            REQUIRE(all_transitions.at(std::make_pair(0, 1)).first == 4);
+            REQUIRE(all_transitions.at(std::make_pair(0, 1)).second == 4);
+        }
     }
-
-    // Make and check the zip code tree
-    ZipCodeForest zip_forest;
-    zip_forest.fill_in_forest(seeds, distance_index, 10);
-    zip_forest.print_self();
-    REQUIRE(zip_forest.trees.size() == 1);
-    for (auto& tree : zip_forest.trees) {
-        tree.validate_zip_tree(distance_index);
-    }
-
-    // Make an aligner for scoring
-    Aligner aligner;
-
-    // Make the anchors
-    std::vector<algorithms::Anchor> anchors;
-    for (size_t i = 0; i < seeds.size(); i++) {
-        anchors.push_back(TestMinimizerMapper::to_anchor(aln, minimizers, seeds, i, graph, &aligner));
-
-        std::cerr << "Check anchor " << i << std::endl;
-
-        // Make sure the anchor is right.
-        // It needs to start at the right place in the read.
-        REQUIRE(anchors.back().read_start() == minimizers.at(seeds.at(i).source).forward_offset());
-        // Sinve the minimizers are all within single nodes here, the anchor should be as long as the minimizer.
-        REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
-    }
-
-    auto handle_transition = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
-    };
-
-    // For each form anchor and to anchor, remember the read and graph distances.
-    std::unordered_map<std::pair<size_t, size_t>, std::pair<size_t, size_t>> all_transitions;
-
-    // Set up to get all the transitions between anchors in the zip code tree
-    auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max());
-    // And get them
-    transition_iterator(anchors, distance_index, graph, std::numeric_limits<size_t>::max(), [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
-        // And for each of them, remember them
-        std::cerr << "From anchor " << from_anchor << " to anchor " << to_anchor << " we cross " << read_distance << " bp of read and " << graph_distance << " bp of graph" << std::endl;
-        all_transitions.emplace(std::make_pair(from_anchor, to_anchor), std::make_pair(read_distance, graph_distance));
-    });
-
-    // Make sure we got the right transitions for these anchors
-    REQUIRE(all_transitions.size() == 1);
-    // AAAAAAAAAA
-    // XXX----XXX
-    //   01234
-    REQUIRE(all_transitions.at(std::make_pair(0, 1)).first == 4);
-    REQUIRE(all_transitions.at(std::make_pair(0, 1)).second == 4);
-
 }
 
 
