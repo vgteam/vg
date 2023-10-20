@@ -633,7 +633,7 @@ int main_giraffe(int argc, char** argv) {
         // Use a high hard hit cap to allow centromeres
         .add_entry<size_t>("hard-hit-cap", 16384)
         // Parameter search results
-        .add_entry<double>("mapq-score-scale", 0.0004)
+        .add_entry<double>("mapq-score-scale", 0.001)
         .add_entry<size_t>("min-to-fragment", 2)
         .add_entry<size_t>("max-to-fragment", 10)
         .add_entry<double>("fragment-score-fraction", 0.15)

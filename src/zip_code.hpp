@@ -45,11 +45,14 @@ struct MIPayload;
 class ZipCode {
 
 
-    ///The type of codes that can be stored in the zipcode
-    ///Trivial chains that are children of snarls get saved as a chain with no child node
-    ///EMPTY doesn't actually mean anything, it's used to catch errors
+    /// The type of codes that can be stored in the zipcode
+    /// Trivial chains that are children of snarls get saved as a chain with no child node
+    /// EMPTY doesn't actually mean anything, it's used to catch errors
+    /// Snarls can be regular, irregular, or cyclic. 
+    /// Regular snarls are bubbles. Irregular snarls are snarls that aren't bubbles but are dags
+    /// Cyclic snarls are non-dags. They are stored the same as irregular snarls. Only the type is different
     public:
-    enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
+    enum code_type_t { NODE = 1, CHAIN, REGULAR_SNARL, IRREGULAR_SNARL, CYCLIC_SNARL, ROOT_SNARL, ROOT_CHAIN, ROOT_NODE, EMPTY };
     public:
 
         //Fill in an empty zipcode given a position
@@ -144,21 +147,25 @@ class ZipCode {
         const static size_t CHAIN_LENGTH_OFFSET = 1;
 
         ///Offsets for snarl codes
-        const static size_t REGULAR_SNARL_SIZE = 4;
-        const static size_t IRREGULAR_SNARL_SIZE = 6;
+        const static size_t REGULAR_SNARL_SIZE = 5;
+        const static size_t IRREGULAR_SNARL_SIZE = 7;
 
         //Both regular and irregular snarls have these
-        const static size_t SNARL_IS_REGULAR_OFFSET = 0;
+
+        // This will be 0 for irregular snarl, 1 for regular, and 2 for non-dag irregular snarls
+        // cyclic snarls will be identical to irregular snarls except for SNARL_IS_REGULAR
+        const static size_t SNARL_IS_REGULAR_OFFSET = 0; 
         const static size_t SNARL_OFFSET_IN_CHAIN_OFFSET = 1;
         const static size_t SNARL_LENGTH_OFFSET = 2;
+        const static size_t SNARL_CHILD_COUNT_OFFSET = 3;
 
         //Only for regular snarls
-        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 3;
+        const static size_t REGULAR_SNARL_IS_REVERSED_OFFSET = 4;
 
         //Only for irregular snarls
-        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 3;
-        const static size_t IRREGULAR_SNARL_DISTANCE_START_OFFSET = 4;
-        const static size_t IRREGULAR_SNARL_DISTANCE_END_OFFSET = 5;
+        const static size_t IRREGULAR_SNARL_RECORD_OFFSET = 4;
+        const static size_t IRREGULAR_SNARL_DISTANCE_START_OFFSET = 5;
+        const static size_t IRREGULAR_SNARL_DISTANCE_END_OFFSET = 6;
 
         ///Offsets for nodes
         const static size_t NODE_SIZE = 3;
@@ -202,7 +209,7 @@ class ZipCodeCollection {
 
     //magic number to identify the file
     const static uint32_t magic_number = 0x5a495053; //ZIPS
-    const static uint32_t version = 1;
+    const static uint32_t version = 2;
 
     public:
     const static std::uint32_t get_magic_number() {return magic_number;}
@@ -262,6 +269,9 @@ class ZipCodeDecoder {
 
     ///Get the rank of a node/snarl in a snarl. Throw an exception if it isn't the child of a snarl
     size_t get_rank_in_snarl(const size_t& depth) ;
+
+    ///Get the number of children in a snarl. Throw an exception if it isn't a snarl
+    size_t get_snarl_child_count(const size_t& depth, const SnarlDistanceIndex* distance_index=nullptr) ;
 
     ///Get the prefix sum of a child of a chain
     ///This requires the distance index for irregular snarls (except for a top-level snarl)
