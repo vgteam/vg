@@ -273,7 +273,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // forward strand to dest on the read forward strand, so we can go them
         // in order along the read forward strand.
         // This holds source, dest, and graph distance.
-        std::stack<std::tuple<size_t, size_t, size_t>> deferred;
+        // We will fill it all in and then sort it by destination read position.
+        std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
         for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
             // For each destination seed left to right
@@ -312,7 +313,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
-                        handle_transition(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
+                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
@@ -320,12 +321,12 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     }
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
-                    // We need to find source as an anchor *started*, and then queue them up flipped for later.
+                    // We need to find source as an anchor *started*, and thensave them flipped for later.
                     auto found_source_anchor = seed_to_starting.find(source_seed.seed);
                     if (found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
-                        deferred.emplace(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
+                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
@@ -338,12 +339,16 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             }
         }
 
-        while (!deferred.empty()) {
-            // Now if we were going reverse relative to the read, we can
-            // unstack everything in the right order for forward relative to
-            // the read.
-            handle_transition(std::get<0>(deferred.top()), std::get<1>(deferred.top()), std::get<2>(deferred.top()));
-            deferred.pop();
+        // Sort the transitions so we handle them in akl allowed order for dynamic programming.
+        std::sort(all_transitions.begin(), all_transitions.end(), [&](const std::tuple<size_t, size_t, size_t>& a, const std::tuple<size_t, size_t, size_t>& b) {
+            // Return true if a's destination seed is before b's in the read, and false otherwise.
+            return to_chain[get<1>(a)].read_start() < to_chain[get<1>(b)].read_start();
+        });
+
+        for (auto& transition : all_transitions) {
+            // And handle all of them.
+            // TODO: Inline this now-useless lambda that we call once.
+            handle_transition(std::get<0>(transition), std::get<1>(transition), std::get<2>(transition));
         }
     };
 }

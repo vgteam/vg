@@ -169,6 +169,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
+#ifdef dump_forest
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -176,6 +177,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             zip_code_forest.print_self();
         }
     }
+#endif
 
     // Now score all the zip code trees in the forest by summing the scores of their involved minimizers.
     vector<double> tree_scores;
