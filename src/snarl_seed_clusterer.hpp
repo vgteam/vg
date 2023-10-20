@@ -56,6 +56,17 @@ class SnarlDistanceIndexClusterer {
 
         /// Seed information used in Giraffe.
         struct Seed {
+            /// Position of the seed.
+            ///
+            /// If the minimizer is from the read sequence's forward strand,
+            /// this corresponds to the first base in the read that is part of
+            /// the minimizer occurrence, and points in the read's forward
+            /// direction.
+            ///
+            /// If the minimizer is from the read sequence's reverse strand,
+            /// this corresponds to the *last* base in the read that is part of
+            /// the minimizer occurrence, but *still* points in the read's
+            /// *forward* direction.
             pos_t  pos;
             size_t source; // Source minimizer.
             ZipCode zipcode; //zipcode for distance information, optionally stored in the minimizer payload
