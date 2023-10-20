@@ -1,4 +1,5 @@
 #include "primer_filter.hpp"
+#include <unordered_set>
 
 namespace vg {
 
@@ -6,9 +7,8 @@ using namespace std;
 
 // Constructor
 PrimerFinder::PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-                const string& reference_path_name, const SnarlDistanceIndex* distance_index_param) {
+    const SnarlDistanceIndex* distance_index_param) {
     graph = graph_param.get();
-    reference_path_handle = graph->get_path_handle(reference_path_name);
     distance_index = distance_index_param;
 }
 
@@ -17,100 +17,94 @@ PrimerFinder::~PrimerFinder() {
     // nothing to do
 }
 
-const vector<PrimerPair>& PrimerFinder::get_primer_pairs() const {
-    return primer_pairs;
+const vector<PrimerPair>& PrimerFinder::get_primer_pairs_of_chrom(const string chrom_name) const {
+    return chroms.at(chrom_name);
 }
-
-const vector<PrimerPair>& PrimerFinder::get_selected_primer_pairs() const {
-    return selected_primer_pairs;
-}
-
 
 // Make a new pair of primers with given attributes. Primers are processed and 
 // added to primer_pairs and selected_primer_pairs.
-void PrimerFinder::add_primer_pair(const size_t& left_primer_starting_node_id,
-        const size_t& left_primer_offset, const size_t& left_primer_length,
-        const size_t& right_primer_starting_node_id,
-        const size_t& right_primer_offset, const size_t& right_primer_length) {
+void PrimerFinder::add_primer_pair(const string& path_name,
+    const size_t& left_primer_starting_node_id, const size_t& left_primer_offset,
+    const size_t& left_primer_length, const size_t& right_primer_starting_node_id,
+    const size_t& right_primer_offset, const size_t& right_primer_length) {
     
-    primer_pairs.emplace_back();
-    PrimerPair& primer_pair = primer_pairs.back();
+    chroms.at(path_name).emplace_back();
+    PrimerPair& primer_pair = chroms.at(path_name).back();
     primer_pair.right_primer.left = false;
 
-    make_primer(primer_pair.left_primer, left_primer_starting_node_id, left_primer_offset, left_primer_length, true);
-    make_primer(primer_pair.right_primer, right_primer_starting_node_id, right_primer_offset, right_primer_length, false);
+    make_primer(primer_pair.left_primer, path_name, left_primer_starting_node_id, left_primer_offset, left_primer_length, true);
+    make_primer(primer_pair.right_primer, path_name, right_primer_starting_node_id, right_primer_offset, right_primer_length, false);
     primer_pair.linear_product_size = primer_pair.right_primer.position - primer_pair.left_primer.position + primer_pair.right_primer.length;
     update_min_max_product_size(primer_pair);
-    if (no_variation(primer_pair)) {
-        primer_pair.no_variation = true;
-        selected_primer_pairs.push_back(primer_pairs.back());
-    }
-
+    update_variation(primer_pair, path_name);
 }
 
 void PrimerFinder::load_primers(const string& path_to_primers) {
 
-    // regular expression patterns to look for primers' sequences, positions on
-    // the reference genome, and lengths
-    regex left_seq_pattern("PRIMER_LEFT_\\d+_SEQUENCE=(\\w+)"); // e.g. PRIMER_LEFT_0_SEQUENCE=ACCGT
-    regex right_seq_pattern("PRIMER_RIGHT_\\d+_SEQUENCE=(\\w+)");
-    regex left_pos_pattern("PRIMER_LEFT_\\d+=(\\d+,\\d+)"); // e.g. PRIMER_LEFT_0_=125,20
-    regex right_pos_pattern("PRIMER_RIGHT_\\d+=(\\d+,\\d+)");
-    
-    // iniate first primer pair
-    primer_pairs.emplace_back();
-    primer_pairs.back().right_primer.left = false;
     ifstream file_handle(path_to_primers);
     assert(file_handle.is_open());
     
+    vector<string> cur_fields;
+    string cur_path;
     string line;
     while (getline(file_handle, line)) {
-        line = rstrip(line);
-        smatch match;
-        if (regex_search(line, match, left_seq_pattern)) {
-            if (primer_pairs.back().right_primer.sequence != "") {
-                // primers' attributes are processed and stored into primer_pairs here
-                map_to_nodes(primer_pairs.back().left_primer);
-                map_to_nodes(primer_pairs.back().right_primer);
-                primer_pairs.back().linear_product_size = primer_pairs.back().right_primer.position
-                    - primer_pairs.back().left_primer.position + primer_pairs.back().right_primer.length;
-                update_min_max_product_size(primer_pairs.back());
-                if (no_variation(primer_pairs.back())) {
-                    primer_pairs.back().no_variation = true;
-                    selected_primer_pairs.push_back(primer_pairs.back());
-                    PrimerPair& pp = primer_pairs.back();
-                }
-                primer_pairs.emplace_back();
-                primer_pairs.back().right_primer.left = false;
+        line = strip(line);
+        size_t left_primer_line_start  = line.find("LEFT PRIMER");
+        size_t right_primer_line_start = line.find("RIGHT PRIMER");
+        
+        if (startswith(line, "PRIMER PICKING RESULTS FOR")) {
+            if (chroms.size() != 0) {
+                assert(chroms[cur_path].back().right_primer.sequence.empty());
+                chroms[cur_path].pop_back();
             }
-            primer_pairs.back().left_primer.sequence = match[1];
-        } else if (regex_search(line, match, right_seq_pattern)) {
-            primer_pairs.back().right_primer.sequence = match[1];
-        } else if (regex_search(line, match, left_pos_pattern)) {
-            const vector<string> pos_and_len = split(match[1], ",");
-            primer_pairs.back().left_primer.position = stoi(pos_and_len[0]);
-            primer_pairs.back().left_primer.length = stoi(pos_and_len[1]);
-        } else if (regex_search(line, match, right_pos_pattern)) {
-            const vector<string> pos_and_len = split(match[1], ",");
-            primer_pairs.back().right_primer.length = stoi(pos_and_len[1]);
-            primer_pairs.back().right_primer.position = stoi(pos_and_len[0]) - stoi(pos_and_len[1]) + 1;
+            cur_fields = move(split(line));
+            cur_path   = cur_fields[cur_fields.size()-1];
+            chroms[cur_path].emplace_back();
+            chroms[cur_path].back().right_primer.left = false;
+        } else if (left_primer_line_start != string::npos) {
+            cur_fields = move(split(line.substr(left_primer_line_start, line.size())));
+            PrimerPair& primer_pair = chroms[cur_path].back();
+            primer_pair.left_primer.sequence = cur_fields[9];
+            primer_pair.left_primer.position = stoi(cur_fields[2]);
+            primer_pair.left_primer.length   = stoi(cur_fields[3]);
+        } else if (startswith(line, "RIGHT PRIMER")) {
+            cur_fields = move(split(line.substr(right_primer_line_start, line.size())));
+            PrimerPair& primer_pair = chroms[cur_path].back();
+            primer_pair.right_primer.sequence = cur_fields[9];
+            primer_pair.right_primer.position = stoi(cur_fields[2]) - stoi(cur_fields[3]) + 1;
+            primer_pair.right_primer.length   = stoi(cur_fields[3]);
+
+            assert(!primer_pair.left_primer.sequence.empty());
+            map_to_nodes(primer_pair.left_primer, cur_path);
+            map_to_nodes(primer_pair.right_primer, cur_path);
+            primer_pair.linear_product_size = primer_pair.right_primer.position
+                - primer_pair.left_primer.position + primer_pair.right_primer.length;
+            update_min_max_product_size(primer_pair);
+            update_variation(primer_pair, cur_path);
+            chroms[cur_path].emplace_back();
+            chroms[cur_path].back().right_primer.left = false;
         }
     }
-
-    // Process and store the last pair of primers
-    map_to_nodes(primer_pairs.back().left_primer);
-    map_to_nodes(primer_pairs.back().right_primer);
-    primer_pairs.back().linear_product_size = primer_pairs.back().right_primer.position
-        - primer_pairs.back().left_primer.position + primer_pairs.back().right_primer.length;
-    update_min_max_product_size(primer_pairs.back());
-    if (no_variation(primer_pairs.back())) {
-        primer_pairs.back().no_variation = true;
-        selected_primer_pairs.push_back(primer_pairs.back());
-    }
+    assert(chroms[cur_path].back().right_primer.sequence.empty());
+    chroms[cur_path].pop_back();
 }
 
-void PrimerFinder::make_primer(Primer& primer, const size_t& starting_node_id,
-        const size_t& offset, const size_t& length, const bool& is_left) {
+const size_t PrimerFinder::total_reference_paths() const {
+    return chroms.size();
+}
+
+vector<string> PrimerFinder::get_reference_paths() {
+    vector<string> reference_paths;
+    for (const auto& chrom : chroms) {
+        reference_paths.push_back(chrom.first);
+    }
+    return reference_paths;
+}
+
+void PrimerFinder::make_primer(Primer& primer, const string& path_name,
+    const size_t& starting_node_id, const size_t& offset, const size_t& length,
+    const bool& is_left) {
+    
     if (is_left) {
         primer.left = true;
     } else {
@@ -138,11 +132,11 @@ void PrimerFinder::make_primer(Primer& primer, const size_t& starting_node_id,
     } else {
         primer.sequence = reverse_complement(sequence); // Take the reverse complement for right primer
     }
-    map_to_nodes(primer); // Search and store corresponding nodes ids 
+    map_to_nodes(primer, path_name); // Search and store corresponding nodes ids 
 }
 
 void PrimerFinder::update_min_max_product_size(PrimerPair& primer_pair) {
-    const Primer& left_primer = primer_pair.left_primer;
+    const Primer& left_primer  = primer_pair.left_primer;
     const Primer& right_primer = primer_pair.right_primer;
     
     primer_pair.min_product_size = distance_index->minimum_distance(left_primer.mapped_nodes_ids[0],
@@ -154,7 +148,8 @@ void PrimerFinder::update_min_max_product_size(PrimerPair& primer_pair) {
         false, right_primer.offset);
 }
 
-void PrimerFinder::map_to_nodes(Primer& primer) {
+void PrimerFinder::map_to_nodes(Primer& primer, const string& path_name) {
+    path_handle_t reference_path_handle = graph->get_path_handle(path_name);
     string primer_seq;
     if (primer.left) {
         primer_seq = primer.sequence;
@@ -218,44 +213,68 @@ size_t PrimerFinder::longest_match_len(Primer& primer, const string& left_seq,
     return longest_match;
 }
         
-const string PrimerFinder::rstrip(const string& s) const {
+const string PrimerFinder::strip(const string& s) const {
     const string WHITESPACE = " \n\r\t\f\v";
-    size_t end = s.find_last_not_of(WHITESPACE);
+    size_t end   = s.find_last_not_of(WHITESPACE);
+    size_t start = s.find_first_not_of(WHITESPACE); 
     if (end == string::npos) {
             return "";
     }
-    return s.substr(0, end+1);
+    return s.substr(start, end+1);
 }
 
-
-const bool PrimerFinder::no_variation(const PrimerPair& primer_pair) const {
-    Primer left_primer = primer_pair.left_primer;
-    Primer right_primer = primer_pair.right_primer; 
-    for (vector<size_t>::iterator node_id = left_primer.mapped_nodes_ids.begin(); node_id != left_primer.mapped_nodes_ids.end(); ++node_id) {
-        // Check if any node has depth more than 1 (i.e. inside a bubble)
-        handle_t cur_handle = graph->get_handle(*node_id);
-        net_handle_t cur_net_handle = distance_index->get_net(cur_handle, graph);
+void PrimerFinder::update_variation(PrimerPair& primer_pair, const string& path_name) {
+    const Primer& left_primer  = primer_pair.left_primer;
+    const Primer& right_primer = primer_pair.right_primer;
+    
+    nid_t right_edge_node_id = right_primer.mapped_nodes_ids[right_primer.mapped_nodes_ids.size()-1];
+    unordered_set<size_t> primer_nodes_set;
+    for (size_t i = 0; i < left_primer.mapped_nodes_ids.size(); ++i) {
+        primer_nodes_set.insert(left_primer.mapped_nodes_ids[i]);
+    }
+    for (size_t i = 0; i < right_primer.mapped_nodes_ids.size(); ++i) {
+        primer_nodes_set.insert(right_primer.mapped_nodes_ids[i]);
+    }
+    
+    const path_handle_t& reference_path_handle = graph->get_path_handle(path_name);
+    step_handle_t cur_node_step_handle = graph->get_step_at_position(reference_path_handle, left_primer.position);
+    handle_t cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
+    net_handle_t cur_net_handle = distance_index->get_net(cur_node_handle, graph);
+    nid_t cur_node_id = graph->get_id(cur_node_handle);
+    while (true) {
         size_t depth = distance_index->get_depth(cur_net_handle);
         if (depth != 1) {
-            return false;
+            if (primer_nodes_set.find(cur_node_id) != primer_nodes_set.end()) {
+                primer_pair.no_variation_at_primers = false;
+                primer_pair.no_variation_in_products = false;
+                break;
+            } else {
+                primer_pair.no_variation_in_products = false;
+            }
         }
+        if (cur_node_id == right_edge_node_id)  {
+            break;
+        }
+        cur_node_step_handle = graph->get_next_step(cur_node_step_handle);
+        cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
+        cur_net_handle = distance_index->get_net(cur_node_handle, graph);
+        cur_node_id = graph->get_id(cur_node_handle);
     }
-    return true;
 }
 
-const vector<string> PrimerFinder::split(string str, const string& delim) const {
-    // Works like python split() function
-    size_t cur_pos = 0;
-    string word;
-    vector<string> word_list;
-    while ((cur_pos = str.find(delim)) != string::npos) {
-        word = str.substr(0, cur_pos);
-        word_list.push_back(word);
-        str.erase(0, cur_pos + delim.length());
+vector<string> PrimerFinder::split(const string& str) {
+    istringstream iss(str);
+    string field;
+    vector<string> fields;
+
+    while (iss >> field) {
+        fields.push_back(field);
     }
-    word = str;
-    word_list.push_back(word);
-    return word_list;
+    return fields;
+}
+
+bool PrimerFinder::startswith(const string& str, const string& prefix) {
+    return str.compare(0, prefix.length(), prefix) == 0;
 }
 
 }

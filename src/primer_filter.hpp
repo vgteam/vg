@@ -38,8 +38,8 @@ struct Primer {
     string sequence;
     bool left = true;
     size_t position = numeric_limits<size_t>::max();
-    size_t length = numeric_limits<size_t>::max();
-    size_t offset = numeric_limits<size_t>::max();
+    size_t length   = numeric_limits<size_t>::max();
+    size_t offset   = numeric_limits<size_t>::max();
     vector<size_t> mapped_nodes_ids;
 };
 
@@ -52,16 +52,18 @@ struct PrimerPair {
     Primer left_primer;
     Primer right_primer;
     size_t linear_product_size = numeric_limits<size_t>::max();
-    size_t min_product_size = numeric_limits<size_t>::max();
-    size_t max_product_size = numeric_limits<size_t>::max();
-    bool no_variation = false;
+    size_t min_product_size    = numeric_limits<size_t>::max();
+    size_t max_product_size    = numeric_limits<size_t>::max();
+    bool no_variation_at_primers  = true;
+    bool no_variation_in_products = true;
 };
 
 class PrimerFinder {
 
 private:
-    vector<PrimerPair> primer_pairs;
-    vector<PrimerPair> selected_primer_pairs;
+    // vector<PrimerPair> primer_pairs;
+    // vector<PrimerPair> selected_primer_pairs;
+    map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
     const PathPositionHandleGraph* graph;
     const SnarlDistanceIndex* distance_index;
     path_handle_t reference_path_handle; 
@@ -74,7 +76,7 @@ public:
      * and pointer to SnarlDistanceIndex
      */
     PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-                const string& reference_path_name, const SnarlDistanceIndex* distance_index_param);
+        const SnarlDistanceIndex* distance_index_param);
 
     /**
      * Destructor
@@ -87,10 +89,10 @@ public:
      * primer_pair object is automatically added to primer_pairs vector - and
      * selected_primer_pairs if conditions are met. Mainly used for unit testing.
      */
-    void add_primer_pair(const size_t& left_primer_starting_node_id,
-                    const size_t& left_primer_offset, const size_t& left_primer_length,
-                    const size_t& right_primer_starting_node_id,
-                    const size_t& right_primer_offset, const size_t& right_primer_length);
+    void add_primer_pair(const string& path_name, const size_t& left_primer_starting_node_id,
+        const size_t& left_primer_offset, const size_t& left_primer_length,
+        const size_t& right_primer_starting_node_id,
+        const size_t& right_primer_offset, const size_t& right_primer_length);
 
     /**
      * Read the path to the primer3 output. Primers information is parsed,
@@ -102,12 +104,14 @@ public:
     /**
      * return vector of Primer pairs
      */
-    const vector<PrimerPair>& get_primer_pairs() const;
+    const vector<PrimerPair>& get_primer_pairs_of_chrom(const string chrom_name) const;
 
     /**
-     * return vector selected primer pairs
+     * return the total number of reference paths
      */
-    const vector<PrimerPair>& get_selected_primer_pairs() const;
+    const size_t total_reference_paths() const;
+
+    vector<string> get_reference_paths(); 
 
 private:
     /**
@@ -126,15 +130,15 @@ private:
      * and the length of primer.
      * Used in: add_primer_pair
      */
-    void make_primer(Primer& primer, const size_t& starting_node_id,
-            const size_t& offset, const size_t& length, const bool& is_left);
+    void make_primer(Primer& primer, const string& path_name, const size_t& starting_node_id,
+        const size_t& offset, const size_t& length, const bool& is_left);
 
     /**
      * Find and store corresponding node ids to Primer object.
      * Used in: make_primer
      *          load_primers
      */
-    void map_to_nodes(Primer& primer);
+    void map_to_nodes(Primer& primer, const string& path_name);
 
     /**
      * Find the length of the longest match between two sequences. Also find and
@@ -145,24 +149,30 @@ private:
        const bool& first_node);
 
     /**
-     * Strip empty spaces on the right side of a string.
+     * Strip empty spaces on the sides of a string.
      * Used in: load_primers
      */
-    const string rstrip(const string& s) const;
+    const string strip(const string& s) const;
 
     /**
      * Check if primers in a primer_pair object have variations on the pangenome.
      * Used in: add_primer_node
      *          load_primers
      */
-    const bool no_variation(const PrimerPair& primer_pair) const;
+    // const bool no_variation_at_primers(const PrimerPair& primer_pair) const;
 
+    void update_variation(PrimerPair& primer_pair, const string& path_name);
+    
     /**
      * Split a string into vectors.
-     * Used in: load_priemrs
+     * Used in: load_primers
      */
-    const vector<string> split(string str, const string& delim) const;
-
+    vector<string> split(const string& str);
+    /**
+     * Works like str.startswith(prefix) in python
+     * Used in: load_primers
+     */
+    bool startswith(const string& str, const string& prefix);
 };
 
 }
