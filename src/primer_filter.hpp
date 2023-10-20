@@ -66,7 +66,6 @@ private:
     map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
     const PathPositionHandleGraph* graph;
     const SnarlDistanceIndex* distance_index;
-    path_handle_t reference_path_handle; 
 
 public:
     PrimerFinder() = default;
@@ -76,7 +75,7 @@ public:
      * and pointer to SnarlDistanceIndex
      */
     PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-        const SnarlDistanceIndex* distance_index_param);
+        const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle);
 
     /**
      * Destructor
@@ -99,12 +98,12 @@ public:
      * processed, and  stored in primer_pairs vector - and selected_primer_pairs
      * if conditions are met.
      */
-    void load_primers(const string& path_to_primers);
+    void load_primers(ifstream& file_handle);
 
     /**
      * return vector of Primer pairs
      */
-    const vector<PrimerPair>& get_primer_pairs_of_chrom(const string chrom_name) const;
+    const vector<PrimerPair>& get_primer_pairs_of_chrom(const string& chrom_name) const;
 
     /**
      * return the total number of reference paths
