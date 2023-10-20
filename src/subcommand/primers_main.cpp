@@ -18,11 +18,23 @@ void help_primers(char** argv) {
          << "options:" << endl
          << "    -x, --xg-path FILE         use this xg graph" << endl
          << "    -s, --snarl-index FILE     use this snarl index" << endl
-         << "    -z, --zero-variance        allow no variance in the product" << endl
+         << "    -z, --zero-variation       allow no variance in the product" << endl
          << "    -l, --tolerance INT        allow this much difference between minimum and maximum sizes compared to the linear product size (default: 10)" << endl
          << "    -n, --minimum-size INT     minimum product size allowed (has precedence over --tolerance)" << endl
          << "    -m, --maximum-size INT     maximum product size allowed (has precedence over --tolerance)" << endl
          << "    -a, --all-primers          output all primers" << endl;
+}
+
+size_t difference(const size_t& a, const size_t& b) {
+    size_t diff;
+    if (a == b) {
+        diff = 0;
+    } else if (a > b) {
+        diff = a - b;
+    } else {
+        diff = b - a;
+    }
+    return diff;
 }
 
 void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
@@ -49,7 +61,7 @@ int main_primers(int argc, char** argv) {
 
     string xg_path;
     string snarl_index_path;
-    bool zero_variance = false;
+    bool zero_variation = false;
     bool all_primers   = false;
     int  tolerance     = 10;
     int  minimum_product_size = numeric_limits<int>::max();
@@ -89,7 +101,7 @@ int main_primers(int argc, char** argv) {
             break;
 
         case 'z':
-            zero_variance = true;
+            zero_variation = true;
             break;
         
         case 'l':
@@ -130,17 +142,13 @@ int main_primers(int argc, char** argv) {
     }
 
     string primers_path = get_input_file_name(optind, argc, argv);
-
-    // cout << "primer file name: "      << primers_path     << endl
-    //      << "xg file name: "          << xg_path          << endl
-    //      << "snarl index file name: " << snarl_index_path << endl;
     
     SnarlDistanceIndex distance_index;
     unique_ptr<handlegraph::PathPositionHandleGraph> graph;
     distance_index.deserialize(snarl_index_path);
     graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_path);
-    PrimerFinder primer_finder(graph, &distance_index);
-    primer_finder.load_primers(primers_path);
+    ifstream file_handle(primers_path);
+    PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
     vector<string> reference_paths = primer_finder.get_reference_paths();
     for (size_t i = 0; i < reference_paths.size(); ++i) {
@@ -150,11 +158,24 @@ int main_primers(int argc, char** argv) {
             const PrimerPair& primer_pair = primer_pairs[j];
             if (all_primers) {
                 print_tabular(path_name, primer_pair);
-            } else if (zero_variance) {
+            } else if (zero_variation) {
                 if (primer_pair.no_variation_in_products) {
                     print_tabular(path_name, primer_pair);
                 }
             } else if (primer_pair.no_variation_at_primers) {
+                if (minimum_product_size != numeric_limits<int>::max() &&
+                    primer_pair.min_product_size < minimum_product_size) {
+                    continue;
+                }
+                if (maximum_product_size != numeric_limits<int>::max() &&
+                    primer_pair.max_product_size > maximum_product_size) {
+                    continue;
+                }
+                if (difference(primer_pair.linear_product_size, primer_pair.min_product_size) > tolerance
+                 || difference(primer_pair.linear_product_size, primer_pair.max_product_size) > tolerance) {
+                   continue; 
+                }
+
                 print_tabular(path_name, primer_pair);
             }
         }

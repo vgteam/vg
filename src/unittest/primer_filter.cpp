@@ -40,9 +40,9 @@ using namespace std;
         string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer_tabular.out";
         distance_index.deserialize(snarl_index_path);
         graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
-        PrimerFinder primer_finder(graph, &distance_index);
+        ifstream file_handle(primers_path);
+        PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
-        primer_finder.load_primers(primers_path);
         SECTION("Loads the correct number of chromosomes") {
             REQUIRE(primer_finder.total_reference_paths() == 1);
         }

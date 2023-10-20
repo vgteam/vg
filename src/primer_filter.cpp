@@ -7,9 +7,10 @@ using namespace std;
 
 // Constructor
 PrimerFinder::PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-    const SnarlDistanceIndex* distance_index_param) {
+    const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle) {
     graph = graph_param.get();
     distance_index = distance_index_param;
+    load_primers(primers_file_handle);
 }
 
 // Destructor
@@ -17,7 +18,7 @@ PrimerFinder::~PrimerFinder() {
     // nothing to do
 }
 
-const vector<PrimerPair>& PrimerFinder::get_primer_pairs_of_chrom(const string chrom_name) const {
+const vector<PrimerPair>& PrimerFinder::get_primer_pairs_of_chrom(const string& chrom_name) const {
     return chroms.at(chrom_name);
 }
 
@@ -39,9 +40,9 @@ void PrimerFinder::add_primer_pair(const string& path_name,
     update_variation(primer_pair, path_name);
 }
 
-void PrimerFinder::load_primers(const string& path_to_primers) {
+void PrimerFinder::load_primers(ifstream& file_handle) {
 
-    ifstream file_handle(path_to_primers);
+    //ifstream file_handle(path_to_primers);
     assert(file_handle.is_open());
     
     vector<string> cur_fields;
