@@ -130,6 +130,7 @@ void MinimizerMapper::dump_debug_graph(const HandleGraph& graph) {
     });
 }
 
+#define debug
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (show_work) {
@@ -352,7 +353,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // For each result
                 auto& scored_fragment = results[result];
                 if (show_work) {
-                    if (result < MANY_LIMIT) {
+#ifdef debug
+                    if(true)
+#else
+                    if (result < MANY_LIMIT)
+#endif
+                    {
                         if (!scored_fragment.second.empty()) {
                             #pragma omp critical (cerr)
                             {
@@ -360,6 +366,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                     << " and length " << scored_fragment.second.size()
                                     << " running " << anchor_view[scored_fragment.second.front()]
                                     << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
+#ifdef debug
+                                
+                                for (auto& anchor_number : scored_fragment.second) {
+                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
+                                }
+#endif
+
                             }
                         }
                     } else if (result == MANY_LIMIT) {
@@ -1142,6 +1155,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     return mappings;
 }
+#undef debug
 
 double MinimizerMapper::get_read_coverage(
     const Alignment& aln,
