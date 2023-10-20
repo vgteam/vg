@@ -241,11 +241,8 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
  * 
  * Takes two anchor numbers (source and destination), and their read and graph
  * distances, in that order.
- *
- * Returns a score for the given transition, and the best score yet achieved
- * for the destination item.
  */
-using transition_iteratee = std::function<std::pair<int, int>(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
+using transition_iteratee = std::function<void(size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance)>;
 
 /**
  * Iterator function type which lets you iterate over transitions between
@@ -261,9 +258,6 @@ using transition_iteratee = std::function<std::pair<int, int>(size_t from_anchor
  * Transitions are visited in order: all transititions to an anchor are visited
  * before any transitions from it.
  * 
- * callback must return a score for the given transition, and the score it
- * achieves for the destination item.
- * 
  * to_chain must be sorted by read start.
  */
 using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
@@ -274,10 +268,7 @@ using transition_iterator = std::function<void(const VectorView<Anchor>& to_chai
  */
 transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                                                  size_t min_lookback_items,
-                                                 size_t lookback_item_hard_cap,
-                                                 size_t initial_lookback_threshold,
-                                                 double lookback_scale_factor,
-                                                 double min_good_transition_score_per_base);
+                                                 size_t lookback_item_hard_cap);
 
 /**
  * Return a transition iterator that uses zip code tree iteration to select traversals.
@@ -310,7 +301,7 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            const HandleGraph& graph,
                            int gap_open,
                            int gap_extension,
-                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
+                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            int item_bonus = 0,
                            int item_scale = 1,
                            size_t max_indel_bases = 100,
@@ -353,7 +344,7 @@ vector<pair<int, vector<size_t>>> find_best_chains(const VectorView<Anchor>& to_
                                                    int gap_open,
                                                    int gap_extension,
                                                    size_t max_chains = 1,
-                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1), 
+                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                                    int item_bonus = 0,
                                                    int item_scale = 1,
                                                    size_t max_indel_bases = 100,
@@ -373,7 +364,7 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
-                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100, 10, 2.0, -0.1),
+                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           int item_bonus = 0,
                                           int item_scale = 1,
                                           size_t max_indel_bases = 100);

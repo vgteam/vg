@@ -586,6 +586,29 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
         REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
     }
 
+    auto handle_transition = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+    };
+
+    // For each form anchor and to anchor, remember the read and graph distances.
+    std::unordered_map<std::pair<size_t, size_t>, std::pair<size_t, size_t>> all_transitions;
+
+    // Set up to get all the transitions between anchors in the zip code tree
+    auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max());
+    // And get them
+    transition_iterator(anchors, distance_index, graph, std::numeric_limits<size_t>::max(), [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
+        // And for each of them, remember them
+        std::cerr << "From anchor " << from_anchor << " to anchor " << to_anchor << " we cross " << read_distance << " bp of read and " << graph_distance << " bp of graph" << std::endl;
+        all_transitions.emplace(std::make_pair(from_anchor, to_anchor), std::make_pair(read_distance, graph_distance));
+    });
+
+    // Make sure we got the right transitions for these anchors
+    REQUIRE(all_transitions.size() == 1);
+    // AAAAAAAAAA
+    // XXX----XXX
+    //   01234
+    REQUIRE(all_transitions.at(std::make_pair(0, 1)).first == 4);
+    REQUIRE(all_transitions.at(std::make_pair(0, 1)).second == 4);
+
 }
 
 
