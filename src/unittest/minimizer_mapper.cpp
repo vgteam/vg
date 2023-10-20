@@ -567,6 +567,17 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                     lengths.emplace_back(3);
                 }
 
+                // Add a middle anchor overlapping the left one
+                graph_positions.emplace_back(1, graph_reverse_strand, 1);
+                read_positions.emplace_back(1, false);
+                lengths.emplace_back(3);
+
+                // Add a middle anchor actually in the middle, abutting the left one, and shorter
+                graph_positions.emplace_back(1, graph_reverse_strand, 3);
+                read_positions.emplace_back(3, false);
+                lengths.emplace_back(2);
+
+
                 vector<MinimizerMapper::Minimizer> minimizers;
                 vector<SnarlDistanceIndexClusterer::Seed> seeds;
                 for (size_t i = 0; i < read_positions.size(); i++) {
@@ -595,6 +606,9 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 // Make the anchors
                 std::vector<algorithms::Anchor> anchors;
                 for (size_t i = 0; i < seeds.size(); i++) {
+#ifdef debug
+                    std::cerr << "Anchor " << i << ":" << std::endl;
+#endif
                     anchors.push_back(TestMinimizerMapper::to_anchor(aln, minimizers, seeds, i, graph, &aligner));
 
                     // Make sure the anchor is right.
@@ -603,9 +617,6 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                     // Sinve the minimizers are all within single nodes here, the anchor should be as long as the minimizer.
                     REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
                 }
-
-                auto handle_transition = [&](size_t from_anchor, size_t to_anchor, size_t read_distance, size_t graph_distance) {
-                };
 
                 // For each form anchor and to anchor, remember the read and graph distances.
                 std::unordered_map<std::pair<size_t, size_t>, std::pair<size_t, size_t>> all_transitions;
@@ -622,12 +633,32 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 });
 
                 // Make sure we got the right transitions for these anchors
-                REQUIRE(all_transitions.size() == 1);
                 // AAAAAAAAAA
-                // XXX----XXX
+                // XXX----YYY
                 //   01234
                 REQUIRE(all_transitions.at(std::make_pair(0, 1)).first == 4);
                 REQUIRE(all_transitions.at(std::make_pair(0, 1)).second == 4);
+
+                // AAAAAAAAAA
+                // -XXX---YYY
+                //    0123
+                REQUIRE(all_transitions.at(std::make_pair(2, 1)).first == 3);
+                REQUIRE(all_transitions.at(std::make_pair(2, 1)).second == 3);
+
+                // AAAAAAAAAA
+                // ---XX--YYY
+                //     012
+                REQUIRE(all_transitions.at(std::make_pair(3, 1)).first == 2);
+                REQUIRE(all_transitions.at(std::make_pair(3, 1)).second == 2);
+
+                // AAAAAAAAAA
+                // XXXYY-----
+                //   0
+                REQUIRE(all_transitions.at(std::make_pair(0, 3)).first == 0);
+                REQUIRE(all_transitions.at(std::make_pair(0, 3)).second == 0);
+
+                // We shouldn't see any extra transitions, like between overlapping anchors.
+                REQUIRE(all_transitions.size() == 4);
             }
         }
     }
