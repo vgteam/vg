@@ -2075,7 +2075,12 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         hint_start = 0;
     }
 
-    std::cerr << "Minimizer at read " << source.forward_offset() << " length " << source.length << " orientation " << source.value.is_reverse << " pinned at " << source.value.offset << " is anchor of length " << length << " matching graph " << graph_start << " and read " << read_start << " forward, with hint " << hint_start << " bases later on the read" << std::endl;
+#ifdef debug
+    std::cerr << "Minimizer at read " << source.forward_offset() << " length " << source.length
+              << " orientation " << source.value.is_reverse << " pinned at " << source.value.offset
+              << " is anchor of length " << length << " matching graph " << graph_start << " and read " << read_start
+              << " forward, with hint " << hint_start << " bases later on the read" << std::endl;
+#endif
 
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!

@@ -348,9 +348,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
     };
 }
 
-/// Score a chaining gap using the Minimap2 method. See
-/// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
-static int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
+int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
     if (distance_difference == 0) {
         return 0;
     } else {

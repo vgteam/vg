@@ -377,6 +377,11 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
  */
 int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension);
 
+
+/// Score a chaining gap using the Minimap2 method. See
+/// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
+int score_chain_gap(size_t distance_difference, size_t average_anchor_length);
+
 /// Get distance in the graph, or std::numeric_limits<size_t>::max() if unreachable or beyond the limit.
 size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t distance_limit = std::numeric_limits<size_t>::max());
 
