@@ -2511,10 +2511,10 @@ cerr << "Find intervals on snarl" << endl;
                                                     - offset(end_seed.pos))
                             : end_seed.pos;
             
-            size_t distance_start_left = minimum_distance(distance_index, start_bound_pos, start_pos);
-            size_t distance_start_right = minimum_distance(distance_index, start_bound_pos, end_pos); 
-            size_t distance_end_left = minimum_distance(distance_index, end_bound_pos, start_pos);
-            size_t distance_end_right = minimum_distance(distance_index, end_bound_pos, end_pos); 
+            size_t distance_start_left = SnarlDistanceIndex::minus(minimum_distance(distance_index, start_bound_pos, start_pos), 1);
+            size_t distance_start_right = SnarlDistanceIndex::minus(minimum_distance(distance_index, start_bound_pos, end_pos), 1); 
+            size_t distance_end_left = SnarlDistanceIndex::minus(minimum_distance(distance_index, end_bound_pos, start_pos), 1);
+            size_t distance_end_right = SnarlDistanceIndex::minus(minimum_distance(distance_index, end_bound_pos, end_pos), 1); 
 
             if (distance_start_left != std::numeric_limits<size_t>::max() || 
                 distance_end_right != std::numeric_limits<size_t>::max()) {
