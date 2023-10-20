@@ -31,6 +31,7 @@ public:
     using MinimizerMapper::faster_cap;
     using MinimizerMapper::with_dagified_local_graph;
     using MinimizerMapper::align_sequence_between;
+    using MinimizerMapper::to_anchor;
 };
 
 TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mapping]") {
@@ -491,6 +492,84 @@ TEST_CASE("MinimizerMapper can extract a strand-split dagified local graph witho
         // There should be that head and also some tail where we ran out of search bases.
         REQUIRE(tip_handles.size() == 2);
     });
+}
+
+TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zip codes", "[giraffe][mapping]") {
+    Alignment aln;
+    aln.set_sequence("AAAAAAAAAA"); // 10 bp
+
+    // I only need a linear graph to test all the combinations of seed orders and orientations.
+    VG graph;
+
+    Node* n1 = graph.create_node("AAAAAAAAAA");
+
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // These are graph positions for each minimizer hit
+    std::vector<pos_t> graph_positions;
+
+    // These are read positions for each minimizer hit, in the form of an
+    // anchoring base on the read's forward strand, and an orientation from
+    // that anchoring base that points the graph position's local forward.
+    // False is read forward, true is read reverse.
+    std::vector<std::pair<size_t, bool>> read_positions;
+
+    // These are the minimizer lengths
+    std::vector<size_t> lengths;
+
+    // Have a 3bp hit at the start of the read and graph, forward.
+    graph_positions.emplace_back(1, false, 0);
+    read_positions.emplace_back(0, false);
+    lengths.emplace_back(3);
+
+    // Have another 3bp hit at the end, reverse.
+    graph_positions.emplace_back(1, true, 0);
+    read_positions.emplace_back(9, true);
+    lengths.emplace_back(3);
+
+    vector<MinimizerMapper::Minimizer> minimizers;
+    vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    for (size_t i = 0; i < read_positions.size(); i++) {
+        // Make a minimizer
+        minimizers.emplace_back();
+        minimizers.back().length = lengths.at(i);
+        minimizers.back().value.offset = read_positions.at(i).first;
+        minimizers.back().value.is_reverse = read_positions.at(i).second;
+
+        // Make a zipcode for its graph position
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode(distance_index, graph_positions.at(i));
+
+        // Make a seed attaching that graph position to its minimizer.
+        seeds.push_back({ graph_positions.at(i), i, zipcode});
+    }
+
+    // Make and check the zip code tree
+    ZipCodeForest zip_forest;
+    zip_forest.fill_in_forest(seeds, distance_index, 10);
+    zip_forest.print_self();
+    REQUIRE(zip_forest.trees.size() == 1);
+    for (auto& tree : zip_forest.trees) {
+        tree.validate_zip_tree(distance_index);
+    }
+
+    // Make an aligner for scoring
+    Aligner aligner;
+
+    // Make the anchors
+    std::vector<algorithms::Anchor> anchors;
+    for (size_t i = 0; i < seeds.size(); i++) {
+        anchors.push_back(TestMinimizerMapper::to_anchor(aln, minimizers, seeds, i, graph, &aligner));
+
+        // Make sure the anchor is right.
+        // It needs to start at the right place in the read.
+        REQUIRE(anchors.back().read_start() == minimizers.at(seeds.at(i).source).forward_offset());
+        // Sinve the minimizers are all within single nodes here, the anchor should be as long as the minimizer.
+        REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
+    }
+
 }
 
 

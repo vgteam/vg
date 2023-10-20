@@ -2032,12 +2032,12 @@ std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
     for (size_t i = 0; i < seeds.size(); i++) {
-        to_return.push_back(this->to_anchor(aln, minimizers, seeds, i));
+        to_return.push_back(MinimizerMapper::to_anchor(aln, minimizers, seeds, i, gbwt_graph, get_regular_aligner()));
     }
     return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner) {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, end for
     // reverse-strand minimizers) falls.
@@ -2065,9 +2065,9 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         graph_start = seed.pos;
         
         // Get the handle to the node it's on.
-        handle_t start_handle = gbwt_graph.get_handle(id(graph_start), is_rev(graph_start));
+        handle_t start_handle = graph.get_handle(id(graph_start), is_rev(graph_start));
         // Work out how much of the node it could use before there.
-        length = std::min((size_t) source.length, gbwt_graph.get_length(start_handle) - offset(graph_start));
+        length = std::min((size_t) source.length, graph.get_length(start_handle) - offset(graph_start));
         
         // And we store the read start position already in the item
         read_start = source.value.offset;
@@ -2076,7 +2076,7 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
     }
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
-    int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
+    int score = aligner->score_exact_match(aln, read_start, length);
     return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 
