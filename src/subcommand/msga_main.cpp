@@ -625,8 +625,8 @@ int main_msga(int argc, char** argv) {
                         write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, limit, head_id, tail_id));
                 });
             // Make the index with the kmers
-            gcsa::InputGraph input_graph(tmpfiles, true);
-            gcsa::ConstructionParameters params;
+          gcsa::ConstructionParameters params;
+            gcsa::InputGraph input_graph(tmpfiles, true, params);
             params.setSteps(doubling_steps);
             // build the GCSA index
             gcsaidx = new gcsa::GCSA(input_graph, params);

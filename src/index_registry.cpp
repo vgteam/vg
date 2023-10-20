@@ -3576,6 +3576,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto params = gcsa::ConstructionParameters();
         params.setSteps(IndexingParameters::gcsa_doubling_steps);
         params.setLimitBytes(IndexingParameters::gcsa_size_limit);
+        // we use the literal limit here because this is a measurement of memory use, not an estimate
+        params.setMemoryLimitBytes(plan->literal_target_memory_usage());
                 
 #ifdef debug_index_registry_recipes
         cerr << "enumerating k-mers for input pruned graphs:" << endl;
@@ -3615,7 +3617,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // construct the indexes (giving empty mapping name is sufficient to make
             // indexing skip the unfolded code path)
-            gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(),
+            gcsa::InputGraph input_graph(dbg_names, true, params, gcsa::Alphabet(),
                                          mapping_filename);
             gcsa::GCSA gcsa_index(input_graph, params);
             gcsa::LCPArray lcp_array(input_graph, params);
@@ -3639,7 +3641,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // update pruning params
             IndexingParameters::pruning_walk_length *= IndexingParameters::pruning_walk_length_increase_factor;
             IndexingParameters::pruning_max_node_degree *= IndexingParameters::pruning_max_node_degree_decrease_factor;
-            string msg = "[IndexRegistry]: Exceeded disk use limit while performing k-mer doubling steps. "
+            string msg = "[IndexRegistry]: Exceeded disk or memory use limit while performing k-mer doubling steps. "
                          "Rewinding to pruning step with more aggressive pruning to simplify the graph.";
             throw RewindPlanException(msg, pruned_graphs);
         }
@@ -4134,6 +4136,10 @@ bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
 
 int64_t IndexingPlan::target_memory_usage() const {
     return IndexingParameters::max_memory_proportion * registry->get_target_memory_usage();
+}
+
+int64_t IndexingPlan::literal_target_memory_usage() const {
+    return registry->get_target_memory_usage();
 }
     
 string IndexingPlan::output_filepath(const IndexName& identifier) const {
