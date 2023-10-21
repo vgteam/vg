@@ -96,8 +96,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ae04def089761ea2ef65532fabd909794"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#ae04def089761ea2ef65532fabd909794">is_intermediate</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier) const</td></tr>
 <tr class="separator:ae04def089761ea2ef65532fabd909794"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fd91843fb2c901d9db661e6bc50f07a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a1fd91843fb2c901d9db661e6bc50f07a">target_memory_usage</a> () const</td></tr>
-<tr class="memdesc:a1fd91843fb2c901d9db661e6bc50f07a"><td class="mdescLeft">&#160;</td><td class="mdescRight">TODO: is this where this function wants to live?  <a href="classvg_1_1IndexingPlan.html#a1fd91843fb2c901d9db661e6bc50f07a">More...</a><br /></td></tr>
+<tr class="memdesc:a1fd91843fb2c901d9db661e6bc50f07a"><td class="mdescLeft">&#160;</td><td class="mdescRight">The memory limit, with a little slosh for prediction inaccuracy.  <a href="classvg_1_1IndexingPlan.html#a1fd91843fb2c901d9db661e6bc50f07a">More...</a><br /></td></tr>
 <tr class="separator:a1fd91843fb2c901d9db661e6bc50f07a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a93541f9db06d755f91d420072fe733e4"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#a93541f9db06d755f91d420072fe733e4">literal_target_memory_usage</a> () const</td></tr>
+<tr class="memdesc:a93541f9db06d755f91d420072fe733e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">The mmeory limit with no slosh.  <a href="classvg_1_1IndexingPlan.html#a93541f9db06d755f91d420072fe733e4">More...</a><br /></td></tr>
+<tr class="separator:a93541f9db06d755f91d420072fe733e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8dc425414eec61802c17ef877d9483d"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexingPlan.html#ad8dc425414eec61802c17ef877d9483d">dependents</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier) const</td></tr>
 <tr class="separator:ad8dc425414eec61802c17ef877d9483d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -227,6 +230,25 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a id="a93541f9db06d755f91d420072fe733e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a93541f9db06d755f91d420072fe733e4">&#9670;&nbsp;</a></span>literal_target_memory_usage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IndexingPlan::literal_target_memory_usage </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The mmeory limit with no slosh. </p>
+
+</div>
+</div>
 <a id="a405ede5620e8a7263fbb734f656c9971"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a405ede5620e8a7263fbb734f656c9971">&#9670;&nbsp;</a></span>output_filepath() <span class="overload">[1/2]</span></h2>
 
@@ -298,7 +320,7 @@ Friends</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>TODO: is this where this function wants to live? </p>
+<p>The memory limit, with a little slosh for prediction inaccuracy. </p>
 
 </div>
 </div>
