@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 47
+plan tests 49
 
 rm auto.*
 
@@ -149,6 +149,10 @@ is "$(echo $?)" 0 "Indexing is successful after rewinding from k-mer generation"
 
 # reduce disk limit to 2MB to trigger it during doubling steps
 is "$(vg autoindex -p auto -w map --gcsa-size-limit 2000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during GCSA2 indexing triggers a rewind"
+is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
+
+# use the memory limit to trigger a rewide
+is "$(vg autoindex -p auto -w map -M 512M -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of memory during GCSA2 indexing triggers a rewind"
 is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
 
 rm auto.*
