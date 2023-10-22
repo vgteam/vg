@@ -598,7 +598,6 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state, con
                 : current_seed.zipcode_decoder->get_offset_in_chain(depth);
     }
 
-//TODO: I think I can use chain_depth instead of max_depth
     if (depth == current_seed.zipcode_decoder->max_depth()) {
         //If this is a node, then add the offset of the seed in the node
         current_offset = SnarlDistanceIndex::sum(current_offset, 
@@ -1015,7 +1014,6 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
 
                     size_t distance_to_end_of_last_child = sibling.type == ZipCodeTree::SNARL_START ? 0
                                                      : sibling.distances.second;
-                    //TODO: idk about this distance- I think the orientations need to change
                     //The bools for this are true if the distance is to/from the right side of the child
                     //We want the right side of 1 (which comes first in the dag ordering) to the left side of 2
                     //relative to the orientation of the snarl
@@ -1147,6 +1145,9 @@ cerr << "Find intervals on snarl" << endl;
     pos_t start_bound_pos = make_pos_t(distance_index.node_id(start_bound),
                                        distance_index.get_connectivity(start_bound) == SnarlDistanceIndex::END_START,
                                        distance_index.minimum_length(start_bound)-1); 
+    ZipCode start_zip;
+    start_zip.fill_in_zipcode(distance_index, start_bound_pos);
+    ZipCodeDecoder start_zip_decoder(&start_zip);
 
     net_handle_t end_bound = distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_handle, 
                                                                  snarl_interval.is_reversed ? false : true, 
@@ -1154,6 +1155,9 @@ cerr << "Find intervals on snarl" << endl;
     pos_t end_bound_pos = make_pos_t(distance_index.node_id(end_bound),
                                      distance_index.get_connectivity(end_bound) == SnarlDistanceIndex::END_START,
                                      distance_index.minimum_length(end_bound)-1); 
+    ZipCode end_zip;
+    end_zip.fill_in_zipcode(distance_index, end_bound_pos);
+    ZipCodeDecoder end_zip_decoder(&end_zip);
 
     //We'll add runs of seeds on the same chain or node. This is used to find their offsets on whatever
     //chain/node they are on
@@ -1254,10 +1258,14 @@ cerr << "Find intervals on snarl" << endl;
                                                     - offset(end_seed.pos))
                             : end_seed.pos;
             
-            size_t distance_start_left = SnarlDistanceIndex::minus(minimum_distance(distance_index, start_bound_pos, start_pos), 1);
-            size_t distance_start_right = SnarlDistanceIndex::minus(minimum_distance(distance_index, start_bound_pos, end_pos), 1); 
-            size_t distance_end_left = SnarlDistanceIndex::minus(minimum_distance(distance_index, end_bound_pos, start_pos), 1);
-            size_t distance_end_right = SnarlDistanceIndex::minus(minimum_distance(distance_index, end_bound_pos, end_pos), 1); 
+            size_t distance_start_left = SnarlDistanceIndex::minus(ZipCode::minimum_distance_between(start_zip_decoder, start_bound_pos, 
+                                                                                             *start_seed.zipcode_decoder, start_pos, distance_index), 1);
+            size_t distance_start_right = SnarlDistanceIndex::minus(ZipCode::minimum_distance_between(start_zip_decoder, start_bound_pos, 
+                                                                                     *end_seed.zipcode_decoder, end_pos, distance_index), 1); 
+            size_t distance_end_left = SnarlDistanceIndex::minus(ZipCode::minimum_distance_between(end_zip_decoder, end_bound_pos, 
+                                                                                  *start_seed.zipcode_decoder, start_pos, distance_index), 1);
+            size_t distance_end_right = SnarlDistanceIndex::minus(ZipCode::minimum_distance_between(end_zip_decoder, end_bound_pos, 
+                                                                                   *end_seed.zipcode_decoder, end_pos, distance_index), 1); 
 
             if (distance_start_left != std::numeric_limits<size_t>::max() || 
                 distance_end_right != std::numeric_limits<size_t>::max()) {
@@ -1410,7 +1418,9 @@ cerr << "Find intervals on snarl" << endl;
     //Distance from each of the children to the end
     for (auto from = added_children.crbegin() ; from < added_children.crend() ; from++) {
         auto from_pos = from->second;
-        size_t dist = minimum_distance(distance_index, from_pos, end_bound_pos_out);
+        size_t dist = SnarlDistanceIndex::minus(ZipCode::minimum_distance_between(*from->first.zipcode_decoder, from_pos, 
+                                                    end_zip_decoder, end_bound_pos_out, distance_index),
+                                                1);
         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::EDGE, dist, false});
     }
     //Add the length of the snarl
@@ -2660,7 +2670,6 @@ void ZipCodeForest::radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, cons
 
 
         //If this is reversed in the top-level chain, then the order should be backwards
-        //TODO: I'm not sure how this should work for a snarl
         if (reverse_order) {
             zipcode_sort_order[interval.interval_end - i - 1] = sorted[i];
         } else {
