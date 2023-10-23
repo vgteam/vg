@@ -35,8 +35,8 @@ class ZipCodeTree {
 
     /*
       The tree will represent the seeds' placement in the snarl tree.
-      Each node in the tree represents either a seed (position on the graph) or the 
-      boundary of a snarl or chain.
+      Each node in the tree represents either a seed (position on the graph, representing the start
+      of an alignment) or the boundary of a snarl or chain.
       Edges are labelled with the distance between the two nodes
 
       This graph is actually represented as a vector of the nodes and edges
@@ -47,13 +47,18 @@ class ZipCodeTree {
       The chain is comprised of alternating children (seed or snarl) and the distances between them,
       starting and ending with a child. The order would be:
         CHAIN_START, child, distance, child, distance, ..., child, CHAIN_END
+      The distance from the chain start to the first child is included in the distances in the chain's
+      parent snarl, if relevant
+
       The distances represent the number of nucleotides on the minimum-length path in the variation graph
       between the structures that the zip code tree nodes represent.
-      For distances terminating at a SEED, the distance includes the nucleotide the position is on.
-      For distances between two SEEDs, the distance includes both of the positions.
+      Seeds represent the first nucleotide of the alignment, so when the seed is traversed forwards
+      in the zip tree, the distance includes the position. If the seed is reversed in the zip tree,
+      then the distance doesn't include the position
       For two SEEDs on the same position, the distance between them would be 1.
-      For distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner edge
+      For chain distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner edge
       (relative to the snarl) of the boundary node, so it includes the length of the boundary node of the snarl
+
       For example, given a subgraph of a chain:
 
                               n3
@@ -77,12 +82,17 @@ class ZipCodeTree {
       A snarl would look like:
           SNARL_START, dist:start->c1, chain1, dist:c1->c2, dist:start->c2, chain2, ..., 
                 ..., dist:c2->end, dist:c1->end, dist:start->end, node_count, SNARL_END
+      For snarls that aren't dags (called cyclic snarls, even though they could have an inversion and 
+      no cycles), all seeds on the snarl are split up into mini chains comprised of seeds that are
+      on the same chain with no seeds on snarls between them. In order to represent all edges between
+      all pairs of node sides, each chain is represented multiple times. Each chain is represented first
+      in its forward orientation (which is arbitrary), immediately followed by a copy in the reverse 
+      orientation. All chains are then repeated in both orientations a second time
 
 
       Everything is ordered according to the order of the highest-level chain (top-level chain or child
       of a top-level snarl).
-      For children of a snarl, the children are ordered according to the distance to the start of the snarl,
-      and if that value is equal, in reverse order to the distance to the end of the snarl.
+      For children of a snarl, the children are ordered according to a topological sort of the snarl.
       In the variation graph, all chains are considered to be oriented "forward" in their parent snarl.
       However, in a start-to-end traversal of the snarl, the child chain may be traversed end-to-start.
       These chains would be considered to be reversed in the zip code tree, so the order of the children
@@ -90,8 +100,6 @@ class ZipCodeTree {
       If a snarl is the child of a chain that is traversed backwards in the zip tree, then that snarl
       and all its children are also traversed backwards.
 
-
-      TODO: This is still just for DAGS
      */
 
     public:
@@ -451,7 +459,8 @@ class ZipCodeForest {
     /// Uses radix_sort_zipcodes and default_sort_zipcodes
     /// sort_root is true if sorting the root into connected components
     vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval, 
-            size_t interval_depth, const SnarlDistanceIndex& distance_index) const;
+            size_t interval_depth, const SnarlDistanceIndex& distance_index,
+            bool get_next_intervals=true) const;
 
     /// Helper function to sort the seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
