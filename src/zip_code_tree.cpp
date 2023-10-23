@@ -2463,12 +2463,12 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
     //At the given depth, go through sort_order in the given interval to find the intervals for the next level 
     //and add to new_intervals
     auto find_next_intervals = [&] (const interval_and_orientation_t& interval,
-                                    size_t depth, const vector<size_t>& sort_order, 
+                                    size_t depth, const vector<size_t>& sort_order,
+                                    vector<interval_and_orientation_t>& new_intervals, 
                                     const std::function<size_t(const Seed& seed, size_t depth)>& get_partitioning_value) {
 #ifdef DEBUG_ZIP_CODE_TREE
         cerr << "Finding intervals after sorting at depth " << depth << endl;
 #endif
-        vector<interval_and_orientation_t> new_intervals;
         //After sorting, find runs of equivalent values for new_interval_to_sort
         //Everything gets put into a new interval, even if it is the only thing with that partitioning value
         //Since nodes are really just seeds on the same chain, runs of nodes get put together even if they are
@@ -2484,7 +2484,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             //If this is a trivial chain, then just return the same interval as a node
             new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
                                        child_depth);
-            return new_intervals;
+            return;
         }
 
 
@@ -2550,8 +2550,11 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         }
         cerr << endl;
 #endif
-        return new_intervals;
+        return;
     };
+
+    //The new intervals to return
+    vector<interval_and_orientation_t> new_intervals;
 
     if (interval.code_type == ZipCode::EMPTY) {
 
@@ -2571,7 +2574,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
         }
         cerr << endl;
 #endif
-        return find_next_intervals(interval, std::numeric_limits<size_t>::max(), zipcode_sort_order,
+        find_next_intervals(interval, std::numeric_limits<size_t>::max(), zipcode_sort_order,
+                            new_intervals,
                             [&](const Seed& seed, size_t depth) {
                                 //Sort on the connected component number
                                 return seed.zipcode_decoder->get_distance_index_address(0);
@@ -2627,8 +2631,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             default_sort_zipcodes(zipcode_sort_order, interval, reverse_order, interval_depth, distance_index, get_sort_value);
         }
         
-        return find_next_intervals(interval, interval_depth, zipcode_sort_order, get_sort_value);
+        find_next_intervals(interval, interval_depth, zipcode_sort_order, new_intervals, get_sort_value);
     }
+    return new_intervals;
 
 }
 
