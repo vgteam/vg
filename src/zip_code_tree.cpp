@@ -2,7 +2,7 @@
 //#define PRINT_NON_DAG_SNARLS
 //#define DEBUG_ZIP_CODE_SORTING
 //This is used to get an all-to-all-seeds distance matrix for cyclic snarls
-#define EXHAUSTIVE_CYCLIC_SNARLS
+//#define EXHAUSTIVE_CYCLIC_SNARLS
 
 #include "zip_code_tree.hpp"
 

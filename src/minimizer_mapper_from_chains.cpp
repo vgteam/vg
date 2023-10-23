@@ -34,6 +34,8 @@
 //#define debug
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
+// Dump the zip code forest
+//#define debug_print_forest
 // Dump local graphs that we align against 
 //#define debug_dump_graph
 // Dump fragment length distribution information
@@ -130,7 +132,6 @@ void MinimizerMapper::dump_debug_graph(const HandleGraph& graph) {
     });
 }
 
-#define debug
 vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     if (show_work) {
@@ -169,7 +170,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
-#ifdef dump_forest
+#ifdef debug_print_forest
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -1157,7 +1158,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
 
     return mappings;
 }
-#undef debug
 
 double MinimizerMapper::get_read_coverage(
     const Alignment& aln,
