@@ -459,7 +459,8 @@ class ZipCodeForest {
     /// Uses radix_sort_zipcodes and default_sort_zipcodes
     /// sort_root is true if sorting the root into connected components
     vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval, 
-            size_t interval_depth, const SnarlDistanceIndex& distance_index) const;
+            size_t interval_depth, const SnarlDistanceIndex& distance_index,
+            bool get_next_intervals=true) const;
 
     /// Helper function to sort the seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
