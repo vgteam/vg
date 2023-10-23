@@ -37,20 +37,20 @@ size_t difference(const size_t& a, const size_t& b) {
     return diff;
 }
 
-void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
-    const Primer& left_primer  = primer_pair.left_primer;
-    const Primer& right_primer = primer_pair.right_primer;
-    cout << genome_name          << "\t";
-    cout << left_primer.sequence << "\t" << right_primer.sequence << "\t"
-         << left_primer.position << "\t" << right_primer.position << "\t"
-         << left_primer.length   << "\t" << right_primer.length   << "\t"
-         << primer_pair.linear_product_size      << "\t"
-         << primer_pair.min_product_size         << "\t"
-         << primer_pair.max_product_size         << "\t"
-         << primer_pair.no_variation_at_primers  << "\t"
-         << primer_pair.no_variation_in_products << endl;
+// void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
+//     const Primer& left_primer  = primer_pair.left_primer;
+//     const Primer& right_primer = primer_pair.right_primer;
+//     cout << genome_name          << "\t";
+//     cout << left_primer.sequence << "\t" << right_primer.sequence << "\t"
+//          << left_primer.template_position << "\t" << right_primer.template_position << "\t"
+//          << left_primer.length   << "\t" << right_primer.length   << "\t"
+//          << primer_pair.linear_product_size      << "\t"
+//          << primer_pair.min_product_size         << "\t"
+//          << primer_pair.max_product_size         << "\t"
+//          << primer_pair.no_variation_at_primers  << "\t"
+//          << primer_pair.no_variation_in_products << endl;
 
-}
+// }
 
 int main_primers(int argc, char** argv) {
     
@@ -150,36 +150,36 @@ int main_primers(int argc, char** argv) {
     ifstream file_handle(primers_path);
     PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
-    vector<string> reference_paths = primer_finder.get_reference_paths();
-    for (size_t i = 0; i < reference_paths.size(); ++i) {
-        string path_name = reference_paths[i];
-        const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom(path_name);
-        for (size_t j = 0; j < primer_pairs.size(); ++j) {
-            const PrimerPair& primer_pair = primer_pairs[j];
-            if (all_primers) {
-                print_tabular(path_name, primer_pair);
-            } else if (zero_variation) {
-                if (primer_pair.no_variation_in_products) {
-                    print_tabular(path_name, primer_pair);
-                }
-            } else if (primer_pair.no_variation_at_primers) {
-                if (minimum_product_size != numeric_limits<int>::max() &&
-                    primer_pair.min_product_size < minimum_product_size) {
-                    continue;
-                }
-                if (maximum_product_size != numeric_limits<int>::max() &&
-                    primer_pair.max_product_size > maximum_product_size) {
-                    continue;
-                }
-                if (difference(primer_pair.linear_product_size, primer_pair.min_product_size) > tolerance
-                 || difference(primer_pair.linear_product_size, primer_pair.max_product_size) > tolerance) {
-                   continue; 
-                }
+    // vector<string> reference_paths = primer_finder.get_reference_paths();
+    // for (size_t i = 0; i < reference_paths.size(); ++i) {
+    //     string path_name = reference_paths[i];
+    //     const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom(path_name);
+    //     for (size_t j = 0; j < primer_pairs.size(); ++j) {
+    //         const PrimerPair& primer_pair = primer_pairs[j];
+    //         if (all_primers) {
+    //             print_tabular(path_name, primer_pair);
+    //         } else if (zero_variation) {
+    //             if (primer_pair.no_variation_in_products) {
+    //                 print_tabular(path_name, primer_pair);
+    //             }
+    //         } else if (primer_pair.no_variation_at_primers) {
+    //             if (minimum_product_size != numeric_limits<int>::max() &&
+    //                 primer_pair.min_product_size < minimum_product_size) {
+    //                 continue;
+    //             }
+    //             if (maximum_product_size != numeric_limits<int>::max() &&
+    //                 primer_pair.max_product_size > maximum_product_size) {
+    //                 continue;
+    //             }
+    //             if (difference(primer_pair.linear_product_size, primer_pair.min_product_size) > tolerance
+    //              || difference(primer_pair.linear_product_size, primer_pair.max_product_size) > tolerance) {
+    //                continue; 
+    //             }
 
-                print_tabular(path_name, primer_pair);
-            }
-        }
-    }
+    //             print_tabular(path_name, primer_pair);
+    //         }
+    //     }
+    // }
 
     return 0;
 }

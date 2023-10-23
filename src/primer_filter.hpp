@@ -37,9 +37,10 @@ namespace vg {
 struct Primer {
     string sequence;
     bool left = true;
-    size_t position = numeric_limits<size_t>::max();
-    size_t length   = numeric_limits<size_t>::max();
-    size_t offset   = numeric_limits<size_t>::max();
+    size_t position_chromosome = numeric_limits<size_t>::max();
+    size_t position_template   = numeric_limits<size_t>::max();
+    size_t length              = numeric_limits<size_t>::max();
+    size_t offset              = numeric_limits<size_t>::max();
     vector<size_t> mapped_nodes_ids;
 };
 
@@ -51,7 +52,9 @@ struct Primer {
 struct PrimerPair {
     Primer left_primer;
     Primer right_primer;
+    string chromosome_name;
     size_t linear_product_size = numeric_limits<size_t>::max();
+    size_t template_position   = numeric_limits<size_t>::max();
     size_t min_product_size    = numeric_limits<size_t>::max();
     size_t max_product_size    = numeric_limits<size_t>::max();
     bool no_variation_at_primers  = true;
@@ -167,6 +170,12 @@ private:
      * Used in: load_primers
      */
     vector<string> split(const string& str);
+
+    /**
+     * Split a string into vectors given delimiter.
+     */
+    vector<string> split(const string& str, const char& delim);
+    
     /**
      * Works like str.startswith(prefix) in python
      * Used in: load_primers

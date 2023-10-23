@@ -28,14 +28,19 @@ void PrimerFinder::add_primer_pair(const string& path_name,
     const size_t& left_primer_starting_node_id, const size_t& left_primer_offset,
     const size_t& left_primer_length, const size_t& right_primer_starting_node_id,
     const size_t& right_primer_offset, const size_t& right_primer_length) {
-    
+
     chroms.at(path_name).emplace_back();
     PrimerPair& primer_pair = chroms.at(path_name).back();
+    primer_pair.chromosome_name   = path_name;
+    primer_pair.template_position = 0;
     primer_pair.right_primer.left = false;
 
-    make_primer(primer_pair.left_primer, path_name, left_primer_starting_node_id, left_primer_offset, left_primer_length, true);
-    make_primer(primer_pair.right_primer, path_name, right_primer_starting_node_id, right_primer_offset, right_primer_length, false);
-    primer_pair.linear_product_size = primer_pair.right_primer.position - primer_pair.left_primer.position + primer_pair.right_primer.length;
+    make_primer(primer_pair.left_primer, path_name, left_primer_starting_node_id,
+        left_primer_offset, left_primer_length, true);
+    make_primer(primer_pair.right_primer, path_name, right_primer_starting_node_id,
+        right_primer_offset, right_primer_length, false);
+    primer_pair.linear_product_size = primer_pair.right_primer.position_template
+        - primer_pair.left_primer.position_template + primer_pair.right_primer.length;
     update_min_max_product_size(primer_pair);
     update_variation(primer_pair, path_name);
 }
@@ -46,6 +51,8 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
     assert(file_handle.is_open());
     
     vector<string> cur_fields;
+    size_t cur_template_offset;
+    string cur_template_info;
     string cur_path;
     string line;
     while (getline(file_handle, line)) {
@@ -58,31 +65,40 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
                 assert(chroms[cur_path].back().right_primer.sequence.empty());
                 chroms[cur_path].pop_back();
             }
-            cur_fields = move(split(line));
-            cur_path   = cur_fields[cur_fields.size()-1];
+            cur_fields          = move(split(line));
+            cur_template_info   = cur_fields[cur_fields.size()-1];
+            cur_fields          = move(split(cur_template_info,','));
+            cur_template_offset = stoi(cur_fields[1]);
+            cur_path            = cur_fields[0];
             chroms[cur_path].emplace_back();
+            chroms[cur_path].back().chromosome_name   = cur_path;
+            chroms[cur_path].back().template_position = cur_template_offset;
             chroms[cur_path].back().right_primer.left = false;
         } else if (left_primer_line_start != string::npos) {
             cur_fields = move(split(line.substr(left_primer_line_start, line.size())));
             PrimerPair& primer_pair = chroms[cur_path].back();
-            primer_pair.left_primer.sequence = cur_fields[9];
-            primer_pair.left_primer.position = stoi(cur_fields[2]);
-            primer_pair.left_primer.length   = stoi(cur_fields[3]);
+            primer_pair.left_primer.position_chromosome = stoi(cur_fields[2]) + cur_template_offset;
+            primer_pair.left_primer.position_template   = stoi(cur_fields[2]);
+            primer_pair.left_primer.sequence            = cur_fields[9];
+            primer_pair.left_primer.length              = stoi(cur_fields[3]);
         } else if (startswith(line, "RIGHT PRIMER")) {
             cur_fields = move(split(line.substr(right_primer_line_start, line.size())));
             PrimerPair& primer_pair = chroms[cur_path].back();
-            primer_pair.right_primer.sequence = cur_fields[9];
-            primer_pair.right_primer.position = stoi(cur_fields[2]) - stoi(cur_fields[3]) + 1;
-            primer_pair.right_primer.length   = stoi(cur_fields[3]);
+            primer_pair.right_primer.position_chromosome = stoi(cur_fields[2]) - stoi(cur_fields[3]) + 1 + cur_template_offset;
+            primer_pair.right_primer.position_template   = stoi(cur_fields[2]) - stoi(cur_fields[3]) + 1;
+            primer_pair.right_primer.sequence            = cur_fields[9];
+            primer_pair.right_primer.length              = stoi(cur_fields[3]);
 
             assert(!primer_pair.left_primer.sequence.empty());
             map_to_nodes(primer_pair.left_primer, cur_path);
             map_to_nodes(primer_pair.right_primer, cur_path);
-            primer_pair.linear_product_size = primer_pair.right_primer.position
-                - primer_pair.left_primer.position + primer_pair.right_primer.length;
+            primer_pair.linear_product_size = primer_pair.right_primer.position_template
+                - primer_pair.left_primer.position_template + primer_pair.right_primer.length;
             update_min_max_product_size(primer_pair);
             update_variation(primer_pair, cur_path);
             chroms[cur_path].emplace_back();
+            chroms[cur_path].back().chromosome_name   = cur_path;
+            chroms[cur_path].back().template_position = cur_template_offset;
             chroms[cur_path].back().right_primer.left = false;
         }
     }
@@ -115,7 +131,8 @@ void PrimerFinder::make_primer(Primer& primer, const string& path_name,
     string sequence = "";
     handle_t cur_handle = graph->get_handle(starting_node_id); // get the starting node handle
     step_handle_t cur_step_handle = graph->steps_of_handle(cur_handle)[0];
-    primer.position = graph->get_position_of_step(cur_step_handle) + offset;
+    primer.position_template   = graph->get_position_of_step(cur_step_handle) + offset;
+    primer.position_chromosome = primer.position_template;
     // Walk down the path and get the sequence of primer
     if (graph->get_length(cur_handle) - offset > length) {
         sequence += graph->get_sequence(cur_handle).substr(offset, length);
@@ -123,8 +140,8 @@ void PrimerFinder::make_primer(Primer& primer, const string& path_name,
         sequence += graph->get_sequence(cur_handle).substr(offset, graph->get_length(cur_handle) - offset);
         while (sequence.size() < length) {
             cur_step_handle = graph->get_next_step(cur_step_handle);
-            cur_handle = graph->get_handle_of_step(cur_step_handle);
-            sequence += graph->get_sequence(cur_handle).substr(0, min(graph->get_length(cur_handle), length-sequence.size()));
+            cur_handle      = graph->get_handle_of_step(cur_step_handle);
+            sequence       += graph->get_sequence(cur_handle).substr(0, min(graph->get_length(cur_handle), length-sequence.size()));
         }
     }
 
@@ -158,7 +175,7 @@ void PrimerFinder::map_to_nodes(Primer& primer, const string& path_name) {
         primer_seq = reverse_complement(primer.sequence);
     }
 
-    step_handle_t  cur_node_step_handle = graph->get_step_at_position(reference_path_handle, primer.position);
+    step_handle_t  cur_node_step_handle = graph->get_step_at_position(reference_path_handle, primer.position_chromosome);
     handle_t cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
     primer.mapped_nodes_ids.push_back(graph->get_id(cur_node_handle));
     string cur_node_sequence = graph->get_sequence(cur_node_handle);
@@ -238,7 +255,7 @@ void PrimerFinder::update_variation(PrimerPair& primer_pair, const string& path_
     }
     
     const path_handle_t& reference_path_handle = graph->get_path_handle(path_name);
-    step_handle_t cur_node_step_handle = graph->get_step_at_position(reference_path_handle, left_primer.position);
+    step_handle_t cur_node_step_handle = graph->get_step_at_position(reference_path_handle, left_primer.position_template);
     handle_t cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
     net_handle_t cur_net_handle = distance_index->get_net(cur_node_handle, graph);
     nid_t cur_node_id = graph->get_id(cur_node_handle);
@@ -246,7 +263,7 @@ void PrimerFinder::update_variation(PrimerPair& primer_pair, const string& path_
         size_t depth = distance_index->get_depth(cur_net_handle);
         if (depth != 1) {
             if (primer_nodes_set.find(cur_node_id) != primer_nodes_set.end()) {
-                primer_pair.no_variation_at_primers = false;
+                primer_pair.no_variation_at_primers  = false;
                 primer_pair.no_variation_in_products = false;
                 break;
             } else {
@@ -273,6 +290,19 @@ vector<string> PrimerFinder::split(const string& str) {
     }
     return fields;
 }
+
+vector<string> PrimerFinder::split(const string& str, const char& delim) {
+    istringstream iss(str);
+    string field;
+    vector<string> fields;
+
+    while (getline(iss, field, delim)) {
+        fields.push_back(field);
+    }
+
+    return fields;
+}
+
 
 bool PrimerFinder::startswith(const string& str, const string& prefix) {
     return str.compare(0, prefix.length(), prefix) == 0;

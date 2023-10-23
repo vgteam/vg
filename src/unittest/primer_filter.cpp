@@ -37,124 +37,244 @@ using namespace std;
         unique_ptr<handlegraph::PathPositionHandleGraph> graph;
         string snarl_index_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.dist";
         string xg_graph_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.xg";
-        string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer_tabular.out";
         distance_index.deserialize(snarl_index_path);
         graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
-        ifstream file_handle(primers_path);
-        PrimerFinder primer_finder(graph, &distance_index, file_handle);
+        
+        SECTION("template_position=0") {
+            string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3_with_ref_pos.out";
+            ifstream file_handle(primers_path);
+            PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
-        SECTION("Loads the correct number of chromosomes") {
-            REQUIRE(primer_finder.total_reference_paths() == 1);
-        }
-
-        SECTION("Loads the correct number of primer pairs") {
-            REQUIRE(primer_finder.get_primer_pairs_of_chrom("y").size() == 5);
-        }
-
-        SECTION("Loads and processes the primers correctly") {
-            primer_finder.add_primer_pair("y", 9, 14, 20, 22, 0, 20); // made up data, variation both at primers and in product
-            primer_finder.add_primer_pair("y", 31, 0, 15, 34, 1, 15); // made up data, no variation at primers or in product
-
-            // Correct primer attributes
-            const vector<string> left_primers_sequences {
-                "TGCCTGGCATAGAGGAAAGC", "GAGTCGAGGCTCAAGGACAG", "CAGAGTCGAGGCTCAAGGAC",
-                "GAGGCTCAAGGACAGCTCTC", "TCCAGAAGCTGCTCTTTCCC", "AGCCAGACAAATCTGGGTTC",
-                "CAACTGGTAGTTACT"
-            };
-
-            const vector<size_t> left_primers_positions {
-                362, 620, 618, 625, 819, 181, 388
-            };
-
-            const vector<size_t> left_primers_lengths {
-                20, 20, 20, 20, 20, 20, 15
-            };
-
-            const vector<size_t> left_primers_nodes_count {
-                2, 1, 1, 2, 2, 6, 1
-            };
-
-            const vector<string> right_primers_sequences {
-                "GCCAGAAGAGCCTCAAGGAG", "AGGAGAGCTGGGAAAAGGGA", "AGGAGAGCTGGGAAAAGGGA",
-                "AGGAGAGCTGGGAAAAGGGA", "GCCTGGGTAGCTTTGGATGT", "AGATAATTAAACTGAAGTTC",
-                "GTTGACAATGAAAAG"
-            };
-
-            const vector<size_t> right_primers_positions {
-                466, 745, 745, 745, 935, 260, 485
-            };
-
-            const vector<size_t> right_primers_lengths {
-                20, 20, 20, 20, 20, 20, 15
-            };
-
-            const vector<size_t> right_primers_nodes_count {
-                2, 1, 1, 1, 2, 3, 1
-            };
-
-            const vector<size_t> min_product_sizes {
-                124, 142, 144, 137, 135, 97, 112
-            };
-
-            const vector<size_t> max_product_sizes {
-                124, 145, 147, 140, 138, 100, 112
-            };
-
-            const vector<size_t> linear_product_sizes {
-                124, 145, 147, 140, 136, 99, 112
-            };
-            
-            const vector<bool> no_variations_at_primers {
-                true, true, true, true, true, false, true
-            };
-
-            const vector<bool> no_variations_in_products {
-                false, false, false, false, false, false, true
-            };
-
-            const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom("y");
-            
-            REQUIRE(primer_pairs.size() == left_primers_sequences.size());
-            for (size_t i = 0; i < primer_pairs.size(); ++i) {
-                REQUIRE(left_primers_nodes_count[i]  == primer_pairs[i].left_primer.mapped_nodes_ids.size());
-                REQUIRE(left_primers_sequences[i]    == primer_pairs[i].left_primer.sequence);
-                REQUIRE(left_primers_positions[i]    == primer_pairs[i].left_primer.position);
-                REQUIRE(left_primers_lengths[i]      == primer_pairs[i].left_primer.length);
-                REQUIRE(right_primers_nodes_count[i] == primer_pairs[i].right_primer.mapped_nodes_ids.size());
-                REQUIRE(right_primers_sequences[i]   == primer_pairs[i].right_primer.sequence);
-                REQUIRE(right_primers_positions[i]   == primer_pairs[i].right_primer.position);
-                REQUIRE(right_primers_lengths[i]     == primer_pairs[i].right_primer.length);
-                REQUIRE(linear_product_sizes[i]      == primer_pairs[i].linear_product_size);
-                REQUIRE(min_product_sizes[i]         == primer_pairs[i].min_product_size);
-                REQUIRE(max_product_sizes[i]         == primer_pairs[i].max_product_size);
-                REQUIRE(no_variations_at_primers[i]  == primer_pairs[i].no_variation_at_primers);
-                REQUIRE(no_variations_in_products[i] == primer_pairs[i].no_variation_in_products);
+            SECTION("Loads the correct number of chromosomes") {
+                REQUIRE(primer_finder.total_reference_paths() == 1);
             }
 
-            SECTION("Check that primers are assigned with correct nodes") {
-                vector<size_t> pair_0_left_primer_nodes {27, 28};
-                for (size_t i = 0; i < primer_pairs[0].left_primer.mapped_nodes_ids.size(); i++) {
-                    REQUIRE(primer_pairs[0].left_primer.mapped_nodes_ids[i] == pair_0_left_primer_nodes[i]);
-                }
-
-                vector<size_t> pair_0_right_primer_nodes {33, 34};
-                for (size_t i = 0; i < primer_pairs[0].right_primer.mapped_nodes_ids.size(); i++) {
-                    REQUIRE(primer_pairs[0].right_primer.mapped_nodes_ids[i] == pair_0_right_primer_nodes[i]);
-                }
-
-                vector<size_t> pair_5_left_primer_nodes {9, 11, 12, 14, 15, 17};
-                for (size_t i = 0; i < primer_pairs[5].left_primer.mapped_nodes_ids.size(); i++) {
-                    REQUIRE(primer_pairs[5].left_primer.mapped_nodes_ids[i] == pair_5_left_primer_nodes[i]);
-                }
-
-                vector<size_t> pair_5_right_primer_nodes {22, 24, 25};
-                for (size_t i = 0; i < primer_pairs[5].right_primer.mapped_nodes_ids.size(); i++) {
-                    REQUIRE(primer_pairs[5].right_primer.mapped_nodes_ids[i] == pair_5_right_primer_nodes[i]);
-                }
+            SECTION("Loads the correct number of primer pairs") {
+                REQUIRE(primer_finder.get_primer_pairs_of_chrom("y").size() == 5);
             }
 
+            SECTION("Loads and processes the primers correctly") {
+                primer_finder.add_primer_pair("y", 9, 14, 20, 22, 0, 20); // made up data, variation both at primers and in product
+                primer_finder.add_primer_pair("y", 31, 0, 15, 34, 1, 15); // made up data, no variation at primers or in product
+
+                // Correct primer attributes
+                const vector<string> left_primers_sequences {
+                    "TGCCTGGCATAGAGGAAAGC", "GAGTCGAGGCTCAAGGACAG", "CAGAGTCGAGGCTCAAGGAC",
+                    "GAGGCTCAAGGACAGCTCTC", "TCCAGAAGCTGCTCTTTCCC", "AGCCAGACAAATCTGGGTTC",
+                    "CAACTGGTAGTTACT"
+                };
+
+                const vector<size_t> left_primers_positions {
+                    362, 620, 618, 625, 819, 181, 388
+                };
+
+                const vector<size_t> left_primers_lengths {
+                    20, 20, 20, 20, 20, 20, 15
+                };
+
+                const vector<size_t> left_primers_nodes_count {
+                    2, 1, 1, 2, 2, 6, 1
+                };
+
+                const vector<string> right_primers_sequences {
+                    "GCCAGAAGAGCCTCAAGGAG", "AGGAGAGCTGGGAAAAGGGA", "AGGAGAGCTGGGAAAAGGGA",
+                    "AGGAGAGCTGGGAAAAGGGA", "GCCTGGGTAGCTTTGGATGT", "AGATAATTAAACTGAAGTTC",
+                    "GTTGACAATGAAAAG"
+                };
+
+                const vector<size_t> right_primers_positions {
+                    466, 745, 745, 745, 935, 260, 485
+                };
+
+                const vector<size_t> right_primers_lengths {
+                    20, 20, 20, 20, 20, 20, 15
+                };
+
+                const vector<size_t> right_primers_nodes_count {
+                    2, 1, 1, 1, 2, 3, 1
+                };
+
+                const vector<size_t> min_product_sizes {
+                    124, 142, 144, 137, 135, 97, 112
+                };
+
+                const vector<size_t> max_product_sizes {
+                    124, 145, 147, 140, 138, 100, 112
+                };
+
+                const vector<size_t> linear_product_sizes {
+                    124, 145, 147, 140, 136, 99, 112
+                };
+                
+                const vector<bool> no_variations_at_primers {
+                    true, true, true, true, true, false, true
+                };
+
+                const vector<bool> no_variations_in_products {
+                    false, false, false, false, false, false, true
+                };
+
+                const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom("y");
+                
+                REQUIRE(primer_pairs.size() == left_primers_sequences.size());
+                for (size_t i = 0; i < primer_pairs.size(); ++i) {
+                    REQUIRE(left_primers_nodes_count[i]  == primer_pairs[i].left_primer.mapped_nodes_ids.size());
+                    REQUIRE(left_primers_sequences[i]    == primer_pairs[i].left_primer.sequence);
+                    REQUIRE(left_primers_positions[i]    == primer_pairs[i].left_primer.position_chromosome);
+                    REQUIRE(left_primers_lengths[i]      == primer_pairs[i].left_primer.length);
+                    REQUIRE(right_primers_nodes_count[i] == primer_pairs[i].right_primer.mapped_nodes_ids.size());
+                    REQUIRE(right_primers_sequences[i]   == primer_pairs[i].right_primer.sequence);
+                    REQUIRE(right_primers_positions[i]   == primer_pairs[i].right_primer.position_chromosome);
+                    REQUIRE(right_primers_lengths[i]     == primer_pairs[i].right_primer.length);
+                    REQUIRE(linear_product_sizes[i]      == primer_pairs[i].linear_product_size);
+                    REQUIRE(min_product_sizes[i]         == primer_pairs[i].min_product_size);
+                    REQUIRE(max_product_sizes[i]         == primer_pairs[i].max_product_size);
+                    REQUIRE(no_variations_at_primers[i]  == primer_pairs[i].no_variation_at_primers);
+                    REQUIRE(no_variations_in_products[i] == primer_pairs[i].no_variation_in_products);
+                }
+
+                SECTION("Check that primers are assigned with correct nodes") {
+                    vector<size_t> pair_0_left_primer_nodes {27, 28};
+                    for (size_t i = 0; i < primer_pairs[0].left_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[0].left_primer.mapped_nodes_ids[i] == pair_0_left_primer_nodes[i]);
+                    }
+
+                    vector<size_t> pair_0_right_primer_nodes {33, 34};
+                    for (size_t i = 0; i < primer_pairs[0].right_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[0].right_primer.mapped_nodes_ids[i] == pair_0_right_primer_nodes[i]);
+                    }
+
+                    vector<size_t> pair_5_left_primer_nodes {9, 11, 12, 14, 15, 17};
+                    for (size_t i = 0; i < primer_pairs[5].left_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[5].left_primer.mapped_nodes_ids[i] == pair_5_left_primer_nodes[i]);
+                    }
+
+                    vector<size_t> pair_5_right_primer_nodes {22, 24, 25};
+                    for (size_t i = 0; i < primer_pairs[5].right_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[5].right_primer.mapped_nodes_ids[i] == pair_5_right_primer_nodes[i]);
+                    }
+                }
+
+            }
         }
 
+        SECTION("template_position=11") {
+            string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3_with_ref_pos11.out";
+            ifstream file_handle(primers_path);
+            PrimerFinder primer_finder(graph, &distance_index, file_handle);
+
+            SECTION("Loads the correct number of chromosomes") {
+                REQUIRE(primer_finder.total_reference_paths() == 1);
+            }
+
+            SECTION("Loads the correct number of primer pairs") {
+                REQUIRE(primer_finder.get_primer_pairs_of_chrom("y").size() == 5);
+            }
+
+            SECTION("Loads and processes the primers correctly") {
+                primer_finder.add_primer_pair("y", 9, 14, 20, 22, 0, 20); // made up data, variation both at primers and in product
+                primer_finder.add_primer_pair("y", 31, 0, 15, 34, 1, 15); // made up data, no variation at primers or in product
+
+                // Correct primer attributes
+                const vector<string> left_primers_sequences {
+                    "TGCCTGGCATAGAGGAAAGC", "GAGTCGAGGCTCAAGGACAG", "CAGAGTCGAGGCTCAAGGAC",
+                    "GAGGCTCAAGGACAGCTCTC", "TCCAGAAGCTGCTCTTTCCC", "AGCCAGACAAATCTGGGTTC",
+                    "CAACTGGTAGTTACT"
+                };
+
+                const vector<size_t> left_primers_positions {
+                    362, 620, 618, 625, 819, 181, 388
+                };
+
+                const vector<size_t> left_primers_lengths {
+                    20, 20, 20, 20, 20, 20, 15
+                };
+
+                const vector<size_t> left_primers_nodes_count {
+                    2, 1, 1, 2, 2, 6, 1
+                };
+
+                const vector<string> right_primers_sequences {
+                    "GCCAGAAGAGCCTCAAGGAG", "AGGAGAGCTGGGAAAAGGGA", "AGGAGAGCTGGGAAAAGGGA",
+                    "AGGAGAGCTGGGAAAAGGGA", "GCCTGGGTAGCTTTGGATGT", "AGATAATTAAACTGAAGTTC",
+                    "GTTGACAATGAAAAG"
+                };
+
+                const vector<size_t> right_primers_positions {
+                    466, 745, 745, 745, 935, 260, 485
+                };
+
+                const vector<size_t> right_primers_lengths {
+                    20, 20, 20, 20, 20, 20, 15
+                };
+
+                const vector<size_t> right_primers_nodes_count {
+                    2, 1, 1, 1, 2, 3, 1
+                };
+
+                const vector<size_t> min_product_sizes {
+                    124, 142, 144, 137, 135, 97, 112
+                };
+
+                const vector<size_t> max_product_sizes {
+                    124, 145, 147, 140, 138, 100, 112
+                };
+
+                const vector<size_t> linear_product_sizes {
+                    124, 145, 147, 140, 136, 99, 112
+                };
+                
+                const vector<bool> no_variations_at_primers {
+                    true, true, true, true, true, false, true
+                };
+
+                const vector<bool> no_variations_in_products {
+                    false, false, false, false, false, false, true
+                };
+
+                const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom("y");
+                
+                REQUIRE(primer_pairs.size() == left_primers_sequences.size());
+                for (size_t i = 0; i < primer_pairs.size(); ++i) {
+                    REQUIRE(left_primers_nodes_count[i]  == primer_pairs[i].left_primer.mapped_nodes_ids.size());
+                    REQUIRE(left_primers_sequences[i]    == primer_pairs[i].left_primer.sequence);
+                    REQUIRE(left_primers_positions[i]    == primer_pairs[i].left_primer.position_chromosome);
+                    REQUIRE(left_primers_lengths[i]      == primer_pairs[i].left_primer.length);
+                    REQUIRE(right_primers_nodes_count[i] == primer_pairs[i].right_primer.mapped_nodes_ids.size());
+                    REQUIRE(right_primers_sequences[i]   == primer_pairs[i].right_primer.sequence);
+                    REQUIRE(right_primers_positions[i]   == primer_pairs[i].right_primer.position_chromosome);
+                    REQUIRE(right_primers_lengths[i]     == primer_pairs[i].right_primer.length);
+                    REQUIRE(linear_product_sizes[i]      == primer_pairs[i].linear_product_size);
+                    REQUIRE(min_product_sizes[i]         == primer_pairs[i].min_product_size);
+                    REQUIRE(max_product_sizes[i]         == primer_pairs[i].max_product_size);
+                    REQUIRE(no_variations_at_primers[i]  == primer_pairs[i].no_variation_at_primers);
+                    REQUIRE(no_variations_in_products[i] == primer_pairs[i].no_variation_in_products);
+                }
+
+                SECTION("Check that primers are assigned with correct nodes") {
+                    vector<size_t> pair_0_left_primer_nodes {27, 28};
+                    for (size_t i = 0; i < primer_pairs[0].left_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[0].left_primer.mapped_nodes_ids[i] == pair_0_left_primer_nodes[i]);
+                    }
+
+                    vector<size_t> pair_0_right_primer_nodes {33, 34};
+                    for (size_t i = 0; i < primer_pairs[0].right_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[0].right_primer.mapped_nodes_ids[i] == pair_0_right_primer_nodes[i]);
+                    }
+
+                    vector<size_t> pair_5_left_primer_nodes {9, 11, 12, 14, 15, 17};
+                    for (size_t i = 0; i < primer_pairs[5].left_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[5].left_primer.mapped_nodes_ids[i] == pair_5_left_primer_nodes[i]);
+                    }
+
+                    vector<size_t> pair_5_right_primer_nodes {22, 24, 25};
+                    for (size_t i = 0; i < primer_pairs[5].right_primer.mapped_nodes_ids.size(); i++) {
+                        REQUIRE(primer_pairs[5].right_primer.mapped_nodes_ids[i] == pair_5_right_primer_nodes[i]);
+                    }
+                }
+
+            }
+        }
     }
 }
 }
