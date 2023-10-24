@@ -1171,36 +1171,6 @@ cerr << "Find intervals on snarl" << endl;
     end_zip.fill_in_zipcode(distance_index, end_bound_pos);
     ZipCodeDecoder end_zip_decoder(&end_zip);
 
-    //We'll add runs of seeds on the same chain or node. This is used to find their offsets on whatever
-    //chain/node they are on
-    auto get_lowest_prefix_sum = [&] (const Seed& seed, bool chain_is_reversed) {
-        //Get the offset in the chain or node. The orientation of the chain doesn't matter
-        size_t max_depth = seed.zipcode_decoder->max_depth();
-
-        bool is_trivial_chain = seed.zipcode_decoder->get_code_type(max_depth) 
-                                    == ZipCode::CHAIN;
-        //Is the node reversed in its parent? No if it is a trivial chain
-        bool node_is_rev = is_trivial_chain 
-                         ? chain_is_reversed
-                         : (seed.zipcode_decoder->get_is_reversed_in_parent(max_depth) ? !chain_is_reversed
-                                                                                       : chain_is_reversed);
-        //Start with the offset in the node
-        size_t node_offset = is_rev(seed.pos) != node_is_rev
-                ? seed.zipcode_decoder->get_length(max_depth) - offset(seed.pos)
-                : offset(seed.pos);
-
-        //Possibly add the offset in the chain
-        size_t prefix_sum = 0;
-        if (!is_trivial_chain) {
-            prefix_sum = chain_is_reversed
-                       ? seed.zipcode_decoder->get_length(max_depth-1) 
-                            - seed.zipcode_decoder->get_offset_in_chain(max_depth)
-                            - seed.zipcode_decoder->get_length(max_depth)
-                       : seed.zipcode_decoder->get_offset_in_chain(max_depth); 
-        }
-        return SnarlDistanceIndex::sum(prefix_sum, node_offset);
-    };
-
     for (size_t i = 0 ; i < 2 ; i++) {
         //Each seed and orientation gets added twice
         for (auto& to_interval : child_intervals) {
@@ -1229,18 +1199,14 @@ cerr << "Find intervals on snarl" << endl;
             const Seed& start_seed = seeds->at(forest_state.seed_sort_order[to_interval.interval_start]);
             size_t to_seed_depth = start_seed.zipcode_decoder->max_depth();
             auto n = distance_index.get_node_net_handle(id(start_seed.pos));
-            cerr << distance_index.net_handle_as_string(distance_index.get_parent(n)) << endl;
 
             //This is the orientation of the node in the chain, so this points forward in the chain
             bool start_seed_is_rev = start_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
-            cerr << "Start seed is rev " << start_seed_is_rev << endl;
             //If the interval is traversing the chain backwards, then the orientation flips to point 
             //backwards in the chain, into the interval
             if (to_interval.is_reversed) {
-                cerr << "to_interval is rev" << endl;
                 start_seed_is_rev = !start_seed_is_rev;
             }
-            cerr << "Start pos " << start_seed.pos << endl;
             //The seed needs to be pointing in the same direction, so flip it if it isn't
             if (is_rev(start_seed.pos) != start_seed_is_rev) {
                 start_seed_is_rev = true;
@@ -1283,8 +1249,6 @@ cerr << "Find intervals on snarl" << endl;
                                                                                   *start_seed.zipcode_decoder, start_pos, distance_index), 1);
             size_t distance_end_right = SnarlDistanceIndex::minus(ZipCode::minimum_distance_between(end_zip_decoder, end_bound_pos, 
                                                                                    *end_seed.zipcode_decoder, end_pos, distance_index), 1); 
-            cerr << "Positions " << start_bound_pos << " " << end_bound_pos << " and " << start_pos << " " << end_pos << endl;
-            cerr << "Distances to ends: " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 
             if (distance_start_left != std::numeric_limits<size_t>::max() || 
                 distance_end_right != std::numeric_limits<size_t>::max()) {
@@ -1340,7 +1304,7 @@ cerr << "Find intervals on snarl" << endl;
                     size_t previous_prefix_sum=0;
                     for (int seed_i = to_interval.interval_end-1 ; seed_i >= to_interval.interval_start ; seed_i--) {
                         size_t seed_index = forest_state.seed_sort_order[seed_i];
-                        size_t current_prefix_sum = forest_state.sort_values_by_seed[seed_index].first;//TODO get_lowest_prefix_sum(seeds->at(seed_index), !to_interval.is_reversed); 
+                        size_t current_prefix_sum = forest_state.sort_values_by_seed[seed_index].first;
                         if (seed_i != to_interval.interval_end-1) {
 #ifdef DEBUG_ZIP_CODE_TREE
                             //assert(current_prefix_sum >= previous_prefix_sum);
@@ -1376,7 +1340,7 @@ cerr << "Find intervals on snarl" << endl;
                     size_t previous_prefix_sum = 0;
                     for (size_t seed_i = to_interval.interval_start ; seed_i < to_interval.interval_end ; seed_i++) {
                         size_t seed_index = forest_state.seed_sort_order[seed_i];
-                        size_t current_prefix_sum = forest_state.sort_values_by_seed[seed_index].first;//TODO get_lowest_prefix_sum(seeds->at(seed_index), !to_interval.is_reversed); 
+                        size_t current_prefix_sum = forest_state.sort_values_by_seed[seed_index].first;
                         if (seed_i != to_interval.interval_start) {
 #ifdef DEBUG_ZIP_CODE_TREE
                             assert(seeds->at(forest_state.seed_sort_order[seed_i]).zipcode_decoder->max_depth() == to_seed_depth);
