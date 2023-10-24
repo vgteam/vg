@@ -457,8 +457,8 @@ class ZipCodeForest {
     /// and return the intervals of the children, in the order of traversal
     /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
     /// Uses radix_sort_zipcodes and default_sort_zipcodes
-    /// sort_root is true if sorting the root into connected components
-    vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval, 
+    vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, 
+            vector<pair<size_t, ZipCode::code_type_t>>& sort_values_by_seed, const interval_and_orientation_t& interval, 
             size_t interval_depth, const SnarlDistanceIndex& distance_index,
             bool get_next_intervals=true) const;
 
@@ -468,16 +468,16 @@ class ZipCodeForest {
     /// reverse_order is true if the order should be reversed. The interval also has an is_reversed field,
     /// which refers to the orientation in the snarl tree
     /// This should run in linear time, but it is dependent on the values being sorted on to have a small range
-    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
-                             const std::function<size_t(const Seed& seed, size_t depth)>& get_sort_value) const; 
+    /// min_ and max_value are the minimum and maximum value being sorted on
+    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<pair<size_t, ZipCode::code_type_t>>& sort_values_by_seed,
+                             const interval_and_orientation_t& interval, bool reverse_order,
+                             size_t min_value, size_t max_value) const; 
 
     /// Helper function to sort the seeds using std::sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
     /// into seeds
-    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const interval_and_orientation_t& interval,
-                             bool reverse_order, size_t depth, const SnarlDistanceIndex& distance_index, 
-                             const std::function<size_t(const Seed& seed, size_t depth)>& get_sort_value) const; 
+    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<pair<size_t, ZipCode::code_type_t>>& sort_values_by_seed,
+                               const interval_and_orientation_t& interval, bool reverse_order) const; 
 
 
     //////////////////// data structures and helper functions for building the forest
@@ -512,6 +512,11 @@ class ZipCodeForest {
     struct forest_growing_state_t {
 
         vector<size_t> seed_sort_order;
+
+        //This stores the sort value and code type of each seed at a particular depth. 
+        //This will change as forest building progresses but it will be set for the relevant seed 
+        //immediately before sorting
+        vector<pair<size_t, ZipCode::code_type_t>> sort_values_by_seed;
 
         //Stores the previous things of the current structure at each depth
         vector<vector<child_info_t>> sibling_indices_at_depth;
