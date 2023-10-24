@@ -425,7 +425,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
         // Decide how much length changed
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
-        size_t min_distance = std::min(read_distance, graph_distance);
         
         if (show_work) {
             cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
@@ -435,8 +434,27 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // Don't allow an indel this long
             jump_points = std::numeric_limits<int>::min();
         } else {
-            // Then charge for that indel
-            jump_points = std::min<int>((int) min_distance, (int) here.length()) - score_chain_gap(indel_length, average_anchor_length);
+            // Assign points for the assumed matches in the transition, and charge for the indel.
+            //
+            // The Minimap2 paper
+            // <https://doi.org/10.1093/bioinformatics/bty191> at 2.1.1 says
+            // that we ought to assign "α(j,i)=min{min{yi−yj,xi−xj},wi} is the
+            // number of matching bases between the two anchors", minus the gap
+            // penalty. Here, i is the destination anchor and j is the
+            // predecessor, and x and y are read and query positions of the
+            // *final* base in the anchor, while w is anchor width.
+            //
+            // As written, the gloss isn't really true; the number of matching
+            // bases between the two anchors isn't bounded below by the width
+            // of the second anchor. It looks more like we are counting the
+            // number of new matching bases in the destination anchor that are
+            // not overlapping matching bases in the source anchor.
+            //
+            // Our distances are between the end of the previous anchor and the
+            // start of this one (not the end as in Minimap2's formulation).
+            // And our anchors also thus never overlap. So we can just always
+            // use the length of the destination anchor.
+            jump_points = (int) here.length() - score_chain_gap(indel_length, average_anchor_length);
         }
             
         if (jump_points != numeric_limits<int>::min()) {
