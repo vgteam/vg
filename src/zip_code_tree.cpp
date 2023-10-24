@@ -1,6 +1,6 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
-#define DEBUG_ZIP_CODE_SORTING
+//#define DEBUG_ZIP_CODE_SORTING
 //This is used to get an all-to-all-seeds distance matrix for cyclic snarls
 //#define EXHAUSTIVE_CYCLIC_SNARLS
 
@@ -17,6 +17,10 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDis
                                size_t distance_limit) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Make a new forest with " << all_seeds.size() << " seeds with distance limit " << distance_limit << endl;
+    for (auto& x : all_seeds) {
+        cerr << x.pos << endl;
+    }
+    cerr << endl;
 #endif
     if (all_seeds.size() == 0) {
         return;
@@ -1070,16 +1074,7 @@ cerr << "Find intervals on snarl" << endl;
         //Add runs of seeds (which will be parts of current_interval not in the next_intervals) to child_intervals
         //Also anything with just one seed to child_intervals
         //Add snarls and chains to intervals_to_process
-        size_t last_end = current_interval.interval_start;
         for (auto& next_interval : next_intervals) {
-            if (next_interval.interval_start > last_end) {
-                //If this is a snarl and we haven't added the previous child seeds
-                //TODO: Actually this doesn't happen I think
-                child_intervals.push_back({last_end, next_interval.interval_start, current_interval.is_reversed, 
-                                             ZipCode::CHAIN, current_depth+1});
-                assert(false);
-            }
-            last_end = next_interval.interval_end;
             if (next_interval.interval_end - next_interval.interval_start == 1) {
                 //If this is just one seed, add the interval
                 child_intervals.emplace_back(std::move(next_interval));
@@ -1092,11 +1087,6 @@ cerr << "Find intervals on snarl" << endl;
                 //If this is another snarl/chain to process
                 intervals_to_process.emplace_back(std::move(next_interval), current_depth+1);
             }
-        }
-        if (last_end < current_interval.interval_end) {
-            //Add any seeds left on the current interval
-            child_intervals.push_back({last_end, current_interval.interval_end, current_interval.is_reversed, 
-                                             ZipCode::CHAIN, current_depth+1});
         }
 
     }
