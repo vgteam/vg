@@ -66,7 +66,7 @@ class PrimerFinder {
 private:
     // vector<PrimerPair> primer_pairs;
     // vector<PrimerPair> selected_primer_pairs;
-    map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
+    unordered_map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
     const PathPositionHandleGraph* graph;
     const SnarlDistanceIndex* distance_index;
 

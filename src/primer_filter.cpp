@@ -262,7 +262,7 @@ void PrimerFinder::update_variation(PrimerPair& primer_pair, const string& path_
     while (true) {
         size_t depth = distance_index->get_depth(cur_net_handle);
         if (depth != 1) {
-            if (primer_nodes_set.find(cur_node_id) != primer_nodes_set.end()) {
+            if (primer_nodes_set.find(cur_node_id)  != primer_nodes_set.end()) {
                 primer_pair.no_variation_at_primers  = false;
                 primer_pair.no_variation_in_products = false;
                 break;

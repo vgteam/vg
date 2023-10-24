@@ -159,7 +159,7 @@ using namespace std;
         }
 
         SECTION("template_position=11") {
-            string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3_with_ref_pos11.out";
+            string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3_with_ref_pos_11.out";
             ifstream file_handle(primers_path);
             PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
