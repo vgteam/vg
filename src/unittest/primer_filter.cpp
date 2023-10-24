@@ -35,13 +35,13 @@ using namespace std;
         
         SnarlDistanceIndex distance_index;
         unique_ptr<handlegraph::PathPositionHandleGraph> graph;
-        string snarl_index_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.dist";
-        string xg_graph_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.xg";
+        string snarl_index_path = "test/primers/y.dist";
+        string xg_graph_path = "test/primers/y.xg";
         distance_index.deserialize(snarl_index_path);
         graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
         
         SECTION("template_position=0") {
-            string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3_with_ref_pos.out";
+            string primers_path = "test/primers/y.primer3_with_ref_pos.out";
             ifstream file_handle(primers_path);
             PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
@@ -159,7 +159,7 @@ using namespace std;
         }
 
         SECTION("template_position=11") {
-            string primers_path = "/home/azhang/rotations/rotation_1/vg/alan/small/y.primer3_with_ref_pos_11.out";
+            string primers_path = "test/primers/y.primer3_with_ref_pos_11.out";
             ifstream file_handle(primers_path);
             PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
