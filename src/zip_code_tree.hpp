@@ -424,11 +424,7 @@ class ZipCodeForest {
             tree.print_self();
         }
     }
-    void validate_zip_forest(const SnarlDistanceIndex& distance_index, size_t distance_limit=std::numeric_limits<size_t>::max()) const {
-        for (const auto& tree : trees) {
-            tree.validate_zip_tree(distance_index, distance_limit);
-        }
-    }
+    void validate_zip_forest(const SnarlDistanceIndex& distance_index, size_t distance_limit=std::numeric_limits<size_t>::max()) const;
 
 
     /************************
