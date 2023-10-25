@@ -1,6 +1,6 @@
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define PRINT_NON_DAG_SNARLS
-#define DEBUG_ZIP_CODE_SORTING
+//#define DEBUG_ZIP_CODE_SORTING
 //This is used to get an all-to-all-seeds distance matrix for cyclic snarls
 //#define EXHAUSTIVE_CYCLIC_SNARLS
 
@@ -15,11 +15,6 @@ namespace vg {
 
 void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const SnarlDistanceIndex& distance_index,
                                size_t distance_limit) {
-    cerr << "Make a new forest with " << all_seeds.size() << " seeds with distance limit " << distance_limit << endl;
-    for (auto& x : all_seeds) {
-        cerr << x.pos << endl;
-    }
-    cerr << endl;
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Make a new forest with " << all_seeds.size() << " seeds with distance limit " << distance_limit << endl;
     for (auto& x : all_seeds) {
