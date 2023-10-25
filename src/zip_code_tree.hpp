@@ -513,13 +513,13 @@ class ZipCodeForest {
         //For chains, this is used to indicate the order of the child of a chain
         //since multiple things in the chain can have the same prefix sum value
         // The actual sorting value of the chain is the prefix sum * 3 + chain_order
-        size_t chain_order; 
+        size_t chain_order : 3; 
 
         public:
         //Constructor
         sort_value_t() : sort_value(std::numeric_limits<size_t>::max()),
                          code_type(ZipCode::EMPTY),
-                         chain_order(0) {};
+                         chain_order(7) {};
         sort_value_t (size_t sort_value, ZipCode::code_type_t code_type, size_t chain_order) :
             sort_value(sort_value), code_type(code_type), chain_order(chain_order) {};
 
@@ -527,7 +527,7 @@ class ZipCodeForest {
         size_t get_sort_value() const {
             //The sort value for chains is actually the prefix sum*3+chain_order, 
             // to account for different nodes having the same prefix sum
-            return code_type == ZipCode::CHAIN || code_type == ZipCode::ROOT_CHAIN
+            return chain_order != 7
                        ? (sort_value * 3) + chain_order
                        : sort_value;
         };

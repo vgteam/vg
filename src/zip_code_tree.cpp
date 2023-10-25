@@ -2409,8 +2409,11 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
     size_t max_sort_value = 0;
     size_t min_sort_value = std::numeric_limits<size_t>::max();
 
+
     //If this interval is a chain or node and it is being traversed backwards, save the prefix sum values facing backwards
     //If it is a root chain or node, it won't be reversed anyway
+    bool order_is_reversed = interval.is_reversed && (interval.code_type == ZipCode::CHAIN || interval.code_type == ZipCode::NODE);
+
     for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
         const Seed& seed = seeds->at(zipcode_sort_order[i]); 
 #ifdef DEBUG_ZIP_CODE_SORTING
@@ -2429,13 +2432,13 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             cerr << "\t\t this is a node: offset: " << ( is_rev(seed.pos) ? seed.zipcode_decoder->get_length(interval_depth) - offset(seed.pos)
                                     : offset(seed.pos)) << endl;;
 #endif
-            sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(is_rev(seed.pos) 
-                                                             ? seed.zipcode_decoder->get_length(interval_depth) - offset(seed.pos)
+            sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(
+                       is_rev(seed.pos) != order_is_reversed ? seed.zipcode_decoder->get_length(interval_depth) - offset(seed.pos)
                                                              : offset(seed.pos));
             sort_values_by_seed[zipcode_sort_order[i]].set_code_type(ZipCode::NODE);
         } else if (interval.code_type == ZipCode::CHAIN || interval.code_type == ZipCode::ROOT_CHAIN) {
 #ifdef DEBUG_ZIP_CODE_SORTING
-            cerr << "\t\t this is a chain: prefix sum value x2 (and -1 if snarl): ";
+            cerr << "\t\t this is a chain:";
 #endif
             //Return the prefix sum in the chain
             //Since the offset stored represents the space between nucleotides, two positions on different nodes
@@ -2449,20 +2452,29 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             // To solve this, the prefix sum of a chain will always be multiplied by 3, and 1 will be added to snarls,
             // And 2 will be added to the node with an offset in the node of 0 (node 3 if the chain is traversed forward)
 
-            size_t prefix_sum;
+            size_t prefix_sum = order_is_reversed ? SnarlDistanceIndex::minus(seed.zipcode_decoder->get_length(interval_depth),
+                                                        SnarlDistanceIndex::sum( seed.zipcode_decoder->get_offset_in_chain(interval_depth+1),
+                                                                                 seed.zipcode_decoder->get_length(interval_depth+1)))
+                                               : seed.zipcode_decoder->get_offset_in_chain(interval_depth+1);
+
             ZipCode::code_type_t child_type = seed.zipcode_decoder->get_code_type(interval_depth+1);
+            sort_values_by_seed[zipcode_sort_order[i]].set_code_type(child_type);
+
             if (child_type == ZipCode::REGULAR_SNARL 
                 || child_type == ZipCode::IRREGULAR_SNARL
                 || child_type == ZipCode::CYCLIC_SNARL) { 
-                //If this is a snarl, then get the prefix sum value*3 + 1
-                prefix_sum = seed.zipcode_decoder->get_offset_in_chain(interval_depth+1);
+
+                //For a snarl, the order is prefix_sum*3+1
+                sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(prefix_sum);
                 sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(1);
             } else {
-                //If this is a node, then get the prefix sum value plus the offset in the position, and multiply by 2 
-                size_t node_offset = seed.zipcode_decoder->get_is_reversed_in_parent(interval_depth+1) != is_rev(seed.pos)
-                                                     ? seed.zipcode_decoder->get_length(interval_depth+1) - offset(seed.pos)
-                                                     : offset(seed.pos);
-                prefix_sum = SnarlDistanceIndex::sum(seed.zipcode_decoder->get_offset_in_chain(interval_depth+1), node_offset);
+                //If this is a node, then the offset in the position to the prefix sum
+                bool node_is_rev = seed.zipcode_decoder->get_is_reversed_in_parent(interval_depth+1) != is_rev(seed.pos);
+                node_is_rev = order_is_reversed ? !node_is_rev : node_is_rev;
+                size_t node_offset = node_is_rev ? seed.zipcode_decoder->get_length(interval_depth+1) - offset(seed.pos)
+                                                 : offset(seed.pos);
+
+                sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(SnarlDistanceIndex::sum(prefix_sum, node_offset));
                 if (node_offset == 0) {
                     sort_values_by_seed[zipcode_sort_order[i]].set_chain_order(2);
                 } else {
@@ -2470,10 +2482,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
                 }
             }
 #ifdef DEBUG_ZIP_CODE_SORTING
-            cerr << prefix_sum << " and type " << child_type << endl;
+            cerr << "Prefix sum " << sort_values_by_seed[zipcode_sort_order[i]].get_distance_value() << " and sort value " 
+                 << sort_values_by_seed[zipcode_sort_order[i]].get_sort_value() << " and type " << child_type << endl;
 #endif
-            sort_values_by_seed[zipcode_sort_order[i]].set_sort_value(prefix_sum);
-            sort_values_by_seed[zipcode_sort_order[i]].set_code_type(child_type);
         } else {
 #ifdef DEBUG_ZIP_CODE_SORTING
             cerr << "\tThis is snarl, so return the rank in the snarl: " << seed.zipcode_decoder->get_rank_in_snarl(interval_depth+1) << endl;
@@ -2506,7 +2517,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
     /**** Sort *********/
 
 
-    bool reverse_order = (interval.code_type == ZipCode::REGULAR_SNARL || interval.code_type == ZipCode::IRREGULAR_SNARL) 
+    //Snarls are already sorted by a topological order of the orientation of the zip tree, so don't reverse them
+    //And don't reverse the sort if that has already been taken into account in the value finding
+    bool reverse_order = (interval.code_type == ZipCode::REGULAR_SNARL || interval.code_type == ZipCode::IRREGULAR_SNARL || order_is_reversed) 
                          ? false
                          : interval.is_reversed; 
     if (use_radix) {
