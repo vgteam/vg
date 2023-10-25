@@ -595,8 +595,9 @@ class ZipCodeForest {
     // Open a chain that starts at the current_seed
     // If the chain is in a snarl, then add empty edges for the distances to everything before it in the snarl
     // Open the chain, and record its presence and distance-to-start in the parent snarl, if necessary
+    // seed_index is the index into seeds of the first seed in the chain
     void open_chain(forest_growing_state_t& forest_state, const SnarlDistanceIndex& distance_index,
-                      const size_t& distance_limit, const size_t& depth, const Seed& current_seed, 
+                      const size_t& distance_limit, const size_t& depth, size_t seed_index, 
                       bool chain_is_reversed);
     // Close a chain that ends at last_seed
     // If the chain was empty, remove it and anything relating to it in the parent snarl and sibling_indices
