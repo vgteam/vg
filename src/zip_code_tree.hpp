@@ -448,13 +448,14 @@ class ZipCodeForest {
                                     size_t depth) :
             interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth){}
     };
+    struct sort_value_t;
 
     /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given depth)
     /// and return the intervals of the children, in the order of traversal
     /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
     /// Uses radix_sort_zipcodes and default_sort_zipcodes
     vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, 
-            vector<pair<size_t, ZipCode::code_type_t>>& sort_values_by_seed, const interval_and_orientation_t& interval, 
+            vector<sort_value_t>& sort_values_by_seed, const interval_and_orientation_t& interval, 
             size_t interval_depth, const SnarlDistanceIndex& distance_index,
             bool get_next_intervals=true) const;
 
@@ -465,14 +466,14 @@ class ZipCodeForest {
     /// which refers to the orientation in the snarl tree
     /// This should run in linear time, but it is dependent on the values being sorted on to have a small range
     /// min_ and max_value are the minimum and maximum value being sorted on
-    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<pair<size_t, ZipCode::code_type_t>>& sort_values_by_seed,
+    void radix_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<sort_value_t>& sort_values_by_seed,
                              const interval_and_orientation_t& interval, bool reverse_order,
                              size_t min_value, size_t max_value) const; 
 
     /// Helper function to sort the seeds using std::sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
     /// into seeds
-    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<pair<size_t, ZipCode::code_type_t>>& sort_values_by_seed,
+    void default_sort_zipcodes(vector<size_t>& zipcode_sort_order, const vector<sort_value_t>& sort_values_by_seed,
                                const interval_and_orientation_t& interval, bool reverse_order) const; 
 
 
@@ -503,16 +504,56 @@ class ZipCodeForest {
         bool is_reversed = false;
     };
 
+    //This is used for storing the value used for sorting seeds
+    //Also for the distance value
+    struct sort_value_t {
+        private:
+        size_t sort_value;
+        ZipCode::code_type_t code_type;
+        //For chains, this is used to indicate the order of the child of a chain
+        //since multiple things in the chain can have the same prefix sum value
+        // The actual sorting value of the chain is the prefix sum * 3 + chain_order
+        size_t chain_order; 
+
+        public:
+        //Constructor
+        sort_value_t() : sort_value(std::numeric_limits<size_t>::max()),
+                         code_type(ZipCode::EMPTY),
+                         chain_order(0) {};
+        sort_value_t (size_t sort_value, ZipCode::code_type_t code_type, size_t chain_order) :
+            sort_value(sort_value), code_type(code_type), chain_order(chain_order) {};
+
+        //Get the value used for sorting
+        size_t get_sort_value() const {
+            //The sort value for chains is actually the prefix sum*3+chain_order, 
+            // to account for different nodes having the same prefix sum
+            return code_type == ZipCode::CHAIN || code_type == ZipCode::ROOT_CHAIN
+                       ? (sort_value * 3) + chain_order
+                       : sort_value;
+        };
+
+        //Get the value used for distance finding
+        size_t get_distance_value() const {return sort_value;};
+
+        //Get the code type
+        ZipCode::code_type_t get_code_type() const {return code_type;};
+
+        void set_sort_value(size_t value) {sort_value =value;};
+        void set_code_type(ZipCode::code_type_t type) {code_type = type;};
+        void set_chain_order(size_t order) {chain_order = order;};
+
+    };
 
     /// This stores information about the state of the forest as we fill it in
     struct forest_growing_state_t {
 
         vector<size_t> seed_sort_order;
 
+
         //This stores the sort value and code type of each seed at a particular depth. 
         //This will change as forest building progresses but it will be set for the relevant seed 
         //immediately before sorting
-        vector<pair<size_t, ZipCode::code_type_t>> sort_values_by_seed;
+        vector<sort_value_t> sort_values_by_seed;
 
         //Stores the previous things of the current structure at each depth
         vector<vector<child_info_t>> sibling_indices_at_depth;
