@@ -1154,11 +1154,6 @@ cerr << "Find intervals on snarl" << endl;
 
             //This is the orientation of the node in the chain, so this points forward in the chain
             bool start_seed_is_rev = start_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
-            //If the interval is traversing the chain backwards, then the orientation flips to point 
-            //backwards in the chain, into the interval
-            if (to_interval.is_reversed) {
-                start_seed_is_rev = !start_seed_is_rev;
-            }
             //The seed needs to be pointing in the same direction, so flip it if it isn't
             if (is_rev(start_seed.pos) != start_seed_is_rev) {
                 start_seed_is_rev = true;
@@ -1176,10 +1171,6 @@ cerr << "Find intervals on snarl" << endl;
 
             //This is the opposite orientation of the node in the chain, so it points backward in the chain 
             bool end_seed_is_rev = !end_seed.zipcode_decoder->get_is_reversed_in_parent(to_seed_depth);
-            //If the interval is backwards in the chain, flip the orientation to point into the interval
-            if (to_interval.is_reversed) {
-                end_seed_is_rev = !end_seed_is_rev;
-            }
             //If the seed isn't pointing into the interval, then it needs to be flipped
             if (is_rev(end_seed.pos) != end_seed_is_rev) {
                 end_seed_is_rev = true;
@@ -1276,10 +1267,6 @@ cerr << "Find intervals on snarl" << endl;
                         if (is_rev(seeds->at(seed_index).pos)){
                             seed_is_rev = !seed_is_rev;
                         }
-                        //Is the chain traversed backwards?
-                        if (to_interval.is_reversed) {
-                            seed_is_rev = !seed_is_rev;
-                        }
                         //The interval is traversed backwards so reverse it again
                         seed_is_rev = !seed_is_rev;
                         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SEED, 
@@ -1310,10 +1297,6 @@ cerr << "Find intervals on snarl" << endl;
                                                         seeds->at(seed_index).zipcode_decoder->max_depth());
                         //Is the seeds's position going backwards?
                         if (is_rev(seeds->at(seed_index).pos)){
-                            seed_is_rev = !seed_is_rev;
-                        }
-                        //Is the chain traversed backwards?
-                        if (to_interval.is_reversed) {
                             seed_is_rev = !seed_is_rev;
                         }
                         trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::SEED, 
