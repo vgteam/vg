@@ -2560,9 +2560,11 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::sort_one_interv
             new_intervals.back().interval_end = i;
 
             
-            new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), child_depth, distance_index) 
-                                 ? !interval.is_reversed
-                                 : interval.is_reversed;
+            if (!previous_is_node) {
+                new_intervals.back().is_reversed = ZipCodeTree::seed_is_reversed_at_depth(seeds->at(zipcode_sort_order[i-1]), child_depth, distance_index) 
+                                     ? !interval.is_reversed
+                                     : interval.is_reversed;
+            }
            
  
 
