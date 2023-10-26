@@ -1042,13 +1042,8 @@ cerr << "Find intervals on snarl" << endl;
         //Also anything with just one seed to child_intervals
         //Add snarls and chains to intervals_to_process
         for (auto& next_interval : next_intervals) {
-            if (next_interval.interval_end - next_interval.interval_start == 1) {
-                //If this is just one seed, add the interval
-                child_intervals.emplace_back(std::move(next_interval));
-            } else if (next_interval.code_type == ZipCode::NODE) {
-                //If this is a node, then sort it
-                sort_one_interval(forest_state.seed_sort_order, forest_state.sort_values_by_seed, next_interval, 
-                                  current_depth, distance_index, false);
+            if (next_interval.interval_end - next_interval.interval_start == 1 || next_interval.code_type == ZipCode::NODE) {
+                //If this is just one seed or a run of seeds on a chain, add the interval
                 child_intervals.emplace_back(std::move(next_interval));
             } else {
                 //If this is another snarl/chain to process
