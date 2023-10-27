@@ -160,6 +160,11 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     
     // Find the seeds and mark the minimizers that were located.
     vector<Seed> seeds = this->find_seeds(minimizers_in_read, minimizers, aln, funnel);
+
+    if (seeds.empty()) {
+        #pragma omp critical (cerr)
+        std::cerr << log_name() << "warning[MinimizerMapper::map_from_chains]: No seeds found for " << aln.name() << "!" << std::endl;
+    }
     
     if (this->track_provenance) {
         funnel.stage("tree");
@@ -693,7 +698,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
-    if (show_work) {
+    if (show_work && best_chain != std::numeric_limits<size_t>::max()) {
         // Dump the best chain
         vector<size_t> involved_seeds;
         for (ZipCodeTree::oriented_seed_t found : zip_code_forest.trees.at(chain_source_tree.at(best_chain))) {
@@ -703,30 +708,41 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     }
     
     // Find its coverage
-    double best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
+    double best_chain_coverage = 0;
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {chains.at(best_chain)}, seeds, minimizers);
+    }
     
     // Find out how gappy it is. We can get the longest and the average distance maybe.
     size_t best_chain_longest_jump = 0;
     size_t best_chain_total_jump = 0;
-    for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
-        // Find the pair of anchors we go between
-        auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
-        auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
-        // And get the distance between them in the read
-        size_t jump = right_anchor.read_start() - left_anchor.read_end();
-        // Max and add it in
-        best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
-        best_chain_total_jump += jump;
+    double best_chain_average_jump = 0;
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        for (size_t i = 1; i < chains.at(best_chain).size(); i++) {
+            // Find the pair of anchors we go between
+            auto& left_anchor = seed_anchors.at(chains.at(best_chain).at(i - 1));
+            auto& right_anchor = seed_anchors.at(chains.at(best_chain).at(i));
+            // And get the distance between them in the read
+            size_t jump = right_anchor.read_start() - left_anchor.read_end();
+            // Max and add it in
+            best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
+            best_chain_total_jump += jump;
+        }
+        best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
     }
-    double best_chain_average_jump = chains.at(best_chain).size() > 1 ? best_chain_total_jump / (chains.at(best_chain).size() - 1) : 0.0;
 
     // Also count anchors in the chain
-    size_t best_chain_anchors = chains.at(best_chain).size();
+    size_t best_chain_anchors = 0;
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        best_chain_anchors = chains.at(best_chain).size();
+    }
 
     // And total length of anchors in the chain
     size_t best_chain_anchor_length = 0;
-    for (auto& item : chains.at(best_chain)) {
-        best_chain_anchor_length += seed_anchors.at(item).length();
+    if (best_chain != std::numeric_limits<size_t>::max()) {
+        for (auto& item : chains.at(best_chain)) {
+            best_chain_anchor_length += seed_anchors.at(item).length();
+        }
     }
     
     if (track_provenance) {
