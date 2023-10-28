@@ -40,7 +40,9 @@ size_t difference(const size_t& a, const size_t& b) {
 void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
     const Primer& left_primer  = primer_pair.left_primer;
     const Primer& right_primer = primer_pair.right_primer;
+    size_t rln = right_primer.mapped_nodes_ids.size() - 1; //right primer last node index
     cout << genome_name                          << "\t"
+         << primer_pair.template_feature         << "\t"
          << primer_pair.template_position        << "\t"
          << left_primer.sequence                 << "\t" 
          << right_primer.sequence                << "\t"
@@ -48,6 +50,8 @@ void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
          << right_primer.position_template       << "\t"
          << left_primer.position_chromosome      << "\t"
          << right_primer.position_chromosome     << "\t"
+         << left_primer.mapped_nodes_ids[0]      << "\t"
+         << right_primer.mapped_nodes_ids[rln]   << "\t"
          << left_primer.length                   << "\t"
          << right_primer.length                  << "\t"
          << primer_pair.linear_product_size      << "\t"
@@ -55,7 +59,6 @@ void print_tabular(const string& genome_name, const PrimerPair& primer_pair) {
          << primer_pair.max_product_size         << "\t"
          << primer_pair.no_variation_at_primers  << "\t"
          << primer_pair.no_variation_in_products << endl;
-
 }
 
 int main_primers(int argc, char** argv) {
@@ -156,8 +159,8 @@ int main_primers(int argc, char** argv) {
     ifstream file_handle(primers_path);
     PrimerFinder primer_finder(graph, &distance_index, file_handle);
 
-    cout << "chrom\ttplpos\tlpseq\trpseq\tlppostpl\trppostmp\tlpposchrom\trpposchrom\t"
-         << "lplen\trplen\tlinsize\tminsize\tmaxsize\tnvprimers\tnvproducts" << endl;
+    cout << "chrom\ttplfeat\ttplpos\tlpseq\trpseq\tlppostpl\trppostmp\tlpposchrom\trpposchrom\t"
+         << "lpnid\trpnid\tlplen\trplen\tlinsize\tminsize\tmaxsize\tnvprimers\tnvproducts" << endl;
          
     vector<string> reference_paths = primer_finder.get_reference_paths();
     for (size_t i = 0; i < reference_paths.size(); ++i) {

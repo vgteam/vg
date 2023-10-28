@@ -1,4 +1,4 @@
-PRIMER PICKING RESULTS FOR y,100
+PRIMER PICKING RESULTS FOR y|gene|feature|100
 
 No mispriming library specified
 Using 0-based sequence positions
@@ -65,7 +65,7 @@ considered 61, unacceptable product size 55, ok 6
 libprimer3 release 2.6.1
 
 
-PRIMER PICKING RESULTS FOR y,601
+PRIMER PICKING RESULTS FOR y|gene|feature|601
 
 No mispriming library specified
 Using 0-based sequence positions

@@ -30,7 +30,7 @@ is $(vg primers primers/y.split.out -x y.xg -s y.dist -m 140 | wc -l) 7  "Get th
 
 vg primers primers/y.primer3_with_ref_pos.out    -x y.xg -s y.dist > y.ref_pos_0.out
 vg primers primers/y.primer3_with_ref_pos_11.out -x y.xg -s y.dist > y.ref_pos_11.out
-diff -q <(awk '{$2=$5=$6=""; print $0}' y.ref_pos_0.out) <(awk '{$2=$5=$6=""; print $0}' y.ref_pos_11.out) > diff_0_11
+diff -q <(awk '{$2=$3=$6=$7=""; print $0}' y.ref_pos_0.out) <(awk '{$2=$3=$6=$7=""; print $0}' y.ref_pos_11.out) > diff_0_11
 is $(cat diff_0_11 | wc -l) 0 "These two output files should have identical primers except for their positions on template"
 
 # clean up

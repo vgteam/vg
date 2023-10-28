@@ -53,6 +53,7 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
     vector<string> cur_fields;
     size_t cur_template_offset;
     string cur_template_info;
+    string cur_template_feature;
     string cur_path;
     string line;
     while (getline(file_handle, line)) {
@@ -65,14 +66,16 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
                 assert(chroms[cur_path].back().right_primer.sequence.empty());
                 chroms[cur_path].pop_back();
             }
-            cur_fields          = move(split(line));
-            cur_template_info   = cur_fields[cur_fields.size()-1];
-            cur_fields          = move(split(cur_template_info,','));
-            cur_template_offset = stoi(cur_fields[1]);
-            cur_path            = cur_fields[0];
+            cur_fields           = move(split(line));
+            cur_template_info    = cur_fields[cur_fields.size()-1];
+            cur_fields           = move(split(cur_template_info,'|'));
+            cur_template_feature = cur_fields[1] + "|" + cur_fields[2];
+            cur_template_offset  = stoi(cur_fields[3]);
+            cur_path             = cur_fields[0];
             chroms[cur_path].emplace_back();
             chroms[cur_path].back().chromosome_name   = cur_path;
             chroms[cur_path].back().template_position = cur_template_offset;
+            chroms[cur_path].back().template_feature  = cur_template_feature;
             chroms[cur_path].back().right_primer.left = false;
         } else if (left_primer_line_start != string::npos) {
             cur_fields = move(split(line.substr(left_primer_line_start, line.size())));
@@ -99,6 +102,7 @@ void PrimerFinder::load_primers(ifstream& file_handle) {
             chroms[cur_path].emplace_back();
             chroms[cur_path].back().chromosome_name   = cur_path;
             chroms[cur_path].back().template_position = cur_template_offset;
+            chroms[cur_path].back().template_feature  = cur_template_feature;
             chroms[cur_path].back().right_primer.left = false;
         }
     }

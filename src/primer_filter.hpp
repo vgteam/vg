@@ -53,6 +53,7 @@ struct PrimerPair {
     Primer left_primer;
     Primer right_primer;
     string chromosome_name;
+    string template_feature;
     size_t linear_product_size = numeric_limits<size_t>::max();
     size_t template_position   = numeric_limits<size_t>::max();
     size_t min_product_size    = numeric_limits<size_t>::max();
