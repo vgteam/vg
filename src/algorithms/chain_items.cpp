@@ -63,23 +63,17 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
 
 transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                                                  size_t min_lookback_items,
-                                                 size_t lookback_item_hard_cap,
-                                                 size_t initial_lookback_threshold,
-                                                 double lookback_scale_factor,
-                                                 double min_good_transition_score_per_base) {
+                                                 size_t lookback_item_hard_cap) {
 
     
     // Capture all the arguments by value into a lambda
     transition_iterator iterator = [max_lookback_bases,
                                     min_lookback_items,
-                                    lookback_item_hard_cap,
-                                    initial_lookback_threshold,
-                                    lookback_scale_factor,
-                                    min_good_transition_score_per_base](const VectorView<Anchor>& to_chain,
-                                                                        const SnarlDistanceIndex& distance_index,
-                                                                        const HandleGraph& graph,
-                                                                        size_t max_indel_bases,
-                                                                        const transition_iteratee& callback) {
+                                    lookback_item_hard_cap](const VectorView<Anchor>& to_chain,
+                                                            const SnarlDistanceIndex& distance_index,
+                                                            const HandleGraph& graph,
+                                                            size_t max_indel_bases,
+                                                            const transition_iteratee& callback) {
 
     
 
@@ -131,15 +125,6 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
             // Until we have looked at a certain number of items, we keep going
             // even if we meet other stopping conditions.
             size_t items_considered = 0;
-            // If we are looking back further than this
-            size_t lookback_threshold = initial_lookback_threshold;
-            // And a gooid score has been found, stop
-            bool good_score_found = false;
-            // A good score will be positive and have a transition component that
-            // looks good relative to how far we are looking back. The further we
-            // look back the lower our transition score standards get, so remember
-            // the best one we have seen so far in case the standard goes below it. 
-            int best_transition_found = std::numeric_limits<int>::min();
             
             // Start considering predecessors for this item.
             auto predecessor_index_it = first_overlapping_it;
@@ -175,17 +160,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                     cerr << "\t\tDisregard due to read distance " << read_distance << " over limit " << max_lookback_bases << endl;
 #endif
                         break;
-                    } else if (read_distance > lookback_threshold && good_score_found) {
-                        // We already found something good enough.
-#ifdef debug_chaining
-                    cerr << "\t\tDisregard due to read distance " << read_distance << " over threashold " << lookback_threshold << " and good score already found" << endl;
-#endif
-                        break;
-                    }
-                }
-                if (read_distance > lookback_threshold && !good_score_found) {
-                    // We still haven't found anything good, so raise the threshold.
-                    lookback_threshold *= lookback_scale_factor;
+                    } 
                 }
                 
                 // Now it's safe to make a distance query
@@ -196,14 +171,7 @@ transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
                 std::pair<int, int> scores = {std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
                 if (read_distance != numeric_limits<size_t>::max() && graph_distance != numeric_limits<size_t>::max()) {
                     // Transition seems possible, so yield it.
-                    scores = callback(*predecessor_index_it, i, read_distance, graph_distance);
-                }
-                
-                // Note that we checked out this transition and saw the observed scores and distances.
-                best_transition_found = std::max(best_transition_found, scores.first);
-                if (scores.second > 0 && best_transition_found >= min_good_transition_score_per_base * std::max(read_distance, graph_distance)) {
-                    // We found a jump that looks plausible given how far we have searched, so we can stop searching way past here.
-                    good_score_found = true;
+                    callback(*predecessor_index_it, i, read_distance, graph_distance);
                 }
             } 
         }
@@ -305,7 +273,8 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
         // forward strand to dest on the read forward strand, so we can go them
         // in order along the read forward strand.
         // This holds source, dest, and graph distance.
-        std::stack<std::tuple<size_t, size_t, size_t>> deferred;
+        // We will fill it all in and then sort it by destination read position.
+        std::vector<std::tuple<size_t, size_t, size_t>> all_transitions;
 
         for (ZipCodeTree::iterator dest = zip_code_tree.begin(); dest != zip_code_tree.end(); ++dest) {
             // For each destination seed left to right
@@ -344,7 +313,7 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     auto found_source_anchor = seed_to_ending.find(source_seed.seed);
                     if (found_source_anchor != seed_to_ending.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
-                        handle_transition(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
+                        all_transitions.emplace_back(found_source_anchor->second, found_dest_anchor->second, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
@@ -352,12 +321,12 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
                     }
                 } else if (source_seed.is_reverse && dest_seed.is_reverse) {
                     // Both of these are in the same orientation but it is opposite to the read.
-                    // We need to find source as an anchor *started*, and then queue them up flipped for later.
+                    // We need to find source as an anchor *started*, and thensave them flipped for later.
                     auto found_source_anchor = seed_to_starting.find(source_seed.seed);
                     if (found_source_anchor != seed_to_starting.end()) {
                         // We can transition between these seeds without jumping to/from the middle of an anchor.
                         // Queue them up, flipped
-                        deferred.emplace(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
+                        all_transitions.emplace_back(found_dest_anchor->second, found_source_anchor->second, source_seed.distance);
                     } else {
 #ifdef debug_transition
                         std::cerr <<"\t\tDoes not correspond to an anchor in this cluster" << std::endl;
@@ -370,19 +339,21 @@ transition_iterator zip_tree_transition_iterator(const std::vector<SnarlDistance
             }
         }
 
-        while (!deferred.empty()) {
-            // Now if we were going reverse relative to the read, we can
-            // unstack everything in the right order for forward relative to
-            // the read.
-            handle_transition(std::get<0>(deferred.top()), std::get<1>(deferred.top()), std::get<2>(deferred.top()));
-            deferred.pop();
+        // Sort the transitions so we handle them in akl allowed order for dynamic programming.
+        std::sort(all_transitions.begin(), all_transitions.end(), [&](const std::tuple<size_t, size_t, size_t>& a, const std::tuple<size_t, size_t, size_t>& b) {
+            // Return true if a's destination seed is before b's in the read, and false otherwise.
+            return to_chain[get<1>(a)].read_start() < to_chain[get<1>(b)].read_start();
+        });
+
+        for (auto& transition : all_transitions) {
+            // And handle all of them.
+            // TODO: Inline this now-useless lambda that we call once.
+            handle_transition(std::get<0>(transition), std::get<1>(transition), std::get<2>(transition));
         }
     };
 }
 
-/// Score a chaining gap using the Minimap2 method. See
-/// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
-static int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
+int score_chain_gap(size_t distance_difference, size_t average_anchor_length) {
     if (distance_difference == 0) {
         return 0;
     } else {
@@ -459,7 +430,6 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             
         // Decide how much length changed
         size_t indel_length = (read_distance > graph_distance) ? read_distance - graph_distance : graph_distance - read_distance;
-        size_t min_distance = std::min(read_distance, graph_distance);
         
         if (show_work) {
             cerr << "\t\t\tFor read distance " << read_distance << " and graph distance " << graph_distance << " an indel of length " << indel_length << " would be required" << endl;
@@ -469,12 +439,28 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
             // Don't allow an indel this long
             jump_points = std::numeric_limits<int>::min();
         } else {
-            // Then charge for that indel
-            jump_points = std::min<int>((int) min_distance, (int) here.length()) - score_chain_gap(indel_length, average_anchor_length);
+            // Assign points for the assumed matches in the transition, and charge for the indel.
+            //
+            // The Minimap2 paper
+            // <https://doi.org/10.1093/bioinformatics/bty191> at 2.1.1 says
+            // that we ought to assign "α(j,i)=min{min{yi−yj,xi−xj},wi} is the
+            // number of matching bases between the two anchors", minus the gap
+            // penalty. Here, i is the destination anchor and j is the
+            // predecessor, and x and y are read and query positions of the
+            // *final* base in the anchor, while w is anchor width.
+            //
+            // As written, the gloss isn't really true; the number of matching
+            // bases between the two anchors isn't bounded below by the width
+            // of the second anchor. It looks more like we are counting the
+            // number of new matching bases in the destination anchor that are
+            // not overlapping matching bases in the source anchor.
+            //
+            // Our distances are between the end of the previous anchor and the
+            // start of this one (not the end as in Minimap2's formulation).
+            // And our anchors also thus never overlap. So we can just always
+            // use the length of the destination anchor.
+            jump_points = (int) here.length() - score_chain_gap(indel_length, average_anchor_length);
         }
-            
-        // And how much do we end up with overall coming from there.
-        int achieved_score;
             
         if (jump_points != numeric_limits<int>::min()) {
             // Get the score we are coming from
@@ -501,16 +487,11 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                     {"weight", std::to_string(std::max<int>(1, from_source_score.score))}
                 });
             }
-            
-            achieved_score = from_source_score.score;
         } else {
             if (show_work) {
                 cerr << "\t\tTransition is impossible." << endl;
             }
-            achieved_score = std::numeric_limits<size_t>::min();
         }
-            
-        return std::make_pair(jump_points, achieved_score);
     };
 
     // Run our DP step over all the transitions.

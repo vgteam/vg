@@ -80,6 +80,7 @@ public:
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_0 and
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?
     bool alt_paths = false;
+    bool sha1_variant_name = true;
 
     // Should we handle structural variants in the VCF file,
     // or at least the ones we know how to?

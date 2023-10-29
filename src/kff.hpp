@@ -84,7 +84,7 @@ public:
     typedef gbwtgraph::Key64::value_type kmer_type;
 
     /// Creates a new reader for the given file. Throws `std::runtime_error` if the
-    /// sanity checks fail.
+    /// file cannot be opened or the sanity checks fail.
     ParallelKFFReader(const std::string& filename);
 
     /// Reads the next `n` kmers and counts from the file. This can be called safely

@@ -34,6 +34,8 @@
 //#define debug
 // Turn on printing of minimizer fact tables
 //#define print_minimizer_table
+// Dump the zip code forest
+//#define debug_print_forest
 // Dump local graphs that we align against 
 //#define debug_dump_graph
 // Dump fragment length distribution information
@@ -168,6 +170,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     crash_unless(distance_index);
     zip_code_forest.fill_in_forest(seeds, *distance_index, aln.sequence().size() * zipcode_tree_scale);
 
+#ifdef debug_print_forest
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -175,6 +178,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             zip_code_forest.print_self();
         }
     }
+#endif
 
     // Now score all the zip code trees in the forest by summing the scores of their involved minimizers.
     vector<double> tree_scores;
@@ -352,7 +356,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                 // For each result
                 auto& scored_fragment = results[result];
                 if (show_work) {
-                    if (result < MANY_LIMIT) {
+#ifdef debug
+                    if(true)
+#else
+                    if (result < MANY_LIMIT)
+#endif
+                    {
                         if (!scored_fragment.second.empty()) {
                             #pragma omp critical (cerr)
                             {
@@ -360,6 +369,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                                     << " and length " << scored_fragment.second.size()
                                     << " running " << anchor_view[scored_fragment.second.front()]
                                     << " to " << anchor_view[scored_fragment.second.back()] << std::endl;
+#ifdef debug
+                                
+                                for (auto& anchor_number : scored_fragment.second) {
+                                    std::cerr << log_name() << "\t\t" << anchor_view[anchor_number] << std::endl;
+                                }
+#endif
+
                             }
                         }
                     } else if (result == MANY_LIMIT) {
@@ -717,8 +733,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         funnel.stage("align");
     }
 
+#ifdef print_minimizer_table
     //How many of each minimizer ends up in a chain that actually gets turned into an alignment?
     vector<size_t> minimizer_kept_count(minimizers.size(), 0);
+#endif
     
     // Now start the alignment step. Everything has to become an alignment.
 
@@ -866,8 +884,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
 
             for (size_t i = 0 ; i < minimizer_kept_chain_count[processed_num].size() ; i++) {
+#ifdef print_minimizer_table
                 minimizer_kept_count[i] += minimizer_kept_chain_count[processed_num][i];
-                if (minimizer_kept_chain_count[processed_num][i] > 0) {
+#endif
+                if (use_explored_cap && minimizer_kept_chain_count[processed_num][i] > 0) {
                     // This minimizer is in a zip code tree that gave rise
                     // to at least one alignment, so it is explored.
                     minimizer_explored.insert(i);
@@ -965,54 +985,73 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     }
 
+    vector<double> scaled_scores;
+    scaled_scores.reserve(scores.size());
+    for (auto& score : scores) {
+        scaled_scores.push_back(score * mapq_score_scale);
+    }
+
     crash_unless(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
-
+        get_regular_aligner()->compute_max_mapping_quality(scaled_scores, false) ;
+    
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
 #endif
-    
-    if (show_work) {
-        #pragma omp critical (cerr)
-        {
-            cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
-        }
-    }
-    
-    // TODO: give SmallBitset iterators so we can use it instead of an index vector.
-    vector<size_t> explored_minimizers;
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        if (minimizer_explored.contains(i)) {
-            explored_minimizers.push_back(i);
-        }
-    }
-    // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
-    double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
-
-    // Remember the uncapped MAPQ and the caps
-    set_annotation(mappings.front(),"secondary_scores", scores);
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
+    
+    if (use_explored_cap) {
 
-    // Apply the caps and transformations
-    mapq = round(min(mapq_explored_cap, min(mapq, 60.0)));
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "uncapped MAPQ is " << mapq << endl;
+            }
+        }
+    
+        // TODO: give SmallBitset iterators so we can use it instead of an index vector.
+        vector<size_t> explored_minimizers;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            if (minimizer_explored.contains(i)) {
+                explored_minimizers.push_back(i);
+            }
+        }
+        // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
+        double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
+        double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
+
+        set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
+
+        // Apply the caps and transformations
+        mapq = round(min(mapq_explored_cap, mapq));
+
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
+            }
+        }
+    }
+
+
+    // Make sure to clamp 0-60.
+    mapq = max(mapq, 0.0);
+    mapq = min(mapq, 60.0);
+    // And save the MAPQ
+    mappings.front().set_mapping_quality(mapq);
 
     if (show_work) {
         #pragma omp critical (cerr)
         {
-            cerr << log_name() << "Explored cap is " << mapq_explored_cap << endl;
             cerr << log_name() << "MAPQ is " << mapq << endl;
         }
     }
-        
-    // Make sure to clamp 0-60.
-    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
-   
-    
+
+    // Remember the scores
+    set_annotation(mappings.front(),"secondary_scores", scores);
+
     if (track_provenance) {
         funnel.substage_stop();
     }
@@ -1295,10 +1334,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + left_tail_length);
                 size_t graph_horizon = left_tail_length + max_gap_length;
 
+#ifdef warn_on_fallback
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << left_tail_length << " bp left tail against " << right_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
                 }
+#endif
 
                 // Align the left tail, anchoring the right end.
                 align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
@@ -1484,13 +1525,15 @@ Alignment MinimizerMapper::find_chain_alignment(
                 // Just jump to right tail
                 break;
             }
-            
+           
+#ifdef warn_on_fallback
             // We can't actually do this alignment, we'd have to align too
             // long of a sequence to find a connecting path.
             #pragma omp critical (cerr)
             {
                 cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << link_length << " bp connection between chain items " << to_chain.backing_index(*here_it) << " and " << to_chain.backing_index(*next_it) << " which are " << graph_length << " apart at " << (*here).graph_end() << " and " << (*next).graph_start() << " in " << aln.name() << endl;
             }
+#endif
             
             Alignment link_aln;
             link_aln.set_sequence(linking_bases);
@@ -1619,10 +1662,12 @@ Alignment MinimizerMapper::find_chain_alignment(
                 size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + (*here).read_end());
                 size_t graph_horizon = right_tail_length + max_gap_length;
 
+#ifdef warn_on_fallback
                 #pragma omp critical (cerr)
                 {
                     cerr << "warning[MinimizerMapper::find_chain_alignment]: Falling back to non-GBWT alignment of " << right_tail_length << " bp right tail against " << left_anchor << " allowing " << max_gap_length << " bp gap in " << aln.name() << endl;
                 }
+#endif
 
                 // Align the right tail, anchoring the left end.
                 align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
@@ -1717,12 +1762,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
 #ifdef debug
     std::cerr << "Local graph:" << std::endl;
     dump_debug_graph(local_graph);
-    {
-        ProblemDumpExplainer exp(false, "local-graph");
-        exp.value(local_graph);
-    }
 #endif
-    
     
     // To find the anchoring nodes in the extracted graph, we need to scan local_to_base.
     nid_t local_left_anchor_id = 0;
@@ -2014,12 +2054,12 @@ std::vector<algorithms::Anchor> MinimizerMapper::to_anchors(const Alignment& aln
     std::vector<algorithms::Anchor> to_return;
     to_return.reserve(seeds.size());
     for (size_t i = 0; i < seeds.size(); i++) {
-        to_return.push_back(this->to_anchor(aln, minimizers, seeds, i));
+        to_return.push_back(MinimizerMapper::to_anchor(aln, minimizers, seeds, i, gbwt_graph, get_regular_aligner()));
     }
     return to_return;
 }
 
-algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const {
+algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner) {
     // Turn each seed into the part of its match on the node where the
     // anchoring end (start for forward-strand minimizers, end for
     // reverse-strand minimizers) falls.
@@ -2047,18 +2087,26 @@ algorithms::Anchor MinimizerMapper::to_anchor(const Alignment& aln, const Vector
         graph_start = seed.pos;
         
         // Get the handle to the node it's on.
-        handle_t start_handle = gbwt_graph.get_handle(id(graph_start), is_rev(graph_start));
+        handle_t start_handle = graph.get_handle(id(graph_start), is_rev(graph_start));
         // Work out how much of the node it could use before there.
-        length = std::min((size_t) source.length, gbwt_graph.get_length(start_handle) - offset(graph_start));
+        length = std::min((size_t) source.length, graph.get_length(start_handle) - offset(graph_start));
         
         // And we store the read start position already in the item
         read_start = source.value.offset;
         // The seed is actually at the start
         hint_start = 0;
     }
+
+#ifdef debug
+    std::cerr << "Minimizer at read " << source.forward_offset() << " length " << source.length
+              << " orientation " << source.value.is_reverse << " pinned at " << source.value.offset
+              << " is anchor of length " << length << " matching graph " << graph_start << " and read " << read_start
+              << " forward, with hint " << hint_start << " bases later on the read" << std::endl;
+#endif
+
     // Work out how many points the anchor is
     // TODO: Always make sequence and quality available for scoring!
-    int score = get_regular_aligner()->score_exact_match(aln, read_start, length);
+    int score = aligner->score_exact_match(aln, read_start, length);
     return algorithms::Anchor(read_start, graph_start, length, score, seed_number, seed.zipcode_decoder.get(), hint_start); 
 }
 

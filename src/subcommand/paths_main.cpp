@@ -51,7 +51,9 @@ void help_paths(char** argv) {
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
          << "    -S, --sample STR         select the haplotypes or reference paths for this sample" << endl
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
-         << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl;
+         << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl
+         << "    -R, --reference-paths    select the reference paths" << endl
+         << "    -H, --haplotype-paths    select the haplotype paths paths" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.
@@ -106,11 +108,8 @@ int main_paths(int argc, char** argv) {
     string path_file;
     bool select_alt_paths = false;
     // What kinds of paths are we interested in?
-    unordered_set<PathSense> path_senses {
-        PathSense::REFERENCE,
-        PathSense::GENERIC,
-        PathSense::HAPLOTYPE
-    };
+    // Starts empty, but if the options put nothing in it we will add all senses.
+    unordered_set<PathSense> path_senses;
     bool list_lengths = false;
     bool list_metadata = false;
     bool list_cyclicity = false;
@@ -143,6 +142,8 @@ int main_paths(int argc, char** argv) {
             {"sample", required_argument, 0, 'S'},
             {"variant-paths", no_argument, 0, 'a'},
             {"generic-paths", no_argument, 0, 'G'},
+            {"reference-paths", no_argument, 0, 'R'},
+            {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},            
 
             // Hidden options for backward compatibility.
@@ -153,7 +154,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGp:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGRHp:c",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -239,8 +240,6 @@ int main_paths(int argc, char** argv) {
 
         case 'S':
             sample_name = optarg;
-            // We only care about things with references now.
-            path_senses = {PathSense::REFERENCE, PathSense::HAPLOTYPE};
             selection_criteria++;
             break;
                 
@@ -250,9 +249,15 @@ int main_paths(int argc, char** argv) {
             break;
             
         case 'G':
-            // We only care about generic paths now.
-            path_senses = {PathSense::GENERIC};
-            selection_criteria++;
+            path_senses.insert(PathSense::GENERIC);
+            break;
+
+        case 'R':
+            path_senses.insert(PathSense::REFERENCE);
+            break;
+
+        case 'H':
+            path_senses.insert(PathSense::HAPLOTYPE);
             break;
 
         case 'c':
@@ -281,6 +286,22 @@ int main_paths(int argc, char** argv) {
         }
     }
 
+    if (path_senses.empty()) {
+        // No path senses were asked for explicitly.
+        // Fill in default ones.
+        path_senses = {
+            PathSense::REFERENCE,
+            PathSense::HAPLOTYPE
+        };
+        if (sample_name.empty()) {
+            // We can support paths with no sample.
+            path_senses.insert(PathSense::GENERIC);
+        }
+    } else {
+        // We asked for path senses specifically
+        selection_criteria++;
+    }
+
     if (input_formats != 1 && input_formats != 2) {
         std::cerr << "error: [vg paths] at least one input format (-x, -g) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
@@ -303,7 +324,7 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G, -p) cannot be used" << std::endl;
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G/-R/-H, -p) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (select_alt_paths && !gbwt_file.empty()) {
@@ -363,7 +384,7 @@ int main_paths(int argc, char** argv) {
         
         string line;
         while (getline(path_stream, line)) {
-            path_names.emplace(move(line));
+            path_names.emplace(std::move(line));
         }
     }
 

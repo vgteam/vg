@@ -223,7 +223,7 @@ public:
     size_t fragment_max_indel_bases = default_fragment_max_indel_bases;
     
     /// How many things should we produce fragments for, min?
-    static constexpr size_t default_min_to_fragment = 2;
+    static constexpr size_t default_min_to_fragment = 4;
     size_t min_to_fragment = default_min_to_fragment;
 
     /// How many things should we produce fragments for, max?
@@ -269,7 +269,7 @@ public:
     
     /// Disregard the chain score thresholds when they would give us
     /// fewer than this many chains.
-    static constexpr int default_min_chains = 2;
+    static constexpr int default_min_chains = 4;
     int min_chains = default_min_chains;
     
     /// Even if we would have fewer than min_chains results, don't
@@ -285,6 +285,14 @@ public:
     /// alignment? If we want to do more than this, just leave tail unaligned.
     static constexpr size_t default_max_dp_cells = std::numeric_limits<size_t>::max();
     size_t max_dp_cells = default_max_dp_cells;
+
+    /// If set, cap mapping quality based on minimizer layout in the read. Only
+    /// really likely to help for short reads.
+    static constexpr bool default_use_explored_cap = false;
+    bool use_explored_cap = default_use_explored_cap;
+    /// How should we scale scores before mapq, for calibration
+    static constexpr double default_mapq_score_scale = 1.0;
+    double mapq_score_scale = default_mapq_score_scale;
 
     /////////////////
     // More shared parameters:
@@ -461,7 +469,7 @@ protected:
     std::vector<algorithms::Anchor> to_anchors(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds) const;
     
     /// Convert a single seed to a single chaining anchor.
-    algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number) const;
+    static algorithms::Anchor to_anchor(const Alignment& aln, const VectorView<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seed_number, const HandleGraph& graph, const Aligner* aligner);
     
     /// Convert an Anchor to a WFAAlignment
     WFAAlignment to_wfa_alignment(const algorithms::Anchor& anchor) const; 

@@ -696,7 +696,7 @@ namespace vg {
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
-                    string variant_name = make_variant_id(*variant);
+                    string variant_name = sha1_variant_name ? make_variant_id(*variant) : get_or_make_variant_id(*variant);
                     if (variants_by_name.count(variant_name)) {
                         // Some VCFs may include multiple variants at the same
                         // position with the same ref and alt. We will only take the

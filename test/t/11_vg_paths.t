@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 18
+plan tests 20
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -16,7 +16,9 @@ vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
 # List path/thread names from various input formats
 is "$(vg paths --list -v x2.vg)" "x" "path listing works from vg"
 is "$(vg paths --list -x x.xg)" "x" "path listing works from XG"
+is "$(vg paths --list -x x.xg -G)" "x" "generic path listing works from XG"
 is $(vg paths --list -g x.gbwt | wc -l) 2 "thread listing works from GBWT"
+is $(vg paths --list -g x.gbwt -H | wc -l) 2 "haplotype thread listing works from GBWT"
 
 # Select threads by name
 is $(vg paths --list -Q "1#0#x#" -g x.gbwt | wc -l) 1 "thread selection by name prefix works correctly"

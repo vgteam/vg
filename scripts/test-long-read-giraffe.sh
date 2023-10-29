@@ -10,8 +10,18 @@ set -ex
 : "${CONDITION:="zip-bugfix"}"
 # Our GAM file for writing our mapped reads to
 : "${GAM_FILE:="trash/mapped-${CONDITION}.gam"}"
+# Other files to compare against
+: "${COMPARISON_DIR:="trash/"}"
+: "${COMPARISON_SUFFIX:="-1000.compared.tsv"}"
 : "${INPUT_READS:="${DATA_DIR}/reads/sim/hifi/HG002/HG002-sim-hifi-1000.gam"}"
 : "${GIRAFFE_ARGS:=""}"
+
+# Make absolute paths before changing directories
+DATA_DIR="$(realpath "${DATA_DIR}")"
+GRAPH_BASE="$(realpath "${GRAPH_BASE}")"
+GAM_FILE="$(realpath "${GAM_FILE}")"
+COMPARISON_DIR="$(realpath "${COMPARISON_DIR}")"
+INPUT_READS="$(realpath "${INPUT_READS}")"
 
 if which sbatch >/dev/null 2>&1 ; then
     # Slurm is available.
@@ -128,8 +138,28 @@ cat "${PLOT_DIR}/stats.tsv"
 
 JOB_ARGS=(-c16 --mem 20G)
 do_srun vg annotate -a ${GAM_FILE} -x ${GRAPH_BASE}.gbz -m >${GAM_FILE%.gam}.annotated.gam
-do_srun vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} >${GAM_FILE%.gam}.compared.gam
-    
+do_srun vg gamcompare --range 200 ${GAM_FILE%.gam}.annotated.gam ${INPUT_READS} -T -a "${CONDITION}" -o ${GAM_FILE%.gam}.compared.gam > ${GAM_FILE%.gam}.compared.tsv
+
+Rscript scripts/plot-pr.R ${GAM_FILE%.gam}.compared.tsv ${GAM_FILE%.gam}.alone.png
+
+# Start a combined TSV with all our reads
+COMPARISON_SCRATCH="${COMPARISON_DIR}/combined.tsv"
+printf "correct\tmq\taligner\tread\teligible\n" >"${COMPARISON_SCRATCH}"
+cat ${GAM_FILE%.gam}.compared.tsv | grep -v "^correct" >>"${COMPARISON_SCRATCH}"
+
+for OTHER_TSV in "${COMPARISON_DIR}/"*"${COMPARISON_SUFFIX}" ; do
+    if [[ "$(realpath "${OTHER_TSV}")" == "$(realpath "${GAM_FILE%.gam}.compared.tsv")" ]] ; then
+        continue
+    fi
+    # Each other matching TSV of reads should also go in
+    cat ${OTHER_TSV} | grep -v "^correct" >>"${COMPARISON_SCRATCH}"
+done
+
+# Now make a PR plot stratified by MAPQ
+Rscript scripts/plot-pr.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.compared.png
+Rscript scripts/plot-qq.R "${COMPARISON_SCRATCH}" ${GAM_FILE%.gam}.qq.png
+
+
 
 
 

@@ -12,6 +12,7 @@
 #include "subcommand.hpp"
 
 #include "../alignment.hpp"
+#include "../annotation.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
@@ -28,7 +29,8 @@ void help_gamcompare(char** argv) {
          << "    -d, --distance-index FILE  use distances from this distance index instead of path position annotations" << endl
          << "    -r, --range N              distance within which to consider reads correct" << endl
          << "    -n, --rename Q=T           interpret the given query contig name as the given truth contig (may repeat)" << endl
-         << "    -T, --tsv                  output TSV (correct, mq, aligner, read) compatible with plot-qq.R instead of GAM" << endl
+         << "    -o, --output-gam FILE      output GAM annotated with correctness to FILE instead of standard output" << endl
+         << "    -T, --tsv                  output TSV (correct, mq, aligner, read) compatible with plot-qq.R to standard output" << endl
          << "    -a, --aligner              aligner name for TSV output [\"vg\"]" << endl
          << "    -s, --score-alignment      get a correctness score of the alignment (higher is better)" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -93,6 +95,7 @@ int main_gamcompare(int argc, char** argv) {
 
     int threads = 1;
     int64_t range = -1;
+    string output_gam;
     bool output_tsv = false;
     string aligner_name = "vg";
     bool score_alignment = false;
@@ -109,6 +112,7 @@ int main_gamcompare(int argc, char** argv) {
             {"distance-index", required_argument, 0, 'd'},
             {"range", required_argument, 0, 'r'},
             {"rename", required_argument, 0, 'n'},
+            {"output-gam", required_argument, 0, 'o'},
             {"tsv", no_argument, 0, 'T'},
             {"aligner", required_argument, 0, 'a'},
             {"score-alignment", no_argument, 0, 's'},
@@ -117,7 +121,7 @@ int main_gamcompare(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:r:n:Ta:st:",
+        c = getopt_long (argc, argv, "hd:r:n:o:Ta:st:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -149,6 +153,10 @@ int main_gamcompare(int argc, char** argv) {
 
         case 'd':
             distance_name = optarg;
+            break;
+
+        case 'o':
+            output_gam = optarg;
             break;
 
         case 'T':
@@ -247,9 +255,20 @@ int main_gamcompare(int argc, char** argv) {
         distance_index = vg::io::VPKG::load_one<SnarlDistanceIndex>(distance_name);
     }
 
-    // We have a buffered emitter for annotated alignments, if we're not outputting text
+    // We have a buffered emitter for annotated alignments, if we're not outputting text.
+    // Start out with this empty so we output nowhere.
     std::unique_ptr<vg::io::ProtobufEmitter<Alignment>> emitter;
-    if (!output_tsv) {
+    std::ofstream output_gam_stream;
+    if (!output_gam.empty()) {
+        // Output to specified location
+        output_gam_stream.open(output_gam, std::ios_base::out | std::ios_base::trunc | std::ios_base::binary);
+        if (output_gam_stream.fail() || !output_gam_stream.is_open()) {
+            cerr << "error[vg gamcompare]: Cannot output to " << output_gam << endl;
+            exit(1);
+        }
+        emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(output_gam_stream));
+    } else if (!output_tsv) {
+        // Output to standard output.
         emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
     }
     
@@ -257,13 +276,13 @@ int main_gamcompare(int argc, char** argv) {
     vector<Alignment> text_buffer;
     
     // We have an output function to dump all the reads in the text buffer in TSV
-    auto flush_text_buffer = [&text_buffer,&output_tsv,&aligner_name]() {
+    auto flush_text_buffer = [&text_buffer,&aligner_name]() {
         // We print exactly one header line.
         static bool header_printed = false;
         // Output TSV to standard out in the format plot-qq.R needs.
         if (!header_printed) {
             // It needs a header
-            cout << "correct\tmq\taligner\tread" << endl;
+            cout << "correct\tmq\taligner\tread\teligible" << endl;
             header_printed = true;
         }
         
@@ -272,7 +291,8 @@ int main_gamcompare(int argc, char** argv) {
             cout << (aln.correctly_mapped() ? "1" : "0") << "\t";
             cout << aln.mapping_quality() << "\t";
             cout << aligner_name << "\t";
-            cout << aln.name() << endl;
+            cout << aln.name() << "\t";
+            cout << (has_annotation(aln, "no_truth") ? "0" : "1") << endl;
         }
         text_buffer.clear();
     };
@@ -347,6 +367,8 @@ int main_gamcompare(int argc, char** argv) {
 
             // Annotate it as such
             aln.set_correctly_mapped(correctly_mapped);
+            // And make sure we say it was possible to get
+            clear_annotation(aln, "no_truth");
             
             if (correctly_mapped) {
                 correct_counts.at(omp_get_thread_num()) += 1;
@@ -364,15 +386,25 @@ int main_gamcompare(int argc, char** argv) {
                     correct_count_by_mapq_by_thread.at(omp_get_thread_num()).at(mapq) += 1;
                 }
             }
+        } else if (range != -1) {
+            // We are flagging reads correct/incorrect, but this read has no truth position.
+            // Remember that it was impossible to get.
+            set_annotation(aln, "no_truth", true);
         }
 #pragma omp critical
         {
             if (output_tsv) {
-                text_buffer.emplace_back(std::move(aln));
+                if (emitter) {
+                    // Copy the alignment since we need it twice
+                    text_buffer.emplace_back(aln);
+                } else {
+                    text_buffer.emplace_back(std::move(aln));
+                }
                 if (text_buffer.size() > 1000) {
                     flush_text_buffer();
                 }
-            } else {
+            }
+            if (emitter) {
                 emitter->write(std::move(aln));
             }
         }
@@ -446,6 +478,14 @@ int main_gamcompare(int argc, char** argv) {
         }
         cerr << "mapping goodness score: " << mapping_goodness_score / total_reads << endl;
 
+    }
+
+    if (emitter) {
+        // Make sure to get rid of the emitter before the file it might write to
+        emitter.reset();
+    }
+    if (output_gam_stream.is_open()) {
+        output_gam_stream.close();
     }
     
     return 0;
