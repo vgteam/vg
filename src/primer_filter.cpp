@@ -181,21 +181,29 @@ void PrimerFinder::map_to_nodes(Primer& primer, const string& path_name) {
 
     step_handle_t  cur_node_step_handle = graph->get_step_at_position(reference_path_handle, primer.position_chromosome);
     handle_t cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
+    size_t cur_node_length   = graph->get_length(cur_node_handle);
+    size_t cur_node_position = graph->get_position_of_step(cur_node_step_handle);
+    size_t cur_offset = primer.position_chromosome - cur_node_position;
     primer.mapped_nodes_ids.push_back(graph->get_id(cur_node_handle));
-    string cur_node_sequence = graph->get_sequence(cur_node_handle);
-    // Get the index at which primer.sequence[0:index] maps to the first node.
-    // Stop here if the first node contains the entire primer sequence 
-    size_t primer_matched_index =  longest_match_len(primer, cur_node_sequence, primer_seq, true) - 1;
-    // If the first node containly a prefix of primer sequence, walk down the path and keep adding
-    // node until the entire primer sequence is covered
-    while (primer_matched_index < primer_seq.size()-1) {
+    if (primer.left) {
+        primer.offset = cur_offset;
+    }
+    size_t matched_length = 0;
+    while (cur_node_length - cur_offset < primer.length - matched_length) {
+        assert(graph->get_sequence(cur_node_handle).substr(cur_offset, cur_node_length - cur_offset)
+            == primer_seq.substr(matched_length, cur_node_length - cur_offset));
+        matched_length += cur_node_length - cur_offset;
+        cur_offset = 0;
         cur_node_step_handle = graph->get_next_step(cur_node_step_handle);
         cur_node_handle = graph->get_handle_of_step(cur_node_step_handle);
+        cur_node_length   = graph->get_length(cur_node_handle);
         primer.mapped_nodes_ids.push_back(graph->get_id(cur_node_handle));
-        cur_node_sequence = graph->get_sequence(cur_node_handle);
-        string primer_substr = primer_seq.substr(primer_matched_index + 1, primer.length - primer_matched_index - 1);
-        primer_matched_index += longest_match_len(primer, primer_substr, cur_node_sequence, false);
     }
+    assert(graph->get_sequence(cur_node_handle).substr(cur_offset, primer.length - matched_length)
+        == primer_seq.substr(matched_length, primer.length - matched_length));
+    if (!primer.left) {
+        primer.offset = cur_offset + primer.length - matched_length;
+    } 
 }
 
 size_t PrimerFinder::longest_match_len(Primer& primer, const string& left_seq,
