@@ -682,7 +682,7 @@ protected:
      * it from the perspective of the anchors. If a left anchor is set, all
      * heads should correspond to the left anchor, and if a right anchor is
      * set, all tails should correspond to the right anchor. At least one
-     * anchor must be set.
+     * anchor must be set. Both anchors may be on the same node.
      *
      * Calls the callback with an extracted, strand-split, dagified graph, and
      * a function that translates from handle in the dagified graph to node ID

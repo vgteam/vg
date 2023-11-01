@@ -24,6 +24,12 @@ namespace algorithms {
     /// the maximum length exists, 'into' will be left empty. An error is thrown if 'into' is not empty when
     /// passed to function.
     ///
+    /// If pos_1 and pos_2 face each other on the same node, the intervening
+    /// portion of the node is produced in into. If they are on the same node
+    /// but do not face each other, portions of the original node will exist as
+    /// distinct nodes in into, and the one correspondign to pos_1 will have
+    /// the lower node ID. 
+    ///
     /// Args:
     ///  source                     graph to extract subgraph from
     ///  into                       graph to extract into

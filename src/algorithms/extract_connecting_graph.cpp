@@ -267,6 +267,9 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // STEP 3: CUTTING NODES
     // now cut the two end nodes at the designated positions and remove the edges on the cut side
     // to make the end positions tips in the graph
+    //
+    // We need to guarantee that, if two separate end nodes came from one
+    // original graph node, we assign the left one the lower ID.
     
     handle_t cut_handle_1, cut_handle_2;
     
@@ -291,6 +294,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
             cut_handle_1 = into->truncate_handle(into->truncate_handle(into_handle_2, false, offset(pos_2)), true, offset(pos_1));
             id_trans.erase(id(pos_1));
             id_trans[into->get_id(cut_handle_1)] = id(pos_1);
+            // We have one shared end node
             cut_handle_2 = cut_handle_1;
             break;
         }
@@ -306,6 +310,11 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
             cut_handle_2 = into->truncate_handle(into_handle_2, false, offset(pos_2));
             id_trans.erase(id(pos_2));
             id_trans[into->get_id(cut_handle_2)] = id(pos_2);
+            
+            if (into->get_id(cut_handle_2) < into->get_id(cut_handle_1)) {
+                // We assume that cut_handle_1 will get the lower ID. Make sure that's always true.
+                throw std::runtime_error("Graph assigned end node a lower ID than start node. Caller will not be able to identify them properly.");
+            }
             
             break;
         }

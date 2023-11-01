@@ -852,6 +852,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
                     cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
+                    throw;
+
                     // Leave the read unmapped.
                 }
                     
@@ -1784,16 +1786,57 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     nid_t local_left_anchor_id = 0;
     nid_t local_right_anchor_id = 0;
     for (auto& kv : local_to_base) {
-        if (kv.second == id(left_anchor)) {
+        if (kv.second == id(left_anchor) && kv.second == id(right_anchor)) {
+            // The left and right anchors are on the same node, and this is a copy of it.
+            // It could be that the anchors face each other, and we extracted one intervening piece of node.
+            // In which case we go through this section once.
+            if (local_left_anchor_id == 0 && local_right_anchor_id == 0) {
+                // First time through, say we probably cut out the middle piece of a node
+                local_left_anchor_id = kv.first;
+                local_right_anchor_id = kv.first;
+            } else {
+                // Or it could be that we have two pieces of the original
+                // shared node represented as separate nodes, because the
+                // connecting path has to come back to the other end of this
+                // shared node.
+                //
+                // In that case, we assume that extract_connecting_graph
+                // assigns IDs so the start copy has a lower ID than the end
+                // copy.
+                if (local_left_anchor_id != local_right_anchor_id) {
+                    // We thought we already figured out the start and end
+                    // nodes; there are too many copies of our shared node to
+                    // work out which is which.
+                    std::stringstream ss;
+                    ss << "Extracted graph from " << left_anchor;
+                    if (!is_empty(right_anchor)) {
+                        ss << " to " << right_anchor;
+                    }
+                    ss << " with max path length of " << max_path_length;
+                    ss << " but shared node appeared more than twice in the resulting translation";
+                    local_graph.serialize("crashdump.vg");
+                    throw ChainAlignmentFailedError(ss.str());
+                }
+                // Whichever copy has the lower ID is the left one and
+                // whichever copy has the higher ID is the right one.
+                local_left_anchor_id = std::min(local_left_anchor_id, kv.first);
+                local_right_anchor_id = std::max(local_right_anchor_id, kv.second);
+            }
+        } else if (kv.second == id(left_anchor)) {
             local_left_anchor_id = kv.first;
-        }
-        if (kv.second == id(right_anchor)) {
+        } else if (kv.second == id(right_anchor)) {
             local_right_anchor_id = kv.first;
         }
         // TODO: Stop early when we found them all.
     }
 
     if (!is_empty(left_anchor) && local_left_anchor_id == 0) {
+        #pragma omp critical (cerr)
+        {
+            for (auto& kv : local_to_base) {
+                std::cerr << "Local ID " << kv.first << " = base graph ID " << kv.second << std::endl;
+            }
+        }
         // Somehow the left anchor didn't come through. Complain.
         std::stringstream ss;
         ss << "Extracted graph from " << left_anchor;
@@ -1986,7 +2029,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         } while (trimmed);
         if (trim_count > 0) {
             #pragma omp critical (cerr)
-            std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips" << std::endl;
+            std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips for read " << alignment.name() << std::endl;
         }
         
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
@@ -2007,7 +2050,7 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
             if (cell_count > max_dp_cells) {
                 #pragma omp critical (cerr)
-                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop" << std::endl;
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop for read " << alignment.name() << std::endl;
                 // Fake a softclip right in input graph space
                 alignment.clear_path();
                 Mapping* m = alignment.mutable_path()->add_mapping();
