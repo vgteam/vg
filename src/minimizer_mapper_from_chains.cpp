@@ -1360,7 +1360,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
 
                 // Align the left tail, anchoring the right end.
-                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
+                align_sequence_between(empty_pos_t(), right_anchor, graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -1561,7 +1561,7 @@ Alignment MinimizerMapper::find_chain_alignment(
             // Guess how long of a graph path we ought to allow in the alignment.
             size_t max_gap_length = this->get_regular_aligner()->longest_detectable_gap(aln, aln.sequence().begin() + link_start);
             size_t path_length = std::max(graph_length, link_length);
-            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, this->max_dp_cells, this->choose_band_padding);
+            MinimizerMapper::align_sequence_between((*here).graph_end(), (*next).graph_start(), path_length, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), link_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
             
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1688,7 +1688,7 @@ Alignment MinimizerMapper::find_chain_alignment(
 #endif
 
                 // Align the right tail, anchoring the left end.
-                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, this->max_dp_cells, this->choose_band_padding);
+                align_sequence_between(left_anchor, empty_pos_t(), graph_horizon, max_gap_length, &this->gbwt_graph, this->get_regular_aligner(), tail_aln, &aln.name(), this->max_dp_cells, this->choose_band_padding);
                 
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -1956,7 +1956,7 @@ void MinimizerMapper::with_dagified_local_graph(const pos_t& left_anchor, const 
     callback(dagified_graph, dagified_handle_to_base);
 }
 
-void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
+void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name, size_t max_dp_cells, const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding) {
     
     // Get the dagified local graph, and the back translation
     MinimizerMapper::with_dagified_local_graph(left_anchor, right_anchor, max_path_length, *graph,
@@ -2029,7 +2029,13 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
         } while (trimmed);
         if (trim_count > 0) {
             #pragma omp critical (cerr)
-            std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips for read " << alignment.name() << std::endl;
+            {
+                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Trimmed back tips " << trim_count << " times on graph between " << left_anchor << " and " << right_anchor << " leaving " <<  dagified_graph.get_node_count() << " nodes and " << tip_handles.size() << " tips";
+                if (alignment_name) {
+                    std::cerr << " for read " << *alignment_name;
+                }
+                std::cerr << std::endl;
+            }
         }
         
         if (!is_empty(left_anchor) && !is_empty(right_anchor)) {
@@ -2050,7 +2056,13 @@ void MinimizerMapper::align_sequence_between(const pos_t& left_anchor, const pos
             size_t cell_count = dagified_graph.get_total_length() * alignment.sequence().size();
             if (cell_count > max_dp_cells) {
                 #pragma omp critical (cerr)
-                std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop for read " << alignment.name() << std::endl;
+                {
+                    std::cerr << "warning[MinimizerMapper::align_sequence_between]: Refusing to fill " << cell_count << " DP cells in tail with Xdrop";
+                    if (alignment_name) {
+                        std::cerr << " for read " << *alignment_name;
+                    }
+                    std::cerr << std::endl;
+                }
                 // Fake a softclip right in input graph space
                 alignment.clear_path();
                 Mapping* m = alignment.mutable_path()->add_mapping();
