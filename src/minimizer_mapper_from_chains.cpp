@@ -852,8 +852,6 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     // We can't actually make an alignment from this chain
                     #pragma omp critical (cerr)
                     cerr << log_name() << "Error creating alignment from chain for " << aln.name() << ": " << e.what() << endl;
-                    throw;
-
                     // Leave the read unmapped.
                 }
                     
