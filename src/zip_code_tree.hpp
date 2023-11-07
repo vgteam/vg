@@ -451,13 +451,16 @@ class ZipCodeForest {
     struct sort_value_t;
 
     /// Sorts the given interval (which must contain seeds on the same snarl/chain/node at the given depth)
-    /// and return the intervals of the children, in the order of traversal
     /// Sorting is roughly linear along the top-level chains, in a topological-ish order in snarls
     /// Uses radix_sort_zipcodes and default_sort_zipcodes
-    vector<interval_and_orientation_t> sort_one_interval(vector<size_t>& zipcode_sort_order, 
+    void sort_one_interval(vector<size_t>& zipcode_sort_order, 
             vector<sort_value_t>& sort_values_by_seed, const interval_and_orientation_t& interval, 
-            size_t interval_depth, const SnarlDistanceIndex& distance_index,
-            bool get_next_intervals=true) const;
+            size_t interval_depth, const SnarlDistanceIndex& distance_index) const;
+    /// Assuming that the range of seeds in sort_values_by_seeds given by the interval is sorted,
+    /// return the intervals of the children of the interval, in the order of traversal
+    vector<interval_and_orientation_t> get_next_intervals(vector<size_t>& zipcode_sort_order, 
+            vector<sort_value_t>& sort_values_by_seed, const interval_and_orientation_t& interval, 
+            size_t interval_depth, const SnarlDistanceIndex& distance_index) const;
 
     /// Helper function to sort the seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
