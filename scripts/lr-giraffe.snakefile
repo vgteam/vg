@@ -1,5 +1,8 @@
 REFERENCES=["chm13"]
 INDEX_PARAM_SETS=["k31.w50.W"]
+SAMPLES=["HG002"]
+REALNESSES=["real", "sim"]
+TECHS=["r9", "r10", "hifi"]
 
 GRAPHS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
 READS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
@@ -128,7 +131,7 @@ rule chain_coverage_histogram:
     input:
         tsv="{root}/stats/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     output:
-        multiext("{root}/plots/{reference}/{minparams}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.", "svg", "png")
+        "{root}/plots/{reference}/{minparams}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
     threads: 2
     resources:
         mem_mb=2000
