@@ -62,7 +62,7 @@ rule align_real_reads:
     threads: 16
     resources:
         mem_mb=300000,
-        runtime=60
+        runtime=240
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
 
@@ -121,7 +121,7 @@ rule chain_coverage_alignments:
     threads: 2
     resources:
         mem_mb=2000,
-        runtime=30
+        runtime=120
     shell:
         "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
 
@@ -145,7 +145,7 @@ rule read_length_alignments:
     threads: 2
     resources:
         mem_mb=2000,
-        runtime=30
+        runtime=120
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
 
