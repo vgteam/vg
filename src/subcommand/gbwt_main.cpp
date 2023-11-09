@@ -292,6 +292,7 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 3: Alter GBWT (requires -o and one input GBWT):" << std::endl;
     std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index (may repeat)" << std::endl;
     std::cerr << "        --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
+    std::cerr << "        --set-reference X   set sample X as the reference (may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 4: Path cover GBWT construction (requires -o, -x, and one of { -a, -l, -P }):" << std::endl;
     std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
@@ -355,6 +356,20 @@ void no_multiple_cover_types(const GBWTConfig& config) {
     }
 }
 
+void check_tag_validity(const std::string& key, const std::string& value, const std::unordered_set<char>& prohibited, const std::string& description) {
+    for (auto& letter : value) {
+        if (prohibited.count(letter)) {
+            // This letter isn't allowed.
+            std::cerr << "error: [vg gbwt] tag \"" << key << "\" contains prohibited character \"" << letter << "\". It needs to be " << description << " and may not contain any of:";
+            for (auto& c : prohibited) {
+                std::cerr << " '" << c << "'";
+            }
+            std::cerr << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+}
+
 GBWTConfig parse_gbwt_config(int argc, char** argv) {
     if (argc == 2) {
         help_gbwt(argv);
@@ -390,6 +405,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_MERGE_BUFFERS = 1203;
     constexpr int OPT_MERGE_JOBS = 1204;
     constexpr int OPT_SET_TAG = 1300;
+    constexpr int OPT_SET_REFERENCE = 1301;
     constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
     constexpr int OPT_TAGS = 1700;
@@ -465,6 +481,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // Alter GBWT
         { "remove-sample", required_argument, 0, 'R' },
         { "set-tag", required_argument, 0, OPT_SET_TAG },
+        { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
 
         // Path cover
         { "augment-gbwt", no_argument, 0, 'a' },
@@ -746,20 +763,26 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                         std::cerr << "warning: [vg gbwt] tag \"" << tag_name << "\" is not a tag with a meaning recognized by vg; maybe you meant \"" << tag_record->first << "\" which would be " << tag_description << std::endl;
                     } else {
                         // This is a known tag, so validate it.
-                        for (auto& letter : tag_value) {
-                            if (tag_prohibited_characters.count(letter)) {
-                                // This letter isn't allowed.
-                                std::cerr << "error: [vg gbwt] tag \"" << tag_name << "\" contains prohibited character \"" << letter << "\". It needs to be " << tag_description << " and may not contain any of:";
-                                for (auto& c : tag_prohibited_characters) {
-                                    std::cerr << " '" << c << "'";
-                                }
-                                std::cerr << std::endl;
-                                std::exit(EXIT_FAILURE);
-                            }
-                        }
+                        check_tag_validity(tag_name, tag_value, tag_prohibited_characters, tag_description);
                     }
                 }
                 config.tags_to_set.emplace(tag_name, tag_value);
+            }
+            break;
+        case OPT_SET_REFERENCE:
+            {
+                const std::string& key = gbwtgraph::REFERENCE_SAMPLE_LIST_GBWT_TAG;
+                auto tag_record = KNOWN_TAGS.find(key);
+                std::string sample_name = optarg;
+                auto prohibited = tag_record->second.second;
+                prohibited.insert(' ');
+                check_tag_validity(key, sample_name, prohibited, tag_record->second.first);
+                auto iter = config.tags_to_set.find(key);
+                if (iter != config.tags_to_set.end()) {
+                    iter->second += " " + sample_name;
+                } else {
+                    config.tags_to_set.emplace(key, sample_name);
+                }
             }
             break;
 
