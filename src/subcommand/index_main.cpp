@@ -599,7 +599,7 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Building the GCSA2 index..." << endl;
         }
-        gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
+        gcsa::InputGraph input_graph(dbg_names, true, params, gcsa::Alphabet(), mapping_name);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
         if (show_progress) {
