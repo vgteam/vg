@@ -292,7 +292,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Load GBZ file 
         unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(graph_filename);
-
+        
         if (show_progress) { cerr << "[vg rna] Converting graph format ..." << endl; }
 
         // Convert GBWTGraph to mutable graph type (PackedGraph).
@@ -305,7 +305,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             handlegraph::algorithms::copy_path(&(gbz->graph), path, graph.get());
         });
 
-        haplotype_index = make_unique<gbwt::GBWT>(gbz->index);
+        haplotype_index = make_unique<gbwt::GBWT>(std::move(gbz->index));
     }
 
     if (graph == nullptr) {
@@ -322,7 +322,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.feature_type = feature_type;
     transcriptome.transcript_tag = transcript_tag;
     transcriptome.path_collapse_type = path_collapse_type;
-
+    
     if (show_progress) { cerr << "[vg rna] Graph " << ((!haplotype_index->empty()) ? "and GBWT index " : "") << "parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
@@ -354,7 +354,6 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         if (show_progress) { cerr << "[vg rna] Introns parsed and graph updated in " << gcsa::readTimer() - time_intron_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
-
 
     vector<istream *> transcript_streams;
 
