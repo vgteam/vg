@@ -422,7 +422,7 @@ var searchData=
   ['project_5fhaplotype_5ftranscripts_4412',['project_haplotype_transcripts',['../classvg_1_1Transcriptome.html#acaa534fdaa3f3926d7959255ab2f6feb',1,'vg::Transcriptome']]],
   ['project_5fhaplotype_5ftranscripts_5fcallback_4413',['project_haplotype_transcripts_callback',['../classvg_1_1Transcriptome.html#ae9f0bd481ee467f32d88be2b20c110c7',1,'vg::Transcriptome']]],
   ['project_5ftranscript_5fembedded_4414',['project_transcript_embedded',['../classvg_1_1Transcriptome.html#a8e9f42b9d9f57b675856c7f766d3c710',1,'vg::Transcriptome']]],
-  ['project_5ftranscript_5fgbwt_4415',['project_transcript_gbwt',['../classvg_1_1Transcriptome.html#ae2fb2bb56f663cfac6df4b6f4b568056',1,'vg::Transcriptome']]],
+  ['project_5ftranscript_5fgbwt_4415',['project_transcript_gbwt',['../classvg_1_1Transcriptome.html#a4edf6085f024b736bef4be82c6fd854a',1,'vg::Transcriptome']]],
   ['projected_5fcount_4416',['projected_count',['../structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d',1,'vg::Funnel::Stage']]],
   ['proper_5fpair_4417',['proper_pair',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a92eba6d5ad7d830d3824261542991875',1,'vg::Counts']]],
   ['proposal_5fsample_4418',['proposal_sample',['../classvg_1_1MCMCGenotyper.html#a0e007a331bc2854ec8734557bd80962d',1,'vg::MCMCGenotyper']]],

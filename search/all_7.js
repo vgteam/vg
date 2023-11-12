@@ -192,7 +192,7 @@ var searchData=
   ['get_5fend_5fmatches_2004',['get_end_matches',['../classvg_1_1ReadFilter.html#a3cd3ee44928526e27e42e059b693ba76',1,'vg::ReadFilter::get_end_matches(const Read &amp;read) const'],['../classvg_1_1ReadFilter.html#a1e40faa7aa74f7b17390b06da6ad32e4',1,'vg::ReadFilter::get_end_matches(const MultipathAlignment &amp;read) const'],['../classvg_1_1ReadFilter.html#a45116be7bd52bfd9fb40e30f08aee97f',1,'vg::ReadFilter::get_end_matches(const Alignment &amp;read) const']]],
   ['get_5fend_5fof_2005',['get_end_of',['../namespacevg.html#af76e8a5e74f67093a40ed5f2cd15ff28',1,'vg']]],
   ['get_5fendpoints_2006',['get_endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a9e3d20d5ab60eb99688d6346a788d308',1,'vg::GraphSynchronizer::Lock']]],
-  ['get_5fexon_5fhaplotypes_2007',['get_exon_haplotypes',['../classvg_1_1Transcriptome.html#a84da424fd458fc6d302c05210f9e1960',1,'vg::Transcriptome']]],
+  ['get_5fexon_5fhaplotypes_2007',['get_exon_haplotypes',['../classvg_1_1Transcriptome.html#a2753baecefb5f065854fd9fbc1a24dc9',1,'vg::Transcriptome']]],
   ['get_5ffeatures_2008',['get_features',['../classvg_1_1FeatureSet.html#a55b389aa1c68efddb28a188a757568fc',1,'vg::FeatureSet']]],
   ['get_5ffile_5fsize_2009',['get_file_size',['../namespacevg.html#a53098c7c826c3d8d2aab804ba5500fd5',1,'vg']]],
   ['get_5ffilenames_2010',['get_filenames',['../classvg_1_1IndexFile.html#a5833162264de6ce5f2a0d882b4b12839',1,'vg::IndexFile']]],
