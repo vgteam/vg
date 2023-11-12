@@ -134,6 +134,8 @@ Functions</h2></td></tr>
 <tr class="separator:ae1c5768186dc339c157bf4b72517b5ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0124aac03621e82b84ef0de974a08574"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a0124aac03621e82b84ef0de974a08574">no_multiple_cover_types</a> (const <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:a0124aac03621e82b84ef0de974a08574"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a6504bbdeed67c591fe5b36192a79d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a4a6504bbdeed67c591fe5b36192a79d7">check_tag_validity</a> (const std::string &amp;key, const std::string &amp;value, const std::unordered_set&lt; char &gt; &amp;prohibited, const std::string &amp;description)</td></tr>
+<tr class="separator:a4a6504bbdeed67c591fe5b36192a79d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a561987b9179ef0c4d1e0cfa0c0cde254"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structjob__type.html">job_type</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a561987b9179ef0c4d1e0cfa0c0cde254">determine_jobs</a> (std::unique_ptr&lt; <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &gt; &amp;graph, const <a class="el" href="structGBWTConfig.html">GBWTConfig</a> &amp;config)</td></tr>
 <tr class="separator:a561987b9179ef0c4d1e0cfa0c0cde254"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab82463d53fb85eaec6c4e581e009d9e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#ab82463d53fb85eaec6c4e581e009d9e6">use_or_save</a> (std::unique_ptr&lt; gbwt::DynamicGBWT &gt; &amp;index, <a class="el" href="structvg_1_1GBWTHandler.html">GBWTHandler</a> &amp;gbwts, std::vector&lt; std::string &gt; &amp;filenames, size_t i, bool show_progress)</td></tr>
@@ -146,6 +148,46 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg gbwt" subcommand for building, merging, and manipulating GBWT indexes and GBWTGraphs. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
+<a id="a4a6504bbdeed67c591fe5b36192a79d7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a6504bbdeed67c591fe5b36192a79d7">&#9670;&nbsp;</a></span>check_tag_validity()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void check_tag_validity </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>key</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>value</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_set&lt; char &gt; &amp;&#160;</td>
+          <td class="paramname"><em>prohibited</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>description</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a561987b9179ef0c4d1e0cfa0c0cde254"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a561987b9179ef0c4d1e0cfa0c0cde254">&#9670;&nbsp;</a></span>determine_jobs()</h2>
 
