@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 149
+plan tests 151
 
 
 # Build vg graphs for two chromosomes
@@ -397,8 +397,11 @@ is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep HAPLOTYP
 is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
 vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38#1 CHM13" 2>/dev/null
 is $? 1 "GBZ GBWT tag modification validation works"
+vg gbwt -g gfa3.gbz --gbz-format --set-reference GRCh37 --set-reference CHM13 -Z gfa2.gbz
+is $? 0 "Samples can be direcly set as references"
+is "$(vg gbwt --tags -Z gfa3.gbz | grep reference_samples | cut -f 2)" "GRCh37 CHM13" "Direct reference assignment works"
 
-rm -f gfa.gbz gfa2.gbz tags.tsv
+rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv
 
 # Build a GBZ from a graph with a reference but no haplotype phase number
 # TODO: When <https://github.com/vgteam/vg/issues/4110> is fixed, actually parse this as GFA
