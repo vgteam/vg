@@ -24,17 +24,28 @@ def gbz(wildcards):
     """
     return graph_base(wildcards) + ".gbz"
 
+def dist_indexed_graph(wildcards):
+    """
+    Find a GBZ and its dist index from reference.
+    """
+    base = graph_base(wildcards)
+    return {
+        "gbz": gbz(wildcards),
+        "dist": base + ".dist"
+    }
+
 def indexed_graph(wildcards):
     """
     Find an indexed graph and all its indexes from reference and minparams.
     """
     base = graph_base(wildcards)
-    return {
-        "gbz": gbz(wildcards),
-        "dist": base + ".dist",
+    indexes = dist_indexed_graph(wildcards)
+    new_indexes = {
         "minfile": base + "." + wildcards["minparams"] + ".withzip.min",
         "zipfile": base + "." + wildcards["minparams"] + ".zipcodes"
     }
+    new_indexes.update(indexes)
+    return new_indexes
 
 def fastq(wildcards):
     """
@@ -49,12 +60,28 @@ def fastq(wildcards):
         raise AmbiguousRuleException("Multiple files matched " + pattern)
     return results[0]
 
+rule minimizer_index_graph:
+    input:
+        unpack(dist_indexed_graph)
+    output:
+        minfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.withzip.min",
+        zipfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes.min"
+    wildcard_constraints:
+        weightedness="\\.W|",
+        k="[0-9]+",
+        w="[0-9]+"
+    threads: 16
+    resources:
+        mem_mb=80000,
+        runtime=240
+    shell:
+        "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
+
+
 rule align_real_reads:
     input:
         unpack(indexed_graph),
         fastq=fastq,
-    params:
-        graph_base
     output:
         gam="{root}/aligned/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
@@ -70,8 +97,6 @@ rule align_sim_reads:
     input:
         unpack(indexed_graph),
         gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
-    params:
-        graph_base
     output:
         gam="{root}/aligned/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
@@ -88,8 +113,6 @@ rule annotate_and_compare_alignments:
         gbz,
         gam="{root}/aligned/{reference}/{minparams}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         truth_gam="{READS_DIR}/sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam",
-    params:
-        graph_base
     output:
         gam="{root}/annotated/{reference}/{minparams}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{minparams}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
