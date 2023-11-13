@@ -60,6 +60,147 @@ def fastq(wildcards):
         raise AmbiguousRuleException("Multiple files matched " + pattern)
     return results[0]
 
+def all_experiment_conditions(expname):
+    """
+    Yield dictionaries of all conditions for the given experiment.
+    
+    The config file should have a dict in "experiments", of which the given
+    expname should be a key. THe value is the experiment dict.
+
+    The experiment dict should have a "control" dict, listing names and values
+    of variables to keep constant.
+
+    The experiment dict should have a "vary" dict, listing names and values
+    lists of variables to vary. All combinations will be generated.
+
+    The experiment dict should have a "constrain" list. Each item is a dict of
+    variable names and values. A condition must match *at least* one of these
+    dicts on *all* values in the dict in order to pass.
+
+    Yields variable name to value dicts for all passing conditions for the
+    given experiment.
+    """
+
+    print(f"Constructing experiment: {expname}")
+
+    exp_dict = config.get("experiments", {}).get(expname, {})
+
+    # Make a base dict of all controlled variables.
+    base_condition = exp_dict.get("control", {})
+
+    to_vary = exp_dict.get("vary", {})
+
+    to_constrain = exp_dict.get("constrain", [])
+
+    for condition in augmented_with_all(base_condition, to_vary):
+        # For each combination of independent variables on top of the base condition
+
+        # We need to see if this is a combination we want to do
+        
+        if len(to_constrain) == 0 or matches_any_constraint(condition, to_constrain):
+            print(f"Experiment condition: {condition}")
+            yield condition
+    
+
+def augmented_with_each(base_dict, new_key, possible_values):
+    """
+    Yield copies of base_dict with each value from possible_values under new_key.
+    """
+
+    for value in possible_values:
+        clone = dict(base_dict)
+        clone.update(new_key=value)
+        yield clone
+
+def augmented_with_all(base_dict, keys_and_values):
+    """
+    Yield copies of base_dict augmented with all combinations of values from
+    keys_and_values, under the corresponding keys.
+    """
+
+    if len(keys_and_values) == 0:
+        # Base case: nothing to add
+        yield base_dict
+    else:
+        # Break off one facet
+        first_key = next(iter(keys_and_values.keys()))
+        first_values = keys_and_values[first_key]
+        rest = dict(keys_and_values)
+        del rest[first_key]
+        for with_rest in augmented_with_all(base_dict, rest):
+            # Augment with the rest
+            for with_first in augmented_with_each(with_rest, first_key, first_values):
+                # And augment with this key
+                yield with_first
+
+
+def matches_constraint(condition, constraint):
+    """
+    Returns True if all keys in constraint are in condition with the same
+    values.
+    """
+    for k, v in constraint.items():
+        if k not in condition or condition[k] != v:
+            return False
+    return True
+
+def matches_any_constraint(condition, constraints):
+    """
+    Return True if, for some constraint dict, the condition dict matches all
+    values in the constraint dict.
+    """
+
+    for constraint in constraints:
+        if matches_constraint(condition, constraint):
+            return True
+    return False
+
+def wildcards_to_condition(all_wildcards):
+    """
+    Filter dowen wildcards to just the condition parameters for the experiment in expname.
+    
+    Raises an error if any variable in the experiment cannot be determined.
+    """
+
+    exp_dict = config.get("experiments", {}).get(all_wildcards["expname"], {})
+    base_condition = exp_dict.get("control", {})
+    to_vary = exp_dict.get("vary", {})
+    all_vars = list(base_condition.keys()) + list(to_vary.keys())
+
+    condition = {}
+
+    for var in all_vars:
+        condition[var] = all_wildcards[var]
+
+    return condition
+
+def condition_name(wildcards):
+    """
+    Determine a human-readable condition name from expname, reference, minparams, realness, tech, sample, trimmedness, and subset.
+    """
+    
+    # Get what changes in the experiment
+    exp_dict = config.get("experiments", {}).get(wildcards["expname"], {})
+    to_vary = exp_dict.get("vary", {})
+
+    # Get the condition dict in use here
+    condition = wildcards_to_condition(wildcards)
+    
+    # Paste together all the varied variable values from the condition.
+    varied = list(to_vary.keys())
+    varied_values = [condition[v] for v in varied]
+    return ",".join(varied_values)
+
+def all_experiment_mapping_rate_stats(wildcards):
+    """
+    Produce the names of all mapping rate stats files for the current experiment, form expname and root.
+    """
+    
+    for condition in all_experiment_conditions(wildcards["expname"]):
+        filename = wildcards["root"] + "experiments/" + wildcards["expname"] + "/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv".format(**condition)
+        yield filename
+
+
 rule minimizer_index_graph:
     input:
         unpack(dist_indexed_graph)
@@ -135,6 +276,32 @@ rule stats_alignments:
         runtime=30
     shell:
         "vg stats -p {threads} -a {input.gam} >{output.stats}"
+
+rule mapping_rate_stats:
+    input:
+        stats="{root}/stats/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gamstats.txt"
+    params:
+        condition_name=condition_name
+    output:
+        rate="{root}/experiments/{expname}/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5
+    shell:
+        "printf '{params.condition_name}\\t' >{output.rate} && cat {input.stats} | grep 'Total aligned:' | cut -f2 -d':' | tr -d ' ' >>{output.rate}"
+
+rule experiment_mapping_rate_table:
+    input:
+        all_experiment_mapping_rate_stats
+    output:
+        table="{root}/experiments/{expname}/results/mapping_rate.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5
+    shell:
+        "cat {input} >{output.table}"
 
 rule chain_coverage_alignments:
     input:
