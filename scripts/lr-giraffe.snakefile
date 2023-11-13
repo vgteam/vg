@@ -81,8 +81,6 @@ def all_experiment_conditions(expname):
     given experiment.
     """
 
-    print(f"Constructing experiment: {expname}")
-
     exp_dict = config.get("experiments", {}).get(expname, {})
 
     # Make a base dict of all controlled variables.
@@ -98,7 +96,6 @@ def all_experiment_conditions(expname):
         # We need to see if this is a combination we want to do
         
         if len(to_constrain) == 0 or matches_any_constraint(condition, to_constrain):
-            print(f"Experiment condition: {condition}")
             yield condition
     
 
@@ -109,7 +106,7 @@ def augmented_with_each(base_dict, new_key, possible_values):
 
     for value in possible_values:
         clone = dict(base_dict)
-        clone.update(new_key=value)
+        clone[new_key] = value
         yield clone
 
 def augmented_with_all(base_dict, keys_and_values):
@@ -197,7 +194,7 @@ def all_experiment_mapping_rate_stats(wildcards):
     """
     
     for condition in all_experiment_conditions(wildcards["expname"]):
-        filename = wildcards["root"] + "experiments/" + wildcards["expname"] + "/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv".format(**condition)
+        filename = wildcards["root"] + "/experiments/" + wildcards["expname"] + "/{reference}/{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.mapping_rate.tsv".format(**condition)
         yield filename
 
 
@@ -206,7 +203,7 @@ rule minimizer_index_graph:
         unpack(dist_indexed_graph)
     output:
         minfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.withzip.min",
-        zipfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes.min"
+        zipfile="{graphs_dir}/hprc-v1.1-mc-{reference}.d9.k{k}.w{w}{weightedness}.zipcodes"
     wildcard_constraints:
         weightedness="\\.W|",
         k="[0-9]+",
@@ -302,6 +299,18 @@ rule experiment_mapping_rate_table:
         runtime=5
     shell:
         "cat {input} >{output.table}"
+
+rule experiment_mapping_rate_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/mapping_rate.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/mapping_rate.{ext}"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5
+    shell:
+        "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --no_n --save {output}"
 
 rule chain_coverage_alignments:
     input:
