@@ -594,10 +594,11 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                     // Make a seed attaching that graph position to its minimizer.
                     seeds.push_back({ graph_positions.at(i), i, zipcode});
                 }
+                VectorView<MinimizerMapper::Minimizer> minimizer_vector (minimizers);
 
                 // Make and check the zip code tree
                 ZipCodeForest zip_forest;
-                zip_forest.fill_in_forest(seeds, distance_index, 10);
+                zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 10);
                 REQUIRE(zip_forest.trees.size() == 1);
 
                 // Make an aligner for scoring
