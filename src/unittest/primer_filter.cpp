@@ -24,26 +24,35 @@
 #include <vg/io/vpkg.hpp>
 #include "xg.hpp"
 #include "../primer_filter.hpp"
+#include "../recombinator.hpp"
 
 namespace vg {
 namespace unittest {
 
 using namespace std;
 
+
     TEST_CASE( "filter simple primers",
                 "[primer_filter]" ) {
         
         SnarlDistanceIndex distance_index;
         unique_ptr<handlegraph::PathPositionHandleGraph> graph;
+        gbwtgraph::GBWTGraph gbwt_graph;
+        gbwt::GBWT gbwt_index;
+        gbwt::FastLocate r_index;
         string snarl_index_path = "test/primers/y.dist";
         string xg_graph_path = "test/primers/y.xg";
         distance_index.deserialize(snarl_index_path);
         graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_graph_path);
+        load_r_index(r_index, "test/primers/y.ri");
+        load_gbz(gbwt_index, gbwt_graph, "test/primers/y.giraffe.gbz");
+        gbwt_graph.set_gbwt(gbwt_index);
+        r_index.setGBWT(gbwt_index);
         
         SECTION("template_position=0") {
             string primers_path = "test/primers/y.primer3_with_ref_pos.out";
             ifstream file_handle(primers_path);
-            PrimerFinder primer_finder(graph, &distance_index, file_handle);
+            PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index);
 
             SECTION("Loads the correct number of chromosomes") {
                 REQUIRE(primer_finder.total_reference_paths() == 1);
@@ -95,24 +104,21 @@ using namespace std;
                 };
 
                 const vector<size_t> min_product_sizes {
-                    124, 142, 144, 137, 135, 97, 112
+                    124, 142, 144, 137, 136, 99, 112
                 };
 
                 const vector<size_t> max_product_sizes {
-                    124, 145, 147, 140, 138, 100, 112
+                    124, 145, 147, 140, 137, 99, 112
                 };
 
                 const vector<size_t> linear_product_sizes {
                     124, 145, 147, 140, 136, 99, 112
                 };
                 
-                const vector<bool> no_variations_at_primers {
-                    true, true, true, true, true, false, true
+                const vector<double> variation_level {
+                    1.0, 1.0, 1.0, 1.0, 1.0, 0.33333, 1.0
                 };
 
-                const vector<bool> no_variations_in_products {
-                    false, false, false, false, false, false, true
-                };
 
                 const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom("y");
                 
@@ -129,8 +135,7 @@ using namespace std;
                     REQUIRE(linear_product_sizes[i]      == primer_pairs[i].linear_product_size);
                     REQUIRE(min_product_sizes[i]         == primer_pairs[i].min_product_size);
                     REQUIRE(max_product_sizes[i]         == primer_pairs[i].max_product_size);
-                    REQUIRE(no_variations_at_primers[i]  == primer_pairs[i].no_variation_at_primers);
-                    REQUIRE(no_variations_in_products[i] == primer_pairs[i].no_variation_in_products);
+                    REQUIRE(abs(variation_level[i] - primer_pairs[i].variation_level) <= 0.0001);
                 }
 
                 SECTION("Check that primers are assigned with correct nodes") {
@@ -161,7 +166,7 @@ using namespace std;
         SECTION("template_position=11") {
             string primers_path = "test/primers/y.primer3_with_ref_pos_11.out";
             ifstream file_handle(primers_path);
-            PrimerFinder primer_finder(graph, &distance_index, file_handle);
+            PrimerFinder primer_finder(graph, &distance_index, file_handle, gbwt_graph, gbwt_index, r_index);
 
             SECTION("Loads the correct number of chromosomes") {
                 REQUIRE(primer_finder.total_reference_paths() == 1);
@@ -213,24 +218,21 @@ using namespace std;
                 };
 
                 const vector<size_t> min_product_sizes {
-                    124, 142, 144, 137, 135, 97, 112
+                    124, 142, 144, 137, 136, 99, 112
                 };
 
                 const vector<size_t> max_product_sizes {
-                    124, 145, 147, 140, 138, 100, 112
+                    124, 145, 147, 140, 137, 99, 112
                 };
 
                 const vector<size_t> linear_product_sizes {
                     124, 145, 147, 140, 136, 99, 112
                 };
                 
-                const vector<bool> no_variations_at_primers {
-                    true, true, true, true, true, false, true
+                const vector<double> variation_level {
+                    1.0, 1.0, 1.0, 1.0, 1.0, 0.33333, 1.0
                 };
 
-                const vector<bool> no_variations_in_products {
-                    false, false, false, false, false, false, true
-                };
 
                 const vector<PrimerPair>& primer_pairs = primer_finder.get_primer_pairs_of_chrom("y");
                 
@@ -247,8 +249,7 @@ using namespace std;
                     REQUIRE(linear_product_sizes[i]      == primer_pairs[i].linear_product_size);
                     REQUIRE(min_product_sizes[i]         == primer_pairs[i].min_product_size);
                     REQUIRE(max_product_sizes[i]         == primer_pairs[i].max_product_size);
-                    REQUIRE(no_variations_at_primers[i]  == primer_pairs[i].no_variation_at_primers);
-                    REQUIRE(no_variations_in_products[i] == primer_pairs[i].no_variation_in_products);
+                    REQUIRE(abs(variation_level[i] - primer_pairs[i].variation_level) <= 0.0001);
                 }
 
                 SECTION("Check that primers are assigned with correct nodes") {
