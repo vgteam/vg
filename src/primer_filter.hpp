@@ -23,6 +23,8 @@
 #include "traversal_finder.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../primer_filter.hpp"
+#include "../recombinator.hpp"
 
 using namespace std;
 
@@ -37,9 +39,10 @@ namespace vg {
 struct Primer {
     string sequence;
     bool left = true;
-    size_t position = numeric_limits<size_t>::max();
-    size_t length   = numeric_limits<size_t>::max();
-    size_t offset   = numeric_limits<size_t>::max();
+    size_t position_chromosome = numeric_limits<size_t>::max();
+    size_t position_template   = numeric_limits<size_t>::max();
+    size_t length              = numeric_limits<size_t>::max();
+    size_t offset              = numeric_limits<size_t>::max();
     vector<size_t> mapped_nodes_ids;
 };
 
@@ -51,21 +54,26 @@ struct Primer {
 struct PrimerPair {
     Primer left_primer;
     Primer right_primer;
+    string chromosome_name;
+    string template_feature;
     size_t linear_product_size = numeric_limits<size_t>::max();
+    size_t template_position   = numeric_limits<size_t>::max();
     size_t min_product_size    = numeric_limits<size_t>::max();
     size_t max_product_size    = numeric_limits<size_t>::max();
-    bool no_variation_at_primers  = true;
-    bool no_variation_in_products = true;
+    double variation_level     = 0.0;
+    vector<HaplotypePartitioner::sequence_type> sequence_visits;
 };
 
 class PrimerFinder {
 
 private:
-    // vector<PrimerPair> primer_pairs;
-    // vector<PrimerPair> selected_primer_pairs;
-    map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
+    unordered_map<string, vector<PrimerPair>> chroms; // map containing a vector of primer pairs for each chromosome
     const PathPositionHandleGraph* graph;
     const SnarlDistanceIndex* distance_index;
+    const gbwtgraph::GBWTGraph& gbwt_graph;
+    const gbwt::GBWT& gbwt_index;
+    const gbwt::FastLocate& r_index;
+
 
 public:
     PrimerFinder() = default;
@@ -75,7 +83,9 @@ public:
      * and pointer to SnarlDistanceIndex
      */
     PrimerFinder(const unique_ptr<handlegraph::PathPositionHandleGraph>& graph_param,
-        const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle);
+        const SnarlDistanceIndex* distance_index_param, ifstream& primers_file_handle,
+        const gbwtgraph::GBWTGraph& gbwt_graph, const gbwt::GBWT& gbwt_index,
+        const gbwt::FastLocate& r_index);
 
     /**
      * Destructor
@@ -167,6 +177,12 @@ private:
      * Used in: load_primers
      */
     vector<string> split(const string& str);
+
+    /**
+     * Split a string into vectors given delimiter.
+     */
+    vector<string> split(const string& str, const char& delim);
+    
     /**
      * Works like str.startswith(prefix) in python
      * Used in: load_primers
