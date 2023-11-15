@@ -1,8 +1,9 @@
 #ifndef VG_ZIP_CODE_TREE_HPP_INCLUDED
 
 #define VG_ZIP_CODE_TREE_HPP_INCLUDED
-#define DEBUG_ZIP_CODE_TREE
-#define DEBUG_ZIP_CODE_SORTING
+
+//#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code.hpp"
 #include "snarl_seed_clusterer.hpp"
@@ -919,7 +920,6 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                 open_snarl(forest_state, 0, false);
             } else if (current_interval.code_type == ZipCode::NODE) {
                 //For a root node, just add the chain and all the seeds
-                cerr << "root node" << endl;
 
                 trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
 
@@ -939,7 +939,6 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                 
             } else {
                 // Open the root chain/node
-                cerr << "Root chain/node" << endl;
                 trees[forest_state.active_zip_tree].zip_code_tree.push_back({ZipCodeTree::CHAIN_START, std::numeric_limits<size_t>::max(), false});
 
                 //Remember the start of the chain
@@ -1235,8 +1234,13 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
 
 
         for (size_t sort_i : partition_seeds) {
-            new_sort_order.push_back(zipcode_sort_order[sort_i]);
+            new_sort_order.push_back(zipcode_sort_order[snarl_interval.interval_start+sort_i]);
         }
+    }
+
+    //Update the sort order in zipcode_sort_order
+    for (size_t i = 0 ; i < new_sort_order.size() ; i++) {
+        zipcode_sort_order[snarl_interval.interval_start+i] = new_sort_order[i];
     }
 #ifdef DEBUG_ZIP_CODE_SORTING
     cerr << "New sort order " << endl;
