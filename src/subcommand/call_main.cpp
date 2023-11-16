@@ -582,6 +582,17 @@ int main_call(int argc, char** argv) {
         swap(ref_paths, ref_subpaths);
     }
 
+    // make sure we have some ref paths
+    if (ref_paths.empty()) {
+        if (!ref_sample.empty()) {
+            cerr << "error [vg call]: No paths with selected reference sample \"" << ref_sample << "\" found. "
+                 << "Try using vg paths -M to see which samples are in your graph" << endl;
+            return 1;
+        }
+        cerr << "error [vg call]: No reference paths found" << endl;
+        return 1;
+    }
+
     // build table of ploidys
     vector<int> ref_path_ploidies;
     for (const string& ref_path : ref_paths) {
