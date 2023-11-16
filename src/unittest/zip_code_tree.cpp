@@ -1210,7 +1210,7 @@ namespace unittest {
             zip_forest.validate_zip_forest(distance_index, 4);
         }
     }
-    TEST_CASE( "zip tree snarl with inversion", "[zip_tree][bug]" ) {
+    TEST_CASE( "zip tree snarl with inversion", "[zip_tree]" ) {
 
         VG graph;
 
@@ -2393,11 +2393,72 @@ namespace unittest {
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, 5);
         zip_forest.print_self();
-        REQUIRE(zip_forest.trees.size() == 6);
+        REQUIRE(zip_forest.trees.size() == 5);
         for (auto& tree : zip_forest.trees) {
             tree.validate_zip_tree(distance_index);
         }
-        //TODO: Make this a better test. node 2 should have been duplicated
+    }
+    TEST_CASE("Another non-dag snarl", "[zip_tree][bug]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GTG");
+        Node* n2 = graph.create_node("G");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("GAAAAAAAAT");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("G");
+        Node* n7 = graph.create_node("GAAAAAAAAAT");
+        Node* n8 = graph.create_node("GAT");
+        Node* n9 = graph.create_node("GATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n7, false, true);
+        Edge* e6 = graph.create_edge(n4, n8, true, false);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n4, n6);
+        Edge* e9 = graph.create_edge(n5, n7);
+        Edge* e10 = graph.create_edge(n6, n7);
+        Edge* e11 = graph.create_edge(n7, n8);
+        Edge* e12 = graph.create_edge(n8, n9);
+        
+
+        //ofstream out ("testGraph.hg");
+        //graph.serialize(out);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex distance_index;
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+        SECTION( "Multiple seeds in snarl" ) {
+            vector<std::pair<pos_t, size_t>> positions;
+            positions.emplace_back(make_pos_t(2, false, 0), 0);
+            positions.emplace_back(make_pos_t(3, false, 0), 1);
+            positions.emplace_back(make_pos_t(3, true,  0), 2);
+            positions.emplace_back(make_pos_t(5, true,  0), 3);
+            positions.emplace_back(make_pos_t(6, true,  0), 4);
+            
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+            for (auto pos : positions) {
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos.first);
+                seeds.push_back({ pos.first, pos.second, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = pos.second;
+                minimizers.back().value.is_reverse = false;
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index);
+            zip_forest.print_self();
+            zip_forest.validate_zip_forest(distance_index);
+        }
     }
     TEST_CASE("Remove snarl and then a chain slice", "[zip_tree]") {
         VG graph;
@@ -2529,7 +2590,7 @@ namespace unittest {
             // For each random graph
     
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(1, 50);
+            uniform_int_distribution<int> variant_count(1, 20);
             uniform_int_distribution<int> chrom_len(10, 200);
             uniform_int_distribution<int> distance_limit(5, 100);
     

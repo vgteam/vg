@@ -1100,7 +1100,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
 
     forward_list<partition_t> all_partitions;
 
-    for (const auto& child_interval : intervals) {
+    for (size_t interval_i = 0 ; interval_i < intervals.size() ; interval_i++) {
+        const auto& child_interval = intervals[interval_i];
 
         //Each interval is on one chain, but the chains aren't sorted yet so sort them
         sort_one_interval(zipcode_sort_order, sort_values_by_seed, child_interval, snarl_depth+1, distance_index);
@@ -1146,6 +1147,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             partition_t seed_partition({sort_i - snarl_interval.interval_start,
                                      read_offset, read_offset,
                                      chain_offset, chain_offset,
+                                     interval_i,
                                      is_reversed_read});
 
             //For each partition, check if it is reachable with the seed, and remove the ones that aren't
