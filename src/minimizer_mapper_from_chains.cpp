@@ -240,6 +240,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             }
         }
     }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Found " << zip_code_forest.trees.size() << " zip code trees, scores " << best_tree_score << " best, " << second_best_tree_score << " second best" << std::endl;
+        }
+    }
     
     // Now we need to chain into fragments.
     // Each fragment needs to end up with a seeds array of seed numbers, and a
@@ -326,11 +333,13 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
                     cerr << log_name() << "Computing fragments over " << selected_seeds.size() << " seeds" << endl;
                 }
             }
-            
+
+#ifdef debug
             if (show_work) {
                 // Log the chaining problem so we can try it again elsewhere.
                 this->dump_chaining_problem(seed_anchors, selected_seeds, gbwt_graph);
             }
+#endif
             
             // Find fragments over the seeds in the zip code tree
             algorithms::transition_iterator for_each_transition = algorithms::zip_tree_transition_iterator(

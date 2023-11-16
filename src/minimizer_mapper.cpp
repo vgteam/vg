@@ -3384,11 +3384,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
 
         size_t total_hits = 0;
+        size_t with_hits = 0;
         for (auto& m : minimizers) {
             total_hits += m.hits;
+            if (m.hits > 0) {
+                with_hits++;
+            }
         }
         #pragma omp critical (cerr)
-        std::cerr << log_name() << "Total hits overall: " << total_hits << std::endl;
+        {
+            std::cerr << log_name() << "Total hits overall: " << total_hits << std::endl;
+            std::cerr << log_name() << "Total minimizers with hits overall: " << with_hits << std::endl;
+        }
     }
 
     // bit vector length of read to check for overlaps
@@ -3448,13 +3455,20 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
     }
     
-    if (show_work) {
+    if (show_work && this->minimizer_downsampling_window_size != 0) {
         size_t total_hits = 0;
+        size_t with_hits = 0;
         for (const Minimizer* m : downsampled) {
             total_hits += m->hits;
+            if (m->hits > 0) {
+                with_hits++;
+            }
         }
         #pragma omp critical (cerr)
-        std::cerr << log_name() << "Total hits after downsampling: " << total_hits << std::endl;
+        {
+            std::cerr << log_name() << "Total hits after downsampling: " << total_hits << std::endl;
+            std::cerr << log_name() << "Total minimizers with hits after downsampling: " << with_hits << std::endl;
+        }
     }
     
     // Define the filters for minimizers.

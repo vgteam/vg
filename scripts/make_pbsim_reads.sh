@@ -35,7 +35,7 @@ set -ex
 # The binary will be in src/pbsim
 : "${PBSIM:=pbsim}"
 # Parameters to use with pbsim for simulating reads for each contig. Parameters are space-separated and internal spaces must be escaped.
-: "${PBSIM_PARAMS:=--depth 1 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
+: "${PBSIM_PARAMS:=--depth 4 --accuracy-min 0.00 --length-min 10000 --difference-ratio 6:50:54}"
 # Directory to save results in
 : "${OUT_DIR:=./reads/sim/${TECH_NAME}/${SAMPLE_NAME}}"
 # Number of MAFs to convert at once
@@ -227,14 +227,14 @@ fi
 # Work out howe many reads there are
 TOTAL_READS="$(vg stats -a "${WORK_DIR}/${SAMPLE_NAME}-reads/${SAMPLE_NAME}-sim-${TECH_NAME}.gam" | grep "^Total alignments:" | cut -f2 -d':' | tr -d ' ')"
 
-if [[ "${TOTAL_READS}" -lt 10500 ]] ; then
-    echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 10000 reads with buffer!"
+if [[ "${TOTAL_READS}" -lt 1000500 ]] ; then
+    echo "Only ${TOTAL_READS} reads were simulated. Cannot subset to 1000000 reads with buffer!"
     exit 1
 fi
 echo "Simulated ${TOTAL_READS} reads overall"
 
 SUBSAMPLE_SEED=1
-for READ_COUNT in 100 1000 10000 ; do
+for READ_COUNT in 100 1000 10000 100000 1000000 ; do
     # Subset to manageable sizes (always)
     # Get the fraction of reads to keep, overestimated, with no leading 0, to paste onto subsample seed.
     FRACTION="$(echo "(${READ_COUNT} + 500)/${TOTAL_READS}" | bc -l | sed 's/^[0-9]*//g')"

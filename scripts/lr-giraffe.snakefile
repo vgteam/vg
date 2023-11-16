@@ -310,7 +310,7 @@ rule experiment_mapping_rate_plot:
         mem_mb=1000,
         runtime=5
     shell:
-        "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --no_n --save {output}"
+        "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
 rule chain_coverage_alignments:
     input:
