@@ -1053,9 +1053,14 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
     const interval_and_orientation_t& parent_interval,
     const vector<interval_and_orientation_t>& intervals, size_t snarl_depth, 
     const SnarlDistanceIndex& distance_index, size_t distance_limit) const {
+
 #ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "Sorting and finding intervals for cyclic snarl with " << intervals.size() << " children" << endl;
+    assert(seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_code_type(snarl_depth) == ZipCode::CYCLIC_SNARL);
+    net_handle_t handle = seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_net_handle(snarl_depth, &distance_index);
+    cerr << "Sorting and finding intervals for cyclic snarl " << distance_index.net_handle_as_string(handle)
+         << " with " << intervals.size() << " children" << endl;
 #endif
+    net_handle_t snarl_handle = seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_net_handle(snarl_depth, &distance_index);
 
 
     /****** For each interval, form partitions of reachable seeds 
@@ -1083,6 +1088,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
         size_t interval_i;
 
         bool is_reversed_read;
+
+        //Can this interval be traversed in both directions?
+        bool can_be_reversed;
     };
 
     //Helper function to check if the value is close enough to a range of values
@@ -1108,6 +1116,29 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
 
         //Each interval is on one chain, but the chains aren't sorted yet so sort them
         sort_one_interval(zipcode_sort_order, sort_values_by_seed, child_interval, snarl_depth+1, distance_index);
+
+        //Check if the interval can be flipped in the snarl
+        bool interval_is_reversed_in_snarl = child_interval.is_reversed != snarl_interval.is_reversed;
+        bool interval_is_reversable;
+        if (interval_is_reversed_in_snarl) {
+            //If this interval is already going backwards in the snarl, then it is because it couldn't go forwards
+#ifdef DEBUG_ZIP_CODE_TREE
+            //This is how seed_is_reversed_at_depth currently works but double check this in case it changed 
+            size_t rank = seeds->at(zipcode_sort_order[child_interval.interval_start]).zipcode_decoder->get_rank_in_snarl(snarl_depth+1);
+            assert (distance_index.distance_in_snarl(snarl_handle, 0, false, rank, false) == std::numeric_limits<size_t>::max()
+                &&
+                distance_index.distance_in_snarl(snarl_handle, 1, false, rank, true) == std::numeric_limits<size_t>::max());
+#endif
+            interval_is_reversable = false;
+        } else {
+            //If the interval is not reversed in the snarl, check if it can be reversed
+            size_t rank = seeds->at(zipcode_sort_order[child_interval.interval_start]).zipcode_decoder->get_rank_in_snarl(snarl_depth+1);
+            size_t distance_start = distance_index.distance_in_snarl(snarl_handle, 0, false, rank, true);
+            size_t distance_end = distance_index.distance_in_snarl(snarl_handle, 0, true, rank, false);
+            interval_is_reversable = distance_start != std::numeric_limits<size_t>::max()
+                               || distance_end != std::numeric_limits<size_t>::max();
+        }
+                                
 
         //Now partition the chain further
 
@@ -1151,7 +1182,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                                      read_offset, read_offset,
                                      chain_offset, chain_offset,
                                      interval_i,
-                                     is_reversed_read});
+                                     is_reversed_read,
+                                     interval_is_reversable});
 
             //For each partition, check if it is reachable with the seed, and remove the ones that aren't
 
@@ -1285,67 +1317,79 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                                     intervals[partition.interval_i].depth);
 
         //Figure out if the read running backwards through this partition
-        //This is done by finding the covariance of the ranks (spearman's rank correlation but just the numerator)
-        // sum ( (x - x_avg) * (y - y_avg) )
+        bool reverse_partition = false;
+        
+        if (partition.can_be_reversed) {
+            //If it is possible to traverse the partition backwards in the chain, then check which is the correct orientation
 
-        //This will hold the read and chain rank of each seed in partition_seeds
-        vector<std::pair<size_t, size_t>> read_and_chain_ranks (partition_seeds.size());
+            //Figure out if the read running backwards through this partition
+            //This is done by finding the covariance of the ranks (spearman's rank correlation but just the numerator)
+            // sum ( (x - x_avg) * (y - y_avg) )
 
-        //These hold indexes into partition_seeds and get sorted by read or chain offset to get the ranks 
-        vector<size_t> sorted_read_index (0, partition_seeds.size());
-        for (size_t i = 0 ; i < sorted_read_index.size() ; i++) {sorted_read_index[i] = i;}
-        vector<size_t> sorted_chain_index (0, partition_seeds.size());
-        for (size_t i = 0 ; i < sorted_chain_index.size() ; i++) {sorted_chain_index[i] = i;}
-        //Get the read offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
-        auto get_read_offset = [&] (size_t i) {
-            const Seed& seed = seeds->at(zipcode_sort_order[snarl_interval.interval_start+i]);
-            const Minimizer& minimizer = minimizers[seed.source];
-            return minimizer.value.offset;
-        };
-        //Get the chain offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
-        auto get_chain_offset = [&] (size_t i) {
-            return sort_values_by_seed[zipcode_sort_order[snarl_interval.interval_start+i]].get_distance_value();
-        };
+            //This will hold the read and chain rank of each seed in partition_seeds
+            vector<std::pair<size_t, size_t>> read_and_chain_ranks (partition_seeds.size());
 
-        //Sort by read/chain offset and fill in the ranks
-        std::sort(sorted_read_index.begin(), sorted_read_index.end(),[&](const size_t& a, const size_t& b) {
-            return get_read_offset(partition_seeds[a]) < get_read_offset(partition_seeds[b]);
-        });
-        size_t read_rank = 0;
-        for (size_t rank = 0 ; rank < sorted_read_index.size() ; rank++) {
-            if (rank != 0 && 
-                get_read_offset(partition_seeds[sorted_read_index[rank]]) 
-                    != get_read_offset(partition_seeds[sorted_read_index[rank-1]])) {
-                //If this is a different value from the last
-                ++read_rank;
+            //These hold indexes into partition_seeds and get sorted by read or chain offset to get the ranks 
+            vector<size_t> sorted_read_index (0, partition_seeds.size());
+            for (size_t i = 0 ; i < sorted_read_index.size() ; i++) {sorted_read_index[i] = i;}
+            vector<size_t> sorted_chain_index (0, partition_seeds.size());
+            for (size_t i = 0 ; i < sorted_chain_index.size() ; i++) {sorted_chain_index[i] = i;}
+            //Get the read offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
+            auto get_read_offset = [&] (size_t i) {
+                const Seed& seed = seeds->at(zipcode_sort_order[snarl_interval.interval_start+i]);
+                const Minimizer& minimizer = minimizers[seed.source];
+                return minimizer.value.offset;
+            };
+            //Get the chain offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
+            auto get_chain_offset = [&] (size_t i) {
+                return sort_values_by_seed[zipcode_sort_order[snarl_interval.interval_start+i]].get_distance_value();
+            };
+
+            //Sort by read/chain offset and fill in the ranks
+            std::sort(sorted_read_index.begin(), sorted_read_index.end(),[&](const size_t& a, const size_t& b) {
+                return get_read_offset(partition_seeds[a]) < get_read_offset(partition_seeds[b]);
+            });
+            size_t read_rank = 0;
+            for (size_t rank = 0 ; rank < sorted_read_index.size() ; rank++) {
+                if (rank != 0 && 
+                    get_read_offset(partition_seeds[sorted_read_index[rank]]) 
+                        != get_read_offset(partition_seeds[sorted_read_index[rank-1]])) {
+                    //If this is a different value from the last
+                    ++read_rank;
+                }
+                read_and_chain_ranks[sorted_read_index[rank]].first = read_rank;
             }
-            read_and_chain_ranks[sorted_read_index[rank]].first = read_rank;
-        }
-        std::sort(sorted_chain_index.begin(), sorted_chain_index.end(),[&](const size_t& a, const size_t& b) {
-            return get_chain_offset(partition_seeds[a]) < get_chain_offset(partition_seeds[b]);
-        });
-        size_t chain_rank = 0;
-        for (size_t rank = 0 ; rank < sorted_chain_index.size() ; rank++) {
-            if (rank != 0 && 
-                get_chain_offset(partition_seeds[sorted_read_index[rank]]) 
-                    != get_chain_offset(partition_seeds[sorted_chain_index[rank-1]])) {
-                //If this is a different value from the last
-                ++chain_rank;
+
+            //Don't need to sort the chain ranks because they are already sorted
+            size_t chain_rank = 0;
+            for (size_t rank = 0 ; rank < sorted_chain_index.size() ; rank++) {
+                if (rank != 0 && 
+                    get_chain_offset(partition_seeds[sorted_read_index[rank]]) 
+                        != get_chain_offset(partition_seeds[sorted_chain_index[rank-1]])) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                    assert(get_chain_offset(partition_seeds[sorted_read_index[rank]]) 
+                        >= get_chain_offset(partition_seeds[sorted_chain_index[rank-1]]));
+#endif
+                    //If this is a different value from the last
+                    ++chain_rank;
+                }
+                read_and_chain_ranks[sorted_chain_index[rank]].second = chain_rank;
             }
-            read_and_chain_ranks[sorted_chain_index[rank]].second = chain_rank;
+
+            int cov = 0;
+            for (size_t i = 0 ; i < partition_seeds.size() ; i++) {
+
+                cov += (((int)read_and_chain_ranks[i].first - (int)read_rank/2) * ((int)read_and_chain_ranks[i].second - (int)chain_rank/2));
+            }
+
+            //Now decide which direction the partition is traversed in
+            bool partition_is_traversed_backwards = cov < 0;
+            reverse_partition = partition_is_traversed_backwards != snarl_is_traversed_backwards;
         }
 
-        int cov = 0;
-        for (size_t i = 0 ; i < partition_seeds.size() ; i++) {
-
-            cov += (((int)read_and_chain_ranks[i].first - (int)read_rank/2) * ((int)read_and_chain_ranks[i].second - (int)chain_rank/2));
-        }
-
-        //Now decide which direction the partition is traversed in
-        bool partition_is_traversed_backwards = cov < 0;
-
-        if (partition_is_traversed_backwards == snarl_is_traversed_backwards) {
-            //If the read is going through the snarl and partition in the same direction
+        if (!reverse_partition) {
+            //If we can only go forwards through the partition or
+            //if the read is going through the snarl and partition in the same direction
             for (size_t sort_i : partition_seeds) {
                 new_sort_order.push_back(zipcode_sort_order[snarl_interval.interval_start+sort_i]);
             }
