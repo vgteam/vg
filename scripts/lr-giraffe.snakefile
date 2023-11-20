@@ -374,7 +374,7 @@ rule annotate_and_compare_alignments:
         mem_mb=25000,
         runtime=60
     shell:
-        "vg annotate -t7 -a {input.gam} -x {input.gbz} -m | tee >{output.gam} | vg gamcompare --range 200 - {input.truth_gam} -T > {output.tsv} 2>{output.report}"
+        "vg annotate -t7 -a {input.gam} -x {input.gbz} -m | tee >{output.gam} | vg gamcompare --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
 rule correctness_from_comparison:
     input:
@@ -388,7 +388,7 @@ rule correctness_from_comparison:
         mem_mb=1000,
         runtime=5,
     shell:
-        "printf '{params.condition_name}\\t' >{output.correct} && cat {input.report} | grep ' reads correct$' | cut -f1 -d' ' >>{output.correct}"
+        "printf '{params.condition_name}\\t' >{output.correct} && cat {input.report} | grep 'reads correct' | cut -f1 -d' ' >>{output.correct}"
 
 rule experiment_correctness_table:
     input:
@@ -413,6 +413,45 @@ rule experiment_correctness_plot:
         runtime=5
     shell:
         "barchart.py {input.tsv} --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
+
+rule compared_named_from_compared:
+    input:
+        tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv"
+    threads: 3
+    resources:
+        mem_mb=1000,
+        runtime=60
+    shell:
+        "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input.tsv} | grep -v '^correct' | awk -F '\\t' -v OFS='\\t' '{{ $3 = \"{params.condition_name}\"; print }}' >>{output.tsv}"
+
+
+rule experiment_compared_tsv:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compared.tsv")
+    output:
+        tsv="{root}/experiments/{expname}/results/compared.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=60
+    shell:
+        "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input} | grep -v '^correct' >>{output.tsv}"
+
+rule experiment_compared_plot:
+    input:
+        tsv="{root}/experiments/{expname}/results/compared.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/qq.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30
+    shell:
+        "Rscript scripts/plot-pr.R {input.tsv} {output}"
 
 rule stats_from_alignments:
     input:
