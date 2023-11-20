@@ -1327,12 +1327,12 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             // sum ( (x - x_avg) * (y - y_avg) )
 
             //This will hold the read and chain rank of each seed in partition_seeds
-            vector<std::pair<size_t, size_t>> read_and_chain_ranks (partition_seeds.size());
+            vector<std::pair<double, double>> read_and_chain_ranks (partition_seeds.size());
 
             //These hold indexes into partition_seeds and get sorted by read or chain offset to get the ranks 
-            vector<size_t> sorted_read_index (0, partition_seeds.size());
+            vector<size_t> sorted_read_index (partition_seeds.size(), 0);
             for (size_t i = 0 ; i < sorted_read_index.size() ; i++) {sorted_read_index[i] = i;}
-            vector<size_t> sorted_chain_index (0, partition_seeds.size());
+            vector<size_t> sorted_chain_index (partition_seeds.size(), 0);
             for (size_t i = 0 ; i < sorted_chain_index.size() ; i++) {sorted_chain_index[i] = i;}
             //Get the read offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
             auto get_read_offset = [&] (size_t i) {
@@ -1350,6 +1350,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                 return get_read_offset(partition_seeds[a]) < get_read_offset(partition_seeds[b]);
             });
             size_t read_rank = 0;
+            double read_rank_sum = 0.0;
             for (size_t rank = 0 ; rank < sorted_read_index.size() ; rank++) {
                 if (rank != 0 && 
                     get_read_offset(partition_seeds[sorted_read_index[rank]]) 
@@ -1357,11 +1358,13 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                     //If this is a different value from the last
                     ++read_rank;
                 }
-                read_and_chain_ranks[sorted_read_index[rank]].first = read_rank;
+                read_rank_sum += read_rank;
+                read_and_chain_ranks[sorted_read_index[rank]].first = (double)read_rank;
             }
 
             //Don't need to sort the chain ranks because they are already sorted
             size_t chain_rank = 0;
+            double chain_rank_sum = 0.0;
             for (size_t rank = 0 ; rank < sorted_chain_index.size() ; rank++) {
                 if (rank != 0 && 
                     get_chain_offset(partition_seeds[sorted_read_index[rank]]) 
@@ -1373,14 +1376,35 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                     //If this is a different value from the last
                     ++chain_rank;
                 }
-                read_and_chain_ranks[sorted_chain_index[rank]].second = chain_rank;
+                chain_rank_sum += chain_rank;
+                read_and_chain_ranks[sorted_chain_index[rank]].second = (double)chain_rank;
             }
+            double avg_read_rank = read_rank_sum / read_and_chain_ranks.size();
+            double avg_chain_rank = chain_rank_sum / read_and_chain_ranks.size();
 
-            int cov = 0;
+            double cov = 0.0;
             for (size_t i = 0 ; i < partition_seeds.size() ; i++) {
 
-                cov += (((int)read_and_chain_ranks[i].first - (int)read_rank/2) * ((int)read_and_chain_ranks[i].second - (int)chain_rank/2));
+                cov += ((read_and_chain_ranks[i].first - avg_read_rank) * (read_and_chain_ranks[i].second - avg_chain_rank));
             }
+
+#ifdef DEBUG_ZIP_CODE_TREE
+            //Since only the orientation matters, all we need is the sign of the covariances, so don't get the
+            //whole correlation. But do it here for debugging
+            cov = cov / read_and_chain_ranks.size();
+
+            double sum_sq_read = 0.0;
+            double sum_sq_chain = 0.0;
+            for (size_t i = 0 ; i < partition_seeds.size() ; i++) {
+                auto x = read_and_chain_ranks[i];
+                sum_sq_read += (x.first - avg_read_rank) * (x.first - avg_read_rank);
+                sum_sq_chain += (x.second - avg_chain_rank) * (x.second - avg_chain_rank);
+            }
+            double stddev_read = std::sqrt(sum_sq_read / read_and_chain_ranks.size());
+            double stddev_chain = std::sqrt(sum_sq_chain / read_and_chain_ranks.size());
+            double correlation = stddev_read==0 || stddev_chain == 0 ? 0 : cov / (stddev_read * stddev_chain);
+            cerr << "Correlation: " << correlation << endl;
+#endif
 
             //Now decide which direction the partition is traversed in
             bool partition_is_traversed_backwards = cov < 0;
