@@ -29,6 +29,7 @@ set -ex
 # git clone https://github.com/yukiteruono/pbsim2.git
 # cd pbsim2
 # git checkout eeb5a19420534a0f672c81db2670117e62a9ee38
+# autoupdate
 # automake --add-missing
 # autoreconf 
 # ./configure --prefix=$HOME/.local && make
