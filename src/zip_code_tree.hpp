@@ -1082,12 +1082,6 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
         //The index of the original interval
         size_t interval_i;
 
-        //We're going to need to figure out the orientation of the read for this partition
-        //This will be done by finding the covariance of the offsets in the read and chain
-        //So to get the average, remember the sum of all offsets here
-        size_t read_offset_total;
-        size_t chain_offset_total;
-
         bool is_reversed_read;
     };
 
@@ -1157,7 +1151,6 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                                      read_offset, read_offset,
                                      chain_offset, chain_offset,
                                      interval_i,
-                                     read_offset, chain_offset,
                                      is_reversed_read});
 
             //For each partition, check if it is reachable with the seed, and remove the ones that aren't
@@ -1188,9 +1181,6 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                                                                seed_partition.chain_range_start);
                     seed_partition.chain_range_end = std::max(partition_itr->chain_range_end, 
                                                              seed_partition.chain_range_end);
-
-                    seed_partition.read_offset_total += partition_itr->read_offset_total;
-                    seed_partition.chain_offset_total += partition_itr->chain_offset_total; 
 
                     //Remove this partition
                     partition_itr = partitions.erase_after(prev_itr);
@@ -1295,20 +1285,63 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
                                     intervals[partition.interval_i].depth);
 
         //Figure out if the read running backwards through this partition
-        //This is done by finding the covariance
+        //This is done by finding the covariance of the ranks (spearman's rank correlation but just the numerator)
         // sum ( (x - x_avg) * (y - y_avg) )
-        int cov = 0;
-        int read_offset_avg = (int)partition.read_offset_total / (int)partition_seeds.size();
-        int chain_offset_avg = (int)partition.chain_offset_total / (int)partition_seeds.size();
-        for (const size_t& sort_i : partition_seeds) {
-            const Seed& seed = seeds->at(zipcode_sort_order[snarl_interval.interval_start+sort_i]);
+
+        //This will hold the read and chain rank of each seed in partition_seeds
+        vector<std::pair<size_t, size_t>> read_and_chain_ranks (partition_seeds.size());
+
+        //These hold indexes into partition_seeds and get sorted by read or chain offset to get the ranks 
+        vector<size_t> sorted_read_index (0, partition_seeds.size());
+        for (size_t i = 0 ; i < sorted_read_index.size() ; i++) {sorted_read_index[i] = i;}
+        vector<size_t> sorted_chain_index (0, partition_seeds.size());
+        for (size_t i = 0 ; i < sorted_chain_index.size() ; i++) {sorted_chain_index[i] = i;}
+        //Get the read offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
+        auto get_read_offset = [&] (size_t i) {
+            const Seed& seed = seeds->at(zipcode_sort_order[snarl_interval.interval_start+i]);
             const Minimizer& minimizer = minimizers[seed.source];
+            return minimizer.value.offset;
+        };
+        //Get the chain offset given a value in partition_seeds (the index into zipcode_sort_order-snarl interval start)
+        auto get_chain_offset = [&] (size_t i) {
+            return sort_values_by_seed[zipcode_sort_order[snarl_interval.interval_start+i]].get_distance_value();
+        };
 
-            size_t read_offset = minimizer.value.offset;
-            size_t chain_offset = sort_values_by_seed[zipcode_sort_order[snarl_interval.interval_start+sort_i]].get_distance_value(); 
-
-            cov += (((int)read_offset - read_offset_avg) * ((int)chain_offset - chain_offset_avg));
+        //Sort by read/chain offset and fill in the ranks
+        std::sort(sorted_read_index.begin(), sorted_read_index.end(),[&](const size_t& a, const size_t& b) {
+            return get_read_offset(partition_seeds[a]) < get_read_offset(partition_seeds[b]);
+        });
+        size_t read_rank = 0;
+        for (size_t rank = 0 ; rank < sorted_read_index.size() ; rank++) {
+            if (rank != 0 && 
+                get_read_offset(partition_seeds[sorted_read_index[rank]]) 
+                    != get_read_offset(partition_seeds[sorted_read_index[rank-1]])) {
+                //If this is a different value from the last
+                ++read_rank;
+            }
+            read_and_chain_ranks[sorted_read_index[rank]].first = read_rank;
         }
+        std::sort(sorted_chain_index.begin(), sorted_chain_index.end(),[&](const size_t& a, const size_t& b) {
+            return get_chain_offset(partition_seeds[a]) < get_chain_offset(partition_seeds[b]);
+        });
+        size_t chain_rank = 0;
+        for (size_t rank = 0 ; rank < sorted_chain_index.size() ; rank++) {
+            if (rank != 0 && 
+                get_chain_offset(partition_seeds[sorted_read_index[rank]]) 
+                    != get_chain_offset(partition_seeds[sorted_chain_index[rank-1]])) {
+                //If this is a different value from the last
+                ++chain_rank;
+            }
+            read_and_chain_ranks[sorted_chain_index[rank]].second = chain_rank;
+        }
+
+        int cov = 0;
+        for (size_t i = 0 ; i < partition_seeds.size() ; i++) {
+
+            cov += (((int)read_and_chain_ranks[i].first - (int)read_rank/2) * ((int)read_and_chain_ranks[i].second - (int)chain_rank/2));
+        }
+
+        //Now decide which direction the partition is traversed in
         bool partition_is_traversed_backwards = cov < 0;
 
         if (partition_is_traversed_backwards == snarl_is_traversed_backwards) {
