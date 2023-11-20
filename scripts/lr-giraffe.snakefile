@@ -469,11 +469,23 @@ rule experiment_compared_tsv:
     shell:
         "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input} | grep -v '^correct' >>{output.tsv}"
 
-rule experiment_compared_plot:
+rule experiment_qq_plot_from_compared:
     input:
         tsv="{root}/experiments/{expname}/results/compared.tsv"
     output:
         "{root}/experiments/{expname}/plots/qq.{ext}"
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=30
+    shell:
+        "Rscript scripts/plot-qq.R {input.tsv} {output}"
+
+rule experiment_pr_plot_from_compared:
+    input:
+        tsv="{root}/experiments/{expname}/results/compared.tsv"
+    output:
+        "{root}/experiments/{expname}/plots/pr.{ext}"
     threads: 1
     resources:
         mem_mb=10000,
