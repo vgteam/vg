@@ -299,7 +299,7 @@ rule extract_fastq:
         mem_mb=10000,
         runtime=60
     shell:
-        "vg view --threads {threads} {input.gam} >{output.fastq}"
+        "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
 
 rule giraffe_real_reads:
     input:
