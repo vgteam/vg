@@ -13,6 +13,19 @@ def repetitive_kmers(wildcards):
     """
     return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn.repetitive_k15.txt")
 
+def minimap2_index(wildcards):
+    """
+    Find the minimap2 index from reference and tech.
+    """
+    
+    tech_part = {
+        "hifi": "hifi",
+        "r9": "ont",
+        "r10": "ont"
+    }[wildcards["tech"]]
+    return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn." + tech_part + ".mmi")
+    
+
 def reference_fasta(wildcards):
     """
     Find the linear reference FASTA from a reference.
@@ -237,9 +250,9 @@ def all_experiment(wildcard_values, pattern, debug=False):
         filename = pattern.format(**merged)
         yield filename
 
-def winnowmap_mode(wildcards):
+def minimap_derivative_mode(wildcards):
     """
-    Determine the right Winnowmap preset (map-pb, etc.) from tech.
+    Determine the right Minimap2/Winnowmap preset (map-pb, etc.) from tech.
     """
 
     return {
@@ -337,7 +350,7 @@ rule winnowmap_reads:
         repetitive_kmers=repetitive_kmers,
         fastq=fastq
     params:
-        winnowmap_mode=winnowmap_mode
+        mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     threads: 16
@@ -345,7 +358,22 @@ rule winnowmap_reads:
         mem_mb=300000,
         runtime=120
     shell:
-        "winnowmap -t 15 -W {input.repetitive_kmers} -ax {params.winnowmap_mode} {input.reference_fasta} {input.fastq} | samtools view -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t 15 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view -h -F 2048 -F 256 --bam - >{output.bam}"
+
+rule minimap2_reads:
+    input:
+        minimap2_index=minimap2_index,
+        fastq=fastq
+    params:
+        mode=minimap_derivative_mode
+    output:
+        bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
+    threads: 16
+    resources:
+        mem_mb=300000,
+        runtime=120
+    shell:
+        "minimap2 -t 15 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule inject_bam:
     input:
@@ -369,12 +397,12 @@ rule annotate_and_compare_alignments:
         gam="{root}/annotated/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    threads: 8
+    threads: 17
     resources:
         mem_mb=25000,
         runtime=60
     shell:
-        "vg annotate -t7 -a {input.gam} -x {input.gbz} -m | tee >{output.gam} | vg gamcompare --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg annotate -t8 -a {input.gam} -x {input.gbz} -m | tee {output.gam} | vg gamcompare --threads 8 --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
 rule correctness_from_comparison:
     input:
