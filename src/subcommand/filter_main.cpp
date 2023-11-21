@@ -31,6 +31,7 @@ void help_filter(char** argv) {
          << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
+         << "    -c, --exact-name           match read names exactly instead of by prefix" << endl
          << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
          << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
          << "    -p, --proper-pairs         keep reads that are annotated as being properly paired" << endl
@@ -73,6 +74,7 @@ int main_filter(int argc, char** argv) {
     
     bool input_gam = true;
     vector<string> name_prefixes;
+    bool exact_name = false;
     vector<regex> excluded_refpos_contigs;
     unordered_set<string> excluded_features;
     vector<string> subsequences;
@@ -124,6 +126,7 @@ int main_filter(int argc, char** argv) {
                 {"input-mp-alns", no_argument, 0, 'M'},
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
+                {"exact-name", no_argument, 0, 'c'},
                 {"subsequence", required_argument, 0, 'a'},
                 {"subsequences", required_argument, 0, 'A'},
                 {"proper-pairs", no_argument, 0, 'p'},
@@ -150,14 +153,14 @@ int main_filter(int argc, char** argv) {
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
                 {"annotation", required_argument, 0, 'B'},
-                {"correctly-mapped", no_argument, 0, 'c'},
+                {"correctly-mapped", no_argument, 0, 'g'},
                 {"complement", no_argument, 0, 'U'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:a:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:iIb:B:cUt:",
+        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVT:q:E:D:C:d:iIb:B:gUt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -184,6 +187,9 @@ int main_filter(int argc, char** argv) {
                     name_prefixes.push_back(line);
                 }
             });
+            break;
+        case 'c':
+            exact_name = true;
             break;
         case 'a':
             subsequences.push_back(optarg);
@@ -324,7 +330,7 @@ int main_filter(int argc, char** argv) {
         case 'B':
             annotation = optarg;
             break;
-        case 'c':
+        case 'g':
             correctly_mapped = true;
             break;
         case 'U':
@@ -370,6 +376,7 @@ int main_filter(int argc, char** argv) {
     // template lambda to set parameters
     auto set_params = [&](auto& filter) {
         filter.name_prefixes = name_prefixes;
+        filter.exact_name = exact_name;
         filter.subsequences = subsequences;
         filter.excluded_refpos_contigs = excluded_refpos_contigs;
         filter.excluded_features = excluded_features;
