@@ -1219,6 +1219,9 @@ int main_giraffe(int argc, char** argv) {
         }
     
         // Apply the overlay if needed.
+        if (show_progress) {
+            cerr << "Applying overlay" << endl;
+        }
         path_position_graph = overlay_helper.apply(base_graph);
     }
 
