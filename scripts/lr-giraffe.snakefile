@@ -322,10 +322,10 @@ rule giraffe_real_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="real"
-    threads: 16
+    threads: 64
     resources:
-        mem_mb=300000,
-        runtime=240
+        mem_mb=1000000,
+        runtime=600
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
 
@@ -337,10 +337,10 @@ rule giraffe_sim_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: 16
+    threads: 64
     resources:
-        mem_mb=300000,
-        runtime=60
+        mem_mb=1000000,
+        runtime=600
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
 
@@ -353,12 +353,12 @@ rule winnowmap_reads:
         mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/winnowmap/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    threads: 16
+    threads: 68
     resources:
         mem_mb=300000,
-        runtime=120
+        runtime=600
     shell:
-        "winnowmap -t 15 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view -h -F 2048 -F 256 --bam - >{output.bam}"
+        "winnowmap -t 64 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule minimap2_reads:
     input:
@@ -368,12 +368,12 @@ rule minimap2_reads:
         mode=minimap_derivative_mode
     output:
         bam="{root}/aligned/{reference}/minimap2/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
-    threads: 16
+    threads: 68
     resources:
         mem_mb=300000,
-        runtime=120
+        runtime=600
     shell:
-        "minimap2 -t 15 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view -h -F 2048 -F 256 --bam - >{output.bam}"
+        "minimap2 -t 64 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
 
 rule inject_bam:
     input:
@@ -381,10 +381,10 @@ rule inject_bam:
         bam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.bam"
     output:
         gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
-    threads: 16
+    threads: 64
     resources:
         mem_mb=300000,
-        runtime=120
+        runtime=600
     shell:
         "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
 
@@ -397,12 +397,12 @@ rule annotate_and_compare_alignments:
         gam="{root}/annotated/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    threads: 17
+    threads: 65
     resources:
-        mem_mb=25000,
-        runtime=60
+        mem_mb=50000,
+        runtime=600
     shell:
-        "vg annotate -t8 -a {input.gam} -x {input.gbz} -m | tee {output.gam} | vg gamcompare --threads 8 --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg annotate -t32 -a {input.gam} -x {input.gbz} -m | tee {output.gam} | vg gamcompare --threads 32 --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
 rule correctness_from_comparison:
     input:
