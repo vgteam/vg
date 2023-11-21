@@ -584,8 +584,18 @@ int main_call(int argc, char** argv) {
 
     // make sure we have some ref paths
     if (ref_paths.empty()) {
-        if (!ref_sample.empty()) {
-            cerr << "error [vg call]: No paths with selected reference sample \"" << ref_sample << "\" found. "
+        if (!ref_sample_set.empty()) {
+            string sample_string;
+            if (ref_sample_set.size() == 1) {
+                sample_string = "sample \"" + *ref_sample_set.begin() + "\"";
+            } else {
+                sample_string = "samples \"";
+                for (const string& rsn : ref_sample_set) {
+                    sample_string += (sample_string.length() > 9 ? " " : "") + rsn;
+                }
+                sample_string += "\"";
+            }
+            cerr << "error [vg call]: No paths with selected reference " << sample_string << " found. "
                  << "Try using vg paths -M to see which samples are in your graph" << endl;
             return 1;
         }
