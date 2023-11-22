@@ -42,6 +42,12 @@
 #include <valgrind/callgrind.h>
 #endif
 
+#define USE_MEMORY_PROFILING
+
+#ifdef USE_MEMORY_PROFILING
+#include "../config/allocator_config.hpp"
+#endif
+
 #include <sys/ioctl.h>
 #ifdef __linux__
 #include <linux/perf_event.h>
@@ -1436,7 +1442,14 @@ int main_giraffe(int argc, char** argv) {
                                                           paths, thread_count,
                                                           emitter_graph, flags);
             }
-            
+
+#ifdef USE_MEMORY_PROFILING
+            // Start profiling memory allocations
+            AllocatorConfig::set_profiling(true);
+            // And dump an initial snapshot
+            AllocatorConfig::snapshot();
+#endif
+
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
             CALLGRIND_START_INSTRUMENTATION;
@@ -1592,6 +1605,11 @@ int main_giraffe(int argc, char** argv) {
                 }
             } else {
                 // Map single-ended
+                
+#ifdef USE_MEMORY_PROFILING
+                size_t reads_mapped = 0;
+                size_t reads_mapped_threshold = 1;
+#endif
 
                 // All the threads start at once.
                 all_threads_start = first_thread_start;
@@ -1614,6 +1632,18 @@ int main_giraffe(int argc, char** argv) {
                         minimizer_mapper.map(aln, *alignment_emitter);
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(thread_num)++;
+
+#ifdef USE_MEMORY_PROFILING
+                        #pragma omp critical (reads_mapped)
+                        {
+                            reads_mapped++;
+                            if (reads_mapped == reads_mapped_threshold) {
+                                reads_mapped_threshold *= 2;
+                                // Dump a memory snapshot every time the mapped reads doubles.
+                                AllocatorConfig::snapshot();
+                            }
+                        }
+#endif
                         
                         if (watchdog) {
                             watchdog->check_out(thread_num);
@@ -1645,6 +1675,13 @@ int main_giraffe(int argc, char** argv) {
         clock_t cpu_time_after = clock();
 #ifdef __linux__
         stop_perf_for_thread();
+#endif
+
+#ifdef USE_MEMORY_PROFILING
+            // Dump a final snapshot
+            AllocatorConfig::snapshot();
+            // Stop profiling memory allocations
+            AllocatorConfig::set_profiling(false);
 #endif
         
         // Compute wall clock elapsed

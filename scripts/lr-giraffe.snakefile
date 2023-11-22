@@ -337,7 +337,7 @@ rule giraffe_sim_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: 64
+    threads: 16
     resources:
         mem_mb=1000000,
         runtime=600
