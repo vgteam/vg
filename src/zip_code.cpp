@@ -857,8 +857,13 @@ size_t ZipCode::minimum_distance_between(ZipCodeDecoder& zip1_decoder, const pos
         cerr << "Update distance to ends of parent at depth " << child_depth << endl;
 #endif
         //The distances from the start/end of current child to the start/end(left/right) of the parent
-        size_t distance_start_left, distance_start_right, distance_end_left, distance_end_right;
+        size_t distance_start_left = std::numeric_limits<size_t>::max();
+        size_t distance_start_right = std::numeric_limits<size_t>::max();
+        size_t distance_end_left = std::numeric_limits<size_t>::max();
+        size_t distance_end_right = std::numeric_limits<size_t>::max();
+
         code_type_t parent_type = decoder.get_code_type(child_depth-1);
+
         if (parent_type == IRREGULAR_SNARL || parent_type == CYCLIC_SNARL) {
             //If the parent is an irregular snarl
             net_handle_t parent_handle = decoder.get_net_handle(child_depth-1, &distance_index);
@@ -1267,10 +1272,6 @@ cerr << "Finding distances to ancestors of second position" << endl;
         cerr << "distance in ancestor: " << distance_between << endl;
 #endif
     }
-
-    
-                                        
-
 
     return distance_between;
 }
