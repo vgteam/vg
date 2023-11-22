@@ -641,7 +641,8 @@ bool ReadFilter<Read>::matches_name(const Read& aln) const {
             right_match++;
         }
         
-        if (!exact_name && (left_match == name_prefixes[left_bound].size() || right_match == name_prefixes[right_bound].size())) {
+        if ((left_match == name_prefixes[left_bound].size() && (!exact_name || left_match == aln.name().size())) ||
+            (right_match == name_prefixes[right_bound].size() && (!exact_name || right_match == aln.name().size()))) {
             // We found a match already
             found = true;
         } else {
