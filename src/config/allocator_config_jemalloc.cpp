@@ -114,9 +114,13 @@ void AllocatorConfig::set_profiling(bool should_profile) {
     // You need to start vg with something like
     // MALLOC_CONF="prof_active:false,prof:true" for this to be useful.
     auto mallctl_result = mallctl("prof.active", nullptr, nullptr, &should_profile, sizeof(should_profile));
-    if (mallctl_result) {
-        std::cerr << "Could not set profiling to " << should_profile << ": " << strerror(mallctl_result) << std::endl;
-        exit(1);
+    if (mallctl_result && should_profile) {
+        static bool warned = false;
+        if (!warned) {
+            // Tell the user once if we wanted to profile but can't.
+            std::cerr << "warning[AllocatorConfig::set_profiling]: Memory profiling not available" << std::endl;
+            warned = true;
+        }
     }
 }
 
@@ -127,10 +131,7 @@ void AllocatorConfig::snapshot() {
     // MALLOC_CONF="prof_prefix:jeprof.out" for this to have a filename to go
     // to.
     auto mallctl_result = mallctl("prof.dump", NULL, NULL, NULL, 0);
-    if (mallctl_result) {
-        std::cerr << "Could not dump profile: " << strerror(mallctl_result) << std::endl;
-        exit(1);
-    }
+    // Ignore any errors since profiling may not be enabled this run. 
 }
 
 }

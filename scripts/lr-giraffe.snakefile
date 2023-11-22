@@ -324,7 +324,7 @@ rule giraffe_real_reads:
         realness="real"
     threads: 64
     resources:
-        mem_mb=1000000,
+        mem_mb=500000,
         runtime=600
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
@@ -337,9 +337,9 @@ rule giraffe_sim_reads:
         gam="{root}/aligned/{reference}/giraffe-{minparams}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam"
     wildcard_constraints:
         realness="sim"
-    threads: 16
+    threads: 64
     resources:
-        mem_mb=1000000,
+        mem_mb=500000,
         runtime=600
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
@@ -397,12 +397,12 @@ rule annotate_and_compare_alignments:
         gam="{root}/annotated/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    threads: 65
+    threads: 17
     resources:
-        mem_mb=50000,
+        mem_mb=100000,
         runtime=600
     shell:
-        "vg annotate -t32 -a {input.gam} -x {input.gbz} -m | tee {output.gam} | vg gamcompare --threads 32 --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg annotate -t8 -a {input.gam} -x {input.gbz} -m | tee {output.gam} | vg gamcompare --threads 8 --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
 rule correctness_from_comparison:
     input:
