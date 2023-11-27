@@ -611,10 +611,6 @@ for subset in KNOWN_SUBSETS:
             runtime=60
         shell:
             "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
-    # Hackily name the rule for output. See
-    # <https://github.com/snakemake/snakemake/issues/754#issuecomment-734501538>
-    # TODO: This is O(n^2) and breaks some invariants.
-    list(workflow.rules)[-1].name = "chunk_aligned_gam"
 
 rule chain_coverage_chunk:
     input:
