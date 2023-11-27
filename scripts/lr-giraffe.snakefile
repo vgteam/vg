@@ -3,9 +3,62 @@ READS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
 REFS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
 WORK_DIR="trash/exp"
 
+# To allow for splitting and variable numbers of output files, we need to know
+# the available subset values to generate rules.
+KNOWN_SUBSETS=["1k", "10k", "100k", "1m"]
+CHUNK_SIZE=10000
+
 wildcard_constraints:
     trimmedness="\\.trimmed|",
     sample=".+(?<!\\.trimmed)"
+
+def subset_to_number(subset):
+    """
+    Take a subset like 1m and turn it into a number.
+    """
+
+    if subset.endswith("m"):
+        multiplier = 1000000
+        subset = subset[:-1]
+    elif subset.endswith("k"):
+        multiplier = 1000
+        subset = subset[:-1]
+    else:
+        multiplier = 1
+
+    return int(subset) * multiplier
+
+def chunk_count(items, chunk_size):
+    """
+    Return the number of chunks of the given size needed to fit the given number of items.
+    """
+
+    # Since integer division rounds negatively, we can work in negative numbers
+    # to make it round away from 0. See <https://stackoverflow.com/a/33300093>
+    return -(-items // chunk_size)
+
+def each_chunk_of(subset):
+    """
+    Given a subset string like "10k", produce a collection of all the p[added chunk number strings.
+    """
+    return [f"{i:06}" for i in range(1, chunk_count(subset_to_number(subset), CHUNK_SIZE) + 1)]
+
+def all_chunk(wildcard_values, pattern, debug=False):
+    """
+    Produce all values of pattern substituted with the wildcards and the
+    0-padded GAM chunk numbers as {chunk}, from subset.
+    
+    Needs to be used like:
+        lambda w: all_chunk(w, "your pattern")
+    """
+
+    for chunk in each_chunk_of(wildcard_values["subset"]):
+        merged = dict(wildcard_values)
+        merged.update(chunk=chunk)
+        if debug:
+            print(f"Evaluate {pattern} in {merged}")
+        filename = pattern.format(**merged)
+        yield filename
 
 def repetitive_kmers(wildcards):
     """
@@ -25,7 +78,6 @@ def minimap2_index(wildcards):
     }[wildcards["tech"]]
     return os.path.join(REFS_DIR, wildcards["reference"] + "-pansn." + tech_part + ".mmi")
     
-
 def reference_fasta(wildcards):
     """
     Find the linear reference FASTA from a reference.
@@ -543,11 +595,32 @@ rule experiment_mapping_rate_plot:
     shell:
         "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
-rule chain_coverage_alignments:
+for subset in KNOWN_SUBSETS:
+
+    # This rule has a variable number of outputs so we need to generate it in a loop.
+    rule:
+        input:
+            gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
+        params:
+            basename="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
+        output:
+            expand("{{root}}/aligned/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", subset=subset, chunk=each_chunk_of(subset))
+        threads: 1
+        resources:
+            mem_mb=4000,
+            runtime=60
+        shell:
+            "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
+    # Hackily name the rule for output. See
+    # <https://github.com/snakemake/snakemake/issues/754#issuecomment-734501538>
+    # TODO: This is O(n^2) and breaks some invariants.
+    list(workflow.rules)[-1].name = "chunk_aligned_gam"
+
+rule chain_coverage_chunk:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
     threads: 2
     wildcard_constraints:
         mapper="giraffe"
@@ -556,6 +629,30 @@ rule chain_coverage_alignments:
         runtime=120
     shell:
         "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
+
+rule read_length_chunk:
+    input:
+        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=120
+    shell:
+        "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
+
+rule merge_stat_chunks:
+    input:
+        lambda w: all_chunk(w, "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.{statname}.tsv")
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=20
+    shell:
+        "cat {input} >{output}"
 
 rule chain_coverage_histogram:
     input:
@@ -570,18 +667,6 @@ rule chain_coverage_histogram:
         runtime=10
     shell:
         "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save {output}"
-
-rule read_length_alignments:
-    input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.gam",
-    output:
-        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
-    threads: 2
-    resources:
-        mem_mb=2000,
-        runtime=120
-    shell:
-        "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
 
 rule read_length_histogram:
     input:
