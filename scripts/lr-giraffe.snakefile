@@ -446,15 +446,15 @@ rule annotate_and_compare_alignments:
         gam="{root}/aligned/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         truth_gam=os.path.join(READS_DIR, "sim/{tech}/{sample}/{sample}-sim-{tech}-{subset}.gam"),
     output:
-        gam="{root}/annotated/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
+        gam="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.gam",
         tsv="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compared.tsv",
         report="{root}/compared/{reference}/{mapper}/sim/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
-    threads: 17
+    threads: 32
     resources:
         mem_mb=100000,
         runtime=600
     shell:
-        "vg annotate -t8 -a {input.gam} -x {input.gbz} -m | tee {output.gam} | vg gamcompare --threads 8 --range 200 - {input.truth_gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
+        "vg annotate -t16 -a {input.gam} -x {input.gbz} -m | vg gamcompare --threads 16 --range 200 - {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
 rule correctness_from_comparison:
     input:
@@ -600,21 +600,21 @@ for subset in KNOWN_SUBSETS:
     # This rule has a variable number of outputs so we need to generate it in a loop.
     rule:
         input:
-            gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
+            gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".gam"
         params:
-            basename="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
+            basename="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}." + str(subset) + ".chunk"
         output:
-            expand("{{root}}/aligned/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", subset=subset, chunk=each_chunk_of(subset))
+            expand("{{root}}/compared/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{subset}.chunk{chunk}.gam", subset=subset, chunk=each_chunk_of(subset))
         threads: 1
         resources:
             mem_mb=4000,
-            runtime=60
+            runtime=90
         shell:
             "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
 
 rule chain_coverage_chunk:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
     threads: 2
@@ -626,9 +626,9 @@ rule chain_coverage_chunk:
     shell:
         "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
 
-rule read_length_chunk:
+rule length_by_mapping_chunk:
     input:
-        gam="{root}/aligned/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_mapping.tsv"
     threads: 2
@@ -637,6 +637,18 @@ rule read_length_chunk:
         runtime=120
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
+
+rule length_by_correctness_chunk:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.length_by_correctness.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=120
+    shell:
+        "vg view -aj {input.gam} | jq -r '[if (.correctly_mapped // false) then \"correct\" else \"incorrect\" end, (.sequence | length)] | @tsv' >{output}"
 
 rule merge_stat_chunks:
     input:
@@ -664,7 +676,7 @@ rule chain_coverage_histogram:
     shell:
         "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save {output}"
 
-rule read_length_histogram:
+rule length_by_mapping_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     output:
@@ -674,7 +686,20 @@ rule read_length_histogram:
         mem_mb=2000,
         runtime=10
     shell:
-        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --legend_overlay best --save {output}"
+        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories mapped unmapped --category_labels Mapped Unmapped --legend_overlay 'best' --save {output}"
+
+
+rule length_by_correctness_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=10
+    shell:
+        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect --category_labels Correct Incorrect --legend_overlay 'best' --save {output}"
 
 
 
