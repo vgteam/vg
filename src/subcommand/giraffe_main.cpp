@@ -366,11 +366,11 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         int_is_nonnegative
     );
    chaining_opts.add_range(
-        "chain-min-score",
-        &MinimizerMapper::chain_min_score,
-        MinimizerMapper::default_chain_min_score,
-        "do not align chains with less than this score",
-        int_is_nonnegative
+        "chain-min-score-per-base",
+        &MinimizerMapper::chain_min_score_per_base,
+        MinimizerMapper::default_chain_min_score_per_base,
+        "do not align chains with less than this score per read base",
+        double_is_nonnegative
     );
     
     chaining_opts.add_range(

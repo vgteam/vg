@@ -810,6 +810,9 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         }
     };
     
+    // Compute lower limit on chain score to actually investigate
+    int chain_min_score = chain_min_score_per_base * aln.sequence().size();
+
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
     
@@ -828,7 +831,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << ")" << endl;
+                    cerr << log_name() << "Chain " << processed_num << " is good enough (score=" << chain_score_estimates[processed_num] << "/" << chain_min_score << ")" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }
@@ -1121,7 +1124,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_max-tail-length", (double) max_tail_length);
         set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
         set_annotation(mappings[0], "param_chain-score", (double) chain_score_threshold);
-        set_annotation(mappings[0], "param_chain-min-score", (double) chain_min_score);
+        set_annotation(mappings[0], "param_chain-min-score-per-base", (double) chain_min_score_per_base);
         set_annotation(mappings[0], "param_min-chains", (double) min_chains);
         
     }
