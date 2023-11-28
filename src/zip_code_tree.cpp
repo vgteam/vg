@@ -689,6 +689,93 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
     forest_state.sibling_indices_at_depth[depth].back().is_reversed = child_is_reversed;
 }
 
+double ZipCodeForest::get_correlation(const vector<tuple<size_t, size_t, bool>>& values) const {
+    
+    //This will hold the ranks for each pair in values
+    vector<std::tuple<size_t, size_t, bool>> ranks (values.size());
+
+    //A vector representing indices into ranks/values
+    //This gets sorted first by the first value in the pair and then the second, in order to get the ranks
+    //for each value
+    vector<size_t> sorted_indices(values.size());
+    for(size_t i = 0 ; i < sorted_indices.size() ; i++) {sorted_indices[i] = i;}
+
+    //First, sort by the first value and fill in the ranks
+    std::sort(sorted_indices.begin(), sorted_indices.end(), [&] (const size_t& a, const size_t& b) {
+        return std::get<0>(values[a]) < std::get<0>(values[b]);
+    });
+
+    size_t included_value_count = 0;
+
+    //Sum of all ranks of the first value
+    size_t first_rank_sum = 0;
+
+    size_t rank = 0;
+    for (size_t i = 0 ; i < sorted_indices.size() ; i++) {
+        if (i != 0 && std::get<0>(values[sorted_indices[i]]) != std::get<0>(values[sorted_indices[i-1]])) {
+            ++rank;
+        }
+        if (std::get<2>(values[sorted_indices[i]])) {
+            std::get<0>(ranks[sorted_indices[i]]) = rank;
+            std::get<2>(ranks[sorted_indices[i]]) = true;
+            first_rank_sum += rank;
+            included_value_count++;
+        } else {
+            std::get<2>(ranks[sorted_indices[i]]) = false;
+        }
+    }
+
+    //Now do the same thing with the second value - sort and fill in the ranks
+
+    std::sort(sorted_indices.begin(), sorted_indices.end(), [&] (const size_t& a, const size_t& b) {
+        return std::get<1>(values[a]) < std::get<1>(values[b]);
+    });
+
+    size_t second_rank_sum = 0;
+
+    rank = 0;
+    for (size_t i = 0 ; i < sorted_indices.size() ; i++) {
+        if (i != 0 && std::get<1>(values[sorted_indices[i]]) != std::get<1>(values[sorted_indices[i-1]])) {
+            ++rank;
+        }
+        if (std::get<2>(values[sorted_indices[i]])) {
+            std::get<1>(ranks[sorted_indices[i]]) = rank;
+            std::get<2>(ranks[sorted_indices[i]]) = true;
+            second_rank_sum += rank;
+        } else {
+            std::get<2>(ranks[sorted_indices[i]]) = false;
+        }
+    }
+
+    double avg_first_rank = (double)first_rank_sum / (double)included_value_count;
+    double avg_second_rank = (double)second_rank_sum / (double)included_value_count;
+    
+    double cov = 0.0;
+    double sum_sq_first = 0.0;
+    double sum_sq_second = 0.0;
+    for (const auto& rank_tuple : ranks) {
+        if (std::get<2>(rank_tuple)){
+    
+            cov += ((std::get<0>(rank_tuple) - avg_first_rank) 
+                    * (std::get<1>(rank_tuple) - avg_second_rank));
+
+            sum_sq_first += (std::get<0>(rank_tuple) - avg_first_rank) * (std::get<0>(rank_tuple) - avg_first_rank);
+            sum_sq_second += (std::get<1>(rank_tuple) - avg_second_rank) * (std::get<1>(rank_tuple) - avg_second_rank);
+        }
+    }
+
+    cov = included_value_count==0 ? 0 : cov / included_value_count;
+    
+    double stddev_first = included_value_count==0 ? 0 : std::sqrt(sum_sq_first / included_value_count);
+    double stddev_second = included_value_count==0 ? 0 : std::sqrt(sum_sq_second / included_value_count);
+    double correlation = stddev_first==0 || stddev_second == 0 || included_value_count == 0 
+                         ? 0 
+                         : cov / (stddev_first * stddev_second);
+
+    return correlation;
+
+}
+
 
 std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<Seed>& seeds, const SnarlDistanceIndex& distance_index) const {
     size_t dag_count = 0;
