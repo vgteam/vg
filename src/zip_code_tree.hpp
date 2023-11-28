@@ -656,7 +656,7 @@ class ZipCodeForest {
 
     /// Given a vector of value pairs, and a bool indicating if the pair is used for the correlation,
     /// return the correlation. This is the spearman correlation for now
-    double get_correlation (const vector<tuple<size_t, size_t, bool>>& values) const;
+    double get_correlation (const vector<std::pair<size_t, size_t>>& values) const;
 
 };
 
@@ -1124,7 +1124,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
     };
 
     forward_list<partition_t> all_partitions;
-    vector<std::tuple<size_t, size_t, bool>> read_and_chain_values (snarl_interval.interval_end-snarl_interval.interval_start);
+    vector<std::pair<size_t, size_t>> read_and_chain_values (snarl_interval.interval_end-snarl_interval.interval_start);
 
     for (size_t interval_i = 0 ; interval_i < intervals.size() ; interval_i++) {
         const auto& child_interval = intervals[interval_i];
@@ -1173,11 +1173,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             size_t chain_offset = sort_values_by_seed[zipcode_sort_order[sort_i]].get_distance_value(); 
 
             //Remember the values for finding the correlation later
-            std::get<0>(read_and_chain_values [sort_i-snarl_interval.interval_start]) = read_offset;
-            std::get<1>(read_and_chain_values [sort_i-snarl_interval.interval_start]) = 
+            read_and_chain_values [sort_i-snarl_interval.interval_start].first = read_offset;
+            read_and_chain_values [sort_i-snarl_interval.interval_start].second = 
                     sort_values_by_seed[zipcode_sort_order[sort_i]].get_sort_value();
-            std::get<2>(read_and_chain_values [sort_i-snarl_interval.interval_start]) = 
-                    seed.zipcode_decoder->max_depth() == snarl_depth+2;
 
 
             //Make a new partition for the seed, to be updated with anything combined with it
