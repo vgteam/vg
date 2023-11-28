@@ -274,8 +274,12 @@ public:
     
     /// Even if we would have fewer than min_chains results, don't
     /// process anything with a score smaller than this, per read base.
-    static constexpr double default_chain_min_score_per_base = 0.01;
-    double chain_min_score_per_base = default_chain_min_score_per_base;
+    static constexpr double default_min_chain_score_per_base = 0.01;
+    double min_chain_score_per_base = default_min_chain_score_per_base;
+
+    /// Limit the min chain score to no more than this.
+    static constexpr int default_max_min_chain_score = 200;
+    int max_min_chain_score = default_max_min_chain_score;
     
     /// How long of a DP can we do before GSSW crashes due to 16-bit score
     /// overflow?

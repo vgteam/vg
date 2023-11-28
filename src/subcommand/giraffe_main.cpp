@@ -365,12 +365,19 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "ignore score threshold to get this many chains aligned",
         int_is_nonnegative
     );
-   chaining_opts.add_range(
-        "chain-min-score-per-base",
-        &MinimizerMapper::chain_min_score_per_base,
-        MinimizerMapper::default_chain_min_score_per_base,
+    chaining_opts.add_range(
+        "min-chain-score-per-base",
+        &MinimizerMapper::min_chain_score_per_base,
+        MinimizerMapper::default_min_chain_score_per_base,
         "do not align chains with less than this score per read base",
         double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "max-min-chain-score",
+        &MinimizerMapper::max_min_chain_score,
+        MinimizerMapper::default_max_min_chain_score,
+        "accept chains with this score or more regardless of read length",
+        int_is_nonnegative
     );
     
     chaining_opts.add_range(

@@ -811,7 +811,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     };
     
     // Compute lower limit on chain score to actually investigate
-    int chain_min_score = chain_min_score_per_base * aln.sequence().size();
+    int chain_min_score = std::min((int) (min_chain_score_per_base * aln.sequence().size()), max_min_chain_score);
 
     // Track if minimizers were explored by alignments
     SmallBitset minimizer_explored(minimizers.size());
@@ -1124,7 +1124,8 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         set_annotation(mappings[0], "param_max-tail-length", (double) max_tail_length);
         set_annotation(mappings[0], "param_max-alignments", (double) max_alignments);
         set_annotation(mappings[0], "param_chain-score", (double) chain_score_threshold);
-        set_annotation(mappings[0], "param_chain-min-score-per-base", (double) chain_min_score_per_base);
+        set_annotation(mappings[0], "param_min-chain-score-per-base", min_chain_score_per_base);
+        set_annotation(mappings[0], "param_max-min-chain-score", (double) max_min_chain_score);
         set_annotation(mappings[0], "param_min-chains", (double) min_chains);
         
     }
