@@ -648,7 +648,7 @@ rule length_by_correctness_chunk:
         mem_mb=2000,
         runtime=120
     shell:
-        "vg view -aj {input.gam} | jq -r '[if (.correctly_mapped // false) then \"correct\" else \"incorrect\" end, (.sequence | length)] | @tsv' >{output}"
+        "vg view -aj {input.gam} | jq -r '[if (.correctly_mapped // false) then \"correct\" else (if (.annotation.no_truth // false) then \"off-reference\" else \"incorrect\" end) end, (.sequence | length)] | @tsv' >{output}"
 
 rule merge_stat_chunks:
     input:
@@ -699,7 +699,7 @@ rule length_by_correctness_histogram:
         mem_mb=2000,
         runtime=10
     shell:
-        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect --category_labels Correct Incorrect --legend_overlay 'best' --save {output}"
+        "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --save {output}"
 
 
 
