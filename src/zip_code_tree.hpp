@@ -409,11 +409,14 @@ class ZipCodeForest {
     /// If a distance limit is given, then also partition the tree into subtrees that are
     /// farther than the distance_limit from each other
     /// Otherwise, the forest will just be connected components
-    /// If a distance limit is given, then distances larger than the distance limit are not
+    /// The gap_distance_limit is the limit for making runs of seeds in a cyclic snarl- it 
+    /// should be roughly the expected distance between two consecutive minimizers 
+    /// If a distance_limit is given, then distances larger than the distance limit are not
     /// guaranteed to be accurate
     template<typename Minimizer>
     void fill_in_forest(const vector<Seed>& all_seeds, const VectorView<Minimizer>& minimizers, 
                       const SnarlDistanceIndex& distance_index,
+                      size_t gap_distance_limit,
                       size_t distance_limit = std::numeric_limits<size_t>::max());
     private:
     //The seeds that are taken as input
@@ -476,7 +479,7 @@ class ZipCodeForest {
             vector<sort_value_t>& sort_values_by_seed, const interval_and_orientation_t& snarl_interval,
             const interval_and_orientation_t& parent_interval,
             const vector<interval_and_orientation_t>& intervals, size_t snarl_depth, 
-            const SnarlDistanceIndex& distance_index, size_t distance_limit) const;
+            const SnarlDistanceIndex& distance_index, size_t gap_distance_limit) const;
 
     /// Helper function to sort the seeds using radix sort
     /// Sorts the slice of seeds in the given interval of zipcode_sort_order, which is a vector of indices
@@ -603,6 +606,7 @@ class ZipCodeForest {
         //So the size is the depth of the snarl tree
         vector<interval_and_orientation_t> open_intervals;
     
+        size_t gap_distance_limit;
 
 
     };
@@ -715,7 +719,8 @@ namespace vg {
 
 template<typename Minimizer>
 void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const VectorView<Minimizer>& minimizers,
-                                   const SnarlDistanceIndex& distance_index, size_t distance_limit) {
+                                   const SnarlDistanceIndex& distance_index, size_t gap_distance_limit,
+                                   size_t distance_limit) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Make a new forest with " << all_seeds.size() << " seeds with distance limit " << distance_limit << endl;
     for (auto& x : all_seeds) {
@@ -744,6 +749,8 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const VectorVi
 
     //Start by initializing the state
     forest_growing_state_t forest_state;
+
+    forest_state.gap_distance_limit=gap_distance_limit;
 
     //We work on one tree at a time, but it doesn't exist yet
     forest_state.active_zip_tree = std::numeric_limits<size_t>::max();
@@ -880,7 +887,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                                                                               forest_state.open_intervals.back(),
                                                                               child_intervals,
                                                                               current_depth, distance_index,
-                                                                              distance_limit);
+                                                                              forest_state.gap_distance_limit);
 
                 forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
                                                          snarl_child_intervals.rbegin(),
@@ -1052,7 +1059,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
     vector<sort_value_t>& sort_values_by_seed, const interval_and_orientation_t& snarl_interval,
     const interval_and_orientation_t& parent_interval,
     const vector<interval_and_orientation_t>& intervals, size_t snarl_depth, 
-    const SnarlDistanceIndex& distance_index, size_t distance_limit) const {
+    const SnarlDistanceIndex& distance_index, size_t gap_distance_limit) const {
 
 #ifdef DEBUG_ZIP_CODE_TREE
     assert(seeds->at(zipcode_sort_order[snarl_interval.interval_start]).zipcode_decoder->get_code_type(snarl_depth) == ZipCode::CYCLIC_SNARL);
@@ -1100,10 +1107,10 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
         if (value >= range_start && value <= range_end) {
             //If the value is inside the range
             return true;
-        } else if (value < range_start && range_start - value <= distance_limit) {
+        } else if (value < range_start && range_start - value <= gap_distance_limit) {
             //If the value is before the range but still within the distance limit
             return true;
-        } else if (value > range_end && value - range_end <= distance_limit) {
+        } else if (value > range_end && value - range_end <= gap_distance_limit) {
             //If the value is after the range but still within the distance limit
             return true;
         } else {
@@ -1404,6 +1411,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             double stddev_read = counted_seeds==0 ? 0 : std::sqrt(sum_sq_read / counted_seeds);
             double stddev_chain = counted_seeds==0 ? 0 : std::sqrt(sum_sq_chain / counted_seeds);
             double correlation = stddev_read==0 || stddev_chain == 0 || counted_seeds == 0 ? 0 : cov / (stddev_read * stddev_chain);
+
+
 
             //Now decide which direction the partition is traversed in
             bool partition_is_traversed_backwards = cov < 0;

@@ -497,7 +497,7 @@ int main_cluster(int argc, char** argv) {
                 ZipCodeForest zip_forest;
 
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                zip_forest.fill_in_forest(seeds, minimizers, *distance_index);
+                zip_forest.fill_in_forest(seeds, minimizers, *distance_index, std::numeric_limits<size_t>::max());
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
 
