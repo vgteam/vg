@@ -54,6 +54,7 @@ public:
     unordered_set<string> excluded_features;
     double min_secondary = numeric_limits<double>::lowest();
     double min_primary = numeric_limits<double>::lowest();
+    size_t max_length = std::numeric_limits<size_t>::max();
     /// Should we rescore each alignment with default parameters and no e.g.
     /// haplotype info?
     bool rescore = false;
@@ -180,6 +181,11 @@ private:
      * Get the score indicated by the params
      */
     double get_score(const Read& read) const;
+
+    /**
+     * What is the read's length?
+     */
+    size_t get_length(const Read& read) const;
     
     /**
      * Does the read name have one of the indicated prefixes? If exact_name is
@@ -269,9 +275,9 @@ private:
 // Keep some basic counts for when verbose mode is enabled
 struct Counts {
     // note: "last" must be kept as the final value in this enum
-    enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
-        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
-        proper_pair, unmapped, last};
+    enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_length,
+        max_overhang, min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence,
+        filtered, proper_pair, unmapped, last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -480,6 +486,12 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
         ++counts.counts[Counts::FilterName::min_sec_score];
         keep = false;
     }
+    if ((keep || verbose) && max_length < std::numeric_limits<size_t>::max()) {
+        if (get_length(read) > max_length) {
+            ++counts.counts[Counts::FilterName::max_length];
+            keep = false;
+        }
+    }
     if ((keep || verbose) && max_overhang > 0) {
         if (get_overhang(read) > max_overhang) {
             ++counts.counts[Counts::FilterName::max_overhang];
@@ -610,6 +622,11 @@ inline double ReadFilter<MultipathAlignment>::get_score(const MultipathAlignment
         score /= read.sequence().size();
     }
     return score;
+}
+
+template<typename Read>
+inline size_t ReadFilter<Read>::get_length(const Read& aln) const {
+    return aln.sequence().size();
 }
 
 template<typename Read>
