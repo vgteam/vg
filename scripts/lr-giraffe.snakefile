@@ -462,19 +462,33 @@ rule correctness_from_comparison:
     params:
         condition_name=condition_name
     output:
-        correct="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv"
     threads: 1
     resources:
         mem_mb=1000,
         runtime=5,
     shell:
-        "printf '{params.condition_name}\\t' >{output.correct} && cat {input.report} | grep 'reads correct' | cut -f1 -d' ' >>{output.correct}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep 'reads correct' | cut -f1 -d' ' >>{output.tsv}"
 
-rule experiment_correctness_table:
+rule accuracy_from_comparison:
     input:
-        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.correct.tsv")
+        report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+    params:
+        condition_name=condition_name
     output:
-        table="{root}/experiments/{expname}/results/correct.tsv"
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.accuracy.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep 'reads correct' | rev | cut -f2 -d' ' | rev >>{output.tsv}"
+
+rule experiment_stat_table:
+    input:
+        lambda w: all_experiment(w, "{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{stat}.tsv")
+    output:
+        table="{root}/experiments/{expname}/results/{stat}.tsv"
     threads: 1
     resources:
         mem_mb=1000,
