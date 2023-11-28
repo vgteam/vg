@@ -1253,46 +1253,40 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
 
     ////First, figure out the orientation of the read through the snarl
 
-    //This contains read offsets from before the snarl (or from the snarl if there was nothing before it in its parent)
-    vector<size_t> preceding_offsets;
+    //Get pairs of read/chain offsets along the parent chain
+    vector<pair<size_t, size_t>> parent_offset_values;
 
-    //Check up to this many seeds on each side
-    size_t check_count = 10;
-    if (snarl_interval.interval_start == parent_interval.interval_start) {
-        //If this is the first interval of the chain, then just take stuff from the snarl
-        for (int check_i = snarl_interval.interval_start ; check_i < snarl_interval.interval_end && check_i - snarl_interval.interval_start < 10; check_i++) {
-            preceding_offsets.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset);
-        }
-    } else {
-        //Otherwise, take seeds from before the snarl in the chain
-        for (int check_i = snarl_interval.interval_start-1 ; check_i >= parent_interval.interval_start && snarl_interval.interval_start - check_i <= 10; check_i--) {
-            preceding_offsets.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset);
-        }
+    //Check up to this many seeds on the parent chain
+    size_t check_count = 20;
+    int check_i = snarl_interval.interval_start - 1;
+
+    //Get up to half of the values from before the snarl
+    while (check_i >= 0 && check_i >= parent_interval.interval_start && parent_offset_values.size() <= check_count/2) {
+
+        parent_offset_values.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset,
+                                          seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->get_offset_in_chain(snarl_depth));
+
+        check_i--;
     }
 
-    //This contains read offsets from after the snarl
-    vector<size_t> succeeding_offsets;
-    if (snarl_interval.interval_end == parent_interval.interval_end) {
-        //If there is nothing after, take from the snarl
-        for (int check_i = snarl_interval.interval_start ; check_i < snarl_interval.interval_end && check_i - snarl_interval.interval_start < 10; check_i++) {
-            succeeding_offsets.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset);
-        }
-    } else {
-        //Otherwise, take from whatever comes next in the chain
-        for (int check_i = snarl_interval.interval_end ; check_i < parent_interval.interval_end && check_i < snarl_interval.interval_end+10 ; check_i++) {
-            succeeding_offsets.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset);
-        }
+    //Get the rest from after the snarl
+
+    check_i = snarl_interval.interval_end;
+    while (check_i < parent_interval.interval_end && parent_offset_values.size() <= check_count) {
+        //Get up to half of the values from before the snarl
+
+        parent_offset_values.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset,
+                                          seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->get_offset_in_chain(snarl_depth));
+
+        check_i++;
     }
-
-    //Take the median of each vector and see which is greater
-    std::sort(preceding_offsets.begin(), preceding_offsets.end());
-    size_t median_preceding = preceding_offsets[ preceding_offsets.size() / 2];
-
-    std::sort(succeeding_offsets.begin(), succeeding_offsets.end());
-    size_t median_succeeding = succeeding_offsets[ succeeding_offsets.size() / 2];
 
     //True if the read flows backwards through the snarl
-    bool snarl_is_traversed_backwards = median_preceding > median_succeeding;
+    bool snarl_is_traversed_backwards = get_correlation(parent_offset_values) < 0;
+    //If the parent chain is backwards, then the orientation gets flipped
+    if (parent_interval.is_reversed) {
+        snarl_is_traversed_backwards = !snarl_is_traversed_backwards;
+    }
 
 
     vector<ZipCodeForest::interval_and_orientation_t> new_intervals;
