@@ -690,6 +690,13 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
 }
 
 double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values) const {
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "get correlation from " << values.size() << " values: " << endl;
+    for (const auto& x : values) {
+        cerr << x.first << "/" << x.second << "\t";
+    }
+    cerr << endl;
+#endif
     
     //This will hold the ranks for each pair in values
     vector<std::pair<size_t, size_t>> ranks (values.size());
@@ -705,7 +712,6 @@ double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values
         return values[a].first < values[b].first;
     });
 
-    size_t included_value_count = 0;
 
     //Sum of all ranks of the first value
     size_t first_rank_sum = 0;
@@ -736,28 +742,40 @@ double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values
         second_rank_sum += rank;
 
     }
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Ranks: " << endl;
+    for (const auto& x : ranks) {
+        cerr << x.first << "/" << x.second << "\t";
+    }
+    cerr << endl;
+#endif
 
-    double avg_first_rank = (double)first_rank_sum / (double)included_value_count;
-    double avg_second_rank = (double)second_rank_sum / (double)included_value_count;
+    double avg_first_rank = (double)first_rank_sum / (double)ranks.size();
+    double avg_second_rank = (double)second_rank_sum / (double)ranks.size();
     
     double cov = 0.0;
     double sum_sq_first = 0.0;
     double sum_sq_second = 0.0;
     for (const auto& rank_tuple : ranks) {
-        cov += ((rank_tuple.first - avg_first_rank) 
-                * (rank_tuple.second - avg_second_rank));
+        cov += (((double)rank_tuple.first - avg_first_rank) 
+                * ((double)rank_tuple.second - avg_second_rank));
 
-        sum_sq_first += (rank_tuple.first - avg_first_rank) * (rank_tuple.first - avg_first_rank);
-        sum_sq_second += (rank_tuple.second - avg_second_rank) * (rank_tuple.second - avg_second_rank);
+        sum_sq_first += ((double)rank_tuple.first - avg_first_rank) 
+                         * ((double)rank_tuple.first - avg_first_rank);
+        sum_sq_second += ((double)rank_tuple.second - avg_second_rank) 
+                         * ((double)rank_tuple.second - avg_second_rank);
     }
 
-    cov = included_value_count==0 ? 0 : cov / included_value_count;
+    cov = ranks.size()==0 ? 0.0 : cov / ranks.size();
     
-    double stddev_first = included_value_count==0 ? 0 : std::sqrt(sum_sq_first / included_value_count);
-    double stddev_second = included_value_count==0 ? 0 : std::sqrt(sum_sq_second / included_value_count);
-    double correlation = stddev_first==0 || stddev_second == 0 || included_value_count == 0 
-                         ? 0 
+    double stddev_first = ranks.size()==0 ? 0 : std::sqrt(sum_sq_first / ranks.size());
+    double stddev_second = ranks.size()==0 ? 0 : std::sqrt(sum_sq_second / ranks.size());
+    double correlation = stddev_first==0 || stddev_second == 0 || ranks.size() == 0 
+                         ? 0.0
                          : cov / (stddev_first * stddev_second);
+#ifdef DEBUG_ZIP_CODE_TREE 
+    cerr << "Correlation: " << correlation << endl;
+#endif
 
     return correlation;
 
