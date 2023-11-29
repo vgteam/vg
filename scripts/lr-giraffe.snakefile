@@ -21,7 +21,9 @@ SLURM_PARTITIONS = [
 
 wildcard_constraints:
     trimmedness="\\.trimmed|",
-    sample=".+(?<!\\.trimmed)"
+    sample=".+(?<!\\.trimmed)",
+    subset="[0-9]+[km]?",
+    statname="[a-zA-Z0-9_]+"
 
 def choose_partition(minutes):
     """
