@@ -1,12 +1,15 @@
-GRAPHS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
-READS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
-REFS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
-WORK_DIR="trash/exp"
+GRAPHS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
+READS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
+REFS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
+WORK_DIR = "trash/exp"
+
+# What stages does the Giraffe mapper report times for?
+STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 
 # To allow for splitting and variable numbers of output files, we need to know
 # the available subset values to generate rules.
-KNOWN_SUBSETS=["1k", "10k", "100k", "1m"]
-CHUNK_SIZE=10000
+KNOWN_SUBSETS = ["1k", "10k", "100k", "1m"]
+CHUNK_SIZE = 10000
 
 wildcard_constraints:
     trimmedness="\\.trimmed|",
@@ -468,7 +471,7 @@ rule correctness_from_comparison:
         mem_mb=1000,
         runtime=5,
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep 'reads correct' | cut -f1 -d' ' >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
 
 rule accuracy_from_comparison:
     input:
@@ -482,7 +485,21 @@ rule accuracy_from_comparison:
         mem_mb=1000,
         runtime=5,
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep 'reads correct' | rev | cut -f2 -d' ' | rev >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
+
+rule wrong_from_comparison:
+    input:
+        report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.report} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
 
 rule experiment_stat_table:
     input:
@@ -632,13 +649,35 @@ rule chain_coverage_chunk:
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
     threads: 2
-    wildcard_constraints:
-        mapper="giraffe"
     resources:
         mem_mb=2000,
         runtime=120
     shell:
         "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
+
+rule time_used_chunk:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.time_used.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=120
+    shell:
+        "vg view -aj {input.gam} | jq -r '.time_used' >{output}"
+
+rule stage_time_chunk:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.stage_{stage}_time.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=120
+    shell:
+        "vg view -aj {input.gam} | jq -r '.annotation.stage_{wildcards.stage}_time' >{output}"
 
 rule length_by_mapping_chunk:
     input:
@@ -676,26 +715,100 @@ rule merge_stat_chunks:
     shell:
         "cat {input} >{output}"
 
+rule mean_stat:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.mean.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20
+    run:
+        # Average the one-column TSV
+        total = 0
+        count = 0
+        for line in open(input[0]):
+            line = line.strip()
+            if line:
+                total += float(line)
+                count += 1
+        with open(output[0], "w") as f:
+            f.write(f"{total/count}\n")
+
+rule average_stage_time_table:
+    input:
+        # Input files must be in the same order as STAGES
+        expand("{{root}}/stats/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
+    output:
+        "{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20
+    run:
+        # Make a TSV of stage name and its average value
+        with open(output[0], "w") as out_stream:
+            for (stage, filename) in zip(STAGES, input):
+                out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
+
+
 rule chain_coverage_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
-    wildcard_constraints:
-        mapper="giraffe"
-    threads: 2
+    threads: 1
     resources:
         mem_mb=2000,
         runtime=10
     shell:
         "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save {output}"
 
+rule time_used_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/time_used-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10
+    shell:
+        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+
+rule stage_time_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/stage_{stage}_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10
+    shell:
+        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Stage {wildcards.stage} Time, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+
+rule average_stage_time_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10
+    shell:
+        "barchart.py {input.tsv} --categories {STAGES} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
+
 rule length_by_mapping_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
-    threads: 2
+    threads: 1
     resources:
         mem_mb=2000,
         runtime=10
@@ -708,7 +821,7 @@ rule length_by_correctness_histogram:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
-    threads: 2
+    threads: 1
     resources:
         mem_mb=2000,
         runtime=10
