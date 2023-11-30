@@ -2,7 +2,7 @@
 
 #define VG_ZIP_CODE_TREE_HPP_INCLUDED
 
-#define DEBUG_ZIP_CODE_TREE
+//#define DEBUG_ZIP_CODE_TREE
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code.hpp"
@@ -886,9 +886,10 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
             vector<interval_and_orientation_t> child_intervals = get_next_intervals(forest_state.seed_sort_order, 
                                                                      forest_state.sort_values_by_seed, current_interval,
                                                                      current_depth, distance_index);
-            if (current_interval.code_type != ZipCode::CYCLIC_SNARL){ 
+            if (current_interval.code_type != ZipCode::CYCLIC_SNARL || current_interval.is_reverse_ordered){ 
 
-                //If this is not a cyclic snarl
+                //If this is not a cyclic snarl, or it is the duplicated copy of a cyclic snarl child
+                //This avoids nested duplications
                 //Add the child intervals to the to_process stack, in reverse order so the first one gets popped first
                 forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
                                                          child_intervals.rbegin(),
