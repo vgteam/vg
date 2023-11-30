@@ -1764,6 +1764,8 @@ void ZipCodeForest::sort_one_interval(vector<size_t>& zipcode_sort_order, vector
     cerr << "Sort interval at depth " << interval_depth << (interval.is_reversed ? " reversed" : "") << endl;
 #endif
 
+
+
     /*** First, fill in sort_values_by_seed for the relevant seeds ***/
 
     //This doesn't take into account the orientation, except for nodes offsets in chains
@@ -1864,6 +1866,36 @@ void ZipCodeForest::sort_one_interval(vector<size_t>& zipcode_sort_order, vector
         min_sort_value = std::min(min_sort_value, sort_values_by_seed[zipcode_sort_order[i]].get_sort_value());
         max_sort_value = std::max(max_sort_value, sort_values_by_seed[zipcode_sort_order[i]].get_sort_value());
     }
+
+    // If everything is already sorted, we can stop here 
+
+    //Check if the interval is already sorted or needs to be reversed
+    if (interval.is_ordered) {
+        //The interval is already sorted so do nothing
+#ifdef DEBUG_ZIP_CODE_TREE
+        cerr << "\tTHe interval is already sorted" << endl;
+#endif
+        return;
+    } else if (interval.is_reverse_ordered) {
+        //Reverse the order. Get the order in reverse and fill it back in
+        vector<size_t> order_reversed(interval.interval_end-interval.interval_start);
+        for (size_t i = 0 ; i < order_reversed.size() ; i++) {
+            order_reversed[i] = zipcode_sort_order[interval.interval_end-1-i];
+        }
+        for (size_t i = 0 ; i < order_reversed.size() ; i++) {
+            zipcode_sort_order[interval.interval_start+i] = order_reversed[i];
+        }
+#ifdef DEBUG_ZIP_CODE_TREE
+        cerr << "\tThe interval was reversed. New order:" << endl;
+        for (size_t i = interval.interval_start ; i < interval.interval_end ; i++) {
+            cerr << seeds->at(zipcode_sort_order[i]).pos << " ";
+        }
+        cerr << endl;
+
+#endif
+        return;
+    }
+
 
     /***** Figure out which sort method we should use ***/
 
