@@ -2,7 +2,7 @@
 
 #define VG_ZIP_CODE_TREE_HPP_INCLUDED
 
-//#define DEBUG_ZIP_CODE_TREE
+#define DEBUG_ZIP_CODE_TREE
 //#define DEBUG_ZIP_CODE_SORTING
 
 #include "zip_code.hpp"
@@ -1300,18 +1300,11 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
     }
 
     //True if the read flows backwards through the snarl
-    bool snarl_is_traversed_backwards = get_correlation(parent_offset_values) < 0.0;
+    double parent_correlation = get_correlation(parent_offset_values);
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Correlation of parent chain from " << parent_offset_values.size() << " value pairs: " 
-         << get_correlation(parent_offset_values) << endl;
+         << parent_correlation << endl;
 #endif
-    //If the parent chain is backwards, then the orientation gets flipped
-    if (parent_interval.is_reversed) {
-#ifdef DEBUG_ZIP_CODE_TREE
-        cerr << "\t chain is reversed so flip orientation" << endl;
-#endif
-        snarl_is_traversed_backwards = !snarl_is_traversed_backwards;
-    }
 
 
     vector<ZipCodeForest::interval_and_orientation_t> new_intervals;
@@ -1356,10 +1349,19 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             cerr << "Correlation of child run from " << partition_values.size() << " value pairs: " 
                  << correlation << endl;
 #endif
-            if (std::abs(correlation) < 0.8) {
+            if (std::abs(correlation) < 0.8 || std::abs(parent_correlation) < 0.6) {
                 //If the correlation is too low, then just duplicate the run in both orientations
                 duplicate_partition = true;
             } else {
+
+                bool snarl_is_traversed_backwards =  parent_correlation < 0.0;
+                //If the parent chain is backwards, then the orientation gets flipped
+                if (parent_interval.is_reversed) {
+#ifdef DEBUG_ZIP_CODE_TREE
+                    cerr << "\t chain is reversed so flip orientation" << endl;
+#endif
+                    snarl_is_traversed_backwards = !snarl_is_traversed_backwards;
+                }
 
                 //Now decide which direction the partition is traversed in
                 bool partition_is_traversed_backwards = correlation < 0.0;

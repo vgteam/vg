@@ -697,6 +697,9 @@ double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values
     }
     cerr << endl;
 #endif
+    if (values.size() == 0) {
+        return 0.0;
+    }
     
     //This will hold the ranks for each pair in values
     vector<std::pair<size_t, size_t>> ranks (values.size());
