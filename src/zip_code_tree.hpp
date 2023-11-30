@@ -184,7 +184,8 @@ protected:
     const static bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index){
         if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {
             return true;
-        } else if (depth > 0 && seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL) {
+        } else if (depth > 0 && (seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL
+                                 || seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)) {
             //If the parent is an irregular snarl, then check the orientation of the child in the snarl
             net_handle_t snarl_handle = seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
             size_t rank = seed.zipcode_decoder->get_rank_in_snarl(depth);
@@ -451,11 +452,22 @@ class ZipCodeForest {
         size_t interval_end : 26;   //exclusive
         bool is_reversed : 1;
         ZipCode::code_type_t code_type : 5;
-        size_t depth : 16;
+        size_t depth : 14;
+
+        //If this is true, then the interval is sorted in the reverse order, so it needs to be flipped
+        //before processing. This is false by default, and only set to true for children of cyclic
+        //snarls that got duplicated in the opposite orientation
+        bool is_reverse_ordered;
+        //If the interval doesn't need sorting
+        bool is_ordered;
+
 
         interval_and_orientation_t (size_t start, size_t end, size_t rev, ZipCode::code_type_t type, 
                                     size_t depth) :
-            interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth){}
+            interval_start(start), interval_end(end), is_reversed(rev), code_type(type), depth(depth){
+            is_reverse_ordered = false;
+            is_ordered = false;
+        }
     };
     struct sort_value_t;
 
@@ -1149,7 +1161,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             //If the interval is not reversed in the snarl, check if it can be reversed
             size_t rank = seeds->at(zipcode_sort_order[child_interval.interval_start]).zipcode_decoder->get_rank_in_snarl(snarl_depth+1);
             size_t distance_start = distance_index.distance_in_snarl(snarl_handle, 0, false, rank, true);
-            size_t distance_end = distance_index.distance_in_snarl(snarl_handle, 0, true, rank, false);
+            size_t distance_end = distance_index.distance_in_snarl(snarl_handle, 1, false, rank, false);
             interval_is_reversable = distance_start != std::numeric_limits<size_t>::max()
                                || distance_end != std::numeric_limits<size_t>::max();
         }
@@ -1288,7 +1300,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
     }
 
     //True if the read flows backwards through the snarl
-    bool snarl_is_traversed_backwards = get_correlation(parent_offset_values) < 0;
+    bool snarl_is_traversed_backwards = get_correlation(parent_offset_values) < 0.0;
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "Correlation of parent chain from " << parent_offset_values.size() << " value pairs: " 
          << get_correlation(parent_offset_values) << endl;
@@ -1325,6 +1337,8 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
 
         //Figure out if the read running backwards through this partition
         bool reverse_partition = false;
+        //Should we use both orientations?
+        bool duplicate_partition = false;
         
         if (partition.can_be_reversed) {
             //If it is possible to traverse the partition backwards in the chain, then check which is the correct orientation
@@ -1342,9 +1356,16 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             cerr << "Correlation of child run from " << partition_values.size() << " value pairs: " 
                  << correlation << endl;
 #endif
-            //Now decide which direction the partition is traversed in
-            bool partition_is_traversed_backwards = correlation < 0;
-            reverse_partition = partition_is_traversed_backwards != snarl_is_traversed_backwards;
+            if (std::abs(correlation) < 0.8) {
+                //If the correlation is too low, then just duplicate the run in both orientations
+                duplicate_partition = true;
+            } else {
+
+                //Now decide which direction the partition is traversed in
+                bool partition_is_traversed_backwards = correlation < 0.0;
+                reverse_partition = partition_is_traversed_backwards != snarl_is_traversed_backwards;
+            }
+
         }
 
         if (!reverse_partition) {
@@ -1353,6 +1374,19 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             for (size_t sort_i : partition_seeds) {
                 new_sort_order.push_back(zipcode_sort_order[snarl_interval.interval_start+sort_i]);
             }
+
+            //If we're also duplicating this partition, add another interval for the same thing reversed
+            if (duplicate_partition) {
+                const auto& last_interval = new_intervals.back();
+                new_intervals.emplace_back(last_interval.interval_start,
+                                           last_interval.interval_end,
+                                           !last_interval.is_reversed,
+                                           last_interval.code_type,
+                                           last_interval.depth);
+                //Remember to reverse the order
+                new_intervals.back().is_reverse_ordered=true;
+            }
+
         } else {
             //If the read is going through the partition in the opposite direction as the snarl, then flip it
             for (int i = partition_seeds.size()-1 ; i >= 0 ; --i) {

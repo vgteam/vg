@@ -1761,6 +1761,23 @@ void ZipCodeForest::sort_one_interval(vector<size_t>& zipcode_sort_order, vector
     cerr << "Sort interval at depth " << interval_depth << (interval.is_reversed ? " reversed" : "") << endl;
 #endif
 
+    //Check if the interval is already sorted or needs to be reversed
+    if (interval.is_ordered) {
+        //The interval is already sorted so do nothing
+        return;
+    } else if (interval.is_reverse_ordered) {
+        //Reverse the order. Get the order in reverse and fill it back in
+        vector<size_t> order_reversed(interval.interval_end-interval.interval_start);
+        for (size_t i = 0 ; i < order_reversed.size() ; i++) {
+            order_reversed[i] = zipcode_sort_order[interval.interval_end-1-i];
+        }
+        for (size_t i = 0 ; i < order_reversed.size() ; i++) {
+            zipcode_sort_order[interval.interval_start+i] = order_reversed[i];
+        }
+        return;
+    }
+
+
     /*** First, fill in sort_values_by_seed for the relevant seeds ***/
 
     //This doesn't take into account the orientation, except for nodes offsets in chains
@@ -1927,6 +1944,9 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_next_interv
 #endif
         new_intervals.emplace_back(interval.interval_start, interval.interval_end, interval.is_reversed, ZipCode::NODE, 
                                    child_depth);
+        if (interval.is_ordered) {
+            new_intervals.back().is_ordered=true;
+        }
         return new_intervals;
     }
 
@@ -1945,6 +1965,12 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_next_interv
     //Start the first interval. The end value and is_reversed gets set when ending the interval
     new_intervals.emplace_back(interval.interval_start, interval.interval_start, interval.is_reversed, 
                                first_type, child_depth);
+
+    //If the parent interval was reversed, then this is the second copy of the parent, and it was sorted and processed
+    //in the forward direction already, and was reversed when sorting this interval, so it is sorted 
+    if (interval.is_ordered || interval.is_reverse_ordered) {
+        new_intervals.back().is_ordered=true;
+    }
     for (size_t i = interval.interval_start+1 ; i < interval.interval_end ; i++) {
         
         //If the current seed is a node and has nothing at depth+1 or is different from the previous seed at this depth
