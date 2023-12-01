@@ -410,7 +410,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
-    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl;
+    << "  --named-coordinates           produce GAM/GAF outputs in named-segment (GFA) space" << endl;
     if (full_help) {
         cerr
         << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
