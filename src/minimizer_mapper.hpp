@@ -273,9 +273,13 @@ public:
     int min_chains = default_min_chains;
     
     /// Even if we would have fewer than min_chains results, don't
-    /// process anything with a score smaller than this.
-    static constexpr int default_chain_min_score = 100;
-    int chain_min_score = default_chain_min_score;
+    /// process anything with a score smaller than this, per read base.
+    static constexpr double default_min_chain_score_per_base = 0.01;
+    double min_chain_score_per_base = default_min_chain_score_per_base;
+
+    /// Limit the min chain score to no more than this.
+    static constexpr int default_max_min_chain_score = 200;
+    int max_min_chain_score = default_max_min_chain_score;
     
     /// How long of a DP can we do before GSSW crashes due to 16-bit score
     /// overflow?
@@ -682,7 +686,7 @@ protected:
      * it from the perspective of the anchors. If a left anchor is set, all
      * heads should correspond to the left anchor, and if a right anchor is
      * set, all tails should correspond to the right anchor. At least one
-     * anchor must be set.
+     * anchor must be set. Both anchors may be on the same node.
      *
      * Calls the callback with an extracted, strand-split, dagified graph, and
      * a function that translates from handle in the dagified graph to node ID
@@ -703,7 +707,7 @@ protected:
      * For pinned alignment, restricts the alignment to have gaps no longer
      * than max_gap_length, and to use <= max_dp_cells cells.
      */
-    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
+    static void align_sequence_between(const pos_t& left_anchor, const pos_t& right_anchor, size_t max_path_length, size_t max_gap_length, const HandleGraph* graph, const GSSWAligner* aligner, Alignment& alignment, const std::string* alignment_name = nullptr, size_t max_dp_cells = std::numeric_limits<size_t>::max(), const std::function<size_t(const Alignment&, const HandleGraph&)>& choose_band_padding = algorithms::pad_band_random_walk());
     
     /**
      * Set pair partner references for paired mapping results.

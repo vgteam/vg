@@ -42,6 +42,12 @@
 #include <valgrind/callgrind.h>
 #endif
 
+#define USE_MEMORY_PROFILING
+
+#ifdef USE_MEMORY_PROFILING
+#include "../config/allocator_config.hpp"
+#endif
+
 #include <sys/ioctl.h>
 #ifdef __linux__
 #include <linux/perf_event.h>
@@ -359,11 +365,18 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "ignore score threshold to get this many chains aligned",
         int_is_nonnegative
     );
-   chaining_opts.add_range(
-        "chain-min-score",
-        &MinimizerMapper::chain_min_score,
-        MinimizerMapper::default_chain_min_score,
-        "do not align chains with less than this score",
+    chaining_opts.add_range(
+        "min-chain-score-per-base",
+        &MinimizerMapper::min_chain_score_per_base,
+        MinimizerMapper::default_min_chain_score_per_base,
+        "do not align chains with less than this score per read base",
+        double_is_nonnegative
+    );
+    chaining_opts.add_range(
+        "max-min-chain-score",
+        &MinimizerMapper::max_min_chain_score,
+        MinimizerMapper::default_max_min_chain_score,
+        "accept chains with this score or more regardless of read length",
         int_is_nonnegative
     );
     
@@ -1219,6 +1232,9 @@ int main_giraffe(int argc, char** argv) {
         }
     
         // Apply the overlay if needed.
+        if (show_progress) {
+            cerr << "Applying overlay" << endl;
+        }
         path_position_graph = overlay_helper.apply(base_graph);
     }
 
@@ -1433,7 +1449,14 @@ int main_giraffe(int argc, char** argv) {
                                                           paths, thread_count,
                                                           emitter_graph, flags);
             }
-            
+
+#ifdef USE_MEMORY_PROFILING
+            // Start profiling memory allocations
+            AllocatorConfig::set_profiling(true);
+            // And dump an initial snapshot
+            AllocatorConfig::snapshot();
+#endif
+
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
             CALLGRIND_START_INSTRUMENTATION;
@@ -1589,6 +1612,11 @@ int main_giraffe(int argc, char** argv) {
                 }
             } else {
                 // Map single-ended
+                
+#ifdef USE_MEMORY_PROFILING
+                size_t reads_mapped = 0;
+                size_t reads_mapped_threshold = 1;
+#endif
 
                 // All the threads start at once.
                 all_threads_start = first_thread_start;
@@ -1611,6 +1639,18 @@ int main_giraffe(int argc, char** argv) {
                         minimizer_mapper.map(aln, *alignment_emitter);
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(thread_num)++;
+
+#ifdef USE_MEMORY_PROFILING
+                        #pragma omp critical (reads_mapped)
+                        {
+                            reads_mapped++;
+                            if (reads_mapped == reads_mapped_threshold) {
+                                reads_mapped_threshold *= 2;
+                                // Dump a memory snapshot every time the mapped reads doubles.
+                                AllocatorConfig::snapshot();
+                            }
+                        }
+#endif
                         
                         if (watchdog) {
                             watchdog->check_out(thread_num);
@@ -1642,6 +1682,13 @@ int main_giraffe(int argc, char** argv) {
         clock_t cpu_time_after = clock();
 #ifdef __linux__
         stop_perf_for_thread();
+#endif
+
+#ifdef USE_MEMORY_PROFILING
+            // Dump a final snapshot
+            AllocatorConfig::snapshot();
+            // Stop profiling memory allocations
+            AllocatorConfig::set_profiling(false);
 #endif
         
         // Compute wall clock elapsed

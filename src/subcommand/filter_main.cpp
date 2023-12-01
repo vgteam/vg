@@ -31,6 +31,7 @@ void help_filter(char** argv) {
          << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
+         << "    -c, --exact-name           match read names exactly instead of by prefix" << endl
          << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
          << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
          << "    -p, --proper-pairs         keep reads that are annotated as being properly paired" << endl
@@ -39,23 +40,24 @@ void help_filter(char** argv) {
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
          << "    -r, --min-primary N        minimum score to keep primary alignment" << endl
+         << "    -L, --max-length N         drop reads with length > N" << endl
          << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
          << "    -f, --frac-score           normalize score based on length" << endl
          << "    -u, --substitutions        use substitution count instead of score" << endl
-         << "    -o, --max-overhang N       filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
-         << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
+         << "    -o, --max-overhang N       drop reads whose alignments begin or end with an insert > N [default=99999]" << endl
+         << "    -m, --min-end-matches N    drop reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
-         << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
+         << "    -v, --verbose              print out statistics on numbers of reads dropped by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
-         << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
-         << "    -E, --repeat-ends N        filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
+         << "    -q, --min-mapq N           drop alignments with mapping quality < N" << endl
+         << "    -E, --repeat-ends N        drop reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
-         << "    -d, --downsample S.P       filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
-         << "    -i, --interleaved          assume interleaved input. both ends will be filtered out if either fails filter" << endl
-         << "    -I, --interleaved-all      assume interleaved input. both ends will be filtered out if *both* fail filters" << endl
-         << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
+         << "    -d, --downsample S.P       drop all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
+         << "    -i, --interleaved          assume interleaved input. both ends will be dropped if either fails filter" << endl
+         << "    -I, --interleaved-all      assume interleaved input. both ends will be dropped if *both* fail filters" << endl
+         << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
@@ -69,6 +71,7 @@ int main_filter(int argc, char** argv) {
     
     bool input_gam = true;
     vector<string> name_prefixes;
+    bool exact_name = false;
     vector<regex> excluded_refpos_contigs;
     unordered_set<string> excluded_features;
     vector<string> subsequences;
@@ -76,6 +79,7 @@ int main_filter(int argc, char** argv) {
     double min_primary;
     bool set_min_secondary = false;
     double min_secondary;
+    size_t max_length = std::numeric_limits<size_t>::max();
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
@@ -117,6 +121,7 @@ int main_filter(int argc, char** argv) {
                 {"input-mp-alns", no_argument, 0, 'M'},
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
+                {"exact-name", no_argument, 0, 'c'},
                 {"subsequence", required_argument, 0, 'a'},
                 {"subsequences", required_argument, 0, 'A'},
                 {"proper-pairs", no_argument, 0, 'p'},
@@ -125,6 +130,7 @@ int main_filter(int argc, char** argv) {
                 {"exclude-feature", required_argument, 0, 'F'},
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
+                {"max-length", required_argument, 0, 'L'},
                 {"rescore", no_argument, 0, 'O'},
                 {"frac-score", required_argument, 0, 'f'},
                 {"substitutions", required_argument, 0, 'u'},
@@ -147,7 +153,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:a:A:pPX:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
+        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:L:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -174,6 +180,9 @@ int main_filter(int argc, char** argv) {
                     name_prefixes.push_back(line);
                 }
             });
+            break;
+        case 'c':
+            exact_name = true;
             break;
         case 'a':
             subsequences.push_back(optarg);
@@ -210,6 +219,9 @@ int main_filter(int argc, char** argv) {
         case 'r':
             set_min_primary = true;
             min_primary = parse<double>(optarg);
+            break;
+        case 'L':
+            max_length = parse<size_t>(optarg);
             break;
         case 'O':
             rescore = true;
@@ -351,6 +363,7 @@ int main_filter(int argc, char** argv) {
     // template lambda to set parameters
     auto set_params = [&](auto& filter) {
         filter.name_prefixes = name_prefixes;
+        filter.exact_name = exact_name;
         filter.subsequences = subsequences;
         filter.excluded_refpos_contigs = excluded_refpos_contigs;
         filter.excluded_features = excluded_features;
@@ -360,6 +373,7 @@ int main_filter(int argc, char** argv) {
         if (set_min_primary) {
             filter.min_primary = min_primary;
         }
+        filter.max_length = max_length;
         filter.rescore = rescore;
         filter.frac_score = frac_score;
         filter.sub_score = sub_score;

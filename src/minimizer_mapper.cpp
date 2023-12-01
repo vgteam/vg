@@ -285,27 +285,36 @@ void MinimizerMapper::dump_debug_minimizers(const VectorView<MinimizerMapper::Mi
     if (region_length >= LONG_LIMIT) {
         // Describe the minimizers, because the read is huge
         size_t minimizer_count = to_include ? to_include->size() : minimizers.size();
-        if (minimizer_count < MANY_LIMIT) {
-            auto print_minimizer = [&](size_t i) {
-                cerr << log_name() << "Minimizer " << i << ": " << minimizers[i].forward_sequence() << "@" << minimizers[i].forward_offset() << " with " << minimizers[i].hits << " hits" << endl;
-            };
-            
-            if (to_include) {
-                for (auto& i : *to_include) {
-                    print_minimizer(i);
+
+        auto print_minimizer = [&](size_t index, size_t rank) {
+            if (rank < MANY_LIMIT) {
+                auto& m = minimizers[index];
+                if (m.forward_offset() < region_start || m.forward_offset() - region_start + m.length > region_length) {
+                    // Minimizer itself reaches out of bounds, so hide it
+                    return;
                 }
-            } else {
-                for (size_t i = 0; i < minimizers.size(); i++) {
-                     print_minimizer(i);
+
+                std::cerr << log_name() << "Minimizer " << index << ": " << m.forward_sequence() << "@" << m.forward_offset() << " with " << m.hits << " hits" << std::endl;
+            } else if (rank == MANY_LIMIT) {
+                if (region_start == 0 && length_limit == sequence.size()) {
+                    // Report as if we have a count
+                    #pragma omp critical (cerr)
+                    std::cerr << log_name() << "<" << (minimizer_count - MANY_LIMIT) << " more minimizers>" << std::endl;;
+                } else {
+                    // We don't know how many minimizers are actually in the region
+                    cerr << log_name() << "<More minimizers from " << region_start << " to " << (region_start + region_length) << ">" << endl;
                 }
+                
+            }
+        };
+
+        if (to_include) {
+            for (size_t i = 0; i < to_include->size(); i++) {
+                print_minimizer(to_include->at(i), i);
             }
         } else {
-            if (region_start == 0 && length_limit == sequence.size()) {
-                // Report as if we have a count
-                cerr << log_name() << "<" << minimizer_count << " minimizers>" << endl;
-            } else {
-                // We don't know how many minimizers are actually in the region
-                cerr << log_name() << "<Minimizers from " << region_start << " to " << (region_start + region_length) << ">" << endl;
+            for (size_t i = 0; i < minimizers.size(); i++) {
+                print_minimizer(i, i);
             }
         }
     } else {
@@ -3373,6 +3382,20 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             std::cerr << log_name() << "All minimizers:" << std::endl;
             dump_debug_minimizers(minimizers, aln.sequence());
         }
+
+        size_t total_hits = 0;
+        size_t with_hits = 0;
+        for (auto& m : minimizers) {
+            total_hits += m.hits;
+            if (m.hits > 0) {
+                with_hits++;
+            }
+        }
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Total hits overall: " << total_hits << std::endl;
+            std::cerr << log_name() << "Total minimizers with hits overall: " << with_hits << std::endl;
+        }
     }
 
     // bit vector length of read to check for overlaps
@@ -3429,6 +3452,22 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 << minimizers_in_read_order.size() << " minimizers of "
                 << minimizers_in_read_order_by_length.size() << " lengths to "
                 << downsampled.size() << " minimizers" << std::endl;
+        }
+    }
+    
+    if (show_work && this->minimizer_downsampling_window_size != 0) {
+        size_t total_hits = 0;
+        size_t with_hits = 0;
+        for (const Minimizer* m : downsampled) {
+            total_hits += m->hits;
+            if (m->hits > 0) {
+                with_hits++;
+            }
+        }
+        #pragma omp critical (cerr)
+        {
+            std::cerr << log_name() << "Total hits after downsampling: " << total_hits << std::endl;
+            std::cerr << log_name() << "Total minimizers with hits after downsampling: " << with_hits << std::endl;
         }
     }
     

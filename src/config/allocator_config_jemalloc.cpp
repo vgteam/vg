@@ -13,10 +13,10 @@
 
 extern "C" {
     // Hackily define symbols that jemalloc actually exports.
-    // Somehow it gets a "je_" prefix on these relative to what's in it's
+    // Somehow it gets a "je_" prefix on these relative to what's in its
     // source.
     // They're also all "local" symbols in the dynamic jemalloc library,
-    // meaning we can't link them form outside the library; we need to use
+    // meaning we can't link them from outside the library; we need to use
     // static jemalloc if we intend to access these from here.
     
     // We use int here but really this takes an enum type.
@@ -41,7 +41,7 @@ namespace vg {
 
 using namespace std;
 
-void configure_memory_allocator() {
+void AllocatorConfig::configure() {
     // TODO: this is going to allocate when we don't really maybe want to. But
     // the dynamic linker also allocated; we have to hope we don't upset any
     // existing jemalloc stuff.
@@ -106,6 +106,32 @@ void configure_memory_allocator() {
         }
         
     }
+}
+
+void AllocatorConfig::set_profiling(bool should_profile) {
+    // Send the bool right into jemalloc's profiling-is-active flag.
+    //
+    // You need to start vg with something like
+    // MALLOC_CONF="prof_active:false,prof:true" for this to be useful.
+    auto mallctl_result = mallctl("prof.active", nullptr, nullptr, &should_profile, sizeof(should_profile));
+    if (mallctl_result && should_profile) {
+        static bool warned = false;
+        if (!warned) {
+            // Tell the user once if we wanted to profile but can't.
+            std::cerr << "warning[AllocatorConfig::set_profiling]: Memory profiling not available" << std::endl;
+            warned = true;
+        }
+    }
+}
+
+void AllocatorConfig::snapshot() {
+    // Ask to dump a profile now.
+    //
+    // You need to start vg with something like
+    // MALLOC_CONF="prof_prefix:jeprof.out" for this to have a filename to go
+    // to.
+    auto mallctl_result = mallctl("prof.dump", NULL, NULL, NULL, 0);
+    // Ignore any errors since profiling may not be enabled this run. 
 }
 
 }
