@@ -1191,7 +1191,7 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
             std::get<1>(read_and_chain_values [sort_i-snarl_interval.interval_start]) = 
                     sort_values_by_seed[zipcode_sort_order[sort_i]].get_sort_value();
             std::get<2>(read_and_chain_values [sort_i-snarl_interval.interval_start]) =
-                    seed.zipcode_decoder->max_depth() == snarl_depth+2;
+                    seed.zipcode_decoder->max_depth() <= snarl_depth+2;
 
 
             //Make a new partition for the seed, to be updated with anything combined with it
