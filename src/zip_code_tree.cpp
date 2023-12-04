@@ -853,6 +853,31 @@ std::pair<size_t, size_t> ZipCodeTree::dag_and_non_dag_snarl_count(const vector<
 
     return std::make_pair(dag_count, non_dag_count);
 }
+bool ZipCodeTree::seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index){
+    if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {
+        return true;
+    } else if (depth > 0 && (seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL
+                             || seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)) {
+        //If the parent is an irregular snarl, then check the orientation of the child in the snarl
+        net_handle_t snarl_handle = seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
+        size_t rank = seed.zipcode_decoder->get_rank_in_snarl(depth);
+        if (distance_index.distance_in_snarl(snarl_handle, 0, false, rank, false)
+                    == std::numeric_limits<size_t>::max()
+            &&
+            distance_index.distance_in_snarl(snarl_handle, 1, false, rank, true)
+                    == std::numeric_limits<size_t>::max()) {
+            //If the distance from the start of the snarl to the start of the child is infinite
+            //and the distance from the end of the snarl to the end of the child is infinite
+            //then we assume that this child is "reversed" in the parent snarl
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
 
 void ZipCodeTree::print_self() const {
     for (const tree_item_t item : zip_code_tree) {

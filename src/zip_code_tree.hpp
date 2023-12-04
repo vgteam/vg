@@ -59,7 +59,7 @@ class ZipCodeTree {
       Seeds represent the first nucleotide of the alignment, so when the seed is traversed forwards
       in the zip tree, the distance includes the position. If the seed is reversed in the zip tree,
       then the distance doesn't include the position
-      For two SEEDs on the same position, the distance between them would be 1.
+      For two SEEDs on the same position, the distance between them would be 0.
       For chain distances terminating at a SNARL_START or SNARL_END, the distance reaches the inner edge
       (relative to the snarl) of the boundary node, so it includes the length of the boundary node of the snarl
 
@@ -74,6 +74,9 @@ class ZipCodeTree {
 
       for the sequence "SEED EDGE SNARL_START" representing a seed on n1 and the snarl starting at n2,
       the edge value would be 5.
+      Within the snarl, the edge distances include the distance to the first seed in the chain.
+      For a seed at position node 3 +1 (the A oriented forwards), the sequence would be
+      "SNARL_START EDGE CHAIN_START SEED", and the edge value would be 1
 
 
       A snarl in the vector is bounded by a SNARL_START and a SNARL_END.
@@ -86,12 +89,13 @@ class ZipCodeTree {
       A snarl would look like:
           SNARL_START, dist:start->c1, chain1, dist:c1->c2, dist:start->c2, chain2, ..., 
                 ..., dist:c2->end, dist:c1->end, dist:start->end, node_count, SNARL_END
+
       For snarls that aren't dags (called cyclic snarls, even though they could have an inversion and 
-      no cycles), all seeds on the snarl are split up into mini chains comprised of seeds that are
-      on the same chain with no seeds on snarls between them. In order to represent all edges between
-      all pairs of node sides, each chain is represented multiple times. Each chain is represented first
-      in its forward orientation (which is arbitrary), immediately followed by a copy in the reverse 
-      orientation. All chains are then repeated in both orientations a second time
+      no cycles), the zip tree should represent all possible paths that the read could take through the snarl.
+      All seeds on the snarl are split up into "runs" of seeds on the same chain that are
+      "close" to each other. The runs are sorted and orientated by their read coordinate and each run is made into
+      a separate child chain like normal. A run occur twice, once in each orientation.
+      See get_cyclic_snarl_intervals() for details 
 
 
       Everything is ordered according to the order of the highest-level chain (top-level chain or child
@@ -137,6 +141,8 @@ protected:
 
 public:
 
+    /*************** Debugging functions for validating the zip tree ***********/
+
     ///Print the zip code tree to stderr
     /// ( and ) are used for the starts and ends of snarls
     /// [ and ] are used for the starts and ends of chains
@@ -180,31 +186,7 @@ protected:
     //of a snarl, each node will only be traversable start-to-end or end-to-start.
     //If it is traversable end-to-start, then it is considered to be oriented
     //backwards in its parent
-    //TODO: Move this into the cpp file but I can't figure out how to make it const static
-    const static bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index){
-        if (seed.zipcode_decoder->get_is_reversed_in_parent(depth)) {
-            return true;
-        } else if (depth > 0 && (seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::IRREGULAR_SNARL
-                                 || seed.zipcode_decoder->get_code_type(depth-1) == ZipCode::CYCLIC_SNARL)) {
-            //If the parent is an irregular snarl, then check the orientation of the child in the snarl
-            net_handle_t snarl_handle = seed.zipcode_decoder->get_net_handle(depth-1, &distance_index);
-            size_t rank = seed.zipcode_decoder->get_rank_in_snarl(depth);
-            if (distance_index.distance_in_snarl(snarl_handle, 0, false, rank, false)
-                        == std::numeric_limits<size_t>::max()
-                &&
-                distance_index.distance_in_snarl(snarl_handle, 1, false, rank, true)
-                        == std::numeric_limits<size_t>::max()) {
-                //If the distance from the start of the snarl to the start of the child is infinite
-                //and the distance from the end of the snarl to the end of the child is infinite
-                //then we assume that this child is "reversed" in the parent snarl
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    }
+    static bool seed_is_reversed_at_depth (const Seed& seed, size_t depth, const SnarlDistanceIndex& distance_index);
 
 
 
@@ -484,7 +466,15 @@ class ZipCodeForest {
             size_t interval_depth, const SnarlDistanceIndex& distance_index) const;
 
     /// Given intervals representing child chains on a cyclic snarl, re-partition them and return
-    /// new intervals representing unreachable runs in each chain
+    /// new intervals representing runs of seeds that are "close" in each chain
+    /// Two seeds are close to each other if: 
+    /// (1) the distance between them on the read is <= t, where t is a given distance limit, 
+    /// (2) the minimum distance between them on the chain is <= t, and 
+    /// (3) they are on the same strand in the read.
+    /// Runs are sorted by their latest position in the read, and oriented according to the
+    /// orientation of the read through the snarl. The orientation of the read in the snarl's parent
+    /// chain and in the snarl children are estimated by finding the spearman correlation of the seeds.
+    /// If the orientation of a run is unclear, then it is duplicated to be oriented in each direction 
     template<typename Minimizer>
     vector<interval_and_orientation_t> get_cyclic_snarl_intervals(vector<size_t>& zipcode_sort_order, 
             const VectorView<Minimizer>& minimizers,
