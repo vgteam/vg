@@ -1127,6 +1127,49 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
         }
     };
 
+    ////First, figure out the orientation of the read through the snarl
+
+    //Get pairs of read/chain offsets along the parent chain
+    vector<pair<size_t, size_t>> parent_offset_values;
+
+    //Check up to this many seeds on the parent chain
+    size_t check_count = 50;
+    int check_i = snarl_interval.interval_start - 1;
+
+    //Get up to half of the values from before the snarl
+    while (check_i >= 0 && check_i >= parent_interval.interval_start && parent_offset_values.size() <= check_count/2) {
+
+        if (seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->max_depth() == snarl_depth) {
+            parent_offset_values.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset,
+                                              seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->get_offset_in_chain(snarl_depth));
+        }
+
+        check_i--;
+    }
+
+    //Get the rest from after the snarl
+
+    check_i = snarl_interval.interval_end;
+    while (check_i < parent_interval.interval_end && parent_offset_values.size() < check_count) {
+        //Get up to half of the values from before the snarl
+
+        if (seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->max_depth() == snarl_depth) {
+            parent_offset_values.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset,
+                                              seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->get_offset_in_chain(snarl_depth));
+        }
+
+        check_i++;
+    }
+
+    //True if the read flows backwards through the snarl
+    double parent_correlation = get_correlation(parent_offset_values);
+#ifdef DEBUG_ZIP_CODE_TREE
+    cerr << "Correlation of parent chain from " << parent_offset_values.size() << " value pairs: " 
+         << parent_correlation << endl;
+#endif
+
+
+
     forward_list<partition_t> all_partitions;
     vector<std::tuple<size_t, size_t, bool>> read_and_chain_values (snarl_interval.interval_end-snarl_interval.interval_start);
 
@@ -1246,58 +1289,28 @@ vector<ZipCodeForest::interval_and_orientation_t> ZipCodeForest::get_cyclic_snar
         //Add this chain's partitions to the overall list
         //This merging combines two sorted lists so sort first
         partitions.sort([&](const partition_t& a, const partition_t& b) {
-            return a.read_range_end < b.read_range_end;
+            if (parent_correlation < 0.0) {
+               //If the read is going backwards through the snarl, then sort backwards by the first read coordinate 
+                return a.read_range_start > b.read_range_start;
+            } else {
+                //Otherwise, sort so the last read coordinates go forwards
+                return a.read_range_end < b.read_range_end;
+            }
         });
         all_partitions.merge(partitions, [&](const partition_t& a, const partition_t& b) {
-            return a.read_range_end < b.read_range_end;
+            if (parent_correlation < 0.0) {
+               //If the read is going backwards through the snarl, then sort backwards by the first read coordinate 
+                return a.read_range_start > b.read_range_start;
+            } else {
+                //Otherwise, sort so the last read coordinates go forwards
+                return a.read_range_end < b.read_range_end;
+            }
             });
     }
 
     /******* Re-sort seeds by the new partitions and make new intervals of the runs on the chains 
         The orientation of the runs is determined by the orientation of the read along the parent chain  ***********/
     
-
-    ////First, figure out the orientation of the read through the snarl
-
-    //Get pairs of read/chain offsets along the parent chain
-    vector<pair<size_t, size_t>> parent_offset_values;
-
-    //Check up to this many seeds on the parent chain
-    size_t check_count = 50;
-    int check_i = snarl_interval.interval_start - 1;
-
-    //Get up to half of the values from before the snarl
-    while (check_i >= 0 && check_i >= parent_interval.interval_start && parent_offset_values.size() <= check_count/2) {
-
-        if (seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->max_depth() == snarl_depth) {
-            parent_offset_values.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset,
-                                              seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->get_offset_in_chain(snarl_depth));
-        }
-
-        check_i--;
-    }
-
-    //Get the rest from after the snarl
-
-    check_i = snarl_interval.interval_end;
-    while (check_i < parent_interval.interval_end && parent_offset_values.size() < check_count) {
-        //Get up to half of the values from before the snarl
-
-        if (seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->max_depth() == snarl_depth) {
-            parent_offset_values.emplace_back(minimizers[seeds->at(zipcode_sort_order[check_i]).source].value.offset,
-                                              seeds->at(zipcode_sort_order[check_i]).zipcode_decoder->get_offset_in_chain(snarl_depth));
-        }
-
-        check_i++;
-    }
-
-    //True if the read flows backwards through the snarl
-    double parent_correlation = get_correlation(parent_offset_values);
-#ifdef DEBUG_ZIP_CODE_TREE
-    cerr << "Correlation of parent chain from " << parent_offset_values.size() << " value pairs: " 
-         << parent_correlation << endl;
-#endif
-
 
     vector<ZipCodeForest::interval_and_orientation_t> new_intervals;
     //New sort order to replace what's currently in zipcode_sort_order for this snarl 
