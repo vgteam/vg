@@ -24,6 +24,17 @@ Paths provide stable coordinates for graphs built in different ways from the sam
 
 ![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
 
+## Citing VG
+
+Please cite:
+
+* [The VG Paper](https://doi.org/10.1038/nbt.4227) when using `vg`
+* [The VG Giraffe Paper](https://doi.org/10.1126/science.abg8871) when using `vg giraffe`
+* [The VG Call Paper](https://doi.org/10.1186/s13059-020-1941-7) when SV genotyping with `vg call`
+* [The GBZ Paper](https://doi.org/10.1093/bioinformatics/btad097) when using GBZ
+* [The HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x) when using `vg deconstruct`
+* [The Snarls Paper](https://doi.org/10.1089/cmb.2017.0251) when using `vg snarls`
+
 ## Support 
 
 We maintain a support forum on biostars: https://www.biostars.org/tag/vg/
