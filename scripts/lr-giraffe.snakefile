@@ -1,16 +1,39 @@
-GRAPHS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
-READS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
-REFS_DIR="/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
-WORK_DIR="trash/exp"
+GRAPHS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/graphs"
+READS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/reads"
+REFS_DIR = "/private/groups/patenlab/anovak/projects/hprc/lr-giraffe/references"
+WORK_DIR = "trash/exp"
+
+# What stages does the Giraffe mapper report times for?
+STAGES = ["minimizer", "seed", "tree", "fragment", "chain", "align", "winner"]
 
 # To allow for splitting and variable numbers of output files, we need to know
 # the available subset values to generate rules.
-KNOWN_SUBSETS=["1k", "10k", "100k", "1m"]
-CHUNK_SIZE=10000
+KNOWN_SUBSETS = ["1k", "10k", "100k", "1m"]
+CHUNK_SIZE = 10000
+
+# For each Slurm partition name, what ios its max wall time in minutes?
+# TODO: Put this in the config
+SLURM_PARTITIONS = [
+    ("short", 60),
+    ("medium", 12 * 60),
+    ("long", 7 * 24 * 60)
+]
 
 wildcard_constraints:
     trimmedness="\\.trimmed|",
-    sample=".+(?<!\\.trimmed)"
+    sample=".+(?<!\\.trimmed)",
+    subset="[0-9]+[km]?",
+    statname="[a-zA-Z0-9_]+"
+
+def choose_partition(minutes):
+    """
+    Get a Slurm partition that can fit a job running for the given number of
+    minutes, or raise an error.
+    """
+    for name, limit in SLURM_PARTITIONS:
+        if minutes <= limit:
+            return name
+    raise ValueError(f"No Slurm partition accepts jobs that run for {minutes} minutes")
 
 def subset_to_number(subset):
     """
@@ -326,7 +349,8 @@ rule minimizer_index_graph:
     threads: 16
     resources:
         mem_mb=80000,
-        runtime=240
+        runtime=240,
+        slurm_partition=choose_partition(240)
     shell:
         "vg minimizer --progress -k {wildcards.k} -w {wildcards.w} -t {threads} -p -d {input.dist} -z {output.zipfile} -o {output.minfile} {input.gbz}"
 
@@ -338,7 +362,8 @@ rule alias_gam_k:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=5
+        runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
         "ln {input.gam} {output.gam}"
 
@@ -350,7 +375,8 @@ rule alias_gam_m:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=5
+        runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
         "ln {input.gam} {output.gam}"
 
@@ -362,7 +388,8 @@ rule extract_fastq:
     threads: 16
     resources:
         mem_mb=10000,
-        runtime=60
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
         "vg view --fastq-out --threads {threads} {input.gam} >{output.fastq}"
 
@@ -377,7 +404,8 @@ rule giraffe_real_reads:
     threads: 64
     resources:
         mem_mb=500000,
-        runtime=600
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -f {input.fastq} >{output.gam}"
 
@@ -392,7 +420,8 @@ rule giraffe_sim_reads:
     threads: 64
     resources:
         mem_mb=500000,
-        runtime=600
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
         "vg giraffe -t{threads} --parameter-preset lr --progress --track-provenance --track-correctness -Z {input.gbz} -d {input.dist} -m {input.minfile} -z {input.zipfile} -G {input.gam} >{output.gam}"
 
@@ -408,7 +437,8 @@ rule winnowmap_reads:
     threads: 68
     resources:
         mem_mb=300000,
-        runtime=600
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
         "winnowmap -t 64 -W {input.repetitive_kmers} -ax {params.mode} {input.reference_fasta} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
 
@@ -423,7 +453,8 @@ rule minimap2_reads:
     threads: 68
     resources:
         mem_mb=300000,
-        runtime=600
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
         "minimap2 -t 64 -ax {params.mode} {input.minimap2_index} {input.fastq} | samtools view --threads 3 -h -F 2048 -F 256 --bam - >{output.bam}"
 
@@ -436,7 +467,8 @@ rule inject_bam:
     threads: 64
     resources:
         mem_mb=300000,
-        runtime=600
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
         "vg inject --threads {threads} -x {input.gbz} {input.bam} >{output.gam}"
 
@@ -452,7 +484,8 @@ rule annotate_and_compare_alignments:
     threads: 32
     resources:
         mem_mb=100000,
-        runtime=600
+        runtime=600,
+        slurm_partition=choose_partition(600)
     shell:
         "vg annotate -t16 -a {input.gam} -x {input.gbz} -m | vg gamcompare --threads 16 --range 200 - {input.truth_gam} --output-gam {output.gam} -T -a {wildcards.mapper} > {output.tsv} 2>{output.report}"
 
@@ -467,8 +500,9 @@ rule correctness_from_comparison:
     resources:
         mem_mb=1000,
         runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep 'reads correct' | cut -f1 -d' ' >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ' >>{output.tsv}"
 
 rule accuracy_from_comparison:
     input:
@@ -481,8 +515,24 @@ rule accuracy_from_comparison:
     resources:
         mem_mb=1000,
         runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
-        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep 'reads correct' | rev | cut -f2 -d' ' | rev >>{output.tsv}"
+        "printf '{params.condition_name}\\t' >{output.tsv} && cat {input.report} | grep -o '[0-9%.]* accuracy' | cut -f1 -d' ' >>{output.tsv}"
+
+rule wrong_from_comparison:
+    input:
+        report="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.compare.txt"
+    params:
+        condition_name=condition_name
+    output:
+        tsv="{root}/experiments/{expname}/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.wrong.tsv"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+        slurm_partition=choose_partition(5)
+    shell:
+        "printf '{params.condition_name}\\t' >{output.tsv} && echo \"$(cat {input.report} | grep -o '[0-9]* reads eligible' | cut -f1 -d' ') - $(cat {input.report} | grep -o '[0-9]* reads correct' | cut -f1 -d' ')\" | bc -l >>{output.tsv}"
 
 rule experiment_stat_table:
     input:
@@ -492,7 +542,8 @@ rule experiment_stat_table:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=10
+        runtime=10,
+        slurm_partition=choose_partition(10)
     shell:
         "cat {input} >{output.table}"
 
@@ -504,7 +555,8 @@ rule experiment_correctness_plot:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=5
+        runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
         "barchart.py {input.tsv} --title '{wildcards.expname} Correctness' --y_label 'Correct Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
@@ -518,7 +570,8 @@ rule compared_named_from_compared:
     threads: 3
     resources:
         mem_mb=1000,
-        runtime=60
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
         "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input.tsv} | grep -v '^correct' | awk -F '\\t' -v OFS='\\t' '{{ $3 = \"{params.condition_name}\"; print }}' >>{output.tsv}"
 
@@ -531,7 +584,8 @@ rule experiment_compared_tsv:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=60
+        runtime=60,
+        slurm_partition=choose_partition(60)
     shell:
         "printf 'correct\\tmq\\taligner\\tread\\teligible\\n' >{output.tsv} && cat {input} | grep -v '^correct' >>{output.tsv}"
 
@@ -543,7 +597,8 @@ rule experiment_qq_plot_from_compared:
     threads: 1
     resources:
         mem_mb=10000,
-        runtime=30
+        runtime=30,
+        slurm_partition=choose_partition(30)
     shell:
         "Rscript scripts/plot-qq.R {input.tsv} {output}"
 
@@ -555,7 +610,8 @@ rule experiment_pr_plot_from_compared:
     threads: 1
     resources:
         mem_mb=10000,
-        runtime=30
+        runtime=30,
+        slurm_partition=choose_partition(30)
     shell:
         "Rscript scripts/plot-pr.R {input.tsv} {output}"
 
@@ -567,7 +623,8 @@ rule stats_from_alignments:
     threads: 16
     resources:
         mem_mb=10000,
-        runtime=30
+        runtime=90,
+        slurm_partition=choose_partition(90)
     shell:
         "vg stats -p {threads} -a {input.gam} >{output.stats}"
 
@@ -581,7 +638,8 @@ rule mapping_rate_from_stats:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=5
+        runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
         "printf '{params.condition_name}\\t' >{output.rate} && cat {input.stats} | grep 'Total aligned:' | cut -f2 -d':' | tr -d ' ' >>{output.rate}"
 
@@ -593,7 +651,8 @@ rule experiment_mapping_rate_table:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=5
+        runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
         "cat {input} >{output.table}"
 
@@ -605,7 +664,8 @@ rule experiment_mapping_rate_plot:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=5
+        runtime=5,
+        slurm_partition=choose_partition(5)
     shell:
         "barchart.py {input.tsv} --title '{wildcards.expname} Mapping Rate' --y_label 'Mapped Reads' --x_label 'Condition' --x_sideways --no_n --save {output}"
 
@@ -622,7 +682,8 @@ for subset in KNOWN_SUBSETS:
         threads: 1
         resources:
             mem_mb=4000,
-            runtime=90
+            runtime=90,
+            slurm_partition=choose_partition(90)
         shell:
             "vg chunk -t {threads} --gam-split-size " + str(CHUNK_SIZE) + " -a {input.gam} -b {params.basename}"
 
@@ -632,13 +693,38 @@ rule chain_coverage_chunk:
     output:
         "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.best_chain_coverage.tsv"
     threads: 2
-    wildcard_constraints:
-        mapper="giraffe"
     resources:
         mem_mb=2000,
-        runtime=120
+        runtime=30,
+        slurm_partition=choose_partition(30)
     shell:
         "vg view -aj {input.gam} | jq -r '.annotation.best_chain_coverage' >{output}"
+
+rule time_used_chunk:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.time_used.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "vg view -aj {input.gam} | jq -r '.time_used' >{output}"
+
+rule stage_time_chunk:
+    input:
+        gam="{root}/compared/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.gam",
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.chunk{chunk}.stage_{stage}_time.tsv"
+    threads: 2
+    resources:
+        mem_mb=2000,
+        runtime=30,
+        slurm_partition=choose_partition(30)
+    shell:
+        "vg view -aj {input.gam} | jq -r '.annotation.stage_{wildcards.stage}_time' >{output}"
 
 rule length_by_mapping_chunk:
     input:
@@ -648,7 +734,8 @@ rule length_by_mapping_chunk:
     threads: 2
     resources:
         mem_mb=2000,
-        runtime=120
+        runtime=30,
+        slurm_partition=choose_partition(30)
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.path.mapping // []) == [] then \"unmapped\" else \"mapped\" end, (.sequence | length)] | @tsv' >{output}"
 
@@ -660,7 +747,8 @@ rule length_by_correctness_chunk:
     threads: 2
     resources:
         mem_mb=2000,
-        runtime=120
+        runtime=30,
+        slurm_partition=choose_partition(30)
     shell:
         "vg view -aj {input.gam} | jq -r '[if (.correctly_mapped // false) then \"correct\" else (if (.annotation.no_truth // false) then \"off-reference\" else \"incorrect\" end) end, (.sequence | length)] | @tsv' >{output}"
 
@@ -672,33 +760,115 @@ rule merge_stat_chunks:
     threads: 1
     resources:
         mem_mb=1000,
-        runtime=20
+        runtime=20,
+        slurm_partition=choose_partition(20)
     shell:
         "cat {input} >{output}"
+
+rule mean_stat:
+    input:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.tsv"
+    output:
+        "{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.{statname}.mean.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    run:
+        # Average the one-column TSV
+        total = 0
+        count = 0
+        for line in open(input[0]):
+            line = line.strip()
+            if line:
+                total += float(line)
+                count += 1
+        with open(output[0], "w") as f:
+            f.write(f"{total/count}\n")
+
+rule average_stage_time_table:
+    input:
+        # Input files must be in the same order as STAGES
+        expand("{{root}}/stats/{{reference}}/{{mapper}}/{{realness}}/{{tech}}/{{sample}}{{trimmedness}}.{{subset}}.stage_{stage}_time.mean.tsv", stage=STAGES)
+    output:
+        "{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=20,
+        slurm_partition=choose_partition(20)
+    run:
+        # Make a TSV of stage name and its average value
+        with open(output[0], "w") as out_stream:
+            for (stage, filename) in zip(STAGES, input):
+                out_stream.write(f"{stage}\t{open(filename).read().strip()}\n")
+
 
 rule chain_coverage_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.best_chain_coverage.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/best_chain_coverage-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
-    wildcard_constraints:
-        mapper="giraffe"
-    threads: 2
+    threads: 1
     resources:
         mem_mb=2000,
-        runtime=10
+        runtime=10,
+        slurm_partition=choose_partition(10)
     shell:
         "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Fraction Covered' --y_label 'Items' --x_label 'Coverage' --no_n --save {output}"
+
+rule time_used_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.time_used.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/time_used-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Time Used, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+
+rule stage_time_histogram:
+    input:
+        tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.tsv",
+        mean="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.stage_{stage}_time.mean.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/stage_{stage}_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=2000,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "histogram.py {input.tsv} --bins 100 --title \"{wildcards.tech} {wildcards.realness} Stage {wildcards.stage} Time, Mean=$(cat {input.mean})\" --y_label 'Items' --x_label 'Time (s)' --no_n --save {output}"
+
+rule average_stage_time_barchart:
+    input:
+        tsv="{root}/tables/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.average_stage_time.tsv"
+    output:
+        "{root}/plots/{reference}/{mapper}/average_stage_time-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10,
+        slurm_partition=choose_partition(10)
+    shell:
+        "barchart.py {input.tsv} --categories {STAGES} --title '{wildcards.tech} {wildcards.realness} Mean Stage Times' --y_label 'Time (s)' --x_label 'Stage' --no_n --save {output}"
 
 rule length_by_mapping_histogram:
     input:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_mapping.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/length_by_mapping-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
-    threads: 2
+    threads: 1
     resources:
         mem_mb=2000,
-        runtime=10
+        runtime=10,
+        slurm_partition=choose_partition(10)
     shell:
         "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories mapped unmapped --category_labels Mapped Unmapped --legend_overlay 'best' --save {output}"
 
@@ -708,10 +878,11 @@ rule length_by_correctness_histogram:
         tsv="{root}/stats/{reference}/{mapper}/{realness}/{tech}/{sample}{trimmedness}.{subset}.length_by_correctness.tsv"
     output:
         "{root}/plots/{reference}/{mapper}/length_by_correctness-{realness}-{tech}-{sample}{trimmedness}.{subset}.{ext}"
-    threads: 2
+    threads: 1
     resources:
         mem_mb=2000,
-        runtime=10
+        runtime=10,
+        slurm_partition=choose_partition(10)
     shell:
         "histogram.py {input.tsv} --bins 100 --title '{wildcards.tech} {wildcards.realness} Read Length for {wildcards.mapper}' --y_label 'Items' --x_label 'Length (bp)' --no_n --categories correct incorrect off-reference --category_labels Correct Incorrect 'Off Reference' --legend_overlay 'best' --stack --save {output}"
 

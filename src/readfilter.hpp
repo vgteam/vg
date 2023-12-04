@@ -105,6 +105,9 @@ public:
     int min_base_quality = numeric_limits<int>::min() / 2;
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
     double min_base_quality_fraction = numeric_limits<double>::lowest();
+
+    /// Process reads in batches of this size
+    size_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
       
     /**
      * Run all the filters on an alignment. The alignment may get modified in-place by the defray filter
@@ -358,9 +361,9 @@ void ReadFilter<Read>::filter_internal(istream* in) {
     };
     
     if (interleaved) {
-        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda);
+        vg::io::for_each_interleaved_pair_parallel(*in, pair_lambda, batch_size);
     } else {
-        vg::io::for_each_parallel(*in, lambda);
+        vg::io::for_each_parallel(*in, lambda, batch_size);
     }
     
     if (verbose) {

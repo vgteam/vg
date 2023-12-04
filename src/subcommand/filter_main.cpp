@@ -59,6 +59,7 @@ void help_filter(char** argv) {
          << "    -I, --interleaved-all      assume interleaved input. both ends will be dropped if *both* fail filters" << endl
          << "    -b, --min-base-quality Q:F drop reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
          << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
+         << "    -B, --batch-size           work in batches of the given number of reads [default=" << vg::io::DEFAULT_PARALLEL_BATCHSIZE << "]" << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
 
@@ -110,6 +111,8 @@ int main_filter(int argc, char** argv) {
     bool only_proper_pairs = false;
     bool only_mapped = false;
 
+    size_t batch_size = vg::io::DEFAULT_PARALLEL_BATCHSIZE;
+
     // What XG index, if any, should we load to support the other options?
     string xg_name;
 
@@ -148,12 +151,13 @@ int main_filter(int argc, char** argv) {
                 {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
                 {"complement", no_argument, 0, 'U'},
+                {"batch-size", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:L:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
+        c = getopt_long (argc, argv, "Mn:N:ca:A:pPX:F:s:r:L:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:UB:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -323,6 +327,9 @@ int main_filter(int argc, char** argv) {
         case 'U':
             complement_filter = true;
             break;
+        case 'B':
+            batch_size = parse<size_t>(optarg);
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -418,6 +425,7 @@ int main_filter(int argc, char** argv) {
             filter.min_base_quality_fraction = min_base_quality_fraction;
         }
         filter.complement_filter = complement_filter;
+        filter.batch_size = batch_size;
         filter.threads = get_thread_count();
         filter.graph = xindex;
     };
