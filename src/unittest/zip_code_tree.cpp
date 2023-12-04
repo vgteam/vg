@@ -1232,9 +1232,6 @@ namespace unittest {
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
 
-        ofstream out ("testGraph.hg");
-        graph.serialize(out);
-
 
       
         //graph.to_dot(cerr);
@@ -1275,7 +1272,7 @@ namespace unittest {
                 
             } else {
                 //For a forward traversal of the chain, the zip tree should be:
-                //[1+0/0 3 ( 0 [4+0/1] 2  2 [3-0/2 1 3-1/3] 0  8  8  2) 0 5+0/4]
+                //[1+0/0 3 ( 0 [4+0/1] 18446744073709551615  12 [4+0/1rev] 18446744073709551615  2  2 [3-0/2 1 3-1/3] 5  18446744073709551615  8  8  3) 0 5+0/4]
 
                 //Check some random elements
 
@@ -1288,16 +1285,13 @@ namespace unittest {
                 REQUIRE(zip_forest.trees[0].get_item_at_index(6).type == ZipCodeTree::SEED);
                 REQUIRE(zip_forest.trees[0].get_item_at_index(6).value == 1);
 
-//TODO: I want it to be like this but isn't technically required
-                //Third seed (3-0
+                //Third seed (4 in the other direction
                 REQUIRE(zip_forest.trees[0].get_item_at_index(11).type == ZipCodeTree::SEED);
-                //REQUIRE(zip_forest.trees[0].get_item_at_index(11).value == 2);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(6).value == 1);
 
                 //Fourth seed (3-1
-                REQUIRE(zip_forest.trees[0].get_item_at_index(13).type == ZipCodeTree::SEED);
-                //REQUIRE(zip_forest.trees[0].get_item_at_index(13).value == 3);
-
-                REQUIRE(zip_forest.trees[0].get_item_at_index(19).type == ZipCodeTree::SNARL_END);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).type == ZipCodeTree::SEED);
+                REQUIRE(zip_forest.trees[0].get_item_at_index(17).value == 2);
 
             }
 
@@ -2047,28 +2041,75 @@ namespace unittest {
         SnarlDistanceIndex distance_index;
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         SnarlDistanceIndexClusterer clusterer(distance_index, &graph);
-        
+
         //graph.to_dot(cerr);
 
-        SECTION( "Make the zip tree with a seed on each node" ) {
+        SECTION( "Go forward through the inversions" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(1, false, 0);
             positions.emplace_back(2, false, 0);
             positions.emplace_back(3, false, 0);
+            positions.emplace_back(3, false, 1);
             positions.emplace_back(4, false, 0);
             positions.emplace_back(5, false, 0);
             positions.emplace_back(6, false, 0);
+
+
             //all are in the same cluster
             vector<SnarlDistanceIndexClusterer::Seed> seeds;
             vector<MinimizerMapper::Minimizer> minimizers;
-            for (pos_t pos : positions) {
+            for (size_t i = 0 ; i < positions.size() ; i++) {
+                pos_t pos = positions[i];
                 ZipCode zipcode;
                 zipcode.fill_in_zipcode(distance_index, pos);
-                seeds.push_back({ pos, 0, zipcode});
+                seeds.push_back({ pos, i, zipcode});
 
                 minimizers.emplace_back();
-                minimizers.back().value.offset = 0;
+                minimizers.back().value.offset = i;
+                minimizers.back().value.is_reverse = false;
+            }
+
+            VectorView<MinimizerMapper::Minimizer> minimizer_vector(minimizers);
+
+            ZipCodeForest zip_forest;
+            zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max());
+            REQUIRE(zip_forest.trees.size() == 1);
+            ZipCodeTree zip_tree = zip_forest.trees[0];
+            zip_forest.print_self();
+            zip_tree.validate_zip_tree(distance_index);
+
+            assert(zip_tree.get_tree_size() == 31);
+
+            SECTION( "Count dags" ) {
+                pair<size_t, size_t> dag_non_dag_count = zip_tree.dag_and_non_dag_snarl_count(seeds, distance_index);
+                REQUIRE(dag_non_dag_count.first == 0);
+                REQUIRE(dag_non_dag_count.second == 2);
+            }
+        }
+        SECTION( "Reverse both inversions" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(1, false, 0);
+            positions.emplace_back(4, true, 0);
+            positions.emplace_back(3, false, 0);
+            positions.emplace_back(3, false, 1);
+            positions.emplace_back(2, true, 0);
+            positions.emplace_back(5, false, 0);
+            positions.emplace_back(6, false, 0);
+
+
+            //all are in the same cluster
+            vector<SnarlDistanceIndexClusterer::Seed> seeds;
+            vector<MinimizerMapper::Minimizer> minimizers;
+            for (size_t i = 0 ; i < positions.size() ; i++) {
+                pos_t pos = positions[i];
+                ZipCode zipcode;
+                zipcode.fill_in_zipcode(distance_index, pos);
+                seeds.push_back({ pos, i, zipcode});
+
+                minimizers.emplace_back();
+                minimizers.back().value.offset = i;
                 minimizers.back().value.is_reverse = false;
             }
 
@@ -2342,7 +2383,7 @@ namespace unittest {
         zip_forest.print_self();
         zip_forest.validate_zip_forest(distance_index, 61);
     }
-    TEST_CASE("Components of root", "[zip_tree]") {
+    TEST_CASE("Components of root", "[zip_tree][bug]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGCACA");//8
@@ -2357,6 +2398,9 @@ namespace unittest {
         Edge* e3 = graph.create_edge(n2, n3);
         Edge* e4 = graph.create_edge(n2, n3, true, false);
         
+        ofstream out ("testGraph.hg");
+        graph.serialize(out);
+
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
@@ -2393,12 +2437,12 @@ namespace unittest {
         ZipCodeForest zip_forest;
         zip_forest.fill_in_forest(seeds, minimizer_vector, distance_index, std::numeric_limits<size_t>::max(), 5);
         zip_forest.print_self();
-        REQUIRE(zip_forest.trees.size() == 5);
+        REQUIRE(zip_forest.trees.size() == 6);
         for (auto& tree : zip_forest.trees) {
             tree.validate_zip_tree(distance_index);
         }
     }
-    TEST_CASE("Another non-dag snarl", "[zip_tree][bug]") {
+    TEST_CASE("Another non-dag snarl", "[zip_tree]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTG");
@@ -2425,8 +2469,6 @@ namespace unittest {
         Edge* e12 = graph.create_edge(n8, n9);
         
 
-        //ofstream out ("testGraph.hg");
-        //graph.serialize(out);
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex distance_index;
