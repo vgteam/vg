@@ -689,7 +689,7 @@ void ZipCodeForest::add_snarl_distances(forest_growing_state_t& forest_state, co
     forest_state.sibling_indices_at_depth[depth].back().is_reversed = child_is_reversed;
 }
 
-double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values) const {
+double ZipCodeForest::get_correlation(const vector<pair<size_t, size_t>>& values) {
 #ifdef DEBUG_ZIP_CODE_TREE
     cerr << "get correlation from " << values.size() << " values: " << endl;
     for (const auto& x : values) {
