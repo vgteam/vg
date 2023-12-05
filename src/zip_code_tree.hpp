@@ -1148,18 +1148,14 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
                 // not necessarily on the same node
                 // Add each seed
 
+                bool is_trivial_chain = current_depth-1 == 
+                        seeds.at(forest_state.seed_sort_order[current_interval.interval_start]).zipcode_decoder->max_depth();
                 for (size_t seed_i = current_interval.interval_start ; seed_i < current_interval.interval_end ; seed_i++) {
 
-                    if (current_depth-1 == seeds.at(forest_state.seed_sort_order[seed_i]).zipcode_decoder->max_depth()) {
-                        //If this is getting added to a node
-                        add_child_to_chain(forest_state, current_depth-1, 
-                                           forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                           forest_state.open_intervals.back().is_reversed, false); 
-                    } else {
-                        add_child_to_chain(forest_state, current_depth, 
-                                           forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
-                                           forest_state.open_intervals.back().is_reversed, false); 
-                    }
+
+                    add_child_to_chain(forest_state, is_trivial_chain ? current_depth-1 : current_depth, 
+                                       forest_state.seed_sort_order[seed_i], current_interval.is_reversed,
+                                       forest_state.open_intervals.back().is_reversed, false); 
                 }
 
             } else {
