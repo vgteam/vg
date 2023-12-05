@@ -186,7 +186,8 @@ void ZipCodeForest::close_chain(forest_growing_state_t& forest_state,
 
                     //Copy everything in the slice into the new tree
                     trees.back().zip_code_tree.insert(trees.back().zip_code_tree.end(),
-                        std::make_move_iterator(trees[forest_state.active_zip_tree].zip_code_tree.begin() + forest_state.open_chains.back().first),
+                        std::make_move_iterator(trees[forest_state.active_zip_tree].zip_code_tree.begin() 
+                                                + forest_state.open_chains.back().first),
                         std::make_move_iterator(trees[forest_state.active_zip_tree].zip_code_tree.end()));
                     //Erase the slice
                     trees[forest_state.active_zip_tree].zip_code_tree.erase(
@@ -340,7 +341,8 @@ void ZipCodeForest::add_child_to_chain(forest_growing_state_t& forest_state,
                     //Copy everything in the slice to the end of a new tree
                     trees.emplace_back();
                     trees.back().zip_code_tree.insert(trees.back().zip_code_tree.end(),
-                        std::make_move_iterator(trees[forest_state.active_zip_tree].zip_code_tree.begin() + forest_state.open_chains.back().first),
+                        std::make_move_iterator(trees[forest_state.active_zip_tree].zip_code_tree.begin() 
+                                                + forest_state.open_chains.back().first),
                         std::make_move_iterator(trees[forest_state.active_zip_tree].zip_code_tree.end()));
 
                     //Erase the slice from the active tree

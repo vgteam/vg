@@ -447,7 +447,7 @@ class ZipCodeForest {
 
       **********************************************************************************************
 
-      Construction is done in a depth-first pre-order traversal of the snarl tree. So when each 
+      Construction is done in a depth-first traversal of the snarl tree. So when each 
       snarl tree node is visited, the start of the structure is added to the zip tree, then each of 
       its children is added to the zip tree, then the end of the structure is added.
       
@@ -924,8 +924,8 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& seeds, const VectorView<M
     vector<interval_and_orientation_t> new_intervals 
             = get_next_intervals(forest_state, first_interval, 0);
     forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
-                                             new_intervals.rbegin(),
-                                             new_intervals.rend());
+                                             std::make_move_iterator(new_intervals.rbegin()),
+                                             std::make_move_iterator(new_intervals.rend()));
 
 
     while (!forest_state.intervals_to_process.empty()) {
@@ -1029,8 +1029,8 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                 //This avoids nested duplications
                 //Add the child intervals to the to_process stack, in reverse order so the first one gets popped first
                 forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
-                                                         child_intervals.rbegin(),
-                                                         child_intervals.rend());
+                                                         std::make_move_iterator(child_intervals.rbegin()),
+                                                         std::make_move_iterator(child_intervals.rend()));
             } else {
                 //If this is a cyclic snarl, then we do further partitioning before adding the child intervals
 
@@ -1043,8 +1043,8 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
                                                                               current_depth);
 
                 forest_state.intervals_to_process.insert(forest_state.intervals_to_process.end(),
-                                                         snarl_child_intervals.rbegin(),
-                                                         snarl_child_intervals.rend());
+                                                         std::make_move_iterator(snarl_child_intervals.rbegin()),
+                                                         std::make_move_iterator(snarl_child_intervals.rend()));
             }
         }
     
