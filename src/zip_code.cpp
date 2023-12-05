@@ -1496,6 +1496,31 @@ void ZipCode::fill_in_zipcode_from_payload(const gbwtgraph::Payload& payload) {
     }
 }
 
+std::ostream& operator<<(std::ostream& out, const ZipCode::code_type_t& type) {
+    if (type == ZipCode::NODE) {
+        return out << "NODE";
+    } else if (type == ZipCode::CHAIN) {
+        return out << "CHAIN";
+    } else if (type == ZipCode::REGULAR_SNARL) {
+        return out << "REGULAR_SNARL";
+    } else if (type == ZipCode::IRREGULAR_SNARL) {
+        return out << "IRREGULAR_SNARL";
+    } else if (type == ZipCode::CYCLIC_SNARL) {
+        return out << "CYCLIC_SNARL";
+    } else if (type == ZipCode::ROOT_SNARL) {
+        return out << "ROOT_SNARL";
+    } else if (type == ZipCode::ROOT_CHAIN) {
+        return out << "ROOT_CHAIN";
+    } else if (type == ZipCode::ROOT_NODE) {
+        return out << "ROOT_NODE";
+    } else if (type == ZipCode::EMPTY) {
+        return out << "EMPTY";
+    } else {
+        throw std::runtime_error("error: Trying to print an invalid code_type_t");
+    }
+}
+
+
 void ZipCodeCollection::serialize(std::ostream& out) const {
     //The zipcode vector will be serialized as a bunch of varint_vector_ts
     //The first varint_vector_t will have one value, which will be the length of the
