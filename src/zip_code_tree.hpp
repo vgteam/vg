@@ -34,8 +34,9 @@ class ZipCodeTree {
 
     public:
 
-    /// Constructor
-    ZipCodeTree(const vector<Seed>* all_seeds) : seeds(all_seeds){};
+    /// Empty constructor
+    /// ZipCodeTree's get filled in by ZipCodeForest's
+    ZipCodeTree(){};
 
     /*
       The tree will represent the seeds' placement in the snarl tree.
@@ -126,14 +127,6 @@ class ZipCodeTree {
         //For seeds, is the position of the seed traversed backwards in the tree?
         bool is_reversed;
     };
-
-private:
-    /*************
-     The actual data being stored
-     ************/
-
-    //The seeds that are taken as input
-    const vector<Seed>* seeds;
 
 protected:
     //The actual tree structure
@@ -326,7 +319,7 @@ public:
     /// ( and ) are used for the starts and ends of snarls
     /// [ and ] are used for the starts and ends of chains
     /// seeds are printed as their positions
-    void print_self() const;
+    void print_self(const vector<Seed>* seeds) const;
 
     /// Is the given node in a multicomponent chain, looping chain, or anything else that would cause
     /// it to not have exact distances?
@@ -340,10 +333,13 @@ public:
 
     ///Check that the tree is correct
     void validate_zip_tree(const SnarlDistanceIndex& distance_index, 
+                           const vector<Seed>* seeds,
                            size_t distance_limit = std::numeric_limits<size_t>::max()) const;
+
     ///Helper function for validate_zip_tree for just a snarl
     void validate_snarl(std::vector<tree_item_t>::const_iterator zip_iterator, 
                         const SnarlDistanceIndex& distance_index, 
+                        const vector<Seed>* seeds,
                         size_t distance_limit = std::numeric_limits<size_t>::max()) const;
 
 
@@ -754,11 +750,11 @@ class ZipCodeForest {
 
     public:
 
-    void print_self() const {
+    void print_self(const vector<Seed>* seeds) const {
         for (size_t i = 0 ; i < trees.size() ; i++) {
             const auto& tree = trees[i];
             cerr << i << ": ";
-            tree.print_self();
+            tree.print_self(seeds);
         }
     }
     void validate_zip_forest(const SnarlDistanceIndex& distance_index, 
@@ -909,7 +905,7 @@ void ZipCodeForest::fill_in_forest(const vector<Seed>& all_seeds, const VectorVi
 
     while (!forest_state.intervals_to_process.empty()) {
 #ifdef DEBUG_ZIP_CODE_TREE
-        print_self();
+        print_self(seeds);
 #endif
         // For each unprocessed interval, process it
         // First, check if anything needs to be closed, which will happen if the interval_end in an open snarl/chains
@@ -1056,7 +1052,7 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
             // Start a new connected component
             if (forest_state.active_zip_tree == std::numeric_limits<size_t>::max() 
                 || trees[forest_state.active_zip_tree].zip_code_tree.size() != 0) {
-                trees.emplace_back(seeds);
+                trees.emplace_back();
                 forest_state.active_zip_tree = trees.size()-1;
             }
 
@@ -1186,8 +1182,8 @@ cerr << "\tclose something at depth " << forest_state.open_intervals.size()-1 <<
         trees.erase(trees.begin() + forest_state.active_zip_tree);
     }
 #ifdef DEBUG_ZIP_CODE_TREE
-    print_self();
-    validate_zip_forest(distance_index, distance_limit);
+    print_self(seeds);
+    validate_zip_forest(distance_index, seeds, distance_limit);
     assert(forest_state.open_chains.empty());
     assert(forest_state.open_intervals.empty());
 #endif
